@@ -101,6 +101,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-encoding COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_encoding.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-url COMMAND "${Python3_EXECUTABLE}"

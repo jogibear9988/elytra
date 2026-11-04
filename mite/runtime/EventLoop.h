@@ -39,6 +39,7 @@ private:
     bool m_shutting_down { false };
     size_t m_pending_work { 0 };
     GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_jobs;
+    GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_ticks;
     GC::RootVector<GC::Ref<JS::Promise>> m_rejections;
     std::unordered_map<uint64_t, Timer*> m_timers;
 };

@@ -21,8 +21,8 @@ Promise jobs and `queueMicrotask` callbacks share one FIFO queue of rooted GC
 functions. A checkpoint runs after the entry script and after each timer callback.
 Jobs added during a checkpoint are drained before the next native callback.
 Unhandled rejections fail the run after that drain. A promise without native
-handles does not keep the process alive. `process.nextTick`, immediates and process
-rejection events remain unsupported; this is not yet the entire Node event loop.
+handles does not keep the process alive. The separate process.nextTick queue is
+recorded in ADR 0015. Immediates and process rejection events remain unsupported; this is not yet the entire Node event loop.
 
 A small embedded JavaScript bootstrap implements Timeout objects and argument
 coercion over validated native operations. Internal installation hooks are removed

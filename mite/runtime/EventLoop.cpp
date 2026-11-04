@@ -105,6 +105,14 @@ static JS::Completion invalid_callback(JS::VM& vm)
 JS::ThrowCompletionOr<JS::Value> EventLoop::install(JS::Realm& realm)
 {
     auto& global = realm.global_object();
+    global.define_native_function(realm, "__miteEnqueueTick"_utf16, [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        auto callback = vm.argument(0);
+        if (!callback.is_function()) return invalid_callback(vm);
+        m_ticks.append(GC::create_function(vm.heap(), [this, callback] {
+            return JS::call(m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
+        }));
+        return JS::js_undefined();
+    }, 1, JS::default_attributes);
     global.define_native_function(realm, "queueMicrotask"_utf16, [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         auto callback = vm.argument(0);
         if (!callback.is_function())
@@ -218,12 +226,20 @@ void EventLoop::fail(JS::Value error)
 
 void EventLoop::checkpoint()
 {
-    while (!m_status && !m_jobs.is_empty()) {
-        GC::Root job { m_jobs.take_first() };
-        auto result = job->function()();
-        if (result.is_error())
-            fail(result.error_value());
-    }
+    // CJS/native callbacks drain nextTick first. ESM evaluation runs inside the
+    // promise queue, so ticks scheduled there wait until that queue is empty.
+    do {
+        while (!m_status && !m_ticks.is_empty()) {
+            GC::Root tick { m_ticks.take_first() };
+            auto result = tick->function()();
+            if (result.is_error()) fail(result.error_value());
+        }
+        while (!m_status && !m_jobs.is_empty()) {
+            GC::Root job { m_jobs.take_first() };
+            auto result = job->function()();
+            if (result.is_error()) fail(result.error_value());
+        }
+    } while (!m_status && !m_ticks.is_empty());
     // LibJS also marks internal await/module promises handled directly, without
     // always sending a second host notification. Consult the authoritative state.
     m_rejections.remove_all_matching([](auto const& promise) { return promise->is_handled(); });

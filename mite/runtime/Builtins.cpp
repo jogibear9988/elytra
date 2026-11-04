@@ -31,7 +31,7 @@ static constexpr std::string_view events_exports[] = {
     "defaultMaxListeners", "listenerCount", "getEventListeners", "getMaxListeners", "setMaxListeners", "once"
 };
 static constexpr std::string_view process_exports[] = {
-    "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release", "exit"
+    "nextTick", "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release", "exit"
 };
 static constexpr std::string_view path_exports[] = {
     "resolve", "normalize", "isAbsolute", "join", "relative", "dirname", "basename", "extname", "format", "parse",

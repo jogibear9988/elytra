@@ -9,10 +9,10 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
 | `console.log`, `console.error` | partial | String conversion and space joining; no Node object inspection or format substitutions |
-| `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals, hrtime and nextTick absent |
+| `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals and hrtime absent |
 | Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
-| Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; no process.nextTick or rejection events |
+| Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; nextTick runs in a separate priority FIFO; no rejection events |
 | Unhandled rejections | partial | Nonzero exit after microtask drain; no process event API yet |
 | ES modules | partial | `.mjs`, `package.json` type=module, relative/absolute file URLs, static/dynamic imports, live bindings, cycles, URL cache identity, import.meta url/filename/dirname/main and top-level await tested; no syntax auto-detection or import.meta.resolve yet |
 | JSON modules | partial | Default exports with type=json import attributes, cache identity, mutations and syntax errors tested; unknown attribute names are rejected by LibJS before the host and their error codes differ from Node |
@@ -21,7 +21,8 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | npm package resolution | partial | Bare/scoped node_modules lookup, main/index legacy loading, self references, exports/imports, conditions, exact/pattern mappings and array fallback tested; no NODE_PATH/global folders, custom conditions or resolve options; measured real-package scenarios are tracked in npm-packages-0.1.md |
 | Package module-sync condition / recursion limits | intentional difference | module-sync inactive until synchronous require(ESM) is supported; recursive package resolution is capped at 64 depth steps |
 | `setTimeout`, `setInterval`, clearing timers | partial | Native libuv timers; arguments, callback receiver, numeric/string cancellation, ref/unref/hasRef/close/dispose tested; refresh and timeout warnings unsupported |
-| `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
+| `process.nextTick` | partial | Separate rooted FIFO; CJS/ESM start ordering, argument/receiver semantics, nested queues, timer/fs checkpoints and rejection handling tested; no process rejection/lifecycle events |
+| `setImmediate` | unsupported | Additional Node event-loop phases pending |
 | `Buffer` / node:buffer | partial | Global/shared builtin constructor on LibJS byte storage; from/alloc, encodings/string writes, view sharing, copy/fill/concat/compare/search/swaps/JSON and integer/Float/Double/BigInt access in both byte orders tested; Blob/File/transcode/object URLs absent |
 | Buffer allocation | intentional difference | Fresh zeroed allocUnsafe storage without pooling; allocation API limit 2 GiB minus one; legacy constructor deprecation warnings absent |
 | URL / URLSearchParams / node:url | partial | Unmodified LibURL parsing, component setters, origin/toJSON, canParse/parse and live search params with form encoding/iteration tested; shared global/CJS/ESM constructors; file/path/byte-path, domain IDNA and HTTP option helpers tested; legacy URL API and Blob object URLs absent |

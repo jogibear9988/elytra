@@ -1,5 +1,16 @@
 (() => {
     'use strict';
+    const enqueueTick = globalThis.__miteEnqueueTick;
+    delete globalThis.__miteEnqueueTick;
+    const apply = Reflect.apply;
+    process.nextTick = function nextTick(callback, ...args) {
+        if (typeof callback !== 'function') {
+            const error = new TypeError('The callback argument must be of type function');
+            error.code = 'ERR_INVALID_ARG_TYPE';
+            throw error;
+        }
+        enqueueTick(() => apply(callback, undefined, args));
+    };
     const schedule = globalThis.__miteScheduleTimer;
     const cancel = globalThis.__miteCancelTimer;
     const setRef = globalThis.__miteRefTimer;
