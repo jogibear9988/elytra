@@ -77,8 +77,10 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/buffer.js" MITE_BUFFER_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/buffer.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/fs.js" MITE_FS_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/fs.js")
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/url.js" MITE_URL_SOURCE)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/url.js")
 configure_file(mite/runtime/BuiltinSources.h.in generated/BuiltinSources.h @ONLY)
-add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp)
+add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp)
 add_dependencies(mite check-ladybird)
 target_include_directories(mite PRIVATE "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(mite PRIVATE $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
@@ -97,6 +99,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-url COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_url.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-filesystem COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_fs.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-buffer COMMAND "${Python3_EXECUTABLE}"

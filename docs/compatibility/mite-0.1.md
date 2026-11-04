@@ -24,7 +24,8 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
 | `Buffer` / node:buffer | partial | Global/shared builtin constructor on LibJS byte storage; from/alloc, encodings/string writes, view sharing, copy/fill/concat/compare/search/swaps/JSON and integer/Float/Double/BigInt access in both byte orders tested; Blob/File/transcode/object URLs absent |
 | Buffer allocation | intentional difference | Fresh zeroed allocUnsafe storage without pooling; allocation API limit 2 GiB minus one; legacy constructor deprecation warnings absent |
-| URL, TextEncoder/TextDecoder, fetch | unsupported | Not installed as globals |
+| URL / URLSearchParams / node:url | partial | Unmodified LibURL parsing, component setters, origin/toJSON, canParse/parse and live search params with form encoding/iteration tested; shared global/CJS/ESM constructors; file/domain/HTTP helpers, legacy URL API and Blob object URLs absent |
+| TextEncoder/TextDecoder, fetch | unsupported | Not installed as globals |
 | Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
 | node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget/async iterators/async hooks absent |
 | MaxListeners warnings | intentional difference | Emitted via a microtask with simplified stderr formatting; no process warning event or nextTick phase yet |
@@ -33,7 +34,7 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | FileHandle | partial | Promise open; read/write, stat/truncate, sync/datasync, whole-file I/O, EventEmitter close event and async disposal tested; close waits active references; streams/vector/permission/time APIs absent; forced-GC fallback unverified and GC-close warnings absent |
 | Filesystem limits/options | intentional difference | Async writes snapshot data; whole-file read cap 2 GiB minus one with EFBIG; AbortSignal/flush/recursive readdir/rmdir explicitly unsupported; existsSync deprecation warnings absent; numeric scalar write positions above the safe-integer range explicitly unsupported |
 | Fatal errors with pending native work | intentional difference | Flush standard streams and terminate through _Exit; prevents blocked workers hanging fatal shutdown; pending writes may be abandoned. Normal exitCode drains referenced work |
-| Other Node built-in modules | unsupported | Except events/process/path/buffer/fs, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
+| Other Node built-in modules | unsupported | Except events/process/path/buffer/fs/url, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There

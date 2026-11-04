@@ -33,11 +33,12 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 11 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 12 CTest
 suites pass. This includes 93 runtime/module/npm checks (84 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
-policy, 15 filesystem workflows plus 3 explicit policy fixtures, and the upstream
+policy, 15 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons,
+and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
@@ -155,7 +156,14 @@ Settings reuse, symlink follow/mark behavior and broken/missing entries. The
 package suite now has 8 scenarios across 5 locked packages; integrity and license
 checks remain enforced. No dependency code or Ladybird source was modified.
 
-Next: URL/file-URL and encoding globals, then networking/server and renderer
+URL and URLSearchParams globals now reuse unmodified LibURL parsing, origin,
+setters and form encoding/decoding through our own adapter. A 1,013-comparison
+Node suite covers opaque/file/blob/custom URLs, IDNA/IP hosts, live query lists,
+iterator behavior and synchronization with URL setters. All twelve CTest suites
+pass. ADR 0013 records scope and the still-missing Node URL helpers; no LibWeb
+or upstream patch was introduced.
+
+Next: Node file-URL helpers/filesystem integration and encoding globals, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

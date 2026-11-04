@@ -5,6 +5,7 @@
 #include "BuiltinNames.h"
 #include "Process.h"
 #include "FileSystem.h"
+#include "URL.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -46,7 +47,9 @@ static constexpr std::string_view fs_exports[] = {
 static constexpr std::string_view fs_promises_exports[] = {
     "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
 };
+static constexpr std::string_view url_exports[] = { "URL", "URLSearchParams" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
     { "fs/promises", {}, fs_promises_exports },
     { "buffer", { MITE_BUFFER_SOURCE, sizeof(MITE_BUFFER_SOURCE) - 1 }, buffer_exports },
@@ -101,6 +104,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "url") host->define_direct_property("native"_utf16, create_url_host(m_realm), JS::default_attributes);
     if (name == "fs") {
         host->define_direct_property("native"_utf16, create_filesystem_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
         auto events = TRY(builtin("events"));
@@ -131,6 +135,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     auto buffer = TRY(builtin("buffer"));
     auto constructor = TRY(buffer->get("Buffer"_utf16));
     m_realm.global_object().define_direct_property("Buffer"_utf16, constructor, JS::default_attributes);
+    auto url = TRY(builtin("url"));
+    m_realm.global_object().define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
+    m_realm.global_object().define_direct_property("URLSearchParams"_utf16, TRY(url->get("URLSearchParams"_utf16)), JS::default_attributes);
     return {};
 }
 
