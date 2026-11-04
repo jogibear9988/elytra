@@ -16,6 +16,10 @@ def main():
         parser.error('Node is required for differential tests')
     fixtures = Path(__file__).resolve().parents[1] / 'mite/tests/modules'
     cases = [
+        ('json.mjs', 0, 'JSON module Grüße\ntrue true\ntrue 2 1\n', None),
+        ('json-errors.mjs', 0, 'TypeError ERR_IMPORT_ATTRIBUTE_MISSING\n'
+         'TypeError ERR_IMPORT_ATTRIBUTE_UNSUPPORTED\nTypeError ERR_IMPORT_ATTRIBUTE_TYPE_INCOMPATIBLE\n'
+         'TypeError ERR_IMPORT_ATTRIBUTE_UNSUPPORTED\nSyntaxError\nhandled\n', None),
         ('relative.mjs', 0, 'module 1\n2 2\ntrue\nundefined undefined undefined\n', None),
         ('cache.mjs', 0, 'true false false\n1 2 3\n', None),
         ('meta.mjs', 0, 'true\ntrue\ntrue\ntrue false\ntrue\n', None),

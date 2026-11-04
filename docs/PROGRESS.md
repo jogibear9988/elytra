@@ -23,8 +23,8 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM file loading is implemented; CJS/package resolution, built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 39 runtime/module
-checks pass (32 shared Node fixtures and 7 CLI checks). CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 41 runtime/module
+checks pass (34 shared Node fixtures and 7 CLI checks). CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
@@ -40,9 +40,17 @@ Milestone 3 ESM progress: native LibJS module graph with canonical URL cache,
 relative/file URL resolution, package type selection, import.meta, live bindings,
 cycles, dynamic import and top-level await. Unsettled top-level await exits 13.
 Handled await rejections are filtered by the engine's authoritative handled bit.
-12 module graphs and an async rejection regression fixture are compared with Node.
+14 module graphs and an async rejection regression fixture are compared with Node.
 
-Next: JSON modules, CJS and package resolution, followed by filesystem modules and globals.
+JSON modules now reuse LibJS synthetic module parsing and enforce type=json
+attributes before consulting the module cache. Mutation/cache isolation, malformed
+JSON and missing/incompatible type attributes are covered by differential tests.
+`examples/mite-cli/modules.mjs` demonstrates JSON imports and timer-driven await.
+Unknown import attribute names still lack Node's error code due to upstream's
+pre-host validation. The static Rust archive duplicate-symbol warning recorded
+in ADR 0004 also remains open before packaging.
+
+Next: CJS and package resolution, followed by filesystem modules and globals.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain
 tracked as unsupported in the compatibility matrix.
 

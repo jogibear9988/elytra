@@ -5,6 +5,7 @@
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/PromiseCapability.h>
+#include <LibJS/SyntheticModule.h>
 #include <LibURL/Parser.h>
 #include <cstring>
 #include <fstream>
@@ -78,10 +79,19 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, fs::path entry_path)
     m_vm.host_load_imported_module = [this](JS::ImportedModuleReferrer referrer, JS::ModuleRequest const& request,
                                         GC::Ptr<GC::Cell>, JS::ImportedModulePayload payload) {
         auto load_request = [&]() -> JS::ThrowCompletionOr<GC::Ref<JS::Module>> {
-            if (!request.attributes.is_empty())
-                return error("ERR_MITE_UNSUPPORTED_IMPORT_ATTRIBUTE", "Import attributes are not implemented yet");
             auto bytes = MUST(request.module_specifier.view().to_byte_string());
             auto url = TRY(resolve(string(bytes), referrer_url(referrer)));
+            bool json_type = false;
+            for (auto const& attribute : request.attributes) {
+                if (attribute.key != "type"_utf16 || attribute.value != "json"_utf16)
+                    return error("ERR_IMPORT_ATTRIBUTE_UNSUPPORTED", "Unsupported import attribute", true);
+                json_type = true;
+            }
+            bool json_file = url_path(url).extension() == ".json";
+            if (json_file && !json_type)
+                return error("ERR_IMPORT_ATTRIBUTE_MISSING", "JSON modules require type: json", true);
+            if (!json_file && json_type)
+                return error("ERR_IMPORT_ATTRIBUTE_TYPE_INCOMPATIBLE", "Module is not of type json", true);
             return load(url);
         };
         auto result = load_request();
@@ -203,8 +213,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
     auto extension = path.extension();
     if (extension != ".mjs" && extension != ".js" && extension != ".cjs" && extension != ".json")
         return error("ERR_UNKNOWN_FILE_EXTENSION", "Unknown module file extension: " + path_string(extension), true);
-    if (extension == ".json" || !TRY(is_es_module(path)))
-        return error("ERR_MITE_UNSUPPORTED_MODULE_FORMAT", "CommonJS/JSON module interoperation is not implemented yet: " + path_string(path));
+    if (extension != ".json" && !TRY(is_es_module(path)))
+        return error("ERR_MITE_UNSUPPORTED_MODULE_FORMAT", "CommonJS module interoperation is not implemented yet: " + path_string(path));
     std::ifstream input(path, std::ios::binary);
     if (!input)
         return error("ERR_MODULE_NOT_FOUND", "Cannot read module: " + path_string(path));
@@ -212,10 +222,15 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
     if (input.bad())
         return error("ERR_MODULE_NOT_FOUND", "Error reading module: " + path_string(path));
     auto text = Utf16String::from_utf8_with_replacement_character(view(source));
-    auto parsed = JS::SourceTextModule::parse(text, m_realm, view(identity));
-    if (parsed.is_error())
-        return m_vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
-    auto module = parsed.release_value();
+    auto parse_source = [&]() -> JS::ThrowCompletionOr<GC::Ref<JS::Module>> {
+        if (extension == ".json")
+            return TRY(JS::parse_json_module(m_realm, text, ByteString(view(identity))));
+        auto parsed = JS::SourceTextModule::parse(text, m_realm, view(identity));
+        if (parsed.is_error())
+            return m_vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
+        return parsed.release_value();
+    };
+    auto module = TRY(parse_source());
     m_modules.emplace(identity, GC::Root<JS::Module> { module.ptr() });
     m_urls.emplace(module.ptr(), identity);
     return module;

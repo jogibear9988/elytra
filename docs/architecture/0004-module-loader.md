@@ -1,6 +1,6 @@
 # ADR 0004: native module records and Node resolution
 
-Status: accepted for ESM file loading; package/CJS integration still required.
+Status: accepted for ESM/JSON file loading; package/CJS integration still required.
 
 Use LibJS `SourceTextModule`, `Module::load_requested_modules`, linking and
 promise-returning evaluation. Code is not transformed to emulate ESM. Install the
@@ -15,8 +15,13 @@ in the identity. Escape filesystem URL delimiters before URL parsing so a litera
 `%`, `#` or `?` in a path does not become an escape, fragment or query.
 
 Select `.mjs` or the nearest package.json `type: module`; `.cjs` overrides the
-package type. CommonJS, package exports/imports, ESM syntax detection and JSON are
-next integration slices, and must not be mistaken for completed Node resolution.
+package type. CommonJS, package exports/imports and ESM syntax detection are next
+integration slices, and must not be mistaken for completed Node resolution.
+
+JSON imports reuse `JS::parse_json_module` synthetic records. Validate type=json
+before cache access, require it for JSON and reject it for JavaScript. Unknown
+attribute names can be rejected by LibJS before our host hook; those TypeErrors
+currently lack Node's error code. This is a tracked compatibility limitation.
 Unknown URL schemes/formats fail explicitly. Remote file hosts/Windows UNC module
 URLs are not yet supported. Native Windows and Linux execution remain unverified.
 

@@ -30,6 +30,7 @@ cmake --preset dev
 cmake --build --preset dev --parallel 4
 ctest --preset dev
 build/dev/bin/mite examples/mite-cli/hello.js world
+build/dev/bin/mite examples/mite-cli/modules.mjs world
 ```
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
