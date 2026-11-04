@@ -18,6 +18,7 @@ namespace Mite {
 class ModuleLoader {
 public:
     ModuleLoader(JS::VM&, JS::Realm&, std::filesystem::path entry_path);
+    JS::ThrowCompletionOr<void> install_globals();
     JS::ThrowCompletionOr<bool> is_es_module(std::filesystem::path const&);
     JS::ThrowCompletionOr<GC::Ref<JS::Promise>> run_entry();
     JS::ThrowCompletionOr<JS::Value> run_eval(std::string const&);

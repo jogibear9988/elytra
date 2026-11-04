@@ -160,6 +160,12 @@ int main(int argc, char** argv)
 
     auto entry_path = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : std::filesystem::path(filename);
     Mite::ModuleLoader modules(*vm, realm, entry_path);
+    auto globals = modules.install_globals();
+    if (globals.is_error()) {
+        report_exception(globals.error_value());
+        vm->pop_execution_context();
+        return 1;
+    }
     auto module_format = filename == "[eval]" ? JS::ThrowCompletionOr<bool>(false) : modules.is_es_module(entry_path);
     int status = 0;
     if (module_format.is_error()) {

@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process and path builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path and buffer builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
 Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 91 runtime/module/npm
 checks pass, plus 3,968 lexical path comparisons and a path identity/live-cwd scenario (80 shared Node fixtures, 7 CLI checks, 3 explicit unsupported-API
@@ -105,9 +105,15 @@ path/win32 aliases. All 3,968 differential call comparisons and an ESM identity 
 live-cwd scenario pass. ADR 0009 records scope; matchesGlob remains absent and
 native Windows drive/cwd behavior is unverified. Nine CTest suites pass, including the upstream integrity gate and its seven isolated regression tests.
 
-Next: filesystem and Buffer, then networking/server and renderer
+Buffer foundation now uses LibJS Uint8Array/ArrayBuffer storage with global/builtin
+identity, shared views, encodings and memory/search operations. The 2,170 Buffer
+comparisons pass, including malformed UTF-8 boundaries and overlapping copies.
+Ten CTest suites pass. ADR 0010 records the zeroed unsafe-allocation policy, size
+limit and pending numeric/Blob/File APIs. Ladybird remains unmodified.
+
+Next: Buffer numeric access and filesystem, then networking/server and renderer
 vertical slices. Broaden the real-package
-corpus as those APIs become available. Filesystem, Buffer and further process services precede the
+corpus as those APIs become available. Filesystem, further Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain

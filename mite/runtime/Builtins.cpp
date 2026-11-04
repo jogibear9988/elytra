@@ -34,7 +34,9 @@ static constexpr std::string_view path_exports[] = {
     "resolve", "normalize", "isAbsolute", "join", "relative", "dirname", "basename", "extname", "format", "parse",
     "toNamespacedPath", "_makeLong", "sep", "delimiter", "win32", "posix"
 };
+static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "buffer", { MITE_BUFFER_SOURCE, sizeof(MITE_BUFFER_SOURCE) - 1 }, buffer_exports },
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
     { "process", {}, process_exports },
     { "path", { MITE_PATH_SOURCE, sizeof(MITE_PATH_SOURCE) - 1 }, path_exports },
@@ -95,6 +97,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         return error("ERR_MITE_BUILTIN_INITIALIZATION", "Builtin factory returned a non-object");
     m_builtins.emplace(name, GC::Root<JS::Object> { value.as_object() });
     return value.as_object();
+}
+
+JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
+{
+    auto buffer = TRY(builtin("buffer"));
+    auto constructor = TRY(buffer->get("Buffer"_utf16));
+    m_realm.global_object().define_direct_property("Buffer"_utf16, constructor, JS::default_attributes);
+    return {};
 }
 
 JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::builtin_module(std::string const& name)

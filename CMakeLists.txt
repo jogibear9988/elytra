@@ -73,6 +73,8 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/process.js" MITE_PROCESS_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/process.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/path.js" MITE_PATH_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/path.js")
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/buffer.js" MITE_BUFFER_SOURCE)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/buffer.js")
 configure_file(mite/runtime/BuiltinSources.h.in generated/BuiltinSources.h @ONLY)
 add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp)
 add_dependencies(mite check-ladybird)
@@ -93,6 +95,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-buffer COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_buffer.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-path COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_path.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-npm COMMAND "${Python3_EXECUTABLE}"
