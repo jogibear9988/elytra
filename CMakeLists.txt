@@ -74,5 +74,7 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-npm COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_npm.py" --mite "$<TARGET_FILE:mite>")
 endif()
 install(TARGETS mite RUNTIME DESTINATION bin)

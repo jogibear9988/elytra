@@ -1,0 +1,12 @@
+{
+  "name": "mite-npm-compatibility-fixtures",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned real npm packages used only for runtime differential tests",
+  "type": "commonjs",
+  "dependencies": {
+    "escape-string-regexp": "5.0.0",
+    "eventemitter3": "5.0.1",
+    "once": "1.4.0"
+  }
+}

@@ -1,0 +1,11 @@
+const E = require('eventemitter3');
+const emitter = new E();
+const context = { value: 'context' };
+const symbol = Symbol('work');
+let output = [];
+emitter.on(symbol, function (value) { output.push(this.value + ':' + value); }, context);
+emitter.once(symbol, value => output.push('once:' + value));
+emitter.emit(symbol, 1);
+emitter.emit(symbol, 2);
+console.log(output.join(','));
+console.log(emitter.listenerCount(symbol), emitter.eventNames()[0] === symbol, E.EventEmitter === E);

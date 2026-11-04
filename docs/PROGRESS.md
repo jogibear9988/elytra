@@ -23,8 +23,8 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events builtin is implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 76 runtime/module
-checks pass (66 shared Node fixtures, 7 CLI checks and 3 explicit unsupported-API
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 82 runtime/module/npm
+checks pass (72 shared Node fixtures, 7 CLI checks and 3 explicit unsupported-API
 checks). Behavioral reference: Node v24.15.0. CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
@@ -74,8 +74,18 @@ modes. Warnings currently have simplified formatting/microtask scheduling;
 EventTarget, async event iterators/hooks and syncBuiltinESMExports remain absent.
 ADR 0007 records the JS/C++ boundary and limits.
 
-Next: validate pinned real pure-JavaScript npm packages, then expand useful
-built-ins/globals. Filesystem, path/events, Buffer and process services precede the
+Milestone 5 partial progress: standard npm ci installs four locked published
+packages (once 1.4.0, wrappy 1.0.2, escape-string-regexp 5.0.0, eventemitter3 5.0.1)
+with scripts disabled and integrity/license metadata retained. Six real-package
+fixtures pass in Mite and Node, including transitive dependencies and conditional
+ESM/CJS entry identity. Missing/wrong versions or license files fail the suite.
+The package matrix records exact measured scope; no full upstream test-suite or
+general npm compatibility claim is made. The published once.proto absence is
+observed under both runtimes and documented rather than patched.
+
+Next: expand useful built-ins/globals (filesystem/path, Buffer and process), then
+add networking/server and renderer vertical slices. Broaden the real-package
+corpus as those APIs become available. Filesystem, path/events, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain
