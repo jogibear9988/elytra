@@ -33,12 +33,12 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 13 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 14 CTest
 suites pass. This includes 93 runtime/module/npm checks (84 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
 policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons
-and 342 URL helper comparisons,
+and 342 URL helper comparisons, 1,657 encoding comparisons,
 and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
@@ -172,7 +172,15 @@ workflow passes; the filesystem suite now has 16 shared workflows and 3 policy
 fixtures. All thirteen CTest suites pass. Native Windows/Linux remains unverified;
 no upstream changes were needed.
 
-Next: encoding globals, then networking/server and renderer
+TextEncoder/TextDecoder now share global and node:util identity. Native UTF-8
+encoding/encodeInto and streaming decoding use LibTextCodec, with the existing ICU
+backend for five legacy encodings whose mappings/error timing differ in Node.
+All 1,657 differential comparisons pass, including fatal recovery, BOMs, byte-view
+boundaries and detached/shared/resizable buffers. Fourteen CTest suites pass.
+ADR 0014 records the backend policy, native ownership and remaining stream/util
+APIs. Ladybird source remains unmodified.
+
+Next: networking/server, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

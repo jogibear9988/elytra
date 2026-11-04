@@ -6,6 +6,7 @@
 #include "Process.h"
 #include "FileSystem.h"
 #include "URL.h"
+#include "Encoding.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -48,7 +49,9 @@ static constexpr std::string_view fs_promises_exports[] = {
     "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
 };
 static constexpr std::string_view url_exports[] = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
+static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
     { "fs/promises", {}, fs_promises_exports },
@@ -104,6 +107,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "util") host->define_direct_property("native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
     if (name == "url") {
         host->define_direct_property("native"_utf16, create_url_host(m_realm), JS::default_attributes);
         host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
@@ -146,6 +150,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     auto url = TRY(builtin("url"));
     m_realm.global_object().define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
     m_realm.global_object().define_direct_property("URLSearchParams"_utf16, TRY(url->get("URLSearchParams"_utf16)), JS::default_attributes);
+    auto util = TRY(builtin("util"));
+    m_realm.global_object().define_direct_property("TextEncoder"_utf16, TRY(util->get("TextEncoder"_utf16)), JS::default_attributes);
+    m_realm.global_object().define_direct_property("TextDecoder"_utf16, TRY(util->get("TextDecoder"_utf16)), JS::default_attributes);
     return {};
 }
 
