@@ -1,5 +1,6 @@
 #pragma once
 
+#include <AK/JsonValue.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Module.h>
@@ -10,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Mite {
 
@@ -18,9 +20,18 @@ public:
     ModuleLoader(JS::VM&, JS::Realm&, std::filesystem::path entry_path);
     JS::ThrowCompletionOr<bool> is_es_module(std::filesystem::path const&);
     JS::ThrowCompletionOr<GC::Ref<JS::Promise>> run_entry();
-    void register_script(JS::Script&);
+    JS::ThrowCompletionOr<JS::Value> run_eval(std::string const&);
+    JS::ThrowCompletionOr<JS::Value> run_commonjs_entry();
 
 private:
+    JS::ThrowCompletionOr<Optional<AK::JsonValue>> read_package(std::filesystem::path const&);
+    JS::ThrowCompletionOr<Optional<std::filesystem::path>> legacy_path(std::filesystem::path const&);
+    JS::ThrowCompletionOr<std::filesystem::path> resolve_require(std::string const&, std::filesystem::path const&);
+    JS::ThrowCompletionOr<JS::Value> load_commonjs(std::filesystem::path const&, GC::Ptr<JS::Object> parent = nullptr, bool main = false);
+    GC::Ref<JS::NativeFunction> make_require(std::filesystem::path const&, GC::Ref<JS::Object>);
+    JS::ThrowCompletionOr<void> add_child(JS::Object&, JS::Object&);
+    JS::ThrowCompletionOr<void> remove_child(JS::Object&, JS::Object&);
+    JS::Completion require_error(JS::Completion, JS::Object&);
     JS::Completion error(char const* code, std::string const& message, bool type_error = false);
     JS::ThrowCompletionOr<URL::URL> resolve(std::string const& specifier, std::string const& referrer);
     JS::ThrowCompletionOr<GC::Ref<JS::Module>> load(URL::URL const&);
@@ -32,9 +43,11 @@ private:
     std::filesystem::path m_entry_path;
     std::string m_entry_url;
     GC::Root<JS::Object> m_promise_constructor;
+    GC::Root<JS::Object> m_commonjs_cache;
+    GC::Root<JS::Object> m_main_module;
+    GC::Root<JS::Module> m_commonjs_bridge;
+    std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;
-    std::unordered_map<void const*, std::string> m_urls;
-    GC::RootVector<GC::Ref<JS::Script>> m_scripts;
 };
 
 }

@@ -1,11 +1,11 @@
 # ADR 0004: native module records and Node resolution
 
-Status: accepted for ESM/JSON file loading; package/CJS integration still required.
+Status: accepted for ESM/JSON file loading; CommonJS refinements are in ADR 0005.
 
 Use LibJS `SourceTextModule`, `Module::load_requested_modules`, linking and
 promise-returning evaluation. Code is not transformed to emulate ESM. Install the
 VM's host module-load hook for both static imports and dynamic import, including
-imports from registered entry scripts. Cache GC-rooted records per VM by canonical
+imports from scripts carrying GC-owned source metadata (ADR 0005). Cache GC-rooted records per VM by canonical
 file URL. Insert a parsed record before graph loading so cyclic imports share it.
 
 Resolve URLs using LibURL's C++ API over its existing Rust implementation. File
@@ -15,10 +15,11 @@ in the identity. Escape filesystem URL delimiters before URL parsing so a litera
 `%`, `#` or `?` in a path does not become an escape, fragment or query.
 
 Select `.mjs` or the nearest package.json `type: module`; `.cjs` overrides the
-package type. CommonJS, package exports/imports and ESM syntax detection are next
-integration slices, and must not be mistaken for completed Node resolution.
+package type. CommonJS file loading is covered in ADR 0005. Package exports/imports
+and ESM syntax detection remain required integration slices.
 
-JSON imports reuse `JS::parse_json_module` synthetic records. Validate type=json
+JSON imports use synthetic records; ADR 0005 adds shared CommonJS caching for
+plain file URLs while query/fragment copies reuse `JS::parse_json_module`. Validate type=json
 before cache access, require it for JSON and reject it for JavaScript. Unknown
 attribute names can be rejected by LibJS before our host hook; those TypeErrors
 currently lack Node's error code. This is a tracked compatibility limitation.

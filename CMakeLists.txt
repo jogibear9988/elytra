@@ -65,5 +65,7 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_runtime.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-modules COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_modules.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-commonjs COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_commonjs.py" --mite "$<TARGET_FILE:mite>")
 endif()
 install(TARGETS mite RUNTIME DESTINATION bin)

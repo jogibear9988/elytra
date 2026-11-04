@@ -170,26 +170,21 @@ int main(int argc, char** argv)
                 status = 1;
             }
         }
-    } else {
-        auto text = Utf16String::from_utf8_with_replacement_character(StringView(source.data(), source.size()));
-        auto parsed = JS::Script::parse(text, realm, StringView(filename.data(), filename.size()));
-        if (parsed.is_error()) {
-            for (auto const& error : parsed.error()) {
-                fputs("SyntaxError: ", stderr);
-                write_text(stderr, error.to_utf16_string());
-                fputc('\n', stderr);
-            }
+    } else if (filename != "[eval]") {
+        auto result = modules.run_commonjs_entry();
+        if (result.is_error()) {
+            report_exception(result.error_value());
             status = 1;
         } else {
-            GC::Root script { parsed.release_value() };
-            modules.register_script(*script);
-            auto result = vm->run(*script);
-            if (result.is_error()) {
-                report_exception(result.error_value());
-                status = 1;
-            }
-            if (!status)
-                status = event_loop.run_until_idle();
+            status = event_loop.run_until_idle();
+        }
+    } else {
+        auto result = modules.run_eval(source);
+        if (result.is_error()) {
+            report_exception(result.error_value());
+            status = 1;
+        } else {
+            status = event_loop.run_until_idle();
         }
     }
     vm->pop_execution_context();
