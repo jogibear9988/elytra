@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char MITE_EVENTS_SOURCE[] = R"MITE_BUILTIN(@MITE_EVENTS_SOURCE@)MITE_BUILTIN";

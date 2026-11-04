@@ -24,6 +24,13 @@ public:
     JS::ThrowCompletionOr<JS::Value> run_commonjs_entry();
 
 private:
+    struct RequireResolution {
+        std::filesystem::path path;
+        std::string builtin;
+        std::string identifier;
+    };
+    JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin(std::string const&);
+    JS::ThrowCompletionOr<GC::Ref<JS::Module>> builtin_module(std::string const&);
     struct PackageTarget {
         enum class State { Unmatched, Blocked, Resolved };
         State state { State::Unmatched };
@@ -36,7 +43,7 @@ private:
     JS::ThrowCompletionOr<PackageTarget> resolve_target(std::filesystem::path const&, AK::JsonValue const&, Optional<std::string> const& pattern, bool imports, bool require, size_t depth);
     JS::ThrowCompletionOr<Optional<AK::JsonValue>> read_package(std::filesystem::path const&);
     JS::ThrowCompletionOr<Optional<std::filesystem::path>> legacy_path(std::filesystem::path const&);
-    JS::ThrowCompletionOr<std::filesystem::path> resolve_require(std::string const&, std::filesystem::path const&);
+    JS::ThrowCompletionOr<RequireResolution> resolve_require(std::string const&, std::filesystem::path const&);
     JS::ThrowCompletionOr<JS::Value> load_commonjs(std::filesystem::path const&, GC::Ptr<JS::Object> parent = nullptr, bool main = false);
     GC::Ref<JS::NativeFunction> make_require(std::filesystem::path const&, GC::Ref<JS::Object>);
     JS::ThrowCompletionOr<void> add_child(JS::Object&, JS::Object&);
@@ -56,6 +63,9 @@ private:
     GC::Root<JS::Object> m_commonjs_cache;
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;
+    GC::Root<JS::Module> m_builtin_bridge;
+    std::unordered_set<void const*> m_builtin_shims;
+    std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;
 };

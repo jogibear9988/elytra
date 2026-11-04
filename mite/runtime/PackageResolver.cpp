@@ -1,5 +1,6 @@
 #include "ModuleLoader.h"
 #include "ModulePaths.h"
+#include "BuiltinNames.h"
 
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
@@ -217,13 +218,7 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const&
         return error("ERR_MITE_PACKAGE_RESOLUTION_LIMIT", "Package target nesting/alias limit exceeded");
     // Reserve documented built-ins even before their implementations land;
     // a package of the same name must not impersonate an unsupported host API.
-    static constexpr std::string_view builtins[] = {
-        "path", "path/posix", "path/win32", "url", "os", "events", "util", "util/types",
-        "buffer", "fs", "fs/promises", "stream", "stream/promises", "stream/web",
-        "crypto", "net", "http", "https", "child_process", "process", "module", "timers",
-        "timers/promises", "assert", "assert/strict", "console"
-    };
-    if (request.starts_with("node:") || std::find(std::begin(builtins), std::end(builtins), request) != std::end(builtins)) {
+    if (request.starts_with("node:") || bare_builtin(request)) {
         auto url = URL::Parser::basic_parse(view(request.starts_with("node:") ? request : "node:" + request));
         VERIFY(url.has_value());
         return url.release_value();

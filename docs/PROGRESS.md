@@ -21,10 +21,10 @@ unchecked steps are requirements still outstanding, not supported features.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events builtin is implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 63 runtime/module
-checks pass (54 shared Node fixtures, 7 CLI checks and 2 explicit unsupported-API
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 76 runtime/module
+checks pass (66 shared Node fixtures, 7 CLI checks and 3 explicit unsupported-API
 checks). Behavioral reference: Node v24.15.0. CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
@@ -66,8 +66,16 @@ encoded traversal/separators, malformed configs and nested package shadowing.
 The 2 built-in reservation checks are explicit unsupported behavior, not claims of
 working fs APIs. ADR 0006 records condition/recursion limits and remaining gaps.
 
-Next: implement useful built-ins/globals and validate pinned real pure-JavaScript
-npm packages. Filesystem, path/events, Buffer and process services precede the
+The builtin registry now shares CommonJS exports with fixed named ESM shims,
+canonical node: identities and prefix cache bypass. node:events implements core
+EventEmitter behavior and Promise once; 12 new differential fixtures exercise it.
+An additional fixture checks explicit unsupported captureRejections/AbortSignal
+modes. Warnings currently have simplified formatting/microtask scheduling;
+EventTarget, async event iterators/hooks and syncBuiltinESMExports remain absent.
+ADR 0007 records the JS/C++ boundary and limits.
+
+Next: validate pinned real pure-JavaScript npm packages, then expand useful
+built-ins/globals. Filesystem, path/events, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain

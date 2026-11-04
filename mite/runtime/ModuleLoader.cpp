@@ -1,5 +1,7 @@
 #include "ModuleLoader.h"
 #include "ModulePaths.h"
+#include "ModuleSource.h"
+#include "BuiltinNames.h"
 
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
@@ -17,13 +19,6 @@
 namespace Mite {
 namespace fs = std::filesystem;
 
-class ModuleSource final : public GC::Cell {
-    GC_CELL(ModuleSource, GC::Cell);
-    GC_DECLARE_ALLOCATOR(ModuleSource);
-public:
-    explicit ModuleSource(std::string identity) : url(std::move(identity)) { }
-    std::string const url;
-};
 GC_DEFINE_ALLOCATOR(ModuleSource);
 
 using namespace ModulePaths;
@@ -78,6 +73,11 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, fs::path entry_path)
                 if (shim && request.attributes.is_empty())
                     return *m_commonjs_bridge;
             }
+            if (bytes == "mite:internal/builtin"sv) {
+                bool shim = referrer.visit([&](auto const& record) { return m_builtin_shims.contains(record.ptr()); });
+                if (shim && request.attributes.is_empty())
+                    return *m_builtin_bridge;
+            }
             auto url = TRY(resolve(string(bytes), referrer_url(referrer)));
             bool json_type = false;
             for (auto const& attribute : request.attributes) {
@@ -85,7 +85,7 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, fs::path entry_path)
                     return error("ERR_IMPORT_ATTRIBUTE_UNSUPPORTED", "Unsupported import attribute", true);
                 json_type = true;
             }
-            bool json_file = url_path(url).extension() == ".json";
+            bool json_file = url.scheme() == "file"sv && url_path(url).extension() == ".json";
             if (json_file && !json_type)
                 return error("ERR_IMPORT_ATTRIBUTE_MISSING", "JSON modules require type: json", true);
             if (!json_file && json_type)
@@ -170,7 +170,7 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     if (!url.has_value())
         url = TRY(resolve_package(specifier, url_path(*base), false));
     if (url->scheme() == "node"sv)
-        return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin modules are not implemented yet: " + specifier);
+        return url.release_value();
     if (url->scheme() != "file"sv)
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme: " + string(url->scheme()));
     if (!url->serialized_host().is_empty())
@@ -202,6 +202,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
     auto identity = string(url.serialize());
     if (auto found = m_modules.find(identity); found != m_modules.end())
         return *found->second;
+    if (url.scheme() == "node"sv)
+        return builtin_module(identity.substr(5));
     auto path = url_path(url);
     auto extension = path.extension();
     if (extension != ".mjs" && extension != ".js" && extension != ".cjs" && extension != ".json")
@@ -335,7 +337,7 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::legacy_path(fs::path con
     return with_extensions(candidate / "index");
 }
 
-JS::ThrowCompletionOr<fs::path> ModuleLoader::resolve_require(std::string const& request, fs::path const& parent)
+JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_require(std::string const& request, fs::path const& parent)
 {
     if (request.empty())
         return error("ERR_INVALID_ARG_VALUE", "Module ID must not be empty", true);
@@ -345,8 +347,12 @@ JS::ThrowCompletionOr<fs::path> ModuleLoader::resolve_require(std::string const&
     bool relative = request == "." || request == ".." || request.starts_with("./") || request.starts_with("../");
     if (!relative && !path.is_absolute()) {
         auto url = TRY(resolve_package(request, parent, true));
+        if (url.scheme() == "node"sv) {
+            auto name = string(url.serialize()).substr(5);
+            return RequireResolution { {}, name, request == name ? name : "node:" + name };
+        }
         if (url.scheme() != "file"sv)
-            return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin modules are not implemented yet: " + request);
+            return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme");
         auto encoded = url.serialize_path();
         if (encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive) || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
             return error("ERR_INVALID_MODULE_SPECIFIER", "Encoded separators are not allowed in package targets", true);
@@ -359,12 +365,13 @@ JS::ThrowCompletionOr<fs::path> ModuleLoader::resolve_require(std::string const&
         auto canonical = fs::canonical(resolved, ec);
         if (ec)
             return error("MODULE_NOT_FOUND", "Cannot resolve module '" + request + "'");
-        return canonical;
+        return RequireResolution { canonical, {}, path_string(canonical) };
     }
     auto found = TRY(legacy_path(path.is_absolute() ? path : parent.parent_path() / path));
     if (!found.has_value())
         return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
-    return found.release_value();
+    auto filename = found.release_value();
+    return RequireResolution { filename, {}, path_string(filename) };
 }
 
 JS::ThrowCompletionOr<void> ModuleLoader::add_child(JS::Object& parent, JS::Object& child)
@@ -432,7 +439,16 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(fs::path const& filename,
         auto resolved = resolve_require(string(request), filename);
         if (resolved.is_error())
             return require_error(resolved.release_error(), *module);
-        return load_commonjs(resolved.release_value(), module);
+        auto target = resolved.release_value();
+        if (!target.builtin.empty()) {
+            if (!target.identifier.starts_with("node:")) {
+                auto cached = TRY(m_commonjs_cache->get(Utf16String::from_utf8_with_replacement_character(view(target.identifier))));
+                if (cached.is_object())
+                    return cached.as_object().get("exports"_utf16);
+            }
+            return TRY(builtin(target.builtin));
+        }
+        return load_commonjs(target.path, module);
     }, 1, "require"_utf16);
     require->define_direct_property("cache"_utf16, m_commonjs_cache.ptr(), JS::default_attributes);
     require->define_direct_property("main"_utf16, m_main_module ? JS::Value(m_main_module.ptr()) : JS::js_undefined(), JS::default_attributes);
@@ -445,7 +461,10 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(fs::path const& filename,
         auto resolved = resolve_require(string(request), filename);
         if (resolved.is_error())
             return require_error(resolved.release_error(), *module);
-        return js_string(vm, path_string(resolved.release_value()));
+        auto target = resolved.release_value();
+        if (!target.builtin.empty() && !known_builtin(target.builtin))
+            return error("MODULE_NOT_FOUND", "Cannot resolve unknown builtin: " + target.builtin);
+        return js_string(vm, target.identifier);
     }, 1, JS::default_attributes);
     return require;
 }

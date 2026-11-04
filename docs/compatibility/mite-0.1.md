@@ -22,7 +22,10 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | `setTimeout`, `setInterval`, clearing timers | partial | Native libuv timers; arguments, callback receiver, numeric/string cancellation, ref/unref/hasRef/close/dispose tested; refresh and timeout warnings unsupported |
 | `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
 | `Buffer`, URL, encoding, fetch | unsupported | Not installed as globals |
-| Node built-in modules | unsupported | Not implemented; reserved names fail explicitly even when shadowed by local npm packages |
+| Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
+| node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget/async iterators/async hooks absent |
+| MaxListeners warnings | intentional difference | Emitted via a microtask with simplified stderr formatting; no process warning event or nextTick phase yet |
+| Other Node built-in modules | unsupported | Not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There
