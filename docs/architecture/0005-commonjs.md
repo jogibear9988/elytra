@@ -1,6 +1,6 @@
 # ADR 0005: CommonJS execution and ESM interoperation
 
-Status: implemented for file modules; package resolution is the next slice.
+Status: implemented for file modules; ADR 0006 adds package resolution.
 
 Execute CommonJS source inside the Node-style function wrapper with exports,
 require, module, __filename and __dirname parameters. Use LibJS to parse and run
@@ -12,8 +12,8 @@ Publish a module object in the shared JavaScript `require.cache` before executio
 so cycles observe partial exports. `require.main`, module metadata, parent/children,
 cache deletion, retry after a thrown exception and `require.resolve` are exercised
 against Node. Resolve relative/absolute files, `.js`/`.json` extension fallback and
-directory main/index entries. Bare packages, module.paths and resolve options are
-not implemented in this slice. Native addons and synchronous require of ESM fail
+directory main/index entries. ADR 0006 adds bare/scoped packages and module.paths
+values; resolve options and module.paths mutation remain unsupported. Native addons and synchronous require of ESM fail
 explicitly. Native ESM syntax auto-detection is also still pending.
 
 CommonJS modules imported from ESM use a native ESM shim over a private synthetic

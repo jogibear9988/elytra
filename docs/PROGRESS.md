@@ -21,10 +21,11 @@ unchecked steps are requirements still outstanding, not supported features.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; package resolution, built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 55 runtime/module
-checks pass (48 shared Node fixtures and 7 CLI checks). CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 63 runtime/module
+checks pass (54 shared Node fixtures, 7 CLI checks and 2 explicit unsupported-API
+checks). Behavioral reference: Node v24.15.0. CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
@@ -57,8 +58,17 @@ ordering, lazy ESM interoperation and shared JSON values. GC-owned source metada
 replaces permanently rooted wrapper records, allowing cache invalidation without
 retaining all previous scripts. ADR 0005 records ownership and remaining gaps.
 
-Next: bare/scoped node_modules packages, exports/imports and conditions, followed
-by filesystem modules and globals. CommonJS named-export detection, synchronous
+Package resolution now supports bare/scoped node_modules lookup, self references,
+exports/imports maps, insertion-ordered conditions, exact/pattern priority, arrays,
+legacy main/index and module.paths values. Temporary package trees compare both
+loaders against Node, including error names/codes for invalid/blocked targets,
+encoded traversal/separators, malformed configs and nested package shadowing.
+The 2 built-in reservation checks are explicit unsupported behavior, not claims of
+working fs APIs. ADR 0006 records condition/recursion limits and remaining gaps.
+
+Next: implement useful built-ins/globals and validate pinned real pure-JavaScript
+npm packages. Filesystem, path/events, Buffer and process services precede the
+networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain
 tracked as unsupported in the compatibility matrix.

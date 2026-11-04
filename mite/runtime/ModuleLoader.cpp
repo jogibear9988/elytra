@@ -1,4 +1,5 @@
 #include "ModuleLoader.h"
+#include "ModulePaths.h"
 
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
@@ -25,27 +26,7 @@ public:
 };
 GC_DEFINE_ALLOCATOR(ModuleSource);
 
-static StringView view(std::string const& value)
-{
-    return { value.data(), value.size() };
-}
-
-static std::string string(StringView value)
-{
-    return { value.characters_without_null_termination(), value.length() };
-}
-
-static std::string path_string(fs::path const& path)
-{
-    auto utf8 = path.generic_u8string();
-    return { reinterpret_cast<char const*>(utf8.data()), utf8.size() };
-}
-
-static fs::path url_path(URL::URL const& url)
-{
-    auto path = url.file_path();
-    return fs::path(std::u8string(reinterpret_cast<char8_t const*>(path.characters()), path.length()));
-}
+using namespace ModulePaths;
 
 URL::URL ModuleLoader::path_to_url(fs::path const& path)
 {
@@ -187,7 +168,9 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     bool relative = specifier.starts_with("./") || specifier.starts_with("../") || specifier.starts_with("/");
     auto url = relative ? URL::Parser::basic_parse(view(specifier), *base) : URL::Parser::basic_parse(view(specifier));
     if (!url.has_value())
-        return error("ERR_MODULE_NOT_FOUND", "Cannot resolve package '" + specifier + "'; package resolution is not implemented yet");
+        url = TRY(resolve_package(specifier, url_path(*base), false));
+    if (url->scheme() == "node"sv)
+        return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin modules are not implemented yet: " + specifier);
     if (url->scheme() != "file"sv)
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme: " + string(url->scheme()));
     if (!url->serialized_host().is_empty())
@@ -360,8 +343,24 @@ JS::ThrowCompletionOr<fs::path> ModuleLoader::resolve_require(std::string const&
         return error("MODULE_NOT_FOUND", "Module ID contains a null byte");
     auto path = fs::path(std::u8string(reinterpret_cast<char8_t const*>(request.data()), request.size()));
     bool relative = request == "." || request == ".." || request.starts_with("./") || request.starts_with("../");
-    if (!relative && !path.is_absolute())
-        return error("MODULE_NOT_FOUND", "Cannot resolve package '" + request + "'; package resolution is not implemented yet");
+    if (!relative && !path.is_absolute()) {
+        auto url = TRY(resolve_package(request, parent, true));
+        if (url.scheme() != "file"sv)
+            return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin modules are not implemented yet: " + request);
+        auto encoded = url.serialize_path();
+        if (encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive) || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
+            return error("ERR_INVALID_MODULE_SPECIFIER", "Encoded separators are not allowed in package targets", true);
+        if (url.file_path().contains('\0'))
+            return error("ERR_INVALID_ARG_VALUE", "Module paths must not contain null bytes", true);
+        auto resolved = url_path(url);
+        std::error_code ec;
+        if (!fs::is_regular_file(resolved, ec))
+            return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
+        auto canonical = fs::canonical(resolved, ec);
+        if (ec)
+            return error("MODULE_NOT_FOUND", "Cannot resolve module '" + request + "'");
+        return canonical;
+    }
     auto found = TRY(legacy_path(path.is_absolute() ? path : parent.parent_path() / path));
     if (!found.has_value())
         return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
@@ -474,6 +473,17 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(fs::path const& fil
     module->define_direct_property("parent"_utf16, parent ? JS::Value(parent) : JS::js_null(), JS::default_attributes);
     module->define_direct_property("children"_utf16, TRY(JS::Array::create(m_realm, 0)), JS::default_attributes);
     module->define_direct_property("loaded"_utf16, JS::Value(false), JS::default_attributes);
+    GC::RootVector<JS::Value> search_paths;
+    auto directory = filename.parent_path();
+    while (!directory.empty()) {
+        if (directory.filename() != "node_modules")
+            search_paths.append(js_string(m_vm, path_string(directory / "node_modules")));
+        auto parent_directory = directory.parent_path();
+        if (parent_directory == directory)
+            break;
+        directory = parent_directory;
+    }
+    module->define_direct_property("paths"_utf16, JS::Array::create_from(m_realm, search_paths), JS::default_attributes);
     if (main)
         m_main_module = module.ptr();
     auto require = make_require(filename, *module);

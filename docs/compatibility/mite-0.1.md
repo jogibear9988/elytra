@@ -2,6 +2,7 @@
 
 This is a versioned inventory, not a claim of general Node.js compatibility.
 Statuses describe this repository, not upstream LibJS's language conformance.
+The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 
 | Surface | Status | Scope / known difference |
 | --- | --- | --- |
@@ -14,13 +15,14 @@ Statuses describe this repository, not upstream LibJS's language conformance.
 | Unhandled rejections | partial | Nonzero exit after microtask drain; no process event API yet |
 | ES modules | partial | `.mjs`, `package.json` type=module, relative/absolute file URLs, static/dynamic imports, live bindings, cycles, URL cache identity, import.meta url/filename/dirname/main and top-level await tested; no syntax auto-detection or import.meta.resolve yet |
 | JSON modules | partial | Default exports with type=json import attributes, cache identity, mutations and syntax errors tested; unknown attribute names are rejected by LibJS before the host and their error codes differ from Node |
-| CommonJS file modules | partial | Wrapper, require/resolve/cache/main, cycles, exports replacement, metadata, cache invalidation/retry, relative and directory main/index loading tested; eval globals, require.extensions, resolve options and synchronous require(ESM) unsupported |
+| CommonJS file modules | partial | Wrapper, require/resolve/cache/main, cycles, exports replacement, metadata, module.paths values, cache invalidation/retry, relative and directory main/index loading tested; eval globals, require.extensions, resolve options and synchronous require(ESM) unsupported |
 | ESM/CJS interoperation | partial | Lazy default and module.exports namespace exports, shared JSON cache tested; static named CJS export detection unsupported |
-| npm package resolution | unsupported | Next loader slice; bare package names fail explicitly |
+| npm package resolution | partial | Bare/scoped node_modules lookup, main/index legacy loading, self references, exports/imports, conditions, exact/pattern mappings and array fallback tested; no NODE_PATH/global folders, custom conditions or resolve options; real npm packages not yet validated |
+| Package module-sync condition / recursion limits | intentional difference | module-sync inactive until synchronous require(ESM) is supported; recursive package resolution is capped at 64 depth steps |
 | `setTimeout`, `setInterval`, clearing timers | partial | Native libuv timers; arguments, callback receiver, numeric/string cancellation, ref/unref/hasRef/close/dispose tested; refresh and timeout warnings unsupported |
 | `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
 | `Buffer`, URL, encoding, fetch | unsupported | Not installed as globals |
-| Node built-in modules | unsupported | Not implemented |
+| Node built-in modules | unsupported | Not implemented; reserved names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There

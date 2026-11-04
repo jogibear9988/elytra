@@ -16,7 +16,7 @@ in the identity. Escape filesystem URL delimiters before URL parsing so a litera
 
 Select `.mjs` or the nearest package.json `type: module`; `.cjs` overrides the
 package type. CommonJS file loading is covered in ADR 0005. Package exports/imports
-and ESM syntax detection remain required integration slices.
+are covered by ADR 0006; ESM syntax detection remains required.
 
 JSON imports use synthetic records; ADR 0005 adds shared CommonJS caching for
 plain file URLs while query/fragment copies reuse `JS::parse_json_module`. Validate type=json

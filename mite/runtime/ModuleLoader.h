@@ -24,6 +24,16 @@ public:
     JS::ThrowCompletionOr<JS::Value> run_commonjs_entry();
 
 private:
+    struct PackageTarget {
+        enum class State { Unmatched, Blocked, Resolved };
+        State state { State::Unmatched };
+        Optional<URL::URL> url;
+    };
+    JS::ThrowCompletionOr<Optional<std::filesystem::path>> package_scope(std::filesystem::path const&);
+    JS::ThrowCompletionOr<URL::URL> resolve_package(std::string const&, std::filesystem::path const&, bool require, size_t depth = 0);
+    JS::ThrowCompletionOr<URL::URL> resolve_exports(std::filesystem::path const&, std::string const&, AK::JsonValue const&, bool require, size_t depth);
+    JS::ThrowCompletionOr<PackageTarget> resolve_map(std::filesystem::path const&, AK::JsonObject const&, std::string const&, bool imports, bool require, size_t depth);
+    JS::ThrowCompletionOr<PackageTarget> resolve_target(std::filesystem::path const&, AK::JsonValue const&, Optional<std::string> const& pattern, bool imports, bool require, size_t depth);
     JS::ThrowCompletionOr<Optional<AK::JsonValue>> read_package(std::filesystem::path const&);
     JS::ThrowCompletionOr<Optional<std::filesystem::path>> legacy_path(std::filesystem::path const&);
     JS::ThrowCompletionOr<std::filesystem::path> resolve_require(std::string const&, std::filesystem::path const&);

@@ -4,7 +4,9 @@ Work in progress: a LibJS-powered Node-compatible runtime and a Ladybird-powered
 Electron-compatible desktop framework. The implementation requirements are in
 [mite-firefly-agent-instructions.md](mite-firefly-agent-instructions.md).
 
-No Node/Electron compatibility or platform availability is claimed yet.
+Mite runs a tested subset of Node-style CLI, module and timer behavior on macOS
+ARM64. General Node compatibility, Firefly and native Windows/Linux validation
+remain work in progress.
 See [implementation progress](docs/PROGRESS.md) and the
 [upstream integration decision](docs/architecture/0001-upstream-and-boundaries.md).
 
@@ -31,6 +33,7 @@ cmake --build --preset dev --parallel 4
 ctest --preset dev
 build/dev/bin/mite examples/mite-cli/hello.js world
 build/dev/bin/mite examples/mite-cli/modules.mjs world
+build/dev/bin/mite examples/mite-cli/commonjs.cjs
 ```
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
