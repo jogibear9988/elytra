@@ -34,7 +34,7 @@ CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejecti
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
 Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 14 CTest
-suites pass. This includes 93 runtime/module/npm checks (84 shared Node
+suites pass. This includes 95 runtime/module/npm checks (86 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
 policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons
@@ -180,10 +180,15 @@ boundaries and detached/shared/resizable buffers. Fourteen CTest suites pass.
 ADR 0014 records the backend policy, native ownership and remaining stream/util
 APIs. Ladybird source remains unmodified.
 
-Next: networking/server, then networking/server and renderer
-vertical slices. Broaden the real-package
-corpus as those APIs become available. Further filesystem, Buffer and process services precede the
-networking and renderer slices. CommonJS named-export detection, synchronous
+The real npm corpus now also includes @msgpack/msgpack 3.1.2 (ISC), with two new
+published-code workflows. Long Unicode strings demonstrably call the native
+encodeInto/decode methods; binary, BigInt, timestamp, async chunk/multi/array
+formats and invalid input guards match Node. The corpus now has 10 scenarios
+across 6 locked packages, with integrity/license checks and no dependency patches.
+
+Next: stream primitives and native sockets, then a working HTTP server example
+and renderer proof of concept. Broaden host APIs and real-package coverage around
+those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain
 tracked as unsupported in the compatibility matrix.

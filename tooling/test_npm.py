@@ -39,6 +39,10 @@ def main():
         ('escape.mjs', 'true true\nTypeError Expected a string\nCJS imported by ESM\n'),
         ('emitter.cjs', 'context:1,once:1,context:2\n1 true true\n'),
         ('emitter.mjs', 'true true eventemitter3 5.0.1\nnative timer\n'),
+        ('msgpack.cjs', 'true true 0,255,127 2024-01-02T03:04:05.678Z\ntrue true\n82a16101a162a178\n'
+         '-9223372036854775808,18446744073709551615\n[1,"two",[3]]\n'
+         'DecodeError true\nRangeError true\nDecodeError true\n3.1.2\n'),
+        ('msgpack.mjs', 'true [1,true,null] 1,2,255\ntrue 2 [3]\ntrue 1 true\ntrue true\nDecodeError\n'),
         ('dependencies.cjs', 'true function\n1.4.0 1.0.2\ntrue true\n'),
     ]
     def compare(name, expected, *fixture_args):
