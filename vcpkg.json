@@ -27,7 +27,8 @@
     {
       "name": "pthread",
       "platform": "windows"
-    }
+    },
+    "libuv"
   ],
   "overrides": [
     {

@@ -20,20 +20,25 @@ unchecked steps are requirements still outstanding, not supported features.
 ## Current work
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
-CLI, basic console, process.argv, a rooted FIFO promise job queue and rejection
-reporting. Node module loading, built-ins and Firefly remain unimplemented.
+CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
+reporting, and native libuv timers with cancellation and ref/unref support. Node module loading, built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 16 runtime
-checks pass (9 shared Node fixtures and 7 CLI checks). CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 26 runtime
+checks pass (19 shared Node fixtures and 7 CLI checks). CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
 Local build used `build/debug` with the same settings as the documented `dev`
 preset. Logs are in ignored `build/{configure,compile,test}.log`.
 
-Next: extract the runtime/job queue, implement queueMicrotask and native timers,
-then ESM/CJS and filesystem slices. Consider libuv for portable asynchronous
-services; record the choice and measure behavior against Node before claiming it.
+Milestone 3 partial progress: extracted EventLoop, installed queueMicrotask,
+setTimeout/setInterval and Timeout handles; added ordering, cancellation, ref/unref,
+invalid callbacks, exception and liveness differential fixtures. ADR 0003 records
+ownership and the libuv choice. No full Node event-loop compatibility is claimed.
+
+Next: ESM/CJS and package resolution, followed by filesystem modules and globals.
+Timer refresh, timeout warnings, immediates, nextTick and process events remain
+tracked as unsupported in the compatibility matrix.
 
 ## Resume
 

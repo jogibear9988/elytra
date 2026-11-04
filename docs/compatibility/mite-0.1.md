@@ -10,10 +10,11 @@ Statuses describe this repository, not upstream LibJS's language conformance.
 | `console.log`, `console.error` | partial | String conversion and space joining; no Node object inspection or format substitutions |
 | `process.argv` | partial | Script path and arguments; executable path normalization pending |
 | `global` | partial | Alias to `globalThis` |
-| Promise jobs | partial | Host FIFO queue and nested jobs; no full Node event loop yet |
+| Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; no process.nextTick or rejection events |
 | Unhandled rejections | partial | Nonzero exit after microtask drain; no process event API yet |
 | ESM, CJS, npm package resolution | unsupported | Upcoming loader slice |
-| Timers, `queueMicrotask`, `process.nextTick` | unsupported | Upcoming event-loop slice |
+| `setTimeout`, `setInterval`, clearing timers | partial | Native libuv timers; arguments, callback receiver, numeric/string cancellation, ref/unref/hasRef/close/dispose tested; refresh and timeout warnings unsupported |
+| `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
 | `Buffer`, URL, encoding, fetch | unsupported | Not installed as globals |
 | Node built-in modules | unsupported | Not implemented |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |

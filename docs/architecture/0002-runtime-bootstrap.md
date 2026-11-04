@@ -13,10 +13,8 @@ and realm alive. Jobs added while draining run FIFO in the same checkpoint.
 Rejections stay rooted until handled or reported after the checkpoint. Native
 callbacks must never retain a bare JS heap pointer across an allocation/checkpoint.
 
-The first version has no I/O loop. The next slice should extract the job queue into
-a runtime object, add validated `queueMicrotask` callbacks and timers, and test
-ordering against Node before adding asynchronous filesystem and sockets. A pending
-promise alone must not keep the runtime alive. Promise-returning module evaluation
+The event loop and validated timers are specified in ADR 0003. A pending promise
+alone does not keep the runtime alive. Future promise-returning module evaluation
 must detect unsettled top-level await rather than report success.
 
 The bootstrap is a script host, not a CommonJS implementation. A separate module

@@ -1,3 +1,4 @@
+#include "EventLoop.h"
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
@@ -137,21 +138,13 @@ int main(int argc, char** argv)
         args.append(JS::PrimitiveString::create(*vm, Utf16String::from_utf8_with_replacement_character(StringView(argv[i], strlen(argv[i])))));
     process->define_direct_property("argv"_utf16, JS::Array::create_from(realm, args), JS::default_attributes);
 
-    GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> jobs;
-    GC::RootVector<GC::Ref<JS::Promise>> rejections;
-    vm->host_enqueue_promise_job = [&](JS::PromiseJob job, GC::Ptr<JS::Realm> job_realm) {
-        jobs.append(GC::create_function(vm->heap(), [job, job_realm] {
-            (void)job_realm; // Keep the job's realm alive until dispatch.
-            return job.run();
-        }));
-    };
-    vm->host_promise_job_queue_is_empty = [&] { return jobs.is_empty(); };
-    vm->host_promise_rejection_tracker = [&](JS::Promise& promise, JS::Promise::RejectionOperation operation) {
-        if (operation == JS::Promise::RejectionOperation::Reject)
-            rejections.append(promise);
-        else
-            rejections.remove_all_matching([&](auto const& entry) { return entry.ptr() == &promise; });
-    };
+    Mite::EventLoop event_loop(*vm, report_exception);
+    auto installed = event_loop.install(realm);
+    if (installed.is_error()) {
+        report_exception(installed.error_value());
+        vm->pop_execution_context();
+        return 1;
+    }
 
     auto text = Utf16String::from_utf8_with_replacement_character(StringView(source.data(), source.size()));
     auto parsed = JS::Script::parse(text, realm, StringView(filename.data(), filename.size()));
@@ -170,18 +163,8 @@ int main(int argc, char** argv)
             report_exception(result.error_value());
             status = 1;
         }
-        while (status == 0 && !jobs.is_empty()) {
-            GC::Root job { jobs.take_first() };
-            auto result = job->function()();
-            if (result.is_error()) {
-                report_exception(result.error_value());
-                status = 1;
-            }
-        }
-        if (status == 0 && !rejections.is_empty()) {
-            report_exception(rejections.first()->result());
-            status = 1;
-        }
+        if (!status)
+            status = event_loop.run_until_idle();
     }
     vm->pop_execution_context();
     return status;

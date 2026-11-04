@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char MITE_BOOTSTRAP_SOURCE[] = R"MITE_JS(@MITE_BOOTSTRAP_SOURCE@)MITE_JS";
