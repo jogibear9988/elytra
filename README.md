@@ -25,8 +25,10 @@ new revisions without maintaining a fork.
 
 ## Development build
 
-Requires Git, Python 3, Ninja, CMake 3.30+, Rust 1.98.0 (rustup), a C++23 compiler
-and native platform build tools. Node and npm are required only for differential tests.
+Requires Git, Python 3.9+, Ninja, CMake 3.30+, Rust 1.98.0 (rustup), a C++23 compiler
+and native platform build tools. Node and npm are required for differential tests and regenerating the checked-in
+portable JavaScript libraries; they are never runtime dependencies. See the
+[runtime library update instructions](tooling/runtime-js/README.md).
 macOS needs Xcode and `pkg-config`, autoconf, automake and libtool. Dependencies
 are built locally using a pinned vcpkg checkout; the first build downloads and
 compiles ICU, OpenSSL and the LLVM libc math headers and can take several minutes.

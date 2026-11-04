@@ -50,7 +50,16 @@ static constexpr std::string_view fs_promises_exports[] = {
 };
 static constexpr std::string_view url_exports[] = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
+static constexpr std::string_view stream_exports[] = {
+    "Stream", "Readable", "Writable", "Duplex", "Transform", "PassThrough", "pipeline", "finished", "compose", "destroy", "addAbortSignal",
+    "isDestroyed", "isDisturbed", "isErrored", "isReadable", "isWritable", "getDefaultHighWaterMark", "setDefaultHighWaterMark", "promises"
+};
+static constexpr std::string_view stream_promises_exports[] = { "pipeline", "finished" };
+static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "stream", { MITE_STREAM_SOURCE, sizeof(MITE_STREAM_SOURCE) - 1 }, stream_exports },
+    { "stream/promises", {}, stream_promises_exports },
+    { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 }, string_decoder_exports },
     { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
@@ -84,10 +93,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         m_builtins.emplace(name, m_process);
         return *m_process;
     }
-    if (name == "fs/promises") {
-        auto fs = TRY(builtin("fs"));
-        auto promises = TRY(fs->get("promises"_utf16));
-        if (!promises.is_object()) return error("ERR_MITE_BUILTIN_INITIALIZATION", "Filesystem promises alias must be an object");
+    if (name == "fs/promises" || name == "stream/promises") {
+        auto owner = TRY(builtin(name == "fs/promises" ? "fs" : "stream"));
+        auto promises = TRY(owner->get("promises"_utf16));
+        if (!promises.is_object()) return error("ERR_MITE_BUILTIN_INITIALIZATION", "Builtin promises alias must be an object");
         m_builtins.emplace(name, GC::Root<JS::Object> { promises.as_object() });
         return promises.as_object();
     }
@@ -107,6 +116,19 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "stream" || name == "string_decoder") {
+        host->define_native_function(m_realm, "require"_utf16, [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (!vm.argument(0).is_string()) return error("ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);
+            auto encoded = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+            auto name = string(encoded);
+            if (!name.starts_with("node:")) return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected portable runtime dependency");
+            return TRY(builtin(name.substr(5)));
+        }, 1, JS::default_attributes);
+        if (name == "string_decoder") {
+            auto native = create_encoding_host(m_realm);
+            host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
+        }
+    }
     if (name == "util") host->define_direct_property("native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
     if (name == "url") {
         host->define_direct_property("native"_utf16, create_url_host(m_realm), JS::default_attributes);

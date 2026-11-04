@@ -108,6 +108,12 @@ static JS::ThrowCompletionOr<BufferSource> buffer_source(JS::VM& vm, JS::Value v
 GC::Ref<JS::Object> create_encoding_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
+    host->define_native_function(realm, "byteView"_utf16, [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        auto input = TRY(buffer_source(vm, vm.argument(0)));
+        if (!input.length) return JS::Value(TRY(JS::Uint8Array::create(realm, 0)));
+        return JS::Value(JS::TypedArrayBase::create_from_slots(realm, JS::TypedArrayBase::Kind::Uint8Array,
+            *input.buffer, JS::ByteLength { input.length }, JS::ByteLength { input.length }, input.offset));
+    }, 1, JS::default_attributes);
     host->define_native_function(realm, "standardize"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         auto label = TRY(vm.argument(0).to_utf16_string(vm));
         auto encoded = MUST(label.utf16_view().to_utf8());

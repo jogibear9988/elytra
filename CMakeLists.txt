@@ -81,14 +81,21 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/url.js" MITE_URL_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/url.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/util.js" MITE_UTIL_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/util.js")
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/generated/stream.js" MITE_STREAM_SOURCE)
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js" MITE_STRING_DECODER_SOURCE)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/mite/modules/generated/stream.js" "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js")
 configure_file(mite/runtime/BuiltinSources.h.in generated/BuiltinSources.h @ONLY)
 add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp mite/runtime/Encoding.cpp)
-add_dependencies(mite check-ladybird)
+add_custom_target(check-runtime-js
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py" VERBATIM)
+add_dependencies(mite check-ladybird check-runtime-js)
 target_include_directories(mite PRIVATE "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(mite PRIVATE $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
 target_link_libraries(mite PRIVATE LibJSStandalone AK LibCore LibGC LibURL LibTextCodec ICU::uc)
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/test_upstream.py")
     add_test(NAME mite-behavior COMMAND "${Python3_EXECUTABLE}"
@@ -103,6 +110,10 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-streams COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_streams.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-string-decoder COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_string_decoder.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-encoding COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_encoding.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-url COMMAND "${Python3_EXECUTABLE}"

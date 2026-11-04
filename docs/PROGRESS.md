@@ -31,15 +31,16 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream and string_decoder builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 15 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 18 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
 policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons
-and 342 URL helper comparisons, 1,657 encoding comparisons,
-and the upstream
+and 342 URL helper comparisons, 1,657 encoding comparisons, 449 StringDecoder
+comparisons, 7 shared stream workflows and 1 recorded stream ordering difference,
+the checked-in runtime-library integrity gate, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
@@ -193,7 +194,19 @@ nested queues, arguments, native callbacks, handled rejections and thrown ticks.
 All fifteen CTest suites pass. ADR 0015 records the queue policy and remaining
 Node event-loop phases.
 
-Next: stream primitives and native sockets, then a working HTTP server example
+Portable streams now embed pinned readable-stream 4.7.0 and string_decoder 1.3.0
+sources through our adapters, without a Node/V8 runtime or upstream edits. Seven
+Node workflows cover buffering, decoding, backpressure, writev, Promise pipelines,
+isolated errors, async iteration and identity; 449 StringDecoder comparisons pass.
+One separate concurrent-error fixture records different relative error ordering
+from Node 24, also reproduced by the portable library under Node's scheduler.
+All eighteen CTest suites pass. Exact bundle regeneration and the pipeline example
+were validated. License texts and source/integrity metadata are retained; every
+native build checks artifact/input hashes without requiring Node/npm. ADR 0016
+and tooling/runtime-js/README.md describe limits and updates. Filesystem/stdio
+streams, WHATWG adapters and broad helper coverage remain open.
+
+Next: native sockets, then a working HTTP server example
 and renderer proof of concept. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
