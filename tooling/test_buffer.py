@@ -21,7 +21,7 @@ def main():
     def js(value):
         return json.dumps(value, ensure_ascii=True)
     codecs = ['utf8', 'UTF-8', 'utf16le', 'ucs2', 'latin1', 'binary', 'ascii', 'hex', 'base64', 'base64url', 'bad']
-    texts = ['', 'hello', 'é文😀', '\ud800x\udfff', '\ufeffa\x00z', '1affz3', 'a=', 'aaaa====', 'Y W\nJj-_', '0g12', 'f', 'YWJj']
+    texts = ['', 'hello', 'é文😀', '\ud800x\udfff', '\ufeffa\x00z', '1affz3', 'a=', '\ud800\udc41\ud800\udc41', 'aaaa====', 'Y W\nJj-_', '0g12', 'f', 'YWJj']
     for codec in codecs:
         for text in texts:
             add(f'from {codec} {text!r}', f'Buffer.from({js(text)}, {js(codec)}).toJSON()')

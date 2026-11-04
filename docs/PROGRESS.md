@@ -113,8 +113,10 @@ limit and pending Blob/File APIs. Ladybird remains unmodified.
 
 Buffer numeric access now covers fixed/variable-width signed and unsigned
 integers, floating point and 64-bit BigInt with both endian orders. The Buffer
-corpus now has 3,535 shared comparisons plus an explicit allocation-policy check.
+corpus now has 3,557 shared comparisons plus an explicit allocation-policy check.
 Encoded bytes, error codes, numeric limits and subview offsets match Node.
+A follow-up regression covers base64 decoding of UTF-16 surrogate pairs: the
+forgiving decoder now processes every code unit, matching Node low-byte behavior.
 
 Next: filesystem, then networking/server and renderer
 vertical slices. Broaden the real-package

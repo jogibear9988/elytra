@@ -38,9 +38,9 @@
             }
         } else if (codec === 'base64' || codec === 'base64url') {
             let bits = 0, count = 0;
-            for (let character of text) {
+            for (let i = 0; i < text.length; ++i) {
                 // Node's forgiving decoder uses the low byte of UTF-16 input.
-                character = String.fromCharCode(character.charCodeAt(0) & 255);
+                const character = String.fromCharCode(text.charCodeAt(i) & 255);
                 if (character === '=') break;
                 const value = alphabet.indexOf(character === '-' ? '+' : character === '_' ? '/' : character);
                 if (value < 0) continue;
