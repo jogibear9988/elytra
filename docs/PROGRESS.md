@@ -21,10 +21,10 @@ unchecked steps are requirements still outstanding, not supported features.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events builtin is implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process and path builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
 Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 91 runtime/module/npm
-checks pass (80 shared Node fixtures, 7 CLI checks, 3 explicit unsupported-API
+checks pass, plus 3,968 lexical path comparisons and a path identity/live-cwd scenario (80 shared Node fixtures, 7 CLI checks, 3 explicit unsupported-API
 checks and 1 Mite runtime identity check). Behavioral reference: Node v24.15.0. CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
@@ -90,9 +90,14 @@ Eight new Node fixtures and an explicit Mite identity check pass. ADR 0008 recor
 native ownership, environment behavior, exit semantics and unsupported lifecycle
 APIs. Native Linux/Windows validation remains open.
 
-Next: path operations, filesystem and Buffer, then networking/server and renderer
+Lexical node:path now provides POSIX/Windows operations and shared path/posix and
+path/win32 aliases. All 3,968 differential call comparisons and an ESM identity /
+live-cwd scenario pass. ADR 0009 records scope; matchesGlob remains absent and
+native Windows drive/cwd behavior is unverified. Seven CTest suites pass.
+
+Next: filesystem and Buffer, then networking/server and renderer
 vertical slices. Broaden the real-package
-corpus as those APIs become available. Filesystem, path/events, Buffer and process services precede the
+corpus as those APIs become available. Filesystem, Buffer and further process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain

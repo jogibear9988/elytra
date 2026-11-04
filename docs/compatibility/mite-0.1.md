@@ -26,7 +26,8 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
 | node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget/async iterators/async hooks absent |
 | MaxListeners warnings | intentional difference | Emitted via a microtask with simplified stderr formatting; no process warning event or nextTick phase yet |
-| Other Node built-in modules | unsupported | Except events/process, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
+| node:path, node:path/posix, node:path/win32 | partial | Lexical resolve/normalize/join/relative, parse/format, dirname/basename/extname, isAbsolute and namespace conversion tested for both styles; shared CJS/ESM identities; matchesGlob absent; native Windows drive/cwd behavior unverified |
+| Other Node built-in modules | unsupported | Except events/process/path, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There

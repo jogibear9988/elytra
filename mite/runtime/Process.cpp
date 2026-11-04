@@ -65,7 +65,7 @@ static JS::ThrowCompletionOr<ByteString> current_directory(JS::VM& vm)
     }
 }
 
-static char const* platform()
+char const* native_platform()
 {
 #if defined(_WIN32)
     return "win32";
@@ -93,7 +93,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
 {
     GC::Root process { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
     auto constant = JS::Attribute::Enumerable | JS::Attribute::Configurable;
-    process->define_direct_property("platform"_utf16, text(vm, platform()), constant);
+    process->define_direct_property("platform"_utf16, text(vm, native_platform()), constant);
     process->define_direct_property("arch"_utf16, text(vm, architecture()), constant);
     process->define_direct_property("pid"_utf16, JS::Value(static_cast<double>(uv_os_getpid())), constant);
     process->define_direct_property("ppid"_utf16, JS::Value(static_cast<double>(uv_os_getppid())), constant);

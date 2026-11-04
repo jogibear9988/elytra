@@ -3,6 +3,7 @@
 #include "ModuleSource.h"
 #include "BuiltinSources.h"
 #include "BuiltinNames.h"
+#include "Process.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -10,6 +11,7 @@
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/SyntheticModule.h>
 #include <cstdio>
+#include <cstring>
 #include <span>
 #include <string_view>
 
@@ -28,9 +30,16 @@ static constexpr std::string_view events_exports[] = {
 static constexpr std::string_view process_exports[] = {
     "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release", "exit"
 };
+static constexpr std::string_view path_exports[] = {
+    "resolve", "normalize", "isAbsolute", "join", "relative", "dirname", "basename", "extname", "format", "parse",
+    "toNamespacedPath", "_makeLong", "sep", "delimiter", "win32", "posix"
+};
 static constexpr BuiltinDefinition definitions[] = {
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
-    { "process", {}, process_exports }
+    { "process", {}, process_exports },
+    { "path", { MITE_PATH_SOURCE, sizeof(MITE_PATH_SOURCE) - 1 }, path_exports },
+    { "path/posix", {}, path_exports },
+    { "path/win32", {}, path_exports }
 };
 static BuiltinDefinition const* definition_for(std::string const& name)
 {
@@ -54,6 +63,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         m_builtins.emplace(name, m_process);
         return *m_process;
     }
+    if (name == "path/posix" || name == "path/win32") {
+        auto path = TRY(builtin("path"));
+        auto alias = TRY(path->get(name == "path/posix" ? "posix"_utf16 : "win32"_utf16));
+        if (!alias.is_object())
+            return error("ERR_MITE_BUILTIN_INITIALIZATION", "Path alias must be an object");
+        m_builtins.emplace(name, GC::Root<JS::Object> { alias.as_object() });
+        return alias.as_object();
+    }
     auto source = Utf16String::from_utf8(StringView(definition->source.data(), definition->source.size()));
     auto identity = "node:" + name;
     auto parsed = JS::Script::parse(source, m_realm, view(identity));
@@ -62,6 +79,9 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
+    host->define_direct_property("platform"_utf16,
+        JS::PrimitiveString::create(m_vm, Utf16String::from_utf8(StringView(native_platform(), strlen(native_platform())))), JS::default_attributes);
     host->define_native_function(m_realm, "warn"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         auto name = TRY(vm.argument(0).to_utf16_string(vm));
         auto message = TRY(vm.argument(1).to_utf16_string(vm));
