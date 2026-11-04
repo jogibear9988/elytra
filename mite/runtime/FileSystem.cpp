@@ -7,6 +7,7 @@
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibGC/Function.h>
+#include <LibGC/CellAllocator.h>
 #include <uv.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -19,6 +20,27 @@
 #include <vector>
 
 namespace Mite {
+// The private JS release function traces this owner. No worker ever accesses it;
+// pending FileHandle operations retain their JS receiver until completion.
+class FileOwner final : public GC::Cell {
+    GC_CELL(FileOwner, GC::Cell);
+    GC_DECLARE_ALLOCATOR(FileOwner);
+public:
+    explicit FileOwner(int fd) : m_fd(fd) { }
+    ~FileOwner() override { close(); }
+    int release() { int fd = static_cast<int>(m_fd); m_fd = -1; return fd; }
+    void finalize() override { close(); Base::finalize(); }
+private:
+    void close() {
+        if (m_fd < 0) return;
+        uv_fs_t request {};
+        uv_fs_close(nullptr, &request, release(), nullptr);
+        uv_fs_req_cleanup(&request);
+    }
+    int64_t m_fd; // Also satisfies the GC allocator minimum cell payload size.
+};
+GC_DEFINE_ALLOCATOR(FileOwner);
+
 namespace {
 using namespace ModulePaths;
 struct NativeRequest {
@@ -257,6 +279,12 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
     CONSTANT(S_IFMT); CONSTANT(S_IFREG); CONSTANT(S_IFDIR); CONSTANT(S_IFCHR); CONSTANT(S_IFBLK); CONSTANT(S_IFIFO); CONSTANT(S_IFLNK); CONSTANT(S_IFSOCK);
 #undef CONSTANT
     host->define_direct_property("constants"_utf16, constants, JS::default_attributes);
+    host->define_native_function(realm, "own"_utf16, [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        if (!vm.argument(0).is_int32() || vm.argument(0).as_i32() < 0)
+            return vm.throw_completion<JS::TypeError>("Invalid private filesystem descriptor"_utf16);
+        auto owner = vm.heap().allocate<FileOwner>(vm.argument(0).as_i32());
+        return JS::NativeFunction::create(realm, [owner](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(owner->release()); }, 0, "releaseFile"_utf16);
+    }, 1, JS::default_attributes);
     host->define_native_function(realm, "run"_utf16, [&realm, &loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         auto spec = TRY(vm.argument(0).to_object(vm));
         auto request = std::make_shared<NativeRequest>();

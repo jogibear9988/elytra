@@ -37,7 +37,7 @@ Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 11 CTest
 suites pass. This includes 91 original runtime/module/npm checks (82 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
-policy, 12 filesystem workflows plus 3 explicit policy fixtures, and the upstream
+policy, 15 filesystem workflows plus 3 explicit policy fixtures, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
@@ -138,9 +138,18 @@ check byte views, optional arguments, exact BigInt read positions, stream versus
 positioned access, zero-length I/O, native errors and final bytes. The filesystem
 corpus now has 12 shared workflows plus the existing three explicit policy cases.
 All eleven CTest suites pass. Numeric write offsets beyond the safe-integer range
-are explicitly unsupported; FileHandle remains the next step.
+are explicitly unsupported.
 
-Next: FileHandle/URL support, then networking/server and renderer
+FileHandle now implements Promise open, scalar/whole-file operations, metadata,
+sync/truncate, close events and async disposal. Per-handle active references defer
+native close until pending operations finish; a private native guard owns the fd
+until release. Three new Node workflows verify lifecycle timing, pending/new
+operations during close, repeated close and descriptor reuse. The filesystem
+corpus now has 15 shared workflows plus 3 explicit policy fixtures; all eleven
+CTest suites pass. ADR 0012 records the unverified forced-GC fallback and remaining
+FileHandle APIs. Ladybird remains unchanged.
+
+Next: URL/file-URL and encoding globals, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

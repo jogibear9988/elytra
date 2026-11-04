@@ -44,7 +44,7 @@ static constexpr std::string_view fs_exports[] = {
     "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync"
 };
 static constexpr std::string_view fs_promises_exports[] = {
-    "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
+    "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
 };
 static constexpr BuiltinDefinition definitions[] = {
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
@@ -103,6 +103,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root host { JS::Object::create(m_realm, nullptr) };
     if (name == "fs") {
         host->define_direct_property("native"_utf16, create_filesystem_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        auto events = TRY(builtin("events"));
+        host->define_direct_property("EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
         auto buffer = TRY(builtin("buffer"));
         host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }

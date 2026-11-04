@@ -38,7 +38,9 @@ def main():
     cases = [('sync.mjs', 0, None), ('async.mjs', 0, None), ('validation.cjs', 0, None),
              ('concurrent.mjs', 0, None), ('callback-throw.cjs', 1, 'fs callback fixture'),
              ('pending-throw.cjs', 1, 'pending fs fixture'), ('identity.cjs', 0, None), ('scalar.cjs', 0, None),
-             ('scalar-async.mjs', 0, None), ('scalar-validation.cjs', 0, None)]
+             ('scalar-async.mjs', 0, None), ('scalar-validation.cjs', 0, None),
+             ('filehandle.mjs', 0, None), ('filehandle-close.mjs', 0, None),
+             ('filehandle-validation.mjs', 0, None)]
     if hasattr(os, 'mkfifo'):
         cases.extend([('nonblocking.mjs', 0, None), ('descriptors.cjs', 0, None)])
     else:

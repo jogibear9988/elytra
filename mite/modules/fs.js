@@ -263,14 +263,79 @@
         try { fs.access(path, error => callback(!error)); }
         catch { queueMicrotask(() => callback(false)); }
     };
+    function call(operation, ...args) {
+        return new Promise((resolve, reject) => fs[operation](...args, (error, value) => error ? reject(error) : resolve(value)));
+    }
+    const handleToken = Symbol('FileHandle constructor');
+    class FileHandle extends host.EventEmitter {
+        #fd; #owner; #active = 0; #closing = false; #closePromise; #resolveClose; #rejectClose;
+        constructor(token, fd) {
+            super();
+            if (token !== handleToken) fail('ERR_ILLEGAL_CONSTRUCTOR', 'Illegal FileHandle constructor');
+            this.#fd = fd; this.#owner = native.own(fd);
+        }
+        get fd() { return this.#fd; }
+        async #run(syscall, operation) {
+            if (this.#fd < 0) {
+                const error = new Error('file closed'); error.code = 'EBADF'; error.syscall = syscall; throw error;
+            }
+            ++this.#active;
+            try { return await operation(this.#fd); }
+            finally {
+                --this.#active;
+                if (this.#closing && this.#active === 0) this.#startClose();
+            }
+        }
+        #startClose() {
+            const fd = this.#owner();
+            this.#fd = -1;
+            try { fs.close(fd, error => error ? this.#rejectClose(error) : this.#resolveClose()); }
+            catch (error) {
+                // Submission failed before a worker took ownership of the fd.
+                try { fs.closeSync(fd); } catch { }
+                this.#rejectClose(error);
+            }
+        }
+        close() {
+            if (this.#fd < 0) return Promise.resolve();
+            if (this.#closePromise) return this.#closePromise;
+            this.#closing = true;
+            this.#closePromise = new Promise((resolve, reject) => { this.#resolveClose = resolve; this.#rejectClose = reject; });
+            if (this.#active === 0) this.#startClose();
+            this.emit('close');
+            return this.#closePromise;
+        }
+        read(...args) {
+            return this.#run('read', fd => new Promise((resolve, reject) => {
+                fs.read(fd, ...args, (error, bytesRead, buffer) => error ? reject(error) : resolve({__proto__:null, bytesRead, buffer}));
+            }));
+        }
+        write(...args) {
+            return this.#run('write', fd => new Promise((resolve, reject) => {
+                fs.write(fd, ...args, (error, bytesWritten, buffer) => error ? reject(error) : resolve({__proto__:null, bytesWritten, buffer}));
+            }));
+        }
+        stat(opts = {}) { return this.#run('fstat', fd => { const {bigint = false} = opts; return call('fstat', fd, {bigint}); }); }
+        truncate(length = 0) { return this.#run('ftruncate', fd => call('ftruncate', fd, length)); }
+        sync() { return this.#run('fsync', fd => call('fsync', fd)); }
+        datasync() { return this.#run('fdatasync', fd => call('fdatasync', fd)); }
+        readFile(opts) { return this.#run('readFile', fd => call('readFile', fd, opts)); }
+        writeFile(data, opts) { return this.#run('writeFile', fd => call('writeFile', fd, data, opts)); }
+        appendFile(data, opts) { return this.#run('writeFile', fd => call('appendFile', fd, data, opts)); }
+        [Symbol.asyncDispose]() { return this.close(); }
+    }
     const promises = { constants };
     for (const op of ['readFile','writeFile','appendFile','access','stat','lstat','mkdir','rmdir','unlink','rename','readdir'])
         promises[op] = function (...args) {
             return new Promise((resolve, reject) => {
+                if (args[0] instanceof FileHandle && ['readFile','writeFile','appendFile'].includes(op)) {
+                    const [handle, ...rest] = args; resolve(handle[op](...rest)); return;
+                }
                 if (typeof args[0] === 'number') fail('ERR_INVALID_ARG_TYPE', 'Promise filesystem APIs require a path or FileHandle');
                 fs[op](...args, (error, value) => error ? reject(error) : resolve(value));
             });
         };
+    promises.open = async function (path, flag, fileMode) { return new FileHandle(handleToken, await call('open', path, flag, fileMode)); };
     fs.promises = promises;
     return fs;
 })

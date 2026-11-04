@@ -14,7 +14,7 @@ drain microtasks/rejection checks before the next callback. Active work requests
 keep the loop alive. Internal descriptors are closed and every uv_fs_t request is
 cleaned up; readFile/writeFile passed a numeric descriptor borrow it without
 closing it or resetting its position. Promise file operations accept paths;
-FileHandle support is pending. Scalar open/close/read/write, fstat/ftruncate and
+FileHandle support is described in ADR 0012. Scalar open/close/read/write, fstat/ftruncate and
 fsync/fdatasync use the same native request/completion ownership. Worker writes snapshot input bytes at submission;
 applications must not expect mutations after submission to affect pending writes.
 
@@ -52,7 +52,7 @@ exitCode still waits for referenced work to finish. process.exit remains immedia
 
 ## Evidence and limits
 
-Twelve differential workflows cover binary/Unicode data, typed views, append and
+The initial twelve differential workflows cover binary/Unicode data, typed views, append and
 exclusive creation, recursive mkdir, returned stat/dirent values, symlinks,
 encodings and invalid inputs, OS error fields, CJS/ESM identity, borrowed descriptor
 positions/ownership, parallel reads and callback microtask checkpoints. A FIFO
@@ -63,7 +63,7 @@ fixture checks explicit unsupported options. Tests compare final file contents
 in isolated directories as well as program output. FIFO/descriptor inheritance
 checks are POSIX-specific and report unverified coverage on other hosts.
 
-File URLs/URL globals, FileHandle, vector I/O, streams,
+File URLs/URL globals, vector I/O, streams,
 watching, permissions, copy/rm/link services and other fs APIs remain absent.
 AbortSignal, flush, recursive readdir/rmdir explicitly reject as unsupported.
 Legacy existsSync deprecation warnings are not emitted. Error wording/stacks and
