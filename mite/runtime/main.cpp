@@ -1,5 +1,7 @@
 #include "EventLoop.h"
 #include "ModuleLoader.h"
+#include "Process.h"
+#include <uv.h>
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
@@ -60,6 +62,7 @@ static JS::ThrowCompletionOr<JS::Value> print(JS::VM& vm, FILE* stream)
 
 int main(int argc, char** argv)
 {
+    argv = uv_setup_args(argc, argv);
     if (argc == 2 && std::string(argv[1]) == "--version") {
         puts("mite 0.1.0-dev (LibJS)");
         return 0;
@@ -129,10 +132,18 @@ int main(int argc, char** argv)
         +[](JS::VM& vm) { return print(vm, stderr); }, 0, JS::default_attributes);
     global.define_direct_property("global"_utf16, &global, JS::default_attributes);
 
-    auto process = JS::Object::create(realm, realm.intrinsics().object_prototype());
-    global.define_direct_property("process"_utf16, process, JS::default_attributes);
+    auto process_result = Mite::create_process(*vm, realm);
+    if (process_result.is_error()) {
+        report_exception(process_result.error_value());
+        vm->pop_execution_context();
+        return 1;
+    }
+    GC::Root process { process_result.release_value() };
+    global.define_direct_property("process"_utf16, process.ptr(), JS::default_attributes);
     GC::RootVector<JS::Value> args;
-    args.append(JS::PrimitiveString::create(*vm, Utf16String::from_utf8_with_replacement_character(StringView(argv[0], strlen(argv[0])))));
+    args.append(process->get_without_side_effects("execPath"_utf16));
+    process->define_direct_property("argv0"_utf16,
+        JS::PrimitiveString::create(*vm, Utf16String::from_utf8_with_replacement_character(StringView(argv[0], strlen(argv[0])))), JS::Attribute::Enumerable);
     if (filename != "[eval]")
         args.append(JS::PrimitiveString::create(*vm, Utf16String::from_utf8_with_replacement_character(StringView(filename.data(), filename.size()))));
     for (int i = script_arg + 1; i < argc; ++i)
@@ -163,8 +174,16 @@ int main(int argc, char** argv)
             GC::Root completion { result.release_value() };
             status = event_loop.run_until_idle();
             if (!status && completion->state() == JS::Promise::State::Pending) {
-                fputs("Unsettled top-level await in entry module\n", stderr);
-                status = 13;
+                auto requested = process->get("exitCode"_utf16);
+                if (requested.is_error()) {
+                    report_exception(requested.error_value());
+                    status = 1;
+                } else if (requested.value().is_int32()) {
+                    status = requested.value().as_i32();
+                } else {
+                    fputs("Unsettled top-level await in entry module\n", stderr);
+                    status = 13;
+                }
             } else if (!status && completion->state() == JS::Promise::State::Rejected) {
                 report_exception(completion->result());
                 status = 1;
@@ -185,6 +204,15 @@ int main(int argc, char** argv)
             status = 1;
         } else {
             status = event_loop.run_until_idle();
+        }
+    }
+    if (status == 0 || status == 13) {
+        auto code = process->get("exitCode"_utf16);
+        if (code.is_error()) {
+            report_exception(code.error_value());
+            status = 1;
+        } else if (code.value().is_int32()) {
+            status = code.value().as_i32();
         }
     }
     vm->pop_execution_context();

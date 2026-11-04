@@ -23,9 +23,9 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events builtin is implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 82 runtime/module/npm
-checks pass (72 shared Node fixtures, 7 CLI checks and 3 explicit unsupported-API
-checks). Behavioral reference: Node v24.15.0. CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 91 runtime/module/npm
+checks pass (80 shared Node fixtures, 7 CLI checks, 3 explicit unsupported-API
+checks and 1 Mite runtime identity check). Behavioral reference: Node v24.15.0. CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
@@ -83,8 +83,15 @@ The package matrix records exact measured scope; no full upstream test-suite or
 general npm compatibility claim is made. The published once.proto absence is
 observed under both runtimes and documented rather than patched.
 
-Next: expand useful built-ins/globals (filesystem/path, Buffer and process), then
-add networking/server and renderer vertical slices. Broaden the real-package
+Native process basics now provide cwd/chdir, live OS environment variables, IDs,
+platform/architecture, executable path/argv0, exitCode and immediate exit. Global,
+CommonJS and ESM process identity is shared even if the global alias is replaced.
+Eight new Node fixtures and an explicit Mite identity check pass. ADR 0008 records
+native ownership, environment behavior, exit semantics and unsupported lifecycle
+APIs. Native Linux/Windows validation remains open.
+
+Next: path operations, filesystem and Buffer, then networking/server and renderer
+vertical slices. Broaden the real-package
 corpus as those APIs become available. Filesystem, path/events, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

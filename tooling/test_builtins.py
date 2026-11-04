@@ -16,6 +16,16 @@ def main():
         parser.error('Node is required for differential tests')
     fixtures = Path(__file__).resolve().parents[1] / 'mite/tests/builtins'
     cases = [
+        ('process-global.cjs', 0, 'true true\n', None),
+        ('process-info.mjs', 0, 'true true true true true\ntrue true true true\ntrue true\ntrue true\ntrue true\n', None),
+        ('process-env.cjs', 0, 'true false\n42 string true true\ntrue true\ntrue true true\ndefined\n'
+         'TypeError ERR_INVALID_OBJECT_DEFINE_PROPERTY\ntrue true\n', None),
+        ('process-cwd.cjs', 0, 'true\ntrue\nENOENT true chdir true mite-working-directory-missing-fixture\nTypeError ERR_INVALID_ARG_TYPE\n', None),
+        ('process-exit-code.cjs', 0, 'undefined undefined\n' * 2 + 'number 7\nnumber 0\nnumber -2147483648\n'
+         + 'TypeError ERR_INVALID_ARG_TYPE\n' * 2 + 'RangeError ERR_OUT_OF_RANGE\n' * 3, None),
+        ('process-drain.cjs', 7, 'drained\n', None),
+        ('process-exit-now.cjs', 6, 'before\n', None),
+        ('process-unsettled.mjs', 5, 'pending\n', None),
         ('events-basic.cjs', 0, 'true true\nfalse\ntrue 5\ntrue 1\n', None),
         ('events-order.cjs', 0, 'first,second,first,late,prependOnce,prepend,normal,prepend,normal,once\n', None),
         ('events-raw.cjs', 0, 'true true\ntrue\n1 0\n', None),
@@ -49,6 +59,12 @@ def main():
     if not passed:
         failures += 1
         print(unsupported, file=sys.stderr)
+    identity = run(args.mite, fixtures / 'process-identity.cjs')
+    passed = identity.returncode == 0 and identity.stdout == 'mite v0.1.0 0.1.0 undefined\ntrue true\n' and identity.stderr == ''
+    print(f"{'PASS' if passed else 'FAIL'} explicit Mite runtime identity")
+    if not passed:
+        failures += 1
+        print(identity, file=sys.stderr)
     return int(bool(failures))
 
 

@@ -9,7 +9,8 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
 | `console.log`, `console.error` | partial | String conversion and space joining; no Node object inspection or format substitutions |
-| `process.argv` | partial | Script path and arguments; executable path normalization pending |
+| `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals, hrtime and nextTick absent |
+| Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
 | Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; no process.nextTick or rejection events |
 | Unhandled rejections | partial | Nonzero exit after microtask drain; no process event API yet |
@@ -25,7 +26,7 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
 | node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget/async iterators/async hooks absent |
 | MaxListeners warnings | intentional difference | Emitted via a microtask with simplified stderr formatting; no process warning event or nextTick phase yet |
-| Other Node built-in modules | unsupported | Not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
+| Other Node built-in modules | unsupported | Except events/process, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There

@@ -62,6 +62,7 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, fs::path entry_path)
     , m_entry_path(std::move(entry_path))
     , m_entry_url(string(path_to_url(m_entry_path).serialize()))
     , m_promise_constructor(realm.global_object().get_without_side_effects("Promise"_utf16).as_object())
+    , m_process(realm.global_object().get_without_side_effects("process"_utf16).as_object())
     , m_commonjs_cache(JS::Object::create(realm, nullptr))
 {
     m_vm.host_load_imported_module = [this](JS::ImportedModuleReferrer referrer, JS::ModuleRequest const& request,

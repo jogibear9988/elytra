@@ -60,6 +60,7 @@ private:
     std::filesystem::path m_entry_path;
     std::string m_entry_url;
     GC::Root<JS::Object> m_promise_constructor;
+    GC::Root<JS::Object> m_process;
     GC::Root<JS::Object> m_commonjs_cache;
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;

@@ -25,8 +25,12 @@ static constexpr std::string_view events_exports[] = {
     "EventEmitter", "errorMonitor", "captureRejectionSymbol", "captureRejections",
     "defaultMaxListeners", "listenerCount", "getEventListeners", "getMaxListeners", "setMaxListeners", "once"
 };
+static constexpr std::string_view process_exports[] = {
+    "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release", "exit"
+};
 static constexpr BuiltinDefinition definitions[] = {
-    { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports }
+    { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
+    { "process", {}, process_exports }
 };
 static BuiltinDefinition const* definition_for(std::string const& name)
 {
@@ -46,6 +50,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     auto const* definition = definition_for(name);
     if (!definition)
         return error("ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin module is not implemented: node:" + name);
+    if (name == "process") {
+        m_builtins.emplace(name, m_process);
+        return *m_process;
+    }
     auto source = Utf16String::from_utf8(StringView(definition->source.data(), definition->source.size()));
     auto identity = "node:" + name;
     auto parsed = JS::Script::parse(source, m_realm, view(identity));
