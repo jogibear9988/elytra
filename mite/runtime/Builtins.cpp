@@ -37,6 +37,8 @@ static constexpr std::string_view path_exports[] = {
 };
 static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer" };
 static constexpr std::string_view fs_exports[] = {
+    "open", "openSync", "close", "closeSync", "read", "readSync", "write", "writeSync",
+    "fstat", "fstatSync", "ftruncate", "ftruncateSync", "fsync", "fsyncSync", "fdatasync", "fdatasyncSync",
     "constants", "Stats", "Dirent", "promises", "readFile", "readFileSync", "writeFile", "writeFileSync",
     "appendFile", "appendFileSync", "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
     "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync"

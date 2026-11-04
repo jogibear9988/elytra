@@ -14,7 +14,8 @@ drain microtasks/rejection checks before the next callback. Active work requests
 keep the loop alive. Internal descriptors are closed and every uv_fs_t request is
 cleaned up; readFile/writeFile passed a numeric descriptor borrow it without
 closing it or resetting its position. Promise file operations accept paths;
-FileHandle support is pending. Worker writes snapshot input bytes at submission;
+FileHandle support is pending. Scalar open/close/read/write, fstat/ftruncate and
+fsync/fdatasync use the same native request/completion ownership. Worker writes snapshot input bytes at submission;
 applications must not expect mutations after submission to affect pending writes.
 
 The implemented subset is readFile/writeFile/appendFile, access/exists,
@@ -33,7 +34,11 @@ views retain that storage. Native TypedArray copies also avoid JS per-byte loops
 Returned Stats/BigIntStats retain exact native integer values as decimal strings
 until JS conversion, and BigInt timestamps retain nanoseconds. Dirent names can
 be strings or Buffers; unknown directory entry types use lstat when requested.
-Public constructor edge cases are not claimed covered.
+Public constructor edge cases are not claimed covered. Scalar I/O covers
+positioned/current-offset access, Buffer/TypedArray/DataView byte ranges, callback
+identity and optional argument forms. Read positions support exact signed-64-bit
+BigInt values; numeric write positions above the safe-integer range explicitly
+reject rather than risking imprecise offsets.
 
 ## Fatal termination policy
 
@@ -47,7 +52,7 @@ exitCode still waits for referenced work to finish. process.exit remains immedia
 
 ## Evidence and limits
 
-Nine differential workflows cover binary/Unicode data, typed views, append and
+Twelve differential workflows cover binary/Unicode data, typed views, append and
 exclusive creation, recursive mkdir, returned stat/dirent values, symlinks,
 encodings and invalid inputs, OS error fields, CJS/ESM identity, borrowed descriptor
 positions/ownership, parallel reads and callback microtask checkpoints. A FIFO
@@ -58,7 +63,7 @@ fixture checks explicit unsupported options. Tests compare final file contents
 in isolated directories as well as program output. FIFO/descriptor inheritance
 checks are POSIX-specific and report unverified coverage on other hosts.
 
-File URLs/URL globals, open/read/write/close descriptor APIs, FileHandle, streams,
+File URLs/URL globals, FileHandle, vector I/O, streams,
 watching, permissions, copy/rm/link services and other fs APIs remain absent.
 AbortSignal, flush, recursive readdir/rmdir explicitly reject as unsupported.
 Legacy existsSync deprecation warnings are not emitted. Error wording/stacks and

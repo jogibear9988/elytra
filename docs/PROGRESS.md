@@ -37,7 +37,7 @@ Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 11 CTest
 suites pass. This includes 91 original runtime/module/npm checks (82 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
-policy, 9 filesystem workflows plus 3 explicit policy fixtures, and the upstream
+policy, 12 filesystem workflows plus 3 explicit policy fixtures, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
@@ -132,7 +132,15 @@ borrowed ownership and positions. TypedArray copies use the native engine path.
 Eleven CTest suites pass. ADR 0011 records intentional differences (including fatal
 termination with pending work), limitations and the exact tested platform.
 
-Next: descriptor APIs and FileHandle/URL support, then networking/server and renderer
+Scalar descriptor APIs now add open/close/read/write, fstat/ftruncate and
+fsync/fdatasync in synchronous/callback forms. Three new differential workflows
+check byte views, optional arguments, exact BigInt read positions, stream versus
+positioned access, zero-length I/O, native errors and final bytes. The filesystem
+corpus now has 12 shared workflows plus the existing three explicit policy cases.
+All eleven CTest suites pass. Numeric write offsets beyond the safe-integer range
+are explicitly unsupported; FileHandle remains the next step.
+
+Next: FileHandle/URL support, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

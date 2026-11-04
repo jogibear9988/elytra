@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <algorithm>
+#include <charconv>
 #include <cstring>
 #include <filesystem>
 #include <memory>
@@ -25,6 +26,9 @@ struct NativeRequest {
     std::vector<unsigned char> data;
     int flags {}, mode {};
     int descriptor { -1 };
+    int64_t position { -1 };
+    size_t length {};
+    int number {};
     bool recursive {}, with_file_types {};
     int error {};
     std::string syscall, error_path, created;
@@ -70,6 +74,32 @@ static void execute(NativeRequest& request)
 {
     const auto& op = request.operation;
     auto const* path = request.path.c_str();
+    if (op == "open" || op == "close" || op == "read" || op == "write" || op == "fstat" || op == "ftruncate" || op == "fsync" || op == "fdatasync") {
+        FsRequest call;
+        int result = 0;
+        if (op == "open") result = uv_fs_open(nullptr, &call.value, path, request.flags, request.mode, nullptr);
+        else if (op == "close") result = uv_fs_close(nullptr, &call.value, request.descriptor, nullptr);
+        else if (op == "fstat") {
+            result = uv_fs_fstat(nullptr, &call.value, request.descriptor, nullptr);
+            if (!result) request.stat = call.value.statbuf;
+        } else if (op == "ftruncate") result = uv_fs_ftruncate(nullptr, &call.value, request.descriptor, request.position, nullptr);
+        else if (op == "fsync") result = uv_fs_fsync(nullptr, &call.value, request.descriptor, nullptr);
+        else if (op == "fdatasync") result = uv_fs_fdatasync(nullptr, &call.value, request.descriptor, nullptr);
+        else if (op == "read") {
+            request.data.resize(request.length);
+            if (request.length) {
+                auto buffer = uv_buf_init(reinterpret_cast<char*>(request.data.data()), static_cast<unsigned int>(request.length));
+                result = uv_fs_read(nullptr, &call.value, request.descriptor, &buffer, 1, request.position, nullptr);
+            }
+            request.data.resize(result > 0 ? static_cast<size_t>(result) : 0);
+        } else {
+            auto buffer = uv_buf_init(reinterpret_cast<char*>(request.data.data()), static_cast<unsigned int>(request.data.size()));
+            result = uv_fs_write(nullptr, &call.value, request.descriptor, &buffer, 1, request.position, nullptr);
+        }
+        request.number = result;
+        record(request, result, op.c_str(), request.path);
+        return;
+    }
     if (op == "readFile" || op == "writeFile") {
         FsRequest open;
         int descriptor = request.descriptor;
@@ -164,16 +194,18 @@ static GC::Ref<JS::Object> make_error(JS::VM& vm, NativeRequest const& request)
     error->define_direct_property("errno"_utf16, JS::Value(request.error), JS::default_attributes);
     error->define_direct_property("code"_utf16, text(vm, uv_err_name(request.error)), JS::default_attributes);
     error->define_direct_property("syscall"_utf16, text(vm, request.syscall), JS::default_attributes);
-    if (request.syscall != "read" && request.syscall != "write" && request.syscall != "close") error->define_direct_property("path"_utf16, text(vm, request.error_path), JS::default_attributes);
+    if (request.descriptor < 0 && request.syscall != "read" && request.syscall != "write" && request.syscall != "close") error->define_direct_property("path"_utf16, text(vm, request.error_path), JS::default_attributes);
     if (request.operation == "rename") error->define_direct_property("dest"_utf16, text(vm, request.dest), JS::default_attributes);
     return error;
 }
 static JS::ThrowCompletionOr<JS::Value> result(JS::VM& vm, JS::Realm& realm, NativeRequest const& request)
 {
     if (request.error) return JS::throw_completion(make_error(vm, request));
+    if (request.operation == "open" || request.operation == "write") return JS::Value(request.number);
+    if (request.operation == "read") return byte_array(realm, request.data.data(), request.data.size());
     if (request.operation == "readFile") return byte_array(realm, request.data.data(), request.data.size());
     if (request.operation == "mkdir" && !request.created.empty()) return JS::Value(text(vm, request.created));
-    if (request.operation == "stat" || request.operation == "lstat") {
+    if (request.operation == "stat" || request.operation == "lstat" || request.operation == "fstat") {
         auto object = JS::Object::create(realm, nullptr);
 #define FIELD(name) object->define_direct_property(#name##_utf16, text(vm, std::to_string(request.stat.st_##name)), JS::default_attributes)
         FIELD(dev); FIELD(mode); FIELD(nlink); FIELD(uid); FIELD(gid); FIELD(rdev); FIELD(blksize); FIELD(ino); FIELD(size); FIELD(blocks);
@@ -231,18 +263,27 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
         auto operation = TRY(TRY(spec->get("op"_utf16)).to_utf16_string(vm));
         request->operation = string(MUST(operation.utf16_view().to_byte_string()));
         auto path = TRY(spec->get("path"_utf16));
-        if (path.is_number() && (request->operation == "readFile" || request->operation == "writeFile")) request->descriptor = TRY(path.to_i32(vm));
+        if (path.is_number()) request->descriptor = TRY(path.to_i32(vm));
         else request->path = TRY(path_argument(vm, path));
         if (request->path.find('\0') != std::string::npos) return vm.throw_completion<JS::TypeError>("Invalid private filesystem path"_utf16);
         if (request->operation == "rename") {
             request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
             if (request->dest.find('\0') != std::string::npos) return vm.throw_completion<JS::TypeError>("Invalid private filesystem destination"_utf16);
         }
+        auto position = TRY(spec->get("position"_utf16));
+        if (position.is_string()) {
+            auto encoded = MUST(position.as_string().utf16_string_view().to_byte_string());
+            auto parsed = std::from_chars(encoded.characters(), encoded.characters() + encoded.length(), request->position);
+            if (parsed.ec != std::errc {} || parsed.ptr != encoded.characters() + encoded.length())
+                return vm.throw_completion<JS::RangeError>("Invalid private filesystem position"_utf16);
+        }
+        auto length = TRY(spec->get("length"_utf16));
+        if (!length.is_undefined()) request->length = TRY(length.to_u32(vm));
         request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
         request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
         request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
         request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
-        if (request->operation == "writeFile") {
+        if (request->operation == "writeFile" || request->operation == "write") {
             auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));
             request->data.assign(data.begin(), data.end());
         }

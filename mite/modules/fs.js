@@ -95,10 +95,16 @@
         isBlockDevice() { return this[kType] === 7; }
     }
     function prepare(op, pathname, argument, data) {
-        const spec = { op, path: (op === 'readFile' || op === 'writeFile') && typeof pathname === 'number' ? integer(pathname, 0, 0x7fffffff, 'fd') : path(pathname) };
+        const descriptor = ['close','fstat','ftruncate','fsync','fdatasync'].includes(op);
+        const spec = { op, path: descriptor || ((op === 'readFile' || op === 'writeFile') && typeof pathname === 'number') ? integer(pathname, 0, 0x7fffffff, 'fd') : path(pathname) };
         let convert = () => undefined;
         let recover;
-        if (op === 'readFile') {
+        if (op === 'open') {
+            spec.flags = flags(argument.flags, 'r'); spec.mode = mode(argument.mode, 0o666); convert = value => value;
+        } else if (op === 'ftruncate') {
+            const length = argument === undefined ? 0 : integer(argument, -Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, 'len');
+            spec.position = String(Math.max(0, length));
+        } else if (op === 'readFile') {
             const opts = options(argument); const encoding = codec(opts.encoding);
             spec.flags = flags(opts.flag, 'r');
             convert = raw => { const buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength); return encoding ? buffer.toString(encoding) : buffer; };
@@ -109,7 +115,7 @@
             else fail('ERR_INVALID_ARG_TYPE', 'data must be a string, Buffer, TypedArray or DataView');
             spec.mode = mode(opts.mode, 0o666); spec.flags = flags(opts.flag || 'w', 'w');
         } else if (op === 'access') spec.mode = argument === undefined ? constants.F_OK : integer(argument, -0x80000000, 0x7fffffff, 'mode');
-        else if (op === 'stat' || op === 'lstat') {
+        else if (op === 'stat' || op === 'lstat' || op === 'fstat') {
             const opts = options(argument);
             convert = raw => stats(raw, !!opts.bigint);
             if (opts.throwIfNoEntry === false) recover = error => error.code === 'ENOENT' || error.code === 'ENOTDIR';
@@ -145,12 +151,12 @@
             // Conversion errors belong to this operation; callback exceptions escape.
             let converted;
             try { converted = convert(value); } catch (error) { callback(error); return; }
-            if (op === 'readFile' || op === 'stat' || op === 'lstat' || op === 'readdir' || op === 'mkdir') callback(null, converted);
+            if (op === 'readFile' || op === 'stat' || op === 'lstat' || op === 'readdir' || op === 'mkdir' || op === 'open' || op === 'fstat') callback(null, converted);
             else callback(null);
         });
     }
     const fs = { constants, Stats, Dirent };
-    for (const op of ['readFile','writeFile','access','stat','lstat','mkdir','rmdir','unlink','rename','readdir']) {
+    for (const op of ['readFile','writeFile','access','stat','lstat','mkdir','rmdir','unlink','rename','readdir','fstat','ftruncate','fsync','fdatasync']) {
         if (op === 'writeFile') {
             fs.writeFileSync = (path, data, opts) => sync(op, path, opts, data);
             fs.writeFile = function (path, data, opts, callback) {
@@ -165,6 +171,87 @@
             };
         }
     }
+    fs.openSync = (path, flag, fileMode) => sync('open', path, { flags: flag, mode: fileMode });
+    fs.open = function (path, flag, fileMode, callback) {
+        if (typeof flag === 'function') { callback = flag; flag = undefined; fileMode = undefined; }
+        else if (typeof fileMode === 'function') { callback = fileMode; fileMode = undefined; }
+        callbackOperation('open', path, { flags: flag, mode: fileMode }, undefined, callback);
+    };
+    fs.closeSync = fd => sync('close', fd);
+    fs.close = function (fd, callback = error => { if (error) throw error; }) { callbackOperation('close', fd, undefined, undefined, callback); };
+    function byteView(value) {
+        if (!ArrayBuffer.isView(value)) fail('ERR_INVALID_ARG_TYPE', 'buffer must be a Buffer, TypedArray or DataView');
+        return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    }
+    function readPosition(value) {
+        if (value == null) return '-1';
+        if (typeof value === 'bigint') {
+            if (value < -1n || value > 0x7fffffffffffffffn) fail('ERR_OUT_OF_RANGE', 'position is out of range', RangeError);
+            return String(value);
+        }
+        return String(integer(value, -1, Number.MAX_SAFE_INTEGER, 'position'));
+    }
+    function writePosition(value) {
+        // Node's write overloads use the current position for non-number input.
+        if (typeof value !== 'number' || value < 0) return '-1';
+        if (!Number.isInteger(value)) return '-1';
+        if (value > Number.MAX_SAFE_INTEGER) unsupported('Write positions above the safe integer range');
+        return String(Math.trunc(value));
+    }
+    function prepareRead(fd, buffer, offset, length, position) {
+        integer(fd, 0, 0x7fffffff, 'fd');
+        let opts;
+        if (!ArrayBuffer.isView(buffer)) {
+            opts = buffer == null ? {} : buffer;
+            if (typeof opts !== 'object') fail('ERR_INVALID_ARG_TYPE', 'options must be an object');
+            buffer = opts.buffer === undefined ? Buffer.alloc(16384) : opts.buffer;
+        } else if (typeof offset === 'object') opts = offset || {};
+        if (opts) { offset = opts.offset; length = opts.length; position = opts.position; }
+        const view = byteView(buffer);
+        offset = integer(offset === undefined ? 0 : offset, 0, view.byteLength, 'offset');
+        length = integer(length === undefined ? view.byteLength - offset : length, 0, view.byteLength - offset, 'length');
+        return { spec: { op: 'read', path: fd, length, position: readPosition(position) }, buffer,
+            convert(raw) { byteView(buffer).set(raw, offset); return raw.byteLength; } };
+    }
+    function prepareWrite(fd, buffer, offset, length, position) {
+        integer(fd, 0, 0x7fffffff, 'fd');
+        const original = buffer;
+        if (typeof buffer === 'string') {
+            const encoding = typeof offset === 'string' ? offset : length;
+            position = typeof offset === 'string' ? null : offset;
+            buffer = Buffer.from(buffer, typeof encoding === 'string' && Buffer.isEncoding(encoding) ? encoding : 'utf8');
+            offset = 0; length = buffer.byteLength;
+        } else if (offset !== null && typeof offset === 'object') {
+            const opts = offset; offset = opts.offset; length = opts.length; position = opts.position;
+        }
+        const view = byteView(buffer);
+        offset = integer(offset === undefined ? 0 : offset, 0, view.byteLength, 'offset');
+        length = integer(typeof length !== 'number' ? view.byteLength - offset : length, 0, view.byteLength - offset, 'length');
+        return { spec: { op: 'write', path: fd, data: view.subarray(offset, offset + length), position: writePosition(position) }, buffer: original };
+    }
+    fs.readSync = function (fd, ...args) {
+        byteView(args[0]);
+        const operation = prepareRead(fd, ...args);
+        return operation.convert(native.run(operation.spec));
+    };
+    fs.writeSync = function (fd, ...args) { return native.run(prepareWrite(fd, ...args).spec); };
+    fs.read = function (fd, ...args) {
+        const callback = args.pop();
+        if (typeof callback !== 'function') fail('ERR_INVALID_ARG_TYPE', 'callback must be a function');
+        const operation = prepareRead(fd, ...args);
+        native.run(operation.spec, (error, raw) => {
+            if (error) { callback(error, 0, operation.buffer); return; }
+            let count;
+            try { count = operation.convert(raw); } catch (error) { callback(error, 0, operation.buffer); return; }
+            callback(null, count, operation.buffer);
+        });
+    };
+    fs.write = function (fd, ...args) {
+        const callback = args.pop();
+        if (typeof callback !== 'function') fail('ERR_INVALID_ARG_TYPE', 'callback must be a function');
+        const operation = prepareWrite(fd, ...args);
+        native.run(operation.spec, (error, count) => callback(error, error ? 0 : count, operation.buffer));
+    };
     fs.appendFileSync = function (path, data, opts) { opts = options(opts); return fs.writeFileSync(path, data, { ...opts, flag: opts.flag === undefined ? 'a' : opts.flag }); };
     fs.appendFile = function (path, data, opts, callback) {
         if (typeof opts === 'function') { callback = opts; opts = undefined; }
