@@ -68,4 +68,6 @@ build/dev/bin/mite examples/mite-tcp/echo.mjs 3000
 nc 127.0.0.1 3000
 ```
 
-TCP currently supports numeric IPv4/IPv6 addresses. DNS, HTTP and TLS remain open.
+TCP supports IPv4/IPv6 addresses and OS hostname lookup, including custom lookup
+functions and partial automatic family retry. node:dns lookup and its Promise API
+are available; DNS record-query APIs, HTTP and TLS remain open.

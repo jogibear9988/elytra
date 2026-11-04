@@ -8,6 +8,7 @@
 #include "URL.h"
 #include "Encoding.h"
 #include "Network.h"
+#include "DNS.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -58,7 +59,11 @@ static constexpr std::string_view stream_exports[] = {
 static constexpr std::string_view stream_promises_exports[] = { "pipeline", "finished" };
 static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" };
 static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect", "createConnection", "isIP", "isIPv4", "isIPv6" };
+static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDefaultResultOrder", "getDefaultResultOrder", "ADDRCONFIG", "V4MAPPED", "ALL" };
+static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
+    { "dns/promises", {}, dns_promises_exports },
     { "net", { MITE_NET_SOURCE, sizeof(MITE_NET_SOURCE) - 1 }, net_exports },
     { "stream", { MITE_STREAM_SOURCE, sizeof(MITE_STREAM_SOURCE) - 1 }, stream_exports },
     { "stream/promises", {}, stream_promises_exports },
@@ -96,8 +101,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         m_builtins.emplace(name, m_process);
         return *m_process;
     }
-    if (name == "fs/promises" || name == "stream/promises") {
-        auto owner = TRY(builtin(name == "fs/promises" ? "fs" : "stream"));
+    if (name == "fs/promises" || name == "stream/promises" || name == "dns/promises") {
+        auto owner = TRY(builtin(name.substr(0, name.find('/'))));
         auto promises = TRY(owner->get("promises"_utf16));
         if (!promises.is_object()) return error("ERR_MITE_BUILTIN_INITIALIZATION", "Builtin promises alias must be an object");
         m_builtins.emplace(name, GC::Root<JS::Object> { promises.as_object() });
@@ -132,7 +137,13 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
     }
+    if (name == "dns") {
+        host->define_direct_property("native"_utf16, create_dns_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        auto url = TRY(builtin("url"));
+        host->define_direct_property("domainToASCII"_utf16, TRY(url->get("domainToASCII"_utf16)), JS::default_attributes);
+    }
     if (name == "net") {
+        host->define_direct_property("dns"_utf16, TRY(builtin("dns")), JS::default_attributes);
         host->define_direct_property("native"_utf16, create_network_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
         host->define_direct_property("stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
         auto events = TRY(builtin("events"));

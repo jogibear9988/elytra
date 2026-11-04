@@ -79,6 +79,8 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/fs.js" MITE_FS_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/fs.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/url.js" MITE_URL_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/url.js")
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/dns.js" MITE_DNS_SOURCE)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/dns.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/net.js" MITE_NET_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/net.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/util.js" MITE_UTIL_SOURCE)
@@ -88,7 +90,7 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js" MITE_ST
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/mite/modules/generated/stream.js" "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js")
 configure_file(mite/runtime/BuiltinSources.h.in generated/BuiltinSources.h @ONLY)
-add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp mite/runtime/Encoding.cpp mite/runtime/Network.cpp)
+add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp mite/runtime/Encoding.cpp mite/runtime/Network.cpp mite/runtime/DNS.cpp)
 add_custom_target(check-runtime-js
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py" VERBATIM)
 add_dependencies(mite check-ladybird check-runtime-js)
@@ -112,6 +114,10 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-dns COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_dns.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-dns-validation COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_dns_validation.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-net COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_net.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-net-addresses COMMAND "${Python3_EXECUTABLE}"

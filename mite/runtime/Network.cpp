@@ -101,6 +101,13 @@ static JS::ThrowCompletionOr<void> callback(JS::VM& vm, JS::Value value) {
 }
 }
 
+int network_ip_family(StringView value)
+{
+    sockaddr_storage storage {};
+    if (address(std::string(value.characters_without_null_termination(), value.length()), 0, storage)) return 0;
+    return storage.ss_family == AF_INET ? 4 : 6;
+}
+
 GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop& loop)
 {
     auto transport = std::make_shared<Transport>(vm, realm, loop);
@@ -119,10 +126,8 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
     }, 2, JS::default_attributes);
     host->define_native_function(realm, "isIP"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         if (!vm.argument(0).is_string()) return JS::Value(0);
-        sockaddr_storage storage {};
         auto name = string(vm.argument(0));
-        if (address(name, 0, storage)) return JS::Value(0);
-        return JS::Value(storage.ss_family == AF_INET ? 4 : 6);
+        return JS::Value(network_ip_family(StringView(name.data(), name.size())));
     }, 1, JS::default_attributes);
     host->define_native_function(realm, "error"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
         int status = TRY(number(vm, vm.argument(0), -65536, -1));

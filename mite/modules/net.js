@@ -5,6 +5,7 @@
     const EventEmitter = host.EventEmitter;
     const Buffer = host.Buffer;
     const tick = host.process.nextTick;
+    const dnsLookup = host.dns.lookup;
     const sockets = new WeakMap();
     const servers = new WeakMap();
     function error(Type, code, message) { const e=new Type(message);e.code=code;return e; }
@@ -31,10 +32,10 @@
         else result={port:list[0],host:typeof list[1]==='string'?list[1]:undefined,backlog:typeof list[1]==='number'?list[1]:list[2]};
         return [result,callback];
     }
-    function numericHost(value, fallback) {
-        value=value===undefined?fallback:value;
+    function hostname(value, fallback) {
+        value=value||fallback;
         if(typeof value!=='string') throw error(TypeError,'ERR_INVALID_ARG_TYPE','host must be a string');
-        if(!ip(value)) unsupported('DNS hostname resolution');
+
         return value;
     }
     function systemError(status,syscall,address,port) {
@@ -43,6 +44,48 @@
         e.errno=status;e.syscall=syscall;
         if(address!==undefined){e.address=address;e.port=port;}
         return e;
+    }
+    function handle(socket) {
+        const state=sockets.get(socket);
+        const id=native.create((type,value)=>{if(state.id===id)socketEvent(socket,type,value);});
+        state.id=id;
+        if(!state.referenced)native.ref(id,false);
+        if(state.noDelay!==undefined)socket.setNoDelay(state.noDelay);
+        if(state.keepAlive!==undefined)socket.setKeepAlive(state.keepAlive,state.keepAliveInitialDelay);
+    }
+    function clearAttempt(state) { if(state.attemptTimer)clearTimeout(state.attemptTimer);state.attemptTimer=null; }
+    function attempt(socket) {
+        const state=sockets.get(socket);
+        if(socket.destroyed)return;
+        const target=state.addresses.shift();
+        state.host=target.address;state.family=target.family;
+        if(state.id===null)handle(socket);
+        if(state.multiple)socket.autoSelectFamilyAttemptedAddresses.push(`${state.host}:${state.port}`);
+        socket.emit('connectionAttempt',state.host,state.port,state.family);
+        if(socket.destroyed)return;
+        const status=native.connect(state.id,state.host,state.port);
+        if(status)tick(()=>{if(!socket.destroyed)connectFailure(socket,status);});
+        else if(state.addresses.length)state.attemptTimer=setTimeout(()=>{
+            state.attemptTimer=null;
+            if(socket.destroyed)return;
+            const failure=error(Error,'ETIMEDOUT','Connection attempt timed out');
+            failure.syscall='connect';failure.address=state.host;failure.port=state.port;
+            state.failures.push(failure);
+            socket.emit('connectionAttemptTimeout',state.host,state.port,state.family);
+            if(socket.destroyed)return;
+            native.close(state.id);state.id=null;attempt(socket);
+        },state.attemptTimeout).unref();
+    }
+    function connectFailure(socket,status) {
+        const state=sockets.get(socket);clearAttempt(state);
+        const failure=systemError(status,'connect',state.host,state.port);
+        state.failures.push(failure);
+        socket.emit('connectionAttemptFailed',state.host,state.port,state.family,failure);
+        if(socket.destroyed)return;
+        if(state.addresses.length){native.close(state.id);state.id=null;attempt(socket);return;}
+        socket.connecting=false;
+        if(state.multiple){const e=new AggregateError(state.failures);e.code=state.failures[0].code;socket.destroy(e);}
+        else socket.destroy(failure);
     }
     function socketEvent(socket,type,value) {
         const state=sockets.get(socket);
@@ -53,9 +96,8 @@
         }
         if(socket.destroyed)return;
         if(type==='connect') {
-            socket.connecting=false;
-            if(value) {socket.destroy(systemError(value,'connect',state.host,state.port));return;}
-            state.connected=true;
+            if(value) {connectFailure(socket,value);return;}
+            clearAttempt(state);socket.connecting=false;state.connected=true;
             socket.emit('connect');socket.emit('ready');
             if(state.writePending){const write=state.writePending.run;state.writePending=null;write();}
             socket._read();
@@ -79,7 +121,7 @@
             for(const key of ['objectMode','readableObjectMode','writableObjectMode'])
                 if(opts[key])throw error(TypeError,'ERR_INVALID_ARG_VALUE',`${key} is not supported for sockets`);
             super({...opts,autoDestroy:true,emitClose:true,objectMode:false,readableObjectMode:false,writableObjectMode:false,allowHalfOpen:opts.allowHalfOpen??false,decodeStrings:true});
-            const state={id:null,connected:false,closeCallback:null,destroyError:null,writePending:null,timer:null,referenced:true,noDelay:opts.noDelay,keepAlive:opts.keepAlive,keepAliveInitialDelay:opts.keepAliveInitialDelay??0};
+            const state={addresses:[],failures:[],attemptTimer:null,attemptTimeout:250,multiple:false,id:null,connected:false,closeCallback:null,destroyError:null,writePending:null,timer:null,referenced:true,noDelay:opts.noDelay,keepAlive:opts.keepAlive,keepAliveInitialDelay:opts.keepAliveInitialDelay??0};
             sockets.set(this,state);
             // Accepted channels are private to this factory, never user-supplied ids.
             this.connecting=false;this.bytesRead=0;this.bytesWritten=0;this.timeout=0;this._hadError=false;
@@ -91,18 +133,59 @@
             if(state.connected)throw error(Error,'ERR_SOCKET_ALREADY_BOUND','Socket is already connected');
             if(this.destroyed)unsupported('Reconnecting a destroyed Socket');
             const [opts,cb]=options(args);
-            for(const key of ['path','fd','localAddress','localPort','lookup','family','hints','autoSelectFamily','signal'])
+            for(const key of ['path','fd','localAddress','localPort','signal'])
                 if(opts[key]!==undefined)unsupported(`connect option ${key}`);
-            const targetPort=port(opts.port), targetHost=numericHost(opts.host,'127.0.0.1');
+            const targetPort=port(opts.port), targetHost=hostname(opts.host,'localhost');
+            let family=opts.family??0;
+            if(family==='IPv4')family=4;if(family==='IPv6')family=6;
+            if(![0,4,6].includes(family))throw error(TypeError,'ERR_INVALID_ARG_VALUE','Invalid address family');
+            const lookup=opts.lookup??dnsLookup;
+            if(typeof lookup!=='function')throw error(TypeError,'ERR_INVALID_ARG_TYPE','lookup must be a function');
+            if(opts.autoSelectFamily!==undefined && typeof opts.autoSelectFamily!=='boolean')
+                throw error(TypeError,'ERR_INVALID_ARG_TYPE','autoSelectFamily must be a boolean');
+            const timeout=opts.autoSelectFamilyAttemptTimeout??250;
+            if(typeof timeout!=='number'||!Number.isInteger(timeout)||timeout<1||timeout>2147483647)
+                throw error(RangeError,'ERR_OUT_OF_RANGE','Invalid family attempt timeout');
             if(cb)this.once('connect',cb);
-            state.host=targetHost;state.port=targetPort;
-            if(state.id===null)state.id=native.create((type,value)=>socketEvent(this,type,value));
-            if(!state.referenced)native.ref(state.id,false);
-            if(state.noDelay!==undefined)this.setNoDelay(state.noDelay);
-            if(state.keepAlive!==undefined)this.setKeepAlive(state.keepAlive,state.keepAliveInitialDelay);
+            state.port=targetPort;state.attemptTimeout=Math.max(10,timeout);
             this.connecting=true;
-            const status=native.connect(state.id,targetHost,targetPort);
-            if(status)tick(()=>{if(!this.destroyed){this.connecting=false;this.destroy(systemError(status,'connect',targetHost,targetPort));}});
+            const numeric=ip(targetHost);
+            if(numeric){state.addresses=[{address:targetHost,family:numeric}];handle(this);attempt(this);}
+            else {
+                handle(this);
+                const generation=state.id;
+                const all=family===0 && opts.autoSelectFamily!==false;
+                let called=false;
+                let hints=opts.hints??0;
+                if(!hints&&family===0&&host.platform!=='win32')hints=host.dns.ADDRCONFIG;
+                try { lookup(targetHost,{family:family||undefined,hints,...(all?{all:true}:{})},(err,address,returnedFamily)=>{
+                    if(called)return;called=true;
+                    if(this.destroyed||state.id!==generation)return;
+                    if(err){this.emit('lookup',err,undefined,undefined,targetHost);this.connecting=false;this.destroy(err);return;}
+                    if(!all)this.emit('lookup',null,address,returnedFamily,targetHost);
+                    if(this.destroyed)return;
+                    const values=all?address:[{address,family:returnedFamily}];
+                    if(!Array.isArray(values)||!values.length){this.destroy(error(TypeError,'ERR_INVALID_IP_ADDRESS','Lookup returned no addresses'));return;}
+                    const seen=new Set(),valid=[];
+                    for(const entry of values) {
+                        if(all)this.emit('lookup',null,entry?.address,entry?.family,targetHost);
+                        if(this.destroyed)return;
+                        const kind=entry&&ip(entry.address);
+                        if(!kind){this.destroy(error(TypeError,'ERR_INVALID_IP_ADDRESS','Invalid address returned by lookup'));return;}
+                        if(entry.family!==4&&entry.family!==6){this.destroy(error(RangeError,'ERR_INVALID_ADDRESS_FAMILY','Invalid family returned by lookup'));return;}
+                        if(kind!==entry.family){this.destroy(error(TypeError,'ERR_INVALID_IP_ADDRESS','Address family does not match lookup result'));return;}
+                        if(!seen.has(entry.address)){seen.add(entry.address);valid.push(entry);}
+                    }
+                    // Alternate address families, preserving order within
+                    // each family, before bounded connection attempts.
+                    const first=valid[0].family;
+                    const a=valid.filter(v=>v.family===first),b=valid.filter(v=>v.family!==first),ordered=[];
+                    while(a.length||b.length){if(a.length)ordered.push(a.shift());if(b.length)ordered.push(b.shift());}
+                    state.addresses=ordered;state.multiple=all&&ordered.length>1;
+                    if(state.multiple)this.autoSelectFamilyAttemptedAddresses=[];
+                    attempt(this);
+                }); } catch(err) { this.destroy();throw err; }
+            }
             return this;
         }
         _read() {
@@ -129,7 +212,7 @@
         }
         _destroy(err,callback) {
             const state=sockets.get(this);
-            this._hadError=!!err;this.connecting=false;state.connected=false;state.destroyError=err;
+            this._hadError=!!err;this.connecting=false;state.connected=false;state.destroyError=err;clearAttempt(state);
             if(state.timer)clearTimeout(state.timer);state.timer=null;
             if(state.writePending){const cb=state.writePending.callback;state.writePending=null;cb(err??error(Error,'ERR_SOCKET_CLOSED_BEFORE_CONNECTION','Socket closed before the connection was established'));}
             if(state.id===null){callback(err);return;}
@@ -188,7 +271,7 @@
             if(state.id!==null)throw error(Error,'ERR_SERVER_ALREADY_LISTEN','Listen called more than once');
             const [opts,callback]=options(args);
             for(const key of ['path','fd','handle','signal','reusePort'])if(opts[key]!==undefined)unsupported(`listen option ${key}`);
-            const listenPort=port(opts.port??0),listenHost=numericHost(opts.host,'::');
+            const listenPort=port(opts.port??0),listenHost=hostname(opts.host,'::');
             const backlog=opts.backlog===undefined?511:Number(opts.backlog);
             if(!Number.isInteger(backlog)||backlog<1||backlog>2147483647)throw error(RangeError,'ERR_OUT_OF_RANGE','Invalid backlog');
             if(callback)this.once('listening',callback);
@@ -206,9 +289,17 @@
             });
             state.id=id;
             if(!state.referenced)native.ref(state.id,false);
-            const status=native.listen(state.id,listenHost,listenPort,backlog,!!opts.ipv6Only);
-            if(status){native.close(state.id);state.id=null;tick(()=>this.emit('error',systemError(status,'listen',listenHost,listenPort)));}
-            else {this.listening=true;tick(()=>{if(this.listening)this.emit('listening');});}
+            const bind=address=>{
+                if(state.id!==id || state.closing)return;
+                const status=native.listen(id,address,listenPort,backlog,!!opts.ipv6Only);
+                if(status){native.close(id);state.id=null;tick(()=>this.emit('error',systemError(status,'listen',address,listenPort)));}
+                else {this.listening=true;tick(()=>{if(this.listening)this.emit('listening');});}
+            };
+            if(ip(listenHost))bind(listenHost);
+            else dnsLookup(listenHost,(err,address)=>{
+                if(state.id!==id||state.closing)return;
+                if(err){native.close(id);state.id=null;this.emit('error',err);}else bind(address);
+            });
             return this;
         }
         address() { const id=servers.get(this).id;return this.listening&&id!==null?native.address(id,false):null; }

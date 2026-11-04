@@ -31,9 +31,9 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder and net builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net and dns builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 20 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 22 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -41,6 +41,8 @@ policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL compa
 and 342 URL helper comparisons, 1,657 encoding comparisons, 449 StringDecoder
 comparisons, 7 shared stream workflows and 1 recorded stream ordering difference,
 14 shared TCP workflows, 63 net validation comparisons and an independent TCP peer,
+6 shared DNS/TCP workflows, 119 DNS validation comparisons and a recorded DNS NUL
+policy difference,
 the checked-in runtime-library integrity gate, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
@@ -220,7 +222,21 @@ root retention and numeric-host-only scope. Ladybird remains unmodified; Windows
 and Linux remain unverified. DNS, IPC transports, local bind/family selection and
 several advanced socket policies remain open.
 
-Next: asynchronous DNS and a working HTTP server example
+OS-backed asynchronous dns.lookup now has callback/Promise forms, family/all/hints,
+IDNA normalization, ordering controls and shared builtin identity. TCP resolves
+hostnames (including default localhost), supports custom lookup and bounded
+alternating-family attempts with retry events and aggregate errors; listen can
+resolve hostnames and close safely during lookup. Six shared workflows and 119
+validation comparisons pass, along with fatal/pending resolver checks and a
+POSIX FIFO scenario proving a queued OS lookup leaves timers responsive. A
+separate fixture records deliberate NUL rejection instead of Node's prefix
+resolution. All twenty-two CTest suites pass. ADR 0018 documents request ownership,
+fatal-exit accounting, partial retry coverage, absent record-query services and
+unverified remote DNS/native Windows/Linux behavior. The existing TCP suite now
+has eight unsupported-option cases, since hostname/custom lookup/family support
+replaces earlier exclusions. Ladybird remains unmodified.
+
+Next: a working HTTP server example
 and renderer proof of concept. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

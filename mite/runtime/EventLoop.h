@@ -24,6 +24,10 @@ public:
     uv_loop_t& native_loop() { return m_loop; }
     void dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const&);
     void on_shutdown(std::function<void()> callback) { m_shutdown_hooks.push_back(std::move(callback)); }
+    // Requests that may be running in the OS/thread pool must participate in
+    // fatal-exit accounting even when they do not use queue_work().
+    void request_started() { ++m_pending_work; }
+    void request_finished() { VERIFY(m_pending_work); --m_pending_work; }
     bool has_pending_work() const { return m_pending_work != 0; }
     JS::ThrowCompletionOr<void> queue_work(std::function<void()>, GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>);
 

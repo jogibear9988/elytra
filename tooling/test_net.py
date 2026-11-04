@@ -58,7 +58,7 @@ def main():
         print(f'{"PASS" if passed else "FAIL"} fatal TCP callback exits ({Path(exe).name})')
         failures+=int(not passed)
     result=subprocess.run([args.mite,str(root/'unsupported.cjs')],capture_output=True,text=True,timeout=10)
-    passed=result.returncode==0 and not result.stderr and result.stdout=='ERR_MITE_UNSUPPORTED_API\n'*9
+    passed=result.returncode==0 and not result.stderr and result.stdout=='ERR_MITE_UNSUPPORTED_API\n'*8
     print(f'{"PASS" if passed else "FAIL"} explicit unsupported socket APIs')
     if not passed: print(result)
     failures+=int(not passed)
