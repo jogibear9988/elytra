@@ -7,7 +7,7 @@ unchecked steps are requirements still outstanding, not supported features.
 ## Milestones
 
 - [x] 1. Inspect and pin Ladybird; record integration decisions and native Windows gaps.
-- [ ] 2. Build an actual LibJS-powered Mite executable and differential CLI tests.
+- [x] 2. Build an actual LibJS-powered Mite executable and differential CLI tests.
 - [ ] 3. Add modules (ESM/CJS/package resolution), globals, timers and filesystem.
 - [ ] 4. Add asynchronous networking, HTTP, streams, crypto and process services.
 - [ ] 5. Validate pure-JavaScript npm packages and publish measured compatibility.
@@ -19,8 +19,21 @@ unchecked steps are requirements still outstanding, not supported features.
 
 ## Current work
 
-Upstream inspected and pinned. ADR 0001 records the Rust/C++ integration and
-experimental native Windows path. Next: reduced headless build and CLI execution.
+Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
+CLI, basic console, process.argv, a rooted FIFO promise job queue and rejection
+reporting. Node module loading, built-ins and Firefly remain unimplemented.
+
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 16 runtime
+checks pass (9 shared Node fixtures and 7 CLI checks). CLI example executed.
+`otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
+The upstream submodule remains unmodified. Windows/Linux remain unverified.
+
+Local build used `build/debug` with the same settings as the documented `dev`
+preset. Logs are in ignored `build/{configure,compile,test}.log`.
+
+Next: extract the runtime/job queue, implement queueMicrotask and native timers,
+then ESM/CJS and filesystem slices. Consider libuv for portable asynchronous
+services; record the choice and measure behavior against Node before claiming it.
 
 ## Resume
 

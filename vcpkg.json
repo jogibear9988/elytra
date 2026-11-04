@@ -1,0 +1,78 @@
+{
+  "name": "mite",
+  "version-string": "0.1.0",
+  "builtin-baseline": "20ceb8adbf0504d4b0d5e4058a32f9d4fc896391",
+  "dependencies": [
+    "fast-float",
+    "icu",
+    "libtommath",
+    "llvm-libc",
+    {
+      "name": "mimalloc",
+      "features": [
+        "secure"
+      ]
+    },
+    "openssl",
+    "simdutf",
+    "zmij",
+    {
+      "name": "dirent",
+      "platform": "windows"
+    },
+    {
+      "name": "mman",
+      "platform": "windows"
+    },
+    {
+      "name": "pthread",
+      "platform": "windows"
+    }
+  ],
+  "overrides": [
+    {
+      "name": "dirent",
+      "version": "1.26#0"
+    },
+    {
+      "name": "fast-float",
+      "version": "8.3.1#0"
+    },
+    {
+      "name": "icu",
+      "version": "78.3#2"
+    },
+    {
+      "name": "libtommath",
+      "version": "1.3.0#3"
+    },
+    {
+      "name": "llvm-libc",
+      "version": "e54169423e7ee5d8b41c2f1b6f7a59000c901ee0#0"
+    },
+    {
+      "name": "mimalloc",
+      "version": "2.2.7#0"
+    },
+    {
+      "name": "mman",
+      "version": "git-f5ff813#5"
+    },
+    {
+      "name": "openssl",
+      "version": "3.6.5#1"
+    },
+    {
+      "name": "pthread",
+      "version": "3.0.0#2"
+    },
+    {
+      "name": "simdutf",
+      "version": "9.1.1#0"
+    },
+    {
+      "name": "zmij",
+      "version": "1.2#1"
+    }
+  ]
+}

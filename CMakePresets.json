@@ -1,0 +1,17 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "dev",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/build/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [{"name": "dev", "configurePreset": "dev", "targets": ["mite"]}],
+  "testPresets": [{"name": "dev", "configurePreset": "dev", "output": {"outputOnFailure": true}}]
+}

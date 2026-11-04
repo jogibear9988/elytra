@@ -29,8 +29,10 @@ Inspected Ladybird commit `51ef0d743ceca25863847f8cea208c1c6f7031ce`
 
 Use C++23 for Mite's host integration, reusing LibJS's C++ ownership and GC APIs.
 Retain the upstream Rust implementation without adding a second hand-written FFI.
-Build a reduced set of upstream library directories, keeping our build adapter
-outside the submodule. Pin all fetched sources and fail on missing dependencies.
+Statically link a reduced set of upstream library directories, keeping our build adapter
+outside the submodule. Pin all fetched sources and fail on missing dependencies. The default vcpkg
+triplets provide static dependencies; static upstream libraries also avoid
+upstream shared-library installation assumptions about those dependency targets.
 A headless Mite build must never include LibWeb, Qt or Firefly.
 
 Use a single owning VM/thread initially. Host callbacks enter that VM only on its
