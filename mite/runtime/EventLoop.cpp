@@ -185,6 +185,9 @@ void EventLoop::checkpoint()
         if (result.is_error())
             fail(result.error_value());
     }
+    // LibJS also marks internal await/module promises handled directly, without
+    // always sending a second host notification. Consult the authoritative state.
+    m_rejections.remove_all_matching([](auto const& promise) { return promise->is_handled(); });
     if (!m_status && !m_rejections.is_empty())
         fail(m_rejections.first()->result());
 }

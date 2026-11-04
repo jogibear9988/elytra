@@ -21,10 +21,10 @@ unchecked steps are requirements still outstanding, not supported features.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. Node module loading, built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM file loading is implemented; CJS/package resolution, built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 26 runtime
-checks pass (19 shared Node fixtures and 7 CLI checks). CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 39 runtime/module
+checks pass (32 shared Node fixtures and 7 CLI checks). CLI example executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
@@ -36,7 +36,13 @@ setTimeout/setInterval and Timeout handles; added ordering, cancellation, ref/un
 invalid callbacks, exception and liveness differential fixtures. ADR 0003 records
 ownership and the libuv choice. No full Node event-loop compatibility is claimed.
 
-Next: ESM/CJS and package resolution, followed by filesystem modules and globals.
+Milestone 3 ESM progress: native LibJS module graph with canonical URL cache,
+relative/file URL resolution, package type selection, import.meta, live bindings,
+cycles, dynamic import and top-level await. Unsettled top-level await exits 13.
+Handled await rejections are filtered by the engine's authoritative handled bit.
+12 module graphs and an async rejection regression fixture are compared with Node.
+
+Next: JSON modules, CJS and package resolution, followed by filesystem modules and globals.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain
 tracked as unsupported in the compatibility matrix.
 

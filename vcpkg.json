@@ -28,7 +28,8 @@
       "name": "pthread",
       "platform": "windows"
     },
-    "libuv"
+    "libuv",
+    "libpsl"
   ],
   "overrides": [
     {

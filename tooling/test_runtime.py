@@ -25,6 +25,7 @@ def main():
         ("exception-shape.js", [], 0, "Error: explicit message\nTypeError: explicit message\nRangeError: explicit message\n"),
         ("promises.js", [], 0, "start\nend\nfirst\nsecond\nnested\n"),
         ("handled-rejection.js", [], 0, "handled\n"),
+        ("awaited-rejection.js", [], 0, "awaited rejection handled\n"),
         ("arguments.js", ["hello world", "--flag", "🪲"], 0,
          '["hello world","--flag","🪲"]\n'),
         ("microtasks.js", [], 0, "start\nend\nmicrotask\npromise\nlast\nnested\n"),

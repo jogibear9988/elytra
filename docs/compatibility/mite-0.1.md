@@ -12,7 +12,8 @@ Statuses describe this repository, not upstream LibJS's language conformance.
 | `global` | partial | Alias to `globalThis` |
 | Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; no process.nextTick or rejection events |
 | Unhandled rejections | partial | Nonzero exit after microtask drain; no process event API yet |
-| ESM, CJS, npm package resolution | unsupported | Upcoming loader slice |
+| ES modules | partial | `.mjs`, `package.json` type=module, relative/absolute file URLs, static/dynamic imports, live bindings, cycles, URL cache identity, import.meta url/filename/dirname/main and top-level await tested; no syntax auto-detection or import.meta.resolve yet |
+| CJS / npm package resolution | unsupported | Next loader slice; CJS/JSON imports fail explicitly |
 | `setTimeout`, `setInterval`, clearing timers | partial | Native libuv timers; arguments, callback receiver, numeric/string cancellation, ref/unref/hasRef/close/dispose tested; refresh and timeout warnings unsupported |
 | `setImmediate`, `process.nextTick` | unsupported | Additional Node event-loop phases pending |
 | `Buffer`, URL, encoding, fetch | unsupported | Not installed as globals |

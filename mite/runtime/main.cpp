@@ -1,4 +1,5 @@
 #include "EventLoop.h"
+#include "ModuleLoader.h"
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
@@ -146,25 +147,50 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto text = Utf16String::from_utf8_with_replacement_character(StringView(source.data(), source.size()));
-    auto parsed = JS::Script::parse(text, realm, StringView(filename.data(), filename.size()));
+    auto entry_path = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : std::filesystem::path(filename);
+    Mite::ModuleLoader modules(*vm, realm, entry_path);
+    auto module_format = filename == "[eval]" ? JS::ThrowCompletionOr<bool>(false) : modules.is_es_module(entry_path);
     int status = 0;
-    if (parsed.is_error()) {
-        for (auto const& error : parsed.error()) {
-            fputs("SyntaxError: ", stderr);
-            write_text(stderr, error.to_utf16_string());
-            fputc('\n', stderr);
-        }
+    if (module_format.is_error()) {
+        report_exception(module_format.error_value());
         status = 1;
-    } else {
-        GC::Root script { parsed.release_value() };
-        auto result = vm->run(*script);
+    } else if (module_format.value()) {
+        auto result = modules.run_entry();
         if (result.is_error()) {
             report_exception(result.error_value());
             status = 1;
-        }
-        if (!status)
+        } else {
+            GC::Root completion { result.release_value() };
             status = event_loop.run_until_idle();
+            if (!status && completion->state() == JS::Promise::State::Pending) {
+                fputs("Unsettled top-level await in entry module\n", stderr);
+                status = 13;
+            } else if (!status && completion->state() == JS::Promise::State::Rejected) {
+                report_exception(completion->result());
+                status = 1;
+            }
+        }
+    } else {
+        auto text = Utf16String::from_utf8_with_replacement_character(StringView(source.data(), source.size()));
+        auto parsed = JS::Script::parse(text, realm, StringView(filename.data(), filename.size()));
+        if (parsed.is_error()) {
+            for (auto const& error : parsed.error()) {
+                fputs("SyntaxError: ", stderr);
+                write_text(stderr, error.to_utf16_string());
+                fputc('\n', stderr);
+            }
+            status = 1;
+        } else {
+            GC::Root script { parsed.release_value() };
+            modules.register_script(*script);
+            auto result = vm->run(*script);
+            if (result.is_error()) {
+                report_exception(result.error_value());
+                status = 1;
+            }
+            if (!status)
+                status = event_loop.run_until_idle();
+        }
     }
     vm->pop_execution_context();
     return status;
