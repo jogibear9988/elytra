@@ -7,6 +7,7 @@
 #include "FileSystem.h"
 #include "URL.h"
 #include "Encoding.h"
+#include "Network.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -56,7 +57,9 @@ static constexpr std::string_view stream_exports[] = {
 };
 static constexpr std::string_view stream_promises_exports[] = { "pipeline", "finished" };
 static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" };
+static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect", "createConnection", "isIP", "isIPv4", "isIPv6" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "net", { MITE_NET_SOURCE, sizeof(MITE_NET_SOURCE) - 1 }, net_exports },
     { "stream", { MITE_STREAM_SOURCE, sizeof(MITE_STREAM_SOURCE) - 1 }, stream_exports },
     { "stream/promises", {}, stream_promises_exports },
     { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 }, string_decoder_exports },
@@ -128,6 +131,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             auto native = create_encoding_host(m_realm);
             host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
+    }
+    if (name == "net") {
+        host->define_direct_property("native"_utf16, create_network_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        host->define_direct_property("stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
+        auto events = TRY(builtin("events"));
+        host->define_direct_property("EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
     if (name == "util") host->define_direct_property("native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
     if (name == "url") {

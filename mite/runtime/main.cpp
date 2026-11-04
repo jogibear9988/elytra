@@ -58,6 +58,9 @@ static JS::ThrowCompletionOr<JS::Value> print(JS::VM& vm, FILE* stream)
         write_text(stream, text);
     }
     fputc('\n', stream);
+    // Servers must publish readiness/log lines while the process remains alive,
+    // including when stdout is a pipe rather than a terminal.
+    fflush(stream);
     return JS::js_undefined();
 }
 

@@ -50,6 +50,7 @@ EventLoop::~EventLoop()
     // Close even unreferenced timers, and release their JS roots before the VM.
     while (!m_timers.empty())
         cancel_timer(m_timers.begin()->first);
+    for (auto& hook : m_shutdown_hooks) hook();
     do {
         uv_run(&m_loop, UV_RUN_DEFAULT);
     } while (uv_loop_alive(&m_loop));
@@ -213,6 +214,14 @@ void EventLoop::dispatch_timer(uv_timer_t* handle)
     if (result.is_error())
         owner.fail(result.error_value());
     owner.checkpoint();
+}
+
+void EventLoop::dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const& callback)
+{
+    if (m_shutting_down || m_status) return;
+    auto result = callback();
+    if (result.is_error()) fail(result.error_value());
+    checkpoint();
 }
 
 void EventLoop::fail(JS::Value error)

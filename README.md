@@ -59,3 +59,13 @@ The [filesystem example](examples/mite-cli/files.mjs) copies its source using
 ```sh
 build/dev/bin/mite examples/mite-cli/files.mjs build/dev/files-example-copy.mjs
 ```
+
+The [TCP echo example](examples/mite-tcp/echo.mjs) listens on numeric loopback;
+connect using an ordinary TCP client. Pass `0` to choose a free port:
+
+```sh
+build/dev/bin/mite examples/mite-tcp/echo.mjs 3000
+nc 127.0.0.1 3000
+```
+
+TCP currently supports numeric IPv4/IPv6 addresses. DNS, HTTP and TLS remain open.

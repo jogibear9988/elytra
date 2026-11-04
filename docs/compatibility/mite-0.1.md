@@ -8,7 +8,7 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | --- | --- | --- |
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
-| `console.log`, `console.error` | partial | String conversion and space joining; no Node object inspection or format substitutions |
+| `console.log`, `console.error` | partial | String conversion, space joining and immediate line flush (including pipes); no Node object inspection or format substitutions |
 | `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals and hrtime absent |
 | Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
@@ -30,6 +30,8 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | node:stream / node:stream/promises | partial | Pinned readable-stream 4.7.0; Readable/Writable/Duplex/Transform/PassThrough identity, push/read, setEncoding, backpressure/drain, cork/writev, callback/Promise pipeline, async iteration and isolated errors tested; helpers exported by the package are not all verified; WHATWG adapters, global AbortController and filesystem/stdio streams absent |
 | Concurrent stream errors | intentional difference | Independent failing streams can report errors in a different relative order from Node 24; the differential suite retains both observed outputs explicitly. See ADR 0016 |
 | node:string_decoder | partial | Pinned string_decoder 1.3.0 with own adapter for Node labels, base64url, byte views and end-state reset; 449 incremental/input comparisons pass; internal fields/descriptors and all invalid receivers unverified |
+| node:net | partial | Native IPv4/IPv6 TCP Socket/Duplex and Server; accept/connect, reads/writes, half-close, backpressure, native cancellation, address metadata, timeout notification, ref/unref and server close waiting tested; 63 address/validation comparisons; DNS/IPC transports/local binding/AbortSignal/BlockList/reusePort/reset/reconnect and connection/drop policies remain absent |
+| TCP limits and lifecycle | intentional difference | Numeric hosts only; default client is IPv4 loopback and default listen lacks IPv4 fallback; native writes copy bytes, bytesWritten excludes queued Duplex chunks; handles rooted until close or teardown; native Windows/Linux unverified. See ADR 0017 |
 | fetch | unsupported | Not installed as a global |
 | Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
 | node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget/async iterators/async hooks absent |
@@ -39,7 +41,7 @@ The current behavioral oracle is Node v24.15.0 on macOS ARM64.
 | FileHandle | partial | Promise open; read/write, stat/truncate, sync/datasync, whole-file I/O, EventEmitter close event and async disposal tested; close waits active references; streams/vector/permission/time APIs absent; forced-GC fallback unverified and GC-close warnings absent |
 | Filesystem limits/options | intentional difference | Async writes snapshot data; whole-file read cap 2 GiB minus one with EFBIG; AbortSignal/flush/recursive readdir/rmdir explicitly unsupported; existsSync deprecation warnings absent; numeric scalar write positions above the safe-integer range explicitly unsupported |
 | Fatal errors with pending native work | intentional difference | Flush standard streams and terminate through _Exit; prevents blocked workers hanging fatal shutdown; pending writes may be abandoned. Normal exitCode drains referenced work |
-| Other Node built-in modules | unsupported | Except events/process/path/buffer/fs/url/stream/string_decoder and the util encoding classes, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
+| Other Node built-in modules | unsupported | Except events/process/path/buffer/fs/url/stream/string_decoder/net and the util encoding classes, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | Native addons, N-API, V8 internals, `process.binding()` | unsupported | Explicitly outside initial scope |
 
 Missing APIs are absent and therefore raise JavaScript errors when used. There

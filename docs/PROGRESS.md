@@ -31,15 +31,16 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream and string_decoder builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder and net builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 18 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 20 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
 policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons
 and 342 URL helper comparisons, 1,657 encoding comparisons, 449 StringDecoder
 comparisons, 7 shared stream workflows and 1 recorded stream ordering difference,
+14 shared TCP workflows, 63 net validation comparisons and an independent TCP peer,
 the checked-in runtime-library integrity gate, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
@@ -206,7 +207,20 @@ native build checks artifact/input hashes without requiring Node/npm. ADR 0016
 and tooling/runtime-js/README.md describe limits and updates. Filesystem/stdio
 streams, WHATWG adapters and broad helper coverage remain open.
 
-Next: native sockets, then a working HTTP server example
+Native TCP now provides numeric IPv4/IPv6 node:net Socket/Duplex and Server
+facades over the shared libuv loop. Fourteen Node workflows cover byte transport,
+backpressure, half-close, buffering, errors, close waiting, cancellation, ref/unref,
+timeouts and callback queue checkpoints; 63 address/validation comparisons pass.
+An independent Python socket peer verifies both runtimes; fatal callback exits
+and nine unsupported API cases are checked explicitly. All twenty CTest suites
+pass. The TCP echo example was tested with an external UTF-8 client. Console lines
+now flush when piped so long-running servers can publish readiness immediately.
+ADR 0017 records native ownership/shutdown, copied writes, queued byte-count limits,
+root retention and numeric-host-only scope. Ladybird remains unmodified; Windows
+and Linux remain unverified. DNS, IPC transports, local bind/family selection and
+several advanced socket policies remain open.
+
+Next: asynchronous DNS and a working HTTP server example
 and renderer proof of concept. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
