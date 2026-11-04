@@ -31,11 +31,15 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path and buffer builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 91 runtime/module/npm
-checks pass, plus 3,968 lexical path comparisons and a path identity/live-cwd scenario (80 shared Node fixtures, 7 CLI checks, 3 explicit unsupported-API
-checks and 1 Mite runtime identity check). Behavioral reference: Node v24.15.0. CLI example executed.
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 11 CTest
+suites pass. This includes 91 original runtime/module/npm checks (82 shared Node
+fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
+comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
+policy, 9 filesystem workflows plus 3 explicit policy fixtures, and the upstream
+integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
+CLI and filesystem-copy examples executed.
 `otool -L` shows platform libraries only, with no Node, V8, LibWeb or Qt.
 The upstream submodule remains unmodified. Windows/Linux remain unverified.
 
@@ -73,8 +77,8 @@ exports/imports maps, insertion-ordered conditions, exact/pattern priority, arra
 legacy main/index and module.paths values. Temporary package trees compare both
 loaders against Node, including error names/codes for invalid/blocked targets,
 encoded traversal/separators, malformed configs and nested package shadowing.
-The 2 built-in reservation checks are explicit unsupported behavior, not claims of
-working fs APIs. ADR 0006 records condition/recursion limits and remaining gaps.
+The 2 built-in reservation checks now verify implemented fs wins over a local
+npm shadow; they previously covered explicit unsupported behavior. ADR 0006 records condition/recursion limits and remaining gaps.
 
 The builtin registry now shares CommonJS exports with fixed named ESM shims,
 canonical node: identities and prefix cache bypass. node:events implements core
@@ -113,14 +117,24 @@ limit and pending Blob/File APIs. Ladybird remains unmodified.
 
 Buffer numeric access now covers fixed/variable-width signed and unsigned
 integers, floating point and 64-bit BigInt with both endian orders. The Buffer
-corpus now has 3,557 shared comparisons plus an explicit allocation-policy check.
+corpus now has 3,558 shared comparisons plus an explicit allocation-policy check.
 Encoded bytes, error codes, numeric limits and subview offsets match Node.
 A follow-up regression covers base64 decoding of UTF-16 surrogate pairs: the
 forgiving decoder now processes every code unit, matching Node low-byte behavior.
 
-Next: filesystem, then networking/server and renderer
+Filesystem now provides native whole-file I/O, access/exists, stat/lstat,
+mkdir/rmdir, unlink/rename and readdir, with synchronous/callback/Promise forms.
+Native workers own their byte snapshots; JS completions are rooted and run on the
+VM thread with microtask checkpoints. Nine differential workflows, two explicit
+fatal-FIFO exit policy tests and one unsupported-options fixture pass. A FIFO /
+timer test proves nonblocking native I/O; inherited descriptor tests verify
+borrowed ownership and positions. TypedArray copies use the native engine path.
+Eleven CTest suites pass. ADR 0011 records intentional differences (including fatal
+termination with pending work), limitations and the exact tested platform.
+
+Next: descriptor APIs and FileHandle/URL support, then networking/server and renderer
 vertical slices. Broaden the real-package
-corpus as those APIs become available. Filesystem, further Buffer and process services precede the
+corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates, nextTick and process events remain

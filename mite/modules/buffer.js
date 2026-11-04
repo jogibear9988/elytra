@@ -138,6 +138,10 @@
             const primitive = typeof value.valueOf === 'function' ? value.valueOf() : value;
             if (primitive !== value && (typeof primitive === 'string' || typeof primitive === 'object'))
                 return Buffer.from(primitive, offsetOrEncoding, length);
+            if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
+                size(Math.max(0, value.length));
+                return new BufferView(value);
+            }
             if (value.type === 'Buffer' && Array.isArray(value.data)) return Buffer.from(value.data);
             if (ArrayBuffer.isView(value) || 'length' in value) {
                 if (typeof value.length !== 'number' || Number.isNaN(value.length)) return new BufferView(0);

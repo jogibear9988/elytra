@@ -56,9 +56,10 @@ JS::Completion ModuleLoader::error(char const* code, std::string const& message,
     return JS::throw_completion(exception);
 }
 
-ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, fs::path entry_path)
+ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, fs::path entry_path)
     : m_vm(vm)
     , m_realm(realm)
+    , m_event_loop(event_loop)
     , m_entry_path(std::move(entry_path))
     , m_entry_url(string(path_to_url(m_entry_path).serialize()))
     , m_promise_constructor(realm.global_object().get_without_side_effects("Promise"_utf16).as_object())

@@ -46,6 +46,7 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
 
 EventLoop::~EventLoop()
 {
+    m_shutting_down = true;
     // Close even unreferenced timers, and release their JS roots before the VM.
     while (!m_timers.empty())
         cancel_timer(m_timers.begin()->first);
@@ -53,6 +54,44 @@ EventLoop::~EventLoop()
         uv_run(&m_loop, UV_RUN_DEFAULT);
     } while (uv_loop_alive(&m_loop));
     VERIFY(uv_loop_close(&m_loop) == 0);
+}
+
+struct EventLoop::Work {
+    EventLoop& owner;
+    std::function<void()> execute;
+    GC::Root<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete;
+    uv_work_t request {};
+};
+
+JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
+    GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete)
+{
+    auto* work = new Work { *this, std::move(execute), GC::Root { complete }, {} };
+    work->request.data = work;
+    int result = uv_queue_work(&m_loop, &work->request, [](uv_work_t* request) {
+        static_cast<Work*>(request->data)->execute();
+    }, [](uv_work_t* request, int status) {
+        auto* work = static_cast<Work*>(request->data);
+        auto& owner = work->owner;
+        // Drain native requests on shutdown, but never enter application JS then.
+        if (!owner.m_shutting_down && !owner.m_status) {
+            if (status) {
+                owner.fail(JS::Error::create(owner.m_vm.realm(), "Native work request failed"_utf16));
+            } else {
+                auto result = work->complete->function()();
+                if (result.is_error()) owner.fail(result.error_value());
+                owner.checkpoint();
+            }
+        }
+        --owner.m_pending_work;
+        delete work;
+    });
+    if (result) {
+        delete work;
+        return m_vm.throw_completion<JS::Error>(Utf16String::from_utf8(StringView(uv_strerror(result), strlen(uv_strerror(result)))));
+    }
+    ++m_pending_work;
+    return {};
 }
 
 static JS::Completion invalid_callback(JS::VM& vm)

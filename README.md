@@ -4,7 +4,7 @@ Work in progress: a LibJS-powered Node-compatible runtime and a Ladybird-powered
 Electron-compatible desktop framework. The implementation requirements are in
 [mite-firefly-agent-instructions.md](mite-firefly-agent-instructions.md).
 
-Mite runs a tested subset of Node-style CLI, module, timer and events behavior on macOS
+Mite runs a tested subset of Node-style CLI, module, timer, Buffer and filesystem behavior on macOS
 ARM64. General Node compatibility, Firefly and native Windows/Linux validation
 remain work in progress.
 See [implementation progress](docs/PROGRESS.md) and the
@@ -50,3 +50,10 @@ or build fallback. Firefly and npm compatibility are still under development; se
 [Firefly coverage](docs/compatibility/firefly-0.1.md).
 
 Measured real-package scenarios are recorded in the [npm compatibility matrix](docs/compatibility/npm-packages-0.1.md). Missing test dependencies cause a test failure with installation instructions.
+
+The [filesystem example](examples/mite-cli/files.mjs) copies its source using
+`node:fs/promises`. Pass a destination file that does not yet exist:
+
+```sh
+build/dev/bin/mite examples/mite-cli/files.mjs build/dev/files-example-copy.mjs
+```

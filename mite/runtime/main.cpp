@@ -16,6 +16,7 @@
 #include <LibJS/Script.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -159,7 +160,7 @@ int main(int argc, char** argv)
     }
 
     auto entry_path = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : std::filesystem::path(filename);
-    Mite::ModuleLoader modules(*vm, realm, entry_path);
+    Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
     auto globals = modules.install_globals();
     if (globals.is_error()) {
         report_exception(globals.error_value());
@@ -220,6 +221,12 @@ int main(int argc, char** argv)
         } else if (code.value().is_int32()) {
             status = code.value().as_i32();
         }
+    }
+    if (status && event_loop.has_pending_work()) {
+        // Fatal termination must not wait for a blocking filesystem worker (e.g.
+        // a FIFO with no writer). The OS reclaims requests and handles at exit.
+        fflush(nullptr);
+        std::_Exit(status);
     }
     vm->pop_execution_context();
     return status;

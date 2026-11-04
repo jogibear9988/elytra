@@ -167,8 +167,8 @@ catch (error) { console.log(error.name, error.code); }
             node = run(args.node, root / name)
             mite = run(args.mite, root / name)
             passed = (node.returncode == mite.returncode == 0 and node.stdout == 'function\n'
-                      and mite.stdout == 'ERR_MITE_UNSUPPORTED_BUILTIN\n' and node.stderr == mite.stderr == '')
-            print(f"{'PASS' if passed else 'FAIL'} explicit unsupported built-in: {name}")
+                      and mite.stdout == 'function\n' and node.stderr == mite.stderr == '')
+            print(f"{'PASS' if passed else 'FAIL'} builtin wins over npm shadow: {name}")
             if not passed:
                 failures += 1
                 print(f'Node: {node}\nMite: {mite}', file=sys.stderr)

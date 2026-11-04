@@ -6,6 +6,7 @@
 #include <LibJS/Runtime/VM.h>
 #include <uv.h>
 #include <unordered_map>
+#include <functional>
 
 namespace Mite {
 
@@ -18,9 +19,12 @@ public:
 
     JS::ThrowCompletionOr<JS::Value> install(JS::Realm&);
     int run_until_idle();
+    bool has_pending_work() const { return m_pending_work != 0; }
+    JS::ThrowCompletionOr<void> queue_work(std::function<void()>, GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>);
 
 private:
     struct Timer;
+    struct Work;
     JS::ThrowCompletionOr<JS::Value> schedule_timer();
     void cancel_timer(uint64_t);
     void checkpoint();
@@ -32,6 +36,8 @@ private:
     uv_loop_t m_loop {};
     uint64_t m_next_timer_id { 1 };
     int m_status { 0 };
+    bool m_shutting_down { false };
+    size_t m_pending_work { 0 };
     GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_jobs;
     GC::RootVector<GC::Ref<JS::Promise>> m_rejections;
     std::unordered_map<uint64_t, Timer*> m_timers;

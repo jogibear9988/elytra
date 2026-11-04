@@ -15,9 +15,11 @@
 
 namespace Mite {
 
+class EventLoop;
+
 class ModuleLoader {
 public:
-    ModuleLoader(JS::VM&, JS::Realm&, std::filesystem::path entry_path);
+    ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
     JS::ThrowCompletionOr<void> install_globals();
     JS::ThrowCompletionOr<bool> is_es_module(std::filesystem::path const&);
     JS::ThrowCompletionOr<GC::Ref<JS::Promise>> run_entry();
@@ -58,6 +60,7 @@ private:
 
     JS::VM& m_vm;
     JS::Realm& m_realm;
+    EventLoop& m_event_loop;
     std::filesystem::path m_entry_path;
     std::string m_entry_url;
     GC::Root<JS::Object> m_promise_constructor;

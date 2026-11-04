@@ -21,7 +21,7 @@ UTF-16LE/UCS-2, latin1/binary, ASCII, hex, base64 and base64url. Array-like inpu
 use indexed elements, while ArrayBuffer input shares its backing store. All JS
 heap operations remain on the owning VM thread.
 
-The differential corpus has 3,557 comparisons plus the explicit allocation-policy check, including invalid UTF-8
+The differential corpus has 3,558 comparisons plus the explicit allocation-policy check, including invalid UTF-8
 lead/continuation boundaries, encoding aliases/errors, partial writes, overlapping
 copies, view aliasing, array-like conversion, JSON and builtin/global identity.
 Numeric tests compare encoded bytes, decoded values, return offsets, coercions,

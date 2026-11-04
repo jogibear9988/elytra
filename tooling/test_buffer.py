@@ -54,6 +54,7 @@ def main():
             for length in range(9):
                 add(f'write {codec} {text!r} {length}',
                     f'(() => {{ const b=Buffer.alloc(10, 0x2e); return [b.write({js(text)}, 1, {length}, {js(codec)}), b.toString("hex")]; }})()')
+    add('typed-array iteration is ignored', '(() => {const a=new Uint8Array([1,2]);a[Symbol.iterator]=function*(){yield 9;};return Buffer.from(a).toJSON();})()')
     add('array iteration is ignored', '(() => { const a=[1,2]; a[Symbol.iterator]=function*(){yield 9;}; return Buffer.from(a).toJSON(); })()')
     for value in ['undefined', 'null', '5', '{}', '[]', '[256,-1,1.5,NaN]', '{length:3,0:1,2:257}',
                   '{length:"3",0:1}', '{type:"Buffer",data:[1,255]}', 'new Uint16Array([256,257])',

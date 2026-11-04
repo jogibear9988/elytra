@@ -4,6 +4,7 @@
 #include "BuiltinSources.h"
 #include "BuiltinNames.h"
 #include "Process.h"
+#include "FileSystem.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -35,7 +36,17 @@ static constexpr std::string_view path_exports[] = {
     "toNamespacedPath", "_makeLong", "sep", "delimiter", "win32", "posix"
 };
 static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer" };
+static constexpr std::string_view fs_exports[] = {
+    "constants", "Stats", "Dirent", "promises", "readFile", "readFileSync", "writeFile", "writeFileSync",
+    "appendFile", "appendFileSync", "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
+    "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync"
+};
+static constexpr std::string_view fs_promises_exports[] = {
+    "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
+};
 static constexpr BuiltinDefinition definitions[] = {
+    { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
+    { "fs/promises", {}, fs_promises_exports },
     { "buffer", { MITE_BUFFER_SOURCE, sizeof(MITE_BUFFER_SOURCE) - 1 }, buffer_exports },
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
     { "process", {}, process_exports },
@@ -65,6 +76,13 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         m_builtins.emplace(name, m_process);
         return *m_process;
     }
+    if (name == "fs/promises") {
+        auto fs = TRY(builtin("fs"));
+        auto promises = TRY(fs->get("promises"_utf16));
+        if (!promises.is_object()) return error("ERR_MITE_BUILTIN_INITIALIZATION", "Filesystem promises alias must be an object");
+        m_builtins.emplace(name, GC::Root<JS::Object> { promises.as_object() });
+        return promises.as_object();
+    }
     if (name == "path/posix" || name == "path/win32") {
         auto path = TRY(builtin("path"));
         auto alias = TRY(path->get(name == "path/posix" ? "posix"_utf16 : "win32"_utf16));
@@ -81,6 +99,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "fs") {
+        host->define_direct_property("native"_utf16, create_filesystem_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+    }
     host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
     host->define_direct_property("platform"_utf16,
         JS::PrimitiveString::create(m_vm, Utf16String::from_utf8(StringView(native_platform(), strlen(native_platform())))), JS::default_attributes);
