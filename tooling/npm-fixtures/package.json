@@ -5,6 +5,7 @@
   "description": "Pinned real npm packages used only for runtime differential tests",
   "type": "commonjs",
   "dependencies": {
+    "@nodelib/fs.stat": "2.0.5",
     "escape-string-regexp": "5.0.0",
     "eventemitter3": "5.0.1",
     "once": "1.4.0"

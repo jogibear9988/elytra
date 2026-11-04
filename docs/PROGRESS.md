@@ -34,7 +34,7 @@ CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejecti
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
 Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 11 CTest
-suites pass. This includes 91 original runtime/module/npm checks (82 shared Node
+suites pass. This includes 93 runtime/module/npm checks (84 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
 policy, 15 filesystem workflows plus 3 explicit policy fixtures, and the upstream
@@ -148,6 +148,12 @@ operations during close, repeated close and descriptor reuse. The filesystem
 corpus now has 15 shared workflows plus 3 explicit policy fixtures; all eleven
 CTest suites pass. ADR 0012 records the unverified forced-GC fallback and remaining
 FileHandle APIs. Ladybird remains unchanged.
+
+The locked real-package corpus now includes @nodelib/fs.stat 2.0.5 (MIT). Two
+additional published-code workflows pass for sync/callback filesystem adapters,
+Settings reuse, symlink follow/mark behavior and broken/missing entries. The
+package suite now has 8 scenarios across 5 locked packages; integrity and license
+checks remain enforced. No dependency code or Ladybird source was modified.
 
 Next: URL/file-URL and encoding globals, then networking/server and renderer
 vertical slices. Broaden the real-package

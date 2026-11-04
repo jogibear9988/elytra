@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 from test_runtime import run
 
 
@@ -40,16 +41,32 @@ def main():
         ('emitter.mjs', 'true true eventemitter3 5.0.1\nnative timer\n'),
         ('dependencies.cjs', 'true function\n1.4.0 1.0.2\ntrue true\n'),
     ]
-    failures = 0
-    for name, expected in cases:
-        node = run(args.node, root / 'cases' / name)
-        mite = run(args.mite, root / 'cases' / name)
+    def compare(name, expected, *fixture_args):
+        node = run(args.node, root / 'cases' / name, *fixture_args)
+        mite = run(args.mite, root / 'cases' / name, *fixture_args)
         passed = (node.returncode == mite.returncode == 0 and node.stdout == mite.stdout == expected
                   and node.stderr == mite.stderr == '')
         print(f"{'PASS' if passed else 'FAIL'} npm/{name}")
         if not passed:
-            failures += 1
             print(f'Node: {node}\nMite: {mite}', file=sys.stderr)
+        return int(not passed)
+
+    failures = sum(compare(name, expected) for name, expected in cases)
+    with tempfile.TemporaryDirectory(prefix='mite-npm-stat-') as directory:
+        fixture = Path(directory)
+        (fixture / 'plain.txt').write_text('stat fixture')
+        (fixture / 'folder').mkdir()
+        for name, target in [('link', 'plain.txt'), ('dir-link', 'folder'), ('broken', 'missing')]:
+            (fixture / name).symlink_to(target)
+        failures += compare('fs-stat.cjs',
+            '[[true,false,false,"number"],[false,true,false,"number"],[true,false,false,"number"],'
+            '[false,true,false,"number"],["ENOENT","stat"],["ENOENT","lstat"]]\n'
+            '[false,false,true,"number"]\n[true,false,true,"number"]\n[false,false,true,"number"]\n'
+            '12 lstat\n2.0.5 true\n', fixture)
+        failures += compare('fs-stat.mjs',
+            'scheduled\n[true,false,false,"number"]\n[false,true,false,"number"]\n'
+            '[true,false,false,"number"]\n[false,false,true,"number"]\n[true,false,true,"number"]\n'
+            '["ENOENT","stat"]\n[false,false,true,"number"]\n["ENOENT","lstat"]\n12 true\n', fixture)
     return int(bool(failures))
 
 
