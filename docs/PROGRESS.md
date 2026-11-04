@@ -33,11 +33,12 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer and filesystem builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 12 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 13 CTest
 suites pass. This includes 93 runtime/module/npm checks (84 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
-policy, 15 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons,
+policy, 16 filesystem workflows plus 3 explicit policy fixtures, 1,013 URL comparisons
+and 342 URL helper comparisons,
 and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
@@ -163,7 +164,15 @@ iterator behavior and synchronization with URL setters. All twelve CTest suites
 pass. ADR 0013 records scope and the still-missing Node URL helpers; no LibWeb
 or upstream patch was introduced.
 
-Next: Node file-URL helpers/filesystem integration and encoding globals, then networking/server and renderer
+Node URL helpers now add string/byte file paths, pathToFileURL, IDNA conversion
+and HTTP options. All 342 helper comparisons pass, including lexical Windows
+UNC/namespace cases. File URLs work through fs synchronous, Promise and FileHandle
+APIs with scheme/separator/NUL checks before native I/O. A real filesystem URL
+workflow passes; the filesystem suite now has 16 shared workflows and 3 policy
+fixtures. All thirteen CTest suites pass. Native Windows/Linux remains unverified;
+no upstream changes were needed.
+
+Next: encoding globals, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Further filesystem, Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

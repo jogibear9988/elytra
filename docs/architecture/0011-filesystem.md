@@ -22,8 +22,8 @@ The implemented subset is readFile/writeFile/appendFile, access/exists,
 stat/lstat, mkdir/rmdir, unlink/rename and readdir, with synchronous, callback and
 Promise forms where Node defines them. node:fs/promises shares fs.promises through
 the builtin registry. Validate paths/options before dispatch; native errors carry
-code, errno, syscall and applicable path/dest. Strings and Uint8Array/Buffer paths
-are supported, including NUL rejection. Numeric descriptors are supported by
+code, errno, syscall and applicable path/dest. Strings, Uint8Array/Buffer and branded file URL paths
+are supported, including NUL rejection. File URL conversion is described in ADR 0013. Numeric descriptors are supported by
 callback/synchronous whole-file operations. Only currently required native flag,
 access and file-type constants are exposed.
 
@@ -63,7 +63,7 @@ fixture checks explicit unsupported options. Tests compare final file contents
 in isolated directories as well as program output. FIFO/descriptor inheritance
 checks are POSIX-specific and report unverified coverage on other hosts.
 
-File URLs/URL globals, vector I/O, streams,
+Vector I/O, streams,
 watching, permissions, copy/rm/link services and other fs APIs remain absent.
 AbortSignal, flush, recursive readdir/rmdir explicitly reject as unsupported.
 Legacy existsSync deprecation warnings are not emitted. Error wording/stacks and

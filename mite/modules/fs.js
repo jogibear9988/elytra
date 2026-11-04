@@ -6,6 +6,7 @@
     function fail(code, message, Type = TypeError) { const error = new Type(message); error.code = code; throw error; }
     function unsupported(feature) { fail('ERR_MITE_UNSUPPORTED_API', `${feature} is not implemented`); }
     function path(value) {
+        if (value instanceof host.URL) value = host.fileURLToPath(value);
         if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('ERR_INVALID_ARG_TYPE', 'path must be a string or Buffer');
         if (typeof value === 'string' ? value.includes('\0') : value.includes(0)) fail('ERR_INVALID_ARG_VALUE', 'path must not contain null bytes');
         return value;
@@ -133,7 +134,7 @@
             convert = entries => entries.map(entry => {
                 const buffer = Buffer.from(entry.name);
                 const name = encoding === 'buffer' ? buffer : buffer.toString(encoding || 'utf8');
-                return opts.withFileTypes ? new Dirent(name, pathname, entry.type) : name;
+                return opts.withFileTypes ? new Dirent(name, spec.path, entry.type) : name;
             });
         }
         return { spec, convert, recover };

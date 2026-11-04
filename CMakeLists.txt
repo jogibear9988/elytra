@@ -101,6 +101,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-url COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_url.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-url-paths COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_url_paths.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-filesystem COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_fs.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-buffer COMMAND "${Python3_EXECUTABLE}"

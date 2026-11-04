@@ -5,6 +5,8 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibURL/Parser.h>
 #include <LibURL/RustIntegration.h>
+#include <unicode/uidna.h>
+#include <vector>
 
 namespace Mite {
 namespace {
@@ -116,6 +118,34 @@ GC::Ref<JS::Object> create_url_host(JS::Realm& realm)
         URL::FFI::rust_url_form_urlencoded_serialize(tuples.data(), tuples.size(), { nullptr, 0 }, &output,
             [](void* context, URL::FFI::RustUrlByteSlice result) { *static_cast<String*>(context) = String::from_ascii_without_validation({ result.data, result.length }); });
         return text(vm, output);
+    }, 1, JS::default_attributes);
+    host->define_native_function(realm, "decodePath"_utf16, [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        auto input = TRY(argument(vm, 0));
+        auto encoded = MUST(input.utf16_view().to_utf8());
+        auto decoded = URL::percent_decode(encoded);
+        auto array = TRY(JS::Uint8Array::create(realm, decoded.length()));
+        if (!decoded.is_empty()) array->viewed_array_buffer()->overwrite(0, decoded.characters(), decoded.length());
+        return JS::Value(array);
+    }, 1, JS::default_attributes);
+    host->define_native_function(realm, "asciiHost"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        auto input = TRY(argument(vm, 0));
+        auto host = URL::Parser::parse_host(input.utf16_view());
+        return host.has_value() ? text(vm, host->serialize()) : JS::js_null();
+    }, 1, JS::default_attributes);
+    host->define_native_function(realm, "unicodeHost"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        auto input = TRY(argument(vm, 0));
+        auto encoded = MUST(input.utf16_view().to_utf8());
+        auto bytes = encoded.bytes_as_string_view();
+        if (bytes.starts_with('[')) return text(vm, bytes);
+        UErrorCode status = U_ZERO_ERROR;
+        auto* idna = uidna_openUTS46(UIDNA_CHECK_BIDI | UIDNA_CHECK_CONTEXTJ | UIDNA_NONTRANSITIONAL_TO_UNICODE, &status);
+        if (U_FAILURE(status)) return vm.throw_completion<JS::Error>("Cannot initialize IDNA conversion"_utf16);
+        std::vector<char> output(bytes.length() * 4 + 64);
+        UIDNAInfo info = UIDNA_INFO_INITIALIZER;
+        auto count = uidna_nameToUnicodeUTF8(idna, bytes.characters_without_null_termination(), static_cast<int32_t>(bytes.length()), output.data(), static_cast<int32_t>(output.size()), &info, &status);
+        uidna_close(idna);
+        if (U_FAILURE(status)) return text(vm, ""sv);
+        return text(vm, StringView(output.data(), static_cast<size_t>(count)));
     }, 1, JS::default_attributes);
     return host;
 }

@@ -47,7 +47,7 @@ static constexpr std::string_view fs_exports[] = {
 static constexpr std::string_view fs_promises_exports[] = {
     "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "rmdir", "unlink", "rename", "readdir"
 };
-static constexpr std::string_view url_exports[] = { "URL", "URLSearchParams" };
+static constexpr std::string_view url_exports[] = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr BuiltinDefinition definitions[] = {
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
@@ -104,8 +104,16 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
-    if (name == "url") host->define_direct_property("native"_utf16, create_url_host(m_realm), JS::default_attributes);
+    if (name == "url") {
+        host->define_direct_property("native"_utf16, create_url_host(m_realm), JS::default_attributes);
+        host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+    }
     if (name == "fs") {
+        auto url = TRY(builtin("url"));
+        host->define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
+        host->define_direct_property("fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);
         host->define_direct_property("native"_utf16, create_filesystem_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
         auto events = TRY(builtin("events"));
         host->define_direct_property("EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);

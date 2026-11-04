@@ -118,5 +118,79 @@
             if (name !== 'constructor') Object.defineProperty(prototype, name, {...Object.getOwnPropertyDescriptor(prototype, name), enumerable:true});
         }
     }
-    return {URL, URLSearchParams};
+    const Buffer = host.Buffer;
+    function fileURL(input) {
+        if (typeof input === 'string') input = new URL(input);
+        else if (!urls.has(input)) fail('ERR_INVALID_ARG_TYPE', 'path must be a string or URL');
+        if (input.protocol !== 'file:') fail('ERR_INVALID_URL_SCHEME', 'URL must use the file scheme');
+        return input;
+    }
+    function windowsOption(options) { return options?.windows ?? (host.platform === 'win32'); }
+    function validateFileURL(input, windows, raw = false) {
+        const url = fileURL(input);
+        if (!windows && url.hostname !== '') fail('ERR_INVALID_FILE_URL_HOST', 'File URL host must be localhost or empty');
+        if ((windows || !raw) && (windows ? /%2f|%5c/i : /%2f/i).test(url.pathname)) invalidFilePath(url);
+        return url;
+    }
+    function invalidFilePath(url) { const error = new TypeError('Invalid file URL path'); error.code = 'ERR_INVALID_FILE_URL_PATH'; error.input = url.href; throw error; }
+    function fileURLToPath(input, options) {
+        const windows = windowsOption(options); const url = validateFileURL(input, windows);
+        let pathname = decodeURIComponent(url.pathname);
+        if (!windows) return pathname;
+        pathname = pathname.replaceAll('/', '\\');
+        if (url.hostname) return '\\\\' + native.unicodeHost(url.hostname) + pathname;
+        if (!/^\\[a-zA-Z]:/.test(pathname)) invalidFilePath(url);
+        return pathname.slice(1);
+    }
+    function fileURLToPathBuffer(input, options) {
+        const windows = windowsOption(options); const url = validateFileURL(input, windows, true);
+        const raw = native.decodePath(url.pathname);
+        const pathname = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        if (!windows) return pathname;
+        for (let i = 0; i < pathname.length; ++i) if (pathname[i] === 47) pathname[i] = 92;
+        if (url.hostname) return Buffer.concat([Buffer.from('\\\\' + native.unicodeHost(url.hostname)), pathname]);
+        if (pathname.length < 3 || pathname[0] !== 92 || !((pathname[1] >= 65 && pathname[1] <= 90) || (pathname[1] >= 97 && pathname[1] <= 122)) || pathname[2] !== 58)
+            invalidFilePath(url);
+        return pathname.subarray(1);
+    }
+    function pathToFileURL(path, options) {
+        if (typeof path !== 'string') fail('ERR_INVALID_ARG_TYPE', 'path must be a string');
+        const windows = windowsOption(options);
+        function encode(value) { return encodeURI(value.toWellFormed()).replace(/[?#~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()); }
+        function unc(value) {
+            const slash = value.indexOf('/', 2);
+            if (slash < 0) fail('ERR_INVALID_ARG_VALUE', 'UNC path must contain a resource path');
+            const hostname = native.asciiHost(value.slice(2, slash));
+            if (!hostname) fail('ERR_INVALID_ARG_VALUE', 'Invalid UNC hostname');
+            return new URL('file://' + hostname + encode(value.slice(slash)));
+        }
+        if (windows && path.startsWith("\\\\?\\")) {
+            path = path.slice(4);
+            if (path.startsWith("UNC\\")) return unc('//' + path.slice(4).replaceAll("\\", '/'));
+            return new URL('file:///' + encode(path.replaceAll("\\", '/')));
+        }
+        if (windows && path.startsWith("\\\\")) return unc(path.replaceAll("\\", '/'));
+        let resolved = (windows ? host.path.win32 : host.path.posix).resolve(path);
+        if (windows && resolved.startsWith("\\\\")) return unc(resolved.replaceAll("\\", '/'));
+        const trailing = path.endsWith('/') || (windows && path.endsWith("\\"));
+        if (trailing && !resolved.endsWith('/')) resolved += '/';
+        if (windows) resolved = resolved.replaceAll("\\", '/');
+        return new URL('file://' + (resolved.startsWith('/') ? '' : '/') + encode(resolved));
+    }
+    function domainToASCII(domain) {
+        required(1, arguments.length); domain = usv(domain);
+        const authority = domain.replaceAll(String.fromCharCode(9),'').replaceAll(String.fromCharCode(10),'').replaceAll(String.fromCharCode(13),'').split(/[/?#\\]/, 1)[0];
+        return native.asciiHost(authority) ?? '';
+    }
+    function domainToUnicode(domain) { required(1, arguments.length); const ascii = domainToASCII(domain); return ascii ? native.unicodeHost(ascii) : ''; }
+    function urlToHttpOptions(url) {
+        if (url === null || typeof url !== 'object') fail('ERR_INVALID_ARG_TYPE', 'url must be an object');
+        const options = {__proto__:null, ...url, protocol:url.protocol, hostname:url.hostname,
+            hash:url.hash, search:url.search, pathname:url.pathname, path:(url.pathname || '') + (url.search || ''), href:url.href};
+        if (options.hostname?.startsWith('[')) options.hostname = options.hostname.slice(1, -1);
+        if (url.port !== '') options.port = Number(url.port);
+        if (url.username || url.password) options.auth = decodeURIComponent(url.username) + ':' + decodeURIComponent(url.password);
+        return options;
+    }
+    return {URL, URLSearchParams, fileURLToPath, fileURLToPathBuffer, pathToFileURL, domainToASCII, domainToUnicode, urlToHttpOptions};
 })
