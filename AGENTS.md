@@ -8,4 +8,4 @@ Read `docs/PROGRESS.md` to resume work. Keep it current in each logical commit.
 - Build and test working vertical slices; distinguish implemented, tested, and planned features.
 - Unsupported APIs must fail explicitly. Never advertise unverified platform support.
 - Commit each coherent step with its validation and remaining work recorded.
-- Do not edit the upstream submodule without documenting the patch and reason.
+- Keep Ladybird unmodified: integration fixes belong in our adapters/build files, not a downstream patch stack. Preserve the ability to update upstream regularly. Follow `docs/development/updating-ladybird.md` and keep the manifest/gitlink synchronized.

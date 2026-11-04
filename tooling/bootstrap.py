@@ -3,10 +3,10 @@
 from pathlib import Path
 import os
 import subprocess
+from check_upstream import check
 
 ROOT = Path(__file__).resolve().parents[1]
 VCPKG_REVISION = "20ceb8adbf0504d4b0d5e4058a32f9d4fc896391"
-LADYBIRD_REVISION = "51ef0d743ceca25863847f8cea208c1c6f7031ce"
 
 
 def run(*args, cwd=ROOT):
@@ -15,10 +15,7 @@ def run(*args, cwd=ROOT):
 
 def main():
     run("git", "submodule", "update", "--init", "--recursive")
-    revision = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT / "vendor/ladybird", text=True).strip()
-    if revision != LADYBIRD_REVISION:
-        raise SystemExit("Ladybird revision differs from the reviewed build adapter")
+    check(ROOT)
     vcpkg = ROOT / "build/vcpkg"
     vcpkg.parent.mkdir(exist_ok=True)
     if not vcpkg.exists():

@@ -17,6 +17,16 @@ unchecked steps are requirements still outstanding, not supported features.
 - [ ] 9. Expand desktop APIs using Electron migration fixtures.
 - [ ] 10. Native CI, distributable packages and smoke tests on all three platforms.
 
+## Upstream constraint
+
+Ladybird must remain unmodified and regularly updatable. Integration changes stay
+in our runtime/build/platform adapters. The manifest and gitlink are checked at
+configure/build/test time, including rejection of local upstream source changes.
+Runtime LibJS version metadata is generated from the manifest. See
+`docs/development/updating-ladybird.md`. Seven isolated guard tests cover clean,
+modified/staged/untracked, mismatched and uninitialized states. No newer upstream
+candidate or native Windows/Linux update was validated in this step.
+
 ## Current work
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
@@ -93,7 +103,7 @@ APIs. Native Linux/Windows validation remains open.
 Lexical node:path now provides POSIX/Windows operations and shared path/posix and
 path/win32 aliases. All 3,968 differential call comparisons and an ESM identity /
 live-cwd scenario pass. ADR 0009 records scope; matchesGlob remains absent and
-native Windows drive/cwd behavior is unverified. Seven CTest suites pass.
+native Windows drive/cwd behavior is unverified. Nine CTest suites pass, including the upstream integrity gate and its seven isolated regression tests.
 
 Next: filesystem and Buffer, then networking/server and renderer
 vertical slices. Broaden the real-package

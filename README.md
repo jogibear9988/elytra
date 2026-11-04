@@ -18,6 +18,11 @@ The project is MIT licensed; Ladybird is BSD-2-Clause with additional third-part
 notices retained in the pinned source tree. Binary distributions must also carry
 licenses of their linked dependencies.
 
+Ladybird stays an unmodified submodule. Its pin is checked at configure/build/test
+time; our adapters carry integration changes. See the
+[upstream update workflow](docs/development/updating-ladybird.md) for reviewing
+new revisions without maintaining a fork.
+
 ## Development build
 
 Requires Git, Python 3, Ninja, CMake 3.30+, Rust 1.98.0 (rustup), a C++23 compiler

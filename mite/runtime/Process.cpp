@@ -1,5 +1,6 @@
 #include "Process.h"
 #include "BuiltinSources.h"
+#include "UpstreamVersion.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
@@ -127,7 +128,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
     auto versions = JS::Object::create(realm, realm.intrinsics().object_prototype());
     versions->define_direct_property("mite"_utf16, text(vm, "0.1.0"), constant);
     versions->define_direct_property("uv"_utf16, text(vm, uv_version_string()), constant);
-    versions->define_direct_property("libjs"_utf16, text(vm, "51ef0d743ceca25863847f8cea208c1c6f7031ce"), constant);
+    versions->define_direct_property("libjs"_utf16, text(vm, MITE_LIBJS_REVISION), constant);
     process->define_direct_property("versions"_utf16, versions, constant);
     auto release = JS::Object::create(realm, realm.intrinsics().object_prototype());
     release->define_direct_property("name"_utf16, text(vm, "mite"), constant);

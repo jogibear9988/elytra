@@ -50,6 +50,16 @@ identity; preload capabilities live in a separate realm. Untrusted content gets
 no process/filesystem capabilities. A renderer proof of concept must precede broad
 Electron API implementation.
 
+## Upstream update policy
+
+Keep Ladybird source unmodified and carry integration changes in this repository's
+host/build/platform adapters. The active pin lives in vendor/ladybird.json and the
+submodule gitlink; generated runtime metadata uses that pin. Configure/build/test
+checks reject mismatches and dirty upstream source trees. Follow the
+[update workflow](../development/updating-ladybird.md) for explicit candidate
+updates, regression checks and dependency/toolchain review. No stable upstream
+ABI is assumed. Native platform and future renderer gates remain required.
+
 ## Native Windows strategy and unresolved work
 
 Start from upstream's clang-cl/Win32 adapters, using interpreter mode where the

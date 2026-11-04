@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char MITE_LIBJS_REVISION[] = "@MITE_LADYBIRD_REVISION@";
