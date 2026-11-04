@@ -84,6 +84,54 @@ def main():
     for width in [16, 32, 64]:
         for length in [3, 8, 16]:
             add(f'swap{width} {length}', f'Buffer.from(Array.from({{length:{length}}},(_,i)=>i)).swap{width}().toJSON()')
+    def numeric_case(method, value, offset='1', length=12, extra=''):
+        read = method.replace('write', 'read', 1)
+        add(f'numeric {method} {value} @{offset} len={length} {extra}',
+            f'(() => {{ const b=Buffer.alloc({length},0x2e); const end=b.{method}({value},{offset}{extra}); '
+            f'const v=b.{read}({offset}{extra}); return [end,b.toString("hex"),typeof v==="bigint"?v.toString():Object.is(v,-0)?"-0":Number.isNaN(v)?"NaN":String(v)]; }})()')
+    methods = []
+    for signed in [False, True]:
+        kind = 'Int' if signed else 'UInt'
+        for width in [1, 2, 4]:
+            for order in ([''] if width == 1 else ['LE', 'BE']):
+                method = f'write{kind}{width*8}{order}'
+                methods.append(method)
+                maximum = 2**(width*8-(1 if signed else 0))-1
+                minimum = -maximum-1 if signed else 0
+                for value in [str(minimum), str(maximum), str(minimum-1), str(maximum+1), '-1.5', '1.5', 'NaN', 'Infinity', '"3"', 'null', 'undefined', '1n']:
+                    numeric_case(method, value)
+        for order in ['LE', 'BE']:
+            for width in range(1,7):
+                maximum = 2**(width*8-(1 if signed else 0))-1
+                minimum = -maximum-1 if signed else 0
+                for value in [minimum, maximum, minimum-1, maximum+1, -1.5, 1.5]:
+                    numeric_case(f'write{kind}{order}', str(value), extra=f',{width}')
+            for width in ['0', '7', '1.5', 'NaN', 'undefined', '"1"']:
+                numeric_case(f'write{kind}{order}', '1', extra=f',{width}')
+    for kind in ['Float', 'Double']:
+        for order in ['LE', 'BE']:
+            method = f'write{kind}{order}'
+            methods.append(method)
+            for value in ['0', '-0', '1.5', '-3.25', '1e-40', '1e40', 'Infinity', '-Infinity', 'NaN', '"3"', '1n']:
+                numeric_case(method, value)
+    for signed in [False, True]:
+        for order in ['LE', 'BE']:
+            method = f'writeBig{"Int" if signed else "UInt"}64{order}'
+            methods.append(method)
+            limit = 2**(63 if signed else 64)
+            for value in ['0n', '1n', '-1n', f'{limit-1}n', f'{limit}n', f'{-limit}n', f'{-limit-1}n', '1', '"1"', '"-1"', 'undefined']:
+                numeric_case(method, value)
+    for method in methods:
+        for length in [0, 1, 8]:
+            for offset in ['-1', '0', '1', '9', '1.5', 'NaN', '"1"', 'null', 'undefined']:
+                value = '1n' if 'Big' in method else '1'
+                numeric_case(method, value, offset, length)
+                read = method.replace('write', 'read', 1)
+                add(f'numeric bounds {read} {offset} {length}', f'String(Buffer.alloc({length}).{read}({offset}))')
+    for method in ['readUIntLE', 'readIntBE', 'writeUIntLE', 'writeIntBE']:
+        for offset in ['undefined', 'null', '1.5', '-1']:
+            add(f'variable offset {method} {offset}', f'Buffer.alloc(8).{method}({"1," if method.startswith("write") else ""}{offset},3)')
+    add('numeric aliases and subview', '(() => {const b=Buffer.alloc(16);const v=b.subarray(3,11);v.writeDoubleBE(1.5);return [v.readDoubleBE(),b.toString("hex"),Buffer.prototype.readUint32LE===Buffer.prototype.readUInt32LE,Buffer.prototype.writeBigUint64BE===Buffer.prototype.writeBigUInt64BE,Buffer.prototype.readUInt16BE.call(new Uint8Array([1,2]))];})()')
     source = 'import builtin, { Buffer as Imported } from "node:buffer";\n' + '''
 function emit(label, fn) {
     try { console.log(JSON.stringify([label, {value:fn()}])); }

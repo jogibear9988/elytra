@@ -106,12 +106,17 @@ live-cwd scenario pass. ADR 0009 records scope; matchesGlob remains absent and
 native Windows drive/cwd behavior is unverified. Nine CTest suites pass, including the upstream integrity gate and its seven isolated regression tests.
 
 Buffer foundation now uses LibJS Uint8Array/ArrayBuffer storage with global/builtin
-identity, shared views, encodings and memory/search operations. The 2,170 Buffer
+identity, shared views, encodings and memory/search operations. The initial 2,170 Buffer
 comparisons pass, including malformed UTF-8 boundaries and overlapping copies.
 Ten CTest suites pass. ADR 0010 records the zeroed unsafe-allocation policy, size
-limit and pending numeric/Blob/File APIs. Ladybird remains unmodified.
+limit and pending Blob/File APIs. Ladybird remains unmodified.
 
-Next: Buffer numeric access and filesystem, then networking/server and renderer
+Buffer numeric access now covers fixed/variable-width signed and unsigned
+integers, floating point and 64-bit BigInt with both endian orders. The Buffer
+corpus now has 3,535 shared comparisons plus an explicit allocation-policy check.
+Encoded bytes, error codes, numeric limits and subview offsets match Node.
+
+Next: filesystem, then networking/server and renderer
 vertical slices. Broaden the real-package
 corpus as those APIs become available. Filesystem, further Buffer and process services precede the
 networking and renderer slices. CommonJS named-export detection, synchronous

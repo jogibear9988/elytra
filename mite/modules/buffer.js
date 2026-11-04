@@ -304,6 +304,98 @@
             return this;
         };
     }
+    function bounds(buffer, offset, width) {
+        if (typeof offset !== 'number') fail('ERR_INVALID_ARG_TYPE', 'offset must be a number');
+        if (!Number.isInteger(offset)) fail('ERR_OUT_OF_RANGE', 'offset must be an integer', RangeError);
+        if (offset < 0 || offset + width > buffer.length) {
+            if (buffer.length < width) fail('ERR_BUFFER_OUT_OF_BOUNDS', 'Attempt to access memory outside buffer bounds', RangeError);
+            fail('ERR_OUT_OF_RANGE', 'offset is outside the buffer', RangeError);
+        }
+    }
+    function readInteger(buffer, offset, width, little, signed) {
+        bounds(buffer, offset, width);
+        let result = 0;
+        for (let i = 0; i < width; ++i) result = result * 256 + buffer[offset + (little ? width - i - 1 : i)];
+        const sign = 2 ** (width * 8 - 1);
+        return signed && result >= sign ? result - 2 ** (width * 8) : result;
+    }
+    function writeInteger(buffer, value, offset, width, little, signed) {
+        value = +value;
+        const sign = 2 ** (width * 8 - (signed ? 1 : 0));
+        if (value < (signed ? -sign : 0) || value > sign - 1)
+            fail('ERR_OUT_OF_RANGE', 'value is outside the integer range', RangeError);
+        bounds(buffer, offset, width);
+        value = Math.trunc(value) || 0;
+        if (value < 0) value += 2 ** (width * 8);
+        for (let i = 0; i < width; ++i) {
+            buffer[offset + (little ? i : width - i - 1)] = value % 256;
+            value = Math.floor(value / 256);
+        }
+        return offset + width;
+    }
+    for (const signed of [false, true]) {
+        const kind = signed ? 'Int' : 'UInt';
+        for (const little of [false, true]) {
+            const order = little ? 'LE' : 'BE';
+            Buffer.prototype['read' + kind + order] = function (offset, byteLength) {
+                integer(byteLength, 1, 6, 'byteLength');
+                return readInteger(this, offset, byteLength, little, signed);
+            };
+            Buffer.prototype['write' + kind + order] = function (value, offset, byteLength) {
+                integer(byteLength, 1, 6, 'byteLength');
+                return writeInteger(this, value, offset, byteLength, little, signed);
+            };
+            for (const width of [1, 2, 4]) {
+                if (width === 1 && little) continue;
+                const suffix = kind + (width * 8) + (width === 1 ? '' : order);
+                Buffer.prototype['read' + suffix] = function (offset = 0) { return readInteger(this, offset, width, little, signed); };
+                Buffer.prototype['write' + suffix] = function (value, offset = 0) { return writeInteger(this, value, offset, width, little, signed); };
+            }
+        }
+    }
+    for (const [kind, width] of [['Float', 4], ['Double', 8]]) {
+        for (const little of [false, true]) {
+            const suffix = kind + (little ? 'LE' : 'BE');
+            Buffer.prototype['read' + suffix] = function (offset = 0) {
+                bounds(this, offset, width);
+                return new DataView(this.buffer, this.byteOffset, this.byteLength)['getFloat' + (width * 8)](offset, little);
+            };
+            Buffer.prototype['write' + suffix] = function (value, offset = 0) {
+                value = +value;
+                bounds(this, offset, width);
+                new DataView(this.buffer, this.byteOffset, this.byteLength)['setFloat' + (width * 8)](offset, value, little);
+                return offset + width;
+            };
+        }
+    }
+    for (const signed of [false, true]) {
+        for (const little of [false, true]) {
+            const suffix = (signed ? 'BigInt64' : 'BigUInt64') + (little ? 'LE' : 'BE');
+            Buffer.prototype['read' + suffix] = function (offset = 0) {
+                bounds(this, offset, 8);
+                let result = 0n;
+                for (let i = 0; i < 8; ++i) result = (result << 8n) | BigInt(this[offset + (little ? 7 - i : i)]);
+                return signed ? BigInt.asIntN(64, result) : result;
+            };
+            Buffer.prototype['write' + suffix] = function (value, offset = 0) {
+                const limit = 1n << (signed ? 63n : 64n);
+                if (value < (signed ? -limit : 0n) || value >= limit)
+                    fail('ERR_OUT_OF_RANGE', 'value is outside the bigint range', RangeError);
+                bounds(this, offset, 8);
+                if (typeof value !== 'bigint') throw new TypeError('value must be a bigint');
+                value = BigInt.asUintN(64, value);
+                for (let i = 0; i < 8; ++i) {
+                    this[offset + (little ? i : 7 - i)] = Number(value & 255n);
+                    value >>= 8n;
+                }
+                return offset + 8;
+            };
+        }
+    }
+    // Node exposes both UInt and Uint spellings as the same functions.
+    for (const key of Object.keys(Buffer.prototype)) {
+        if (key.includes('UInt')) Buffer.prototype[key.replace('UInt', 'Uint')] = Buffer.prototype[key];
+    }
     Object.defineProperty(Buffer.prototype, 'parent', { enumerable: true, configurable: true,
         get() { return Buffer.isBuffer(this) ? this.buffer : undefined; } });
     Object.defineProperty(Buffer.prototype, 'offset', { enumerable: true, configurable: true,
