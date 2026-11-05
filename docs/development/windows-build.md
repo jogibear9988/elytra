@@ -84,3 +84,26 @@ private header to ProcessHost.h and update its three includes. Do not patch the
 CRT, reorder system headers as a workaround or drop the embedded-host target.
 Local Release build plus both host-module/embedding suites pass; the next native
 Windows run must confirm the real CRT lookup and complete remaining runtime gates.
+
+## First linked runtime and native startup fault
+
+Run 42130072857 (390b86d, job 127604194189) successfully compiles and links Mite
+and its test hosts after the header and Rust-archive fixes. Its runtime suites
+then fail: VM initialization exits with Windows access violation 0xc0000005,
+including the simple -e path. Help/version paths work without constructing a VM.
+This establishes native linking, not a working JavaScript runtime. Do not report
+the many affected suites as independent supported-API regressions before resolving
+their common startup failure.
+
+The Windows-only mite-startup-probe adds bounded DbgHelp exception-context stack
+reporting to the test host, not the shipping CLI. It first exercises a deliberately
+raised fault as a negative control, then runs a real Mite evaluation and preserves
+failure status. The development job enables embedded C++/Rust symbols and retains
+the report/PDB. Native compilation and symbolized output of this new probe still
+need their next actual job. No engine patch, ignored exception or alternate runtime
+is used to turn a crash green.
+
+Separately, the uninitialized-submodule guard fixture attempted to delete read-only
+Git object files. Moving the fixture's .git directory out of repository discovery
+preserves the same rejection assertion and lets TemporaryDirectory own cleanup.
+Its seven tests pass locally; Windows acceptance remains pending.

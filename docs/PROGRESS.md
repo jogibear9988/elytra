@@ -1917,6 +1917,29 @@ abc vector and independent snapshot check. Site validation passes 99 pages and
 Local LTO renderer session 86784 and hosted native jobs remain live; their
 completion and framework-size results are independent of this documentation slice.
 
+## Windows links; diagnose VM startup (2026-11-06)
+
+Windows run 42130072857 (390b86d, job 127604194189) is terminal failure in CTest,
+after native compilation/linking succeeds. Five of 37 suites pass; runtime hosts
+exit 0xc0000005 at VM startup even for -e, while CLI help/version work. This confirms
+the Rust aggregation resolves the native link barrier, not runtime acceptance.
+The separate upstream-guard fixture fails deleting Windows read-only Git objects.
+
+Move that isolated fixture's .git directory away instead of manually deleting it;
+the same uninitialized-checkout assertion and all seven local guard tests pass.
+Add a Windows-x64-only startup probe using native exception-context/DbgHelp stack
+reporting, with a deliberate fault negative control and then the real Mite eval.
+It preserves actual failure status and is absent from the shipping CLI. The CI
+development build retains C++/Rust symbols, the bounded report and probe PDB.
+actionlint and Python compilation checks pass; the Windows-specific C++ probe and
+symbolization remain pending actual native compilation. No guessed engine fix,
+exception recovery, vendor modification or skipped runtime suite is introduced.
+
+Local LTO renderer session 86784 now completes successfully. Native renderer,
+Firefly/Electron, isolation and helper tests are running in
+build/lto-firefly-test.log; actual framework package size remains to be measured.
+Linux run 42130905759 and macOS package run 42125911196 remain live.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -2,7 +2,6 @@
 """Exercise upstream-pin guard rejection using isolated Git repositories."""
 import json
 from pathlib import Path
-import shutil
 import tempfile
 import unittest
 from check_upstream import check, git
@@ -64,7 +63,9 @@ class UpstreamGuard(unittest.TestCase):
 
     def test_uninitialized_checkout(self):
         self.source.unlink()
-        shutil.rmtree(self.upstream / '.git')
+        # Git objects are read-only on Windows. Removing repository discovery is
+        # sufficient; TemporaryDirectory handles final cleanup of its own fixture.
+        (self.upstream / '.git').rename(self.root / 'removed-upstream-git')
         with self.assertRaisesRegex(ValueError, 'Initialize Ladybird'):
             check(self.root)
 

@@ -80,6 +80,11 @@ if(BUILD_TESTING)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
     add_dependencies(mite mite-embedded-host)
+    if(WIN32)
+        add_executable(mite-startup-probe mite/tests/embedding/WindowsStartup.cpp)
+        target_link_libraries(mite-startup-probe PRIVATE mite-runtime Dbghelp)
+        add_dependencies(mite mite-startup-probe)
+    endif()
     add_test(NAME mite-host-modules COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_host_modules.py" --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-embedding COMMAND "${Python3_EXECUTABLE}"
