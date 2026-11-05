@@ -34,7 +34,8 @@ struct RandomRequest { std::vector<unsigned char> bytes; int status {0}; };
 }
 GC::Ref<JS::Object> create_crypto_host(JS::VM&,JS::Realm& realm,EventLoop& loop)
 {
-    auto host=JS::Object::create(realm,nullptr);
+    GC::Root host {JS::Object::create(realm,nullptr)};
+    host->define_direct_property("hash"_utf16,create_hash_host(realm),JS::default_attributes);
     host->define_native_function(realm,"random"_utf16,[&realm,&loop](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
         auto size=TRY(requested_size(vm));
         auto callback=vm.argument(1);
@@ -82,6 +83,6 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&,JS::Realm& realm,EventLoop& loop)
         uuid[index]='\0';
         return JS::PrimitiveString::create(vm,Utf16String::from_utf8(StringView(uuid,index)));
     },0,JS::default_attributes);
-    return host;
+    return *host;
 }
 }

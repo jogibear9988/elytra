@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os, crypto and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 34 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 35 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1373,6 +1373,35 @@ Windows/Linux native behavior, full error/receiver/intrinsics parity, zeroizatio
 certification/FIPS and a full audit remain unverified. No new npm/platform/package or
 visible-desktop support is claimed. Public preload/contextBridge/IPC and broader
 runtime/renderer milestones stay open. Existing build warnings persist; no newer pin.
+
+Mite now implements incremental node:crypto createHash/Hash (ADR 0053). The owned
+C++ adapter checks the existing pinned OpenSSL EVP backend directly, avoiding
+LibCrypto provider asserts without changing upstream. Independent RAII contexts,
+copy snapshots, fixed/SHAKE lengths, raw native byte-view bounds, Buffer codecs,
+finalization/receiver state and existing Transform/pipeline support are implemented.
+GC-rooted host/output objects and native context cleanup preserve the embedding
+boundary; no new library/pin, Node/V8 or LibWeb dependency was introduced.
+
+All 35 standalone CTest suites pass in build/crypto-hash-ctest.log. The new gate
+compares 162 observations with Node 24.15.0 plus independent copies, getter/Symbol
+recovery, ESM/CJS identity, Transform/pipeline, allocation stress and fatal stream
+callback handling (build/crypto-hash-differential.log). SHA256('abc') has a fixed known
+answer control; MD5/SHA1/SHA2/SHA3/BLAKE2/SHAKE are exercised locally. Two isolated
+reference children capture Node native asserts on SHAKE outputLength -0 and invalid
+object-mode stream chunks; Mite accepts zero and reports invalid chunks through a
+TypeError error event. Future fixed reference outcomes are also accepted. Allocation
+stress does not force GC. Hash outputLength above Mite's 2 GiB-minus-one Buffer limit
+explicitly fails; extreme allocations and provider/allocator failures are unforced.
+
+Firefly's main ESM fixture validates createHash before renderer loading; its existing
+Electron-reference gate passes in build/crypto-hash-firefly-test.log. The hash CLI
+example executes in Mite and Node with default text and a source file. Standalone
+linkage remains platform-only, and Ladybird/gitlink/manifest stay unchanged and clean.
+HMAC/ciphers/signatures/KDFs/keys, getHashes, Web Crypto and other absent APIs remain
+unsupported. Full provider inventory, stream/error/metadata parity, secure heap/FIPS/
+zeroization/audit and native Windows/Linux validation remain open. Public preload/
+contextBridge/IPC, packaging and broader milestones remain incomplete. Existing
+SDK/linker/locked-desktop limits persist; no newer upstream pin was evaluated.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

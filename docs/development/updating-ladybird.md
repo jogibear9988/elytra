@@ -199,6 +199,13 @@ candidate commits from the official repository in .gitmodules / the manifest.
    identities, explicit missing APIs and documented receiver/cache differences.
    Do not replace uv_random with a JS PRNG to accommodate an SDK change. Provider
    failures/extreme allocations and native Windows/Linux still need validation.
+   Run mite-crypto-hash and Firefly's main ESM hash control too (ADR 0053).
+   Preserve checked EVP return values and RAII context ownership; do not patch
+   LibCrypto assertions downstream. Retain copy independence, finalization,
+   native byte-view bounds, SHAKE length and Transform/pipeline controls, including
+   the isolated Node negative-zero/object-mode assertion reference cases.
+   The existing pinned OpenSSL target is linked explicitly by our runtime graph.
+   Provider failures, full stream/error parity and Windows/Linux remain unverified.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

@@ -93,6 +93,8 @@ if(BUILD_TESTING)
     target_include_directories(mite-os-netmask-probe PRIVATE "${CMAKE_SOURCE_DIR}/mite/runtime")
     add_dependencies(mite mite-os-netmask-probe)
     add_test(NAME mite-os-netmask COMMAND "$<TARGET_FILE:mite-os-netmask-probe>")
+    add_test(NAME mite-crypto-hash COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_crypto_hash.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-crypto-random COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_crypto_random.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-os-constants COMMAND "${Python3_EXECUTABLE}"

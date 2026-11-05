@@ -4,6 +4,7 @@
 function(mite_add_runtime target root js_target)
     find_package(libuv CONFIG REQUIRED)
     find_package(llhttp CONFIG REQUIRED)
+    find_package(OpenSSL REQUIRED)
     find_package(ICU 78.3 EXACT REQUIRED COMPONENTS uc)
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${target}-generated")
     file(READ "${root}/vendor/ladybird.json" upstream_manifest)
@@ -24,7 +25,7 @@ function(mite_add_runtime target root js_target)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${root}/mite/modules/generated/stream.js" "${root}/mite/modules/generated/string-decoder.js")
     configure_file("${root}/mite/runtime/BuiltinSources.h.in" "${generated}/BuiltinSources.h" @ONLY)
-    set(sources Runtime EventLoop ModuleLoader PackageResolver HostModules Builtins Process FileSystem URL Encoding Network DNS HTTP OS OSConstants Crypto)
+    set(sources Runtime EventLoop ModuleLoader PackageResolver HostModules Builtins Process FileSystem URL Encoding Network DNS HTTP OS OSConstants Crypto CryptoHash)
     set(files)
     foreach(source IN LISTS sources)
         list(APPEND files "${root}/mite/runtime/${source}.cpp")
@@ -32,7 +33,7 @@ function(mite_add_runtime target root js_target)
     add_library(${target} STATIC ${files})
     target_include_directories(${target} PUBLIC "${root}/mite/runtime" PRIVATE "${generated}")
     target_link_libraries(${target} PUBLIC ${js_target} AK LibCore LibGC LibURL LibTextCodec ICU::uc
-        $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv> llhttp::llhttp_static)
+        $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv> llhttp::llhttp_static OpenSSL::Crypto)
     add_custom_target(${target}-integrity
         COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_upstream.py"
         COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_runtime_js.py" VERBATIM)
