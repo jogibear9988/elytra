@@ -119,6 +119,15 @@ candidate commits from the official repository in .gitmodules / the manifest.
    TypeErrors with zero traps, foreign-prototype provenance, writer GC/revocation,
    target cache release and actual helper/fresh iframe checks. Native payload
    retention and other event fields remain explicit limits (ADR 0041).
+   ErrorEventAdapter.cpp/ErrorEventBindingAdapter.cpp add native ErrorEvent
+   registration/tracing and generated constructor/getter routing. Both event JS
+   constructors now record writer realms explicitly; native constructors must not
+   inherit an ambient Source caller. Review the EventTarget special onerror fifth
+   argument seam too: it must use the callback realm's EventValues reader. Keep
+   exact native/generated counts, bindgen dependencies and preservation tests.
+   Retain getter/argument identity, reverse page input, zero-trap/function denial,
+   synthetic-reader error stack, native page error under Source dispatch and all
+   previous CustomEvent/resource controls (ADR 0042).
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

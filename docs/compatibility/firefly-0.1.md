@@ -138,3 +138,10 @@ identity. This is an **intentional difference** from raw cross-world mutation
 sharing. SDK/helper provenance/trap/GC/reset/revocation controls and app regressions
 pass (ADR 0041). Original native payload retention, other event fields and the full
 membrane remain incomplete; public preload/contextBridge/IPC stay unsupported.
+
+Internal ErrorEvent.error and window.onerror's fifth argument now share the bounded
+frozen snapshot policy across registered worlds (ADR 0042). Same-world identity,
+getter/argument cache identity and ordinary native page errors have SDK/helper
+coverage. Cross-world Error instances and other non-data values remain unsupported;
+rejected owned handler arguments are redacted before invocation. Generic reader
+errors have no Source stack frames. Public preload/contextBridge/IPC stay rejected.

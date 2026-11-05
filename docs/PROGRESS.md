@@ -1024,6 +1024,44 @@ navigation and aggregate CPU/queue/memory bounds/accounting remain open. Public
 preload/contextBridge/IPC stay rejected. Standalone Mite is unchanged, with no new
 platform/package or visible-desktop validation. Existing warnings remain.
 
+ErrorEvent.error and the special onerror fifth argument now share the event value
+membrane (ADR 0042). EventValues handles a single payload slot on each supported
+native Event subtype, reusing cache/provenance/GC/revocation policy from CustomEvent.
+Two additional native/generated ErrorEvent TUs adapt registration/tracing and the
+constructor/getter, while the existing EventTarget adapter routes its raw error
+argument through the reader in the callback realm. Exact source counts, original
+bindgen dependencies and full reverse-edit source preservation tests guard the seams.
+Vendor/generated originals and native layout remain unchanged; no newer pin tested.
+
+Writer provenance is now explicit in both JS event constructor bindings; native
+constructors use unknown origin. CustomEvent successful init records its JS entry
+realm. A native page error reported beneath a Source dispatch must keep ordinary
+page identity, not inherit that ambient Source caller. Unsupported field/argument
+transfers still reject generically. Reader TypeErrors now use a synthetic target
+context with the original stack saved, preventing Source dispatch/callback frames
+from appearing in their stacks. Getter/onerror agree on the same cached data copy.
+
+All gates pass in build/error-event-acceptance-test.log: SDK, sandboxed helper,
+ordinary renderer/compositor/process and Firefly/Electron reference. SDK/helper
+checks cover same-world data/identity, Source-to-page frozen cycles/snapshots and
+exact getter/fifth-argument identity including error metadata. Reverse page input
+keeps Page identity but uses Source copies/prototypes. Functions and hostile page
+getters cannot cross either route; traps remain zero. Reader errors have no Source
+frames. Native page exceptions inside Source-triggered page callbacks still deliver
+ordinary page Error objects to page onerror. Published data remains after source
+detach. All earlier CustomEvent provenance/GC/init/revoke and lifecycle/resource
+controls continue to pass.
+
+Cross-world Error instances and other non-data values remain unsupported; Source
+onerror's unsupported arguments are rejected/redacted before handler invocation.
+This is not full error/Electron compatibility or public preload. Native raw payloads
+may retain origin realms until event collection. MessageEvent and other event fields,
+arbitrary borrowed function/getter transfers, general callback frame/stack and
+job-origin isolation, other observers, workers/finalization, BFCache/navigation and
+hard resource bounds remain open. Public preload/contextBridge/IPC stay rejected.
+Standalone Mite is unchanged; no new platform/package/audit or visible validation.
+Existing linker/deployment warnings persist.
+
 Next: complete other observer resources and remaining event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

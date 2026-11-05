@@ -2,13 +2,13 @@
 """Require exact CustomEvent seams and byte preservation outside the declared edits."""
 import argparse
 from pathlib import Path
-from adapt_custom_event import NATIVE_EDITS,BINDING_EDIT,adapt
+from adapt_custom_event import NATIVE_EDITS,BINDING_EDIT,CONSTRUCTOR_EDIT,adapt
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--native',required=True,type=Path)
 parser.add_argument('--binding',required=True,type=Path)
 args=parser.parse_args()
-for kind,path,edits in [('native',args.native,NATIVE_EDITS),('binding',args.binding,(BINDING_EDIT,))]:
+for kind,path,edits in [('native',args.native,NATIVE_EDITS),('binding',args.binding,(CONSTRUCTOR_EDIT,BINDING_EDIT))]:
     original=path.read_bytes().decode('utf-8');modified=adapt(original,kind);restored=modified
     for before,after in reversed(edits):
         assert restored.count(after)==1,(kind,after)

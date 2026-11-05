@@ -75,7 +75,7 @@ struct WorldJobGuard::State : public RefCounted<State> {
     size_t canceled_handler_maps { 0 };
     struct EventCopy { GC::Weak<JS::Realm> target; JS::Value value; };
     struct EventRecord {
-        GC::Weak<Web::DOM::CustomEvent> event;
+        GC::Weak<Web::DOM::Event> event;
         GC::Weak<JS::Realm> writer;
         bool writer_owned { false };
         bool revoked { false };
@@ -122,9 +122,9 @@ struct WorldJobGuard::State : public RefCounted<State> {
             if (state.previous_gate.clear_handler_maps) state.previous_gate.clear_handler_maps(state.previous_gate.context, target);
         },{
             +[](void* context, JS::Realm& realm) { return static_cast<State*>(context)->event_activity(realm); },
-            +[](void* context, Web::DOM::CustomEvent& event) { static_cast<State*>(context)->event_changed(event); },
-            +[](void* context, Web::DOM::CustomEvent& event, GC::Cell::Visitor& visitor) { static_cast<State*>(context)->visit_event_values(event, visitor); },
-            +[](void* context, JS::Realm& realm, Web::DOM::CustomEvent& event, JS::Value value) { return static_cast<State*>(context)->read_event_value(realm, event, value); },
+            +[](void* context, Web::DOM::Event& event, JS::Realm* writer) { static_cast<State*>(context)->event_changed(event, writer); },
+            +[](void* context, Web::DOM::Event& event, GC::Cell::Visitor& visitor) { static_cast<State*>(context)->visit_event_values(event, visitor); },
+            +[](void* context, JS::Realm& realm, Web::DOM::Event& event, JS::Value value) { return static_cast<State*>(context)->read_event_value(realm, event, value); },
             +[](void* context, JS::Realm& realm) { static_cast<State*>(context)->revoke_event_values(realm); }
         }});
 
@@ -143,17 +143,16 @@ struct WorldJobGuard::State : public RefCounted<State> {
         if (owner->is_detached() || !document || !document->is_fully_active()) return owner->is_executing() ? Exiting : Revoked;
         return Live;
     }
-    void event_changed(Web::DOM::CustomEvent& event)
+    void event_changed(Web::DOM::Event& event, JS::Realm* writer)
     {
         event_values.remove_all_matching([&](auto const& record) { return !record.event.ptr() || record.event.ptr().ptr() == &event; });
-        auto* writer = vm.current_realm();
         auto activity = writer ? EventValues::activity(*writer) : EventValues::Activity::Unregistered;
         EventRecord record { event, {}, activity != EventValues::Activity::Unregistered, activity == EventValues::Activity::Revoked || activity == EventValues::Activity::Exiting, {} };
         if (writer) record.writer = *writer;
         event_values.append(move(record));
-        if (previous_gate.event_values.changed) previous_gate.event_values.changed(previous_gate.context, event);
+        if (previous_gate.event_values.changed) previous_gate.event_values.changed(previous_gate.context, event, writer);
     }
-    void visit_event_values(Web::DOM::CustomEvent& event, GC::Cell::Visitor& visitor)
+    void visit_event_values(Web::DOM::Event& event, GC::Cell::Visitor& visitor)
     {
         for (auto const& record : event_values) if (record.event.ptr().ptr() == &event)
             for (auto const& copy : record.copies) if (copy.target.ptr()) visitor.visit(copy.value);
@@ -167,11 +166,20 @@ struct WorldJobGuard::State : public RefCounted<State> {
         }
         if (previous_gate.event_values.revoke) previous_gate.event_values.revoke(previous_gate.context, realm);
     }
-    JS::ThrowCompletionOr<JS::Value> read_event_value(JS::Realm& target, Web::DOM::CustomEvent& event, JS::Value value)
+    JS::ThrowCompletionOr<JS::Value> read_event_value(JS::Realm& target, Web::DOM::Event& event, JS::Value value)
     {
         using enum EventValues::Activity;
         auto target_activity = EventValues::activity(target);
-        auto reject = [&]() -> JS::ThrowCompletionOr<JS::Value> { return vm.throw_completion<JS::TypeError>("Firefly event value cannot cross worlds"sv); };
+        auto reject = [&]() -> JS::ThrowCompletionOr<JS::Value> {
+            // Reader errors must not capture source dispatch/callback frames.
+            vm.save_execution_context_stack();
+            ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+            auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+            context->realm = &target;
+            vm.push_execution_context(*context);
+            ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+            return JS::throw_completion(JS::TypeError::create(target, u"Firefly event value cannot cross worlds"sv));
+        };
         if (target_activity == Revoked) return reject();
         event_values.remove_all_matching([](auto const& record) { return !record.event.ptr(); });
         EventRecord* record = nullptr;

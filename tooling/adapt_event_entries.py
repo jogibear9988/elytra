@@ -7,6 +7,7 @@ from pathlib import Path
 
 # Exact address/scope seams, not copies of the event-handler algorithms.
 STORAGE_EDITS=(
+    ('error_event.error()', 'TRY(Firefly::EventValues::read(callback.associated_realm(), error_event, error_event.error()))', 1),
     ('JS::Realm& realm = event_handler_listener_realm(*this, event_handler);', 'JS::Realm& realm = Firefly::Handlers::listener_realm(*this, event_handler_listener_realm(*this, event_handler));', 1),
     ('auto& handler_map = ensure_data().event_handler_map;', 'auto& handler_map = Firefly::Handlers::select_map(*this, ensure_data().event_handler_map);', 2),
     ('auto& handler_map = event_target->ensure_data().event_handler_map;', 'auto& handler_map = Firefly::Handlers::select_map(*event_target, event_target->ensure_data().event_handler_map);', 2),

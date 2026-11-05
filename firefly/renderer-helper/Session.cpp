@@ -127,6 +127,27 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='error-events') {
+                        const reason={n:42};reason.self=reason;
+                        let pageInput;
+                        window.addEventListener('error',event=>{
+                            if(event.message==='page-data')pageInput=event.error;
+                            if(event.message==='page-bad'){
+                                let denied=false;try{event.error}catch(error){denied=error instanceof TypeError}
+                                document.documentElement.setAttribute('data-error-input-denied',String(denied));
+                            }
+                        });
+                        window.onerror=function(message,url,line,column,error){
+                            if(message==='page-data')document.documentElement.setAttribute('data-error-input',String(error===pageInput && Object.isFrozen(error) && Object.getPrototypeOf(error)===Object.prototype && error.n===8));
+                            if(message==='source-data')document.documentElement.setAttribute('data-error-own',String(error===reason));
+                            return true;
+                        };
+                        window.dispatchEvent(new Event('native-page-control'));
+                        const event=new ErrorEvent('error',{message:'source-data',filename:'unit:source',lineno:7,colno:9,error:reason,cancelable:true});
+                        window.dispatchEvent(event);reason.n=99;window.dispatchEvent(event);
+                        window.dispatchEvent(new ErrorEvent('error',{message:'source-function',error:()=>42,cancelable:true}));
+                        return event.error===reason;
+                    }
                     if(a.mode==='custom-events') {
                         document.addEventListener('page-detail',event=>{
                             const value=event.detail;

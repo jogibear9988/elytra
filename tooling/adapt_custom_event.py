@@ -5,16 +5,20 @@ import json
 from pathlib import Path
 
 NATIVE_EDITS=(
-    ('    , m_detail(event_init.detail)\n{', '    , m_detail(event_init.detail)\n{\n    Firefly::EventValues::changed(*this);'),
+    ('    , m_detail(event_init.detail)\n{', '    , m_detail(event_init.detail)\n{\n    Firefly::EventValues::changed(*this, nullptr);'),
     ('    visitor.visit(m_detail);', '    visitor.visit(m_detail);\n    Firefly::EventValues::visit(*this, visitor);'),
-    ('    m_detail = detail;', '    m_detail = detail;\n    Firefly::EventValues::changed(*this);'),
+    ('    m_detail = detail;', '    m_detail = detail;\n    Firefly::EventValues::changed(*this, vm().current_realm());'),
 )
+CONSTRUCTOR_EDIT=('    auto wrapper = wrap(host_defined_wrapper_world(realm), realm, impl);', '    Firefly::EventValues::changed(*impl, &realm);\n    auto wrapper = wrap(host_defined_wrapper_world(realm), realm, impl);')
 BINDING_EDIT=('    return R;', '    return Firefly::EventValues::read(realm, *idl_object, R);')
 
 
 def adapt(text,kind):
     if kind=='native':edits=NATIVE_EDITS
     else:
+        before,after=CONSTRUCTOR_EDIT
+        if text.count(before)!=1:raise ValueError('Review generated event constructor')
+        text=text.replace(before,after)
         for entry in ['detail_getter','init_custom_event']:
             if text.count('JS_DEFINE_NATIVE_FUNCTION(CustomEventPrototype::'+entry+')\n')!=1:
                 raise ValueError('Review generated CustomEvent entry: '+entry)

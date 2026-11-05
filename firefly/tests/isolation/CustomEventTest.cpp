@@ -98,8 +98,8 @@ ErrorOr<void> check_custom_event_values(JS::VM& vm, Web::DOM::Document& document
         u"eventProbe.initCustomEvent('detail-probe',false,false,Symbol('private'));true"sv
     }) {
         TRY(world_check(*source,u"globalThis.traps=0;true"sv));TRY(world_check(*source,code));
-        TRY(page_check(u"(()=>{try{eventProbe.detail;return false}catch(e){return e instanceof TypeError && e.message==='Firefly event value cannot cross worlds'}})()"sv));
-        TRY(world_check(*target,u"(()=>{try{eventProbe.detail;return false}catch(e){return e instanceof TypeError && e.message==='Firefly event value cannot cross worlds'}})()"sv));
+        TRY(page_check(u"(()=>{try{eventProbe.detail;return false}catch(e){return e instanceof TypeError && e.message==='Firefly event value cannot cross worlds' && typeof e.stack==='string' && !e.stack.includes('firefly:isolated-world')}})()"sv));
+        TRY(world_check(*target,u"(()=>{try{eventProbe.detail;return false}catch(e){return e instanceof TypeError && e.message==='Firefly event value cannot cross worlds' && typeof e.stack==='string' && !e.stack.includes('firefly:isolated-world')}})()"sv));
         TRY(world_check(*source,u"traps===0"sv));
     }
     // Native harness supplies a foreign prototype. Shape realm alone is not

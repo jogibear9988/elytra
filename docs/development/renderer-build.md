@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0041. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0042. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -162,3 +162,11 @@ cache identity/reset, no getter/proxy/function leaks, writing-world provenance,
 writer GC/revocation and target-cache release. Same-world/page controls remain
 ordinary browser behavior. Original native payload retention and other event fields
 remain open; public preload is still rejected.
+
+ErrorEvent native/generated adapters share the EventValues cache with a protected
+special onerror fifth-argument path in EventTarget. Both event constructor bindings
+now record JS writer realms explicitly; native construction has unknown origin.
+The error-event hook target checks exact seams and byte preservation. SDK/helper
+checks cover getter/argument identity, reverse data, function/accessor rejection,
+reader stack redaction and native page errors during a Source dispatch. Cross-world
+Error instances and other non-data payloads remain unsupported.

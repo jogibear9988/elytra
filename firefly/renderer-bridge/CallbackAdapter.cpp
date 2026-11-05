@@ -181,17 +181,17 @@ Activity activity(JS::Realm& realm)
     if (gate.has_value() && gate->event_values.activity) return gate->event_values.activity(gate->context, realm);
     return Activity::Unregistered;
 }
-void changed(Web::DOM::CustomEvent& event)
+void changed(Web::DOM::Event& event, JS::Realm* writer)
 {
     auto gate = Callbacks::gates->get(&event.vm());
-    if (gate.has_value() && gate->event_values.changed) gate->event_values.changed(gate->context, event);
+    if (gate.has_value() && gate->event_values.changed) gate->event_values.changed(gate->context, event, writer);
 }
-void visit(Web::DOM::CustomEvent& event, GC::Cell::Visitor& visitor)
+void visit(Web::DOM::Event& event, GC::Cell::Visitor& visitor)
 {
     auto gate = Callbacks::gates->get(&event.vm());
     if (gate.has_value() && gate->event_values.visit) gate->event_values.visit(gate->context, event, visitor);
 }
-JS::ThrowCompletionOr<JS::Value> read(JS::Realm& realm, Web::DOM::CustomEvent& event, JS::Value value)
+JS::ThrowCompletionOr<JS::Value> read(JS::Realm& realm, Web::DOM::Event& event, JS::Value value)
 {
     auto gate = Callbacks::gates->get(&event.vm());
     if (gate.has_value() && gate->event_values.read) return gate->event_values.read(gate->context, realm, event, value);
