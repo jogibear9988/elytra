@@ -166,6 +166,13 @@ candidate commits from the official repository in .gitmodules / the manifest.
    or new dependency. Run the Firefly ESM/HTTP fixture's OS imports too, since the
    main process uses the shared Mite runtime graph; native Windows/Linux remain
    independently unverified.
+   The additional mite-os-data gate checks native CPU/account copies (ADR 0048),
+   GC-rooted result graphs and raw bytes passed to existing Buffer encodings. Keep
+   libuv allocation/free ownership, option getter/error identity, named-export
+   identity and fresh graph/Buffer behavior when adapting LibJS allocation APIs.
+   CPU speed/counters are live observations; do not relax genuine shape/monotonic/
+   provenance regressions to get an upgrade through. Run the Firefly main-process
+   CPU/account ESM imports too. No vendored engine changes are needed.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

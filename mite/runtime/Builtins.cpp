@@ -144,6 +144,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         }
     }
     if (name == "os") {
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
         host->define_direct_property("native"_utf16, TRY(create_os_host(m_realm)), JS::default_attributes);
         host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
     }

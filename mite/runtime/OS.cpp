@@ -1,4 +1,6 @@
 #include "OS.h"
+#include <AK/ScopeGuard.h>
+#include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -29,6 +31,58 @@ JS::Completion system_error(JS::VM& vm, char const* syscall, int status)
     error->define_direct_property("errno"_utf16, JS::Value(status), JS::default_attributes);
     error->define_direct_property("syscall"_utf16, text(vm, syscall), JS::default_attributes);
     return JS::throw_completion(error.ptr());
+}
+JS::ThrowCompletionOr<JS::Value> cpu_info(JS::VM& vm)
+{
+    uv_cpu_info_t* entries=nullptr;
+    int count=0;
+    // Node reports unavailable CPU information as an empty list.
+    if(uv_cpu_info(&entries,&count))return JS::Value(TRY(JS::Array::create(vm.realm(),0)));
+    ScopeGuard release([&]{uv_free_cpu_info(entries,count);});
+    GC::Root result {TRY(JS::Array::create(vm.realm(),static_cast<u32>(count)))};
+    for(int i=0;i<count;++i){
+        auto const& entry=entries[i];
+        GC::Root record {JS::Object::create(vm.realm(),vm.realm().intrinsics().object_prototype())};
+        auto bytes=ReadonlyBytes{reinterpret_cast<u8 const*>(entry.model),strlen(entry.model)};
+        record->define_direct_property("model"_utf16,JS::PrimitiveString::create(vm,Utf16String::from_utf16(Utf16View::from_latin1(bytes,false))),JS::default_attributes);
+        record->define_direct_property("speed"_utf16,JS::Value(entry.speed),JS::default_attributes);
+        GC::Root times {JS::Object::create(vm.realm(),vm.realm().intrinsics().object_prototype())};
+        times->define_direct_property("user"_utf16,JS::Value(static_cast<double>(entry.cpu_times.user)),JS::default_attributes);
+        times->define_direct_property("nice"_utf16,JS::Value(static_cast<double>(entry.cpu_times.nice)),JS::default_attributes);
+        times->define_direct_property("sys"_utf16,JS::Value(static_cast<double>(entry.cpu_times.sys)),JS::default_attributes);
+        times->define_direct_property("idle"_utf16,JS::Value(static_cast<double>(entry.cpu_times.idle)),JS::default_attributes);
+        times->define_direct_property("irq"_utf16,JS::Value(static_cast<double>(entry.cpu_times.irq)),JS::default_attributes);
+        record->define_direct_property("times"_utf16,times.ptr(),JS::default_attributes);
+        TRY(result->create_data_property_or_throw(static_cast<u32>(i),record.ptr()));
+    }
+    return result.ptr();
+}
+JS::ThrowCompletionOr<JS::Value> user_info(JS::VM& vm)
+{
+    uv_passwd_t entry {};
+    if(auto status=uv_os_get_passwd(&entry);status)return system_error(vm,"uv_os_get_passwd",status);
+    ScopeGuard release([&]{uv_os_free_passwd(&entry);});
+    GC::Root result {JS::Object::create(vm.realm(),nullptr)};
+#ifdef _WIN32
+    auto uid=static_cast<double>(static_cast<i32>(entry.uid & 0xffffffffu));
+    auto gid=static_cast<double>(static_cast<i32>(entry.gid & 0xffffffffu));
+#else
+    auto uid=static_cast<double>(entry.uid);
+    auto gid=static_cast<double>(entry.gid);
+#endif
+    result->define_direct_property("uid"_utf16,JS::Value(uid),JS::default_attributes);
+    result->define_direct_property("gid"_utf16,JS::Value(gid),JS::default_attributes);
+    auto copy=[&](char const* bytes)->JS::ThrowCompletionOr<JS::Value>{
+        if(!bytes)return JS::js_null();
+        auto size=strlen(bytes);
+        auto array=TRY(JS::Uint8Array::create(vm.realm(),size));
+        if(size)array->viewed_array_buffer()->overwrite(0,bytes,size);
+        return JS::Value(array);
+    };
+    result->define_direct_property("username"_utf16,TRY(copy(entry.username)),JS::default_attributes);
+    result->define_direct_property("homedir"_utf16,TRY(copy(entry.homedir)),JS::default_attributes);
+    result->define_direct_property("shell"_utf16,TRY(copy(entry.shell)),JS::default_attributes);
+    return result.ptr();
 }
 template<typename Read>
 JS::ThrowCompletionOr<JS::Value> read_text(JS::VM& vm, char const* syscall, Read read, bool missing_is_undefined = false)
@@ -65,6 +119,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
     host->define_native_function(realm,"query"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
         if(!vm.argument(0).is_string())return vm.throw_completion<JS::TypeError>("Invalid internal OS query"sv);
         auto name=MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+        if(name=="cpus")return cpu_info(vm);
+        if(name=="userInfo")return user_info(vm);
         if(name=="hostname")return read_text(vm,"uv_os_gethostname",uv_os_gethostname);
         if(name=="homedir"){
 #ifdef PATH_MAX

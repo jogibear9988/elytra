@@ -55,8 +55,9 @@ or build fallback. Firefly and npm compatibility are still under development; se
 [Firefly coverage](docs/compatibility/firefly-0.1.md).
 
 Mite also provides native `node:os` system observations, including hostname,
-platform/machine, home/temp directories, memory, uptime and parallelism. CPU/network
-lists, user information, priorities and constants remain unsupported; see the
+platform/machine, home/temp directories, memory, uptime, parallelism, CPU snapshots
+and user information. Network-interface lists, priorities and constants remain
+unsupported; see the
 [Mite compatibility matrix](docs/compatibility/mite-0.1.md).
 
 Measured real-package scenarios are recorded in the [npm compatibility matrix](docs/compatibility/npm-packages-0.1.md). Missing test dependencies cause a test failure with installation instructions.

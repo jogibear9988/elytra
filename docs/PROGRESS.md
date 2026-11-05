@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 28 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 29 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1230,6 +1230,34 @@ and fallback buffer still need runners. No packaging/new npm/audit or visible-
 desktop validation is claimed. Public preload/contextBridge/IPC and the other
 remaining runtime/renderer milestones stay open. Existing build warnings persist;
 Ladybird remains unmodified at the same pin, with no new candidate evaluated.
+
+Mite node:os now adds native cpus() and userInfo() (ADR 0048). CPU model/speed/
+millisecond times copy into fresh rooted JS graphs before uv_free_cpu_info. Native
+unavailable CPU information follows Node's empty-list behavior; that failure branch
+was not forced here. Native account data comes from uv_os_get_passwd, independent
+of HOME; byte snapshots move into VM-owned arrays before uv_os_free_passwd. The JS
+wrapper returns null-prototype ordered records with existing Buffer-based encodings,
+fresh Buffer results, nullable shell and native UID/GID numbers.
+
+The new mite-os-data suite compares 49 Node 24.15.0 account observations: encodings/
+case/aliases/NUL/unknown fallback, non-object/callable/inherited options, one getter/
+proxy read, thrown identity, revoked proxy, HOME independence, independent Buffers
+and module/named-export identity. Fourteen real CPU records pass model/shape/prototype,
+finite speed, integer millisecond counters, monotonic samples, ignored args/receiver
+and independent object/array mutation checks. Changing counters/speeds are native
+observations, not simultaneous equality or performance measurements.
+
+All 29 standalone CTest suites pass in build/os-data-ctest.log. The Firefly main ESM/
+HTTP fixture executes both new named APIs and retains renderer isolation; the full
+existing Firefly/Electron gate passes in build/os-data-firefly-test.log. Previous OS
+and remaining explicit-unsupported tests pass. Upstream integrity remains clean,
+with no new library/package, vendor source edit or pin candidate.
+
+Network interfaces, priorities and constants remain explicitly unsupported. Native
+Windows/Linux, real non-ASCII account/model data, syscall/account failures, hotplug,
+privileged execution and full metadata/error/monkey-patched-intrinsics parity remain
+unverified. Public preload/contextBridge/IPC, broader runtime services, packaging,
+platform/audit and visible-desktop requirements remain open. Existing warnings persist.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
