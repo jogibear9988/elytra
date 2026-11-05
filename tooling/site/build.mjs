@@ -1,5 +1,6 @@
 import {readFile,writeFile,mkdir,cp,readdir} from 'node:fs/promises';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import MarkdownIt from 'markdown-it';
 
@@ -40,6 +41,19 @@ const markdown=new Set(sources);
 await mkdir(out,{recursive:true});
 for(const item of await readdir(path.join(root,'site')))await cp(path.join(root,'site',item),path.join(out,item),{recursive:true});
 await writeFile(path.join(out,'.nojekyll'),'');
+// Content-addressed assets make a new layout load consistently even when a browser
+// still has the previous deployment's CSS/JS in its GitHub Pages cache.
+const assets={};
+for(const name of ['styles.css','site.js','mark.svg']){
+  const bytes=await readFile(path.join(root,'site',name));
+  const hash=createHash('sha256').update(bytes).digest('hex').slice(0,12);
+  const parsed=path.parse(name);const generated=`${parsed.name}.${hash}${parsed.ext}`;
+  assets[name]=generated;await writeFile(path.join(out,generated),bytes);
+}
+let homepage=await readFile(path.join(out,'index.html'),'utf8');
+for(const [source,target] of Object.entries(assets))homepage=homepage.replaceAll(`"${source}"`,`"${target}"`);
+await writeFile(path.join(out,'index.html'),homepage);
+
 for(const source of sources){
   const relative=path.relative(root,source),destination=path.join(out,relative.replace(/\.md$/,'.html'));
   const prefix=urlPath(path.relative(path.dirname(destination),out))||'.';
@@ -48,7 +62,7 @@ for(const source of sources){
   const content=md.render(sourceText,{source,markdown,slugs:new Map()});
   const links=[['docs/getting-started.html','Getting started'],['docs/api/index.html','API overview'],['docs/api/mite.html','Mite runtime'],['docs/api/firefly.html','Firefly desktop'],['docs/compatibility/mite-0.1.html','Mite compatibility'],['docs/compatibility/firefly-0.1.html','Firefly compatibility'],['docs/PROGRESS.html','Progress'],['docs/development/renderer-build.html','Build Firefly']];
   const nav=links.map(([href,label])=>`<a href="${prefix}/${href}"${relative.replace(/\.md$/,'.html')===href?' aria-current="page"':''}>${label}</a>`).join('');
-  const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f8f5eb"><title>${escape(title)} — Mite + Firefly</title><link rel="icon" href="${prefix}/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="${prefix}/styles.css"></head><body><a class="skip" href="#main">Skip to content</a><header class="nav wrap"><a class="brand" href="${prefix}/"><img src="${prefix}/mark.svg" width="30" height="30" alt="">elytra</a><nav aria-label="Main"><a class="hide-small" href="${prefix}/#projects">Projects</a><a href="${prefix}/docs/api/index.html">Docs</a><a class="github-link" href="${repo}">GitHub ↗</a></nav></header><div class="wrap docs-layout"><aside class="docs-side"><nav aria-label="Documentation"><div class="eyebrow">DOCUMENTATION</div>${nav}</nav></aside><main class="doc-article" id="main">${content}<a class="doc-source" href="${repo}/blob/${ref}/${urlPath(relative)}">View this page on GitHub ↗</a></main></div><footer class="wrap footer"><a class="brand" href="${prefix}/">elytra<span>/</span></a><p>Mite + Firefly · Open source, under development.</p><a href="${repo}">Contribute ↗</a></footer></body></html>`;
+  const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f8f5eb"><title>${escape(title)} — Mite + Firefly</title><link rel="icon" href="${prefix}/${assets['mark.svg']}" type="image/svg+xml"><link rel="stylesheet" href="${prefix}/${assets['styles.css']}"></head><body><a class="skip" href="#main">Skip to content</a><header class="nav wrap"><a class="brand" href="${prefix}/"><img src="${prefix}/${assets['mark.svg']}" width="30" height="30" alt="">elytra</a><nav aria-label="Main"><a class="hide-small" href="${prefix}/#projects">Projects</a><a href="${prefix}/docs/api/index.html">Docs</a><a class="github-link" href="${repo}">GitHub ↗</a></nav></header><div class="wrap docs-layout"><aside class="docs-side"><nav aria-label="Documentation"><div class="eyebrow">DOCUMENTATION</div>${nav}</nav></aside><main class="doc-article" id="main">${content}<a class="doc-source" href="${repo}/blob/${ref}/${urlPath(relative)}">View this page on GitHub ↗</a></main></div><footer class="wrap footer"><a class="brand" href="${prefix}/">elytra<span>/</span></a><p>Mite + Firefly · Open source, under development.</p><a href="${repo}">Contribute ↗</a></footer></body></html>`;
   await mkdir(path.dirname(destination),{recursive:true});await writeFile(destination,html);
 }
 console.log(`Built homepage and ${sources.length} documentation pages in ${path.relative(root,out)}`);

@@ -14,7 +14,8 @@ python3 -m http.server 8000 --directory build/site
 
 Open http://localhost:8000/. The build renders Markdown with pinned markdown-it,
 rewrites local documentation links, provides heading anchors and checks local pages,
-resources, fragments and relative project-Page paths. Generated files stay under build/.
+resources, fragments and relative project-Page paths. CSS, JS and favicon URLs
+are content-addressed so a browser cannot mix the new layout with cached old assets. Generated files stay under build/.
 The homepage's example tabs support click, arrows, Home/End and reduced-motion
 preferences. Copy controls use the Clipboard API and select the code on denial.
 Documentation/navigation and the first example remain available without JavaScript.

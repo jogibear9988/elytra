@@ -1522,8 +1522,17 @@ all three tabs, keyboard selection, image/font loading and no document overflow 
 visually inspected in build/site-v2-*.png. Copy controls provide clipboard and selection
 fallback; there is no server or framework runtime in the published site. No native
 runtime or Ladybird source changed. The Windows CI setup was interrupted for this
-user-requested redesign; its owned release-workflow/composite-action edits remain
-uncommitted WIP and do not establish native Windows support.
+user-requested redesign; its owned release-workflow/composite-action draft is saved in the local stash
+`wip/windows-environment-before-homepage-redesign` for resumption. It does not
+establish native Windows support.
+
+The redesign was committed/pushed directly to master (d589ad3), master is now the
+GitHub default branch, and Pages run 42113339017 completed successfully. CSS/JS/favicon
+URLs are now content-addressed by the static builder to prevent cached assets from
+the rejected layout being mixed into a fresh document. The same filenames are shared
+by homepage and API docs; relative GitHub project-Page paths remain checked. No PR
+was created. Earlier main/codex branches are preserved; future implementation commits
+and website deployments use master as requested.
 
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
