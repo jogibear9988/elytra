@@ -27,7 +27,7 @@ def main():
             print(f'FAIL {name}: timeout {e.stdout!r} {e.stderr!r}');failures+=1;continue
         print(f'{"PASS" if passed else "FAIL"} dns/{name}')
         if not passed:failures+=1;print('Node:',results[0]);print('Mite:',results[1])
-    results=[subprocess.run([exe,str(root/'nul.mjs')],capture_output=True,text=True,timeout=10) for exe in [args.node,args.mite]]
+    results=[subprocess.run([exe,str(root/'null-byte.mjs')],capture_output=True,text=True,timeout=10) for exe in [args.node,args.mite]]
     expected=['{"address":"127.0.0.1","family":4}\n','{"code":"ENOTFOUND","syscall":"getaddrinfo","hostname":"127.0.0.1\\u0000ignored"}\n']
     passed=all(r.returncode==0 and not r.stderr and r.stdout==e for r,e in zip(results,expected))
     print(f'{"PASS" if passed else "FAIL"} recorded DNS embedded-NUL rejection difference')

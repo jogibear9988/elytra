@@ -1546,6 +1546,14 @@ push. This establishes an execution path, not verified Windows support. Firefly'
 native Windows and packaging/release gates remain incomplete. The saved draft stash
 is retained as a backup; its changes are restored in the working implementation.
 
+First native Windows run 42114085281 failed in checkout before compiler setup:
+Git for Windows rejected our reserved device basename mite/tests/dns/nul.mjs.
+Rename it to null-byte.mjs and update the DNS runner; keep the NUL-hostname test
+behavior unchanged. A tracked-path audit finds this one reserved/invalid Windows
+path in our repository and none in the pinned Ladybird tree. Local DNS differentials
+pass after rename; Windows build/test support is still unproven until the next run.
+No checkout filter or upstream edit is used to hide an incompatible source tree.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
