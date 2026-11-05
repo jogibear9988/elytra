@@ -1940,6 +1940,36 @@ Firefly/Electron, isolation and helper tests are running in
 build/lto-firefly-test.log; actual framework package size remains to be measured.
 Linux run 42130905759 and macOS package run 42125911196 remain live.
 
+## LTO framework measurement and acceptance (2026-11-06)
+
+The complete local LTO renderer build succeeds, as do check-firefly,
+check-firefly-renderer, check-firefly-isolation and check-firefly-renderer-helper
+(build/lto-firefly-test.log). Real Designer boot/edit/Monaco/HTML controls pass
+both before packaging and through the relocated .app launcher:
+build/lto-designer{-test,-relocated-test}.log. The clean a377d04 candidate is at
+build/designer-lto-experiment, version 0.1.0-lto.1, Release/Release with cppLTO ON,
+production bundled assets, stripped native symbols and valid ad-hoc signatures.
+All 7190 package hashes match. This is a local experiment, not a published alpha.
+Final same-candidate Mite CTest also passes all 37 suites in 16.63s, including
+the revised Git fixture (build/lto-mite-final-test.log).
+
+Actual results contradict the hoped-for framework saving: framework 227,251,879
+bytes (216.72 MiB), Designer 263,042,987 bytes (250.86 MiB), versus earlier non-LTO
+004b7fe candidate 225,757,294 / 261,548,402 bytes. Net growth is 1,494,585 bytes:
+native executables -612,128; libraries +2,136,720 (LibWeb +1,981,504); notices
+-30,007. App assets are unchanged in byte count. This is a recorded-candidate
+comparison, not an identical-commit A/B or performance benchmark. Keep LTO optional
+and release defaults off; pursue size-focused compiler settings/shared crypto next.
+Both notice inventories contain 350 Rust packages; every fallback source-archive
+payload matches, despite differing archive bytes. No notices/source are removed.
+Documentation validation passes 99 pages and 5130 links/resources/fragments.
+
+Windows 42130479203 uses the same VM code as the confirmed failing run and lacks
+the new fault reporter; it was explicitly cancelled to let queued diagnostic run
+42132246241 proceed, not to erase a failed gate or imply success. The actual failure
+42130072857 remains recorded. macOS package 42125911196 and Linux 42130905759 remain
+live. No alpha is created before hosted native package acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

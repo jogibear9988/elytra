@@ -90,6 +90,36 @@ Compressing downloads helps transfer size but does not reduce the installed app.
 Every experiment must record build configuration, exact bytes, passed tests and
 remaining functionality/platform limits. Ladybird stays unmodified.
 
+## C++ LTO result on the updated pin
+
+The local 0.1.0-lto.1 experiment at a377d04, using Ladybird 97ad425b5125f20c516e1a8d3b5bb02f391fc975,
+passes all 37 Mite suites, Firefly/Electron, renderer/compositor/process, isolation
+and helper gates, plus the real Designer edit/Monaco/window-control checks before
+and after packaging. The package is clean Release/Release with cppLTO ON for both
+projects, production bundled assets, stripped symbols and valid ad-hoc signatures.
+All packaged file hashes are verified.
+
+| Local package | Earlier non-LTO candidate (004b7fe) | LTO experiment (a377d04) |
+| --- | ---: | ---: |
+| Framework | 215.30 MiB | 216.72 MiB |
+| Designer | 249.43 MiB | 250.86 MiB |
+
+This is a comparison of recorded local candidates, not a hosted release or an
+identical-commit A/B benchmark. The intervening standalone Rust/header changes do
+not introduce a new Firefly feature; actual payload modes/pins are recorded in
+each BUILD.json. Application assets are byte-count identical. Native executables
+shrink 612,128 bytes, while shared libraries grow 2,136,720 bytes, dominated by
+LibWeb (+1,981,504 bytes). Notices also differ by -30,007 archive bytes; both
+inventories contain 350 Rust packages and all fallback source-archive payloads
+match, so this is not removed notice/source content. Net framework
+growth is 1,494,585 bytes (1.43 MiB), despite the smaller standalone Mite CLI.
+
+Keep --lto optional and release defaults off. C++ LTO alone is not a demonstrated
+framework-size optimization on this host. No runtime performance conclusion is
+drawn. The candidate lives in build/designer-lto-experiment; it is not a published
+alpha. Next experiments should measure size-oriented compilation or deliberate
+shared crypto linkage, without removing supported Unicode/resources or helpers.
+
 ## Repeat a measurement
 
 ```sh
