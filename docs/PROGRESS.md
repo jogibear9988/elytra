@@ -1882,6 +1882,23 @@ or publish an LTO package on the CLI-only evidence. Existing non-LTO verified
 packages remain in build/designer-final-alpha. Windows run 42130072857 is compiling
 the aggregate source; macOS run 42125911196 remains live. No alpha is available yet.
 
+## Native Linux runtime gate (2026-11-06)
+
+Add the missing native Linux standalone job on Ubuntu 24.04 x64 with Clang 22
+from the official LLVM Noble repository, Rust 1.98.0, CMake 4.2.0 and our pinned
+vcpkg manifests. It builds all Mite test hosts, runs every enabled CTest suite,
+locked npm differentials and CLI examples, and records ldd. No GUI graph or
+Node/V8 runtime replacement is introduced. Cache saves preserve newly completed
+dependencies even after failure; Cargo/CMake/vcpkg/CTest diagnostics are retained.
+actionlint accepts the workflow. Compiler repository and CMake distribution were
+verified against their primary sources linked in development/linux-build.md.
+
+The first hosted result is pending; Linux runtime/Firefly/package support remains
+unverified. Existing local LTO renderer session 86784 continues (past 1,000 of
+2,951 affected steps); native Windows run 42130072857 remains at compilation and
+macOS run 42125911196 remains live at its compile/test/package step. No restarted
+job or alpha publication is inferred from the elapsed observation time.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

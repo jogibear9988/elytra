@@ -51,6 +51,7 @@ compatible with Node or Electron.
 - [Measured npm packages](compatibility/npm-packages-0.1.md)
 - [Firefly build and internal test gates](development/renderer-build.md)
 - [Native Windows bring-up](development/windows-build.md)
+- [Native Linux bring-up](development/linux-build.md)
 - [Updating unmodified Ladybird](development/updating-ladybird.md)
 - [Writing and maintaining documentation](development/documentation.md)
 - [Implementation progress](PROGRESS.md)

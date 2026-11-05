@@ -1,0 +1,107 @@
+name: Native Linux development
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/linux.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_*.py', 'tooling/test_*.py']
+  pull_request:
+    paths: ['.github/workflows/linux.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_*.py', 'tooling/test_*.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  mite:
+    name: Mite / native Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CC: clang-22
+      CXX: clang++-22
+      VCPKG_MAX_CONCURRENCY: '3'
+      CMAKE_BUILD_PARALLEL_LEVEL: '3'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+      - name: Native build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf autoconf-archive automake build-essential curl gnupg libtool ninja-build pkg-config unzip zip
+          curl --fail --location --retry 3 https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm.asc"
+          gpg --batch --yes --dearmor --output "$RUNNER_TEMP/llvm.gpg" "$RUNNER_TEMP/llvm.asc"
+          sudo install -m 644 "$RUNNER_TEMP/llvm.gpg" /usr/share/keyrings/elytra-llvm.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/elytra-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main' | sudo tee /etc/apt/sources.list.d/elytra-llvm.list
+          sudo apt-get update
+          sudo apt-get install -y clang-22 lld-22
+          python -m pip install --only-binary=:all: cmake==4.2.0
+          clang-22 --version
+          cmake --version
+      - name: Pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.0
+      - name: Prepare dependency cache
+        run: |
+          mkdir -p build/vcpkg-cache
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/build/vcpkg-cache" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: dependencies
+        with:
+          path: |
+            build/vcpkg-cache
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: linux-noble-clang22-${{ hashFiles('vcpkg.json', 'vendor/ladybird.json', 'mite/rust/Cargo.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            linux-noble-clang22-${{ hashFiles('vcpkg.json', 'vendor/ladybird.json', 'mite/rust/Cargo.lock') }}-
+            linux-noble-clang22-
+      - name: Bootstrap pinned native dependencies
+        run: python tooling/bootstrap.py
+      - name: Configure standalone Mite
+        run: cmake -S . -B build/linux -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake"
+      - name: Compile Mite and native test hosts
+        run: cmake --build build/linux --target mite --parallel 3
+      - name: Install locked npm test fixtures
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
+      - name: Run all enabled runtime suites
+        run: ctest --test-dir build/linux --output-on-failure --output-junit linux-ctest.xml
+      - name: Run CLI examples and record linkage
+        run: |
+          build/linux/bin/mite examples/mite-cli/hello.js world
+          build/linux/bin/mite examples/mite-cli/modules.mjs world
+          build/linux/bin/mite examples/mite-cli/commonjs.cjs
+          ldd build/linux/bin/mite | tee build/linux/native-linkage.txt
+      - name: Record upstream integrity after native build
+        if: always()
+        run: python tooling/check_upstream.py
+      - name: Preserve completed dependency packages
+        if: always() && steps.dependencies.outcome == 'success'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            build/vcpkg-cache
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
+      - name: Preserve native diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: linux-native-diagnostics
+          path: |
+            build/linux/CMakeCache.txt
+            build/linux/CMakeFiles/CMakeConfigureLog.yaml
+            build/linux/Testing/Temporary/LastTest.log
+            build/linux/linux-ctest.xml
+            build/linux/native-linkage.txt
+            build/linux/cargo/**/*.log
+            build/vcpkg/buildtrees/**/*.log
+          if-no-files-found: warn

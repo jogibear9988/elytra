@@ -55,7 +55,9 @@ On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
 Ninja; set `CC=clang-cl` and `CXX=clang-cl` in that terminal before configuring.
 Windows and Linux are not yet verified. The [native Windows bring-up guide](docs/development/windows-build.md)
 records the CI path, actual setup evidence and remaining gates. This project does not use WSL as a runtime
-or build fallback. Firefly and npm compatibility are still under development; see
+or build fallback. The [native Linux bring-up guide](docs/development/linux-build.md)
+records the separate Ubuntu/Clang runtime gate; its initial hosted validation is pending.
+Firefly and npm compatibility are still under development; see
 [Mite coverage](docs/compatibility/mite-0.1.md) and
 [Firefly coverage](docs/compatibility/firefly-0.1.md).
 
