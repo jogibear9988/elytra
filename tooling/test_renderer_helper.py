@@ -75,6 +75,8 @@ def main():
     assert failures and max(failures)>=1,handlers
     maps=[int(n) for n in re.findall(rf'FIREFLY_WORLD_HANDLER_MAPS_CLEARED pid={pid} count=(\d+)',handlers.stderr)]
     assert maps and max(maps)>=2,handlers
+    custom=run(probe,'--headless=manual',(fixture/'custom-events.html').as_uri())
+    pid_of(custom)
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in {name for names in HOOKS.values() for name in names}:
@@ -96,6 +98,7 @@ def main():
     print('PASS source observer wrappers resist page prototypes; native disconnect leaves page observers live')
     print('PASS source listener lifetime/error privacy and native registration/signal release; page listener/abort continues')
     print('PASS source replacement handler return/cancelation/error/lifetime and continuing page controls')
+    print('PASS CustomEvent snapshots/cache/identity, rejected raw functions and page getters, source revoke and fresh-reader denial')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

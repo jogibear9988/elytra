@@ -110,6 +110,15 @@ candidate commits from the official repository in .gitmodules / the manifest.
    detached-cycle GC, foreign callback and source-detach/page continuity controls.
    The preservation test reverses every declared edit to recover exact upstream
    bytes; counts cannot substitute for this semantic review.
+   CustomEventAdapter.cpp/CustomEventBindingAdapter.cpp additionally substitute
+   native DOM/CustomEvent.cpp and generated Bindings/CustomEvent.cpp. Review the
+   constructor provenance, successful init assignment after dispatch checks,
+   visit_edges and generated detail getter return/realm. Preserve original bindgen
+   dependencies, exactly-one source guards and the custom-event preservation/drift
+   test. Run same-world/page controls, frozen graph/cache/reset tests, reader-realm
+   TypeErrors with zero traps, foreign-prototype provenance, writer GC/revocation,
+   target cache release and actual helper/fresh iframe checks. Native payload
+   retention and other event fields remain explicit limits (ADR 0041).
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

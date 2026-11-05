@@ -127,6 +127,26 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='custom-events') {
+                        document.addEventListener('page-detail',event=>{
+                            const value=event.detail;
+                            const valid=value.n===8 && value===event.detail && Object.isFrozen(value) &&
+                                Object.getPrototypeOf(value)===Object.prototype;
+                            document.documentElement.setAttribute('data-custom-reverse',String(valid));
+                        });
+                        document.addEventListener('page-detail-bad',event=>{
+                            let denied=false;
+                            try{event.detail}catch(error){denied=error instanceof TypeError}
+                            document.documentElement.setAttribute('data-custom-reverse-denied',String(denied));
+                        });
+                        const data={n:42,items:[1,,3]};data.self=data;data.alias=data.items;
+                        const event=new CustomEvent('source-detail',{detail:data});
+                        document.dispatchEvent(event);
+                        data.n=99;
+                        document.dispatchEvent(event);
+                        document.dispatchEvent(new CustomEvent('source-detail-bad',{detail:()=>42}));
+                        return event.detail===data;
+                    }
                     if(a.mode==='start-handlers') {
                         if(document.onclick!==null || document.onkeyup!==null)throw Error('Page handler reference leaked');
                         let runs=0;

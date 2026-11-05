@@ -983,7 +983,48 @@ reclamation/audit, new platform/package or visible-desktop support is claimed.
 Ladybird stays unmodified; no newer pin was tried. Standalone Mite is unchanged and
 its earlier suites were not rerun. Existing deployment/linker warnings remain.
 
-Next: complete other observer resources and callback/event-field conversions,
+CustomEvent.detail now has an internal value membrane (ADR 0041). Two additional
+owned native/generated compile adapters route constructor/successful init origin,
+native GC tracing and the detail getter return through the existing per-VM registry.
+Original checkout/generated binding/class layout and other bytes remain unchanged;
+source preservation/drift and exact source-substitution checks guard the seams,
+including bindgen ordering. No newer Ladybird pin was evaluated.
+
+Same-world values retain identity. Registered cross-world reads use bounded
+BridgeData capture/frozen reader-realm materialization, reject functions/proxies/
+accessors/exotics/unsupported primitives without executing traps and throw only a
+generic reader TypeError. Weak writer provenance must agree before same-world
+bypass; foreign prototype shapes cannot launder source values. Global guard-chain
+activity and sticky revocation cover pre-registration events and expired weak
+writers. Events trace at most 64 per-reader copied values for stable identity.
+Snapshots stay independent of later source mutations; successful reinit invalidates
+caches, while init during dispatch keeps the original generation. Source detach
+denies fresh transfers but preserves published copies in other worlds; target
+detach releases its caches through every guard layer.
+
+All gates pass in build/custom-event-acceptance-test.log: SDK, sandboxed helper,
+ordinary renderer/compositor/process and Firefly/Electron reference. Follow-up
+SDK/helper provenance/revocation passes are in build/custom-event-revoke-test.log
+and build/custom-event-provenance-test.log. Explicit primitive writer collection
+passes in build/custom-event-origin-gc-test.log and the final provenance run.
+SDK checks graph alias/cycles/holes, target prototypes/freeze, identity/cache/reset,
+native GC tracing, dispatch-time init no-op, rejected values with zero traps, page
+identity and source rejection of page getters, foreign-prototype ownership,
+published-vs-fresh readers after revoke, target cache collection and expired-writer
+revocation. Helper dispatches a source payload twice around mutation, checks stable
+frozen page copies, raw-function rejection, page-to-source copies/zero getter calls,
+source revoke and a fresh iframe reader's TypeError. Existing gates remain passing.
+
+This is an intentional cross-world snapshot difference, not public preload or full
+Electron parity. The native event still holds its original raw payload until it is
+reinitialized/collected, so object payloads can retain a source realm after detach.
+No complete reclamation/audit is claimed. Other event fields, arbitrary borrowed
+getter/direct function transfers, observers/results, workers/finalization, BFCache/
+navigation and aggregate CPU/queue/memory bounds/accounting remain open. Public
+preload/contextBridge/IPC stay rejected. Standalone Mite is unchanged, with no new
+platform/package or visible-desktop validation. Existing warnings remain.
+
+Next: complete other observer resources and remaining event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

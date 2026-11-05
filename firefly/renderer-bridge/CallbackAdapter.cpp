@@ -10,6 +10,7 @@
 #include <LibWeb/DOM/EventTarget.h>
 #include <LibWeb/DOM/MutationObserver.h>
 #include <LibWeb/DOM/AbortSignal.h>
+#include <LibWeb/DOM/CustomEvent.h>
 #include <LibWeb/HTML/BeforeUnloadEvent.h>
 #include <LibWeb/HTML/EventNames.h>
 // Preserve the unrelated class member declaration under this token name.
@@ -170,5 +171,35 @@ void clear_maps(Web::DOM::EventTarget& target)
 {
     auto gate = Callbacks::gates->get(&target.vm());
     if (gate.has_value() && gate->clear_handler_maps) gate->clear_handler_maps(gate->context, target);
+}
+}
+
+namespace Firefly::EventValues {
+Activity activity(JS::Realm& realm)
+{
+    auto gate = Callbacks::gates->get(&realm.vm());
+    if (gate.has_value() && gate->event_values.activity) return gate->event_values.activity(gate->context, realm);
+    return Activity::Unregistered;
+}
+void changed(Web::DOM::CustomEvent& event)
+{
+    auto gate = Callbacks::gates->get(&event.vm());
+    if (gate.has_value() && gate->event_values.changed) gate->event_values.changed(gate->context, event);
+}
+void visit(Web::DOM::CustomEvent& event, GC::Cell::Visitor& visitor)
+{
+    auto gate = Callbacks::gates->get(&event.vm());
+    if (gate.has_value() && gate->event_values.visit) gate->event_values.visit(gate->context, event, visitor);
+}
+JS::ThrowCompletionOr<JS::Value> read(JS::Realm& realm, Web::DOM::CustomEvent& event, JS::Value value)
+{
+    auto gate = Callbacks::gates->get(&event.vm());
+    if (gate.has_value() && gate->event_values.read) return gate->event_values.read(gate->context, realm, event, value);
+    return value;
+}
+void revoke(JS::Realm& realm)
+{
+    auto gate = Callbacks::gates->get(&realm.vm());
+    if (gate.has_value() && gate->event_values.revoke) gate->event_values.revoke(gate->context, realm);
 }
 }

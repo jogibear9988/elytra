@@ -1,4 +1,5 @@
 #pragma once
+#include "EventValues.h"
 #include <LibWeb/WebIDL/AbstractOperations.h>
 #include <AK/HashMap.h>
 namespace Web::DOM { class MutationObserver; class Event; class DOMEventListener; class EventTarget; class AbortSignal; }
@@ -32,6 +33,7 @@ struct Gate {
     SelectHandlerMap select_handler_map { nullptr };
     VisitHandlerMaps visit_handler_maps { nullptr };
     ClearHandlerMaps clear_handler_maps { nullptr };
+    EventValues::Hooks event_values {};
 };
 WEB_API void observer_added(Web::DOM::MutationObserver&);
 WEB_API void observer_removed(Web::DOM::MutationObserver&);

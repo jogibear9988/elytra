@@ -131,3 +131,10 @@ and delivery. SDK/helper GC, ordering, inline attribute, erasure/rearm, foreign-
 callback and independent detach controls pass (ADR 0040). Other event fields,
 observers and callback boundaries remain incomplete; public preload/contextBridge/
 IPC remain unsupported.
+
+Internal CustomEvent.detail now keeps same-world identity and uses bounded frozen
+snapshots across registered world boundaries, with stable per-event/reader cache
+identity. This is an **intentional difference** from raw cross-world mutation
+sharing. SDK/helper provenance/trap/GC/reset/revocation controls and app regressions
+pass (ADR 0041). Original native payload retention, other event fields and the full
+membrane remain incomplete; public preload/contextBridge/IPC stay unsupported.

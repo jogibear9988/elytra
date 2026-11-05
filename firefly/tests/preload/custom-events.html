@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8">
+<body><p id="status">WAITING_FOR_CUSTOM_EVENTS</p>
+<script>
+let cached,eventReference,runs=0,valid=true,denied=false,traps=0;
+document.addEventListener('source-detail',event=>{
+ const value=event.detail;
+ if(runs++===0){cached=value;eventReference=event}
+ valid=valid && value===cached && value.n===42 && value.self===value && value.alias===value.items &&
+  !(1 in value.items) && Object.getPrototypeOf(value)===Object.prototype &&
+  Object.getPrototypeOf(value.items)===Array.prototype && Object.isFrozen(value) && Object.isFrozen(value.items);
+});
+document.addEventListener('source-detail-bad',event=>{
+ try{event.detail}catch(error){denied=error instanceof TypeError && error.message==='Firefly event value cannot cross worlds'}
+});
+const sameWorld=__fireflyFunctionProbe({mode:'custom-events'});
+const pageData={n:8};const pageEvent=new CustomEvent('page-detail',{detail:pageData});
+document.dispatchEvent(pageEvent);
+const bad=new CustomEvent('page-detail-bad',{detail:Object.defineProperty({},'secret',{get(){traps++;return 1}})});
+document.dispatchEvent(bad);
+let revoked=false;
+try{__fireflyFunctionProbe({mode:'detach-world'})}catch(error){revoked=error instanceof TypeError}
+const initial=sameWorld && revoked && denied && valid && runs===2 && traps===0 &&
+ pageEvent.detail===pageData && !Object.isFrozen(pageData) && eventReference.detail===cached &&
+ document.documentElement.getAttribute('data-custom-reverse')==='true' &&
+ document.documentElement.getAttribute('data-custom-reverse-denied')==='true';
+if(!initial){document.querySelector('#status').textContent='CUSTOM_EVENT_MISSING'}
+else {
+ const frame=document.createElement('iframe');
+ frame.onload=()=>{
+  if(frame.contentWindow.location.href!=='about:srcdoc')return;
+  const child=frame.contentWindow;
+  const getter=Object.getOwnPropertyDescriptor(child.CustomEvent.prototype,'detail').get;
+  let denied=false;
+  try{getter.call(eventReference)}catch(error){denied=error instanceof child.TypeError}
+  const ok=denied && eventReference.detail===cached;
+  frame.remove();
+  document.querySelector('#status').textContent=ok?'CUSTOM_EVENT_WORLD_OK':'CUSTOM_EVENT_FRESH_READER_MISSING';
+  if(ok)setTimeout(()=>window.close(),100);
+ };
+ frame.srcdoc='<!doctype html><p>fresh event reader</p>';document.body.append(frame);
+}
+</script>

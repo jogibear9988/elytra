@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0040. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0041. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -154,3 +154,11 @@ page/two-world order and independent cleanup, principal inline text attributes,
 full native erase/rearm, detached callback-cycle GC, foreign callbacks and native
 beforeunload conversion. This does not enable public preload or establish a general
 membrane for script-valued event fields and other callbacks.
+
+CustomEvent native/generated adapters preserve all bytes outside constructor/init/
+trace/getter seams and retain bindgen output ordering. The custom-event hook target
+checks source preservation/drift. SDK/helper tests require frozen bounded copies,
+cache identity/reset, no getter/proxy/function leaks, writing-world provenance,
+writer GC/revocation and target-cache release. Same-world/page controls remain
+ordinary browser behavior. Original native payload retention and other event fields
+remain open; public preload is still rejected.
