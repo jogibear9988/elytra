@@ -1554,6 +1554,24 @@ path in our repository and none in the pinned Ladybird tree. Local DNS different
 pass after rename; Windows build/test support is still unproven until the next run.
 No checkout filter or upstream edit is used to hide an incompatible source tree.
 
+The second native Windows run (42114277910, job 127549626550, source 1cad9cc)
+passed checkout, Python/Node setup, Visual Studio clang-cl initialization, native
+pkg-config installation, pinned Rust selection and vcpkg bootstrap, and is currently
+in CMake dependency configuration. Job logs are not available until upload (the
+in-progress logs endpoint returns BlobNotFound); this is not a terminal build result.
+Keep watching this exact run until an authoritative terminal status is observed.
+
+A focused tracked-path guard now rejects the actual nul.mjs checkout regression,
+other reserved device/character components and trailing periods/spaces. Five local
+contract/index tests pass; an Ubuntu-only source preflight guards the real native
+Windows job and release version job. This is not Linux runtime or complete Windows
+path validation. Native pkg-config setup is shared with the release workflow.
+Completed vcpkg archives will be saved even after later compile failures, and runs
+on the same ref serialize instead of canceling an active dependency build. Workflow
+syntax and upstream integrity pass locally. Native compile/runtime, Firefly and
+Windows packaging/release support remain unverified; no SDK/vendor patch or alternate
+engine is introduced. See docs/development/windows-build.md for the exact scope.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

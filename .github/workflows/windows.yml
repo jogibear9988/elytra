@@ -2,17 +2,28 @@ name: Native Windows development
 on:
   push:
     branches: [master]
-    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/test_*.py']
+    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_checkout_paths.py', 'tooling/test_*.py']
   pull_request:
-    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/test_*.py']
+    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_checkout_paths.py', 'tooling/test_*.py']
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: windows-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
+  checkout-paths:
+    name: Portable source checkout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - run: python tooling/check_checkout_paths.py
+      - run: python tooling/test_checkout_paths.py
   mite:
+    needs: checkout-paths
     name: Mite / native clang-cl x64
     runs-on: windows-2025
     timeout-minutes: 180
@@ -30,11 +41,6 @@ jobs:
         with:
           node-version: '24.15.0'
       - uses: ./.github/actions/windows-environment
-      - name: Native pkg-config prerequisite
-        shell: pwsh
-        run: |
-          choco install pkgconfiglite --version=0.28 --yes --no-progress
-          if ($LASTEXITCODE) { throw 'pkg-config installation failed' }
       - name: Pinned Rust toolchain
         shell: pwsh
         run: |
@@ -48,7 +54,8 @@ jobs:
           $cache = Join-Path $env:GITHUB_WORKSPACE 'build/vcpkg-cache'
           New-Item -ItemType Directory -Force $cache | Out-Null
           "VCPKG_DEFAULT_BINARY_CACHE=$cache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: dependency-cache
         with:
           path: build/vcpkg-cache
           key: windows-x64-clang-release-${{ hashFiles('vcpkg.json', 'vendor/ladybird.json') }}
@@ -66,6 +73,12 @@ jobs:
       - name: Record upstream integrity after native build
         if: always()
         run: python tooling/check_upstream.py
+      - name: Preserve completed dependency packages even after a compile failure
+        if: always() && steps.dependency-cache.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: build/vcpkg-cache
+          key: ${{ steps.dependency-cache.outputs.cache-primary-key }}
       - name: Preserve native diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

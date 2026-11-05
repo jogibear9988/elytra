@@ -52,7 +52,8 @@ build/dev/bin/mite examples/mite-cli/commonjs.cjs
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
 Ninja; set `CC=clang-cl` and `CXX=clang-cl` in that terminal before configuring.
-Windows and Linux are not yet verified. This project does not use WSL as a runtime
+Windows and Linux are not yet verified. The [native Windows bring-up guide](docs/development/windows-build.md)
+records the CI path, actual setup evidence and remaining gates. This project does not use WSL as a runtime
 or build fallback. Firefly and npm compatibility are still under development; see
 [Mite coverage](docs/compatibility/mite-0.1.md) and
 [Firefly coverage](docs/compatibility/firefly-0.1.md).

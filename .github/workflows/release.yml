@@ -27,6 +27,8 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
+      - name: Validate portable checkout paths
+        run: python3 tooling/check_checkout_paths.py
       - id: version
         name: Validate exact release tag
         env:

@@ -5,3 +5,10 @@ runs:
   steps:
     - shell: pwsh
       run: '& "$env:GITHUB_ACTION_PATH/setup.ps1"'
+    - name: Native pkg-config prerequisite
+      shell: pwsh
+      run: |
+        choco install pkgconfiglite --version=0.28 --yes --no-progress
+        if ($LASTEXITCODE) { throw 'pkg-config installation failed' }
+        & pkg-config --version
+        if ($LASTEXITCODE) { throw 'Native pkg-config could not run' }
