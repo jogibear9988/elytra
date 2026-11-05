@@ -1534,6 +1534,18 @@ by homepage and API docs; relative GitHub project-Page paths remain checked. No 
 was created. Earlier main/codex branches are preserved; future implementation commits
 and website deployments use master as requested.
 
+Native Windows CI is now being established before changing platform claims. The
+restored owned composite action initializes the Visual Studio clang-cl x64 environment
+and exports only required toolchain variables; release and development workflows share
+it. The development workflow uses windows-2025, pinned Node/Rust, native pkg-config,
+a pinned vcpkg bootstrap and binary cache, Release Mite plus all enabled CTest suites,
+then preserves diagnostics and checks unmodified upstream even after failures. It has
+no continue-on-error or WSL/alternate-engine fallback. Local actionlint accepts the
+workflow/composite syntax; the first actual Windows run is pending the direct master
+push. This establishes an execution path, not verified Windows support. Firefly's
+native Windows and packaging/release gates remain incomplete. The saved draft stash
+is retained as a backup; its changes are restored in the working implementation.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

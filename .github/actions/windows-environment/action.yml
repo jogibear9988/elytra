@@ -1,0 +1,7 @@
+name: Native Windows environment
+description: Initialize Visual Studio clang-cl and export only required native toolchain variables
+runs:
+  using: composite
+  steps:
+    - shell: pwsh
+      run: '& "$env:GITHUB_ACTION_PATH/setup.ps1"'

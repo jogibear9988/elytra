@@ -72,17 +72,7 @@ jobs:
         run: brew install cmake ninja pkg-config autoconf automake libtool
       - name: Native Windows developer environment
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $install = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (!$install) { throw 'Visual Studio C++ tools are required' }
-          & "$install\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
-          foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH','WindowsSdkDir','WindowsSDKVersion','VCToolsInstallDir','VCINSTALLDIR','VSINSTALLDIR','VSCMD_ARG_TGT_ARCH')) {
-            $value = [Environment]::GetEnvironmentVariable($name)
-            if ($value) { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
-          }
-          if (!(Get-Command clang-cl -ErrorAction SilentlyContinue)) { throw 'Native clang-cl is required' }
-          if (!(Get-Command ninja -ErrorAction SilentlyContinue)) { throw 'Ninja is required' }
+        uses: ./.github/actions/windows-environment
       - name: Pinned Rust toolchain
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy

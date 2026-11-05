@@ -1,0 +1,80 @@
+name: Native Windows development
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/test_*.py']
+  pull_request:
+    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/test_*.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mite:
+    name: Mite / native clang-cl x64
+    runs-on: windows-2025
+    timeout-minutes: 180
+    env:
+      VCPKG_MAX_CONCURRENCY: '3'
+      CMAKE_BUILD_PARALLEL_LEVEL: '3'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+      - uses: ./.github/actions/windows-environment
+      - name: Native pkg-config prerequisite
+        shell: pwsh
+        run: |
+          choco install pkgconfiglite --version=0.28 --yes --no-progress
+          if ($LASTEXITCODE) { throw 'pkg-config installation failed' }
+      - name: Pinned Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          if ($LASTEXITCODE) { throw 'Rust toolchain installation failed' }
+          rustup default 1.98.0
+          if ($LASTEXITCODE) { throw 'Rust toolchain selection failed' }
+      - name: Prepare local dependency cache
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:GITHUB_WORKSPACE 'build/vcpkg-cache'
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          "VCPKG_DEFAULT_BINARY_CACHE=$cache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: build/vcpkg-cache
+          key: windows-x64-clang-release-${{ hashFiles('vcpkg.json', 'vendor/ladybird.json') }}
+      - name: Bootstrap pinned native dependencies
+        run: python tooling/bootstrap.py
+      - name: Configure standalone Mite
+        run: cmake -S . -B build/windows -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_TOOLCHAIN_FILE="$env:GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        shell: pwsh
+      - name: Compile Mite and native test hosts
+        run: cmake --build build/windows --target mite --parallel 3
+      - name: Install locked npm test fixtures
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
+      - name: Run all enabled runtime suites
+        run: ctest --test-dir build/windows --output-on-failure --output-junit windows-ctest.xml
+      - name: Record upstream integrity after native build
+        if: always()
+        run: python tooling/check_upstream.py
+      - name: Preserve native diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-native-diagnostics
+          path: |
+            build/windows/CMakeCache.txt
+            build/windows/CMakeFiles/CMakeConfigureLog.yaml
+            build/windows/Testing/Temporary/LastTest.log
+            build/windows/windows-ctest.xml
+            build/vcpkg/buildtrees/**/*.log
+          if-no-files-found: warn
