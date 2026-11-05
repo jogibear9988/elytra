@@ -1626,6 +1626,17 @@ Firefly state events pass, but locked-host Electron maximize-event delivery did 
 reference event timing and visible native presentation remain unverified. No native
 Windows/Linux acceptance is claimed. Designer shell/package changes follow separately.
 
+
+Native Windows run 42114277910 is now terminal failure, not still configuring:
+dependencies configured and initial native objects compiled, then the runtime JS
+integrity gate correctly rejected CRLF conversion of tooling/runtime-js/build.cjs.
+Add narrow LF checkout attributes for the hashed runtime builder/adapter inputs and
+generated artifacts; do not normalize away a hash mismatch or edit upstream. The
+core.autocrlf=true checkout regression verifies all protected bytes against the
+existing manifest. Local runtime integrity and upstream guards still pass. Native
+Windows compilation/tests beyond that gate remain unverified; the queued older
+workflow may reproduce the failure until a commit containing this fix runs.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

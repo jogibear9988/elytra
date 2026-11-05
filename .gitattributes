@@ -1,0 +1,3 @@
+# Integrity manifests hash these exact bytes. Keep them stable on Windows too.
+/tooling/runtime-js/** text eol=lf
+/mite/modules/generated/** text eol=lf
