@@ -206,6 +206,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    the isolated Node negative-zero/object-mode assertion reference cases.
    The existing pinned OpenSSL target is linked explicitly by our runtime graph.
    Provider failures, full stream/error parity and Windows/Linux remain unverified.
+   Revalidate the pinned Designer app and release bundle after engine/helper changes.
+   tooling/test_designer.py must exercise the real app's document edit and Monaco,
+   not merely compilation or loadURL. Keep packaged helpers/resources physical,
+   loader paths relative, helper entitlements/sandbox intact and exact dependency
+   notices/pins in release manifests. Re-run relocated native app gates; do not
+   substitute a different engine or skip required platforms to make a release green.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

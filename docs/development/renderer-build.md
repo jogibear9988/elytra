@@ -18,7 +18,10 @@ the Mite build. Upstream's native build prerequisites still apply. Use a separat
 build directory; do not point it at build/debug or build/dev. The renderer uses
 Release without LTO or JS JIT for the initial integration exercise. Its helpers
 and resources currently come from the companion Ladybird build/bundle; this is a
-source-tree development layout, not a redistributable Firefly package.
+source-tree development layout. The separate experimental
+[release packager](releases.md) stages physical helpers/resources and internal
+libraries into relocatable macOS bundles; native Windows/Linux and production
+signing/notarization remain open.
 
 The probe defaults to text mode, always selects a temporary profile, and does not
 coordinate with an existing browser process. It supports upstream's headless text,

@@ -1,0 +1,136 @@
+name: Native release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag (for example v0.1.0-dev.1)
+        required: true
+        type: string
+      publish:
+        description: Upload verified assets to a draft prerelease after every platform passes
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+      - id: version
+        name: Validate exact release tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os,re,subprocess
+          tag=os.environ['RELEASE_TAG']
+          if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',tag):raise SystemExit('Invalid version tag')
+          commit=subprocess.check_output(['git','rev-parse','refs/tags/'+tag+'^{commit}'],text=True).strip()
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          if commit!=head:raise SystemExit('Checkout does not match version tag')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('tag='+tag+'\n')
+          PY
+  native:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            platform: macos-arm64
+          - runner: windows-2025
+            platform: windows-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    env:
+      VCPKG_MAX_CONCURRENCY: '3'
+      CMAKE_BUILD_PARALLEL_LEVEL: '3'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+          submodules: recursive
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Native macOS prerequisites
+        if: runner.os == 'macOS'
+        run: brew install cmake ninja pkg-config autoconf automake libtool
+      - name: Native Windows developer environment
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $install = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$install) { throw 'Visual Studio C++ tools are required' }
+          & "$install\Common7\Tools\Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64
+          foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH','WindowsSdkDir','WindowsSDKVersion','VCToolsInstallDir','VCINSTALLDIR','VSINSTALLDIR','VSCMD_ARG_TGT_ARCH')) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ($value) { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
+          }
+          if (!(Get-Command clang-cl -ErrorAction SilentlyContinue)) { throw 'Native clang-cl is required' }
+          if (!(Get-Command ninja -ErrorAction SilentlyContinue)) { throw 'Ninja is required' }
+      - name: Pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.0
+      - name: Compile, validate and package Mite, Firefly and Designer
+        env:
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: python tooling/build_release.py --tag "$env:RELEASE_TAG" --jobs 3
+        shell: pwsh
+      - name: Preserve build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: diagnostics-${{ matrix.platform }}
+          path: |
+            build/**/CMakeConfigureLog.yaml
+            build/**/LastTest.log
+            build/**/*.log
+          if-no-files-found: warn
+      - name: Upload validated native archives
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-${{ matrix.platform }}
+          path: build/release-assets/*
+          if-no-files-found: error
+  publish:
+    if: github.event_name == 'push' || inputs.publish
+    needs: [version, native]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: release-*
+          path: build/release-assets
+          merge-multiple: true
+      - name: Create draft prerelease and attach every native archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > build/release-state.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("build/release-state.json"))["isDraft"], "Refusing to overwrite a published release"'
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "Mite + Firefly $RELEASE_TAG" --notes-file docs/development/release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" build/release-assets/* --clobber

@@ -16,7 +16,7 @@ Windows/Linux, preload/IPC isolation and distribution remain outstanding.
 | dialog, Menu, MenuItem, Tray | unsupported | Native services and observable Electron fixture behavior |
 | clipboard, shell, screen, nativeImage, session | unsupported | Native services and migration fixtures |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
-| Packaging on Windows/macOS/Linux | unsupported | Native installation/signing/launch smoke tests; current helpers/resources come from the development Ladybird bundle |
+| Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). Full hosted releases, Windows/Linux, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
 
 Use `require('firefly')` or ESM imports from `firefly` in the main process. There
 is no `electron` alias. Standalone Mite does not register or depend on Firefly.

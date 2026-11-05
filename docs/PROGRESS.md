@@ -1450,6 +1450,46 @@ external/offline behavior and native Windows/Linux remain unverified. No alterna
 engine or vendor change. Native bundle/release automation is the next in-progress
 step; a compiled web tree alone is not an installed native release.
 
+Experimental native macOS packaging/release infrastructure is implemented (ADR
+0054). An owned C++ Finder launcher execs the bundled Firefly/main module. Firefly's
+owned adapter discovers adjacent physical helpers/resources while retaining the
+source-tree layout. The packager stages libraries and all ten pinned helpers,
+removes absolute build RPATHs, checks dependency resolution, preserves helper
+entitlements/flags and verifies ad-hoc bundle signatures. Its helper inventory is
+guarded against upstream CMake changes. Common notices live inside each app and
+archives; Rust crates without standalone notice files retain their distributed
+source archive. Metadata records pins, host, source state, configurations and hashes.
+Ladybird remains unmodified; no alternative runtime/renderer is bundled.
+
+The Designer and framework bundles run from build/release candidate/ (spaces in the
+relocated path): build/designer-relocated-test.log passes server + actual document
+edit/Monaco/absent-Node smoke, and build/firefly-relocated-test.log passes the full
+existing Electron-reference suite. All ten helpers' signature flags and entitlements
+match the original binaries. The development Firefly gate still passes in
+build/release-firefly-test.log. A separately configured Release Mite build passes
+35/35 suites in build/release-mite-test.log (23.93s); linkage remains platform-only.
+The local bundle candidate used Debug Mite + Release Firefly; the release driver
+builds Release for both. SDK/Rust linker warnings remain. The conservative bundle
+minimum macOS version is the build host, not a claim for older deployment targets.
+
+The Native release workflow handles exact version tags/manual dispatch, native
+macOS ARM64 and Windows x64 builds, required runtime/renderer/isolation/helper/demo
+checks, separate runtime/framework/Designer archives and checksums, then draft
+prerelease upload only after every platform passes. Published releases cannot be
+overwritten. All Actions are SHA pinned; actionlint 1.7.12 (official checksum verified)
+accepts both workflows. No version tag, complete hosted release build, native Windows
+package or release upload was created/claimed. Current Windows Firefly/build/package
+limitations explicitly fail the required job and block complete publication. GitHub's
+manual workflow UI will require the file on the default branch; tag-triggered builds
+use their tagged workflow. Native Windows CI/porting is the next release blocker.
+
+The user-requested website/API docs and pinned runnable macOS demo are now delivered;
+release infrastructure is present but the macOS+Windows release request remains
+incomplete. Native Windows/Linux, unlocked desktop presentation, signing/notarization,
+full license/security audit, complete Designer feature coverage and remaining public
+preload/contextBridge/IPC requirements stay open. Follow the release and upstream
+update guides; do not skip a required platform or weaken sandboxing for a green run.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

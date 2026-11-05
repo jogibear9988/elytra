@@ -110,3 +110,12 @@ The [pinned Designer sample](examples/web-component-designer/README.md) builds
 node-projects/web-component-designer-demo and runs it in Firefly with a Mite main
 process. Its macOS ARM64 smoke test checks app boot, document editing and Monaco.
 Native Windows packaging and broader designer feature validation remain open.
+
+## Website and release infrastructure
+
+The [project website](https://jogibear9988.github.io/elytra/) and API reference deploy
+from repository sources through GitHub Pages. See [website development](docs/development/website.md).
+The [native release workflow](docs/development/releases.md) builds and tests both
+projects and the Designer sample before packaging/uploading a draft prerelease.
+Required native Windows support is still missing and blocks a complete release;
+macOS bundles are experimental and ad-hoc signed, not notarized.

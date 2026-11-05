@@ -136,5 +136,7 @@ ERR_TIMED_OUT and ERR_FAILED. Messages, stack traces and detailed network error
 fields are not generally Electron-compatible.
 
 Dialogs, Menu/MenuItem, Tray, clipboard, shell, screen, nativeImage, session,
-auto-updates and installable signed packages remain unimplemented. Native Windows
+auto-updates and production signed/notarized packages remain unimplemented.
+Experimental macOS bundles and a gated build workflow are described in the
+[release guide](../development/releases.md). Native Windows
 and Linux desktop support still require adapters and platform-specific validation.

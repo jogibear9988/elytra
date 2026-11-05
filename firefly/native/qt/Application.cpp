@@ -4,6 +4,7 @@
 #include "EventLoop.h"
 #include "ModuleLoader.h"
 #include <LibCore/EventLoop.h>
+#include <LibCore/System.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
@@ -19,10 +20,24 @@
 
 template<> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 namespace Firefly {
+// Prefer physically adjacent helpers/resources in a packaged application. The
+// development build keeps its existing upstream bundle; no cwd/env override.
+static ByteString runtime_directory()
+{
+    auto executable = Core::System::current_executable_path();
+    if (!executable.is_error()) {
+        auto directory = std::filesystem::path(executable.value().characters()).parent_path();
+        std::error_code error;
+        if (std::filesystem::is_regular_file(directory / "WebContent", error)
+            && std::filesystem::is_directory(directory.parent_path() / "Resources", error))
+            return ByteString(directory.string().c_str());
+    }
+    return ByteString(FIREFLY_LADYBIRD_DIRECTORY);
+}
 class Application final : public WebView::Application {
     WEB_VIEW_APPLICATION(Application)
 public:
-    Application():WebView::Application(ByteString(FIREFLY_LADYBIRD_DIRECTORY)) { }
+    Application():WebView::Application(runtime_directory()) { }
     int run_script(int argc,char** argv)
     {
         std::unique_ptr<Bridge> bridge;
