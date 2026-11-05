@@ -5,6 +5,10 @@ Electron-compatible APIs using Mite + Ladybird, not general Electron compatibili
 today. Node integration in renderers is unavailable. [Compatibility matrix](../compatibility/firefly-0.1.md)
 and [renderer build guide](../development/renderer-build.md) record the acceptance gates.
 
+Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
+[webContents](web-contents.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+or [Electron migration guide](../migration/from-electron.md).
+
 ## Application entry
 
 ```js

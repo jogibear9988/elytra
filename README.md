@@ -1,7 +1,8 @@
 # Mite and Firefly
 
 [Project website](https://jogibear9988.github.io/elytra/) ·
-[Getting started](docs/getting-started.md) · [API reference](docs/api/index.md)
+[Documentation](docs/index.md) · [Getting started](docs/getting-started.md) ·
+[API reference](docs/api/index.md) · [Roadmap](docs/roadmap.md)
 
 Work in progress: a LibJS-powered Node-compatible runtime and a Ladybird-powered
 Electron-compatible desktop framework. The implementation requirements are in

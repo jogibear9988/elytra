@@ -1572,6 +1572,26 @@ syntax and upstream integrity pass locally. Native compile/runtime, Firefly and
 Windows packaging/release support remain unverified; no SDK/vendor patch or alternate
 engine is introduced. See docs/development/windows-build.md for the exact scope.
 
+
+Documentation expansion: reviewed Node's Learn material and versioned 24.15.0 API
+index plus Electron's introduction, API/process and security references as a baseline.
+Added 22 application-author pages: documentation home, three concepts, eight guides,
+Node/Electron migration, support policy, baseline/gap inventory, delivery roadmap,
+documentation contribution rules and detailed CLI/app/BrowserWindow/webContents
+contracts. Existing overview pages and README link these paths. The baseline separates
+reference depth from implemented APIs and inventories missing runtime/desktop families;
+versioned archives/search and complete per-method runtime entries remain work.
+
+Validation: all source-relative Markdown targets exist; the static build resolves
+92 total pages and 4,561 local links/resources/fragments with the accompanying
+navigation draft. The new hash-file recipe passes on actual Release Mite and Node
+for digest, missing argument and missing file; the documented HTTP example passes
+real loopback GET and streamed POST echo. Desktop contracts were checked against
+owned firefly.js and existing test evidence; no new native platform/security/desktop
+acceptance is claimed. Upstream integrity passes, with no Ladybird/runtime changes.
+Windows run 42114277910 still reports dependency configuration in progress; no
+terminal native compiler/runtime result has been observed in this documentation step.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

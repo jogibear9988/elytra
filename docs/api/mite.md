@@ -5,6 +5,9 @@ See the [compatibility matrix](../compatibility/mite-0.1.md) for differences and
 [getting started](../getting-started.md) for builds. This is the supported subset,
 not a promise that every Node option or overload works.
 
+See the [CLI contract](cli.md), [module concepts](../concepts/modules-and-packages.md)
+and [Node migration guide](../migration/from-node.md) for application workflows.
+
 ## CLI and modules
 
 ```sh
