@@ -11,6 +11,8 @@
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/HTML/Window.h>
+#include <LibWeb/HTML/Timer.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
@@ -25,6 +27,15 @@ struct WorldJobGuard::State : public RefCounted<State> {
     GC::WeakHashMap<JS::Realm, WeakPtr<IsolatedWorld>> realms;
     GC::WeakHashSet<JS::Promise> redacted_promises;
     Callbacks::Gate previous_gate;
+    struct TimerRecord {
+        GC::Weak<JS::Realm> realm;
+        GC::Weak<Web::HTML::Window> global;
+        GC::Weak<Web::HTML::Timer> timer;
+        Callbacks::TimerMap* map;
+        int id;
+    };
+    Vector<TimerRecord> timers;
+    size_t canceled_timers { 0 };
     size_t blocked { 0 };
     size_t source_rejections { 0 };
     size_t source_job_errors { 0 };
@@ -35,9 +46,70 @@ struct WorldJobGuard::State : public RefCounted<State> {
         VERIFY(upstream); VERIFY(upstream_enqueue); VERIFY(upstream_rejections);
         previous_gate = Callbacks::exchange_gate(vm, {this,+[](void* context, Web::WebIDL::CallbackType& callback, Optional<JS::Value> receiver, Web::WebIDL::ExceptionBehavior behavior, ReadonlySpan<JS::Value> arguments) {
             return static_cast<State*>(context)->invoke_webidl(callback, move(receiver), behavior, arguments);
+        },+[](void* context, Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id, Web::HTML::Timer& timer) {
+            static_cast<State*>(context)->add_timer(global, map, id, timer);
+        },+[](void* context, Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id) {
+            static_cast<State*>(context)->remove_timer(global, map, id);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    void cancel_timer(TimerRecord const& record)
+    {
+        if (!record.global.ptr() || !record.timer.ptr()) return;
+        GC::Root global { *record.global.ptr() };
+        GC::Root timer { *record.timer.ptr() };
+        Callbacks::stop_timer(*timer);
+        auto current = record.map->get(record.id);
+        if (current.has_value() && current->ptr() == timer.ptr()) global->clear_timeout(record.id);
+        ++canceled_timers;
+    }
+    void cancel_timers(JS::Realm& realm)
+    {
+        Vector<TimerRecord> removed;
+        timers.remove_all_matching([&](auto const& record) {
+            if (record.realm.ptr().ptr() == &realm) { removed.append(record); return true; }
+            return !record.realm.ptr() || !record.global.ptr() || !record.timer.ptr();
+        });
+        // Native clear_timeout reenters the map observer: remove metadata first.
+        for (auto const& record : removed) cancel_timer(record);
+    }
+    void add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id, Web::HTML::Timer& timer)
+    {
+        for (auto const& record : timers) {
+            if (record.map == &map && record.id == id && record.timer.ptr().ptr() == &timer) return; // interval rearm
+        }
+        timers.remove_all_matching([&](auto const& record) { return (record.map == &map && record.id == id) || !record.global.ptr() || !record.timer.ptr(); });
+        GC::Ptr<JS::Realm> origin;
+        vm.for_each_execution_context_top_to_bottom([&](JS::ExecutionContext const& context) {
+            if (context.realm && realms.contains(*context.realm)) { origin = context.realm; return false; }
+            return true;
+        });
+        auto* window = as_if<Web::HTML::Window>(global.this_impl());
+        if (!origin || !window) {
+            if (previous_gate.added) previous_gate.added(previous_gate.context, global, map, id, timer);
+            return;
+        }
+        TimerRecord record { *origin, *window, timer, &map, id };
+        auto owner = owner_for(*origin);
+        if (!owner || (owner->is_detached() && !owner->is_executing())) {
+            // The upstream path starts a newly inserted Timer after map.set.
+            // Cancel at the next checkpoint, with roots, rather than stopping
+            // before start and leaving an active orphan when it subsequently arms.
+            NonnullRefPtr self { *this };
+            Web::HTML::queue_a_microtask(nullptr, GC::create_function(vm.heap(),
+                [self, record, global_root = GC::Ref { *window }, timer_root = GC::Ref { timer }] {
+                    (void)global_root; (void)timer_root;
+                    self->cancel_timer(record);
+                }));
+            return;
+        }
+        timers.append(move(record));
+    }
+    void remove_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id)
+    {
+        timers.remove_all_matching([&](auto const& record) { return record.map == &map && record.id == id; });
+        if (previous_gate.removed) previous_gate.removed(previous_gate.context, global, map, id);
+    }
     JS::Completion invoke_webidl(Web::WebIDL::CallbackType& callback, Optional<JS::Value> receiver, Web::WebIDL::ExceptionBehavior behavior, ReadonlySpan<JS::Value> arguments)
     {
         auto delegate = [&] {
@@ -200,9 +272,23 @@ ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
     auto* realm = owner.realm();
     if (!realm || &realm->vm() != &m_state->vm || Web::Bindings::host_defined_wrapper_world(*realm).is_main_world())
         return Error::from_string_literal("Job guard requires a live isolated world in its VM");
+    if (m_state->realms.contains(*realm)) return {};
     m_state->realms.set(*realm, owner.make_weak_ptr());
+    owner.add_detach_hook([state = m_state, realm = GC::Weak<JS::Realm> { *realm }] {
+        if (realm.ptr()) state->cancel_timers(*realm.ptr());
+    });
     return {};
 }
+Vector<GC::Root<Web::HTML::Timer>> WorldJobGuard::owned_timer_snapshot() const
+{
+    Vector<GC::Root<Web::HTML::Timer>> result;
+    for (auto const& record : m_state->timers) {
+        if (record.timer.ptr()) result.append(GC::Root { *record.timer.ptr() });
+    }
+    return result;
+}
+size_t WorldJobGuard::owned_timer_count() const { return m_state->timers.size(); }
+size_t WorldJobGuard::canceled_timer_count() const { return m_state->canceled_timers; }
 size_t WorldJobGuard::blocked_count() const { return m_state->blocked; }
 size_t WorldJobGuard::source_rejection_count() const { return m_state->source_rejections; }
 size_t WorldJobGuard::source_job_error_count() const { return m_state->source_job_errors; }

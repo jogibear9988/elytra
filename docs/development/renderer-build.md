@@ -105,7 +105,9 @@ Promise constructors, later handling, original page tracking and zero source rea
 getter calls (ADR 0033). A separate owned LibWeb compile adapter now exercises
 Report-style queueMicrotask callbacks, in-flight lifetime and error redaction
 (ADR 0034). After changing this common library seam, also run check-firefly-renderer
-and check-firefly to validate unregistered callback behavior.
+and check-firefly to validate unregistered callback behavior. The timer-map
+adapter additionally checks native interval/timeout ownership, GC tracing, actual
+stop state and detach release (ADR 0035).
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -128,7 +130,9 @@ Promise rejection, blocked removed-frame Promise jobs, self-removing frames duri
 reaction/await/generator jobs, source rejection isolation with page reject/handle
 controls, queueMicrotask lifetime/error routing and rejected missing/duplicate entry
 tokens. The upstream-helper control shares the adapted LibWeb but registers no
-owned worlds; its delegation behavior is checked separately. A missing executable
+owned worlds; its delegation behavior is checked separately. Native timer cleanup
+also requires a source interval to stop while an existing page interval and the
+document remain live. A missing executable
 or failed fixture fails the gate. Only compiled harmless scripts are installed;
 public preload/contextBridge, complete source-job revocation and validated IPC
-remain open. See ADRs 0027–0034.
+remain open. See ADRs 0027–0035.

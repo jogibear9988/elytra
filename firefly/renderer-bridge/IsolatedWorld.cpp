@@ -105,12 +105,21 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::run_async_frame(Function<JS::Thr
 
 void IsolatedWorld::detach()
 {
-    if (!m_world)
+    if (!m_world || m_detaching)
         return;
     if (m_evaluating) {
         m_detach_requested = true;
         return;
     }
+    // Cleanup hooks may reenter detach or release the last external reference.
+    // Destruction itself has refcount zero, in which case try_ref must not revive.
+    RefPtr<IsolatedWorld> protect;
+    if (try_ref()) protect = adopt_ref(*this);
+    m_detaching = true;
+    m_detach_requested = true;
+    ScopeGuard finish([&] { m_detaching = false; });
+    auto hooks = move(m_detach_hooks);
+    for (auto& hook : hooks) hook();
     m_world->detach();
     m_context.clear();
     m_realm = nullptr;

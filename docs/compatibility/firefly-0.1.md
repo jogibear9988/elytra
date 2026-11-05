@@ -95,3 +95,8 @@ queueMicrotask ordering, cancellation, in-flight owner lifetime and error isolat
 pass SDK/helper tests; ordinary renderer and Firefly/Electron regression gates
 also pass (ADR 0034). Other callback conversions and timer/listener resource cleanup
 remain incomplete. No public preload/contextBridge/IPC support is implied.
+
+Internal source timeouts/intervals now release their specific native timer/map
+entries at physical world detach. SDK native-state/GC tests and a helper test with
+a continuing page interval pass (ADR 0035). This is not public preload/timer parity;
+string-handler realm policy and other native resources remain incomplete.

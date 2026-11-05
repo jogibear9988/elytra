@@ -745,9 +745,47 @@ coverage is not claimed merely because some share this callback entry. Mite stay
 independent; its previous standalone suites were unchanged and not rerun. Native
 Windows/Linux, COI, packaging and full security audit remain open.
 
-Next: complete remaining callback conversions and timer/listener resource
-revocation, callback membranes and validated IPC with resource/sender/frame limits,
-alongside Windows feasibility.
+Native source timer resources are now released with their world. A second owned
+LibWeb compile adapter views the original WindowOrWorkerGlobalScopeMixin timer map
+without copying it or changing its class layout. It forwards GC/iteration and
+observes entry set/remove/clear. Configure requires both exact source substitutions;
+the new timer token guard checks 15 occurrences. Callback/Timer APIs and algorithms
+stay upstream, and the vendored checkout remains unmodified.
+
+Weak metadata records source realm, actual Window/map, ID and exact Timer object.
+Repeated interval rearming preserves that ownership. Explicit clear/completion/map
+clear removes it. IsolatedWorld physical-detach hooks stop the specific native
+Timer and clear only an ID still matching that object; they never clear a whole
+Window's map. Timers created after logical detach during a running frame are
+included at physical cleanup. Already invalid owners use a rooted cancellation
+microtask after upstream insertion/start to avoid an armed orphan. ADR 0035 records
+the retained algorithms, GC contract and native release ordering.
+
+All gates pass: build/timer-acceptance-test.log and the additional SDK assertions
+in build/timer-isolation-final-test.log. SDK GC runs before taking timer snapshots,
+then verifies armed native timers, cross-kind clear semantics, metadata removal
+and actual inactive timers after detach. In-flight job/callback tests verify cleanup
+of timers created after logical detach and then force GC. The actual helper keeps
+a document and its existing page interval alive while detaching only the source
+world: its interval stops, timeout payload never runs and matching PID counters
+show two native cancellations. The page interval continues. Existing SDK/helper,
+ordinary renderer/compositor/process and Firefly/Electron reference gates pass.
+Additional reentrancy/last-owner cleanup checks pass in build/timer-cleanup-test.log:
+cleanup is logically detached, holds its live owner through native hooks, tolerates
+repeated detach and denies new evaluation. No zero-refcount owner is resurrected.
+Linker/deployment warnings and the separate locked-desktop visible gate remain.
+
+Public preload/contextBridge/IPC remain unsupported. String-timer realm semantics
+need explicit policy; current upstream compiles them in the global settings realm.
+Observer/listener resources, other callback conversions, typed results and direct
+transfers, workers/finalization, navigation/BFCache and queue/CPU/memory containment
+still need work. No complete realm reclamation, new platform/package/security-audit
+or visible-desktop support is claimed. Standalone Mite is unchanged and its earlier
+suites were not rerun. No newer Ladybird pin was evaluated.
+
+Next: complete observer/listener resources and remaining callback conversions,
+callback membranes and validated IPC with resource/sender/frame limits, alongside
+Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

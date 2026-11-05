@@ -43,6 +43,7 @@ struct Session {
     size_t created { 0 };
     size_t destroyed { 0 };
     size_t reported_jobs { 0 };
+    size_t reported_timers { 0 };
     size_t reported_rejections { 0 };
     size_t reported_job_errors { 0 };
 };
@@ -112,9 +113,23 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                 "__fireflyDataProbe"_utf16, copied.value(), JS::default_attributes);
             // Prove the copy does not share state with its source.
             if (world->evaluate(u"__fireflyCopySource.answer=99"sv).is_error()) fail("Cannot mutate probe source"sv);
+            auto weak_world = world->make_weak_ptr();
+            GC::Root detach_probe { JS::NativeFunction::create(*world->realm(),
+                [weak_world](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    if (auto owner = weak_world.strong_ref()) owner->detach();
+                    return JS::js_undefined();
+                }, 0, "__fireflyDetachWorldProbe"_utf16, GC::Ptr<JS::Realm> { *world->realm() }) };
+            world->realm()->global_object().define_direct_property("__fireflyDetachWorldProbe"_utf16, detach_probe.ptr(), JS::default_attributes);
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='start-timers') {
+                        globalThis.__sourceTimerTicks=0;
+                        setInterval(()=>document.documentElement.setAttribute('data-source-interval',String(++__sourceTimerTicks)),0);
+                        setTimeout(()=>document.documentElement.setAttribute('data-source-timeout','BAD'),60000);
+                        return true;
+                    }
+                    if(a.mode==='detach-world') {__fireflyDetachWorldProbe();return true;}
                     if(a.mode==='source-errors') {
                         const secret={privateCallback(){return 42}};
                         globalThis.__sourceRejected=Promise.reject(secret);
@@ -192,6 +207,11 @@ void initialize()
             if (blocked != session->reported_jobs) {
                 session->reported_jobs = blocked;
                 warnln("FIREFLY_WORLD_JOBS_BLOCKED pid={} count={}", Core::System::getpid(), blocked);
+            }
+            auto timers = session->jobs->canceled_timer_count();
+            if (timers != session->reported_timers) {
+                session->reported_timers = timers;
+                warnln("FIREFLY_WORLD_TIMERS_CANCELED pid={} count={}", Core::System::getpid(), timers);
             }
             auto rejections = session->jobs->source_rejection_count();
             auto errors = session->jobs->source_job_error_count();

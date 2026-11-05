@@ -4,6 +4,8 @@
 #include <AK/HashMap.h>
 #include <AK/NeverDestroyed.h>
 #include <LibWeb/WebIDL/CallbackType.h>
+#include <LibWeb/HTML/WindowOrWorkerGlobalScope.h>
+#include <LibWeb/DOM/EventTarget.h>
 // Preserve the unrelated class member declaration under this token name.
 #include <LibWeb/PerformanceTimeline/PerformanceObserver.h>
 namespace Web::WebIDL {
@@ -16,6 +18,18 @@ JS::Completion firefly_original_invoke_callback(CallbackType&, Optional<JS::Valu
 
 namespace Firefly::Callbacks {
 static thread_local NeverDestroyed<HashMap<JS::VM*, Gate>> gates;
+void timer_added(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id, Web::HTML::Timer& timer)
+{
+    auto gate = gates->get(&global.this_impl().vm());
+    if (gate.has_value() && gate->added) gate->added(gate->context, global, map, id, timer);
+}
+void timer_removed(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id)
+{
+    auto gate = gates->get(&global.this_impl().vm());
+    if (gate.has_value() && gate->removed) gate->removed(gate->context, global, map, id);
+}
+void stop_timer(Web::HTML::Timer& timer) { timer.stop(); }
+bool timer_active(Web::HTML::Timer& timer) { return timer.is_active(); }
 Gate exchange_gate(JS::VM& vm, Gate next)
 {
     auto old = gates->get(&vm).value_or(Gate {});

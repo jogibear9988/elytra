@@ -5,6 +5,7 @@
 #include <AK/RefCounted.h>
 #include <AK/Utf16View.h>
 #include <AK/Weakable.h>
+#include <AK/Vector.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Completion.h>
 #include <LibJS/Runtime/ExecutionContext.h>
@@ -29,6 +30,7 @@ public:
     // The caller must revoke exported callbacks before final detach. Synchronous
     // evaluation and guarded jobs defer physical teardown until their frame exits.
     void detach();
+    void add_detach_hook(Function<void()> hook) { m_detach_hooks.append(move(hook)); }
     bool is_detached() const { return !m_world || m_detach_requested || m_world->is_detached(); }
     JS::Realm* realm() const { return is_detached() ? nullptr : m_realm.ptr(); }
 private:
@@ -38,7 +40,9 @@ private:
     GC::Root<JS::Realm> m_realm;
     GC::Root<Web::Bindings::WrapperWorld> m_world;
     OwnPtr<JS::ExecutionContext> m_context;
+    Vector<Function<void()>> m_detach_hooks;
     bool m_evaluating { false };
     bool m_detach_requested { false };
+    bool m_detaching { false };
 };
 }

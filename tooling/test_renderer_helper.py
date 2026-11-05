@@ -55,9 +55,13 @@ def main():
     pid=pid_of(errors)
     rejections=[int(n) for n in re.findall(rf'FIREFLY_WORLD_FAILURES_REDACTED pid={pid} rejections=(\d+)',errors.stderr)]
     assert rejections and max(rejections)>=4,errors
+    timers=run(probe,'--headless=manual',(fixture/'timers.html').as_uri())
+    pid=pid_of(timers)
+    canceled=[int(n) for n in re.findall(rf'FIREFLY_WORLD_TIMERS_CANCELED pid={pid} count=(\d+)',timers.stderr)]
+    assert canceled and max(canceled)>=2,timers
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
-    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback']:
+    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback','m_timers']:
         for changed in ['',name+' '+name]:
             try:verify_text(changed,[name])
             except ValueError:pass
@@ -70,6 +74,7 @@ def main():
     print('PASS removed-frame Promise/WebIDL microtasks blocked before execution')
     print('PASS running reaction/await/generator/queueMicrotask callbacks remove frames and reject safely')
     print('PASS source rejection objects/functions stay private; page reject/handle events remain')
+    print('PASS source interval/timeout native cancellation leaves the document and page interval live')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

@@ -1,6 +1,8 @@
 #include "WorldJobGuardTest.h"
 #include "WorldJobGuard.h"
 #include "FunctionBridge.h"
+#include "CallbackGate.h"
+#include <LibWeb/HTML/Timer.h>
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -119,6 +121,8 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     // last application reference. Logical detach denies new jobs immediately;
     // physical wrapper/context teardown waits until the current job returns.
     for (auto mode : { 0, 1, 2, 3 }) {
+        auto timers_before=guard.owned_timer_count();
+        auto canceled_before=guard.canceled_timer_count();
         RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
         TRY(guard.protect(*transient));
         GC::Root realm { *transient->realm() };
@@ -139,6 +143,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
             globalThis.finishJob=()=>{
                 const deferred=requestAsyncDetach();
                 document.documentElement.setAttribute('data-inflight',deferred?'safe':'BAD');
+                setTimeout(()=>document.documentElement.setAttribute('data-late-timer','BAD'),60000);
                 Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
             };
             true;
@@ -154,6 +159,9 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         TRY(page_check(u"document.documentElement.getAttribute('data-inflight')==='safe' && document.documentElement.getAttribute('data-next-job')===null"sv));
         if(transient || weak.strong_ref() || !Web::Bindings::host_defined_wrapper_world(*realm).is_detached() || vm.execution_context_stack().size()!=depth)
             return Error::from_string_literal("In-flight job retained its owner or failed physical detach/context restoration");
+        if(guard.owned_timer_count()!=timers_before || guard.canceled_timer_count()!=canceled_before+1)
+            return Error::from_string_literal("Timer created after logical detach escaped physical cleanup");
+        vm.heap().collect_garbage();
     }
     outln("PASS running reaction/await/generator jobs retain their owner and defer detach while denying later jobs");
     {
@@ -226,6 +234,46 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         checkpoint();
     }
     outln("PASS source/foreign-Promise rejections stay private without reason traps; page reject/handle tracking remains");
+    {
+        auto timer_world=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*timer_world));
+        ScopeGuard detach_timers([&]{timer_world->detach();});
+        auto baseline=guard.owned_timer_count();
+        auto canceled=guard.canceled_timer_count();
+        auto setup=timer_world->evaluate(u"globalThis.intervalId=setInterval(()=>{},60000);globalThis.timeoutId=setTimeout(()=>{},60000);intervalId!==timeoutId"sv);
+        if(setup.is_error() || !setup.value().as_bool() || guard.owned_timer_count()!=baseline+2)
+            return Error::from_string_literal("Native source timers were not registered");
+        vm.heap().collect_garbage(); // Only the real Window map roots these live timers.
+        auto snapshot=guard.owned_timer_snapshot();
+        for(auto const& timer:snapshot)if(!Firefly::Callbacks::timer_active(*timer))return Error::from_string_literal("Native timer was not armed");
+        auto cleared=timer_world->evaluate(u"clearTimeout(intervalId);clearInterval(timeoutId);true"sv);
+        if(cleared.is_error() || guard.owned_timer_count()!=baseline)return Error::from_string_literal("Explicit cross-kind timer clear left metadata");
+        for(auto const& timer:snapshot)if(Firefly::Callbacks::timer_active(*timer))return Error::from_string_literal("Explicit clear did not stop native timer");
+        auto again=timer_world->evaluate(u"setInterval(()=>{},60000);setTimeout(()=>{},60000);true"sv);
+        if(again.is_error() || guard.owned_timer_count()!=baseline+2)return Error::from_string_literal("Cannot rearm source timers");
+        vm.heap().collect_garbage();
+        snapshot=guard.owned_timer_snapshot();
+        timer_world->detach();
+        if(guard.owned_timer_count()!=baseline || guard.canceled_timer_count()!=canceled+2)
+            return Error::from_string_literal("World detach did not remove owned timer entries");
+        for(auto const& timer:snapshot)if(Firefly::Callbacks::timer_active(*timer))return Error::from_string_literal("Detach left native timer armed");
+    }
+    outln("PASS native source timeouts/intervals stop and leave the map on explicit clear and world detach, including GC");
+    {
+        RefPtr<Firefly::IsolatedWorld> cleanup_world=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*cleanup_world));
+        auto* active=cleanup_world.ptr();
+        auto weak=cleanup_world->make_weak_ptr();
+        bool hook_ran=false;
+        cleanup_world->add_detach_hook([&]{
+            hook_ran=active->is_detached() && active->realm()==nullptr && active->evaluate(u"true"sv).is_error();
+            cleanup_world.clear();
+            active->detach();
+        });
+        active->detach();
+        if(!hook_ran || cleanup_world || weak.strong_ref())return Error::from_string_literal("Reentrant cleanup/last-owner release did not finish safely");
+    }
+    outln("PASS detach hooks reject evaluation, permit repeated detach and retain the last owner until cleanup completes");
     auto callback_errors_before=guard.source_job_error_count();
     auto micro_errors=other->evaluate(u"globalThis.callbackReasonTraps=0;queueMicrotask(()=>{throw new Proxy({}, {get(){callbackReasonTraps++;throw 1}})});true"sv);
     if(micro_errors.is_error())return Error::from_string_literal("Cannot schedule microtask exception fixture");

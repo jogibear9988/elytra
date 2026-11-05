@@ -64,6 +64,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    generated-file handling and Report/Rethrow/Promise conversion behavior. Preserve
    the exactly-one-TU/count guards and queueMicrotask error/lifetime tests. Run the
    ordinary renderer and Firefly/Electron gates too, since they share this library.
+   TimerMapAdapter.cpp also substitutes WindowOrWorkerGlobalScope.cpp, forwarding
+   the original map/GC edges while observing set/remove/clear. Review its header
+   declaration, map access patterns, interval rearming and native start/stop order.
+   Keep exact TU/token guards, pre-snapshot GC/native stop assertions, and the
+   source-detach test with an existing page interval still running. Do not replace
+   targeted release with clearing every timer in the document.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the
