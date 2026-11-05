@@ -11,6 +11,9 @@
 #include <LibCore/Timer.h>
 #include <LibGC/Root.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/DOM/NodeIterator.h>
+#include <LibWeb/DOM/TreeWalker.h>
+#include <LibWeb/DOM/BindingsGlue.h>
 #include <LibWeb/HTML/LocalNavigable.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/Window.h>
@@ -124,9 +127,38 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                     return JS::js_undefined();
                 }, 0, "__fireflyDetachWorldProbe"_utf16, GC::Ptr<JS::Realm> { *world->realm() }) };
             world->realm()->global_object().define_direct_property("__fireflyDetachWorldProbe"_utf16, detach_probe.ptr(), JS::default_attributes);
+            // Fixture-only native publication of a traversal wrapper, never its
+            // raw callback. This makes the cross-world getter test observable.
+            GC::Root publish_filter { JS::NativeFunction::create(*world->realm(),
+                [weak_document = GC::Weak { *document }](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto document = weak_document.ptr();
+                    if (!document || !document->is_fully_active() || !vm.argument(0).is_object()) return vm.throw_completion<JS::TypeError>("Invalid traversal fixture"sv);
+                    auto& value = vm.argument(0).as_object();
+                    auto& page = document->window()->principal_realm();
+                    auto publish = [&](auto& traversal) {
+                        auto wrapper = Web::Bindings::wrap(Web::Bindings::host_defined_wrapper_world(page), page, GC::Ref { traversal });
+                        page.global_object().define_direct_property("__fireflyNativeTraversalProbe"_utf16, wrapper, JS::default_attributes);
+                    };
+                    if (auto* iterator = Web::Bindings::impl_from<Web::DOM::NodeIterator>(&value)) publish(*iterator);
+                    else if (auto* walker = Web::Bindings::impl_from<Web::DOM::TreeWalker>(&value)) publish(*walker);
+                    else return vm.throw_completion<JS::TypeError>("Invalid traversal fixture"sv);
+                    return JS::js_undefined();
+                }, 1, "__fireflyPublishTraversalProbe"_utf16, GC::Ptr<JS::Realm> { *world->realm() }) };
+            world->realm()->global_object().define_direct_property("__fireflyPublishTraversalProbe"_utf16, publish_filter.ptr(), JS::default_attributes);
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='publish-filter') {
+                        const root=document.createElement('div');root.innerHTML='<span></span>';
+                        let filter=function(){return 1};
+                        if(a.kind==='bound-function')filter=filter.bind(null);
+                        if(a.kind==='proxy-function')filter=new Proxy(filter,{get(){document.documentElement.setAttribute('data-filter-read-trap','BAD');return undefined}});
+                        if(a.kind==='object')filter={get acceptNode(){document.documentElement.setAttribute('data-filter-read-trap','BAD');return ()=>1}};
+                        if(a.kind==='proxy')filter=new Proxy({},{get(){document.documentElement.setAttribute('data-filter-read-trap','BAD');return ()=>1}});
+                        const iterator=a.walker?document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,filter):document.createNodeIterator(root,NodeFilter.SHOW_ELEMENT,filter);
+                        if(iterator.filter!==filter)throw Error('Source filter getter identity changed');
+                        __fireflyPublishTraversalProbe(iterator);return true;
+                    }
                     if(a.mode==='node-filters') {
                         const root=document.createElement('div');root.innerHTML='<span></span>';
                         let lookups=0,calls=0,conversions=0;

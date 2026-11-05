@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<body><p id="status">WAITING_FOR_FILTER_ACCESS</p>
+<script>
+let valid=true;
+for(const walker of [false,true]){
+ for(const kind of ['function','bound-function','proxy-function','object','proxy']){
+  __fireflyFunctionProbe({mode:'publish-filter',kind,walker});
+  try{__fireflyNativeTraversalProbe.filter;valid=false}catch(error){valid=valid && error instanceof TypeError && error.message==='Firefly node filter cannot cross worlds' && !error.stack.includes('firefly:isolated-world')}
+ }
+}
+valid=valid && document.documentElement.getAttribute('data-filter-read-trap')===null;
+const root=document.createElement('div');const callback={acceptNode(){return 1}};
+const pageIterator=document.createNodeIterator(root,NodeFilter.SHOW_ELEMENT,callback);
+const pageWalker=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,callback);
+valid=valid && pageIterator.filter===callback && pageWalker.filter===callback && document.createTreeWalker(root).filter===null;
+let revoked=false;
+try{__fireflyFunctionProbe({mode:'detach-world'})}catch(error){revoked=error instanceof TypeError}
+try{__fireflyNativeTraversalProbe.filter;valid=false}catch(error){valid=valid && error instanceof TypeError}
+setTimeout(()=>{
+ const ok=valid && revoked && pageIterator.filter===callback && pageWalker.filter===callback && document.documentElement.getAttribute('data-filter-read-trap')===null;
+ delete globalThis.__fireflyNativeTraversalProbe;
+ document.querySelector('#status').textContent=ok?'FILTER_ACCESS_WORLD_OK':'FILTER_ACCESS_WORLD_MISSING';
+ if(ok)setTimeout(()=>window.close(),100);
+},100);
+</script>

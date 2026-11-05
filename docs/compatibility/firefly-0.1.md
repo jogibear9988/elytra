@@ -165,3 +165,12 @@ before wrapping/lookup and retains owners through numeric return conversion
 caller-realm TypeErrors; ordinary page errors stay unchanged. SDK/helper conversion,
 last-owner/GC, revocation and page-job controls pass. Cross-world .filter getter
 access remains unsafe/unimplemented; public preload/contextBridge/IPC stay rejected.
+
+Internal NodeIterator/TreeWalker .filter getters now preserve own-world identity and
+reject cross-world callback references with reader-realm TypeErrors (ADR 0046).
+Constructor provenance, nested guard handling and sticky revocation prevent raw
+callback release after Source detach/writer GC; getter/proxy traps are not called.
+SDK/helper native traversal, identity/null, callback-kind and GC controls pass.
+Unknown provenance/unresolved callable realms reject explicitly. Native container
+retention and other API boundaries remain incomplete; public preload/contextBridge/
+IPC stay unsupported.

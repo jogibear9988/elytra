@@ -150,6 +150,16 @@ candidate commits from the official repository in .gitmodules / the manifest.
    Keep revocation before wrapping/lookup, last-owner/GC through result conversion,
    principal stack/job controls and helper iframe removal during conversion. The
    cross-world .filter getter remains a separate open boundary (ADR 0045).
+   NodeIteratorBindingAdapter.cpp/TreeWalkerBindingAdapter.cpp route exactly their
+   generated filter getter returns (ADR 0046). Preserve bindgen dependencies, both
+   one-TU counts and native/generated reverse-preservation/drift tests. Review the
+   NodeFilter constructor notification's active writer realm independently of
+   CallbackType settings/associated realm; keep provenance weak, propagate guard
+   layers and mark revocation before weak writer expiry. Preserve same-world/null,
+   page/second-world getter denial, foreign prototype/callback, zero traps, writer-GC
+   and weak TreeWalker/filter collection controls plus native invocation tests.
+   Review Document's iterator registration/GC edges separately; filter metadata
+   cleanup is not proof of upstream native container reclamation.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

@@ -11,6 +11,8 @@ set(firefly_timer_source_count 0)
 set(firefly_observer_source_count 0)
 set(firefly_listener_source_count 0)
 set(firefly_filter_source_count 0)
+set(firefly_iterator_binding_count 0)
+set(firefly_walker_binding_count 0)
 set(firefly_custom_event_source_count 0)
 set(firefly_custom_binding_source_count 0)
 set(firefly_error_event_source_count 0)
@@ -34,6 +36,12 @@ foreach(source IN LISTS firefly_web_sources)
     elseif(source STREQUAL "DOM/NodeFilter.cpp" OR source STREQUAL "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/NodeFilter.cpp")
         math(EXPR firefly_filter_source_count "${firefly_filter_source_count}+1")
         list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/NodeFilterAdapter.cpp")
+    elseif(source STREQUAL "Bindings/NodeIterator.cpp" OR source STREQUAL "${firefly_web_binary_dir}/Bindings/NodeIterator.cpp")
+        math(EXPR firefly_iterator_binding_count "${firefly_iterator_binding_count}+1")
+        list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/NodeIteratorBindingAdapter.cpp")
+    elseif(source STREQUAL "Bindings/TreeWalker.cpp" OR source STREQUAL "${firefly_web_binary_dir}/Bindings/TreeWalker.cpp")
+        math(EXPR firefly_walker_binding_count "${firefly_walker_binding_count}+1")
+        list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/TreeWalkerBindingAdapter.cpp")
     elseif(source STREQUAL "DOM/CustomEvent.cpp" OR source STREQUAL "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/CustomEvent.cpp")
         math(EXPR firefly_custom_event_source_count "${firefly_custom_event_source_count}+1")
         list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CustomEventAdapter.cpp")
@@ -61,7 +69,7 @@ foreach(source IN LISTS firefly_web_sources)
         list(APPEND firefly_web_adapted_sources "${firefly_web_binary_dir}/${source}")
     endif()
 endforeach()
-if(NOT firefly_filter_source_count EQUAL 1 OR NOT firefly_callback_source_count EQUAL 1 OR NOT firefly_timer_source_count EQUAL 1 OR NOT firefly_observer_source_count EQUAL 1 OR NOT firefly_listener_source_count EQUAL 1 OR NOT firefly_custom_event_source_count EQUAL 1 OR NOT firefly_custom_binding_source_count EQUAL 1 OR NOT firefly_error_event_source_count EQUAL 1 OR NOT firefly_error_binding_source_count EQUAL 1 OR NOT firefly_message_event_source_count EQUAL 1 OR NOT firefly_message_binding_source_count EQUAL 1)
+if(NOT firefly_iterator_binding_count EQUAL 1 OR NOT firefly_walker_binding_count EQUAL 1 OR NOT firefly_filter_source_count EQUAL 1 OR NOT firefly_callback_source_count EQUAL 1 OR NOT firefly_timer_source_count EQUAL 1 OR NOT firefly_observer_source_count EQUAL 1 OR NOT firefly_listener_source_count EQUAL 1 OR NOT firefly_custom_event_source_count EQUAL 1 OR NOT firefly_custom_binding_source_count EQUAL 1 OR NOT firefly_error_event_source_count EQUAL 1 OR NOT firefly_error_binding_source_count EQUAL 1 OR NOT firefly_message_event_source_count EQUAL 1 OR NOT firefly_message_binding_source_count EQUAL 1)
     message(FATAL_ERROR "Expected exactly one callback, timer, observer, listener, node filter and native/generated custom/error/message event translation unit; review upstream sources")
 endif()
 set_property(TARGET LibWeb PROPERTY SOURCES "${firefly_web_adapted_sources}")
@@ -182,3 +190,21 @@ add_custom_target(check-firefly-node-filter-hook
 add_dependencies(LibWeb check-firefly-node-filter-hook)
 set_property(SOURCE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/NodeFilterAdapter.cpp"
     TARGET_DIRECTORY LibWeb APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/firefly-adapters")
+
+foreach(interface IN ITEMS NodeIterator TreeWalker)
+    set(firefly_traversal_original "${firefly_web_binary_dir}/Bindings/${interface}.cpp")
+    set(firefly_traversal_output "${CMAKE_BINARY_DIR}/firefly-adapters/${interface}Binding.inc")
+    add_custom_command(OUTPUT "${firefly_traversal_output}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/adapt_traversal_filter.py"
+            --source "${firefly_traversal_original}" --output "${firefly_traversal_output}" --interface "${interface}"
+        DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/adapt_traversal_filter.py" "${firefly_traversal_original}" VERBATIM)
+    add_custom_target(firefly-${interface}-filter-binding DEPENDS "${firefly_traversal_output}")
+    add_dependencies(LibWeb firefly-${interface}-filter-binding)
+    set_property(SOURCE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/${interface}BindingAdapter.cpp"
+        TARGET_DIRECTORY LibWeb APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/firefly-adapters")
+endforeach()
+add_custom_target(check-firefly-traversal-filter-hooks
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_traversal_filter_adapter.py"
+        --bindings "${firefly_web_binary_dir}/Bindings"
+    DEPENDS firefly-NodeIterator-filter-binding firefly-TreeWalker-filter-binding VERBATIM)
+add_dependencies(LibWeb check-firefly-traversal-filter-hooks)

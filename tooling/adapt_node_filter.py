@@ -7,10 +7,14 @@ from pathlib import Path
 ENTRY='JS::ThrowCompletionOr<DOM::NodeFilter::Result> accept_node('
 REPLACEMENT=ENTRY.replace(' accept_node(', ' firefly_original_accept_node(')
 
+CONSTRUCTOR_EDIT=('    : m_callback(callback)\n{', '    : m_callback(callback)\n{\n    Firefly::Callbacks::filter_created(*this, m_callback->callback->vm().current_realm());')
+
 def adapt(text):
     if text.count(ENTRY)!=1:
         raise ValueError('Review upstream NodeFilter accept_node definition')
-    return text.replace(ENTRY, REPLACEMENT)
+    before,after=CONSTRUCTOR_EDIT
+    if text.count(before)!=1:raise ValueError('Review upstream NodeFilter constructor')
+    return text.replace(ENTRY, REPLACEMENT).replace(before,after)
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

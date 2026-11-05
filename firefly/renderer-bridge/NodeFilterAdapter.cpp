@@ -7,6 +7,7 @@ JS::ThrowCompletionOr<DOM::NodeFilter::Result> firefly_original_accept_node(JS::
 #include <NodeFilter.inc>
 
 namespace Firefly::Callbacks {
+Web::DOM::NodeFilter* probe_filter(Web::DOM::TreeWalker& walker) { return walker.filter().ptr(); }
 JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> invoke_filter_original(JS::Realm& realm, Web::DOM::NodeFilter& filter, Web::DOM::Node& node)
 {
     return Web::Bindings::firefly_original_accept_node(realm, filter, node);

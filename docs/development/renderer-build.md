@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0045. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0046. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -192,3 +192,12 @@ SDK/helper tests cover callback Node worlds, receiver, getter/proxy lookup, ToIn
 private errors, revocation before wrapping, last-owner/GC and frame removal during
 conversion. Principal getter/body/conversion jobs remain independent of Source.
 The raw .filter property boundary is still open (ADR 0045).
+
+NodeIteratorBindingAdapter.cpp and TreeWalkerBindingAdapter.cpp retain original
+bindgen dependencies and route only filter_getter returns. NodeFilter's constructor
+notification supplies weak provenance to WorldJobGuard. The traversal-filter hook
+target checks both generated sources for byte preservation and getter/return drift;
+the native hook additionally checks the constructor seam. SDK/helper getter tests
+cover own/page identity, null, cross-world denial without traps, callable/object
+variants, writer GC and weak TreeWalker/filter collection (ADR 0046). Native
+NodeIterator document retention is not a metadata reclamation claim.

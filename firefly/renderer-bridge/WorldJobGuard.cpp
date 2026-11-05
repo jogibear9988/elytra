@@ -82,6 +82,8 @@ struct WorldJobGuard::State : public RefCounted<State> {
         Vector<EventCopy> copies;
     };
     Vector<EventRecord> event_values;
+    struct FilterRecord { GC::Weak<Web::DOM::NodeFilter> filter; GC::Weak<JS::Realm> writer; bool revoked { false }; };
+    Vector<FilterRecord> filters;
     size_t canceled_listeners { 0 };
     size_t canceled_listener_signals { 0 };
     size_t canceled_observers { 0 };
@@ -130,6 +132,10 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->report_exception(callback, exception);
         },+[](void* context, JS::Realm& realm, Web::DOM::NodeFilter& filter, Web::DOM::Node& node) {
             return static_cast<State*>(context)->invoke_filter(realm, filter, node);
+        },+[](void* context, Web::DOM::NodeFilter& filter, JS::Realm* writer) {
+            static_cast<State*>(context)->filter_created(filter, writer);
+        },+[](void* context, JS::Realm& realm, Web::DOM::NodeFilter* filter, JS::Value value) {
+            return static_cast<State*>(context)->read_filter(realm, filter, value);
         }});
 
     }
@@ -204,6 +210,7 @@ struct WorldJobGuard::State : public RefCounted<State> {
     }
     void revoke_event_values(JS::Realm& realm)
     {
+        for (auto& record : filters) if (record.writer.ptr().ptr() == &realm) record.revoked = true;
         for (auto& record : event_values) {
             if (record.writer.ptr().ptr() == &realm) record.revoked = true;
             record.copies.remove_all_matching([&](auto const& copy) { return !copy.target.ptr() || copy.target.ptr().ptr() == &realm; });
@@ -461,6 +468,53 @@ struct WorldJobGuard::State : public RefCounted<State> {
             });
         if (result.is_error()) { ++source_job_errors; return JS::js_undefined(); }
         return result.release_value();
+    }
+    void filter_created(Web::DOM::NodeFilter& filter, JS::Realm* writer)
+    {
+        filters.remove_all_matching([](auto const& record) { return !record.filter.ptr(); });
+        filters.append({filter, writer, false});
+        if (previous_gate.filter_created) previous_gate.filter_created(previous_gate.context, filter, writer);
+    }
+    JS::ThrowCompletionOr<JS::Value> read_filter(JS::Realm& reader, Web::DOM::NodeFilter* filter, JS::Value value)
+    {
+        using enum EventValues::Activity;
+        auto reject = [&]() -> JS::ThrowCompletionOr<JS::Value> {
+            vm.save_execution_context_stack();
+            ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+            auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+            context->realm = &reader;
+            vm.push_execution_context(*context);
+            ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+            return JS::throw_completion(JS::TypeError::create(reader, u"Firefly node filter cannot cross worlds"sv));
+        };
+        auto activity = EventValues::activity(reader);
+        if (activity == Revoked || activity == Exiting) return reject();
+        if (filter) {
+            filters.remove_all_matching([](auto const& record) { return !record.filter.ptr(); });
+            FilterRecord* origin = nullptr;
+            for (auto& record : filters) if (record.filter.ptr().ptr() == filter) { origin = &record; break; }
+            if (!origin) {
+                if (previous_gate.read_filter) return previous_gate.read_filter(previous_gate.context, reader, filter, value);
+                return reject();
+            }
+            auto& callback = filter->callback();
+            auto& associated = Callbacks::callback_realm(callback);
+            GC::Ptr<JS::Realm> actual;
+            if (callback.callback->is_function()) {
+                auto realm = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+                if (realm.is_error()) return reject();
+                actual = realm.value();
+            }
+            auto* writer = origin ? origin->writer.ptr().ptr() : nullptr;
+            bool owned = activity != Unregistered || EventValues::activity(associated) != Unregistered
+                || (actual && EventValues::activity(*actual) != Unregistered)
+                || (writer && EventValues::activity(*writer) != Unregistered) || (origin && origin->revoked);
+            // A foreign prototype can give a Source object a principal shape.
+            // Native construction provenance must agree with same-world bypass.
+            if (owned && (!origin || origin->revoked || writer != &reader || &associated != &reader || (actual && actual.ptr() != &reader))) return reject();
+        }
+        if (previous_gate.read_filter) return previous_gate.read_filter(previous_gate.context, reader, filter, value);
+        return value;
     }
     JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> invoke_filter(JS::Realm& caller, Web::DOM::NodeFilter& filter, Web::DOM::Node& node)
     {

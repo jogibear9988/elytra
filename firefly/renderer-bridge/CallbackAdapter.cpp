@@ -56,6 +56,17 @@ JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> dispatch_filter(JS::Realm& r
     if (gate.has_value() && gate->invoke_filter) return gate->invoke_filter(gate->context, realm, filter, node);
     return invoke_filter_original(realm, filter, node);
 }
+void filter_created(Web::DOM::NodeFilter& filter, JS::Realm* writer)
+{
+    auto gate = gates->get(&filter.callback().callback->vm());
+    if (gate.has_value() && gate->filter_created) gate->filter_created(gate->context, filter, writer);
+}
+JS::ThrowCompletionOr<JS::Value> read_filter(JS::Realm& realm, Web::DOM::NodeFilter* filter, JS::Value value)
+{
+    auto gate = gates->get(&realm.vm());
+    if (gate.has_value() && gate->read_filter) return gate->read_filter(gate->context, realm, filter, value);
+    return value;
+}
 void observer_added(Web::DOM::MutationObserver& observer)
 {
     auto gate = gates->get(&observer.vm());

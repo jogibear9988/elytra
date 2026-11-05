@@ -1162,6 +1162,44 @@ transfers, registries, navigation/BFCache, workers/finalization and resource bou
 still open. No standalone Mite change, newer Ladybird pin, platform/package/audit
 or visible-desktop validation. Existing warnings remain.
 
+The raw traversal .filter getter boundary from ADR 0045 is now guarded (ADR 0046).
+Two generated binding adapters route only NodeIterator/TreeWalker filter returns;
+the existing native adapter records constructor provenance. Own-world callback
+identity and active null filters remain. Cross-world reads reject with a generic
+reader TypeError, without Source stacks or getter/proxy execution. Native traversal
+invocation continues through its separate lifetime/conversion guard.
+
+Weak native-filter/writer metadata prevents prototype/foreign-callback provenance
+confusion. Same-world bypass requires reader/writer/associated/actual realm agreement
+when registered worlds participate. Physical detach marks origin revocation sticky,
+including after writer GC. Earlier guard layers can validate their own preexisting
+records; missing provenance and unresolved callable realms otherwise reject. Native
+metadata adds no callback/realm GC roots and prunes dead rows on creation/read.
+
+Validation: all four gates pass in build/filter-access-acceptance-test.log (SDK,
+sandboxed helper, ordinary renderer/compositor/process and Firefly/Electron reference).
+Additional SDK/helper checks pass in build/filter-access-final-test.log, including
+a deliberately unobserved native constructor and a revoked callable proxy.
+SDK covers Source/page/second-world reads, own identity, foreign prototype rejection,
+unchanged native traversal, generic errors, writer collection with a retained native
+foreign-callback container and TreeWalker/filter collection after references drop.
+The helper covers both traversal types with function/bound/callable-proxy/object/
+object-proxy callbacks, zero traps, identity/null controls and getter denial after
+Source detach. Generation tests reverse constructor/getter edits to recover exact
+original bytes and reject missing/duplicate/drifted seams. Pin and strict helper
+signature checks pass; vendor files remain unmodified.
+
+The compiled helper's native traversal-publication hook exists only for this harmless
+fixture and has no privileged API; the ordinary helper registers no worlds/hooks.
+Unknown provenance/unresolved callable realms intentionally fail rather than return
+raw callbacks. These getter paths do not establish a general callback/object API
+membrane. This pin's Document traces registered NodeIterators, so native filter/
+realm retention remains possible even after JS references drop; no complete resource
+reclamation/audit is claimed. Public preload/contextBridge/IPC, other callbacks/API
+registries, arbitrary transfers, workers/finalization, navigation/BFCache and hard
+bounds remain open. No standalone Mite change, newer pin, new platform/package or
+visible-desktop validation. Existing warnings persist.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
