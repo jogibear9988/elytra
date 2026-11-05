@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 32 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 33 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1315,6 +1315,34 @@ error accessor/constructor/formatting or monkey-patched-intrinsics parity remain
 unverified. Public preload/contextBridge/IPC, broader runtime/platform/packaging/
 audit and visible-desktop milestones remain open. No newer Ladybird candidate;
 upstream integrity stays clean. Existing warnings persist.
+
+Mite os.constants now exports native UV_UDP_REUSEADDR, dlopen, errno, signals and
+priority groups (ADR 0051). The owned C++ adapter uses conditional public names
+and actual SDK/libuv values, with null prototypes, immutable numeric properties,
+mutable/extensible group slots and natively frozen signals. The os.constants
+property is read-only/nonconfigurable; CJS/default/named ESM reads share one object.
+No build-time Node query, new dependency, vendor source seam or hardcoded host-value
+snapshot is required. Numeric flags do not imply UDP/addon/signal-handler support.
+
+All 33 standalone CTest suites pass in build/os-constants-ctest.log. The new constants
+gate compares all 121 native values available here against Node 24.15.0, including
+names/order/types, descriptors/prototypes, extensibility/freezing, strict/Reflect
+mutation/deletion, group replacement and shared identities. A child with replaced
+public Object.freeze still gets frozen signals. The complete default/namespace
+export-name sets also match. Firefly's main ESM fixture reads the new named export,
+checks native errno/priority/signal fields and retains renderer isolation; its
+existing full Electron-reference gate passes in build/os-constants-firefly-test.log.
+Standalone linkage remains platform-only, without Node/V8/LibWeb/Qt. Upstream
+integrity remains clean at the same pin.
+
+The targeted os export-name surface is present on tested macOS ARM64; full module
+compatibility remains PARTIAL. Native Windows/Linux constant sets/values, complete
+error/function metadata and monkey-patched-intrinsics behavior, privilege/environment,
+real unusual OS data, reconfiguration and earlier unforced error paths remain open.
+The priority negative-zero/error-formatter differences remain intentional. No new
+UDP/addon/signal implementation, npm/platform/package/audit or visible-desktop
+validation is claimed. Public preload/contextBridge/IPC and broader runtime/renderer
+requirements remain incomplete. Existing build warnings persist; no newer pin tried.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

@@ -177,6 +177,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
     info->define_direct_property("release"_utf16,text(vm,information.release),JS::default_attributes);
     info->define_direct_property("version"_utf16,text(vm,information.version),JS::default_attributes);
     info->define_direct_property("machine"_utf16,text(vm,information.machine),JS::default_attributes);
+    host->define_direct_property("constants"_utf16,TRY(create_os_constants(realm)),JS::default_attributes);
     host->define_direct_property("information"_utf16,info.ptr(),JS::default_attributes);
     host->define_direct_property("endianness"_utf16,text(vm,std::endian::native==std::endian::big?"BE":"LE"),JS::default_attributes);
     host->define_native_function(realm,"getPriority"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{

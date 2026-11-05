@@ -77,7 +77,7 @@
         const fn=os[name];fn[Symbol.toPrimitive]=()=>fn();
     }
     Object.defineProperties(os,{
-        constants:{get(){const error=new Error('os.constants is not implemented');error.code='ERR_MITE_UNSUPPORTED_API';throw error;},enumerable:true},
+        constants:{value:native.constants,enumerable:true},
         EOL:{value:windows?'\r\n':'\n',enumerable:true,configurable:true},
         devNull:{value:windows?'\\\\.\\nul':'/dev/null',enumerable:true,configurable:true}
     });

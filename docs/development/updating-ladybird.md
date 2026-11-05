@@ -186,6 +186,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    argument-formatter property effects; they are documented differences, not a
    reason to reproduce an engine abort. The Firefly main fixture confirms its own
    existing priority. Windows mapping/permissions still need native validation.
+   Run mite-os-constants too (ADR 0051). Keep native header/libuv numeric values,
+   availability guards and constant/group descriptor differences when adapting
+   LibJS object construction/integrity APIs. Preserve null prototypes, immutable
+   numbers, mutable group identity, native signal freezing and CJS/named ESM export
+   identity. Reference tests compare the available host set; native Windows/Linux
+   still require their own runs. The Firefly main fixture checks the named export.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

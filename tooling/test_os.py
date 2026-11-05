@@ -44,7 +44,7 @@ console.log(JSON.stringify(observations));
 ESM="""import os, * as ns from 'node:os';import {arch,tmpdir,EOL} from 'os';
 console.log(JSON.stringify(os.arch===arch && os.tmpdir===tmpdir && os.EOL===EOL && (await import('os'))===ns));
 """
-UNSUPPORTED="""const os=require('os');for(const name of ['constants']){try{if(name==='constants')void os.constants;else os[name]();throw Error('unsupported succeeded')}catch(error){if(error.code!=='ERR_MITE_UNSUPPORTED_API')throw error;}}console.log('explicit unsupported OS APIs');"""
+
 
 def run(executable,fixture):
     result=subprocess.run([executable,str(fixture)],capture_output=True,text=True,timeout=20)
@@ -70,9 +70,6 @@ def main():
         assert expected==actual,(expected,actual)
         esm=root/'os.mjs';esm.write_text(ESM)
         assert run(args.node,esm)==run(args.mite,esm)==[True]
-        unsupported=root/'unsupported.cjs';unsupported.write_text(UNSUPPORTED)
-        result=subprocess.run([args.mite,str(unsupported)],capture_output=True,text=True,timeout=10)
-        assert result.returncode==0 and result.stdout.strip()=='explicit unsupported OS APIs' and not result.stderr,result
-    print('PASS OS native identity/data, 15 argument/receiver checks, 12 coercions, module identities, descriptors, 15 environment observations and explicit unsupported APIs')
+    print('PASS OS native identity/data, 15 argument/receiver checks, 12 coercions, module identities, descriptors, 15 environment observations and native OS module exports')
 
 if __name__=='__main__':main()

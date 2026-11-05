@@ -1,5 +1,5 @@
 import {app,BrowserWindow} from 'firefly';
-import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority} from 'node:os';
+import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -10,6 +10,7 @@ const nativeInterfaces=networkInterfaces();
 if(Object.getPrototypeOf(nativeInterfaces)!==Object.prototype || !Object.values(nativeInterfaces).flat().some(entry=>entry.internal && entry.family==='IPv4'))throw Error('Native main-process interface query');
 const originalPriority=getPriority();
 if(!Number.isInteger(originalPriority) || getPriority(process.pid)!==originalPriority || setPriority(process.pid,originalPriority)!==undefined)throw Error('Native main-process priority query/set');
+if(Object.getPrototypeOf(osConstants)!==null || !Object.isFrozen(osConstants.signals) || osConstants.priority.PRIORITY_NORMAL!==0 || osConstants.errno.EINVAL<=0)throw Error('Native main-process OS constants');
 await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
