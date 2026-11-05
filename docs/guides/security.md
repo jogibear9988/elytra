@@ -63,3 +63,13 @@ platform, main/renderer context and expected boundary. Include sanitized diagnos
 avoid publishing credentials, private files or a live exploit against other users.
 A dedicated private disclosure channel/policy is still a project governance item;
 do not claim that Node/Electron disclosure channels cover this project.
+
+## Designer window controls
+
+The frameless Designer has a sample-local, fixed window capability for minimize,
+maximize/unmaximize, restore, state and close. Requests require a random per-launch
+token, exact same-origin/Host checks and POST with no body. It does not accept script,
+filesystem paths or arbitrary IPC channels. Static assets remain publicly readable
+on loopback while the app runs, so this does not authenticate against other local
+processes. The capability grants only this app window's cosmetic/lifecycle controls;
+it is not a substitute for the still-unsupported public secure preload/IPC bridge.

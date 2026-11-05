@@ -1,0 +1,143 @@
+name: macOS Release packages
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/macos.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'firefly/**', 'examples/**', 'tooling/**']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Optional existing version tag; empty builds a development snapshot
+        type: string
+      publish_alpha:
+        description: Publish a macOS-only alpha after every native/package test passes (requires an alpha tag)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: macos-package-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    name: Release / macOS ARM64
+    runs-on: macos-26
+    timeout-minutes: 360
+    env:
+      VCPKG_MAX_CONCURRENCY: '3'
+      CMAKE_BUILD_PARALLEL_LEVEL: '3'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - name: Validate alpha publication scope
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PUBLISH_ALPHA: ${{ inputs.publish_alpha }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          if os.environ['PUBLISH_ALPHA']=='true' and not re.fullmatch(r'v\d+\.\d+\.\d+-alpha\.\d+',os.environ['RELEASE_TAG']):
+              raise SystemExit('macOS-only publication requires an exact alpha version tag')
+          PY
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Native build prerequisites
+        run: brew install cmake ninja pkg-config autoconf automake libtool
+      - name: Pinned Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.0
+      - name: Prepare dependency cache
+        run: |
+          mkdir -p build/vcpkg-cache
+          echo "VCPKG_DEFAULT_BINARY_CACHE=$GITHUB_WORKSPACE/build/vcpkg-cache" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: dependencies
+        with:
+          path: |
+            build/vcpkg-cache
+            build/renderer-cache
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: macos-arm64-release-${{ hashFiles('vendor/ladybird.json', 'vcpkg.json') }}
+          restore-keys: macos-arm64-release-
+      - name: Compile Release, test, package production dependencies and strip native symbols
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SNAPSHOT_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          mkdir -p build
+          if [ -n "$RELEASE_TAG" ]; then
+            python3 tooling/build_release.py --tag "$RELEASE_TAG" --jobs 3 2>&1 | tee build/macos-release.log
+          else
+            python3 tooling/build_release.py --snapshot "0.1.0-dev.$SNAPSHOT_NUMBER" --jobs 3 2>&1 | tee build/macos-release.log
+          fi
+      - name: Report measured framework and Designer sizes
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          files=list(pathlib.Path('build/release-assets').glob('SIZE-*.json'))
+          if files:
+              data=json.loads(files[0].read_text())
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+                  out.write('## Release package sizes\n\nProduction npm dependencies; stripped local/debug native symbols. Actual dynamic exports and notices retained.\n\n| Bundle | Uncompressed file bytes |\n| --- | ---: |\n')
+                  for name in ['Firefly','Web Component Designer']:
+                      out.write(f"| {name} | {data[name]['bytes']/1024**2:.1f} MiB |\n")
+                  out.write('\n### Compressed downloads\n\n')
+                  for name,size in data['archives'].items():out.write(f'- {name}: {size/1024**2:.1f} MiB\n')
+                  out.write('\nExperimental macOS ARM64 only; not notarized. Windows/Linux packages remain incomplete.\n')
+          PY
+      - name: Preserve completed dependency downloads
+        if: always() && steps.dependencies.outcome == 'success' && steps.dependencies.outputs.cache-hit != 'true'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            build/vcpkg-cache
+            build/renderer-cache
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
+      - name: Upload verified apps and size reports
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: release-macos-arm64
+          path: build/release-assets/*
+          if-no-files-found: error
+      - name: Preserve native diagnostics
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: macos-native-diagnostics
+          path: |
+            build/**/*.log
+            build/**/CMakeConfigureLog.yaml
+            build/**/LastTest.log
+          if-no-files-found: warn
+  alpha:
+    if: inputs.publish_alpha
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-macos-arm64
+          path: build/release-assets
+      - name: Publish verified macOS-only alpha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" build/release-assets/* --verify-tag --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file docs/development/alpha-release-notes.md

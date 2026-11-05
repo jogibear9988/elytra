@@ -10,5 +10,8 @@ complete API compatibility and broad web-platform compatibility remain incomplet
 
 macOS development packages are ad-hoc signed and not notarized. Only the native host
 actually validated by the build is covered; older macOS versions are not promised.
-Designer smoke coverage checks boot, one document edit, Monaco and absent Node globals;
+Designer uses frameless HTML window controls and Electron-style drag CSS. The
+production payload bundles browser modules/workers and excludes dev-only npm
+dependencies; native packages strip nonessential symbols and include size reports.
+Designer smoke coverage checks boot, one document edit, Monaco, window controls and absent Node globals;
 it does not establish all designer, collaboration, GPU/LLM or worker feature coverage.

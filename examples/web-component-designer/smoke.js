@@ -17,6 +17,16 @@
     await new Promise(resolve=>setTimeout(resolve,1000));
     if(!find(document,'.monaco-editor'))throw Error('Monaco editor is missing');
     if(typeof process!=='undefined'||typeof require!=='undefined')throw Error('Unexpected renderer privileges');
-    await report({ready:true,edited:true,monaco:true,privilegesAbsent:true});
+    if(!window.designerWindow)throw Error('Window controls missing');
+    const waitFor=async predicate=>{for(let i=0;i<50;i++){if(predicate(await designerWindow.state()))return;await new Promise(r=>setTimeout(r,100));}throw Error('Window state timeout');};
+    document.getElementById('window-maximize').click();await waitFor(s=>s.maximized);
+    await new Promise(r=>setTimeout(r,100));
+    document.getElementById('window-maximize').click();await waitFor(s=>!s.maximized);
+    document.getElementById('window-minimize').click();await waitFor(s=>s.minimized);
+    await designerWindow.restore();await waitFor(s=>!s.minimized);
+    const bad=await fetch('/__firefly_window/maximize',{method:'POST',headers:{'X-Firefly-Window-Token':'wrong'}});
+    if(bad.status!==403)throw Error('Window capability was not checked');
+    await report({windowControls:true,ready:true,edited:true,monaco:true,privilegesAbsent:true});
+    document.getElementById('window-close').click();
   }catch(error){await report({ready:false,error:String(error)});}
 })();

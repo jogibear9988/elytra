@@ -24,6 +24,21 @@ live inside apps and alongside archives. Treat those records as part of the arti
 keep them with a shared build. Inspect actual BUILD.json rather than assuming a file
 named macos or windows has passed the required native tests.
 
+## Package size modes
+
+The Designer builder defaults to --dependencies production --bundle: compile with
+the pinned build tools, omit dev-only npm packages, then bundle/minify browser
+modules and workers while retaining assets and notices. --dependencies all
+--no-bundle retains the installed module tree for development. Shared production
+packages are not dropped because they are also used by development tools.
+
+The macOS packager defaults to --dependencies production --symbols stripped.
+--symbols keep retains local/debug symbols. Stripping preserves dynamic exports;
+helpers retain their entitlements/flags and are re-signed/verified. A bundled input
+must be rebuilt to change dependency mode. SIZE.json reports actual file/component
+bytes; download compression is measured separately. A smaller package still needs
+native boot/edit/worker/window-control tests after relocation.
+
 ## Signing and installation status
 
 macOS packages are ad-hoc signed and not notarized. The conservative minimum OS

@@ -1637,6 +1637,55 @@ existing manifest. Local runtime integrity and upstream guards still pass. Nativ
 Windows compilation/tests beyond that gate remain unverified; the queued older
 workflow may reproduce the failure until a commit containing this fix runs.
 
+
+Designer custom-toolbar and smaller-package slice: the staged pinned app now uses
+frame:false, Electron app-region CSS, real HTML minimize/maximize/restore/close
+buttons and a six-action per-window capability. Exact token/Origin/Host/POST and
+empty-body checks reject arbitrary channels/payloads; public preload/IPC remains
+unsupported. The native smoke exercises the buttons through actual LibWeb and
+closes through the HTML close button, not a main-process destroy shortcut.
+
+The builder/packager support --dependencies production (default) versus all. npm
+lock dev:true entries are omitted; shared/production optional packages stay. Two
+contract tests cover nested/shared/scoped/optional packages, notices, all mode and
+invalid/missing inputs. The pinned esbuild now bundles 19 browser app/package entry
+points with shared chunks, CSS modules, preserved asset URL bases and five minified
+Monaco worker entries. Classic bootstrap scripts, palette JSON, package metadata,
+assets and license notices are retained. --no-bundle keeps source modules for
+investigating optional features outside the measured bundle graph. DXF uses the
+actual pinned package module entry; upstream HTML names a nonexistent file.
+
+Release packaging strips local/debug symbols while keeping dynamic exports,
+preserves helper entitlements/flags, re-signs/verifies and records SIZE.json. The
+old candidate measured 466.2 MiB of actual Designer files; the first bundled/stripped
+candidate is about 249 MiB (framework about 215.7 MiB), before compression. The
+installed pinned Electron reference is 252.6 MiB without the Designer payload; this
+is a scoped local measurement, not a universal size/performance claim. The initial
+bundle dropped palette JSON; native relocation exposed the error, now corrected
+and included in HTTP asset checks. Package.json remains available as runtime data.
+
+Validation: fresh pinned source/staging build, production filtering, actual native
+boot/edit/Monaco/minimize/maximize/restore/HTML-close/isolation smoke; fixed-action
+capability negative tests run on Mite HTTP. A relocated repaired candidate passes
+the same native test; its stripped framework passes the complete Firefly suite in
+build/chrome-relocated-firefly-test.log. A clean packaging regeneration follows to
+refresh provenance/signatures/checksums. The local .app path for that regeneration
+is build/designer-verified-release/Web Component Designer.app. Strict helper
+signature/entitlement comparison passed. Native pixel presentation still needs an
+unlocked session; optional export/collaboration/GPU/LLM/full worker coverage is not
+claimed. Ladybird is still the unmodified old pin pending the separate update review.
+
+The macOS Release packages workflow builds/test/packages master snapshots in Release
+mode with production bundled dependencies and stripped native symbols, uploads
+archives/checksums/size JSON and reports actual sizes in its job summary. Manual
+exact alpha tags may publish a clearly macOS-ARM64-only prerelease only after its
+full native/package job succeeds; this is separate from the all-platform workflow,
+whose Windows gate remains required for complete cross-platform publication.
+actionlint, Python syntax, upstream integrity and 94-page/4,662-link site checks pass.
+No hosted macOS package success or GitHub alpha is claimed yet; publish only after
+an actual successful hosted build. Latest Ladybird candidate 97ad425b is fetched
+for a separate pin/adapters/build/test step, with unchanged Rust/vcpkg versions.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from npm_payload import copy_dependencies
 
 ROOT=Path(__file__).resolve().parents[1]
 EXAMPLE=ROOT/'examples/web-component-designer'
@@ -18,6 +19,8 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=Path,default=ROOT/'build/designer-source')
     parser.add_argument('--output',type=Path,default=ROOT/'build/designer-app')
+    parser.add_argument('--dependencies',choices=['production','all'],default='production',help='Stage runtime dependencies only (default), or include development packages')
+    parser.add_argument('--bundle',action=argparse.BooleanOptionalAction,default=True,help='Bundle/minify browser modules (default); --no-bundle retains the module tree')
     args=parser.parse_args();source=args.source.resolve();output=args.output.resolve()
     if output.exists():parser.error('Output already exists; choose a fresh staging directory')
     if source==output or source in output.parents:parser.error('Output must be separate from the source checkout')
@@ -43,16 +46,30 @@ def main():
     for name in required:
         if not (source/name).is_file():raise RuntimeError('Build output missing: '+name)
     web=output/'web';web.mkdir(parents=True)
-    for name in ['index.html','manifest.json','favicon.ico','assets','dist','node_modules']:
+    for name in ['index.html','manifest.json','favicon.ico','assets','dist']:
         item=source/name
         if item.is_dir():shutil.copytree(item,web/name,ignore=shutil.ignore_patterns('.DS_Store','.bin'))
         else:shutil.copy2(item,web/name)
-    for name in ['main.mjs','server.mjs','smoke.js','upstream.json']:shutil.copy2(EXAMPLE/name,output/name)
+    dependency_info=copy_dependencies(source/'node_modules',web/'node_modules',source/'package-lock.json',args.dependencies)
+    # Own shell overlay only; the pinned demo checkout and app implementation stay intact.
+    index=web/'index.html'
+    html=index.read_text()
+    html=html.replace('</head>','<link rel="stylesheet" href="./window-controls.css">\n<script src="./window-controls.js" defer></script>\n</head>')
+    if html.count('</nav>')!=1:raise RuntimeError('Review Designer toolbar overlay against upstream HTML')
+    html=html.replace('</nav>','''<div class="designer-window-controls" aria-label="Window controls">
+      <button id="window-minimize" type="button" aria-label="Minimize window" title="Minimize window">−</button>
+      <button id="window-maximize" type="button" aria-label="Maximize window" title="Maximize window">□</button>
+      <button id="window-close" type="button" aria-label="Close window" title="Close window">×</button>
+    </div></nav>''')
+    index.write_text(html)
+    for name in ['window-controls.js','window-controls.css']:shutil.copy2(EXAMPLE/name,web/name)
+    for name in ['main.mjs' ,'server.mjs','smoke.js','upstream.json']:shutil.copy2(EXAMPLE/name,output/name)
     notices=output/'licenses';notices.mkdir()
     shutil.copy2(source/'LICENSE',notices/'designer-MIT.txt')
     shutil.copy2(source/'package-lock.json',output/'designer-package-lock.json')
-    # Keep all dependency package/license files in node_modules, including workers.
-    (output/'BUILD.json').write_text(json.dumps({'upstream':pin,'runtime':'firefly','webRoot':'web','status':'compiled; native UI/features require separate validation'},indent=2)+'\n')
+    if args.bundle:run('node',ROOT/'tooling/bundle_designer.mjs',source,web)
+    # Browser bundles retain npm notices outside the public web tree.
+    (output/'BUILD.json').write_text(json.dumps({'upstream':pin,'runtime':'firefly','webRoot':'web','dependencies':dependency_info,'webAssets':'bundled' if args.bundle else 'modules','status':'compiled; native UI/features require separate validation'},indent=2)+'\n')
     print('Staged compiled Designer application at',output)
 
 if __name__=='__main__':main()

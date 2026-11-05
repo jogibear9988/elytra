@@ -10,14 +10,21 @@ const smoke=process.argv.includes('--smoke')?{
   script:await readFile(fileURLToPath(new URL('./smoke.js',import.meta.url))),
   report:body=>report(body)
 }:undefined;
-const server=await startServer(web,smoke);
+let window;
+const controls=process.argv.includes('--serve-only')?undefined:{token:randomUUID(),execute:action=>{
+  if(!window||window.isDestroyed())throw Error('Window unavailable');
+  if(action==='close')setTimeout(()=>window.close(),0);
+  else if(action!=='state')window[action]();
+  return {minimized:window.isMinimized(),maximized:window.isMaximized()};
+}};
+const server=await startServer(web,smoke,controls);
 const url=`http://127.0.0.1:${server.address().port}/`;
 if(process.argv.includes('--serve-only')){
   console.log(url);
 }else{
   const {app,BrowserWindow}=await import('firefly');
   await app.whenReady();
-  const window=new BrowserWindow({width:1280,height:850,title:'Web Component Designer · Firefly'});
+  window=new BrowserWindow({frame:false,width:1280,height:850,title:'Web Component Designer · Firefly'});
   app.on('window-all-closed',()=>app.quit());
   app.on('quit',()=>server.close());
   if(smoke){
@@ -25,8 +32,10 @@ if(process.argv.includes('--serve-only')){
     report=body=>{
       try{
         const result=JSON.parse(body);
-        if(!result.ready||!result.edited||!result.monaco||!result.privilegesAbsent)throw Error(body);
-        clearTimeout(deadline);console.log('DESIGNER_UI_EDIT_MONACO_ISOLATION_OK');window.destroy();
+        if(!result.ready||!result.edited||!result.monaco||!result.privilegesAbsent||!result.windowControls)throw Error(body);
+        clearTimeout(deadline);console.log('DESIGNER_UI_EDIT_MONACO_ISOLATION_OK');console.log('DESIGNER_WINDOW_CONTROLS_OK');
+        const closing=setTimeout(()=>{console.error('DESIGNER_HTML_CLOSE_TIMEOUT');app.exit(1);},5000);
+        window.once('closed',()=>{clearTimeout(closing);console.log('DESIGNER_HTML_CLOSE_OK');});
       }catch(error){console.error(error);app.exit(1);}
     };
   }

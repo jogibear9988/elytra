@@ -8,6 +8,8 @@ import plistlib
 import re
 import shutil
 import subprocess
+from npm_payload import copy_dependencies
+from package_size import bundle_size
 import sys
 import tarfile
 
@@ -71,13 +73,26 @@ def notices(destination,renderer,mite):
     (destination/'rust-packages.json').write_text(json.dumps(inventory,indent=2)+'\n')
     return len(inventory)
 
-def stage_bundle(build,application,destination,name,identifier,version,licenses):
+def stage_bundle(build,application,destination,name,identifier,version,licenses,dependencies_mode,strip_symbols):
     contents=destination/'Contents';mac=contents/'MacOS';mac.mkdir(parents=True)
     resources=contents/'Resources';resources.mkdir()
     # Physical resources keep sandbox access inside the new bundle.
     upstream=build/'bin/Ladybird.app/Contents'
     shutil.copytree(upstream/'Resources',resources,dirs_exist_ok=True)
-    shutil.copytree(application,resources/'app')
+    dependency_lock=application/'designer-package-lock.json'
+    dependency_root=application/'web/node_modules'
+    metadata=json.loads((application/'BUILD.json').read_text()) if dependency_lock.is_file() else {}
+    bundled=metadata.get('webAssets')=='bundled'
+    if bundled and metadata.get('dependencies',{}).get('mode')!=dependencies_mode:raise RuntimeError('Rebuild bundled Designer with the requested dependency mode')
+    def omit_dependencies(directory,names):
+        return ['node_modules'] if dependency_lock.is_file() and not bundled and Path(directory)==application/'web' else []
+    shutil.copytree(application,resources/'app',ignore=omit_dependencies)
+    if dependency_lock.is_file() and not bundled:
+        metadata=json.loads((application/'BUILD.json').read_text())
+        if dependencies_mode=='all' and metadata.get('dependencies',{}).get('mode')=='production':
+            raise RuntimeError('Rebuild Designer with --dependencies all before packaging all dependencies')
+        info=copy_dependencies(dependency_root,resources/'app/web/node_modules',dependency_lock,dependencies_mode)
+        metadata['dependencies']=info;(resources/'app/BUILD.json').write_text(json.dumps(metadata,indent=2)+'\n')
     shutil.copytree(licenses,resources/'Licenses')
     shutil.copy2(build/'bin/firefly',mac/'firefly')
     for helper in HELPERS:shutil.copy2(upstream/'MacOS'/helper,mac/helper)
@@ -89,6 +104,7 @@ def stage_bundle(build,application,destination,name,identifier,version,licenses)
     run('xcrun','clang++','-std=c++17','-O2',ROOT/'firefly/packaging/Launcher.cpp','-o',mac/'Launcher')
     binaries=[file for file in [*mac.iterdir(),*libraries.iterdir()] if file.is_file() and not file.is_symlink()]
     for binary in binaries:
+        if strip_symbols:run('xcrun','strip','-S','-x',binary,stderr=subprocess.DEVNULL)
         for item in rpaths(binary):
             if item.startswith('/'):run('install_name_tool','-delete_rpath',item,binary,stderr=subprocess.DEVNULL)
         wanted='@loader_path' if binary.parent==libraries else '@executable_path/../lib'
@@ -117,6 +133,8 @@ def main():
     parser.add_argument('--designer',type=Path,default=ROOT/'build/designer-app')
     parser.add_argument('--output',type=Path,default=ROOT/'build/release-stage')
     parser.add_argument('--version',default='0.1.0')
+    parser.add_argument('--dependencies',choices=['production','all'],default='production',help='Designer npm payload mode')
+    parser.add_argument('--symbols',choices=['stripped','keep'],default='stripped',help='Keep dynamic exports; omit nonessential local/debug symbols by default')
     args=parser.parse_args()
     if sys.platform!='darwin':parser.error('Native macOS packaging only; Windows/Linux packaging is not implemented')
     if not re.fullmatch(r'\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',args.version):parser.error('Invalid version')
@@ -131,16 +149,18 @@ def main():
     stage.mkdir(parents=True)
     license_count=notices(stage/'licenses',renderer,mite)
     (stage/'bin').mkdir();shutil.copy2(mite/'bin/mite',stage/'bin/mite')
+    if args.symbols=='stripped':run('xcrun','strip','-S','-x',stage/'bin/mite',stderr=subprocess.DEVNULL)
     run('codesign','--force','--sign','-',stage/'bin/mite',stderr=subprocess.DEVNULL)
     hello=stage/'hello-source';hello.mkdir();shutil.copy2(ROOT/'examples/firefly-hello-world/main.cjs',hello/'main.cjs');shutil.copy2(ROOT/'examples/firefly-hello-world/index.html',hello/'index.html')
     (hello/'main.mjs').write_text("import './main.cjs';\n")
     apps=[('Firefly',hello,'org.elytra.Firefly'),('Web Component Designer',designer,'org.elytra.WebComponentDesigner')]
     counts={}
     for name,app,identifier in apps:
-        bundle=stage/(name+'.app');counts[name]=stage_bundle(renderer,app,bundle,name,identifier,args.version,stage/'licenses')
+        bundle=stage/(name+'.app');counts[name]=stage_bundle(renderer,app,bundle,name,identifier,args.version,stage/'licenses',args.dependencies,args.symbols=='stripped')
     shutil.rmtree(hello)
-    manifest={'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
+    manifest={'dependencies':args.dependencies,'symbols':args.symbols,'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
     (stage/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')
+    (stage/'SIZE.json').write_text(json.dumps({name:bundle_size(stage/(name+'.app')) for name,_,_ in apps},indent=2)+'\n')
     hashes={str(file.relative_to(stage)):hashlib.sha256(file.read_bytes()).hexdigest() for file in stage.rglob('*') if file.is_file() and not file.is_symlink()}
     (stage/'SHA256SUMS.json').write_text(json.dumps(hashes,indent=2)+'\n')
     print('Staged experimental native macOS packages:',stage)

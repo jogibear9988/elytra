@@ -17,16 +17,21 @@ def run(*args,**kwargs):subprocess.run(list(map(str,args)),cwd=ROOT,check=True,*
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--tag',required=True)
+    identity=parser.add_mutually_exclusive_group(required=True)
+    identity.add_argument('--tag',help='Exact existing release tag')
+    identity.add_argument('--snapshot',help='Version label for a non-release CI package, e.g. 0.1.0-dev.123')
     parser.add_argument('--jobs',type=int,default=3)
     args=parser.parse_args()
-    if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',args.tag):parser.error('Tag must be a version such as v0.1.0-dev.1')
+    version_tag=args.tag or ('v'+args.snapshot)
+    if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',version_tag):parser.error('Tag must be a version such as v0.1.0-dev.1')
     if args.jobs<1:parser.error('jobs must be positive')
     if shutil.which('npm') is None:parser.error('Node/npm are required build tools')
     if subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode:parser.error('Commit tracked changes before building a release')
-    tagged=subprocess.check_output(['git','rev-parse','refs/tags/'+args.tag+'^{commit}'],cwd=ROOT,text=True).strip()
-    head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-    if tagged!=head:parser.error('Release tag must match the checked-out commit')
+    if args.tag:
+        tagged=subprocess.check_output(['git','rev-parse','refs/tags/'+args.tag+'^{commit}'],cwd=ROOT,text=True).strip()
+        head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+        if tagged!=head:parser.error('Release tag must match the checked-out commit')
+    run(sys.executable,'tooling/test_npm_payload.py')
     run(sys.executable,'tooling/bootstrap.py')
     build=ROOT/'build/release-mite'
     command=['cmake','-S',ROOT,'-B',build,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DBUILD_TESTING=ON',f'-DCMAKE_TOOLCHAIN_FILE={ROOT}/build/vcpkg/scripts/buildsystems/vcpkg.cmake']
@@ -42,13 +47,13 @@ def main():
     run(sys.executable,'tooling/bootstrap_electron.py')
     run('cmake','--build','build/renderer','--target','check-firefly','check-firefly-renderer','check-firefly-isolation','check-firefly-renderer-helper','--parallel',args.jobs)
     designer=ROOT/'build/designer-app'
-    run(sys.executable,'tooling/build_designer.py','--output',designer)
+    run(sys.executable,'tooling/build_designer.py','--output',designer,'--dependencies','production')
     mite=build/'bin'/('mite.exe' if os.name=='nt' else 'mite')
     run(sys.executable,'tooling/test_designer.py','--mite',mite,'--app',designer,'--firefly',ROOT/'build/renderer/bin/firefly')
     stage=ROOT/'build/release-stage'
     if sys.platform!='darwin':raise RuntimeError('Native desktop packaging not implemented for '+sys.platform)
     run('cargo','fetch','--locked','--manifest-path',ROOT/'vendor/ladybird/Cargo.toml')
-    run(sys.executable,'tooling/package_macos.py','--mite-build',build,'--output',stage,'--version',args.tag[1:])
+    run(sys.executable,'tooling/package_macos.py','--mite-build',build,'--output',stage,'--version',version_tag[1:],'--dependencies','production','--symbols','stripped')
     packaged=stage/'Web Component Designer.app/Contents'
     run(sys.executable,'tooling/test_designer.py','--mite',stage/'bin/mite','--app',packaged/'Resources/app','--launcher',packaged/'MacOS/Launcher')
     # Separate runtime/framework/sample archives; all include relevant notices.
@@ -61,10 +66,13 @@ def main():
         else:shutil.copy2(item,directory/item.name)
         shutil.copytree(stage/'licenses',directory/'licenses')
         shutil.copy2(stage/'BUILD.json',directory/'BUILD.json')
-        base=destination/f'{name}-{args.tag}-{suffix}'
+        base=destination/f'{name}-{version_tag}-{suffix}'
         if sys.platform=='darwin':
             run('ditto','-c','-k','--sequesterRsrc','--keepParent',directory,str(base)+'.zip')
         else:raise RuntimeError('No archive implementation for this platform')
+    sizes=json.loads((stage/'SIZE.json').read_text())
+    sizes['archives']={file.name:file.stat().st_size for file in destination.iterdir() if file.is_file()}
+    (destination/f'SIZE-{suffix}.json').write_text(json.dumps(sizes,indent=2)+'\n')
     manifest={file.name:hashlib.sha256(file.read_bytes()).hexdigest() for file in destination.iterdir() if file.is_file()}
     (destination/f'SHA256SUMS-{suffix}.json').write_text(json.dumps(manifest,indent=2)+'\n')
     print('Verified release assets:',destination)
