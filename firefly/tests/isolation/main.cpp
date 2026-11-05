@@ -2,6 +2,7 @@
 #include "BridgeDataTest.h"
 #include "FunctionBridgeTest.h"
 #include "PromiseBridgeTest.h"
+#include "WorldJobGuardTest.h"
 #include <LibCore/EventLoop.h>
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
@@ -110,6 +111,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_bridge_data(vm, principal, *second->realm()));
     TRY(check_function_bridge(vm, *document));
     TRY(check_promise_bridge(vm, *document));
+    TRY(check_world_job_guard(vm, *document));
     first->detach();first->detach();
     if (!first->is_detached() || first->realm()!=nullptr || !first->evaluate(u"true"sv).is_error())
         return Error::from_string_literal("Detached world must reject evaluation");

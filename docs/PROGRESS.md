@@ -602,8 +602,45 @@ Hard resource containment, BFCache/cross-process navigation, callbacks, native
 Windows/Linux, COI, packaging, full security audit and the locked-desktop visible
 gate remain open. Ladybird remains unmodified at the same pin.
 
-Next: implement callback membranes with async generation revocation and validated
-IPC with resource/sender/frame limits, alongside Windows feasibility.
+WorldJobGuard now guards Promise job execution for registered owned worlds using
+existing VM hooks. The callback hook unwraps bound/proxy callbacks to their actual
+realm without traps; the enqueue hook checks owned job realms both before queuing
+and just before execution. Inactive documents permanently detach the world. A weak
+realm registry and VM-retained native state avoid rooting dead worlds or accessing
+a destroyed renderer session. Work without an owned realm/origin keeps the upstream path. The nearest owned
+execution-stack realm is also checked, covering Proxy apply traps whose targets
+belong to foreign realms; cross-realm scheduling through an active owned caller is
+conservatively tied to that caller's world lifetime.
+Owned jobs use public HTML microtask/TemporaryExecutionContext APIs with preserved
+ScriptOrModule and exception reporting. No extra upstream source seam or patch
+was added.
+
+The callback hook alone failed a real SDK assertion: a direct async await-resume
+job bypassed it and accessed detached wrappers. The enqueue/execution guard now
+passes reactions, bound/proxy callbacks, thenables, async/await, async generators,
+GC and late resolution. Page jobs and another live protected world continue;
+an unregistered detached-world negative control still executes its harmless native
+counter callback, proving upstream detach alone does not enforce this policy.
+The helper fixture constructs its argument in the child's realm, retaining the
+strict bridge policy. Both native gates pass (build/world-job-final-test.log and
+build/world-job-isolation-test.log): six queued source categories are blocked after
+frame removal, with unchanged retained DOM and matching PID counters. Existing
+ordering control, Promise results and 70 frame-cycle checks remain passing.
+ADR 0031 records the two-hook boundary and future upstream-review requirements.
+
+This is pre-execution Promise-job revocation, not universal async cancellation.
+Already running async frames/detach during those frames, queueMicrotask,
+timers, DOM/WebIDL listeners, direct retained calls, finalization/worker behavior,
+BFCache/cross-process navigation and new engine job types still need implementation
+and coverage. Source promises may remain unsettled; target endpoint revocation is
+still mandatory. No full realm collection or hard queue/CPU/memory bound is proven.
+Public preload/contextBridge/IPC remain unsupported, normal Firefly/Mite are
+unchanged, and their earlier app/runtime suites were not rerun. Ladybird remains
+unmodified; native Windows/Linux, COI, packaging, full security audit and the
+locked-desktop visible gate are still open.
+
+Next: complete callback/timer/listener revocation and callback membranes, then
+validated IPC with resource/sender/frame limits, alongside Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

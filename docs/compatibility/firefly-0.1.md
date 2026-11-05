@@ -72,3 +72,9 @@ target Promises with copied/frozen fulfillment and fixed rejection errors. SDK a
 actual helper gates cover pending limits, frame-removal rejection and ignored late
 results (ADR 0030). This revokes forwarding only; source job cancellation, callback
 arguments and transport validation remain open. Public APIs remain unsupported.
+
+The internal helper now also blocks registered-world Promise jobs after detach or
+document removal, including tested await/async-generator and bound/proxy paths.
+SDK controls and actual helper PID/DOM checks pass (ADR 0031). Timers, WebIDL/DOM
+callbacks, queueMicrotask and other async boundaries remain open; public
+preload/contextBridge/IPC remain unsupported.

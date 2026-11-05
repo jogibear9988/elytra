@@ -2,6 +2,8 @@
 #include "IsolatedWorld.h"
 #include "BridgeData.h"
 #include "FunctionBridge.h"
+#include "WorldJobGuard.h"
+#include <LibWeb/Bindings/MainThreadVM.h>
 #include <AK/HashMap.h>
 #include <AK/HashTable.h>
 #include <AK/JsonObject.h>
@@ -35,10 +37,12 @@ struct WorldRecord {
 };
 struct Session {
     HashMap<String, WorldRecord> worlds;
+    OwnPtr<WorldJobGuard> jobs;
     RefPtr<Core::Timer> sweep_timer;
     HashTable<String> forward_events;
     size_t created { 0 };
     size_t destroyed { 0 };
+    size_t reported_jobs { 0 };
 };
 Session* session;
 
@@ -86,6 +90,7 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto owner = IsolatedWorld::create(*document->window());
             if (owner.is_error()) fail("Cannot create isolated world"sv);
             auto world = owner.release_value();
+            if (session->jobs->protect(*world).is_error()) fail("Cannot guard world jobs"sv);
             session->worlds.set(*id, WorldRecord { world, GC::Root { *document } });
             // Compiled, harmless ordering/isolation probe only. No user preload,
             // Node binding, IPC function or general WebDriver command is exposed.
@@ -108,6 +113,16 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='queue-jobs') {
+                        const bad=()=>document.documentElement.setAttribute('data-source-job','BAD');
+                        Promise.resolve().then(bad);
+                        Promise.resolve().then(bad.bind(null));
+                        Promise.resolve().then(new Proxy(bad,{}));
+                        Promise.resolve({then(resolve){bad();resolve(1)}});
+                        (async()=>{await 0;bad()})();
+                        (async function*(){await 0;bad();yield 1})().next();
+                        return true;
+                    }
                     if(a.mode==='pending')return new Promise(resolve=>{
                         (globalThis.__fireflyResolvers??=[]).push(resolve);
                     });
@@ -138,9 +153,17 @@ void initialize()
 {
     if (session) fail("Session initialized twice"sv);
     session = new Session;
+    session->jobs = make<WorldJobGuard>(Web::Bindings::main_thread_vm());
     apply({});
     session->sweep_timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(10), [] {
-        if (session) sweep_inactive();
+        if (session) {
+            sweep_inactive();
+            auto blocked = session->jobs->blocked_count();
+            if (blocked != session->reported_jobs) {
+                session->reported_jobs = blocked;
+                warnln("FIREFLY_WORLD_JOBS_BLOCKED pid={} count={}", Core::System::getpid(), blocked);
+            }
+        }
     });
     session->sweep_timer->start();
 }

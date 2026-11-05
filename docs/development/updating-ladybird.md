@@ -49,7 +49,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    the candidate's WebContent main.cpp/WebDriverBiDi.cpp, including included
    declarations, sandbox order and archive extraction. The token guard rejects
    missing/duplicate names, not arbitrary semantic changes. Preserve the unchanged
-   helper negative control and before-script/frame cleanup assertions.
+   helper negative control and before-script/frame cleanup assertions. Also review
+   HostEnqueuePromiseJob/HostCallJobCallback and direct async-resume paths against
+   our WorldJobGuard: preserve script/callback contexts and microtask ordering,
+   ensure new job types cannot bypass revocation, and retain bound/proxy/await/
+   async-generator/late-resolution/GC controls. Its owned-world dispatch uses public
+   SDK APIs; no engine patch is acceptable to restore these gates.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

@@ -45,6 +45,10 @@ def main():
     pid_of(promises)
     # The promise fixture closes only after fulfillment copies, sanitized
     # rejection and a retained removed-frame promise rejection all succeed.
+    jobs=run(probe,'--headless=manual',(fixture/'jobs.html').as_uri())
+    pid=pid_of(jobs)
+    blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',jobs.stderr)]
+    assert blocked and max(blocked)>=6,jobs
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state']:
@@ -57,6 +61,7 @@ def main():
     print('PASS isolated globals and frozen data-only copies in top-level/srcdoc frames and matching renderer PID')
     print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
     print('PASS native Promise results and removed-frame pending rejection')
+    print('PASS removed-frame reaction/thenable/async jobs blocked before execution')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 
