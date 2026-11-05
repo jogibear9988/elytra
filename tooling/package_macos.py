@@ -159,6 +159,7 @@ def main():
         bundle=stage/(name+'.app');counts[name]=stage_bundle(renderer,app,bundle,name,identifier,args.version,stage/'licenses',args.dependencies,args.symbols=='stripped')
     shutil.rmtree(hello)
     manifest={'dependencies':args.dependencies,'symbols':args.symbols,'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
+    manifest['cppLTO']={name:cache_value(build,'ENABLE_LTO_FOR_RELEASE') for name,build in [('mite',mite),('firefly',renderer)]}
     (stage/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (stage/'SIZE.json').write_text(json.dumps({name:bundle_size(stage/(name+'.app')) for name,_,_ in apps},indent=2)+'\n')
     hashes={str(file.relative_to(stage)):hashlib.sha256(file.read_bytes()).hexdigest() for file in stage.rglob('*') if file.is_file() and not file.is_symlink()}

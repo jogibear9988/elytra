@@ -71,8 +71,11 @@ link closure alone does not prove optional runtime loads are unnecessary.
 ## Optimization candidates
 
 - Evaluate LTO and size-oriented native/Rust compiler settings against this measured
-  baseline. The current owned renderer build explicitly disables release LTO;
-  linker dead stripping is already enabled.
+  baseline. The owned renderer/release drivers now accept --lto; release defaults
+  remain off pending framework/sample validation. Local macOS C++ ThinLTO reduces
+  the standalone unstripped Mite CLI from 51,286,136 to 50,675,688 bytes (610,448
+  bytes, about 596 KiB), with all 37 runtime tests passing. This is not a measured
+  reduction of the framework yet. Linker dead stripping is already enabled.
 - Consolidate repeated static dependencies where platform/linker semantics and the
   standalone runtime permit it; preserve one consistent crypto provider.
 - Consider explicit feature profiles for resources/media/PDF/RTC only with documented

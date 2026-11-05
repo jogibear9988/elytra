@@ -1863,6 +1863,25 @@ Native Windows acceptance awaits the next hosted job. Hosted macOS run 421259111
 is still in progress at compilation/test/package; no alpha has been published.
 The persistent implementation goal remains active and upstream stays unmodified.
 
+## Explicit LTO experiment (2026-11-06)
+
+Owned renderer/release drivers accept --lto, keeping defaults off. Standalone
+CMake accepts ENABLE_LTO_FOR_RELEASE as a cache option. Requested but unsupported
+IPO fails explicitly; package BUILD.json records both projects' cppLTO settings.
+This enables upstream's C++ optimization without editing Ladybird or enabling
+Rust cross-language LTO/JIT. Normal runtime/renderer/security/package gates remain
+required. Local Release Mite emits -flto=thin, builds, and passes all 37 tests
+(28.51s under concurrent renderer compilation); logs are build/lto-mite-*.log.
+Actual unstripped CLI size is 50,675,688 bytes versus the same-source non-LTO
+51,286,136 bytes: 610,448 bytes smaller. No performance claim follows from test time.
+
+The local LTO renderer build is live in exec session 86784, logging to
+build/lto-renderer-build.log; it requires a full affected-object rebuild. Framework
+size and native sample/security results remain pending. Do not enable CI defaults
+or publish an LTO package on the CLI-only evidence. Existing non-LTO verified
+packages remain in build/designer-final-alpha. Windows run 42130072857 is compiling
+the aggregate source; macOS run 42125911196 remains live. No alpha is available yet.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

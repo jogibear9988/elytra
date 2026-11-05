@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--build-dir',type=Path,default=ROOT/'build/renderer')
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
+    parser.add_argument('--lto',action='store_true',help='Enable C++ Release LTO; fail if the compiler/linker cannot provide it')
     parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe','firefly'],default='firefly-renderer-probe')
     args=parser.parse_args()
     if args.target in ['firefly-window-probe','firefly'] and sys.platform!='darwin':
@@ -35,7 +36,7 @@ def main():
         '-DCMAKE_BUILD_TYPE=Release',f'-DCMAKE_TOOLCHAIN_FILE={toolchain}',
         f'-DCMAKE_PROJECT_ladybird_INCLUDE={ROOT}/firefly/renderer/Inject.cmake',
         f'-DFIREFLY_SOURCE_DIR={ROOT}',f'-DLADYBIRD_CACHE_DIR={ROOT}/build/renderer-cache',
-        '-DBUILD_TESTING=OFF','-DENABLE_JS_JIT=OFF','-DENABLE_LTO_FOR_RELEASE=OFF',
+        '-DBUILD_TESTING=OFF','-DENABLE_JS_JIT=OFF',f'-DENABLE_LTO_FOR_RELEASE={"ON" if args.lto else "OFF"}',
         '-DENABLE_LAGOM_CCACHE=OFF','-DENABLE_INSTALL_HEADERS=OFF','-DCMAKE_SKIP_INSTALL_RULES=ON']
     if args.target=='firefly':
         manifest=prepare(ROOT,build/'firefly-manifest')

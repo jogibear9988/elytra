@@ -16,7 +16,11 @@ The first configure installs the pinned browser dependency manifest, including
 its overlay ports, graphics/media stack and Qt. This is substantially larger than
 the Mite build. Upstream's native build prerequisites still apply. Use a separate
 build directory; do not point it at build/debug or build/dev. The renderer uses
-Release without LTO or JS JIT for the initial integration exercise. Its helpers
+Release without LTO or JS JIT by default. Pass --lto to enable C++ link-time
+optimization explicitly; a compiler/linker without IPO support fails configuration
+instead of silently producing an unoptimized comparison. This does not enable Rust
+cross-language LTO or the JS JIT. Changing this option rebuilds the affected native
+objects; use the same native test gates and compare stripped packages. Its helpers
 and resources currently come from the companion Ladybird build/bundle; this is a
 source-tree development layout. The separate experimental
 [release packager](releases.md) stages physical helpers/resources and internal

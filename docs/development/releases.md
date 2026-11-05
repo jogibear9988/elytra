@@ -63,6 +63,13 @@ On a native host, with a clean checkout at an existing version tag:
 python3 tooling/build_release.py --tag v0.1.0-dev.1 --jobs 3
 ```
 
+Add --lto for an explicit C++ LTO experiment in both projects. The default remains
+off while framework-size and native sample validation are in progress. This option
+does not skip any release gate or enable the JS JIT/Rust cross-language LTO. The
+macOS package BUILD.json records each project's cppLTO setting; package sizes must
+be compared with identical dependency/symbol modes. A standalone manual CMake build
+uses -DENABLE_LTO_FOR_RELEASE=ON. Unsupported compiler/linker IPO fails explicitly.
+
 Use fresh build/release-stage, build/designer-app, build/archive-* and
 build/release-assets directories; the scripts reject existing output instead of
 silently mixing versions. The driver checks the tag and tracked source state,

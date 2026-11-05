@@ -1,5 +1,8 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never
 # added to the standalone Mite build or linked into the Mite executable.
+if(ENABLE_LTO_FOR_RELEASE AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    message(FATAL_ERROR "Requested Release LTO is unsupported by this compiler/linker")
+endif()
 add_executable(firefly-renderer-probe "${CMAKE_CURRENT_LIST_DIR}/main.cpp")
 target_link_libraries(firefly-renderer-probe PRIVATE LibWebView LibIPC LibURL LibGfx LibCore LibMain AK)
 target_include_directories(firefly-renderer-probe PRIVATE "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
