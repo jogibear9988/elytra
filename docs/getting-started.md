@@ -12,7 +12,7 @@ browser engine is used as a fallback.
 
 Install Git, Python 3.9+, Ninja, CMake 3.30+, Rust 1.98.0 through rustup, a C++23
 compiler, and your platform's native tools. macOS also needs Xcode, pkg-config,
-autoconf, automake and libtool. Node and npm are development/test tools only.
+autoconf, autoconf-archive, automake and libtool. Node and npm are development/test tools only.
 Dependencies are pinned and built through vcpkg; allow substantial disk space and
 time for the first build.
 

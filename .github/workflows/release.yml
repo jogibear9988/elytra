@@ -71,7 +71,7 @@ jobs:
           python-version: '3.12'
       - name: Native macOS prerequisites
         if: runner.os == 'macOS'
-        run: brew install cmake ninja pkg-config autoconf automake libtool
+        run: brew install cmake ninja pkg-config autoconf autoconf-archive automake libtool
       - name: Native Windows developer environment
         if: runner.os == 'Windows'
         uses: ./.github/actions/windows-environment

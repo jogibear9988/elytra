@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Native build prerequisites
-        run: brew install cmake ninja pkg-config autoconf automake libtool
+        run: brew install cmake ninja pkg-config autoconf autoconf-archive automake libtool
       - name: Pinned Rust toolchain
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy

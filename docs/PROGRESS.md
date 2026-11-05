@@ -1776,6 +1776,19 @@ platform acceptance. This avoids launching a misleading complete-release job for
 a deliberately limited alpha. actionlint accepts the negative tag filter. No tag
 or release is created before the requested actual hosted package success.
 
+
+First hosted macOS Release run 42123747221 (aefccef, job 127582471245) is terminal
+failure during vcpkg libidn2 configuration: system autotools prerequisites lack
+autoconf-archive macros. The later Ninja/compiler errors are consequences of the
+aborted toolchain setup, not evidence Ninja was absent. Add autoconf-archive to both
+native macOS workflow prerequisite commands and source-build requirements. The pinned
+vcpkg-make source explicitly checks these macros. No dependency/source guard is
+bypassed; actionlint passes. Completed dependency downloads were preserved.
+
+Run 42125657222 was started with the same known-incomplete prerequisite command;
+replace it with the corrected-source run rather than claiming either build passed.
+The alpha remains conditional on actual hosted compilation/native/package success.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
