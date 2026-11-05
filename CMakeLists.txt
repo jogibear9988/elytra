@@ -60,12 +60,19 @@ foreach(library LibCore LibCrypto LibGC LibJS LibRegex LibSyntax LibTextCodec Li
     add_subdirectory("${LADYBIRD_SOURCE_DIR}/Libraries/${library}" "Libraries/${library}")
 endforeach()
 
+include(mite/cmake/RustAggregate.cmake)
+mite_aggregate_rust()
+
 include(mite/cmake/Runtime.cmake)
 mite_add_runtime(mite-runtime "${CMAKE_SOURCE_DIR}" LibJSStandalone)
 add_executable(mite mite/runtime/main.cpp)
 target_link_libraries(mite PRIVATE mite-runtime)
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME mite-rust-lock COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
+    add_test(NAME mite-rust-lock-guard COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_mite_rust_lock.py")
     add_executable(mite-embedded-host mite/tests/embedding/Host.cpp)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.

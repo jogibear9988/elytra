@@ -1,0 +1,23 @@
+[package]
+name = "mite_runtime_rust"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[workspace]
+resolver = "2"
+
+[profile.release]
+panic = "abort"
+
+# One Cargo feature graph produces one copy of the shared dependencies. These
+# remain pinned, unmodified source dependencies of the Ladybird gitlink.
+[dependencies]
+libjs_rust = { path = "../../vendor/ladybird/Libraries/LibJS/Rust", default-features = false, features = ["allocator"] }
+liburl_rust = { path = "../../vendor/ladybird/Libraries/LibURL/Rust", features = ["allocator"] }
+libunicode_rust = { path = "../../vendor/ladybird/Libraries/LibUnicode/Rust", features = ["allocator", "idna"] }
+libregex_rust = { path = "../../vendor/ladybird/Libraries/LibRegex/Rust", features = ["allocator"] }
+libtextcodec_rust = { path = "../../vendor/ladybird/Libraries/LibTextCodec/Rust", features = ["allocator"] }

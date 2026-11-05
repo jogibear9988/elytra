@@ -41,6 +41,19 @@ candidate, not a byte-saving estimate. Changing linkage needs a deliberate share
 provider/build configuration and independent Mite packaging/behavior tests; relying
 on accidental exported symbols from another library is not a stable API.
 
+The updated Ladybird pin also exposed duplicate Rust dependency definitions in
+the **standalone Mite** Windows link: separate static archives carry common
+Unicode/regex crates. Our standalone build now links one owned aggregate Cargo
+archive, retaining upstream FFI headers and initializers. This is distinct from
+duplicating an entire engine in a Firefly app. The local macOS Release CLI grew
+from 51,254,056 to 51,286,136 bytes before packaging/stripping (about 31 KiB), so
+this fix is **not a measured size saving**. Native Windows acceptance remains
+pending. See [ADR 0057](../architecture/0057-standalone-rust-aggregation.md).
+
+The later local candidate using Ladybird
+97ad425b5125f20c516e1a8d3b5bb02f391fc975 measures 249.43 MiB for Designer and
+215.30 MiB for the framework. It does not include a new crypto/LTO optimization.
+
 ## What dominates the remaining framework?
 
 | Component | Approximate baseline size / observation |

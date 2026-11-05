@@ -1837,6 +1837,32 @@ require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain
 tracked as unsupported in the compatibility matrix.
 
+## Standalone Rust aggregation (2026-11-06)
+
+Native Windows run 42127377539 (c98fbf1, job 127594989171) passes the
+ProcessHost.h compile barrier but fails linking duplicate Unicode/regex/initializer
+symbols from independently built Rust staticlibs. The owned standalone graph now
+links a single Cargo aggregate with the five upstream Rust roots/features, retaining
+the original FFI-header builds and C++ initializers. Pinned package inventory and
+--locked prevent independent dependency upgrades; drift tests reject version,
+checksum, source and name changes. Static ELF duplicate-definition suppression is
+removed in this graph. No Ladybird edits, force-link override, Firefly dependency
+or renderer-engine duplication is introduced (ADR 0057).
+
+Local Release Mite builds and all 37 CTest gates pass (19.40s), including the two
+lock checks. Build/test evidence: build/rust-aggregate-{configure,build,test}.log.
+The first aggregate link has no duplicate symbol definitions; Apple ld may still
+warn that the same archive path is referenced through several imported targets.
+otool shows no LibWeb/Qt dependencies. Actual unstripped CLI bytes increase from
+51,254,056 to 51,286,136; no size savings are claimed. This does not optimize the
+215.30 MiB local framework candidate. Its separate duplicate OpenSSL code, disabled
+release LTO and Unicode/resource costs remain measured optimization candidates.
+Site validation passes 97 pages / 4815 local links/resources/fragments.
+
+Native Windows acceptance awaits the next hosted job. Hosted macOS run 42125911196
+is still in progress at compilation/test/package; no alpha has been published.
+The persistent implementation goal remains active and upstream stays unmodified.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

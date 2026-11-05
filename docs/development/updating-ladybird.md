@@ -27,6 +27,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
 3. Inspect upstream rust-toolchain.toml, vcpkg.json, Meta/CMake, library target
    dependencies, licenses and platform support. Update our toolchain/dependency
    pins and README requirements if necessary. Keep upstream source untouched.
+   The standalone mite/rust/Cargo.lock must retain only package versions/sources/
+   checksums from the candidate's Cargo.lock, plus our aggregate crate. Regenerate
+   it from a copy of that upstream lock with cargo tree --manifest-path
+   mite/rust/Cargo.toml, then run python3 tooling/check_mite_rust_lock.py. Review
+   the five root crates/features and RustAggregate.cmake against upstream's Cargo
+   helpers and imported targets (ADR 0057); do not resolve independent upgrades.
    Bootstrap uses the indexed gitlink and verifies the manifest; run it after
    staging the candidate.
 4. Configure a fresh review build using
@@ -220,4 +226,5 @@ candidate commits from the official repository in .gitmodules / the manifest.
 The update workflow is documented and its local guard is tested. No newer
 Ladybird candidate was evaluated as part of adding this workflow. Native
 Windows/Linux upgrade validation, CI automation and full renderer upgrade
-validation remain outstanding. The Rust archive duplicate-symbol warnings in ADR 0004 remain open.
+validation remain outstanding. ADR 0057 addresses standalone Rust duplicate symbols
+locally; native Windows/Linux and the separate renderer graph remain independent gates.
