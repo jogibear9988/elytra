@@ -31,9 +31,9 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net and dns builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 22 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 25 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -42,7 +42,8 @@ and 342 URL helper comparisons, 1,657 encoding comparisons, 449 StringDecoder
 comparisons, 7 shared stream workflows and 1 recorded stream ordering difference,
 14 shared TCP workflows, 63 net validation comparisons and an independent TCP peer,
 6 shared DNS/TCP workflows, 119 DNS validation comparisons and a recorded DNS NUL
-policy difference,
+policy difference, 11 shared HTTP workflows, 135 HTTP header/constant comparisons,
+2 recorded outgoing HTTP policy differences, independent HTTP-client requests,
 the checked-in runtime-library integrity gate, and the upstream
 integrity gate with 7 isolated guard tests. Behavioral reference: Node v24.15.0.
 CLI and filesystem-copy examples executed.
@@ -236,8 +237,23 @@ unverified remote DNS/native Windows/Linux behavior. The existing TCP suite now
 has eight unsupported-option cases, since hostname/custom lookup/family support
 replaces earlier exclusions. Ladybird remains unmodified.
 
-Next: a working HTTP server example
-and renderer proof of concept. Broaden host APIs and real-package coverage around
+A working HTTP/1 server now layers IncomingMessage/response streams and Server
+on native TCP with pinned llhttp 9.3.1. Eleven shared workflows cover HTTP/1.0/1.1,
+GET/POST, fixed/chunked bodies and trailers, HEAD/204, continue, keep-alive,
+pipelined response order, malformed framing, large delayed uploads, client FIN
+and default errors. All 135 header/constant comparisons pass; two separate
+fixtures retain stricter outgoing header/framing outcomes than Node. Independent
+Python clients complete six requests on one connection under both runtimes; fatal
+request callbacks and Mite deadline/unsupported policies are tested explicitly.
+All twenty-five CTest suites pass. examples/mite-http/server.mjs was exercised
+with GET and a piped binary POST. The llhttp source/version pin and MIT notice are
+retained, versions.llhttp identifies it, and otool still shows platform libraries
+only. ADR 0019 records ownership, deadlines and remaining gaps: HTTP clients,
+Agent/TLS/fetch/upgrades, aggregate pipeline pressure, chunk-extension limits and
+full lifecycle/header parity. Native Windows/Linux remain unverified. Ladybird
+remains unmodified.
+
+Next: renderer proof of concept, including native-window/process feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

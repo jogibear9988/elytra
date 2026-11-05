@@ -42,6 +42,7 @@ add_lagom_library_install_rules(JSClangPlugin)
 add_lagom_library_install_rules(GenericClangPlugin)
 
 find_package(libuv CONFIG REQUIRED)
+find_package(llhttp CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(FastFloat CONFIG REQUIRED)
@@ -79,6 +80,8 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/fs.js" MITE_FS_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/fs.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/url.js" MITE_URL_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/url.js")
+file(READ "${CMAKE_SOURCE_DIR}/mite/modules/http.js" MITE_HTTP_SOURCE)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/http.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/dns.js" MITE_DNS_SOURCE)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/modules/dns.js")
 file(READ "${CMAKE_SOURCE_DIR}/mite/modules/net.js" MITE_NET_SOURCE)
@@ -90,13 +93,13 @@ file(READ "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js" MITE_ST
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/mite/modules/generated/stream.js" "${CMAKE_SOURCE_DIR}/mite/modules/generated/string-decoder.js")
 configure_file(mite/runtime/BuiltinSources.h.in generated/BuiltinSources.h @ONLY)
-add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp mite/runtime/Encoding.cpp mite/runtime/Network.cpp mite/runtime/DNS.cpp)
+add_executable(mite mite/runtime/main.cpp mite/runtime/EventLoop.cpp mite/runtime/ModuleLoader.cpp mite/runtime/PackageResolver.cpp mite/runtime/Builtins.cpp mite/runtime/Process.cpp mite/runtime/FileSystem.cpp mite/runtime/URL.cpp mite/runtime/Encoding.cpp mite/runtime/Network.cpp mite/runtime/DNS.cpp mite/runtime/HTTP.cpp)
 add_custom_target(check-runtime-js
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py" VERBATIM)
 add_dependencies(mite check-ladybird check-runtime-js)
 target_include_directories(mite PRIVATE "${CMAKE_BINARY_DIR}/generated")
 target_link_libraries(mite PRIVATE $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
-target_link_libraries(mite PRIVATE LibJSStandalone AK LibCore LibGC LibURL LibTextCodec ICU::uc)
+target_link_libraries(mite PRIVATE LibJSStandalone AK LibCore LibGC LibURL LibTextCodec ICU::uc llhttp::llhttp_static)
 include(CTest)
 if(BUILD_TESTING)
     add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")
@@ -114,6 +117,12 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_http.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http-external COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_http_external.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http-headers COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_http_headers.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-dns COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_dns.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-dns-validation COMMAND "${Python3_EXECUTABLE}"

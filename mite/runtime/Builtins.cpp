@@ -9,6 +9,7 @@
 #include "Encoding.h"
 #include "Network.h"
 #include "DNS.h"
+#include "HTTP.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -61,7 +62,9 @@ static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" }
 static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect", "createConnection", "isIP", "isIPv4", "isIPv6" };
 static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDefaultResultOrder", "getDefaultResultOrder", "ADDRCONFIG", "V4MAPPED", "ALL" };
 static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
+static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
     { "dns/promises", {}, dns_promises_exports },
     { "net", { MITE_NET_SOURCE, sizeof(MITE_NET_SOURCE) - 1 }, net_exports },
@@ -136,6 +139,13 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             auto native = create_encoding_host(m_realm);
             host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
+    }
+    if (name == "http") {
+        host->define_direct_property("native"_utf16, create_http_host(m_realm), JS::default_attributes);
+        host->define_direct_property("net"_utf16, TRY(builtin("net")), JS::default_attributes);
+        host->define_direct_property("stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
     if (name == "dns") {
         host->define_direct_property("native"_utf16, create_dns_host(m_vm, m_realm, m_event_loop), JS::default_attributes);

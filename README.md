@@ -70,4 +70,16 @@ nc 127.0.0.1 3000
 
 TCP supports IPv4/IPv6 addresses and OS hostname lookup, including custom lookup
 functions and partial automatic family retry. node:dns lookup and its Promise API
-are available; DNS record-query APIs, HTTP and TLS remain open.
+are available; DNS record-query APIs and TLS remain open.
+
+The [HTTP server example](examples/mite-http/server.mjs) serves JSON and streams
+POST /echo through the request/response streams:
+
+```sh
+build/dev/bin/mite examples/mite-http/server.mjs 3000
+curl http://127.0.0.1:3000/hello
+curl --data-binary 'hello' http://127.0.0.1:3000/echo
+```
+
+HTTP server support is partial. HTTP clients, HTTPS/fetch and desktop rendering
+remain open; see the compatibility matrix and ADR 0019 for measured limits.

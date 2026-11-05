@@ -29,7 +29,8 @@
       "platform": "windows"
     },
     "libuv",
-    "libpsl"
+    "libpsl",
+    "llhttp"
   ],
   "overrides": [
     {
@@ -75,6 +76,10 @@
     {
       "name": "zmij",
       "version": "1.2#1"
+    },
+    {
+      "name": "llhttp",
+      "version": "9.3.1#0"
     }
   ]
 }

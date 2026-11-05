@@ -1,4 +1,5 @@
 #include "Process.h"
+#include <llhttp.h>
 #include "BuiltinSources.h"
 #include "UpstreamVersion.h"
 #include <AK/ScopeGuard.h>
@@ -127,6 +128,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
     process->define_direct_property("version"_utf16, text(vm, "v0.1.0"), JS::default_attributes);
     auto versions = JS::Object::create(realm, realm.intrinsics().object_prototype());
     versions->define_direct_property("mite"_utf16, text(vm, "0.1.0"), constant);
+    versions->define_direct_property("llhttp"_utf16, JS::PrimitiveString::create(vm, Utf16String::formatted("{}.{}.{}", LLHTTP_VERSION_MAJOR, LLHTTP_VERSION_MINOR, LLHTTP_VERSION_PATCH)), constant);
     versions->define_direct_property("uv"_utf16, text(vm, uv_version_string()), constant);
     versions->define_direct_property("libjs"_utf16, text(vm, MITE_LIBJS_REVISION), constant);
     process->define_direct_property("versions"_utf16, versions, constant);
