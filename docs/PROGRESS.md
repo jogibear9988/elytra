@@ -1747,6 +1747,27 @@ was invalid because the runner changes cwd; the validated invocation uses the fu
 executable path. Upstream is unchanged. Actual Windows compile/runtime acceptance
 still awaits a new job; do not infer support from macOS checks.
 
+
+Relocated Designer smoke follow-up: the updated engine package regenerates to
+249.4 MiB (framework 215.3 MiB), but one smoke launch timed out while another using
+the same binaries/assets passed. Fixed, test-only startup stages locate the stall
+after geometry and during minimize/restore. The old renderer test awaited HTTP/
+timer completion while minimized before asking that same renderer to restore the
+window. Visibility throttling can suspend the very work it awaits.
+
+The test owner now observes the real native minimize event, records a required
+DESIGNER_NATIVE_MINIMIZE_OK marker and restores through BrowserWindow from the main
+process after 350 ms. The renderer then confirms restored state and closes through
+the real HTML button. Production has no automatic restore. This removes the test
+liveness dependency without skipping minimize or faking success. Bounded fixed-name
+stage diagnostics remain --smoke-only, and actual stdout/stderr are retained in
+build/designer-last-ui.log. The complete native test passes with the packaged runtime
+and the re-signed relocated diagnostic app in build/designer-restoration-{test,
+relocated-test}.log, including the observed native minimize and HTML close markers.
+A final package regeneration follows; do not publish the earlier intermittent fixture.
+The already-running hosted aefccef job predates this test fix; keep its result distinct
+from the next exact-source job used for alpha publication.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

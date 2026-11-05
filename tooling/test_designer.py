@@ -55,7 +55,8 @@ def main():
         process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,start_new_session=os.name!='nt')
         try:
             stdout,stderr=process.communicate(timeout=65)
-            assert process.returncode==0 and 'DESIGNER_DOCUMENT_LOADED' in stdout and 'DESIGNER_UI_EDIT_MONACO_ISOLATION_OK' in stdout and 'DESIGNER_WINDOW_CONTROLS_OK' in stdout and 'DESIGNER_HTML_CLOSE_OK' in stdout,(process.returncode,stdout,stderr)
+            (ROOT/'build/designer-last-ui.log').write_text(stdout+'\nSTDERR:\n'+stderr)
+            assert process.returncode==0 and 'DESIGNER_DOCUMENT_LOADED' in stdout and 'DESIGNER_UI_EDIT_MONACO_ISOLATION_OK' in stdout and 'DESIGNER_WINDOW_CONTROLS_OK' in stdout and 'DESIGNER_HTML_CLOSE_OK' in stdout and 'DESIGNER_NATIVE_MINIMIZE_OK' in stdout,(process.returncode,stdout,stderr)
             print('PASS actual Firefly/Ladybird app boot, document edit/round-trip, Monaco, actual HTML window controls and absent Node privileges')
         finally:stop(process)
     else:parser.error('Native acceptance requires --firefly or --launcher; a server-only run is insufficient')

@@ -28,11 +28,13 @@ if(process.argv.includes('--serve-only')){
   app.on('window-all-closed',()=>app.quit());
   app.on('quit',()=>server.close());
   if(smoke){
+    let minimized=false;
+    window.once('minimize',()=>{minimized=true;console.log('DESIGNER_NATIVE_MINIMIZE_OK');setTimeout(()=>window.restore(),350);});
     const deadline=setTimeout(()=>{console.error('DESIGNER_SMOKE_TIMEOUT');app.exit(1);},45000);
     report=body=>{
       try{
         const result=JSON.parse(body);
-        if(!result.ready||!result.edited||!result.monaco||!result.privilegesAbsent||!result.windowControls)throw Error(body);
+        if(!result.ready||!result.edited||!result.monaco||!result.privilegesAbsent||!result.windowControls||!minimized)throw Error(body);
         clearTimeout(deadline);console.log('DESIGNER_UI_EDIT_MONACO_ISOLATION_OK');console.log('DESIGNER_WINDOW_CONTROLS_OK');
         const closing=setTimeout(()=>{console.error('DESIGNER_HTML_CLOSE_TIMEOUT');app.exit(1);},5000);
         window.once('closed',()=>{clearTimeout(closing);console.log('DESIGNER_HTML_CLOSE_OK');});

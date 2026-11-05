@@ -20,6 +20,11 @@ export async function startServer(directory,smoke,controls){
         response.end(JSON.stringify(controls.execute(action)));return;
       }
       if(smoke&&target.searchParams.get('token')===smoke.token){
+        if(target.pathname==='/__firefly_smoke_stage'&&request.method==='GET'){
+          const stage=target.searchParams.get('stage');
+          if(['defined','container','ready','edited','monaco','geometry','controls','close'].includes(stage))console.log('DESIGNER_STAGE '+stage);
+          response.statusCode=204;response.end();return;
+        }
         if(target.pathname==='/__firefly_smoke.js'&&request.method==='GET'){
           response.setHeader('Content-Type','text/javascript');response.end(smoke.script);return;
         }

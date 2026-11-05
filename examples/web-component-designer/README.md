@@ -104,6 +104,9 @@ read-only serving. The real Firefly --smoke launch then waits for the demo's doc
 container, sets and commits a button, checks content round-trip and the Monaco editor,
 checks absent process/require globals, exercises actual HTML minimize/maximize/restore
 buttons, checks denied capabilities, reports success and closes the native window.
+In smoke mode only, the main process observes the native minimize event and restores
+the window so the test never depends on a paused renderer restoring itself. Fixed
+startup-stage diagnostics and stdout/stderr are retained in build/designer-last-ui.log.
 The tokenized, bounded smoke report route exists only in explicit --smoke mode. It
 is a sample-local test, not a public Firefly privileged IPC bridge or a security audit.
 
