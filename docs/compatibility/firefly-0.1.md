@@ -49,6 +49,8 @@ reference fixture; this difference is deliberate and tested separately (ADR 0025
 
 An internal synchronous isolated-world adapter now passes native LibWeb tests for
 separate globals/intrinsics/wrapper expandos, shared DOM and GC/detach lifetime.
-It is not installed into the renderer helper and does not implement before-script
-preload ordering, async revocation, contextBridge or IPC. Those public APIs remain
-unsupported (ADR 0026).
+A separate macOS prototype helper also proves before-first-script ordering in
+top-level/srcdoc documents and cleanup through 70 frame cycles, with the original
+helper as a negative control. It runs a harmless compiled marker, not user preload,
+and is not selected by the public app. Async revocation, contextBridge and IPC
+remain unimplemented; those public APIs remain unsupported (ADRs 0026, 0027).

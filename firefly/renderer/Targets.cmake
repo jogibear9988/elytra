@@ -30,3 +30,7 @@ target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world Lib
 ladybird_check_skia_confinement(firefly-isolation-probe)
 add_custom_target(check-firefly-isolation COMMAND "$<TARGET_FILE:firefly-isolation-probe>"
     DEPENDS firefly-isolation-probe USES_TERMINAL VERBATIM)
+
+if(APPLE)
+    include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
+endif()

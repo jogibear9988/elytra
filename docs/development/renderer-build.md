@@ -89,6 +89,25 @@ cmake --build build/renderer --target check-firefly-isolation --parallel 4
 
 This builds and runs a real, synchronous LibWeb/LibJS realm test without opening
 a window. It checks shared DOM data with separate globals/prototypes/expandos,
-selected constructor paths, GC and deferred owner teardown. It is not yet connected
-to WebContent's before-script lifecycle and does not enable public preload or
-contextBridge. See ADR 0026 for ownership and the remaining async/membrane/IPC gates.
+selected constructor paths, GC and deferred owner teardown. It does not enable
+public preload or contextBridge. See ADR 0026 for ownership and the remaining
+async/membrane/IPC gates.
+
+## Actual renderer early-world prototype (macOS only)
+
+```sh
+cmake --build build/renderer --target check-firefly-renderer-helper --parallel 4
+codesign --verify --strict build/renderer/FireflyHelper.app/Contents/MacOS/WebContent
+```
+
+Use the existing configured renderer graph. This builds a separate sandboxed
+WebContent helper with the original bootstrap/service source and our compile
+adapters. Resources are physically staged in FireflyHelper.app; other service
+executables use the development Ladybird build. The normal Firefly app continues
+to use the original helper. No distribution bundle is produced.
+
+The gate checks the original helper as a negative control, first author-script
+ordering, isolated globals, srcdoc frames, matching helper PIDs, 70 frame cleanup
+cycles and rejected missing/duplicate entry tokens. A missing executable or failed
+fixture fails the gate. Only a compiled harmless script is installed: this is not
+public preload/contextBridge, async revocation or validated IPC. See ADR 0027.

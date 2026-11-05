@@ -471,8 +471,38 @@ the locked-desktop screenshot gate remain unverified/open. ADR 0026 records thes
 limits and the next actual renderer lifecycle/membrane integration. Ladybird stays
 unmodified.
 
-Next: attach the isolated-world owner to the actual renderer's before-author-script
-lifecycle and implement constrained copies/function/Promise membranes and IPC, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+A separate macOS development WebContent helper now attaches the isolated-world
+owner to the actual before-author-script lifecycle. It reuses the original
+upstream bootstrap, sandbox and BiDi service translation units through two small
+compile adapters. No engine source was copied, edited or patched. Three token
+seams are checked during configure/build; API changes also require compilation
+and the runtime gates. This is adapter maintenance, not a stable upstream ABI.
+The regular Firefly application still selects the original helper.
+
+The actual check-firefly-renderer-helper gate passes with an unchanged helper as
+a negative control: only our helper installs the harmless compiled ordering marker
+before the first author script. Top-level and srcdoc first scripts verify separate
+globals/prototypes and shared DOM; helper log PIDs match the reported WebContent
+PID. Seventy sequential frame cycles create at least 141 worlds and release at
+least 140 while the top-level document remains live. The initial test exposed
+141 creations but only 71 destruction events: replaced initial documents did not
+all produce realmDestroyed events. An active-document sweep now detaches those
+owners, both before creation and on a 10 ms timer. This only proves the current
+synchronous bootstrap lifetime, not async callback revocation or BFCache support.
+
+Log: build/helper-test.log. The helper retains upstream macOS sandbox setup,
+helper entitlements/signing and Skia confinement; codesign --verify --strict
+passes. Resources are physically staged inside its development bundle: symlinking
+them caused real sandbox font-access failures. No sandbox relaxation was added.
+These checks are not a sandbox audit. Nonfatal Metal sandbox and compositor/profile
+shutdown diagnostics still occur. ADR 0027 records the process/session coupling,
+resource layout and remaining risks. Upstream integrity passes at the same pin;
+no newer candidate, Windows/Linux helper, distribution, current screenshot or
+nondefault COI support is claimed. Existing Mite/app suites were unchanged and
+not rerun for this slice.
+
+Next: implement constrained copies/function/Promise membranes and validated IPC,
+with document-generation revocation, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

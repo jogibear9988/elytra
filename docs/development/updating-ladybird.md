@@ -43,6 +43,13 @@ candidate commits from the official repository in .gitmodules / the manifest.
    unavailable checks as unverified. Renderer/IPC/security and packaging smoke
    tests must join this gate as those subsystems are implemented; current Mite
    tests cannot validate future Firefly behavior.
+   On macOS, also build/run check-firefly-isolation and
+   check-firefly-renderer-helper in the renderer graph described in
+   renderer-build.md. Review our Main.cpp/SessionAdapter.cpp compile seams against
+   the candidate's WebContent main.cpp/WebDriverBiDi.cpp, including included
+   declarations, sandbox order and archive extraction. The token guard rejects
+   missing/duplicate names, not arbitrary semantic changes. Preserve the unchanged
+   helper negative control and before-script/frame cleanup assertions.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the
@@ -50,5 +57,5 @@ candidate commits from the official repository in .gitmodules / the manifest.
 
 The update workflow is documented and its local guard is tested. No newer
 Ladybird candidate was evaluated as part of adding this workflow. Native
-Windows/Linux upgrade validation, CI automation and renderer upgrade gates remain
-outstanding. The Rust archive duplicate-symbol warnings in ADR 0004 remain open.
+Windows/Linux upgrade validation, CI automation and full renderer upgrade
+validation remain outstanding. The Rust archive duplicate-symbol warnings in ADR 0004 remain open.
