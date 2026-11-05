@@ -13,10 +13,11 @@ import time
 from test_renderer import ROOT, environment, stop
 
 
-def execute(binary, script, module='firefly'):
+def execute(binary, script, module='firefly', extra_env=None):
     with tempfile.TemporaryDirectory(prefix='firefly-app-env-') as directory:
         env=environment(directory)
         env['FIREFLY_API_MODULE']=module
+        env.update(extra_env or {})
         env.pop('ELECTRON_RUN_AS_NODE',None)
         command=[str(binary)]
         if module=='electron':command.append(f'--user-data-dir={directory}')
@@ -77,12 +78,34 @@ def main():
     reference=success(execute(electron,fixture,'electron'))
     assert actual==reference==expected,(actual,reference)
     print('PASS shared Electron/Firefly lifecycle, native controls, load promise and renderer isolation')
+    cancellation=ROOT/'firefly/tests/migration/quit-cancellation.cjs'
+    expected_cancel={'trace':['before:1','before:2','close:1','before:3','close:2','closed','will:1','replacement-created','before:4','replacement-closed','will:2','quit:0']}
+    assert success(execute(firefly,cancellation))==success(execute(electron,cancellation,'electron'))==expected_cancel
+    repeated=ROOT/'firefly/tests/migration/quit-reentry.cjs'
+    assert success(execute(firefly,repeated))=={'trace':['before','close','closed','will','quit:0']}
+    assert success(execute(electron,repeated,'electron'))=={'trace':['before','before','close','close','closed','will','quit:0']}
+    print('PASS quit cancellation/retry; INTENTIONAL DIFFERENCE: nested quit requests are coalesced')
+    forced=ROOT/'firefly/tests/migration/forced-exit.cjs'
+    for code in [0,7,13,-1,255,256,2147483647]:
+        values=[]
+        for binary,module in [(firefly,'firefly'),(electron,'electron')]:
+            result=execute(binary,forced,module,{'FIREFLY_EXIT_CODE':str(code)})
+            assert result.returncode==code%256 and 'EXIT_RETURNED\n' in result.stdout,result
+            rows=[json.loads(line) for line in result.stdout.splitlines() if line.startswith('{')]
+            assert len(rows)==1,result
+            values.append(rows[0])
+        assert values[0]==values[1]=={'trace':['closed',f'quit:{code}']},values
+    print('PASS app.exit signed exit codes, forced close, event suppression and explicit status precedence')
     result=success(execute(firefly,ROOT/'firefly/tests/migration/main-esm.mjs'))
     assert result=={'esm':True,'http':True,'rendererIsolated':True},result
     print('PASS static ESM firefly import, top-level await, Mite HTTP server and native loadURL')
     with tempfile.TemporaryDirectory(prefix='firefly-app-fixtures-') as directory:
         root=Path(directory)
         script=root/'main.cjs'
+        early=root/'early-exit.mjs'
+        early.write_text("import {app} from 'firefly';app.on('quit',(_event,code)=>console.log(JSON.stringify({early:true,code})));app.exit(0);await new Promise(()=>{});")
+        early_result=execute(firefly,early)
+        assert success(early_result)=={'early':True,'code':0} and 'Unsettled top-level await' not in early_result.stderr,early_result
         script.write_text("""
 const {app,BrowserWindow}=require('firefly');
 app.whenReady().then(async()=>{
@@ -91,6 +114,10 @@ app.whenReady().then(async()=>{
     if(!denied)throw Error('unsupported or invalid option accepted');
   }
   const win=new BrowserWindow();let rejected=false;
+  for(const code of ['7',NaN,Infinity,{},1.5,-2147483649,2147483648]) {
+    let denied=false;try{app.exit(code);}catch(e){denied=!!e.code;}
+    if(!denied||win.isDestroyed())throw Error('invalid exit code changed lifecycle');
+  }
   try{await win.loadFile('missing.html');}catch{rejected=true;}
   if(!rejected)throw Error('missing file did not reject');
   console.log(JSON.stringify({rejected:true}));win.on('closed',()=>app.quit());win.destroy();

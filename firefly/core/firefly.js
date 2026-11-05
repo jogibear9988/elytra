@@ -12,10 +12,31 @@
     whenReady() { return readyPromise; }
     quit() {
       if (quitting || exited) return;
-      const e=event(); this.emit('before-quit', e); if(e.defaultPrevented) return;
+      // Mark the whole attempt, including user listeners, as in flight.
       quitting=true;
+      const e=event(); this.emit('before-quit', e);
+      if(exited) return;
+      if(e.defaultPrevented) {quitting=false;return;}
       for (const win of [...windows.values()]) if (!win._closeRequest()) {quitting=false; break;}
       if (quitting && windows.size===0) finishQuit();
+    }
+    exit(exitCode=0) {
+      if(typeof exitCode!=='number' || !Number.isInteger(exitCode)) throw error('ERR_INVALID_ARG_TYPE','exitCode must be an integer');
+      if(exitCode < -2147483648 || exitCode > 2147483647) throw error('ERR_OUT_OF_RANGE','exitCode must fit a signed 32-bit integer');
+      if(exited) return;
+      exited=true;quitting=true;
+      try {
+        for(const win of [...windows.values()]) {
+          native.destroyNow(win.id);
+          win._destroyed=true;win._closing=false;windows.delete(win.id);
+          win.webContents._reject(error('ERR_ABORTED','Application exiting'));
+          win.emit('closed');
+        }
+        app.emit('quit',event(),exitCode);
+      } finally {
+        // Request termination even if a listener throws. The current JS turn can finish.
+        native.exit(exitCode);
+      }
     }
   }
   const app = new App();
@@ -58,6 +79,7 @@
   class BrowserWindow extends EventEmitter {
     constructor(options={}) {
       super();
+      if(exited) throw error('ERR_FIREFLY_APP_EXITED','Application is exiting');
       if(!ready) throw error('ERR_FIREFLY_NOT_READY','Cannot create BrowserWindow before app is ready');
       if(!options || typeof options!=='object' || Array.isArray(options)) throw error('ERR_INVALID_ARG_TYPE','BrowserWindow options must be an object');
       for(const key of Object.keys(options)) if(!['width','height','title','show','webPreferences'].includes(key)) unsupported(`BrowserWindow option ${key}`);

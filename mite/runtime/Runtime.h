@@ -2,6 +2,7 @@
 
 #include <LibJS/Runtime/Completion.h>
 #include <functional>
+#include <optional>
 
 namespace JS { class VM; class Realm; }
 namespace Mite {
@@ -18,6 +19,8 @@ struct HostHooks {
     std::function<int(EventLoop&)> drive;
     std::function<void()> shutdown;
     bool terminate_pending_work_on_stop { false };
+    // An explicit host status wins over process.exitCode and pending entry TLA.
+    std::optional<int> exit_code;
 };
 
 int run(int argc, char** argv, HostHooks const& = {});

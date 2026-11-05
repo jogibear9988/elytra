@@ -207,7 +207,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         } else {
             GC::Root completion { result.release_value() };
             status = drive();
-            if (!status && completion->state() == JS::Promise::State::Pending) {
+            if (!hooks.exit_code.has_value() && !status && completion->state() == JS::Promise::State::Pending) {
                 auto requested = process->get("exitCode"_utf16);
                 if (requested.is_error()) {
                     report_exception(requested.error_value());
@@ -218,7 +218,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
                     fputs("Unsettled top-level await in entry module\n", stderr);
                     status = 13;
                 }
-            } else if (!status && completion->state() == JS::Promise::State::Rejected) {
+            } else if (!hooks.exit_code.has_value() && !status && completion->state() == JS::Promise::State::Rejected) {
                 report_exception(completion->result());
                 status = 1;
             }
@@ -240,7 +240,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
             status = drive();
         }
     }
-    if (status == 0 || status == 13) {
+    if (!hooks.exit_code.has_value() && (status == 0 || status == 13)) {
         auto code = process->get("exitCode"_utf16);
         if (code.is_error()) {
             report_exception(code.error_value());
@@ -249,6 +249,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
             status = code.value().as_i32();
         }
     }
+    if (hooks.exit_code.has_value()) status = *hooks.exit_code;
     stop_host();
     if ((status || hooks.terminate_pending_work_on_stop) && event_loop.has_pending_work()) {
         // Fatal termination must not wait for a blocking filesystem worker (e.g.

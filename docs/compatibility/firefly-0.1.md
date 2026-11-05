@@ -1,13 +1,13 @@
 # Firefly 0.1 development compatibility
 
-The first Mite-driven native macOS ARM64 Firefly slice is implemented. One shared
-Electron 45.2.3 migration fixture passes in both runtimes with the module name
+The first Mite-driven native macOS ARM64 Firefly slice is implemented. Shared
+Electron 45.2.3 migration fixtures pass in both runtimes with the module name
 selected at import time. This does not establish general Electron compatibility.
 Windows/Linux, preload/IPC isolation and distribution remain outstanding.
 
 | Surface | Status | Evidence / remaining acceptance gate |
 | --- | --- | --- |
-| `app`, lifecycle | partial | isReady/whenReady, ready, window-all-closed, before-quit, will-quit, quit and explicit quit match the shared fixture; OS activation/dock/Cmd-Q, repeated/cancelled quit flows need coverage |
+| `app`, lifecycle | partial | isReady/whenReady, ready, window-all-closed, before-quit, will-quit, quit, cancellation/retry and app.exit signed codes tested; nested quit is coalesced as an intentional difference; OS activation/dock/Cmd-Q and beforeunload remain incomplete |
 | `BrowserWindow` | partial | Native macOS Qt/IOSurface view; width/height/title/show, show/hide/focus, size/title controls, registry, cancellable close and destroy; most options, beforeunload and native OS event parity remain incomplete |
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer capability defaults | partial | No process/require/Buffer/Mite globals, node:fs import denied in shared HTML fixture; this is not a full sandbox/IPC security audit |
@@ -38,3 +38,11 @@ PROGRESS.md. In the latest combined build, the screenshot gate could not complet
 because macOS reports the desktop locked. Functional Firefly, Electron reference,
 ESM/HTTP and headless tests pass, but current visible presentation must be rechecked
 after unlocking. No replacement image or fake screenshot pass is used.
+
+app.exit(code) accepts signed 32-bit integers, bypasses quit/close cancellation and
+emits closed before quit with the requested code. The explicit code takes
+precedence over process.exitCode. Like the tested Electron binary, it returns to
+the current JS call; later async callback timing is not claimed compatible.
+Nested app.quit calls within a running quit attempt are coalesced, preventing
+recursive duplicate events. Electron 45.2.3 repeats before-quit/close in the bounded
+reference fixture; this difference is deliberate and tested separately (ADR 0025).

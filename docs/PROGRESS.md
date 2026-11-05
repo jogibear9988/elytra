@@ -410,8 +410,40 @@ ADR 0024 records ownership, API references and these limits. Public preload/IPC,
 Windows/Linux adapters/security, OS lifecycle parity, most desktop APIs and
 packaging remain outstanding; the overall milestones are not complete.
 
-Next: revalidate visible presentation after unlocking; improve navigation/lifecycle
-coverage and implement constrained renderer IPC/preload isolation, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+Firefly lifecycle coverage now includes matching Electron 45.2.3 fixtures for
+cancelling before-quit, close and will-quit, retrying after cancellation and creating
+a replacement window after cancelled will-quit. app.exit(code) is implemented with
+synchronous native destruction and closed/quit notification, bypassing cancellable
+quit hooks. Shared runs verify signed codes 0, 7, 13, -1, 255, 256 and INT32_MAX,
+POSIX exit-status truncation, and explicit status precedence over process.exitCode.
+The reference returns to the current JS call after app.exit; Firefly does likewise.
+Invalid codes are rejected without closing a live window. Exit before readiness
+with an unsettled ESM await ends with the selected code, without a false unsettled
+await diagnostic. A generic optional host exit code in Mite preserves this policy;
+standalone CLI behavior and linkage remain unchanged.
+
+A quit attempt is marked active before calling before-quit listeners, coalescing
+nested calls rather than recursively repeating hooks. This is a documented
+intentional difference: the bounded Electron reference repeats before-quit and
+close twice; Firefly emits each once. Both outcomes have separate explicit test
+expectations. All 27 Mite suites and the expanded actual native/Electron app gate
+pass (build/test.log and build/firefly-target-test.log). No Ladybird code changed.
+The locked-desktop screenshot gate remains open; IORegistry still reports both
+IOConsoleLocked and CGSSessionScreenIsLocked true. Windows/Linux and post-exit
+async timing remain unverified; beforeunload and OS quit still need work.
+
+The preload source investigation found actual WrapperWorld/HostDefined and
+WindowProxy primitives, but BiDi's named sandbox-realm path rejects the request,
+and its preload runner skips sandbox scripts. PageClient::run_javascript uses the
+page's own realm. None is an already working secure preload adapter. ADR 0025
+records those exact boundaries and a concrete next renderer-helper prototype:
+reuse the per-world wrappers and synchronous before-script EventSink boundary,
+then prove helper/session routing, lifecycle, detach and membrane safety without
+changing vendored source. That prototype, contextBridge and bounded renderer IPC
+are still unimplemented. Do not replace them with a main-world closure.
+
+Next: revalidate visible presentation after unlocking; prototype the owned renderer
+helper's isolated-world lifecycle and constrained IPC/preload membrane, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

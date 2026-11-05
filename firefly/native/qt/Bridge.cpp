@@ -19,6 +19,7 @@
 #include <QWidget>
 #include <filesystem>
 #include <functional>
+
 #include <unordered_map>
 #include <unordered_set>
 
@@ -60,6 +61,7 @@ struct Bridge::Impl {
     JS::Realm& realm;
     Mite::EventLoop& jobs;
     Core::EventLoop& gui;
+    std::optional<int>& exit_code;
     std::unique_ptr<QObject> context { std::make_unique<QObject>() };
     GC::Root<JS::FunctionObject> handler;
     GC::Root<JS::Object> api;
@@ -67,10 +69,12 @@ struct Bridge::Impl {
     int next_id { 1 };
     bool stopping { false };
 
-    Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui)
-        : vm(vm), realm(realm), jobs(jobs), gui(gui) { }
-    ~Impl()
+    Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui, std::optional<int>& exit_code)
+        : vm(vm), realm(realm), jobs(jobs), gui(gui), exit_code(exit_code) { }
+    ~Impl() { stop(); }
+    void stop()
     {
+        if(stopping) return;
         stopping = true;
         while (!windows.empty()) delete windows.begin()->second.window;
         context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.
@@ -122,7 +126,7 @@ struct Bridge::Impl {
         QObject::connect(window, &QObject::destroyed, context.get(), [this,id] {
             windows.erase(id); enqueue(id,"closed");
         });
-        window->request_close = [this,id] {deliver(id,"close-request");return true;};
+        window->request_close = [this,id] {enqueue(id,"close-request");return true;};
         window->resized = [this,id] {enqueue(id,"resize");};
         view->on_close = [this,id] {enqueue(id,"close-request");};
         view->on_load_start = [this,id] {enqueue(id,"load-start");};
@@ -171,6 +175,19 @@ struct Bridge::Impl {
         host->define_native_function(realm,"destroy"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
             TRY(state(vm));destroy(vm.argument(0).as_i32());return JS::js_undefined();
         },1,JS::default_attributes);
+        host->define_native_function(realm,"destroyNow"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
+            if(!vm.argument(0).is_int32()) return vm.throw_completion<JS::TypeError>("Invalid window ID"_utf16);
+            auto found=windows.find(vm.argument(0).as_i32());
+            if(found!=windows.end()) delete found->second.window;
+            return JS::js_undefined();
+        },1,JS::default_attributes);
+        host->define_native_function(realm,"exit"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
+            auto code=TRY(vm.argument(0).to_i32(vm));
+            exit_code=code;
+            stop();
+            gui.quit(code);
+            return JS::js_undefined();
+        },1,JS::default_attributes);
         host->define_native_function(realm,"load"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
             auto* current=TRY(state(vm));
             auto input=TRY(vm.argument(1).to_utf16_string(vm));auto bytes=input.to_byte_string();
@@ -211,8 +228,8 @@ struct Bridge::Impl {
         return host;
     }
 };
-Bridge::Bridge(JS::VM& vm,JS::Realm& realm,Mite::EventLoop& jobs,Core::EventLoop& gui)
-    :m_impl(std::make_unique<Impl>(vm,realm,jobs,gui)) { }
+Bridge::Bridge(JS::VM& vm,JS::Realm& realm,Mite::EventLoop& jobs,Core::EventLoop& gui,std::optional<int>& exit_code)
+    :m_impl(std::make_unique<Impl>(vm,realm,jobs,gui,exit_code)) { }
 Bridge::~Bridge()=default;
 GC::Ref<JS::Object> Bridge::exports() {return m_impl->install();}
 void Bridge::ready() {m_impl->enqueue(0,"ready");}
