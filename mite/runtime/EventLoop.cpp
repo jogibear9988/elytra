@@ -256,6 +256,19 @@ void EventLoop::checkpoint()
         fail(m_rejections.first()->result());
 }
 
+bool EventLoop::is_alive() const
+{
+    return !m_status && (!m_jobs.is_empty() || !m_ticks.is_empty() || uv_loop_alive(&m_loop));
+}
+
+int EventLoop::pump_once()
+{
+    checkpoint();
+    if (!m_status) uv_run(&m_loop, UV_RUN_NOWAIT);
+    if (!m_status) checkpoint();
+    return m_status;
+}
+
 int EventLoop::run_until_idle()
 {
     checkpoint();

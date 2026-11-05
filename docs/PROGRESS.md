@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 25 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 26 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -311,8 +311,34 @@ and runtime/security gates outstanding. No Mite code changed in this slice; its
 preload and contextBridge remain unsupported. ADR 0021 records the adapter seam,
 verification scope and next integration steps. Ladybird remains unmodified.
 
-Next: connect the native window to the real Mite runtime and implement the
-app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+The runtime is now extracted into a reusable static mite-runtime target and
+Mite::run. The CLI and external hosts use the exact same initialization, module
+loader and native services. HostHooks initialize bindings before entry execution,
+let a host drive the loop, and disconnect callbacks before realm teardown. The
+nonblocking pump_once keeps existing tick/promise/rejection checkpoints; host-owned
+window lifetime is deliberately separate from libuv liveness. A shared CMake
+function generates the runtime sources/metadata and accepts the appropriate
+upstream JS target, avoiding an accidental second runtime in a future LibWeb host.
+No Firefly/LibWeb/Qt dependency was added to standalone Mite; otool still lists
+only platform libraries. Existing static Rust archive duplicate-symbol linker
+warnings remain (ADR 0004).
+
+The external embedding fixture tests real CommonJS streams, ticks/promises,
+timers and exit behavior against the CLI; ESM async filesystem completion; and
+an external rooted callback settling top-level await while libuv is idle. It
+also verifies exactly-once shutdown after partial initialization failure, native
+callback exceptions, unhandled rejections and a fatal callback while an actual
+POSIX FIFO worker is blocked, and after initialization itself queues blocking
+work then fails before entry execution. Initial test errors using require in eval mode were
+corrected to actual CommonJS files, with explicit expected exit/output assertions.
+The embedding gate and all 26 CTest suites pass in the final native regression;
+logs are build/test.log and build/embedding-test.log. The native Qt executable has not
+yet been connected to this hosting API: public app/BrowserWindow and host-module
+registration remain required. ADR 0022 records ownership and remaining integration.
+Windows/Linux hosting remains unverified; Ladybird is still unmodified.
+
+Next: connect the native window to the shared Mite runtime, register the firefly
+CJS/ESM module and implement the app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

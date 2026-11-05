@@ -1,0 +1,23 @@
+#pragma once
+
+#include <LibJS/Runtime/Completion.h>
+#include <functional>
+
+namespace JS { class VM; class Realm; }
+namespace Mite {
+class ModuleLoader;
+class EventLoop;
+
+// Hooks run on the VM's owner thread. initialize sees the installed Mite globals
+// and an active realm before the entry module executes. drive owns the external
+// loop until application work ends; it must pump EventLoop and return its status.
+// shutdown disconnects host callbacks while the realm and loader are still alive,
+// including after a partially failed initialize. No callbacks may outlive run().
+struct HostHooks {
+    std::function<JS::ThrowCompletionOr<void>(JS::VM&, JS::Realm&, ModuleLoader&, EventLoop&)> initialize;
+    std::function<int(EventLoop&)> drive;
+    std::function<void()> shutdown;
+};
+
+int run(int argc, char** argv, HostHooks const& = {});
+}

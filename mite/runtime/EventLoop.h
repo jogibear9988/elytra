@@ -20,6 +20,10 @@ public:
 
     JS::ThrowCompletionOr<JS::Value> install(JS::Realm&);
     int run_until_idle();
+    // GUI hosts call this on the owner thread without blocking their native loop.
+    int pump_once();
+    bool is_alive() const;
+    int status() const { return m_status; }
     // Native services share this loop and enter JS only through dispatch().
     uv_loop_t& native_loop() { return m_loop; }
     void dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const&);
