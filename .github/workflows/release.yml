@@ -1,7 +1,7 @@
 name: Native release
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', '!v*-alpha.*']
   workflow_dispatch:
     inputs:
       tag:

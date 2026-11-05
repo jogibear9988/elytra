@@ -1768,6 +1768,14 @@ A final package regeneration follows; do not publish the earlier intermittent fi
 The already-running hosted aefccef job predates this test fix; keep its result distinct
 from the next exact-source job used for alpha publication.
 
+
+Alpha workflow scope is explicit: v*-alpha.* tags do not trigger the complete
+all-platform release matrix. They use the separately gated manual macOS-only
+workflow; other version tags still require macOS and Windows, with no skipped
+platform acceptance. This avoids launching a misleading complete-release job for
+a deliberately limited alpha. actionlint accepts the negative tag filter. No tag
+or release is created before the requested actual hosted package success.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

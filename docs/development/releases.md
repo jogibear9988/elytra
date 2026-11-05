@@ -25,7 +25,9 @@ Manual dispatch can build an exact existing tag and publish a **macOS-only alpha
 when publish_alpha is selected and the tag matches vX.Y.Z-alpha.N. Publication runs
 only after the full native/package job passes; no existing release is overwritten.
 This explicitly limited alpha does not satisfy the requested Windows/macOS release.
-The all-platform Native release workflow below retains its required Windows gate.
+Alpha tags are excluded from the all-platform tag trigger and use the explicitly
+scoped manual macOS path. The all-platform Native release workflow below retains
+its required Windows gate for other version tags.
 No hosted alpha is available until an actual successful build/publication is recorded.
 
 See [package size analysis](package-size.md) for the measured baseline and what is
