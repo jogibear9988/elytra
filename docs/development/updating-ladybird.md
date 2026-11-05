@@ -55,7 +55,10 @@ candidate commits from the official repository in .gitmodules / the manifest.
    ensure new job types cannot bypass revocation, and retain bound/proxy/await/
    async-generator/late-resolution/GC controls, including owner release/detach
    during active jobs and target continuations after source revocation. Its owned-world dispatch uses public
-   SDK APIs; no engine patch is acceptable to restore these gates.
+   SDK APIs; no engine patch is acceptable to restore these gates. Review the
+   rejection tracker/error reporter too: owned reasons/Promises must not enter
+   principal page events, including foreign-Promise/source-origin cases, while page
+   Reject/Handle controls must continue to pass.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

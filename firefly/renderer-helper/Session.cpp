@@ -43,6 +43,8 @@ struct Session {
     size_t created { 0 };
     size_t destroyed { 0 };
     size_t reported_jobs { 0 };
+    size_t reported_rejections { 0 };
+    size_t reported_job_errors { 0 };
 };
 Session* session;
 
@@ -113,6 +115,18 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='source-errors') {
+                        const secret={privateCallback(){return 42}};
+                        globalThis.__sourceRejected=Promise.reject(secret);
+                        Promise.resolve().then(()=>{throw secret});
+                        (async()=>{await 0;throw secret})();
+                        Promise.reject(new Proxy(secret,{get(){throw new Error('source getter must not run')}}));
+                        return true;
+                    }
+                    if(a.mode==='handle-source-errors') {
+                        __sourceRejected.catch(()=>{});
+                        return true;
+                    }
                     if(a.mode==='remove-self-job') {
                         const finish=()=>{
                             window.frameElement.remove();
@@ -173,6 +187,13 @@ void initialize()
             if (blocked != session->reported_jobs) {
                 session->reported_jobs = blocked;
                 warnln("FIREFLY_WORLD_JOBS_BLOCKED pid={} count={}", Core::System::getpid(), blocked);
+            }
+            auto rejections = session->jobs->source_rejection_count();
+            auto errors = session->jobs->source_job_error_count();
+            if (rejections != session->reported_rejections || errors != session->reported_job_errors) {
+                session->reported_rejections = rejections;
+                session->reported_job_errors = errors;
+                warnln("FIREFLY_WORLD_FAILURES_REDACTED pid={} rejections={} job_errors={}", Core::System::getpid(), rejections, errors);
             }
         }
     });

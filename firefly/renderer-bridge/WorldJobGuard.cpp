@@ -1,14 +1,15 @@
 #include "WorldJobGuard.h"
 #include <LibGC/WeakHashMap.h>
+#include <LibGC/WeakHashSet.h>
 #include <AK/WeakPtr.h>
 #include <LibGC/WeakInlines.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/JobCallback.h>
+#include <LibJS/Runtime/Promise.h>
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
-#include <LibWeb/HTML/Scripting/ExceptionReporter.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
 #include <AK/ScopeGuard.h>
@@ -18,12 +19,40 @@ struct WorldJobGuard::State : public RefCounted<State> {
     JS::VM& vm;
     Function<JS::ThrowCompletionOr<JS::Value>(JS::JobCallback&, JS::Value, ReadonlySpan<JS::Value>)> upstream;
     Function<void(JS::PromiseJob, GC::Ptr<JS::Realm>)> upstream_enqueue;
+    Function<void(JS::Promise&, JS::Promise::RejectionOperation)> upstream_rejections;
     GC::WeakHashMap<JS::Realm, WeakPtr<IsolatedWorld>> realms;
+    GC::WeakHashSet<JS::Promise> redacted_promises;
     size_t blocked { 0 };
+    size_t source_rejections { 0 };
+    size_t source_job_errors { 0 };
     explicit State(JS::VM& vm)
-        : vm(vm), upstream(move(vm.host_call_job_callback)), upstream_enqueue(move(vm.host_enqueue_promise_job))
+        : vm(vm), upstream(move(vm.host_call_job_callback)), upstream_enqueue(move(vm.host_enqueue_promise_job)),
+          upstream_rejections(move(vm.host_promise_rejection_tracker))
     {
-        VERIFY(upstream); VERIFY(upstream_enqueue);
+        VERIFY(upstream); VERIFY(upstream_enqueue); VERIFY(upstream_rejections);
+    }
+    void rejection(JS::Promise& promise, JS::Promise::RejectionOperation operation)
+    {
+        // Native identities only: never read/stringify a source reason or place
+        // its Promise in the principal Window's rejection-event lists. A foreign
+        // Promise constructor can still be rejected by an owned source frame.
+        bool owned = realms.contains(promise.shape().realm());
+        if (operation == JS::Promise::RejectionOperation::Reject) {
+            if (!owned) {
+                vm.for_each_execution_context_top_to_bottom([&](JS::ExecutionContext const& context) {
+                    if (context.realm && realms.contains(*context.realm)) { owned = true; return false; }
+                    return true;
+                });
+            }
+            if (owned) {
+                redacted_promises.set(promise);
+                ++source_rejections;
+                return;
+            }
+        } else if (redacted_promises.remove(promise) || owned) {
+            return;
+        }
+        upstream_rejections(promise, operation);
     }
     RefPtr<IsolatedWorld> owner_for(JS::Realm& realm)
     {
@@ -92,7 +121,10 @@ struct WorldJobGuard::State : public RefCounted<State> {
                 execution.script_or_module = script_or_module;
                 ScopeGuard restore([&] { execution.script_or_module = previous; });
                 auto result = self->run_owned(move(origin_owner), move(realm_owner), [&] { return job.run(); });
-                if (result.is_error()) Web::HTML::report_exception(result, *execution_realm);
+                // The ordinary reporter may dispatch an ErrorEvent with the raw
+                // source object at the shared principal Window. Record only the
+                // fact of failure; no source reason/stack enters the page.
+                if (result.is_error()) ++self->source_job_errors;
             }));
     }
 
@@ -120,6 +152,9 @@ WorldJobGuard::WorldJobGuard(JS::VM& vm)
     vm.host_enqueue_promise_job = [state = m_state](JS::PromiseJob job, GC::Ptr<JS::Realm> realm) {
         state->enqueue(move(job), realm);
     };
+    vm.host_promise_rejection_tracker = [state = m_state](JS::Promise& promise, JS::Promise::RejectionOperation operation) {
+        state->rejection(promise, operation);
+    };
 }
 WorldJobGuard::~WorldJobGuard() = default;
 ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
@@ -131,4 +166,6 @@ ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
     return {};
 }
 size_t WorldJobGuard::blocked_count() const { return m_state->blocked; }
+size_t WorldJobGuard::source_rejection_count() const { return m_state->source_rejections; }
+size_t WorldJobGuard::source_job_error_count() const { return m_state->source_job_errors; }
 }

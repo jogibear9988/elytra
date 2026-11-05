@@ -1,0 +1,32 @@
+<!doctype html>
+<meta charset="utf-8">
+<body><p id="status">WAITING_FOR_ERRORS</p>
+<script>
+let sourceLeaks=0,sourceHandled=0,privateReferences=0,pageRejected=0,pageHandled=0;
+addEventListener('unhandledrejection',e=>{
+ e.preventDefault();
+ if(e.reason==='page-control'){pageRejected++;return}
+ sourceLeaks++;
+ try{if(typeof e.reason?.privateCallback==='function')privateReferences++}catch{}
+});
+addEventListener('rejectionhandled',e=>{
+ if(e.reason==='page-control')pageHandled++;
+ else sourceHandled++;
+});
+const pagePromise=Promise.reject('page-control');
+const scheduled=__fireflyFunctionProbe({mode:'source-errors'});
+setTimeout(()=>{
+ pagePromise.catch(()=>{});
+ __fireflyFunctionProbe({mode:'handle-source-errors'});
+ setTimeout(()=>{
+  // The explicit fixture-only baseline expectation records the old raw-reference
+  // leak before installing the adapter. Normal acceptance always expects none.
+  const baseline=new URLSearchParams(location.search).get('expect')==='leak';
+  const isolated=sourceLeaks===0 && sourceHandled===0;
+  const leaked=sourceLeaks>=3 && privateReferences>=1 && sourceHandled>=1;
+  const ok=scheduled && pageRejected===1 && pageHandled===1 && (baseline?leaked:isolated);
+  document.querySelector('#status').textContent=ok?'ERROR_WORLD_OK':'ERROR_WORLD_MISSING';
+  if(ok)setTimeout(()=>window.close(),100);
+ },100);
+},100);
+</script>

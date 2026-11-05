@@ -673,9 +673,43 @@ privileged endpoint must enforce logical revocation. No total realm collection,
 new platform/package/security-audit or visible-desktop claim is made. Normal
 Firefly/Mite were unchanged and their previous app/runtime suites were not rerun.
 
-Next: complete callback/timer/listener and error-event isolation, callback
-membranes and validated IPC with resource/sender/frame limits, alongside Windows
-feasibility.
+Source Promise rejection isolation now has actual exploit/control evidence.
+Before filtering, the separate sandboxed helper exposed at least three source
+rejection objects through principal page events, including a private function
+reference; later handling exposed a source handled event as well. The fixture
+also required normal page reject/handle events. The functions were harmless
+compiled probes. Baseline evidence: build/error-baseline.log.
+
+WorldJobGuard now wraps the existing rejection tracker. Registered Promise realms
+and Reject operations originating in owned source frames are kept out of the
+principal tracker without reading/coercing reasons. Weak Promise identities cover
+later Handle operations outside the source, including foreign-realm Promises.
+Page promises handled by source code still delegate their original Handle
+operations. Guarded abrupt job completions no longer use the ordinary reporter,
+which can dispatch raw error objects; only native failure counters are recorded.
+These are Reject-operation/abrupt-job counts, not unhandled-error diagnostics.
+
+Both native gates pass (build/error-isolation-test.log). SDK delegation probes
+cover source/foreign/derived-foreign rejections, later native handling outside the
+source, a page promise handled by source code, zero reason-proxy getter calls and
+GC. The actual helper fixture now sees zero source rejection/handled events while
+its page controls each occur once. Matching PID counters prove source rejections
+were generated. All existing ordering/Promise/active-frame/70-cycle gates pass.
+ADR 0033 records the measured boundary, policy and limits. The abrupt engine-job
+reporting branch is payload-free but not separately triggered by this fixture.
+Ladybird remains unmodified, at the same pin.
+
+This does not cover every callback/error route. queueMicrotask, timer and DOM/WebIDL
+callbacks, direct/cross-world function transfers, finalization/workers,
+navigation/BFCache, validated IPC and hard resource containment remain open.
+Native counters are not a finished preload error API. Public preload/contextBridge/
+IPC remain unsupported; normal Firefly/Mite were unchanged and their previous
+app/runtime suites were not rerun. Windows/Linux, COI, packaging, full security
+audit and the visible desktop gate remain unverified/open.
+
+Next: complete callback/timer/listener and remaining error-route isolation,
+callback membranes and validated IPC with resource/sender/frame limits, alongside
+Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

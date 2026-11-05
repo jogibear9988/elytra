@@ -5,13 +5,27 @@
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/Promise.h>
+#include <LibJS/Runtime/Intrinsics.h>
+#include <LibJS/Runtime/PromiseConstructor.h>
+#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibJS/Script.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
 #include <LibWeb/HTML/Window.h>
 
+struct RejectionProbeCounters : public RefCounted<RejectionProbeCounters> {
+    size_t rejects {0};
+    size_t handles {0};
+};
+
 ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
 {
+    auto tracker=adopt_ref(*new RejectionProbeCounters);
+    vm.host_promise_rejection_tracker=[tracker,upstream=move(vm.host_promise_rejection_tracker)](JS::Promise& promise,JS::Promise::RejectionOperation op){
+        if(op==JS::Promise::RejectionOperation::Reject)++tracker->rejects;else ++tracker->handles;
+        upstream(promise,op);
+    };
     Firefly::WorldJobGuard guard(vm);
     auto source = TRY(Firefly::IsolatedWorld::create(*document.window()));
     auto other = TRY(Firefly::IsolatedWorld::create(*document.window()));
@@ -160,6 +174,48 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         if(!producer->is_detached())return Error::from_string_literal("Producer was not detached after publication");
     }
     outln("PASS approved target Promise continuations survive later source revocation");
+    {
+        auto errors=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*errors));
+        ScopeGuard detach_errors([&]{errors->detach();});
+        auto& principal=document.window()->principal_realm();
+        errors->realm()->global_object().define_direct_property("ForeignPromise"_utf16,principal.intrinsics().promise_constructor(),JS::default_attributes);
+        auto rejected_before=tracker->rejects,handled_before=tracker->handles;
+        auto redacted_before=guard.source_rejection_count();
+        auto rejected=errors->evaluate(uR"JS(
+            globalThis.reasonTraps=0;
+            const reason=new Proxy({}, {get(){reasonTraps++;throw 1}});
+            Promise.reject(reason);
+            globalThis.foreignRejected=ForeignPromise.reject(reason);
+            ForeignPromise.resolve().then(()=>{throw reason});
+            true;
+        )JS"sv);
+        if(rejected.is_error())return Error::from_string_literal("Cannot create source rejection fixtures");
+        checkpoint();
+        if(tracker->rejects!=rejected_before || tracker->handles!=handled_before || guard.source_rejection_count()<redacted_before+3)
+            return Error::from_string_literal("Source rejection reached upstream tracker");
+        auto foreign_value=errors->evaluate(u"foreignRejected"sv);
+        if(foreign_value.is_error())return Error::from_string_literal("Cannot obtain native foreign-promise control");
+        auto value=foreign_value.release_value();
+        GC::Root promise { static_cast<JS::Promise&>(value.as_object()) };
+        GC::Root ignore { JS::NativeFunction::create(principal,+[](JS::VM&)->JS::ThrowCompletionOr<JS::Value>{return JS::js_undefined();},1,"ignoreSourceReason"_utf16,GC::Ptr<JS::Realm>{principal}) };
+        {
+            Web::HTML::TemporaryExecutionContext context(principal,Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes);
+            promise->perform_then(JS::js_undefined(),ignore.ptr(),nullptr);
+        }
+        if(tracker->handles!=handled_before)return Error::from_string_literal("Foreign source rejection handled outside source leaked upstream");
+        // A page promise handled by source code must still receive its original
+        // Handle operation; origin alone must not suppress an unrelated handle.
+        TRY(page_check(u"globalThis.pagePromiseForSource=Promise.reject('page-control');true"sv));
+        auto page_value=principal.global_object().get_without_side_effects("pagePromiseForSource"_utf16);
+        errors->realm()->global_object().define_direct_property("pagePromiseForSource"_utf16,page_value,JS::default_attributes);
+        auto handled=errors->evaluate(u"pagePromiseForSource.catch(()=>{});reasonTraps===0"sv);
+        if(handled.is_error() || !handled.value().as_bool() || tracker->rejects!=rejected_before+1 || tracker->handles!=handled_before+1)
+            return Error::from_string_literal("Page reject/handle control changed or source proxy getter ran");
+        vm.heap().collect_garbage();
+        checkpoint();
+    }
+    outln("PASS source/foreign-Promise rejections stay private without reason traps; page reject/handle tracking remains");
     other->detach();
     checkpoint();
     outln("PASS detached-world jobs blocked for reactions/bound/proxy/thenable/async/async-generator/late resolution; page and live worlds continue");

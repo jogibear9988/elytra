@@ -83,3 +83,9 @@ Guarded Promise jobs now retain native ownership through in-flight detach/last
 external release. SDK and actual helper reaction/await/generator tests pass,
 including self-removing frames and independent target Promise settlement (ADR 0032).
 This does not establish timer/DOM/WebIDL callback safety or enable public preload.
+
+Source Promise reasons/Promises are now excluded from principal page rejection
+events, with a reproduced pre-filter leak and passing SDK/helper controls (ADR 0033).
+Foreign Promise constructors and later handling are covered without invoking source
+reason getters. This is an internal boundary fix; public preload remains rejected
+and other callback/error routes still require work.

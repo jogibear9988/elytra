@@ -100,7 +100,9 @@ Promise results, microtask ordering, pending limits and late-result revocation
 callbacks, thenables, async/await, async generators, late resolution, GC and
 unregistered/live-world controls (ADR 0031). In-flight job tests also cover last
 external owner release, logical/deferred physical detach and independent target
-Promise settlement (ADR 0032).
+Promise settlement (ADR 0032). Source rejection-tracker tests verify foreign
+Promise constructors, later handling, original page tracking and zero source reason
+getter calls (ADR 0033).
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -120,7 +122,8 @@ ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
 helper PIDs, synchronous function calls and revoked removed-frame references
 across 70 cleanup cycles, Promise fulfillment/rejection, retained removed-frame
 Promise rejection, blocked removed-frame Promise jobs, self-removing frames during
-reaction/await/generator jobs and rejected missing/duplicate entry tokens. A missing executable
+reaction/await/generator jobs, source rejection isolation with page reject/handle
+controls and rejected missing/duplicate entry tokens. A missing executable
 or failed fixture fails the gate. Only compiled harmless scripts are installed;
 public preload/contextBridge, complete source-job revocation and validated IPC
-remain open. See ADRs 0027–0032.
+remain open. See ADRs 0027–0033.

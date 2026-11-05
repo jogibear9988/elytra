@@ -15,6 +15,8 @@ public:
     WorldJobGuard& operator=(WorldJobGuard const&) = delete;
     ErrorOr<void> protect(IsolatedWorld&);
     size_t blocked_count() const;
+    size_t source_rejection_count() const;
+    size_t source_job_error_count() const;
 private:
     struct State;
     NonnullRefPtr<State> m_state;
