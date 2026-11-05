@@ -89,7 +89,9 @@ cmake --build build/renderer --target check-firefly-isolation --parallel 4
 
 This builds and runs a real, synchronous LibWeb/LibJS realm test without opening
 a window. It checks shared DOM data with separate globals/prototypes/expandos,
-selected constructor paths, GC and deferred owner teardown. It does not enable
+selected constructor paths, GC and deferred owner teardown. It also tests the
+internal BridgeData snapshot adapter, including cyclic data, frozen target-realm
+containers, trap-free rejection and copy budgets (ADR 0028). It does not enable
 public preload or contextBridge. See ADR 0026 for ownership and the remaining
 async/membrane/IPC gates.
 
@@ -107,7 +109,8 @@ executables use the development Ladybird build. The normal Firefly app continues
 to use the original helper. No distribution bundle is produced.
 
 The gate checks the original helper as a negative control, first author-script
-ordering, isolated globals, srcdoc frames, matching helper PIDs, 70 frame cleanup
+ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
+helper PIDs, 70 frame cleanup
 cycles and rejected missing/duplicate entry tokens. A missing executable or failed
 fixture fails the gate. Only a compiled harmless script is installed: this is not
 public preload/contextBridge, async revocation or validated IPC. See ADR 0027.

@@ -54,3 +54,9 @@ top-level/srcdoc documents and cleanup through 70 frame cycles, with the origina
 helper as a negative control. It runs a harmless compiled marker, not user preload,
 and is not selected by the public app. Async revocation, contextBridge and IPC
 remain unimplemented; those public APIs remain unsupported (ADRs 0026, 0027).
+
+The internal helper now also verifies frozen, data-only cross-world snapshots
+before first author scripts. Native tests cover cycles, sparse arrays, aliases,
+GC, prototype safety, trap-free rejection and snapshot size limits (ADR 0028).
+This does not enable the public bridge: function/Promise forwarding, document
+revocation, IPC validation and hard enumeration scratch-memory bounds remain open.

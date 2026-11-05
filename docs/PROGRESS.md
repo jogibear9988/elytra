@@ -501,8 +501,38 @@ no newer candidate, Windows/Linux helper, distribution, current screenshot or
 nondefault COI support is claimed. Existing Mite/app suites were unchanged and
 not rerun for this slice.
 
-Next: implement constrained copies/function/Promise membranes and validated IPC,
-with document-generation revocation, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+The internal BridgeData adapter now captures plain data into an owned C++ graph
+with no retained JS/VM pointers and reconstructs frozen containers in the target
+realm. It supports primitive values, ordinary/null-prototype objects and arrays,
+including cycles, aliases, sparse slots, special numbers and exact UTF-16 code
+units. Source containers must belong to the declared source realm and have the
+expected intrinsic prototype. Host/exotic objects, proxies, accessors, symbols,
+functions and promises are explicitly rejected without running their traps.
+
+Default limits cover 4096 values/properties, 65536 cumulative UTF-16 code units,
+depth 64 and array length 4096. Captures fail before publishing partial data.
+The SDK's own-key enumeration allocates a temporary vector before our property
+limit check: snapshot/output bounds do not establish hard scratch-memory or CPU
+containment. This remains a prerequisite for accepting arbitrary untrusted IPC;
+no engine-layout shortcut or upstream modification was introduced.
+
+Both native gates pass: check-firefly-isolation exercises data copies in both
+directions, source deletion/GC, independent frozen target identities, poisoned
+prototypes and inherited setters, unsupported/foreign-realm values, zero getter/
+proxy-trap calls, all budgets and recovery after rejection. The actual sandboxed
+helper additionally copies compiled harmless data before author scripts and
+mutates its source afterward. Top-level/srcdoc first scripts still see the original
+frozen data and their own intrinsics; source globals remain private. The unchanged
+helper negative control and 70-frame cleanup gate still pass. Logs:
+build/bridge-isolation-test.log and build/bridge-test.log. ADR 0028 records policy
+and remaining resource limits. Mite/public Firefly APIs were unchanged; their
+previous suites were not rerun. Public preload/contextBridge/IPC remain unsupported,
+including function/Promise proxies and generation-based async revocation. No new
+platform, packaging, COI, screenshot or full sandbox-audit claim is made.
+
+Next: implement generation-aware function/Promise membranes and validated IPC,
+with resource/sender/frame limits, alongside Windows process/sandbox feasibility.
+Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

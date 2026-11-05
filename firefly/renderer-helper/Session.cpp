@@ -1,5 +1,6 @@
 #include "Session.h"
 #include "IsolatedWorld.h"
+#include "BridgeData.h"
 #include <AK/HashMap.h>
 #include <AK/HashTable.h>
 #include <AK/JsonObject.h>
@@ -85,8 +86,18 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                 globalThis.__fireflyIsolatedMarker = 'renderer-only';
                 Object.prototype.__fireflyWorldOnly = true;
                 window.name = 'FIREFLY_WORLD_READY:' + location.href;
+                globalThis.__fireflyCopySource = {answer:42,nested:[true]};
+                __fireflyCopySource;
             )JS"sv);
             if (result.is_error()) fail("Isolated bootstrap script failed"sv);
+            auto data = BridgeData::capture(result.value(), *world->realm(), {});
+            if (data.is_error()) fail("Cannot capture bootstrap data"sv);
+            auto copied = data.value().materialize(document->window()->principal_realm());
+            if (copied.is_error()) fail("Cannot materialize bootstrap data"sv);
+            document->window()->principal_realm().global_object().define_direct_property(
+                "__fireflyDataProbe"_utf16, copied.value(), JS::default_attributes);
+            // Prove the copy does not share state with its source.
+            if (world->evaluate(u"__fireflyCopySource.answer=99"sv).is_error()) fail("Cannot mutate probe source"sv);
             ++session->created;
             warnln("FIREFLY_WORLD_CREATED pid={} count={}", Core::System::getpid(), session->created);
         }
