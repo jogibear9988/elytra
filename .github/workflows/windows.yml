@@ -59,6 +59,7 @@ jobs:
         with:
           path: build/vcpkg-cache
           key: windows-x64-clang-release-${{ hashFiles('vcpkg.json', 'vendor/ladybird.json') }}
+          restore-keys: windows-x64-clang-release-
       - name: Bootstrap pinned native dependencies
         run: python tooling/bootstrap.py
       - name: Configure standalone Mite

@@ -10,7 +10,7 @@ set(firefly_qt_files)
 foreach(source IN LISTS firefly_qt_sources)
     list(APPEND firefly_qt_files "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.cpp")
 endforeach()
-add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" ${firefly_qt_files})
+add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp" ${firefly_qt_files})
 set_target_properties(firefly-qt-view PROPERTIES AUTOMOC ON)
 target_include_directories(firefly-qt-view PUBLIC "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
 target_link_libraries(firefly-qt-view PUBLIC LibWebView LibIPC LibURL LibGfx LibCore LibMain AK Qt::Core Qt::Gui Qt::Widgets Qt::GuiPrivate)
@@ -35,7 +35,7 @@ add_custom_target(check-firefly-window
         --probe "$<TARGET_FILE:firefly-window-probe>"
     DEPENDS firefly-window-probe USES_TERMINAL VERBATIM)
 
-add_executable(firefly-chrome-probe "${CMAKE_CURRENT_LIST_DIR}/ChromeProbe.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp")
+add_executable(firefly-chrome-probe "${CMAKE_CURRENT_LIST_DIR}/ChromeProbe.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp")
 target_link_libraries(firefly-chrome-probe PRIVATE Qt::Widgets)
 
 if(FIREFLY_BUILD_RUNTIME)

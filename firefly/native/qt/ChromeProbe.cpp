@@ -1,4 +1,6 @@
 #include "ChromeWindow.h"
+#include "ToolTip.h"
+#include <QLabel>
 #include <QApplication>
 #include <QMouseEvent>
 #include <QEventLoop>
@@ -35,5 +37,10 @@ int main(int argc,char** argv)
     send(QEvent::MouseButtonDblClick,{100,20},global,Qt::LeftButton,Qt::LeftButton);check(!window.isMaximized(),"title double-click restores");
     window.set_regions(regions);QEventLoop wait;QTimer::singleShot(1100,&wait,&QEventLoop::quit);wait.exec();
     check(!window.draggable({100,20}),"stale snapshot cannot keep intercepting input");
+    Ladybird::show_tooltip({100,100},QString("<img src='https://invalid.invalid/image'>")+QString(3000,'x'),window,{},10000);
+    auto* tip=window.findChild<QLabel*>("firefly-plain-tooltip");
+    check(tip&&tip->textFormat()==Qt::PlainText&&tip->text().size()==2048,"untrusted tooltip is bounded plain text");
+    Ladybird::hide_tooltip();check(!tip->isVisible(),"tooltip hides");
+    std::puts("PASS bounded plain-text tooltip adapter");
     std::puts("PASS native frameless, drag/no-drag input, position change, double-click and stale-region rejection");
 }

@@ -1711,6 +1711,31 @@ measurements and scoped next experiments. The new smoke assertion also checks th
 actual external-toolbar drag/no-drag geometry covers the HTML maximize button;
 it passes on the current Ladybird update candidate along with native actions.
 
+
+Ladybird update (ADR 0056): pin/gitlink now advance together to
+97ad425b5125f20c516e1a8d3b5bb02f391fc975, 166 commits after the previous pin.
+Rust/vcpkg pins stay unchanged. Reviewed Rust callback delegation, narrow helper/
+callback/timer/listener/observer seams and curated Qt source dependencies. Upstream's
+new plain-text tooltip entry points otherwise pull in browser TabBar code; our owned
+bounded Qt::PlainText label adapter supplies only those embedding functions, with
+native markup/bounds/hide tests. No vendor source or sandbox policy changed.
+
+Validation: Release Mite and all 35 CTest suites pass (19.46s); updated Release
+Firefly builds; all four runtime/renderer/isolation/helper gates pass in
+build/ladybird-update-firefly-test.log. The bundled Designer also passes with the
+new actual external-CSS geometry assertion and all HTML window controls in
+build/ladybird-update-designer-test.log. Upstream integrity, 48,247 vendor paths,
+LF checkout regression, workflow syntax and 95-page/4,716-link docs pass. Existing
+Rust/SDK linker warnings, native Windows/Linux and unlocked pixel presentation
+remain open. Windows cache restore can reuse prior archives across a source-pin
+update; vcpkg still validates individual package ABI keys before using them.
+
+Next for the user-requested alpha: push the accepted update and funding/package
+commits to master, observe the actual macOS Release package job through completion,
+fix any hosted-only failures, then publish a clearly macOS ARM64 alpha only after
+its native/relocated gates pass. No GitHub release or hosted success is claimed yet.
+The all-platform workflow retains its Windows requirement for a complete release.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
