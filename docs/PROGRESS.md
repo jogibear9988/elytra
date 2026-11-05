@@ -253,7 +253,37 @@ Agent/TLS/fetch/upgrades, aggregate pipeline pressure, chunk-extension limits an
 full lifecycle/header parity. Native Windows/Linux remain unverified. Ladybird
 remains unmodified.
 
-Next: renderer proof of concept, including native-window/process feasibility. Broaden host APIs and real-package coverage around
+The first isolated renderer embedding probe builds and runs on native macOS
+ARM64 (macOS 27.0.1, Apple Clang 21, Rust 1.98.0). All 76 pinned browser dependency
+packages and the complete 3,224-step upstream/helper/probe build completed. Our
+CMake project/deferred-include hook leaves Ladybird and the Mite graph unmodified.
+The adapter skips development install rules, directly links its IPC/URL symbols,
+and passes the companion executable's directory for helper/resource lookup.
+These fixes are all outside the submodule.
+
+`tooling/test_renderer.py` passes all three real runtime checks: LibWeb text with
+LibJS DOM mutation, absent process/require/Buffer/Mite hooks and rejected node:fs;
+a 640x400 compositor PNG; and distinct WebContent/RequestServer/Compositor OS
+children, including the navigated renderer PID. The image was visually reviewed:
+heading, paragraph and both successful DOM/capability markers paint correctly.
+The process observer covers the full session because upstream can launch a spare
+WebContent before the navigated renderer. Temporary profiles and default helper
+sandbox flags are retained; these selected checks do not prove the full sandbox
+or IPC attack surface. Logs: build/renderer-build.log (initial missing-link failure),
+build/renderer-rebuild.log (successful final build), build/renderer-test.log
+(passing checks). Screenshot: build/renderer-artifacts/page.png. Generated artifacts
+are not committed. The unchanged standalone Mite still links only platform
+libraries, with no LibWeb/Qt/Node/V8 dependency. Its existing 25 suites passed in
+the preceding HTTP commit; renderer checks are separate, not counted among them.
+
+This is not yet a Mite-driven Firefly application, native window, preload bridge
+or public Electron API. Native Windows/Linux remain unverified, and the pinned
+Windows renderer sandbox is a no-op requiring an actual platform implementation.
+The browser dependency link emits newer macOS deployment-target warnings; running
+on this host establishes no older-macOS support or distributable packaging claim.
+ADR 0020 and docs/development/renderer-build.md record boundaries and reproduction.
+
+Next: implement native-window integration and Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

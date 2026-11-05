@@ -1,6 +1,10 @@
 # Firefly 0.1 development compatibility
 
-Firefly is not implemented yet. No Electron migration fixture currently passes.
+Public Firefly APIs are not implemented yet. No Electron migration fixture
+currently passes. A separate native macOS ARM64 headless LibWebView probe renders
+HTML/CSS, executes LibJS DOM code and observes isolated helper processes. This is
+an internal embedding gate, not BrowserWindow support; native Windows/Linux and
+full sandbox validation remain outstanding.
 
 | Surface | Status | Acceptance gate |
 | --- | --- | --- |

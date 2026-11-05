@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Firefly renderer proof</title>
+<style>
+  html { background: #14202d; color: #f1f5f9; font: 20px sans-serif; }
+  body { margin: 32px; }
+  h1 { color: #8fe4b0; }
+  #status { padding: 16px; background: #26394b; border: 2px solid #8fe4b0; }
+</style>
+<h1>Firefly renderer</h1>
+<p>Ladybird LibWeb renders this document in WebContent.</p>
+<div id="status">Waiting for JavaScript</div>
+<script type="module">
+  const missing = ['process', 'require', 'Buffer', '__miteEnqueueTick']
+    .every(name => !(name in globalThis));
+  let denied = false;
+  try { await import('node:fs'); } catch { denied = true; }
+  document.querySelector('#status').textContent =
+    `LIBJS_DOM_OK CAPABILITIES_ABSENT=${missing} NODE_IMPORT_DENIED=${denied}`;
+</script>
