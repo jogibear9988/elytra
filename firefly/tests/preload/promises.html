@@ -1,0 +1,41 @@
+<!doctype html>
+<script>
+// First author script: Promise results must be target-realm promises and copies.
+window.promiseProof=(async()=>{
+ let synchronous=true, ran=false;
+ const promise=__fireflyFunctionProbe({mode:'promise',n:41});
+ const observed=promise.then(value=>{
+  ran=true;
+  return !synchronous && value.answer===42 && Object.isFrozen(value) &&
+   Object.isFrozen(value.nested) && Object.getPrototypeOf(value)===Object.prototype &&
+   Object.getPrototypeOf(value.nested)===Array.prototype;
+ });
+ const own=promise instanceof Promise && Object.getPrototypeOf(promise)===Promise.prototype && !ran;
+ synchronous=false;
+ let sanitized=false;
+ try {await __fireflyFunctionProbe({mode:'reject'})} catch(e) {
+  sanitized=e instanceof TypeError && e.message==='Firefly bridge promise rejected';
+ }
+ return own && sanitized && await observed;
+})();
+</script>
+<meta charset="utf-8">
+<body><p id="status">WAITING_FOR_PROMISES</p><iframe id="frame"></iframe>
+<script>
+const frame=document.querySelector('#frame');
+frame.onload=async()=>{
+ if(frame.contentWindow.location.href!=='about:srcdoc')return;
+ // Install a live parent-realm handler before removing the child document.
+ const childTypeError=frame.contentWindow.TypeError;
+ const pending=frame.contentWindow.childPending;
+ const observed=pending.then(()=>false,e=>e instanceof childTypeError &&
+  e.message==='Firefly bridge promise rejected');
+ frame.remove();
+ const ok=await promiseProof && await observed;
+ document.querySelector('#status').textContent=ok?'PROMISE_WORLD_OK':'PROMISE_WORLD_MISSING';
+ if(ok)setTimeout(()=>window.close(),100);
+};
+frame.srcdoc=`<!doctype html><script>
+globalThis.childPending=__fireflyFunctionProbe({mode:'pending'});
+<\/script>`;
+</script>

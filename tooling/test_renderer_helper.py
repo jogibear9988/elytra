@@ -41,6 +41,10 @@ def main():
     created=[int(n) for n in re.findall(rf'FIREFLY_WORLD_CREATED pid={pid} count=(\d+)',cycles.stderr)]
     destroyed=[int(n) for n in re.findall(rf'FIREFLY_WORLD_DESTROYED pid={pid} count=(\d+)',cycles.stderr)]
     assert created and max(created)>=141 and destroyed and max(destroyed)>=140,cycles
+    promises=run(probe,'--headless=manual',(fixture/'promises.html').as_uri())
+    pid_of(promises)
+    # The promise fixture closes only after fulfillment copies, sanitized
+    # rejection and a retained removed-frame promise rejection all succeed.
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state']:
@@ -52,6 +56,7 @@ def main():
     print('PASS unmodified control lacks early world, owned helper creates it before first author script')
     print('PASS isolated globals and frozen data-only copies in top-level/srcdoc frames and matching renderer PID')
     print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
+    print('PASS native Promise results and removed-frame pending rejection')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

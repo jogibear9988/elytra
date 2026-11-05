@@ -108,6 +108,11 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='pending')return new Promise(resolve=>{
+                        (globalThis.__fireflyResolvers??=[]).push(resolve);
+                    });
+                    if(a.mode==='promise')return Promise.resolve({answer:a.n+1,nested:[true]});
+                    if(a.mode==='reject')return Promise.reject('private source rejection');
                     return {answer:a.n+1, ownThis:this===undefined,
                         ownPrototype:Object.getPrototypeOf(a)===Object.prototype,
                         frozen:Object.isFrozen(a)};

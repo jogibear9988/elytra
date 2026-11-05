@@ -3,11 +3,51 @@
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/Intrinsics.h>
+#include <LibJS/Runtime/Promise.h>
+#include <LibJS/Runtime/PromiseCapability.h>
+#include <LibJS/Runtime/PromiseConstructor.h>
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/Window.h>
 
 namespace Firefly {
+struct FunctionBridge::Pending : public RefCounted<Pending> {
+    GC::Root<JS::PromiseCapability> capability;
+    GC::Root<JS::Realm> target;
+    Pending(JS::PromiseCapability& capability, JS::Realm& target) : capability(capability), target(target) { }
+};
+FunctionBridge::~FunctionBridge() = default;
+
+static GC::Ref<JS::TypeError> bridge_error(JS::Realm& target, Utf16View message)
+{
+    auto& vm = target.vm();
+    // Capture no caller/source frames, including revoke during a source call.
+    vm.save_execution_context_stack();
+    ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+    auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+    context->realm = &target;
+    vm.push_execution_context(*context);
+    ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+    return JS::TypeError::create(target, message);
+}
+
+static void reject_pending(JS::PromiseCapability& capability, JS::Realm& target)
+{
+    auto& vm = target.vm();
+    // A lifecycle timer/shutdown may run with no JS context. Supply only a
+    // native-call frame; do not trigger a microtask checkpoint while revoking.
+    OwnPtr<JS::ExecutionContext> context;
+    if (!vm.has_running_execution_context()) {
+        context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+        context->realm = &target;
+        vm.push_execution_context(*context);
+    }
+    ScopeGuard pop([&] { if (context) VERIFY(vm.pop_execution_context() == context.ptr()); });
+    // Built-in resolving functions cannot run a source getter or reject twice.
+    GC::Root error { bridge_error(target, u"Firefly bridge promise rejected"sv) };
+    MUST(JS::call(target.vm(), *capability.reject(), JS::js_undefined(), error.ptr()));
+}
 FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& function, Web::DOM::Document& document)
     : m_source(source), m_function(function), m_document(document)
 {
@@ -43,17 +83,94 @@ void FunctionBridge::revoke()
     m_function = nullptr;
     m_document = nullptr;
     m_source.clear();
+    auto pending = move(m_pending);
+    for (auto& entry : pending)
+        reject_pending(*entry.value->capability, *entry.value->target);
+}
+
+JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(JS::VM& vm, JS::Promise& promise, JS::Realm& target)
+{
+    GC::Root source_promise { promise };
+    if (m_pending.size() >= 64 || m_next_id == NumericLimits<u64>::max())
+        return JS::throw_completion(bridge_error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
+    GC::Root capability { TRY(JS::new_promise_capability(vm, target.intrinsics().promise_constructor())) };
+    u64 id = ++m_next_id;
+    m_pending.set(id, adopt_ref(*new Pending(*capability, target)));
+    NonnullRefPtr owner { *this };
+    // Observe engine state directly, bypassing .then, constructor and species.
+    // Reactions capture only owner/id, so revoke can release the owned pending roots.
+    GC::Root fulfilled { JS::NativeFunction::create(target,
+        [owner, id](JS::VM& inner) { return owner->settle(id, true, inner.argument(0)); },
+        1, "fireflyPromiseFulfilled"_utf16, GC::Ptr<JS::Realm> { target }) };
+    GC::Root rejected { JS::NativeFunction::create(target,
+        [owner, id](JS::VM&) { return owner->settle(id, false, JS::js_undefined()); },
+        1, "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
+    promise.perform_then(fulfilled.ptr(), rejected.ptr(), nullptr);
+    return capability->promise();
+}
+
+// Promise resolving functions perform Get(value, "then"). Refuse a polluted
+// target prototype before that publication point, so no caller getter/thenable
+// can steal a still-pending settlement from the revocation registry.
+static bool safe_to_resolve(JS::Value value)
+{
+    if (!value.is_object()) return true;
+    auto const* object = &value.as_object();
+    for (size_t depth = 0; object && depth < 64; ++depth, object = object->prototype()) {
+        auto id = object->engine_class_id();
+        if (JS::host_class_of(*object) || (id != JS_LAYOUT_CLASS_ID_OBJECT && id != JS_LAYOUT_CLASS_ID_ARRAY &&
+                id != JS_LAYOUT_CLASS_ID_OBJECT_PROTOTYPE && id != JS_LAYOUT_CLASS_ID_ARRAY_PROTOTYPE)) return false;
+        auto descriptor = object->ordinary_get_own_property("then"_utf16);
+        if (descriptor.is_error()) return false;
+        if (descriptor.value().has_value())
+            return descriptor.value()->is_data_descriptor() && descriptor.value()->value.has_value() && !descriptor.value()->value->is_function();
+    }
+    return !object;
+}
+
+JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, JS::Value value)
+{
+    NonnullRefPtr protect { *this };
+    auto pending = m_pending.take(id);
+    if (!pending.has_value()) return JS::js_undefined(); // late/duplicate completion
+    auto& record = **pending;
+    GC::Root capability { *record.capability };
+    GC::Root target { *record.target };
+    record.capability = nullptr;
+    record.target = nullptr;
+    if (m_revoked || m_source->is_detached() || !m_document->is_fully_active()) {
+        revoke();
+        reject_pending(*capability, *target);
+        return JS::js_undefined();
+    }
+    if (!fulfilled) {
+        reject_pending(*capability, *target);
+        return JS::js_undefined();
+    }
+    auto data = BridgeData::capture(value, *m_source->realm(), {});
+    if (data.is_error()) {
+        reject_pending(*capability, *target);
+        return JS::js_undefined();
+    }
+    auto copied = data.value().materialize(*target);
+    if (copied.is_error() || !safe_to_resolve(copied.value()) || m_revoked || m_source->is_detached() || !m_document->is_fully_active()) {
+        if (!m_revoked && (m_source->is_detached() || !m_document->is_fully_active())) revoke();
+        reject_pending(*capability, *target);
+        return JS::js_undefined();
+    }
+    MUST(JS::call(target->vm(), *capability->resolve(), JS::js_undefined(), copied.release_value()));
+    return JS::js_undefined();
 }
 
 JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
 {
-    auto error = [&]() { return vm.throw_completion<JS::TypeError>("Firefly bridge call rejected"sv); };
+    auto error = [&]() { return JS::throw_completion(bridge_error(*vm.current_realm(), u"Firefly bridge call rejected"sv)); };
     if (m_revoked) return error();
     if (!m_document->is_fully_active() || m_source->is_detached()) {
         revoke();
         return error();
     }
-    if (m_calling || vm.argument_count() > 64 || vm.current_realm() != &m_document->window()->principal_realm()) return error();
+    if (m_calling || m_pending.size() >= 64 || vm.argument_count() > 64 || vm.current_realm() != &m_document->window()->principal_realm()) return error();
     NonnullRefPtr protect { *this };
     NonnullRefPtr source { *m_source };
     GC::Root function { *m_function };
@@ -81,7 +198,13 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
         return error();
     }
     if (result.is_error()) return error();
-    auto output = BridgeData::capture(result.value(), *source_realm, {});
+    auto result_value = result.release_value();
+    if (result_value.is_object()) {
+        auto& object = result_value.as_object();
+        if (object.engine_class_id() == JS_LAYOUT_CLASS_ID_PROMISE && !JS::host_class_of(object) && &object.shape().realm() == source_realm.ptr())
+            return observe(vm, static_cast<JS::Promise&>(object), *target);
+    }
+    auto output = BridgeData::capture(result_value, *source_realm, {});
     if (output.is_error()) return error();
     auto answer = output.value().materialize(*target);
     if (answer.is_error()) return error();

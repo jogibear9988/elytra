@@ -89,11 +89,11 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
     TRY(check(uR"JS(
         (()=>{
             let rejected=0;
-            for(const mode of ['throw','function','promise','big'])try{bridgeCall({mode})}catch(e){
+            for(const mode of ['throw','function','big'])try{bridgeCall({mode})}catch(e){
                 if(e instanceof TypeError && Object.getPrototypeOf(e)===TypeError.prototype &&
                     e.message==='Firefly bridge call rejected')rejected++;
             }
-            return rejected===4 && bridgeCall({n:7}).arg.n===7;
+            return rejected===3 && bridgeCall({n:7}).arg.n===7;
         })()
     )JS"sv));
     auto traps = source->evaluate(u"throwTraps===0"sv);

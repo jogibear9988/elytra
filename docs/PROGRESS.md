@@ -564,8 +564,46 @@ the regular Firefly app is unchanged. Hard resource containment, native
 Windows/Linux, packaging, nondefault COI, sandbox audit and the visible desktop
 gate remain open. Existing Mite/public-app suites were not rerun for this slice.
 
-Next: implement Promise and callback membranes with async generation revocation
-and validated IPC with resource/sender/frame limits, alongside Windows feasibility.
+FunctionBridge now observes actual source-realm engine Promise results through
+native perform_then reactions and returns a separate intrinsic target Promise.
+Fulfillment uses the bounded snapshot/frozen reconstruction path; source rejection
+values are never inspected or forwarded. Then/constructor getters on source
+promises are bypassed. Unsupported fulfillment values reject with a fixed target
+TypeError. Copied roots whose target prototype chain contains a then accessor,
+callable or exotic object are rejected without invoking it, preventing resolution
+hijacking into an untracked pending thenable. Promise/function arguments and arbitrary thenables remain unsupported.
+
+Each endpoint owns at most 64 pending capabilities; a full endpoint rejects calls
+before source invocation. Entries are removed before settlement. Revoke clears
+source ownership and pending roots, rejects all outstanding target promises and
+makes late source reactions inert. Both synchronous and Promise errors are now
+created with saved contexts and a synthetic target frame, preventing accidental
+source traceback capture during in-source revocation.
+
+The actual helper test exposed a lifecycle issue invisible in synchronous SDK
+calls: the inactive-document timer has no active JS context, and calling a native
+Promise reject function panicked. An owned temporary native-call context now
+supports that path without running a checkpoint inside revoke. No engine patch or
+sandbox relaxation was added. Native check-firefly-isolation and
+check-firefly-renderer-helper pass, including target Promise identity/async order,
+copied frozen fulfillment, trap-free rejection, pending limits, GC, 64 simultaneous
+revocations, late fulfillment, in-source revoke/detach with no source stack frames,
+and a parent handler observing a removed child document's Promise rejection.
+The existing unchanged-helper control and 70 frame cycles remain passing. Logs:
+build/promise-test.log and build/promise-isolation-test.log. ADR 0030 records details.
+
+This revokes Promise forwarding, not all source execution: previously queued jobs,
+listeners/timers and retained closures can still run. The inspected SDK cannot
+unregister native Promise reactions, and source promises/reactions may retain
+realms until settlement/collection. Clearing our roots does not prove full realm
+reclamation. Public preload/contextBridge/IPC stay unsupported; normal Firefly
+and Mite were unchanged and their earlier app/runtime suites were not rerun.
+Hard resource containment, BFCache/cross-process navigation, callbacks, native
+Windows/Linux, COI, packaging, full security audit and the locked-desktop visible
+gate remain open. Ladybird remains unmodified at the same pin.
+
+Next: implement callback membranes with async generation revocation and validated
+IPC with resource/sender/frame limits, alongside Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

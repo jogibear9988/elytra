@@ -87,14 +87,16 @@ subset, polling driver, process boundaries and remaining API/platform work.
 cmake --build build/renderer --target check-firefly-isolation --parallel 4
 ```
 
-This builds and runs a real, synchronous LibWeb/LibJS realm test without opening
+This builds and runs real LibWeb/LibJS realm tests without opening
 a window. It checks shared DOM data with separate globals/prototypes/expandos,
 selected constructor paths, GC and deferred owner teardown. It also tests the
 internal BridgeData snapshot adapter, including cyclic data, frozen target-realm
 containers, trap-free rejection and copy budgets (ADR 0028). It does not enable
 public preload or contextBridge. See ADR 0026 for ownership and the remaining
 async/membrane/IPC gates. The same gate now tests synchronous data-only function
-endpoints, error sanitation, reentry and in-flight revocation (ADR 0029).
+endpoints, error sanitation, reentry and in-flight revocation (ADR 0029), plus
+Promise results, microtask ordering, pending limits and late-result revocation
+(ADR 0030).
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -112,6 +114,8 @@ to use the original helper. No distribution bundle is produced.
 The gate checks the original helper as a negative control, first author-script
 ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
 helper PIDs, synchronous function calls and revoked removed-frame references
-across 70 cleanup cycles and rejected missing/duplicate entry tokens. A missing executable or failed
-fixture fails the gate. Only a compiled harmless script is installed: this is not
-public preload/contextBridge, async revocation or validated IPC. See ADR 0027.
+across 70 cleanup cycles, Promise fulfillment/rejection, retained removed-frame
+Promise rejection and rejected missing/duplicate entry tokens. A missing executable
+or failed fixture fails the gate. Only compiled harmless scripts are installed;
+public preload/contextBridge, complete source-job revocation and validated IPC
+remain open. See ADRs 0027–0030.
