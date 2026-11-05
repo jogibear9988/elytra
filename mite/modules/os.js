@@ -19,6 +19,7 @@
     function uptime(){return native.query('uptime');}
     function availableParallelism(){return native.query('availableParallelism');}
     function loadavg(){return native.query('loadavg');}
+    function networkInterfaces(){return native.query('networkInterfaces');}
     function cpus(){return native.query('cpus');}
     function userInfo(options){
         let encoding=options!==null && typeof options==='object'?options.encoding:undefined;
@@ -51,11 +52,11 @@
         }
         return directory;
     }
-    const os={arch,availableParallelism,cpus,userInfo,endianness,freemem,homedir,hostname,loadavg,platform,release,tmpdir,totalmem,type,uptime,version,machine};
+    const os={arch,availableParallelism,cpus,userInfo,networkInterfaces,endianness,freemem,homedir,hostname,loadavg,platform,release,tmpdir,totalmem,type,uptime,version,machine};
     for(const name of ['arch','availableParallelism','endianness','freemem','homedir','hostname','platform','release','tmpdir','totalmem','type','uptime','version','machine']){
         const fn=os[name];fn[Symbol.toPrimitive]=()=>fn();
     }
-    for(const name of ['networkInterfaces','getPriority','setPriority']){
+    for(const name of ['getPriority','setPriority']){
         os[name]=function(){const error=new Error(`os.${name} is not implemented`);error.code='ERR_MITE_UNSUPPORTED_API';throw error;};
     }
     Object.defineProperties(os,{

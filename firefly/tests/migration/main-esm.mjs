@@ -1,11 +1,13 @@
 import {app,BrowserWindow} from 'firefly';
-import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo} from 'node:os';
+import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces} from 'node:os';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
 const nativeCpus=cpus(),nativeAccount=userInfo();
 if(!Array.isArray(nativeCpus) || !nativeCpus.length || !Number.isFinite(nativeCpus[0].times.user) || Object.getPrototypeOf(nativeAccount)!==null || typeof nativeAccount.username!=='string')throw Error('Native main-process CPU/account queries');
+const nativeInterfaces=networkInterfaces();
+if(Object.getPrototypeOf(nativeInterfaces)!==Object.prototype || !Object.values(nativeInterfaces).flat().some(entry=>entry.internal && entry.family==='IPv4'))throw Error('Native main-process interface query');
 await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});

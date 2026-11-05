@@ -89,6 +89,12 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
+    add_executable(mite-os-netmask-probe mite/tests/os/netmask.cpp)
+    target_include_directories(mite-os-netmask-probe PRIVATE "${CMAKE_SOURCE_DIR}/mite/runtime")
+    add_dependencies(mite mite-os-netmask-probe)
+    add_test(NAME mite-os-netmask COMMAND "$<TARGET_FILE:mite-os-netmask-probe>")
+    add_test(NAME mite-os-network COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_os_network.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-os-data COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_os_data.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-os COMMAND "${Python3_EXECUTABLE}"

@@ -1,4 +1,6 @@
 #include "OS.h"
+#include "OSNetmask.h"
+#include <AK/HashMap.h>
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/Array.h>
@@ -7,6 +9,7 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <bit>
 #include <cstring>
+#include <cstdio>
 #include <limits.h>
 #include <vector>
 #include <uv.h>
@@ -54,6 +57,61 @@ JS::ThrowCompletionOr<JS::Value> cpu_info(JS::VM& vm)
         times->define_direct_property("irq"_utf16,JS::Value(static_cast<double>(entry.cpu_times.irq)),JS::default_attributes);
         record->define_direct_property("times"_utf16,times.ptr(),JS::default_attributes);
         TRY(result->create_data_property_or_throw(static_cast<u32>(i),record.ptr()));
+    }
+    return result.ptr();
+}
+JS::ThrowCompletionOr<JS::Value> network_interfaces(JS::VM& vm)
+{
+    uv_interface_address_t* entries=nullptr;
+    int count=0;
+    int status=uv_interface_addresses(&entries,&count);
+    GC::Root result {JS::Object::create(vm.realm(),vm.realm().intrinsics().object_prototype())};
+    if(status==UV_ENOSYS)return result.ptr();
+    if(status)return system_error(vm,"uv_interface_addresses",status);
+    ScopeGuard release([&]{uv_free_interface_addresses(entries,count);});
+    HashMap<Utf16String,GC::Root<JS::Array>> groups;
+    for(int i=0;i<count;++i){
+        auto const& entry=entries[i];
+        char address[INET6_ADDRSTRLEN] {};
+        char netmask[INET6_ADDRSTRLEN] {};
+        bool ipv6=entry.address.address4.sin_family==AF_INET6;
+        std::span<unsigned char const> mask;
+        if(ipv6){
+            status=uv_ip6_name(&entry.address.address6,address,sizeof(address));
+            if(!status)status=uv_ip6_name(&entry.netmask.netmask6,netmask,sizeof(netmask));
+            mask={reinterpret_cast<unsigned char const*>(&entry.netmask.netmask6.sin6_addr),16};
+        }else if(entry.address.address4.sin_family==AF_INET){
+            status=uv_ip4_name(&entry.address.address4,address,sizeof(address));
+            if(!status)status=uv_ip4_name(&entry.netmask.netmask4,netmask,sizeof(netmask));
+            mask={reinterpret_cast<unsigned char const*>(&entry.netmask.netmask4.sin_addr),4};
+        }else return system_error(vm,"uv_interface_addresses",UV_EAFNOSUPPORT);
+        if(status)return system_error(vm,ipv6?"uv_ip6_name":"uv_ip4_name",status);
+        char mac[18];
+        std::snprintf(mac,sizeof(mac),"%02x:%02x:%02x:%02x:%02x:%02x",
+            static_cast<unsigned>(static_cast<u8>(entry.phys_addr[0])),static_cast<unsigned>(static_cast<u8>(entry.phys_addr[1])),
+            static_cast<unsigned>(static_cast<u8>(entry.phys_addr[2])),static_cast<unsigned>(static_cast<u8>(entry.phys_addr[3])),
+            static_cast<unsigned>(static_cast<u8>(entry.phys_addr[4])),static_cast<unsigned>(static_cast<u8>(entry.phys_addr[5])));
+        GC::Root record {JS::Object::create(vm.realm(),vm.realm().intrinsics().object_prototype())};
+        record->define_direct_property("address"_utf16,text(vm,address),JS::default_attributes);
+        record->define_direct_property("netmask"_utf16,text(vm,netmask),JS::default_attributes);
+        record->define_direct_property("family"_utf16,text(vm,ipv6?"IPv6":"IPv4"),JS::default_attributes);
+        record->define_direct_property("mac"_utf16,text(vm,mac),JS::default_attributes);
+        record->define_direct_property("internal"_utf16,JS::Value(entry.is_internal!=0),JS::default_attributes);
+        auto prefix=os_netmask_prefix(mask);
+        auto cidr=prefix?JS::Value(JS::PrimitiveString::create(vm,Utf16String::formatted("{}/{}",address,*prefix))):JS::js_null();
+        record->define_direct_property("cidr"_utf16,cidr,JS::default_attributes);
+        if(ipv6)record->define_direct_property("scopeid"_utf16,JS::Value(entry.address.address6.sin6_scope_id),JS::default_attributes);
+        auto name=Utf16String::from_utf8_with_replacement_character(StringView(entry.name,strlen(entry.name)),Utf16String::WithBOMHandling::No);
+        GC::Root<JS::Array> addresses;
+        if(auto found=groups.find(name);found!=groups.end())addresses=found->value;
+        else{
+            addresses=TRY(JS::Array::create(vm.realm(),0));
+            groups.set(name,addresses);
+            // Define an own data property even for a prototype-looking OS name.
+            result->define_direct_property(name,addresses.ptr(),JS::default_attributes);
+        }
+        auto length=static_cast<u32>(TRY(addresses->get("length"_utf16)).as_double());
+        TRY(addresses->create_data_property_or_throw(length,record.ptr()));
     }
     return result.ptr();
 }
@@ -119,6 +177,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
     host->define_native_function(realm,"query"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
         if(!vm.argument(0).is_string())return vm.throw_completion<JS::TypeError>("Invalid internal OS query"sv);
         auto name=MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+        if(name=="networkInterfaces")return network_interfaces(vm);
         if(name=="cpus")return cpu_info(vm);
         if(name=="userInfo")return user_info(vm);
         if(name=="hostname")return read_text(vm,"uv_os_gethostname",uv_os_gethostname);

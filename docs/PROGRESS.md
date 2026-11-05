@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 29 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 31 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1258,6 +1258,34 @@ Windows/Linux, real non-ASCII account/model data, syscall/account failures, hotp
 privileged execution and full metadata/error/monkey-patched-intrinsics parity remain
 unverified. Public preload/contextBridge/IPC, broader runtime services, packaging,
 platform/audit and visible-desktop requirements remain open. Existing warnings persist.
+
+Mite os.networkInterfaces() now copies native libuv interface snapshots into fresh
+ordinary JS objects grouped by UTF-8 interface name (ADR 0049). IPv4/IPv6 address/
+netmask/family, lowercase MAC, internal flag, CIDR and IPv6-only scopeid retain the
+reference field order. Native allocation/free ownership and GC roots cover abrupt
+construction failures. Interface keys are own data properties; grouping never reads
+Object.prototype. Unknown families/native failures reject rather than invent data;
+UV_ENOSYS follows Node's empty-object policy. Those failure branches remain unforced.
+
+The new pure C++ mask helper/probe covers all IPv4/IPv6 prefix lengths and invalid
+noncontiguous masks: 320 cases. The new Node 24.15.0 interface differential suite
+matches 12 native interfaces / 22 records on this macOS host. Independent Python
+address/integer-mask checks validate families/CIDR, with IPv4/IPv6 loopback, MAC/
+scope/internal metadata, own prototypes/descriptors/order, ignored arguments/receiver,
+fresh graph mutation and CJS/ESM identity. Cross-process snapshots are sequential
+observations, not an atomic network configuration snapshot.
+
+All 31 standalone CTest suites pass in build/os-network-ctest.log. Firefly's main
+ESM/HTTP migration fixture calls the new named API and keeps renderer isolation;
+its existing full Electron-reference gate passes in build/os-network-firefly-test.log.
+Previous OS/data and unsupported-API gates pass. No new dependency, privileged
+renderer capability, vendor edit or pin candidate; upstream integrity stays clean.
+
+Priorities/constants remain unsupported. Native Windows/Linux, real unusual/non-
+ASCII names, noncontiguous configured masks, syscall failures, interface hotplug/
+reconfiguration, privileged execution and full error/prototype-poisoning parity remain
+unverified. Public preload/contextBridge/IPC and the broader runtime, platform,
+packaging/audit and visible-desktop goals stay open. Existing warnings persist.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

@@ -173,6 +173,13 @@ candidate commits from the official repository in .gitmodules / the manifest.
    CPU speed/counters are live observations; do not relax genuine shape/monotonic/
    provenance regressions to get an upgrade through. Run the Firefly main-process
    CPU/account ESM imports too. No vendored engine changes are needed.
+   Run mite-os-network and the standard-C++ mite-os-netmask probe (ADR 0049).
+   Retain native interface allocation/free ownership, fresh GC-rooted grouped
+   results, decoded own-property names and address/mask/scope/CIDR semantics when
+   adapting LibJS APIs. Keep independent mask/address checks; samples are separate
+   observations, so investigate actual OS reconfiguration before diagnosing a
+   differential failure. Firefly's main ESM fixture also calls this API. No new
+   Ladybird source seam or vendor change is needed.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the
