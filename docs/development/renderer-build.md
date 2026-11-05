@@ -80,3 +80,15 @@ the visible window gate on an unlocked desktop and review its image. The latest
 capture attempt failed because macOS reports the session locked; that remains an
 open acceptance gate. See the compatibility matrix and ADR 0024 for the supported
 subset, polling driver, process boundaries and remaining API/platform work.
+
+## Internal isolated-world gate
+
+```sh
+cmake --build build/renderer --target check-firefly-isolation --parallel 4
+```
+
+This builds and runs a real, synchronous LibWeb/LibJS realm test without opening
+a window. It checks shared DOM data with separate globals/prototypes/expandos,
+selected constructor paths, GC and deferred owner teardown. It is not yet connected
+to WebContent's before-script lifecycle and does not enable public preload or
+contextBridge. See ADR 0026 for ownership and the remaining async/membrane/IPC gates.

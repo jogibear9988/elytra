@@ -442,8 +442,37 @@ then prove helper/session routing, lifecycle, detach and membrane safety without
 changing vendored source. That prototype, contextBridge and bounded renderer IPC
 are still unimplemented. Do not replace them with a main-world closure.
 
-Next: revalidate visible presentation after unlocking; prototype the owned renderer
-helper's isolated-world lifecycle and constrained IPC/preload membrane, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+An internal renderer-side IsolatedWorld owner is implemented using the unmodified
+LibWeb Extension WrapperWorld/HostDefined/Intrinsics/WindowProxy APIs. It creates
+separate realms around one document's actual DOM, propagates the principal's
+agent-cluster mode and installs no Mite bindings. The owner roots its realm/world,
+restores execution contexts on errors and rejects recursive/detached evaluation.
+Detach is idempotent; a request during evaluation is logically immediate but
+physically deferred until context pop. A strong evaluation self-reference permits
+the last external owner to be released safely inside the callback.
+
+The actual native check-firefly-isolation gate passes: page prototype poisoning,
+separate globals and DOM expandos, shared native DOM attributes, independent worlds,
+a harmless native marker restricted to one world, selected Window/Document/element
+constructor and WindowProxy paths, thrown/syntax error context restoration, GC,
+repeated/explicit/destructor detach, direct SDK detach and callback-driven
+last-owner release. A new
+world created after page prototype pollution also remains separate. Log:
+build/isolation-test.log. The target checks the synchronized, unmodified Ladybird
+pin and Skia confinement. Mite and the public Firefly app API were not changed;
+the existing 27-suite/app results from the preceding step were not rerun here.
+
+This is a single-process synchronous SDK gate, not an installed renderer helper or
+preload/contextBridge API. Raw internal VM values must not cross a future membrane.
+DOM listeners, promise jobs, timers, retained functions and document-generation
+revocation are not handled automatically. They remain required before privileges
+or public preload can be enabled. Native Windows/Linux, nondefault COI pages and
+the locked-desktop screenshot gate remain unverified/open. ADR 0026 records these
+limits and the next actual renderer lifecycle/membrane integration. Ladybird stays
+unmodified.
+
+Next: attach the isolated-world owner to the actual renderer's before-author-script
+lifecycle and implement constrained copies/function/Promise membranes and IPC, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

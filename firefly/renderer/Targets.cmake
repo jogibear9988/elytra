@@ -20,3 +20,13 @@ add_custom_target(check-firefly-renderer
 if(APPLE)
     include("${FIREFLY_SOURCE_DIR}/firefly/native/qt/Targets.cmake")
 endif()
+
+add_library(firefly-isolated-world STATIC "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/IsolatedWorld.cpp")
+target_include_directories(firefly-isolated-world PUBLIC "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge" "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
+target_link_libraries(firefly-isolated-world PUBLIC LibWeb LibJS LibGC LibCore LibURL AK)
+add_dependencies(firefly-isolated-world check-firefly-upstream)
+add_executable(firefly-isolation-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/main.cpp")
+target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world LibMain)
+ladybird_check_skia_confinement(firefly-isolation-probe)
+add_custom_target(check-firefly-isolation COMMAND "$<TARGET_FILE:firefly-isolation-probe>"
+    DEPENDS firefly-isolation-probe USES_TERMINAL VERBATIM)

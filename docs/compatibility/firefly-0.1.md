@@ -46,3 +46,9 @@ the current JS call; later async callback timing is not claimed compatible.
 Nested app.quit calls within a running quit attempt are coalesced, preventing
 recursive duplicate events. Electron 45.2.3 repeats before-quit/close in the bounded
 reference fixture; this difference is deliberate and tested separately (ADR 0025).
+
+An internal synchronous isolated-world adapter now passes native LibWeb tests for
+separate globals/intrinsics/wrapper expandos, shared DOM and GC/detach lifetime.
+It is not installed into the renderer helper and does not implement before-script
+preload ordering, async revocation, contextBridge or IPC. Those public APIs remain
+unsupported (ADR 0026).
