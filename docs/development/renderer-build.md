@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0042. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0043. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -170,3 +170,10 @@ The error-event hook target checks exact seams and byte preservation. SDK/helper
 checks cover getter/argument identity, reverse data, function/accessor rejection,
 reader stack redaction and native page errors during a Source dispatch. Cross-world
 Error instances and other non-data payloads remain unsupported.
+
+MessageEvent data has native tracing/init and generated constructor/getter adapters,
+with exact source/preservation tests. SDK checks cover data snapshots, cache/GC,
+init no-op/reset and basic origin/source/empty ports behavior. The helper exercises
+actual two-way postMessage, DataCloneError for functions, source detach with queued
+page delivery and source-listener cancellation. Native messaging stays upstream;
+full structured-clone/port parity and IPC sender validation are not claimed.

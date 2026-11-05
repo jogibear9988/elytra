@@ -1062,7 +1062,45 @@ hard resource bounds remain open. Public preload/contextBridge/IPC stay rejected
 Standalone Mite is unchanged; no new platform/package/audit or visible validation.
 Existing linker/deployment warnings persist.
 
-Next: complete other observer resources and remaining event-field conversions,
+MessageEvent.data now uses the event value membrane (ADR 0043). Native window
+postMessage already deserializes in the principal receiver realm; its MessageEvent
+getter previously returned that value directly to Source. Two owned native/generated
+adapters add data-cache tracing, successful legacy init invalidation, explicit JS
+constructor origin and getter routing. Exact source counts, original bindgen ordering
+and source preservation/drift tests guard the seams. Native constructors/serialization/
+delivery/origin/source/ports algorithms are unchanged; vendor files remain clean.
+
+Owned reads now get the existing bounded frozen graph/cache/revocation behavior.
+Same-world/page identity stays unchanged. MessageEvent.initMessageEvent during
+dispatch remains a no-op; successful reinit resets snapshots and the original ports
+cache. Source-owned synthetic event data cannot leak functions/getters into another
+world. Serialized native posts remain approved principal-realm publications and can
+arrive after Source detach without retaining an active Source listener.
+
+All gates pass in build/message-event-acceptance-test.log: SDK isolation, sandboxed
+helper, ordinary renderer/compositor/process and Firefly/Electron reference. SDK
+checks cycles/aliases/holes/prototypes/freeze, stable snapshots/cache/GC, init reset
+and dispatch no-op, origin/lastEventId/WindowProxy source/empty ports controls,
+rejected values with zero traps, reverse page data and independent revoke/cache
+collection. Helper checks synthetic source data around mutation, raw-function
+rejection, reverse page input, zero accessor calls and page identity. Actual native
+postMessage passes both directions with a source reply, native event flags and
+mutable principal data; function serialization fails with DataCloneError. A source
+posts then detaches: its listener stays silent, the page receives the serialized
+post and published snapshots stay readable. Basic source WindowProxy rewrapping
+cannot expose a Source global through its page constructor. Prior gates pass.
+
+This is data-field protection, not IPC/sender authentication. Synthetic origin strings
+remain untrusted; event flags are not a main-process authorization protocol. Map/
+ArrayBuffer/typed-array/host clone parity, actual transferred ports, worker/channel
+messaging and source proxy edge cases remain unverified. Native raw data/source can
+retain origin state until event collection. Other fields, callback frame/job-origin
+isolation, shared registry/custom element boundaries, other observers, arbitrary
+transfers, navigation/BFCache and hard resource bounds remain open. Public preload/
+contextBridge/IPC stay rejected. No newer pin, standalone Mite change, new platform/
+package/audit or visible-desktop validation. Existing warnings persist.
+
+Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

@@ -79,6 +79,8 @@ def main():
     pid_of(custom)
     error_values=run(probe,'--headless=manual',(fixture/'error-events.html').as_uri())
     pid_of(error_values)
+    messages=run(probe,'--headless=manual',(fixture/'message-events.html').as_uri())
+    pid_of(messages)
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in {name for names in HOOKS.values() for name in names}:
@@ -102,6 +104,7 @@ def main():
     print('PASS source replacement handler return/cancelation/error/lifetime and continuing page controls')
     print('PASS CustomEvent snapshots/cache/identity, rejected raw functions and page getters, source revoke and fresh-reader denial')
     print('PASS ErrorEvent property/onerror copies, rejected raw functions/page getters and preserved native page reporting')
+    print('PASS MessageEvent snapshots/init metadata and actual two-way postMessage serialization/delivery after source detach')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

@@ -128,6 +128,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    Retain getter/argument identity, reverse page input, zero-trap/function denial,
    synthetic-reader error stack, native page error under Source dispatch and all
    previous CustomEvent/resource controls (ADR 0042).
+   MessageEventAdapter.cpp/MessageEventBindingAdapter.cpp add native data-cache
+   tracing, successful legacy-init invalidation, explicit constructor provenance
+   and the generated data getter. Preserve postMessage serialization/deserialization
+   in the principal receiver realm, task delivery and source/ports rewrapping/cache
+   algorithms. Keep exact source/bindgen dependencies and preservation tests. Run
+   snapshot/GC/init metadata controls plus actual two-way postMessage, function
+   DataCloneError and source-detach/queued-publication tests (ADR 0043). Transferred
+   ports and broader message/sender policies remain unverified.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

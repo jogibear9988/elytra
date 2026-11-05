@@ -127,6 +127,32 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='message-events') {
+                        globalThis.__sourceMessageSecret=true;
+                        window.addEventListener('message',event=>{
+                            let value;
+                            try{value=event.data}catch(error){document.documentElement.setAttribute('data-message-input-denied',String(error instanceof TypeError));return}
+                            if(value.kind==='page-input')document.documentElement.setAttribute('data-message-input',String(value===event.data && value.n===8 && Object.isFrozen(value) && Object.getPrototypeOf(value)===Object.prototype));
+                            if(value.kind==='page-post'){
+                                const valid=value===event.data && value.n===9 && Object.isFrozen(value) && Object.getPrototypeOf(value)===Object.prototype;
+                                document.documentElement.setAttribute('data-message-post-input',String(valid));
+                                window.postMessage({kind:'source-reply',valid},'*');
+                            }
+                            if(value.kind==='published-after-detach')document.documentElement.setAttribute('data-message-after-detach','BAD');
+                        });
+                        const value={kind:'source-input',n:42,items:[1,,3]};value.self=value;
+                        const event=new MessageEvent('message',{data:value,origin:'spoofed',source:window});
+                        window.dispatchEvent(event);value.n=99;window.dispatchEvent(event);
+                        window.dispatchEvent(new MessageEvent('message',{data:()=>42}));
+                        window.postMessage({kind:'source-post',n:7},'*');
+                        let denied=false;try{window.postMessage(()=>42,'*')}catch(error){denied=error.name==='DataCloneError'}
+                        document.documentElement.setAttribute('data-message-serialize-denied',String(denied));
+                        return event.data===value;
+                    }
+                    if(a.mode==='published-message') {
+                        window.postMessage({kind:'published-after-detach',n:12},'*');
+                        __fireflyDetachWorldProbe();return true;
+                    }
                     if(a.mode==='error-events') {
                         const reason={n:42};reason.self=reason;
                         let pageInput;

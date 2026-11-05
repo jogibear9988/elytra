@@ -145,3 +145,9 @@ getter/argument cache identity and ordinary native page errors have SDK/helper
 coverage. Cross-world Error instances and other non-data values remain unsupported;
 rejected owned handler arguments are redacted before invocation. Generic reader
 errors have no Source stack frames. Public preload/contextBridge/IPC stay rejected.
+
+Internal MessageEvent.data now uses the same bounded frozen snapshot policy for
+registered cross-world reads (ADR 0043). Same-world identity and native page message
+deserialization remain unchanged. SDK/helper native postMessage, init/cache/GC and
+source detach controls pass. Non-data clone types, real transferred ports and sender
+authentication remain incomplete; this does not enable public preload or IPC.
