@@ -78,6 +78,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    argument rewrapping. Retain poisoned page-prototype, receiver/identity, GC,
    repeated observe/disconnect/re-observe and live page observer controls. Never
    substitute blanket document teardown for targeted observer release.
+   ListenerAdapter.cpp substitutes EventTarget.cpp to wrap the free native
+   invoke_event_listener entry before currentTarget/Event wrappers are created.
+   Preserve its preincluded BindingsGlue declarations and exactly-one-TU/token
+   guard. Review CallbackType::associated_realm origin rules, EventDispatcher's
+   work before invocation and exception reporting after it, and ensure inactive
+   sources cannot reach wrapper creation or handleEvent lookup. Keep function/
+   object/getter/proxy, receiver/cancelation, last-owner/context/GC and live-page
+   error controls. Generic WebIDL operations and event handlers are separate paths.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

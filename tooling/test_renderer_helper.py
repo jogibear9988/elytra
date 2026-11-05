@@ -63,9 +63,15 @@ def main():
     pid=pid_of(observers)
     canceled=[int(n) for n in re.findall(rf'FIREFLY_WORLD_OBSERVERS_CANCELED pid={pid} count=(\d+)',observers.stderr)]
     assert canceled and max(canceled)>=1,observers
+    listeners=run(probe,'--headless=manual',(fixture/'listeners.html').as_uri())
+    pid=pid_of(listeners)
+    failures=[int(n) for n in re.findall(rf'FIREFLY_WORLD_FAILURES_REDACTED pid={pid} rejections=\d+ job_errors=(\d+)',listeners.stderr)]
+    assert failures and max(failures)>=2,listeners
+    blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',listeners.stderr)]
+    assert blocked and max(blocked)>=4,listeners
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
-    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback','m_timers','m_node_list']:
+    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback','invoke_event_listener','m_timers','m_node_list']:
         for changed in ['',name+' '+name]:
             try:verify_text(changed,[name])
             except ValueError:pass
@@ -80,6 +86,7 @@ def main():
     print('PASS source rejection objects/functions stay private; page reject/handle events remain')
     print('PASS source interval/timeout native cancellation leaves the document and page interval live')
     print('PASS source observer wrappers resist page prototypes; native disconnect leaves page observers live')
+    print('PASS source function/object listener lifetime, detached getters and error privacy; page listeners continue')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

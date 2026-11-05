@@ -106,3 +106,9 @@ wrappers in the source world, preventing page prototype influence. Specific nati
 registrations/records are disconnected at physical detach; SDK and actual helper
 page-observer controls pass (ADR 0036). Other observers/listeners and callback
 conversions remain incomplete; public preload/contextBridge/IPC stay unsupported.
+
+Internal function/object event listener dispatch now checks source lifetime before
+native Event/receiver wrapping. Getter/proxy/last-owner detach and source error
+privacy have SDK/helper coverage (ADR 0037). Page listeners keep working. Listener
+registration removal, handler attributes and script-valued event fields remain
+open; this does not enable public preload or a general callback membrane.

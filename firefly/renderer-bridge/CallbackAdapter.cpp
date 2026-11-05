@@ -57,6 +57,13 @@ void restore_gate(JS::VM& vm, void* context, Gate previous)
     if (previous.invoke) gates->set(&vm, previous);
     else gates->remove(&vm);
 }
+JS::Completion dispatch_listener(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event)
+{
+    auto gate = gates->get(&callback.callback->vm());
+    if (gate.has_value() && gate->invoke_listener) return gate->invoke_listener(gate->context, callback, event);
+    return invoke_listener_original(callback, event);
+}
+JS::Realm& callback_realm(Web::WebIDL::CallbackType& callback) { return callback.associated_realm(); }
 JS::Completion invoke_original(Web::WebIDL::CallbackType& callback, Optional<JS::Value> receiver, Web::WebIDL::ExceptionBehavior behavior, ReadonlySpan<JS::Value> arguments)
 {
     return Web::WebIDL::firefly_original_invoke_callback(callback, move(receiver), behavior, arguments);

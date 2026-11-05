@@ -64,9 +64,39 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->add_observer(observer);
         },+[](void* context, Web::DOM::MutationObserver& observer) {
             static_cast<State*>(context)->remove_observer(observer);
+        },+[](void* context, Web::WebIDL::CallbackType& callback, Web::DOM::Event& event) {
+            return static_cast<State*>(context)->invoke_listener(callback, event);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    JS::Completion invoke_listener(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event)
+    {
+        auto delegate = [&] {
+            if (previous_gate.invoke_listener) return previous_gate.invoke_listener(previous_gate.context, callback, event);
+            return Callbacks::invoke_listener_original(callback, event);
+        };
+        auto& associated = Callbacks::callback_realm(callback);
+        GC::Ptr<JS::Realm> actual;
+        if (callback.callback->is_function()) {
+            auto realm = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+            if (!realm.is_error()) actual = realm.value();
+        }
+        bool own_associated = realms.contains(associated);
+        bool own_actual = actual && realms.contains(*actual);
+        if (!own_associated && !own_actual) return delegate();
+        if (own_associated && blocked_realm(associated)) return JS::js_undefined();
+        if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
+        // Guard before event/receiver wrapping, and retain ownership through
+        // upstream handleEvent lookup/getters/proxy traps and invocation.
+        auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr,
+            [&]() -> JS::ThrowCompletionOr<JS::Value> {
+                auto completion = Callbacks::invoke_listener_original(callback, event);
+                if (completion.type() == JS::Completion::Type::Throw) return JS::throw_completion(completion.release_value());
+                return completion.release_value();
+            });
+        if (result.is_error()) { ++source_job_errors; return JS::js_undefined(); }
+        return result.release_value();
+    }
     void add_observer(Web::DOM::MutationObserver& observer)
     {
         auto& callback = observer.callback();

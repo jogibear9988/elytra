@@ -817,6 +817,41 @@ Public preload/contextBridge/IPC remain rejected. Native Windows/Linux, packagin
 full audit and the locked-desktop visible gate remain unverified/open. Existing
 linker/deployment warnings remain.
 
+Event listener dispatch now has a native lifetime/error gate (ADR 0037), before
+upstream currentTarget/Event wrapper creation. A gate only on the generic WebIDL
+object operation proved too late: SDK detached delivery reproduced an assertion
+in WrapperWorld::set_wrapper. A fourth owned TU adapter includes complete original
+EventTarget.cpp with only its free invoke_event_listener entry renamed. Original
+public dispatch routes through our existing per-VM registry. Exact TU/token guards
+and unregistered-world delegation remain; the vendor checkout is unchanged.
+
+Source associated/actual function realms are checked before wrapper construction.
+Original handleEvent lookup/getter/proxy invocation runs inside retained native
+owners, including deferred physical detach and last-owner release. Use original
+CallbackType::associated_realm through a small in-LibWeb wrapper to retain its
+non-function origin rules. Source abrupt completions are counted without examining
+payloads and suppressed before page exception reporting. Normal void listener,
+receiver/Event identity and cancelable-dispatch behavior stay upstream.
+
+SDK isolation passes in build/listener-isolation-test.log. New controls include
+source Event prototypes despite page poisoning, function/object receiver and getter
+counts, source function/getter error privacy, detached getter suppression and
+continued page listeners. In-flight function/getter/proxy tests drop the last owner,
+finish DOM access, create timers after logical detach and deny continuations; timers
+are released and contexts restored. Full acceptance is recorded in
+build/listener-acceptance-test.log, including the sandboxed helper's explicit
+source detach, page errors/listeners and self-removing frame callbacks, ordinary
+renderer/compositor/process and Firefly/Electron reference gates.
+
+Native listener registrations/signal abort algorithms still need targeted removal.
+Handler attributes and script-valued event fields (CustomEvent.detail, ErrorEvent
+error, MessageEvent data) need policies; source native Event wrapping alone is not
+a general membrane. Generic object operations, other observers/callback results,
+direct transfers, workers/finalization, navigation/BFCache and hard resource bounds
+remain open. Public preload/contextBridge/IPC stay rejected. No complete reclamation,
+new platform/package/audit or visible-desktop support is claimed. Standalone Mite
+is unchanged; its previous suites were not rerun. No newer upstream pin was tried.
+
 Next: complete other observer/listener resources and remaining callback conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

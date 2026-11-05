@@ -138,4 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0036.
+0027–0037. Listener dispatch is guarded before receiver/Event wrapping, with
+function/object/getter/proxy lifetime, error privacy, cancelation and live-page
+controls. Native listener removal and script-valued event-field policies remain
+open; the gate does not enable public preload.

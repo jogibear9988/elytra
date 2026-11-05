@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<body><p id="status">WAITING_FOR_LISTENERS</p>
+<script>
+let pageCalls=0,pageErrors=0,sourceErrors=0;
+Event.prototype.sourceEventPoison=true;
+addEventListener('error',event=>{
+ event.preventDefault();
+ if(event.error==='page-listener-control')pageErrors++;else sourceErrors++;
+});
+document.addEventListener('firefly-listener',()=>pageCalls++);
+document.addEventListener('firefly-error-control',()=>{throw 'page-listener-control'});
+__fireflyFunctionProbe({mode:'start-listeners'});
+const canceled=!document.dispatchEvent(new Event('firefly-listener',{cancelable:true}));
+document.dispatchEvent(new Event('firefly-error-control'));
+let denied=false;
+try{__fireflyFunctionProbe({mode:'detach-world'})}catch(e){denied=e instanceof TypeError}
+const continued=document.dispatchEvent(new Event('firefly-listener',{cancelable:true}));
+setTimeout(()=>{
+ const ok=canceled && continued && denied && pageCalls===2 && pageErrors===1 && sourceErrors===0 &&
+  document.documentElement.getAttribute('data-source-listener')==='1:true' &&
+  document.documentElement.getAttribute('data-source-listener-gets')==='1' &&
+  document.documentElement.getAttribute('data-source-listener-object')==='true';
+ delete Event.prototype.sourceEventPoison;
+ if(!ok){document.querySelector('#status').textContent='LISTENER_WORLD_MISSING';return}
+ const kinds=['function','getter','proxy'];let completed=0;
+ function next(){
+  const frame=document.createElement('iframe');
+  frame.onload=()=>{
+   if(frame.contentWindow.location.href!=='about:srcdoc')return;
+   const child=frame.contentDocument;
+   const argument=new frame.contentWindow.Object();argument.mode='remove-self-listener';argument.kind=kinds[completed];
+   frame.contentWindow.__fireflyFunctionProbe(argument);
+   child.dispatchEvent(new frame.contentWindow.Event('firefly-inflight'));
+   setTimeout(()=>{
+    if(frame.isConnected || child.documentElement.getAttribute('data-after-remove')!=='safe' ||
+       child.documentElement.getAttribute('data-next-job')!==null){document.querySelector('#status').textContent='LISTENER_FRAME_MISSING';return}
+    if(++completed===kinds.length){document.querySelector('#status').textContent='LISTENER_WORLD_OK';setTimeout(()=>window.close(),100)}
+    else next();
+   },100);
+  };
+  frame.srcdoc='<!doctype html><p>in-flight listener</p>';document.body.append(frame);
+ }
+ next();
+},100);
+</script>

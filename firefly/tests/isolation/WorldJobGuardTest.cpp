@@ -121,7 +121,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     // Active jobs retain their native owner even when the callback drops the
     // last application reference. Logical detach denies new jobs immediately;
     // physical wrapper/context teardown waits until the current job returns.
-    for (auto mode : { 0, 1, 2, 3 }) {
+    for (auto mode : { 0, 1, 2, 3, 4, 5, 6 }) {
         auto timers_before=guard.owned_timer_count();
         auto canceled_before=guard.canceled_timer_count();
         RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
@@ -150,12 +150,15 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
             true;
         )JS"sv);
         if(setup.is_error())return Error::from_string_literal("Cannot initialize in-flight job fixture");
-        auto queued=transient->evaluate(mode==0 ? u"Promise.resolve().then(finishJob);true"sv :
+        auto queued=transient->evaluate(mode==4 ? u"document.addEventListener('firefly-inflight',finishJob);true"sv :
+            mode==5 ? u"document.addEventListener('firefly-inflight',{get handleEvent(){finishJob();return ()=>{}}});true"sv :
+            mode==6 ? u"document.addEventListener('firefly-inflight',new Proxy({},{get(){return finishJob}}));true"sv : mode==0 ? u"Promise.resolve().then(finishJob);true"sv :
             mode==1 ? u"(async()=>{await 0;finishJob()})();true"sv :
             mode==3 ? u"queueMicrotask(finishJob);true"sv : u"(async function*(){await 0;finishJob();yield 1})().next();true"sv);
         if(queued.is_error())return Error::from_string_literal("Cannot schedule in-flight job fixture");
         auto depth=vm.execution_context_stack().size();
         vm.heap().collect_garbage();
+        if(mode>=4)TRY(page_check(u"document.dispatchEvent(new Event('firefly-inflight'));true"sv));
         checkpoint();
         TRY(page_check(u"document.documentElement.getAttribute('data-inflight')==='safe' && document.documentElement.getAttribute('data-next-job')===null"sv));
         if(transient || weak.strong_ref() || !Web::Bindings::host_defined_wrapper_world(*realm).is_detached() || vm.execution_context_stack().size()!=depth)
@@ -164,7 +167,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
             return Error::from_string_literal("Timer created after logical detach escaped physical cleanup");
         vm.heap().collect_garbage();
     }
-    outln("PASS running reaction/await/generator jobs retain their owner and defer detach while denying later jobs");
+    outln("PASS running reaction/await/generator/microtask/listener/getter/proxy callbacks retain owners and defer detach");
     {
         auto producer=TRY(Firefly::IsolatedWorld::create(*document.window()));
         TRY(guard.protect(*producer));
@@ -339,6 +342,41 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         vm.heap().collect_garbage();
     }
     outln("PASS owned MutationObserver wrappers/prototypes stay isolated, disconnect clears nodes/records and page observers continue");
+    {
+        auto listeners=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*listeners));
+        ScopeGuard detach_listeners([&]{listeners->detach();});
+        auto errors_before=guard.source_job_error_count();
+        TRY(page_check(u"Event.prototype.sourceEventPoison=true;globalThis.pageListenerRuns=0;document.addEventListener('firefly-listener',()=>pageListenerRuns++);true"sv));
+        ScopeGuard clear_poison([&]{MUST(page_check(u"delete Event.prototype.sourceEventPoison;true"sv));});
+        auto installed=listeners->evaluate(uR"JS(
+            globalThis.listenerRuns=0;globalThis.listenerGets=0;globalThis.listenerValid=true;
+            document.addEventListener('firefly-listener',function(event){
+                listenerRuns++;listenerValid=listenerValid && this===document && event.target===document &&
+                    Object.getPrototypeOf(event)===Event.prototype && !event.sourceEventPoison;
+                event.preventDefault();
+            });
+            const objectListener={get handleEvent(){listenerGets++;return function(event){
+                listenerRuns++;listenerValid=listenerValid && this===objectListener && event.currentTarget===document;
+            }}};
+            document.addEventListener('firefly-listener',objectListener);
+            document.addEventListener('firefly-listener',()=>{throw new Proxy({},{get(){throw 1}})});
+            document.addEventListener('firefly-listener',{get handleEvent(){throw new Proxy({},{get(){throw 1}})}});
+            true;
+        )JS"sv);
+        if(installed.is_error())return Error::from_string_literal("Cannot install source event listeners");
+        vm.heap().collect_garbage();
+        TRY(page_check(u"document.dispatchEvent(new Event('firefly-listener',{cancelable:true}))===false && pageListenerRuns===1"sv));
+        auto checked=listeners->evaluate(u"listenerRuns===2 && listenerGets===1 && listenerValid"sv);
+        if(checked.is_error() || !checked.value().as_bool() || guard.source_job_error_count()!=errors_before+2)
+            return Error::from_string_literal("Event listener identity/arguments/error privacy failed");
+        auto blocked_before=guard.blocked_count();
+        listeners->detach();
+        TRY(page_check(u"document.dispatchEvent(new Event('firefly-listener',{cancelable:true}))===true && pageListenerRuns===2"sv));
+        if(guard.blocked_count()!=blocked_before+4 || guard.source_job_error_count()!=errors_before+2)
+            return Error::from_string_literal("Detached event listener/getter ran or page listener was blocked");
+    }
+    outln("PASS source function/object listeners preserve receiver/Event wrappers/cancelation, redact errors and block detached getters");
     auto callback_errors_before=guard.source_job_error_count();
     auto micro_errors=other->evaluate(u"globalThis.callbackReasonTraps=0;queueMicrotask(()=>{throw new Proxy({}, {get(){callbackReasonTraps++;throw 1}})});true"sv);
     if(micro_errors.is_error())return Error::from_string_literal("Cannot schedule microtask exception fixture");

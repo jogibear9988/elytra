@@ -124,6 +124,35 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='start-listeners') {
+                        let count=0,gets=0;
+                        document.addEventListener('firefly-listener',function(event){
+                            const valid=this===document && event.target===document &&
+                                Object.getPrototypeOf(event)===Event.prototype && !event.sourceEventPoison;
+                            document.documentElement.setAttribute('data-source-listener',String(++count)+':'+valid);
+                            event.preventDefault();
+                        });
+                        const object={get handleEvent(){
+                            document.documentElement.setAttribute('data-source-listener-gets',String(++gets));
+                            return function(event){document.documentElement.setAttribute('data-source-listener-object',String(this===object && event.currentTarget===document));};
+                        }};
+                        document.addEventListener('firefly-listener',object);
+                        document.addEventListener('firefly-listener',()=>{throw {privateCallback(){return 42}}});
+                        document.addEventListener('firefly-listener',{get handleEvent(){throw new Proxy({},{get(){throw 1}})}});
+                        return true;
+                    }
+                    if(a.mode==='remove-self-listener') {
+                        const finish=()=>{
+                            __fireflyDetachWorldProbe();
+                            window.frameElement.remove();
+                            document.documentElement.setAttribute('data-after-remove','safe');
+                            queueMicrotask(()=>document.documentElement.setAttribute('data-next-job','BAD'));
+                        };
+                        const callback=a.kind==='getter'?{get handleEvent(){finish();return ()=>{}}}:
+                            a.kind==='proxy'?new Proxy({},{get(){return finish}}):finish;
+                        document.addEventListener('firefly-inflight',callback);
+                        return true;
+                    }
                     if(a.mode==='start-observer') {
                         let count=0;
                         const observer=new MutationObserver(function(records,same) {
