@@ -1425,6 +1425,31 @@ prove it runs in Ladybird. Firefly still lacks native Windows/Linux desktop adap
 a redistributable package layout, relocation/resource tests and signing. Those are
 required before claiming downloadable Windows/macOS apps or a complete release.
 
+The website deployment succeeded on GitHub Actions run 42107630877; the homepage
+and Firefly API URL return HTTP 200 at jogibear9988.github.io/elytra. The Pages
+environment explicitly permits the implementation branch as well as main.
+
+The pinned Web Component Designer sample now compiles and runs through Mite +
+Firefly/Ladybird on tested macOS ARM64. tooling/build_designer.py validates origin,
+clean tracked source, exact commit and lock hash, runs npm ci with lifecycle scripts
+disabled, explicitly builds Monaco/workers and TypeScript, then stages public assets
+and the main module with notices. Our loopback-only Mite HTTP server preserves the
+upstream URL/import-map layout and restricts normal requests to GET/HEAD within the
+web tree; the renderer has no added native capabilities.
+
+Native acceptance passes in build/designer-test.log: assets/worker MIME, HEAD, path
+rejection/missing resources, production report endpoint absence, then actual app
+boot, a committed button edit/content round-trip, visible Monaco DOM and absent
+process/require. Explicit --smoke mode alone enables a tokenized, bounded sample-local
+test report; it is not a privileged public IPC implementation. The LibWeb compositor
+capture build/designer-mite-ladybird.png was visually reviewed (palette, docking,
+canvas and Monaco). The earlier Python HTTP/1.0 serving attempt had an intermittent
+resource failure; the intended Mite HTTP server succeeds. Visible desktop presentation
+on the locked host, all designer interactions/workers/collaboration/GPU/LLM/downloads,
+external/offline behavior and native Windows/Linux remain unverified. No alternate
+engine or vendor change. Native bundle/release automation is the next in-progress
+step; a compiled web tree alone is not an installed native release.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

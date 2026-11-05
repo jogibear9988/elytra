@@ -103,3 +103,10 @@ curl --data-binary 'hello' http://127.0.0.1:3000/echo
 
 HTTP server support is partial. HTTP clients, HTTPS/fetch and desktop rendering
 remain open; see the compatibility matrix and ADR 0019 for measured limits.
+
+## Web Component Designer sample
+
+The [pinned Designer sample](examples/web-component-designer/README.md) builds
+node-projects/web-component-designer-demo and runs it in Firefly with a Mite main
+process. Its macOS ARM64 smoke test checks app boot, document editing and Monaco.
+Native Windows packaging and broader designer feature validation remain open.
