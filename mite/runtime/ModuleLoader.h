@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace Mite {
 
@@ -21,6 +22,10 @@ class ModuleLoader {
 public:
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
     JS::ThrowCompletionOr<void> install_globals();
+    // Trusted native hosts register exports before application entry execution.
+    // Only this loader/realm gains the module; Node builtins cannot be replaced.
+    JS::ThrowCompletionOr<void> register_host_module(std::string const& name,
+        GC::Ref<JS::Object> exports, std::vector<std::string> named_exports);
     JS::ThrowCompletionOr<bool> is_es_module(std::filesystem::path const&);
     JS::ThrowCompletionOr<GC::Ref<JS::Promise>> run_entry();
     JS::ThrowCompletionOr<JS::Value> run_eval(std::string const&);
@@ -31,9 +36,15 @@ private:
         std::filesystem::path path;
         std::string builtin;
         std::string identifier;
+        std::string host;
     };
     JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin(std::string const&);
     JS::ThrowCompletionOr<GC::Ref<JS::Module>> builtin_module(std::string const&);
+    struct HostModule {
+        GC::Root<JS::Object> exports;
+        std::vector<std::string> named_exports;
+    };
+    JS::ThrowCompletionOr<GC::Ref<JS::Module>> host_module(std::string const&);
     struct PackageTarget {
         enum class State { Unmatched, Blocked, Resolved };
         State state { State::Unmatched };
@@ -69,6 +80,9 @@ private:
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;
     GC::Root<JS::Module> m_builtin_bridge;
+    GC::Root<JS::Module> m_host_bridge;
+    std::unordered_map<std::string, HostModule> m_host_modules;
+    std::unordered_set<void const*> m_host_shims;
     std::unordered_set<void const*> m_builtin_shims;
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;

@@ -70,6 +70,8 @@ if(BUILD_TESTING)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
     add_dependencies(mite mite-embedded-host)
+    add_test(NAME mite-host-modules COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_host_modules.py" --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-embedding COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_embedding.py" --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")

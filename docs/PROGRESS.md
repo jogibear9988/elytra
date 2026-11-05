@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and Firefly remain unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 26 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 27 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -333,12 +333,34 @@ work then fails before entry execution. Initial test errors using require in eva
 corrected to actual CommonJS files, with explicit expected exit/output assertions.
 The embedding gate and all 26 CTest suites pass in the final native regression;
 logs are build/test.log and build/embedding-test.log. The native Qt executable has not
-yet been connected to this hosting API: public app/BrowserWindow and host-module
-registration remain required. ADR 0022 records ownership and remaining integration.
+yet been connected to this hosting API: public app/BrowserWindow integration remains required. ADR 0022 records ownership and remaining integration.
 Windows/Linux hosting remains unverified; Ladybird is still unmodified.
 
-Next: connect the native window to the shared Mite runtime, register the firefly
-CJS/ESM module and implement the app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+Native hosts can now register actual realm-owned module exports in the loader,
+without adding desktop names to Mite's builtins. Exact bare names and package
+imports aliases resolve to shared CJS/ESM objects; ESM provides default plus a fixed
+named-export list and cached namespace. Node builtins remain reserved, and host
+registrations do not create node: aliases. Internal host URLs/bridge access from
+application modules are rejected. Registered objects are rooted until loader
+teardown, and require.cache cannot replace them. Registration validation rejects
+invalid/reserved names, duplicates and unsafe export names atomically; reserved
+word exports use quoted aliases. ADR 0023 records the native API's ASCII/unscoped
+name limits and named-property snapshot semantics.
+
+The new host-module integration gate passes with real CJS/ESM files, conflicting
+node_modules packages, aliases, shared identities, callbacks, default-only and
+reserved-word exports, cache poisoning attempts, explicit GC rounds, invalid
+attributes, missing exports, private imports and node: alias rejection. It also
+proves host-only modules are absent in standalone Mite, where ordinary packages
+still load. The existing embedding gate passes. All 27 CTest suites pass in the final native
+regression; logs are build/host-modules-test.log and
+build/test.log. Standalone linkage still contains only platform libraries; no
+Firefly/Qt/LibWeb dependency was added. Ladybird remains unmodified. These test
+host modules are internal fixtures, not an implemented firefly API or renderer
+bridge. Native Windows/Linux remain unverified.
+
+Next: connect the native window to the shared Mite runtime, use the host registry
+to provide the actual firefly CJS/ESM module and implement app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

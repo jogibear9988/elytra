@@ -1,4 +1,6 @@
 #include "Runtime.h"
+#include "ModuleLoader.h"
+#include <LibGC/Heap.h>
 #include "EventLoop.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -17,7 +19,7 @@ int main(int argc, char** argv)
     JS::VM* owner_vm = nullptr;
     bool initialized = false;
     Mite::HostHooks hooks;
-    hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader&, Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
+    hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules, Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
         initialized = true;
         owner_vm = &vm;
         if (auto* path = getenv("MITE_EMBED_FAIL_INIT_WORK_PATH")) {
@@ -34,6 +36,38 @@ int main(int argc, char** argv)
             pulse = vm.argument(0).as_function();
             return JS::js_undefined();
         }, 1, JS::default_attributes);
+        auto state = JS::Object::create(realm, nullptr);
+        state->define_direct_property("count"_utf16, JS::Value(0), JS::default_attributes);
+        host->define_direct_property("state"_utf16, state, JS::default_attributes);
+        host->define_direct_property("class"_utf16, JS::PrimitiveString::create(vm, "reserved-export"_utf16), JS::default_attributes);
+        TRY(modules.register_host_module("embedded-host", host, { "onPulse", "state", "class" }));
+        TRY(modules.register_host_module("host-default-only", host, {}));
+        auto rooted = JS::Object::create(realm, nullptr);
+        rooted->define_direct_property("label"_utf16, JS::PrimitiveString::create(vm, "registry-root"_utf16), JS::default_attributes);
+        TRY(modules.register_host_module("host-rooted", rooted, { "label" }));
+        auto reject = [&](std::string const& name, std::vector<std::string> names, Utf16View code) -> JS::ThrowCompletionOr<void> {
+            auto result = modules.register_host_module(name, host, std::move(names));
+            if (!result.is_error())
+                return vm.throw_completion<JS::Error>("Invalid host registration was accepted"_utf16);
+            auto exception = result.error_value();
+            if (!exception.is_object())
+                return vm.throw_completion<JS::Error>("Invalid host registration error"_utf16);
+            auto actual = exception.as_object().get_without_side_effects("code"_utf16);
+            if (!actual.is_string() || actual.as_string().utf16_string_view() != code)
+                return vm.throw_completion<JS::Error>("Incorrect host registration error code"_utf16);
+            return {};
+        };
+        for (auto const* name : { "", "fs", "node:fs", "embedded/host", "mite-host:other", "bad name", "1host" })
+            TRY(reject(name, {}, "ERR_INVALID_ARG_VALUE"_utf16));
+        TRY(reject("embedded-host", {}, "ERR_MITE_HOST_MODULE_EXISTS"_utf16));
+        for (auto const* exported : { "", "default", "bad-name", "1value", "x';throw Error('injected')//" })
+            TRY(reject("registration-retry", { exported }, "ERR_INVALID_ARG_VALUE"_utf16));
+        TRY(reject("registration-retry", { "value", "value" }, "ERR_INVALID_ARG_VALUE"_utf16));
+        TRY(modules.register_host_module("registration-retry", host, {}));
+        realm.global_object().define_native_function(realm, "collectHostGarbage"_utf16, +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            vm.heap().collect_garbage();
+            return JS::js_undefined();
+        }, 0, JS::default_attributes);
         realm.global_object().define_direct_property("embeddedHost"_utf16, host, JS::default_attributes);
         return {};
     };

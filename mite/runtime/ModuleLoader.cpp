@@ -75,6 +75,11 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
                 if (shim && request.attributes.is_empty())
                     return *m_commonjs_bridge;
             }
+            if (bytes == "mite:internal/host"sv) {
+                bool shim = referrer.visit([&](auto const& record) { return m_host_shims.contains(record.ptr()); });
+                if (shim && request.attributes.is_empty())
+                    return *m_host_bridge;
+            }
             if (bytes == "mite:internal/builtin"sv) {
                 bool shim = referrer.visit([&](auto const& record) { return m_builtin_shims.contains(record.ptr()); });
                 if (shim && request.attributes.is_empty())
@@ -165,13 +170,15 @@ JS::ThrowCompletionOr<bool> ModuleLoader::is_es_module(fs::path const& path)
 
 JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifier, std::string const& referrer)
 {
+    if (specifier.starts_with("mite-host:"))
+        return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
     auto base = URL::Parser::basic_parse(view(referrer));
     VERIFY(base.has_value());
     bool relative = specifier.starts_with("./") || specifier.starts_with("../") || specifier.starts_with("/");
     auto url = relative ? URL::Parser::basic_parse(view(specifier), *base) : URL::Parser::basic_parse(view(specifier));
     if (!url.has_value())
         url = TRY(resolve_package(specifier, url_path(*base), false));
-    if (url->scheme() == "node"sv)
+    if (url->scheme() == "node"sv || url->scheme() == "mite-host"sv)
         return url.release_value();
     if (url->scheme() != "file"sv)
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme: " + string(url->scheme()));
@@ -206,6 +213,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
         return *found->second;
     if (url.scheme() == "node"sv)
         return builtin_module(identity.substr(5));
+    if (url.scheme() == "mite-host"sv)
+        return host_module(identity.substr(10));
     auto path = url_path(url);
     auto extension = path.extension();
     if (extension != ".mjs" && extension != ".js" && extension != ".cjs" && extension != ".json")
@@ -349,9 +358,13 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
     bool relative = request == "." || request == ".." || request.starts_with("./") || request.starts_with("../");
     if (!relative && !path.is_absolute()) {
         auto url = TRY(resolve_package(request, parent, true));
+        if (url.scheme() == "mite-host"sv) {
+            auto name = string(url.serialize()).substr(10);
+            return RequireResolution { {}, {}, name, name };
+        }
         if (url.scheme() == "node"sv) {
             auto name = string(url.serialize()).substr(5);
-            return RequireResolution { {}, name, request == name ? name : "node:" + name };
+            return RequireResolution { {}, name, request == name ? name : "node:" + name, {} };
         }
         if (url.scheme() != "file"sv)
             return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme");
@@ -367,13 +380,13 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
         auto canonical = fs::canonical(resolved, ec);
         if (ec)
             return error("MODULE_NOT_FOUND", "Cannot resolve module '" + request + "'");
-        return RequireResolution { canonical, {}, path_string(canonical) };
+        return RequireResolution { canonical, {}, path_string(canonical), {} };
     }
     auto found = TRY(legacy_path(path.is_absolute() ? path : parent.parent_path() / path));
     if (!found.has_value())
         return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
     auto filename = found.release_value();
-    return RequireResolution { filename, {}, path_string(filename) };
+    return RequireResolution { filename, {}, path_string(filename), {} };
 }
 
 JS::ThrowCompletionOr<void> ModuleLoader::add_child(JS::Object& parent, JS::Object& child)
@@ -442,6 +455,8 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(fs::path const& filename,
         if (resolved.is_error())
             return require_error(resolved.release_error(), *module);
         auto target = resolved.release_value();
+        if (!target.host.empty())
+            return m_host_modules.at(target.host).exports.ptr();
         if (!target.builtin.empty()) {
             if (!target.identifier.starts_with("node:")) {
                 auto cached = TRY(m_commonjs_cache->get(Utf16String::from_utf8_with_replacement_character(view(target.identifier))));
