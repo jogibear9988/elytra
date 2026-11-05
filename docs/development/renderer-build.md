@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0044. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0045. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -184,3 +184,11 @@ Page stacks/jobs/timers must remain independent; Source locals must survive save
 stack GC and last-owner detach until their caller unwinds. EventTarget's generator
 now renames three free definitions, including the exception reporter, while internal
 calls retain the guarded public names (ADR 0044). Other WebIDL modes are not covered.
+
+NodeFilterAdapter.cpp substitutes one native NodeFilter TU. Its generated include
+renames only accept_node's definition, keeping internal traversal calls guarded.
+The node-filter hook target checks byte preservation and missing/duplicate entries.
+SDK/helper tests cover callback Node worlds, receiver, getter/proxy lookup, ToInt32,
+private errors, revocation before wrapping, last-owner/GC and frame removal during
+conversion. Principal getter/body/conversion jobs remain independent of Source.
+The raw .filter property boundary is still open (ADR 0045).

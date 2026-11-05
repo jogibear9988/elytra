@@ -158,3 +158,10 @@ entries now hide ambient Source contexts and preserve page Promise/timer ownersh
 last-owner/GC reentry controls pass. Other WebIDL modes, arbitrary native callbacks/
 transfers and shared registries remain incomplete. Public preload/contextBridge/IPC
 remain unsupported.
+
+Internal NodeIterator/TreeWalker native filter invocation now checks Source lifetime
+before wrapping/lookup and retains owners through numeric return conversion
+(ADR 0045). Source callback/conversion exceptions intentionally become generic
+caller-realm TypeErrors; ordinary page errors stay unchanged. SDK/helper conversion,
+last-owner/GC, revocation and page-job controls pass. Cross-world .filter getter
+access remains unsafe/unimplemented; public preload/contextBridge/IPC stay rejected.

@@ -50,6 +50,12 @@ void clear_handler_map(Web::DOM::EventTarget& target, HandlerMap& map)
     for (auto const& name : map.keys()) target.set_event_handler_attribute(name, nullptr);
     VERIFY(map.is_empty());
 }
+JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> dispatch_filter(JS::Realm& realm, Web::DOM::NodeFilter& filter, Web::DOM::Node& node)
+{
+    auto gate = gates->get(&realm.vm());
+    if (gate.has_value() && gate->invoke_filter) return gate->invoke_filter(gate->context, realm, filter, node);
+    return invoke_filter_original(realm, filter, node);
+}
 void observer_added(Web::DOM::MutationObserver& observer)
 {
     auto gate = gates->get(&observer.vm());

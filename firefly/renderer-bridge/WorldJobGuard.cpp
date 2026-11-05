@@ -128,6 +128,8 @@ struct WorldJobGuard::State : public RefCounted<State> {
             +[](void* context, JS::Realm& realm) { static_cast<State*>(context)->revoke_event_values(realm); }
         },+[](void* context, Web::WebIDL::CallbackType& callback, JS::Value exception) {
             static_cast<State*>(context)->report_exception(callback, exception);
+        },+[](void* context, JS::Realm& realm, Web::DOM::NodeFilter& filter, Web::DOM::Node& node) {
+            return static_cast<State*>(context)->invoke_filter(realm, filter, node);
         }});
 
     }
@@ -459,6 +461,45 @@ struct WorldJobGuard::State : public RefCounted<State> {
             });
         if (result.is_error()) { ++source_job_errors; return JS::js_undefined(); }
         return result.release_value();
+    }
+    JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> invoke_filter(JS::Realm& caller, Web::DOM::NodeFilter& filter, Web::DOM::Node& node)
+    {
+        auto& callback = filter.callback();
+        auto& associated = Callbacks::callback_realm(callback);
+        GC::Ptr<JS::Realm> actual;
+        if (callback.callback->is_function()) {
+            auto realm = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+            if (!realm.is_error()) actual = realm.value();
+        }
+        auto delegate = [&]() -> JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> {
+            if (previous_gate.invoke_filter) return previous_gate.invoke_filter(previous_gate.context, caller, filter, node);
+            return Callbacks::invoke_filter_original(caller, filter, node);
+        };
+        auto invoke = [&]() -> JS::ThrowCompletionOr<JS::Value> {
+            // Include native node wrapping, operation lookup and ToInt32 inside
+            // the owner frame; conversion can execute arbitrary JS as well.
+            return JS::Value(static_cast<i32>(TRY(delegate())));
+        };
+        bool own_associated = realms.contains(associated);
+        bool own_actual = actual && realms.contains(*actual);
+        if (!own_associated && !own_actual) {
+            auto result = in_principal(associated, [&]() -> JS::Completion { return invoke(); });
+            if (result.is_error()) return result.release_error();
+            return static_cast<Web::DOM::NodeFilter::Result>(result.value().as_i32());
+        }
+        auto reject = [&]() -> JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> {
+            vm.save_execution_context_stack();
+            ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+            auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+            context->realm = &caller;
+            vm.push_execution_context(*context);
+            ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+            return JS::throw_completion(JS::TypeError::create(caller, u"Firefly node filter is unavailable"sv));
+        };
+        if ((own_associated && blocked_realm(associated)) || (own_actual && actual.ptr() != &associated && blocked_realm(*actual))) return reject();
+        auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr, [&] { return invoke(); });
+        if (result.is_error()) { ++source_job_errors; return reject(); }
+        return static_cast<Web::DOM::NodeFilter::Result>(result.value().as_i32());
     }
     void add_observer(Web::DOM::MutationObserver& observer)
     {

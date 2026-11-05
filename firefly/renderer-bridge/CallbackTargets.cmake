@@ -10,6 +10,7 @@ set(firefly_callback_source_count 0)
 set(firefly_timer_source_count 0)
 set(firefly_observer_source_count 0)
 set(firefly_listener_source_count 0)
+set(firefly_filter_source_count 0)
 set(firefly_custom_event_source_count 0)
 set(firefly_custom_binding_source_count 0)
 set(firefly_error_event_source_count 0)
@@ -30,6 +31,9 @@ foreach(source IN LISTS firefly_web_sources)
     elseif(source STREQUAL "DOM/EventTarget.cpp" OR source STREQUAL "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/EventTarget.cpp")
         math(EXPR firefly_listener_source_count "${firefly_listener_source_count}+1")
         list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/ListenerAdapter.cpp")
+    elseif(source STREQUAL "DOM/NodeFilter.cpp" OR source STREQUAL "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/NodeFilter.cpp")
+        math(EXPR firefly_filter_source_count "${firefly_filter_source_count}+1")
+        list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/NodeFilterAdapter.cpp")
     elseif(source STREQUAL "DOM/CustomEvent.cpp" OR source STREQUAL "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/CustomEvent.cpp")
         math(EXPR firefly_custom_event_source_count "${firefly_custom_event_source_count}+1")
         list(APPEND firefly_web_adapted_sources "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CustomEventAdapter.cpp")
@@ -57,8 +61,8 @@ foreach(source IN LISTS firefly_web_sources)
         list(APPEND firefly_web_adapted_sources "${firefly_web_binary_dir}/${source}")
     endif()
 endforeach()
-if(NOT firefly_callback_source_count EQUAL 1 OR NOT firefly_timer_source_count EQUAL 1 OR NOT firefly_observer_source_count EQUAL 1 OR NOT firefly_listener_source_count EQUAL 1 OR NOT firefly_custom_event_source_count EQUAL 1 OR NOT firefly_custom_binding_source_count EQUAL 1 OR NOT firefly_error_event_source_count EQUAL 1 OR NOT firefly_error_binding_source_count EQUAL 1 OR NOT firefly_message_event_source_count EQUAL 1 OR NOT firefly_message_binding_source_count EQUAL 1)
-    message(FATAL_ERROR "Expected exactly one callback, timer, observer, listener and native/generated custom/error/message event translation unit; review upstream sources")
+if(NOT firefly_filter_source_count EQUAL 1 OR NOT firefly_callback_source_count EQUAL 1 OR NOT firefly_timer_source_count EQUAL 1 OR NOT firefly_observer_source_count EQUAL 1 OR NOT firefly_listener_source_count EQUAL 1 OR NOT firefly_custom_event_source_count EQUAL 1 OR NOT firefly_custom_binding_source_count EQUAL 1 OR NOT firefly_error_event_source_count EQUAL 1 OR NOT firefly_error_binding_source_count EQUAL 1 OR NOT firefly_message_event_source_count EQUAL 1 OR NOT firefly_message_binding_source_count EQUAL 1)
+    message(FATAL_ERROR "Expected exactly one callback, timer, observer, listener, node filter and native/generated custom/error/message event translation unit; review upstream sources")
 endif()
 set_property(TARGET LibWeb PROPERTY SOURCES "${firefly_web_adapted_sources}")
 add_dependencies(LibWeb check-firefly-upstream)
@@ -164,3 +168,17 @@ add_custom_target(check-firefly-message-event-hooks
         --binding "${firefly_web_binary_dir}/Bindings/MessageEvent.cpp"
     DEPENDS firefly-message-event-Native firefly-message-event-Binding VERBATIM)
 add_dependencies(LibWeb check-firefly-message-event-hooks)
+
+set(firefly_filter_entry "${CMAKE_BINARY_DIR}/firefly-adapters/NodeFilter.inc")
+add_custom_command(OUTPUT "${firefly_filter_entry}"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/adapt_node_filter.py"
+        --source "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/NodeFilter.cpp" --output "${firefly_filter_entry}"
+    DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/adapt_node_filter.py"
+        "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/DOM/NodeFilter.cpp" VERBATIM)
+add_custom_target(firefly-node-filter-entry DEPENDS "${firefly_filter_entry}")
+add_custom_target(check-firefly-node-filter-hook
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_node_filter_adapter.py"
+    DEPENDS firefly-node-filter-entry VERBATIM)
+add_dependencies(LibWeb check-firefly-node-filter-hook)
+set_property(SOURCE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/NodeFilterAdapter.cpp"
+    TARGET_DIRECTORY LibWeb APPEND PROPERTY INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/firefly-adapters")

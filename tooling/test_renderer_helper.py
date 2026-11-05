@@ -81,6 +81,8 @@ def main():
     pid_of(error_values)
     messages=run(probe,'--headless=manual',(fixture/'message-events.html').as_uri())
     pid_of(messages)
+    filters=run(probe,'--headless=manual',(fixture/'node-filters.html').as_uri())
+    pid_of(filters)
     principal=run(probe,'--headless=manual',(fixture/'principal-callbacks.html').as_uri())
     pid=pid_of(principal)
     canceled=[int(n) for n in re.findall(rf'FIREFLY_WORLD_TIMERS_CANCELED pid={pid} count=(\d+)',principal.stderr)]
@@ -110,6 +112,7 @@ def main():
     print('PASS ErrorEvent property/onerror copies, rejected raw functions/page getters and preserved native page reporting')
     print('PASS MessageEvent snapshots/init metadata and actual two-way postMessage serialization/delivery after source detach')
     print('PASS principal listener/handler/reporter frames and jobs/timers stay independent of source dispatch/revoke')
+    print('PASS native NodeIterator/TreeWalker callback worlds, private errors and frame removal during return conversion')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

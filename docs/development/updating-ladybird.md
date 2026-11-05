@@ -142,6 +142,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    page Error.stack privacy, page Promise/timer survival after Source detach, ordinary
    onerror, foreign principal beforeunload conversion and Source last-owner/GC reentry
    controls. Other WebIDL exception/Promise modes remain explicitly outside this gate.
+   NodeFilterAdapter.cpp substitutes DOM/NodeFilter.cpp with definition-only
+   accept_node renaming. Preserve its header declaration, internal public calls,
+   exact generated dependency/source-count and byte-preservation/drift tests.
+   Review wrapping before call_user_object_operation, getter/proxy/function receiver
+   semantics, callback result ToInt32 and traversal exception/active-flag propagation.
+   Keep revocation before wrapping/lookup, last-owner/GC through result conversion,
+   principal stack/job controls and helper iframe removal during conversion. The
+   cross-world .filter getter remains a separate open boundary (ADR 0045).
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

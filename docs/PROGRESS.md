@@ -1130,6 +1130,38 @@ IPC stay unsupported. No standalone Mite change, new platform/package/audit, com
 reclamation, hard resource containment or visible-desktop validation is claimed.
 Existing deployment/linker warnings remain.
 
+Native NodeFilter invocation is now guarded before node wrapping and through
+acceptNode getter/proxy lookup, callback execution and numeric result conversion
+(ADR 0045). One owned NodeFilter TU adapter renames only the exact helper definition;
+internal traversal calls retain the public guard. Source preservation/drift tests,
+one-TU enforcement and explicit generated dependencies keep vendor source untouched.
+
+Registered filters check associated/actual realm revocation and retain owners through
+conversion. Source errors become fixed caller-realm TypeErrors without Source frames
+or raw thrown objects; this intentionally changes exception identity even for own-
+world callers. Principal filters retain ordinary errors and execute beneath a clean
+principal context, keeping their Promise jobs independent of an ambient Source.
+
+All four gates pass in build/node-filter-acceptance-test.log: SDK isolation,
+sandboxed helper, ordinary renderer/compositor/process and Firefly/Electron reference.
+Additional throwing-valueOf and detached-child error-constructor controls pass in
+build/node-filter-final-test.log (SDK/helper). SDK covers own identity/receiver/Node
+world, result conversion, raw callback/conversion error denial, retained iterator
+revocation before lookup after GC, last-owner release and GC during getter with
+successful subsequent callback/conversion, and page getter/body/valueOf jobs surviving
+Source detach without stack disclosure. The helper checks live traversal, proxy
+errors, unchanged page errors and iframe removal during numeric conversion: Source
+synchronous work finishes, bridge output denies and its late job stays silent.
+
+Traversal .filter getters still return raw callback objects across wrapper worlds;
+this separate property boundary remains OPEN before public preload. Native traversers
+can retain origin realms after detach. This step is not a complete traversal/object
+membrane, generic call_user_object_operation policy or reclamation proof. Public
+preload/contextBridge/IPC remain unsupported, with other callback modes, arbitrary
+transfers, registries, navigation/BFCache, workers/finalization and resource bounds
+still open. No standalone Mite change, newer Ladybird pin, platform/package/audit
+or visible-desktop validation. Existing warnings remain.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

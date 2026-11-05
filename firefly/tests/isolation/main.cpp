@@ -8,6 +8,7 @@
 #include "ErrorEventTest.h"
 #include "MessageEventTest.h"
 #include "PrincipalCallbackTest.h"
+#include "NodeFilterTest.h"
 #include <LibCore/EventLoop.h>
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
@@ -122,6 +123,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_error_event_values(vm, *document));
     TRY(check_message_event_values(vm, *document));
     TRY(check_principal_callbacks(vm, *document));
+    TRY(check_node_filters(vm, *document));
     first->detach();first->detach();
     if (!first->is_detached() || first->realm()!=nullptr || !first->evaluate(u"true"sv).is_error())
         return Error::from_string_literal("Detached world must reject evaluation");

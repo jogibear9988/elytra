@@ -127,6 +127,35 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='node-filters') {
+                        const root=document.createElement('div');root.innerHTML='<span></span>';
+                        let lookups=0,calls=0,conversions=0;
+                        const filter={get acceptNode(){lookups++;return function(node){
+                            if(this!==filter || node.constructor.constructor('return globalThis')()!==globalThis)throw Error('Wrong node filter world');
+                            calls++;return{valueOf(){conversions++;return 1}};
+                        }}};
+                        const iterator=document.createNodeIterator(root,NodeFilter.SHOW_ELEMENT,filter);
+                        if(iterator.filter!==filter || iterator.nextNode()!==root || iterator.nextNode().localName!=='span')throw Error('Node filter behavior changed');
+                        let denied=false;
+                        const bad=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,new Proxy({},{get(){throw {secret:'private-node-filter'}}}));
+                        try{bad.nextNode()}catch(error){denied=error instanceof TypeError && error.message==='Firefly node filter is unavailable' && error.secret===undefined}
+                        document.documentElement.setAttribute('data-filter-native',String(lookups===2 && calls===2 && conversions===2 && denied));
+                        return true;
+                    }
+                    if(a.mode==='remove-self-filter') {
+                        const root=document.createElement('div');root.innerHTML='<i></i>';
+                        const walker=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,{get acceptNode(){return function(node){
+                            const held={node,tag:'kept'};
+                            return {valueOf(){frameElement.remove();held.node.textContent=held.tag;
+                                document.documentElement.setAttribute('data-filter-after-remove',held.node.textContent);
+                                Promise.resolve().then(()=>document.documentElement.setAttribute('data-filter-late-job','BAD'));
+                                return 1;
+                            }};
+                        }}});
+                        if(walker.nextNode().textContent!=='kept')throw Error('Node filter conversion did not finish');
+                        document.documentElement.setAttribute('data-filter-source-finish','safe');
+                        return true;
+                    }
                     if(a.mode==='principal-callbacks') {
                         (function sourceDispatchBoundarySecret(){
                             for(const type of ['boundary-function','boundary-object','boundary-proxy','boundary-throw'])window.dispatchEvent(new Event(type));
