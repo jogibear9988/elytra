@@ -1815,6 +1815,16 @@ a visible partial alpha if uploading fails and supports retrying an incomplete
 draft. actionlint passes. This changes publication orchestration only; no alpha
 tag or release has been created and hosted native success is still required.
 
+
+macOS dependency cache follow-up: the first failed configure saved a partial cache
+under the exact pin key. Restoring that immutable key then prevented later runs
+from saving newly completed packages. New macOS runs use a unique save key plus
+pin-specific/general restore prefixes, so successful ports/downloads accumulate
+after both success and failure. vcpkg's individual ABI keys still decide reuse;
+no compiled app is accepted from this dependency cache. actionlint passes. The
+currently active 004b7fe run uses its original cache policy; do not infer that the
+new policy has run there or cancel its active build just for a cache improvement.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

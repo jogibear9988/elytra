@@ -65,8 +65,10 @@ jobs:
             build/renderer-cache
             ~/.cargo/registry
             ~/.cargo/git
-          key: macos-arm64-release-${{ hashFiles('vendor/ladybird.json', 'vcpkg.json') }}
-          restore-keys: macos-arm64-release-
+          key: macos-arm64-release-${{ hashFiles('vendor/ladybird.json', 'vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: |
+            macos-arm64-release-${{ hashFiles('vendor/ladybird.json', 'vcpkg.json') }}-
+            macos-arm64-release-
       - name: Compile Release, test, package production dependencies and strip native symbols
         env:
           RELEASE_TAG: ${{ inputs.tag }}
