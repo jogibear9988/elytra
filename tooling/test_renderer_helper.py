@@ -81,6 +81,10 @@ def main():
     pid_of(error_values)
     messages=run(probe,'--headless=manual',(fixture/'message-events.html').as_uri())
     pid_of(messages)
+    principal=run(probe,'--headless=manual',(fixture/'principal-callbacks.html').as_uri())
+    pid=pid_of(principal)
+    canceled=[int(n) for n in re.findall(rf'FIREFLY_WORLD_TIMERS_CANCELED pid={pid} count=(\d+)',principal.stderr)]
+    assert canceled and max(canceled)>=1,principal
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in {name for names in HOOKS.values() for name in names}:
@@ -105,6 +109,7 @@ def main():
     print('PASS CustomEvent snapshots/cache/identity, rejected raw functions and page getters, source revoke and fresh-reader denial')
     print('PASS ErrorEvent property/onerror copies, rejected raw functions/page getters and preserved native page reporting')
     print('PASS MessageEvent snapshots/init metadata and actual two-way postMessage serialization/delivery after source detach')
+    print('PASS principal listener/handler/reporter frames and jobs/timers stay independent of source dispatch/revoke')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

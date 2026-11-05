@@ -98,8 +98,8 @@ candidate commits from the official repository in .gitmodules / the manifest.
    tooling/adapt_event_entries.py, which renames definitions only so internal
    handler calls still hit the guard. The same generator now adapts only declared
    handler storage/trace/scope/realm expressions (ADR 0040). Review
-   both exact signatures, generated #line/includes/dependencies and the source
-   preservation test. Keep two handler-entry tokens and verify internal calls.
+   all three exact signatures, generated #line/includes/dependencies and the source
+   preservation test. Keep exact listener/handler/reporter tokens and verify internal calls.
    Retain page-created-listener/source-replacement, error/strict-bool and native
    beforeunload conversion tests: cancellation precedes ToString; nonempty
    returnValue skips it; detach/last-owner release must wait through conversion.
@@ -136,6 +136,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    snapshot/GC/init metadata controls plus actual two-way postMessage, function
    DataCloneError and source-detach/queued-publication tests (ADR 0043). Transferred
    ports and broader message/sender policies remain unverified.
+   Review principal context suspension/restoration at listener/handler, non-Promise
+   Report callback and event exception-reporting entries (ADR 0044). VM saved stacks
+   must remain GC roots while native Source owner frames remain active. Preserve
+   page Error.stack privacy, page Promise/timer survival after Source detach, ordinary
+   onerror, foreign principal beforeunload conversion and Source last-owner/GC reentry
+   controls. Other WebIDL exception/Promise modes remain explicitly outside this gate.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

@@ -9,7 +9,7 @@ HOOKS={
     'Services/WebContent/WebDriverBiDi.cpp':['set_webdriver_bidi_session_state'],
     'Libraries/LibWeb/WebIDL/AbstractOperations.cpp':['invoke_callback'],
     'Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp':['m_timers'],
-    'Libraries/LibWeb/DOM/EventTarget.cpp':['invoke_event_listener','invoke_event_handler','event_listener_list_changed','add_abort_algorithm'],
+    'Libraries/LibWeb/DOM/EventTarget.cpp':['invoke_event_listener','report_exception_for_callback','invoke_event_handler','event_listener_list_changed','add_abort_algorithm'],
     'Libraries/LibWeb/DOM/MutationObserver.cpp':['m_node_list'],
 }
 

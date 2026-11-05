@@ -126,10 +126,52 @@ struct WorldJobGuard::State : public RefCounted<State> {
             +[](void* context, Web::DOM::Event& event, GC::Cell::Visitor& visitor) { static_cast<State*>(context)->visit_event_values(event, visitor); },
             +[](void* context, JS::Realm& realm, Web::DOM::Event& event, JS::Value value) { return static_cast<State*>(context)->read_event_value(realm, event, value); },
             +[](void* context, JS::Realm& realm) { static_cast<State*>(context)->revoke_event_values(realm); }
+        },+[](void* context, Web::WebIDL::CallbackType& callback, JS::Value exception) {
+            static_cast<State*>(context)->report_exception(callback, exception);
         }});
 
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    bool has_source_context()
+    {
+        bool found = false;
+        vm.for_each_execution_context_top_to_bottom([&](JS::ExecutionContext const& context) {
+            if (context.realm && EventValues::activity(*context.realm) != EventValues::Activity::Unregistered) { found = true; return false; }
+            return true;
+        });
+        return found;
+    }
+    JS::Completion in_principal(JS::Realm& realm, Function<JS::Completion()> operation)
+    {
+        if (!has_source_context()) return operation();
+        // The VM keeps saved contexts rooted. Source owner frames remain active
+        // in their native callers; restore them before those callers unwind.
+        vm.save_execution_context_stack();
+        ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+        auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+        context->realm = &realm;
+        vm.push_execution_context(*context);
+        ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+        return operation();
+    }
+    void report_exception(Web::WebIDL::CallbackType& callback, JS::Value exception)
+    {
+        auto& realm = Callbacks::callback_realm(callback);
+        auto activity = EventValues::activity(realm);
+        GC::Ptr<JS::Realm> actual;
+        if (callback.callback->is_function()) {
+            auto result = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+            if (!result.is_error()) actual = result.value();
+        }
+        if (activity != EventValues::Activity::Unregistered || (actual && EventValues::activity(*actual) != EventValues::Activity::Unregistered)) { ++source_job_errors; return; }
+        auto root = GC::Root<JS::Value>::create(exception, SourceLocation::current());
+        auto completion = in_principal(realm, [&]() -> JS::Completion {
+            if (previous_gate.report_exception) previous_gate.report_exception(previous_gate.context, callback, root.value());
+            else Callbacks::report_exception_original(callback, root.value());
+            return JS::js_undefined();
+        });
+        VERIFY(!completion.is_error());
+    }
     EventValues::Activity event_activity(JS::Realm& realm)
     {
         using enum EventValues::Activity;
@@ -347,7 +389,26 @@ struct WorldJobGuard::State : public RefCounted<State> {
         }
         bool own_associated = realms.contains(associated);
         bool own_actual = actual && realms.contains(*actual);
-        if (!own_associated && !own_actual) return delegate();
+        if (!own_associated && !own_actual) {
+            if (!has_source_context()) return delegate();
+            return in_principal(associated, [&]() -> JS::Completion {
+                auto completion = delegate();
+                // A foreign callback stored in an owned handler map also needs
+                // beforeunload conversion inside its principal frame.
+                if (!completion.is_error() && event.type() == Web::HTML::EventNames::beforeunload && Callbacks::is_beforeunload_event(event)) {
+                    auto value = completion.value();
+                    if (!value.is_nullish()) {
+                        event.set_cancelled(true);
+                        auto& before = static_cast<Web::HTML::BeforeUnloadEvent&>(event);
+                        if (!before.return_value().is_empty()) return JS::Value(true);
+                        auto string = value.to_utf16_string(vm);
+                        if (string.is_error()) return string.release_error();
+                        return JS::Value(JS::PrimitiveString::create(vm, string.release_value()).ptr());
+                    }
+                }
+                return completion;
+            });
+        }
         if (own_associated && blocked_realm(associated)) return JS::js_undefined();
         if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
         auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr,
@@ -385,7 +446,7 @@ struct WorldJobGuard::State : public RefCounted<State> {
         }
         bool own_associated = realms.contains(associated);
         bool own_actual = actual && realms.contains(*actual);
-        if (!own_associated && !own_actual) return delegate();
+        if (!own_associated && !own_actual) return in_principal(associated, [&]() -> JS::Completion { return delegate(); });
         if (own_associated && blocked_realm(associated)) return JS::js_undefined();
         if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
         // Guard before event/receiver wrapping, and retain ownership through
@@ -505,7 +566,7 @@ struct WorldJobGuard::State : public RefCounted<State> {
         }
         bool own_associated = realms.contains(associated);
         bool own_actual = actual && realms.contains(*actual);
-        if (!own_associated && !own_actual) return delegate();
+        if (!own_associated && !own_actual) return in_principal(associated, [&]() -> JS::Completion { return delegate(); });
         if (own_associated && blocked_realm(associated)) return JS::js_undefined();
         if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
         auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr,

@@ -138,7 +138,7 @@ public preload/contextBridge, complete source-job revocation and validated IPC
 remain open. MutationObserver coverage additionally checks source wrapper/prototype
 identity despite page poisoning, explicit disconnect/re-observe accounting, native
 node/record cleanup and continued page delivery after source detach. See ADRs
-0027–0043. Listener dispatch is guarded before receiver/Event wrapping, with
+0027–0044. Listener dispatch is guarded before receiver/Event wrapping, with
 function/object/getter/proxy lifetime, error privacy, cancelation and live-page
 controls. Native listener/signal release checks additionally cover duplicate/capture/once/
 abort/explicit removal, GC with a rooted signal, late registration after logical
@@ -177,3 +177,10 @@ init no-op/reset and basic origin/source/empty ports behavior. The helper exerci
 actual two-way postMessage, DataCloneError for functions, source detach with queued
 page delivery and source-listener cancellation. Native messaging stays upstream;
 full structured-clone/port parity and IPC sender validation are not claimed.
+
+Principal callback context tests additionally check function/object/proxy listeners,
+handlers, onerror and non-Promise Report callbacks entered beneath a Source caller.
+Page stacks/jobs/timers must remain independent; Source locals must survive saved-
+stack GC and last-owner detach until their caller unwinds. EventTarget's generator
+now renames three free definitions, including the exception reporter, while internal
+calls retain the guarded public names (ADR 0044). Other WebIDL modes are not covered.

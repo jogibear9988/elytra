@@ -195,8 +195,27 @@ ErrorOr<void> check_handlers(JS::VM& vm, Web::DOM::Document& document)
         if(installed.is_error() || !installed.value().as_bool())return Error::from_string_literal("Cannot install foreign-realm private handler control");
         TRY(page_check(u"document.dispatchEvent(new Event('click',{cancelable:true}))===false"sv));
         if(foreign_calls!=1)return Error::from_string_literal("Private handler dispatch selected callback realm's map instead of owner's map");
+        auto parsed=JS::Script::parse(uR"JS(
+            globalThis.foreignUnloadCalls=0;globalThis.foreignUnloadLeaks=0;globalThis.foreignUnloadJobs=0;
+            globalThis.foreignUnload=()=>({toString(){foreignUnloadCalls++;if(new Error().stack.includes('firefly:isolated-world'))foreignUnloadLeaks++;Promise.resolve().then(()=>foreignUnloadJobs++);return 'page-value'}});
+            foreignUnload;
+        )JS"_utf16,page);
+        if(parsed.is_error())return Error::from_string_literal("Cannot parse foreign beforeunload fixture");
+        GC::Root script {parsed.release_value()};auto function=vm.run(*script);
+        if(function.is_error())return Error::from_string_literal("Cannot create foreign beforeunload function");
+        owner->realm()->global_object().define_direct_property("foreignUnload"_utf16,function.release_value(),JS::default_attributes);
+        ScopeGuard clear_foreign([&]{MUST(page_check(u"delete globalThis.foreignUnload;delete globalThis.foreignUnloadProbe;delete globalThis.foreignUnloadCalls;delete globalThis.foreignUnloadLeaks;delete globalThis.foreignUnloadJobs;true"sv));});
+        auto registered=owner->evaluate(u"window.onbeforeunload=foreignUnload;true"sv);
+        if(registered.is_error())return Error::from_string_literal("Cannot register foreign beforeunload handler");
+        auto event=Firefly::Callbacks::make_beforeunload_probe();
+        page.global_object().define_direct_property("foreignUnloadProbe"_utf16,Web::Bindings::event(page,event),JS::default_attributes);
+        TRY(page_check(u"window.dispatchEvent(foreignUnloadProbe)===false && foreignUnloadProbe.returnValue==='page-value' && foreignUnloadCalls===1 && foreignUnloadLeaks===0"sv));
         owner->detach();
-        TRY(page_check(u"document.dispatchEvent(new Event('click',{cancelable:true}))===true"sv));
+        {
+            vm.save_execution_context_stack();ScopeGuard restore([&]{vm.restore_execution_context_stack();});
+            Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
+        }
+        TRY(page_check(u"foreignUnloadJobs===1 && document.dispatchEvent(new Event('click',{cancelable:true}))===true"sv));
         if(foreign_calls!=1)return Error::from_string_literal("Foreign-realm private handler survived source cleanup");
     }
     outln("PASS private native handler listener uses storage owner's realm even for a foreign callback");

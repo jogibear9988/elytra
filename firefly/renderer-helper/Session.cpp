@@ -127,6 +127,16 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='principal-callbacks') {
+                        (function sourceDispatchBoundarySecret(){
+                            for(const type of ['boundary-function','boundary-object','boundary-proxy','boundary-throw'])window.dispatchEvent(new Event(type));
+                            if(window.dispatchEvent(new Event('auxclick',{cancelable:true}))!==false)throw Error('Principal handler cancellation changed');
+                            setTimeout(()=>document.documentElement.setAttribute('data-boundary-source-timer','BAD'),60000);
+                            Promise.resolve().then(()=>document.documentElement.setAttribute('data-boundary-source-job','BAD'));
+                            __fireflyDetachWorldProbe();
+                            document.documentElement.setAttribute('data-boundary-source-finish','safe');
+                        })();return true;
+                    }
                     if(a.mode==='message-events') {
                         globalThis.__sourceMessageSecret=true;
                         window.addEventListener('message',event=>{

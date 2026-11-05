@@ -15,13 +15,13 @@ STORAGE_EDITS=(
     ('void EventTarget::element_event_handler_attribute_changed(Utf16FlyString const& local_name, Optional<Utf16String> const& value)\n{', 'void EventTarget::element_event_handler_attribute_changed(Utf16FlyString const& local_name, Optional<Utf16String> const& value)\n{\n    Firefly::Handlers::PrincipalScope firefly_principal_scope(vm());', 1),
     ('void EventTarget::erase_all_event_listeners_and_handlers()\n{', 'void EventTarget::erase_all_event_listeners_and_handlers()\n{\n    Firefly::Handlers::PrincipalScope firefly_principal_scope(vm());\n    Firefly::Handlers::clear_maps(*this);', 1),
 )
-ENTRIES=('invoke_event_listener','invoke_event_handler')
+ENTRIES={'invoke_event_listener':'JS::Completion','invoke_event_handler':'JS::Completion','report_exception_for_callback':'void'}
 
 
 def adapt(text):
-    for name in ENTRIES:
-        pattern=re.compile(r'^JS::Completion '+name+r'(?=\()',re.MULTILINE)
-        text,count=pattern.subn('JS::Completion firefly_original_'+name,text)
+    for name,result_type in ENTRIES.items():
+        pattern=re.compile(r'^'+re.escape(result_type)+' '+name+r'(?=\()',re.MULTILINE)
+        text,count=pattern.subn(result_type+' firefly_original_'+name,text)
         if count!=1:
             raise ValueError(f'Expected exactly one {name} definition; review upstream entry')
     for original,replacement,expected in STORAGE_EDITS:

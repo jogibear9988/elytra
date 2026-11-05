@@ -11,8 +11,8 @@ restored=modified
 for before,after,count in reversed(STORAGE_EDITS):
     assert restored.count(after)==count,(before,count)
     restored=restored.replace(after,before)
-for name in ENTRIES:
-    restored=restored.replace('JS::Completion firefly_original_'+name+'(', 'JS::Completion '+name+'(')
+for name,result_type in ENTRIES.items():
+    restored=restored.replace(result_type+' firefly_original_'+name+'(', result_type+' '+name+'(')
 assert restored==original,'Adapter changed bytes outside declared native seams'
 for before,after,count in STORAGE_EDITS:
     for invalid in [original.replace(before,'changed-storage-seam',1),original+'\n'+before]:
@@ -22,12 +22,12 @@ for before,after,count in STORAGE_EDITS:
 entry_only=modified
 for before,after,count in reversed(STORAGE_EDITS):entry_only=entry_only.replace(after,before)
 changes=[line for line in difflib.ndiff(original.splitlines(),entry_only.splitlines()) if line.startswith(('- ','+ '))]
-assert len(changes)==4,changes
-for name in ENTRIES:
-    before=[line[2:] for line in changes if line.startswith('- JS::Completion '+name+'(')]
-    after=[line[2:] for line in changes if line.startswith('+ JS::Completion firefly_original_'+name+'(')]
+assert len(changes)==2*len(ENTRIES),changes
+for name,result_type in ENTRIES.items():
+    before=[line[2:] for line in changes if line.startswith('- '+result_type+' '+name+'(')]
+    after=[line[2:] for line in changes if line.startswith('+ '+result_type+' firefly_original_'+name+'(')]
     assert len(before)==len(after)==1 and before[0].replace(name,'firefly_original_'+name,1)==after[0],changes
-    for invalid in [original.replace('JS::Completion '+name+'(', 'JS::Completion changed_'+name+'(',1),original+'\nJS::Completion '+name+'(\n']:
+    for invalid in [original.replace(result_type+' '+name+'(', result_type+' changed_'+name+'(',1),original+'\n'+result_type+' '+name+'(\n']:
         try:adapt(invalid)
         except ValueError:pass
         else:raise AssertionError('Changed/duplicate definition accepted')

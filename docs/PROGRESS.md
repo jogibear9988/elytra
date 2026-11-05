@@ -1100,6 +1100,36 @@ transfers, navigation/BFCache and hard resource bounds remain open. Public prelo
 contextBridge/IPC stay rejected. No newer pin, standalone Mite change, new platform/
 package/audit or visible-desktop validation. Existing warnings persist.
 
+Principal callbacks now run without ambient Source VM contexts at the guarded
+listener/handler, non-Promise Report-style WebIDL and event exception-reporting
+entries (ADR 0044). The VM saves/roots the original stack; a synthetic principal
+context isolates stack capture and page job/timer attribution. Native Source owner
+frames remain active and restore before unwinding, preserving deferred physical
+detach even when page reentry drops the last owner and forces GC. Foreign principal
+beforeunload return conversion also stays in principal scope. Owned callback errors
+are filtered before raw native reporting; ordinary page errors/onerror continue.
+
+The EventTarget generator now adapts three exact free definitions, adding the
+exception reporter without a new TU substitution or vendor changes. All other
+bytes still round-trip through the preservation test. Upstream pin integrity and
+strict helper signature verification pass; no newer pin was evaluated.
+
+All four gates pass in build/principal-callback-final-test.log: SDK, sandboxed
+helper, ordinary renderer/compositor/process and Firefly/Electron reference. A
+negative baseline showed eight Source-frame leaks, two Source-owned timers and one
+surviving page job; the fixed original fixture shows zero/one/eight. The expanded
+SDK Report probe shows zero/one/nine, with a tenth page job surviving last-owner/
+GC reentry. The helper verifies eight page jobs and a ticking page interval after
+Source detach; actual Source jobs/timers stay blocked and the active caller finishes.
+Foreign beforeunload ToString stack/job checks and previous boundaries pass.
+
+Generic WebIDL Rethrow/NotSpecified/Promise-returning conversions, user-object
+operations, other native callbacks, borrowed transfers and shared registries remain
+open; this is not a general membrane or API allowlist. Public preload/contextBridge/
+IPC stay unsupported. No standalone Mite change, new platform/package/audit, complete
+reclamation, hard resource containment or visible-desktop validation is claimed.
+Existing deployment/linker warnings remain.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.

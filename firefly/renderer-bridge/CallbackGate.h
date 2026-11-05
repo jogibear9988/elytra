@@ -19,6 +19,7 @@ using ListenerSignal = void (*)(void*, Web::DOM::EventTarget&, Web::DOM::DOMEven
 using SelectHandlerMap = HandlerMap* (*)(void*, Web::DOM::EventTarget&);
 using VisitHandlerMaps = void (*)(void*, Web::DOM::EventTarget&, GC::Cell::Visitor&);
 using ClearHandlerMaps = void (*)(void*, Web::DOM::EventTarget&);
+using ReportException = void (*)(void*, Web::WebIDL::CallbackType&, JS::Value);
 struct Gate {
     void* context { nullptr };
     Invoke invoke { nullptr };
@@ -34,6 +35,7 @@ struct Gate {
     VisitHandlerMaps visit_handler_maps { nullptr };
     ClearHandlerMaps clear_handler_maps { nullptr };
     EventValues::Hooks event_values {};
+    ReportException report_exception { nullptr };
 };
 WEB_API void observer_added(Web::DOM::MutationObserver&);
 WEB_API void observer_removed(Web::DOM::MutationObserver&);
@@ -51,10 +53,13 @@ WEB_API void listener_signal(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&
 WEB_API void remove_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API bool has_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API void remove_signal_algorithm(Web::DOM::AbortSignal&, u64);
+WEB_API JS::Completion probe_report(JS::Object&);
 WEB_API JS::Completion probe_handler(JS::Object&, Web::DOM::Event&);
 WEB_API void clear_handler_map(Web::DOM::EventTarget&, HandlerMap&);
 WEB_API GC::Ref<Web::DOM::Event> make_beforeunload_probe();
 WEB_API bool is_beforeunload_event(Web::DOM::Event&);
+WEB_API void report_exception_original(Web::WebIDL::CallbackType&, JS::Value);
+WEB_API void dispatch_exception(Web::WebIDL::CallbackType&, JS::Value);
 WEB_API JS::Completion dispatch_handler(Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
 WEB_API JS::Completion invoke_handler_original(Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
 WEB_API JS::Completion dispatch_listener(Web::WebIDL::CallbackType&, Web::DOM::Event&);

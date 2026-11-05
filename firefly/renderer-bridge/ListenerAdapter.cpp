@@ -10,6 +10,7 @@
 namespace Web::Bindings {
 JS::Completion firefly_original_invoke_event_listener(WebIDL::CallbackType&, DOM::Event&);
 JS::Completion firefly_original_invoke_event_handler(WebIDL::CallbackType&, DOM::Event&, bool);
+void firefly_original_report_exception_for_callback(WebIDL::CallbackType&, JS::Value);
 }
 // Preserve the virtual notification; observe its successful add/remove sites.
 #define event_listener_list_changed() (event_listener_list_changed(), Firefly::Callbacks::listener_changed(*this, listener))
@@ -21,6 +22,10 @@ JS::Completion firefly_original_invoke_event_handler(WebIDL::CallbackType&, DOM:
 #undef event_listener_list_changed
 
 namespace Firefly::Callbacks {
+void report_exception_original(Web::WebIDL::CallbackType& callback, JS::Value exception)
+{
+    Web::Bindings::firefly_original_report_exception_for_callback(callback, exception);
+}
 JS::Completion invoke_handler_original(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event, bool special)
 {
     return Web::Bindings::firefly_original_invoke_event_handler(callback, event, special);
@@ -31,6 +36,10 @@ JS::Completion invoke_listener_original(Web::WebIDL::CallbackType& callback, Web
 }
 }
 namespace Web::Bindings {
+void report_exception_for_callback(WebIDL::CallbackType& callback, JS::Value exception)
+{
+    Firefly::Callbacks::dispatch_exception(callback, exception);
+}
 JS::Completion invoke_event_handler(WebIDL::CallbackType& callback, DOM::Event& event, bool special)
 {
     return Firefly::Callbacks::dispatch_handler(callback, event, special);

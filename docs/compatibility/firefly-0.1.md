@@ -151,3 +151,10 @@ registered cross-world reads (ADR 0043). Same-world identity and native page mes
 deserialization remain unchanged. SDK/helper native postMessage, init/cache/GC and
 source detach controls pass. Non-data clone types, real transferred ports and sender
 authentication remain incomplete; this does not enable public preload or IPC.
+
+Internal principal listener/handler/report-style callback and event error reporting
+entries now hide ambient Source contexts and preserve page Promise/timer ownership
+(ADR 0044). SDK/helper stack, job, timer, foreign beforeunload conversion and
+last-owner/GC reentry controls pass. Other WebIDL modes, arbitrary native callbacks/
+transfers and shared registries remain incomplete. Public preload/contextBridge/IPC
+remain unsupported.

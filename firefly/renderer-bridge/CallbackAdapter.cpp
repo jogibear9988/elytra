@@ -28,6 +28,11 @@ static thread_local NeverDestroyed<HashMap<JS::VM*, Gate>> gates;
 static thread_local JS::VM* principal_handler_vm;
 static thread_local Web::DOM::EventTarget* handler_override_target;
 static thread_local HandlerMap* handler_override_map;
+JS::Completion probe_report(JS::Object& function)
+{
+    GC::Root callback { function.heap().allocate<Web::WebIDL::CallbackType>(function, function.shape().realm()) };
+    return Web::WebIDL::invoke_callback(*callback, JS::js_undefined(), Web::WebIDL::ExceptionBehavior::Report, {});
+}
 JS::Completion probe_handler(JS::Object& function, Web::DOM::Event& event)
 {
     GC::Root callback { function.heap().allocate<Web::WebIDL::CallbackType>(function, function.shape().realm()) };
@@ -109,6 +114,12 @@ bool is_beforeunload_event(Web::DOM::Event& event) { return is<Web::HTML::Before
 GC::Ref<Web::DOM::Event> make_beforeunload_probe()
 {
     return Web::HTML::BeforeUnloadEvent::create(Web::HTML::EventNames::beforeunload, {.cancelable=true}, 0);
+}
+void dispatch_exception(Web::WebIDL::CallbackType& callback, JS::Value exception)
+{
+    auto gate = gates->get(&callback.callback->vm());
+    if (gate.has_value() && gate->report_exception) { gate->report_exception(gate->context, callback, exception); return; }
+    report_exception_original(callback, exception);
 }
 JS::Completion dispatch_handler(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event, bool special)
 {
