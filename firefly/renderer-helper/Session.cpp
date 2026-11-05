@@ -120,6 +120,7 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                         globalThis.__sourceRejected=Promise.reject(secret);
                         Promise.resolve().then(()=>{throw secret});
                         (async()=>{await 0;throw secret})();
+                        queueMicrotask(()=>{throw secret});
                         Promise.reject(new Proxy(secret,{get(){throw new Error('source getter must not run')}}));
                         return true;
                     }
@@ -134,12 +135,16 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                             Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
                             return 42;
                         };
+                        if(a.kind==='microtask')return new Promise(resolve=>queueMicrotask(()=>resolve(finish())));
                         if(a.kind==='await')return(async()=>{await 0;return finish()})();
                         if(a.kind==='generator')return(async function*(){await 0;return finish()})().next();
                         return Promise.resolve().then(finish);
                     }
                     if(a.mode==='queue-jobs') {
                         const bad=()=>document.documentElement.setAttribute('data-source-job','BAD');
+                        queueMicrotask(bad);
+                        queueMicrotask(bad.bind(null));
+                        queueMicrotask(new Proxy(bad,{}));
                         Promise.resolve().then(bad);
                         Promise.resolve().then(bad.bind(null));
                         Promise.resolve().then(new Proxy(bad,{}));

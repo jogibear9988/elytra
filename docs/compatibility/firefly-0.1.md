@@ -89,3 +89,9 @@ events, with a reproduced pre-filter leak and passing SDK/helper controls (ADR 0
 Foreign Promise constructors and later handling are covered without invoking source
 reason getters. This is an internal boundary fix; public preload remains rejected
 and other callback/error routes still require work.
+
+An owned compile adapter now gates non-Promise Report-style WebIDL callbacks.
+queueMicrotask ordering, cancellation, in-flight owner lifetime and error isolation
+pass SDK/helper tests; ordinary renderer and Firefly/Electron regression gates
+also pass (ADR 0034). Other callback conversions and timer/listener resource cleanup
+remain incomplete. No public preload/contextBridge/IPC support is implied.

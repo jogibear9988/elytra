@@ -57,18 +57,18 @@ def main():
     assert rejections and max(rejections)>=4,errors
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
-    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state']:
+    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback']:
         for changed in ['',name+' '+name]:
             try:verify_text(changed,[name])
             except ValueError:pass
             else:raise AssertionError('Changed entry adapter accepted')
     for relative,names in HOOKS.items():verify_text((ROOT/'vendor/ladybird'/relative).read_text(),names)
-    print('PASS unmodified control lacks early world, owned helper creates it before first author script')
+    print('PASS upstream helper without registered worlds lacks early world; owned helper runs before author script')
     print('PASS isolated globals and frozen data-only copies in top-level/srcdoc frames and matching renderer PID')
     print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
     print('PASS native Promise results and removed-frame pending rejection')
-    print('PASS removed-frame reaction/thenable/async jobs blocked before execution')
-    print('PASS running reaction/await/generator jobs remove their own frames and reject target promises safely')
+    print('PASS removed-frame Promise/WebIDL microtasks blocked before execution')
+    print('PASS running reaction/await/generator/queueMicrotask callbacks remove frames and reject safely')
     print('PASS source rejection objects/functions stay private; page reject/handle events remain')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 

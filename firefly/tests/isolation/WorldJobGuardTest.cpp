@@ -47,6 +47,12 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     };
     auto first=source->evaluate(uR"JS(
         globalThis.jobRuns=0;
+        globalThis.microOrder=['sync'];
+        queueMicrotask(function(){'use strict';
+            microOrder.push(this===undefined && arguments.length===0?'micro':'BAD');
+        });
+        Promise.resolve().then(()=>microOrder.push('promise'));
+        queueMicrotask(()=>document.documentElement.setAttribute('data-micro-order',microOrder.join(',')));
         Promise.resolve().then(()=>{jobRuns++;document.documentElement.setAttribute('data-job','active')});
         (async()=>{await 0;document.documentElement.setAttribute('data-live-await','active')})();
         (async function*(){await 0;document.documentElement.setAttribute('data-live-generator','active');yield 1})().next();
@@ -54,7 +60,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv);
     if(first.is_error())return Error::from_string_literal("Cannot schedule live world job");
     checkpoint();
-    TRY(page_check(u"document.documentElement.getAttribute('data-job')==='active' && document.documentElement.getAttribute('data-live-await')==='active' && document.documentElement.getAttribute('data-live-generator')==='active'"sv));
+    TRY(page_check(u"document.documentElement.getAttribute('data-micro-order')==='sync,micro,promise' && document.documentElement.getAttribute('data-job')==='active' && document.documentElement.getAttribute('data-live-await')==='active' && document.documentElement.getAttribute('data-live-generator')==='active'"sv));
     if(guard.blocked_count()!=0)return Error::from_string_literal("Live world callback was blocked");
     auto foreign=JS::NativeFunction::create(document.window()->principal_realm(),
         +[](JS::VM&)->JS::ThrowCompletionOr<JS::Value>{return JS::js_undefined();},
@@ -64,6 +70,10 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         globalThis.lateResolver=null;
         new Promise(resolve=>lateResolver=resolve).then(()=>document.documentElement.setAttribute('data-job','late BAD'));
         const bad=()=>document.documentElement.setAttribute('data-job','BAD');
+        queueMicrotask(bad);
+        queueMicrotask(bad.bind(null));
+        queueMicrotask(new Proxy(bad,{}));
+        queueMicrotask(new Proxy(foreignJobTarget,{apply(){bad()}}));
         Promise.resolve().then(bad);
         Promise.resolve().then(bad.bind(null));
         Promise.resolve().then(new Proxy(bad,{}));
@@ -86,7 +96,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     auto native=JS::NativeFunction::create(*control_realm,[&](JS::VM&)->JS::ThrowCompletionOr<JS::Value>{++control_runs;return JS::js_undefined();},0,"controlJob"_utf16,GC::Ptr<JS::Realm>{*control_realm});
     control_realm->global_object().define_direct_property("controlJob"_utf16,native,JS::default_attributes);
     ScopeGuard clear_control([&]{control_realm->global_object().define_direct_property("controlJob"_utf16,JS::js_undefined(),JS::default_attributes);});
-    auto scheduled=control->evaluate(u"Promise.resolve().then(()=>controlJob());true"sv);
+    auto scheduled=control->evaluate(u"Promise.resolve().then(()=>controlJob());queueMicrotask(()=>controlJob());true"sv);
     if(scheduled.is_error())return Error::from_string_literal("Cannot schedule negative job control");
     control->detach();
     source->detach();
@@ -96,8 +106,8 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     TRY(page_check(u"globalThis.mainJobs=0;Promise.resolve().then(()=>mainJobs++);true"sv));
     checkpoint();
     TRY(page_check(u"document.documentElement.getAttribute('data-job')==='active' && document.documentElement.getAttribute('data-other-job')==='active' && mainJobs===1"sv));
-    if(control_runs!=1)return Error::from_string_literal("Unregistered control did not run its original callback");
-    if(guard.blocked_count()<8)return Error::from_string_literal("Expected reaction/thenable/async jobs were not blocked");
+    if(control_runs!=2)return Error::from_string_literal("Unregistered control did not run its original callback");
+    if(guard.blocked_count()<12)return Error::from_string_literal("Expected reaction/thenable/async jobs were not blocked");
     auto blocked=guard.blocked_count();
     auto late=JS::call(vm,*resolver,JS::js_undefined(),JS::js_undefined());
     if(late.is_error())return Error::from_string_literal("Native late resolver failed");
@@ -108,7 +118,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     // Active jobs retain their native owner even when the callback drops the
     // last application reference. Logical detach denies new jobs immediately;
     // physical wrapper/context teardown waits until the current job returns.
-    for (auto mode : { 0, 1, 2 }) {
+    for (auto mode : { 0, 1, 2, 3 }) {
         RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
         TRY(guard.protect(*transient));
         GC::Root realm { *transient->realm() };
@@ -136,7 +146,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         if(setup.is_error())return Error::from_string_literal("Cannot initialize in-flight job fixture");
         auto queued=transient->evaluate(mode==0 ? u"Promise.resolve().then(finishJob);true"sv :
             mode==1 ? u"(async()=>{await 0;finishJob()})();true"sv :
-            u"(async function*(){await 0;finishJob();yield 1})().next();true"sv);
+            mode==3 ? u"queueMicrotask(finishJob);true"sv : u"(async function*(){await 0;finishJob();yield 1})().next();true"sv);
         if(queued.is_error())return Error::from_string_literal("Cannot schedule in-flight job fixture");
         auto depth=vm.execution_context_stack().size();
         vm.heap().collect_garbage();
@@ -216,6 +226,14 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         checkpoint();
     }
     outln("PASS source/foreign-Promise rejections stay private without reason traps; page reject/handle tracking remains");
+    auto callback_errors_before=guard.source_job_error_count();
+    auto micro_errors=other->evaluate(u"globalThis.callbackReasonTraps=0;queueMicrotask(()=>{throw new Proxy({}, {get(){callbackReasonTraps++;throw 1}})});true"sv);
+    if(micro_errors.is_error())return Error::from_string_literal("Cannot schedule microtask exception fixture");
+    checkpoint();
+    auto traps=other->evaluate(u"callbackReasonTraps===0"sv);
+    if(traps.is_error() || !traps.value().as_bool() || guard.source_job_error_count()!=callback_errors_before+1)
+        return Error::from_string_literal("Source microtask exception was not redacted without getters");
+    outln("PASS WebIDL queueMicrotask ordering/receiver/revocation/in-flight lifetime and exception redaction");
     other->detach();
     checkpoint();
     outln("PASS detached-world jobs blocked for reactions/bound/proxy/thenable/async/async-generator/late resolution; page and live worlds continue");

@@ -8,6 +8,7 @@ add_dependencies(firefly-renderer-probe ladybird ${ladybird_helper_processes})
 add_custom_target(check-firefly-upstream
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_upstream.py" VERBATIM)
 add_dependencies(firefly-renderer-probe check-firefly-upstream)
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CallbackTargets.cmake")
 # Retain upstream's process boundary: Skia must stay in Compositor, including
 # when our frontend is added after the upstream root's own confinement check.
 ladybird_check_skia_confinement(firefly-renderer-probe)

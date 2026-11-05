@@ -2,6 +2,9 @@
 <meta charset="utf-8">
 <body><p id="status">WAITING_FOR_ERRORS</p>
 <script>
+let sourceErrors=0,pageErrors=0;
+addEventListener('error',e=>{e.preventDefault();if(e.message.includes('page-error-control'))pageErrors++;else sourceErrors++});
+setTimeout(()=>{throw Error('page-error-control')},0);
 let sourceLeaks=0,sourceHandled=0,privateReferences=0,pageRejected=0,pageHandled=0;
 addEventListener('unhandledrejection',e=>{
  e.preventDefault();
@@ -22,7 +25,7 @@ setTimeout(()=>{
   // The explicit fixture-only baseline expectation records the old raw-reference
   // leak before installing the adapter. Normal acceptance always expects none.
   const baseline=new URLSearchParams(location.search).get('expect')==='leak';
-  const isolated=sourceLeaks===0 && sourceHandled===0;
+  const isolated=sourceLeaks===0 && sourceHandled===0 && sourceErrors===0 && pageErrors===1;
   const leaked=sourceLeaks>=3 && privateReferences>=1 && sourceHandled>=1;
   const ok=scheduled && pageRejected===1 && pageHandled===1 && (baseline?leaked:isolated);
   document.querySelector('#status').textContent=ok?'ERROR_WORLD_OK':'ERROR_WORLD_MISSING';

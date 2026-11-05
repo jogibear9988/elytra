@@ -58,7 +58,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    SDK APIs; no engine patch is acceptable to restore these gates. Review the
    rejection tracker/error reporter too: owned reasons/Promises must not enter
    principal page events, including foreign-Promise/source-origin cases, while page
-   Reject/Handle controls must continue to pass.
+   Reject/Handle controls must continue to pass. CallbackAdapter.cpp substitutes
+   the WebIDL AbstractOperations.cpp TU in our LibWeb graph; review both callback
+   overloads, included declarations (including PerformanceObserver), source-list/
+   generated-file handling and Report/Rethrow/Promise conversion behavior. Preserve
+   the exactly-one-TU/count guards and queueMicrotask error/lifetime tests. Run the
+   ordinary renderer and Firefly/Electron gates too, since they share this library.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

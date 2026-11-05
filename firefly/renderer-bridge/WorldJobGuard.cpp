@@ -1,4 +1,6 @@
 #include "WorldJobGuard.h"
+#include "CallbackGate.h"
+#include <LibWeb/WebIDL/CallbackType.h>
 #include <LibGC/WeakHashMap.h>
 #include <LibGC/WeakHashSet.h>
 #include <AK/WeakPtr.h>
@@ -22,6 +24,7 @@ struct WorldJobGuard::State : public RefCounted<State> {
     Function<void(JS::Promise&, JS::Promise::RejectionOperation)> upstream_rejections;
     GC::WeakHashMap<JS::Realm, WeakPtr<IsolatedWorld>> realms;
     GC::WeakHashSet<JS::Promise> redacted_promises;
+    Callbacks::Gate previous_gate;
     size_t blocked { 0 };
     size_t source_rejections { 0 };
     size_t source_job_errors { 0 };
@@ -30,6 +33,41 @@ struct WorldJobGuard::State : public RefCounted<State> {
           upstream_rejections(move(vm.host_promise_rejection_tracker))
     {
         VERIFY(upstream); VERIFY(upstream_enqueue); VERIFY(upstream_rejections);
+        previous_gate = Callbacks::exchange_gate(vm, {this,+[](void* context, Web::WebIDL::CallbackType& callback, Optional<JS::Value> receiver, Web::WebIDL::ExceptionBehavior behavior, ReadonlySpan<JS::Value> arguments) {
+            return static_cast<State*>(context)->invoke_webidl(callback, move(receiver), behavior, arguments);
+        }});
+    }
+    ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    JS::Completion invoke_webidl(Web::WebIDL::CallbackType& callback, Optional<JS::Value> receiver, Web::WebIDL::ExceptionBehavior behavior, ReadonlySpan<JS::Value> arguments)
+    {
+        auto delegate = [&] {
+            if (previous_gate.invoke) return previous_gate.invoke(previous_gate.context, callback, receiver, behavior, arguments);
+            return Callbacks::invoke_original(callback, receiver, behavior, arguments);
+        };
+        // Promise-returning and rethrowing operations need their own conversion
+        // policy. This gate protects report-style function callbacks first.
+        if (behavior != Web::WebIDL::ExceptionBehavior::Report || callback.operation_returns_promise != Web::WebIDL::OperationReturnsPromise::No) return delegate();
+        auto& associated = callback.callback->shape().realm();
+        GC::Ptr<JS::Realm> actual;
+        if (callback.callback->is_function()) {
+            auto function_realm = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+            if (!function_realm.is_error()) actual = function_realm.value();
+        }
+        bool own_associated = realms.contains(associated);
+        bool own_actual = actual && realms.contains(*actual);
+        if (!own_associated && !own_actual) return delegate();
+        if (own_associated && blocked_realm(associated)) return JS::js_undefined();
+        if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
+        auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr,
+            [&]() -> JS::ThrowCompletionOr<JS::Value> {
+                // Capture the abrupt completion before the upstream Report path
+                // can put its raw source object into a principal ErrorEvent.
+                auto completion = Callbacks::invoke_original(callback, receiver, Web::WebIDL::ExceptionBehavior::Rethrow, arguments);
+                if (completion.type() == JS::Completion::Type::Throw) return JS::throw_completion(completion.release_value());
+                return completion.release_value();
+            });
+        if (result.is_error()) { ++source_job_errors; return JS::js_undefined(); }
+        return result.release_value();
     }
     void rejection(JS::Promise& promise, JS::Promise::RejectionOperation operation)
     {

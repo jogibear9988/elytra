@@ -7,12 +7,13 @@ ROOT=Path(__file__).resolve().parents[1]
 HOOKS={
     'Services/WebContent/main.cpp':['ladybird_main','initialize_main_thread_vm'],
     'Services/WebContent/WebDriverBiDi.cpp':['set_webdriver_bidi_session_state'],
+    'Libraries/LibWeb/WebIDL/AbstractOperations.cpp':['invoke_callback'],
 }
 
 
 def verify_text(text, names):
     for name in names:
-        if len(re.findall(r'\b'+re.escape(name)+r'\b',text))!=1:
+        if len(re.findall(r'\b'+re.escape(name)+r'\b',text))!=(4 if name=='invoke_callback' else 1):
             raise ValueError(f'Review renderer adapter for changed entry point: {name}')
 
 

@@ -707,9 +707,47 @@ IPC remain unsupported; normal Firefly/Mite were unchanged and their previous
 app/runtime suites were not rerun. Windows/Linux, COI, packaging, full security
 audit and the visible desktop gate remain unverified/open.
 
-Next: complete callback/timer/listener and remaining error-route isolation,
-callback membranes and validated IPC with resource/sender/frame limits, alongside
-Windows feasibility.
+The common WebIDL Report callback path is now adapted through our own LibWeb
+translation unit. queueMicrotask bypasses Promise hooks, so replacing only its
+global binding would miss borrowed/native entry paths. CallbackAdapter includes
+the complete original AbstractOperations.cpp with a narrow token rename and
+reinstates both public overloads. CMake substitutes exactly that one source entry,
+preserving generated sources and checking pin/token counts at configure/build.
+Declarations (including PerformanceObserver's same-named member) are preincluded
+to preserve class definitions. No vendored source changed or was copied.
+
+A per-thread/VM native gate routes registered Report/non-Promise callbacks through
+world/document checks and rooted owner frames. It checks callback shape and actual
+function realms, preserving proxy/bound handling. Owned errors are captured via
+the original Rethrow path and counted without getters/raw page ErrorEvents.
+Unregistered callbacks and other conversion modes retain the original route.
+Gate state remains VM-owned across renderer-session destruction; native table
+entries do not root JS values or introduce IPC/JavaScript APIs. ADR 0034 records
+the compile seam, source-list handling and remaining conversion boundaries.
+
+All current gates pass in build/callback-final-test.log: SDK queueMicrotask
+ordering/receiver/arity, cancellation, GC, bound/proxy/foreign-target controls,
+in-flight last-owner release and raw Proxy exception redaction; actual helper
+removed/self-removing frames now include queueMicrotask, source ErrorEvents stay
+private and normal page timer ErrorEvents still fire. Existing Promise/rejection/
+70-cycle checks pass. Because the shared LibWeb build changed, ordinary headless
+renderer/compositor/process-isolation and actual Firefly/Electron fixtures were
+rerun and also pass. The upstream-helper control uses the same adapted LibWeb with
+no registered worlds, not a bit-identical upstream library. No newer pin was tried.
+Existing linker deployment-target/Rust warnings remain; the locked-desktop visible
+gate remains open despite the passing headless compositor image check.
+
+Public preload/contextBridge/IPC remain unsupported. Promise-returning/rethrowing
+WebIDL variants, call_user_object_operation, typed callback results, timer/observer
+resource cancellation, direct/cross-world transfers, workers/finalization,
+navigation/BFCache and hard queue/CPU/memory bounds still need work. Timer/listener
+coverage is not claimed merely because some share this callback entry. Mite stays
+independent; its previous standalone suites were unchanged and not rerun. Native
+Windows/Linux, COI, packaging and full security audit remain open.
+
+Next: complete remaining callback conversions and timer/listener resource
+revocation, callback membranes and validated IPC with resource/sender/frame limits,
+alongside Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

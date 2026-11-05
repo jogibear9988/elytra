@@ -102,7 +102,10 @@ unregistered/live-world controls (ADR 0031). In-flight job tests also cover last
 external owner release, logical/deferred physical detach and independent target
 Promise settlement (ADR 0032). Source rejection-tracker tests verify foreign
 Promise constructors, later handling, original page tracking and zero source reason
-getter calls (ADR 0033).
+getter calls (ADR 0033). A separate owned LibWeb compile adapter now exercises
+Report-style queueMicrotask callbacks, in-flight lifetime and error redaction
+(ADR 0034). After changing this common library seam, also run check-firefly-renderer
+and check-firefly to validate unregistered callback behavior.
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -123,7 +126,9 @@ helper PIDs, synchronous function calls and revoked removed-frame references
 across 70 cleanup cycles, Promise fulfillment/rejection, retained removed-frame
 Promise rejection, blocked removed-frame Promise jobs, self-removing frames during
 reaction/await/generator jobs, source rejection isolation with page reject/handle
-controls and rejected missing/duplicate entry tokens. A missing executable
+controls, queueMicrotask lifetime/error routing and rejected missing/duplicate entry
+tokens. The upstream-helper control shares the adapted LibWeb but registers no
+owned worlds; its delegation behavior is checked separately. A missing executable
 or failed fixture fails the gate. Only compiled harmless scripts are installed;
 public preload/contextBridge, complete source-job revocation and validated IPC
-remain open. See ADRs 0027–0033.
+remain open. See ADRs 0027–0034.
