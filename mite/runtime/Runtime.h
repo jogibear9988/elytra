@@ -17,6 +17,7 @@ struct HostHooks {
     std::function<JS::ThrowCompletionOr<void>(JS::VM&, JS::Realm&, ModuleLoader&, EventLoop&)> initialize;
     std::function<int(EventLoop&)> drive;
     std::function<void()> shutdown;
+    bool terminate_pending_work_on_stop { false };
 };
 
 int run(int argc, char** argv, HostHooks const& = {});

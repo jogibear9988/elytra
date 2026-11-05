@@ -53,3 +53,30 @@ alone cannot establish correct native presentation. The adapter reuses upstream'
 actual native WebContentView, not the headless view. Windows/Linux window targets
 are not yet implemented. See ADR 0021 for the curated source list, context-menu
 limits and the still-required Mite/Firefly API integration.
+
+## Actual Mite-driven Firefly application (macOS development build)
+
+```sh
+python3 tooling/build_renderer.py --target firefly --jobs 4
+build/renderer/bin/firefly examples/firefly-hello-world/main.cjs
+
+# Install the exact Electron behavioral reference into ignored build/:
+python3 tooling/bootstrap_electron.py
+cmake --build build/renderer --target check-firefly --parallel 4
+```
+
+Firefly runs the real Mite entry module. Both CJS and ESM can import app and
+BrowserWindow from firefly. The reference is Electron 45.2.3, with npm dependencies
+locked under tooling/electron-reference; it is never a Firefly runtime dependency.
+The generated browser+Mite manifest stays outside the upstream checkout. Direct
+test invocation accepts --firefly and --electron paths via tooling/test_firefly.py;
+a missing executable fails. FIREFLY_ELECTRON_REFERENCE is the corresponding CMake
+cache override. The combined graph also retains check-firefly-renderer and
+check-firefly-window. Configure with target firefly before invoking these targets;
+configuring a probe alone disables the Mite-driven target.
+
+The functional gate includes native windows and the Electron comparison. Re-run
+the visible window gate on an unlocked desktop and review its image. The latest
+capture attempt failed because macOS reports the session locked; that remains an
+open acceptance gate. See the compatibility matrix and ADR 0024 for the supported
+subset, polling driver, process boundaries and remaining API/platform work.

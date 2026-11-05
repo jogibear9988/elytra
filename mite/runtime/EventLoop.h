@@ -24,6 +24,7 @@ public:
     int pump_once();
     bool is_alive() const;
     int status() const { return m_status; }
+    bool is_busy() const { return m_running_turn; }
     // Native services share this loop and enter JS only through dispatch().
     uv_loop_t& native_loop() { return m_loop; }
     void dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const&);
@@ -50,6 +51,7 @@ private:
     uint64_t m_next_timer_id { 1 };
     int m_status { 0 };
     bool m_shutting_down { false };
+    bool m_running_turn { false };
     size_t m_pending_work { 0 };
     std::vector<std::function<void()>> m_shutdown_hooks;
     GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_jobs;

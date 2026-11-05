@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and Firefly remain unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
 Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 27 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
@@ -359,8 +359,59 @@ Firefly/Qt/LibWeb dependency was added. Ladybird remains unmodified. These test
 host modules are internal fixtures, not an implemented firefly API or renderer
 bridge. Native Windows/Linux remain unverified.
 
-Next: connect the native window to the shared Mite runtime, use the host registry
-to provide the actual firefly CJS/ESM module and implement app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+The first actual Firefly application now runs on the shared Mite VM with native
+macOS Qt/IOSurface windows and the real Ladybird WebContent/RequestServer/
+Compositor processes. The firefly host module provides app and BrowserWindow to
+both CJS and ESM. It uses Mite's same events/path/url builtins, not a second JS
+runtime or another web engine. The API covers asynchronous readiness, basic
+window registry/controls, loadFile/loadURL promises, cancellable close and explicit
+quit. Unknown options and nondefault security/preload requests fail explicitly.
+The current subset and remaining gaps are in docs/compatibility/firefly-0.1.md.
+examples/firefly-hello-world/main.cjs is a runnable native application.
+
+A shared lifecycle/renderer fixture passes in native Electron 45.2.3 and Firefly:
+ready, did-finish-load before load Promise resolution, cached webContents identity,
+renderer capability absence and process PID, native size/title/show/hide, a first
+cancelled close and the complete closed/window-all-closed/quit event sequence.
+The fixture caches webContents before closed because Electron does not allow
+retrieving it through the destroyed window. A separate static-ESM entry uses
+actual Mite fs/HTTP services to serve and load its page. Additional native tests
+pass for missing files, refused connections without a deadline fallback, unsupported
+security/options, an owned WebContent OS process killed by the harness, fatal main
+callbacks and normal quit with a blocked FIFO worker. Electron is a pinned test
+reference under ignored build/, not a linked/runtime dependency. Its installer and
+npm lockfile are checked in under tooling. Logs: build/firefly-target-test.log,
+build/firefly-test.log and build/electron-bootstrap.log.
+
+Core GUI callbacks enter Mite's dispatch/checkpoint boundary. Nested pumps are
+blocked, and external GUI callbacks defer while a Mite turn is active; the added
+embedding regression verifies ticks/promises do not run inside a nested pump.
+All 27 Mite CTest suites pass (build/test.log). Standalone Mite remains independent
+of Firefly/Qt/LibWeb; Firefly links the appropriate single LibJS copy alongside
+LibWeb. The initial GUI driver polls every millisecond and needs an idle-efficient
+backend. A host-requested stop with pending native work uses _Exit after host
+shutdown; later C++/temporary-profile cleanup on that forced path remains a gap.
+
+A generated dependency manifest adds libuv and pinned llhttp outside the upstream
+checkout. Configure/build guards reject stale or modified generated manifests,
+requiring regeneration after input/pin changes. Qt view sources are compiled once
+in our shared adapter. Ladybird and both upstream manifests stay unmodified.
+No newer upstream candidate was validated. Existing Rust duplicate-symbol and
+newer-macOS deployment-target warnings remain; no older-system or distribution
+support follows from this development build.
+
+The headless gate passes after integration. The native window gate currently
+fails at capture, and visual review of the new example is still open: authoritative
+IORegistry state reports IOConsoleLocked=true and CGSSessionScreenIsLocked=true.
+WindowServer lists the Mite-driven window but not as onscreen. No replacement
+screenshot or false pass is recorded. The earlier native window/input proof remains
+historical; rerun the visible gate and review a fresh image after unlocking.
+ADR 0024 records ownership, API references and these limits. Public preload/IPC,
+Windows/Linux adapters/security, OS lifecycle parity, most desktop APIs and
+packaging remain outstanding; the overall milestones are not complete.
+
+Next: revalidate visible presentation after unlocking; improve navigation/lifecycle
+coverage and implement constrained renderer IPC/preload isolation, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain

@@ -250,7 +250,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         }
     }
     stop_host();
-    if (status && event_loop.has_pending_work()) {
+    if ((status || hooks.terminate_pending_work_on_stop) && event_loop.has_pending_work()) {
         // Fatal termination must not wait for a blocking filesystem worker (e.g.
         // a FIFO with no writer). The OS reclaims requests and handles at exit.
         fflush(nullptr);

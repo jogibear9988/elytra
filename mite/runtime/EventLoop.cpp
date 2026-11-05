@@ -2,6 +2,7 @@
 #include "MiteBootstrap.h"
 
 #include <LibGC/Root.h>
+#include <AK/TemporaryChange.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/ValueInlines.h>
@@ -219,6 +220,7 @@ void EventLoop::dispatch_timer(uv_timer_t* handle)
 void EventLoop::dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const& callback)
 {
     if (m_shutting_down || m_status) return;
+    TemporaryChange turn(m_running_turn,true);
     auto result = callback();
     if (result.is_error()) fail(result.error_value());
     checkpoint();
@@ -263,6 +265,8 @@ bool EventLoop::is_alive() const
 
 int EventLoop::pump_once()
 {
+    if (m_running_turn) return m_status;
+    TemporaryChange turn(m_running_turn,true);
     checkpoint();
     if (!m_status) uv_run(&m_loop, UV_RUN_NOWAIT);
     if (!m_status) checkpoint();

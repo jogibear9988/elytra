@@ -36,6 +36,10 @@ int main(int argc, char** argv)
             pulse = vm.argument(0).as_function();
             return JS::js_undefined();
         }, 1, JS::default_attributes);
+        host->define_native_function(realm,"reenterPump"_utf16,[&loop](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
+            if(!loop.is_busy()) return vm.throw_completion<JS::Error>("External callback must hold a host turn"_utf16);
+            return JS::Value(loop.pump_once());
+        },0,JS::default_attributes);
         auto state = JS::Object::create(realm, nullptr);
         state->define_direct_property("count"_utf16, JS::Value(0), JS::default_attributes);
         host->define_direct_property("state"_utf16, state, JS::default_attributes);

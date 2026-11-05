@@ -8,6 +8,7 @@ import json
 import sys
 
 from check_upstream import check
+from firefly_dependencies import prepare
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -17,9 +18,9 @@ def main():
     parser.add_argument('--build-dir',type=Path,default=ROOT/'build/renderer')
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
-    parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe'],default='firefly-renderer-probe')
+    parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe','firefly'],default='firefly-renderer-probe')
     args=parser.parse_args()
-    if args.target=='firefly-window-probe' and sys.platform!='darwin':
+    if args.target in ['firefly-window-probe','firefly'] and sys.platform!='darwin':
         parser.error('The native window adapter is currently implemented only for macOS')
     if args.jobs<1:parser.error('--jobs must be positive')
     check(ROOT)
@@ -36,6 +37,11 @@ def main():
         f'-DFIREFLY_SOURCE_DIR={ROOT}',f'-DLADYBIRD_CACHE_DIR={ROOT}/build/renderer-cache',
         '-DBUILD_TESTING=OFF','-DENABLE_JS_JIT=OFF','-DENABLE_LTO_FOR_RELEASE=OFF',
         '-DENABLE_LAGOM_CCACHE=OFF','-DENABLE_INSTALL_HEADERS=OFF','-DCMAKE_SKIP_INSTALL_RULES=ON']
+    if args.target=='firefly':
+        manifest=prepare(ROOT,build/'firefly-manifest')
+        command.extend([f'-DVCPKG_MANIFEST_DIR={manifest}', '-DFIREFLY_BUILD_RUNTIME=ON'])
+    else:
+        command.extend([f'-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird', '-DFIREFLY_BUILD_RUNTIME=OFF'])
     environment={**os.environ,'VCPKG_MAX_CONCURRENCY':str(args.jobs)}
     subprocess.run(command,cwd=ROOT,env=environment,check=True)
     if not args.configure_only:

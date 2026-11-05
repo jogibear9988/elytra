@@ -22,6 +22,7 @@ class ModuleLoader {
 public:
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
     JS::ThrowCompletionOr<void> install_globals();
+    JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin_exports(std::string const& name) { return builtin(name); }
     // Trusted native hosts register exports before application entry execution.
     // Only this loader/realm gains the module; Node builtins cannot be replaced.
     JS::ThrowCompletionOr<void> register_host_module(std::string const& name,

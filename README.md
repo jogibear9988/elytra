@@ -5,8 +5,11 @@ Electron-compatible desktop framework. The implementation requirements are in
 [mite-firefly-agent-instructions.md](mite-firefly-agent-instructions.md).
 
 Mite runs a tested subset of Node-style CLI, module, timer, Buffer and filesystem behavior on macOS
-ARM64. General Node compatibility, Firefly and native Windows/Linux validation
-remain work in progress.
+ARM64. Firefly now runs a first native macOS app/BrowserWindow slice on Mite,
+with a shared Electron lifecycle fixture. General compatibility and native
+Windows/Linux validation remain work in progress. See the
+[Firefly development build](docs/development/renderer-build.md) and
+[compatibility matrix](docs/compatibility/firefly-0.1.md).
 See [implementation progress](docs/PROGRESS.md) and the
 [upstream integration decision](docs/architecture/0001-upstream-and-boundaries.md).
 

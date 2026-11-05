@@ -70,6 +70,8 @@ setTimeout(() => console.log(JSON.stringify(log)), 2);
             failed_work = execute(args.host, ['-e', "console.log('must not execute')"],
                                   env={**os.environ, 'MITE_EMBED_FAIL_INIT_WORK_PATH':str(fifo)})
             assert failed_work.returncode == 1 and failed_work.stdout == '' and 'Embedded host failed with pending work' in failed_work.stderr and failed_work.stderr.count('HOST_SHUTDOWN\n') == 1, failed_work
+    reentry = execute(args.host, ['-e', "const log=[];embeddedHost.onPulse(()=>{process.nextTick(()=>log.push('tick'));Promise.resolve().then(()=>log.push('promise'));if(embeddedHost.reenterPump()!==0)throw Error('nested pump status');log.push('host');setTimeout(()=>console.log(JSON.stringify(log)),2);});"])
+    assert reentry.returncode == 0 and json.loads(reentry.stdout) == ['host','tick','promise'], reentry
     print('PASS ESM/fs completion and host-owned liveness with rooted callbacks and checkpoints')
     fatal = execute(args.host, ['-e', "embeddedHost.onPulse(()=>{throw Error('host callback failure')})"])
     assert fatal.returncode == 1 and 'host callback failure' in fatal.stderr and fatal.stderr.count('HOST_SHUTDOWN\n') == 1, fatal
