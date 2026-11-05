@@ -11,3 +11,15 @@ for(const button of document.querySelectorAll('[data-copy]'))button.addEventList
   try{await navigator.clipboard.writeText(code.textContent);document.getElementById('copy-status').textContent='Code copied to clipboard.';button.textContent='Copied ✓';}
   catch{const range=document.createRange();range.selectNodeContents(code);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);document.getElementById('copy-status').textContent='Code selected. Use your system copy command.';button.textContent='Code selected';}
 });
+
+// Native details remain usable without JavaScript; collapse the long menu on phones.
+const documentationMenu=document.querySelector('.doc-nav-shell');
+if(documentationMenu){
+  const smallScreen=matchMedia('(max-width: 760px)');
+  const adaptMenu=()=>{
+    documentationMenu.open=!smallScreen.matches;
+    const outline=document.querySelector('.doc-outline');
+    if(outline)outline.open=!smallScreen.matches;
+  };
+  adaptMenu();smallScreen.addEventListener('change',adaptMenu);
+}

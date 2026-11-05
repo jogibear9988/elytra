@@ -38,6 +38,20 @@ Fonts come from version 5.3.0 Fontsource packages; files, checksums and preserve
 notices are under site/fonts. They are site assets, not Mite/Firefly runtime dependencies.
 The two mascots and favicon are small, owned SVGs rather than external icon/font assets.
 
+## Documentation navigation
+
+The Docs header opens docs/index.md. The builder maintains grouped Start, Concepts,
+API, Application guides, Status and Development navigation, expands the current
+page's category and marks its link with aria-current. Native details controls keep
+navigation usable without JavaScript. On small screens, site.js initially collapses
+the menu and page outline; either can be opened with keyboard/touch.
+
+Page outlines are generated from h2/h3 headings and use the same fragment IDs as
+the content. They sit alongside desktop articles and become an inline control at
+narrower widths. Add new learning/reference sections to the groups in the builder
+and cross-link them from the documentation home. The checker validates generated
+navigation and outline destinations along with source links/assets.
+
 ## Publishing
 
 Work is committed and pushed directly to master at the user's request; no pull

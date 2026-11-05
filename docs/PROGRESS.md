@@ -1592,6 +1592,23 @@ acceptance is claimed. Upstream integrity passes, with no Ladybird/runtime chang
 Windows run 42114277910 still reports dependency configuration in progress; no
 terminal native compiler/runtime result has been observed in this documentation step.
 
+
+Documentation navigation follows the new author-facing structure: the Docs header
+opens the documentation home; six collapsible groups expose guides, concepts,
+reference, migration, compatibility and development. Current category/link are
+marked, h2/h3 generate per-page outlines, and native details remain usable without
+JavaScript. Mobile initially collapses menu/outline; desktop keeps the current
+category visible. This changes documentation layout and the header destination;
+the approved homepage design remains intact.
+
+Validation: 92 generated pages / 4,561 local links/resources/fragments; no source
+Markdown target is missing. Browser UI checks cover home, BrowserWindow reference
+and baseline at 1440/768/390/320, including expanded-menu overflow, active category,
+responsive details and outline fragments. Desktop/mobile captures were visually
+inspected. Existing homepage tab/keyboard/image/font checks also pass at those
+widths. Electron serves only as a website preview/test tool, not product runtime.
+No native runtime test rerun is claimed for this documentation-only change.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
