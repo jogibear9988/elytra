@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import os
 import json
+import sys
 
 from check_upstream import check
 
@@ -16,7 +17,10 @@ def main():
     parser.add_argument('--build-dir',type=Path,default=ROOT/'build/renderer')
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
+    parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe'],default='firefly-renderer-probe')
     args=parser.parse_args()
+    if args.target=='firefly-window-probe' and sys.platform!='darwin':
+        parser.error('The native window adapter is currently implemented only for macOS')
     if args.jobs<1:parser.error('--jobs must be positive')
     check(ROOT)
     vcpkg=ROOT/'build/vcpkg'
@@ -35,7 +39,7 @@ def main():
     environment={**os.environ,'VCPKG_MAX_CONCURRENCY':str(args.jobs)}
     subprocess.run(command,cwd=ROOT,env=environment,check=True)
     if not args.configure_only:
-        subprocess.run(['cmake','--build',str(build),'--target','firefly-renderer-probe','--parallel',str(args.jobs)],cwd=ROOT,check=True)
+        subprocess.run(['cmake','--build',str(build),'--target',args.target,'--parallel',str(args.jobs)],cwd=ROOT,check=True)
     check(ROOT)
 
 

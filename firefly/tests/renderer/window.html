@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Firefly native input fixture</title>
+<style>
+html { background: #14202d; color: #f1f5f9; font: 20px sans-serif; }
+button { position: absolute; left: 40px; top: 30px; width: 160px; height: 60px; }
+input { position: absolute; left: 40px; top: 120px; width: 200px; height: 40px; }
+#status { position: absolute; left: 40px; top: 200px; color: #8fe4b0; }
+</style>
+<button>Click me</button><input aria-label="Type here">
+<div id="status">Waiting for native input</div>
+<script>
+let clicked=false;
+const field=document.querySelector('input');
+function report() {
+  document.querySelector('#status').textContent =
+    `${clicked ? 'CLICK_OK' : 'CLICK_PENDING'} ${field.value === 'a' ? 'KEY_OK' : 'KEY_PENDING'} ${innerWidth === 800 && innerHeight === 500 ? 'RESIZE_OK' : 'RESIZE_PENDING'}`;
+}
+document.querySelector('button').onclick=()=>{clicked=true;report();};
+field.oninput=report;
+onresize=report;
+</script>

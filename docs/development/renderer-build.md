@@ -33,3 +33,23 @@ API implementation. Native macOS ARM64 build/runtime checks passed, including vi
 build/renderer-artifacts/page.png. See docs/PROGRESS.md for the tested host and
 limits. Dependency deployment-target warnings preclude claiming support for older
 macOS versions without further native tests.
+
+## Native window gate (macOS only)
+
+```sh
+python3 tooling/build_renderer.py --target firefly-window-probe
+cmake --build build/renderer --target check-firefly-window --parallel 4
+# Or exercise an already built executable:
+python3 tooling/test_window.py --probe build/renderer/bin/firefly-window-probe
+# Open a document manually (30-second probe deadline):
+build/renderer/bin/firefly-window-probe file:///absolute/path/to/index.html
+```
+
+The test opens real windows briefly. It injects Qt mouse/key events, verifies DOM
+results after resize and navigation, closes the window, then kills an observed
+WebContent child to check crash handling. It writes the native-window capture to
+build/renderer-artifacts/window.png. Visually review that image; PNG metadata
+alone cannot establish correct native presentation. The adapter reuses upstream's
+actual native WebContentView, not the headless view. Windows/Linux window targets
+are not yet implemented. See ADR 0021 for the curated source list, context-menu
+limits and the still-required Mite/Firefly API integration.

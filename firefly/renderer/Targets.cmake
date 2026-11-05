@@ -16,3 +16,7 @@ add_custom_target(check-firefly-renderer
         --probe "$<TARGET_FILE:firefly-renderer-probe>"
     DEPENDS firefly-renderer-probe
     USES_TERMINAL VERBATIM)
+
+if(APPLE)
+    include("${FIREFLY_SOURCE_DIR}/firefly/native/qt/Targets.cmake")
+endif()

@@ -276,14 +276,43 @@ are not committed. The unchanged standalone Mite still links only platform
 libraries, with no LibWeb/Qt/Node/V8 dependency. Its existing 25 suites passed in
 the preceding HTTP commit; renderer checks are separate, not counted among them.
 
-This is not yet a Mite-driven Firefly application, native window, preload bridge
+This headless probe is not a Mite-driven Firefly application, preload bridge
 or public Electron API. Native Windows/Linux remain unverified, and the pinned
 Windows renderer sandbox is a no-op requiring an actual platform implementation.
 The browser dependency link emits newer macOS deployment-target warnings; running
 on this host establishes no older-macOS support or distributable packaging claim.
 ADR 0020 and docs/development/renderer-build.md record boundaries and reproduction.
 
-Next: implement native-window integration and Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
+The next native macOS gate now builds a Firefly-owned QWidget window using
+Ladybird's actual, unchanged WebContentView and Qt event-loop sources. Native
+IOSurface/Core Animation presentation, input translation, resize and accessibility
+code are reused directly from the pin. A small context-menu adapter avoids the
+upstream menu callback's dependency on its tabbed browser Application. Context
+menus currently take a snapshot with weak action references; live menu updates,
+shortcuts/icons and public Electron Menu behavior remain unverified.
+
+`check-firefly-window` passes the native fixture: Qt-injected mouse/key events reach
+LibWeb, DOM confirms CLICK_OK/KEY_OK and an 800x500 CSS viewport, a second local
+navigation executes JS, and closing the real window ends the loop. The native
+QScreen capture was visually reviewed at 1600x1000 pixels on this HiDPI host and
+shows the button, typed a and all three success markers. A separate run identifies
+the loaded WebContent as an OS child, kills it and requires an explicit crash
+error and exit code 1. This is real native presentation with toolkit-injected
+input, not proof of all OS input/IME/accessibility/beforeunload behavior. Logs:
+build/window-build.log and build/window-target-test.log; image:
+build/renderer-artifacts/window.png. CLI help and missing-binary failure are also
+checked. The existing headless renderer gate still passes. All generated outputs
+remain ignored. Deployment-target linker warnings and nonfatal teardown/host task
+policy messages remain; no older-macOS or distribution claim follows.
+
+The window target is enabled only on macOS, with Windows/Linux dependency wiring
+and runtime/security gates outstanding. No Mite code changed in this slice; its
+25 suites were not rerun. Public app/BrowserWindow, Mite GUI event-loop integration,
+preload and contextBridge remain unsupported. ADR 0021 records the adapter seam,
+verification scope and next integration steps. Ladybird remains unmodified.
+
+Next: connect the native window to the real Mite runtime and implement the
+app/BrowserWindow lifecycle, alongside Windows process/sandbox feasibility. Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.
 Timer refresh, timeout warnings, immediates and process events remain
