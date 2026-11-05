@@ -12,6 +12,9 @@
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/DOM/MutationObserver.h>
+#include <LibWeb/DOM/DOMEventListener.h>
+#include <LibWeb/DOM/IDLEventListener.h>
+#include <LibWeb/DOM/AbortSignal.h>
 #include <LibWeb/DOM/MutationRecord.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibJS/Runtime/Array.h>
@@ -44,6 +47,21 @@ struct WorldJobGuard::State : public RefCounted<State> {
         GC::Weak<Web::DOM::MutationObserver> observer;
     };
     Vector<ObserverRecord> observers;
+    struct ListenerRecord {
+        GC::Weak<JS::Realm> realm;
+        GC::Weak<Web::DOM::EventTarget> target;
+        GC::Weak<Web::DOM::DOMEventListener> listener;
+    };
+    struct SignalRecord {
+        GC::Weak<JS::Realm> realm;
+        GC::Weak<Web::DOM::DOMEventListener> listener;
+        GC::Weak<Web::DOM::AbortSignal> signal;
+        u64 id;
+    };
+    Vector<ListenerRecord> listeners;
+    Vector<SignalRecord> listener_signals;
+    size_t canceled_listeners { 0 };
+    size_t canceled_listener_signals { 0 };
     size_t canceled_observers { 0 };
     size_t canceled_timers { 0 };
     size_t blocked { 0 };
@@ -66,9 +84,84 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->remove_observer(observer);
         },+[](void* context, Web::WebIDL::CallbackType& callback, Web::DOM::Event& event) {
             return static_cast<State*>(context)->invoke_listener(callback, event);
+        },+[](void* context, Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener) {
+            static_cast<State*>(context)->change_listener(target, listener);
+        },+[](void* context, Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener, u64 id) {
+            static_cast<State*>(context)->add_listener_signal(target, listener, id);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    void release_signals(Web::DOM::DOMEventListener& listener)
+    {
+        Vector<SignalRecord> removed;
+        listener_signals.remove_all_matching([&](auto const& record) {
+            if (record.listener.ptr().ptr() == &listener) { removed.append(record); return true; }
+            return !record.realm.ptr() || !record.signal.ptr() || !record.listener.ptr();
+        });
+        for (auto const& record : removed) if (record.signal.ptr()) Callbacks::remove_signal_algorithm(*record.signal.ptr(), record.id);
+    }
+    void change_listener(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener)
+    {
+        if (listener.removed) {
+            listeners.remove_all_matching([&](auto const& record) { return record.listener.ptr().ptr() == &listener; });
+            release_signals(listener);
+        } else if (listener.callback) {
+            auto& realm = Callbacks::callback_realm(listener.callback->callback());
+            if (realms.contains(realm)) {
+                listeners.remove_all_matching([](auto const& record) { return !record.realm.ptr() || !record.target.ptr() || !record.listener.ptr(); });
+                auto owner = owner_for(realm);
+                if (!owner || (owner->is_detached() && !owner->is_executing())) {
+                    Callbacks::remove_listener(target, listener);
+                    ++canceled_listeners;
+                    return;
+                }
+                listeners.append({ realm, target, listener });
+                return;
+            }
+        }
+        if (previous_gate.listener_changed) previous_gate.listener_changed(previous_gate.context, target, listener);
+    }
+    void add_listener_signal(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener, u64 id)
+    {
+        if (listener.callback && listener.signal) {
+            auto& realm = Callbacks::callback_realm(listener.callback->callback());
+            if (realms.contains(realm)) {
+                auto owner = owner_for(realm);
+                if (!owner || (owner->is_detached() && !owner->is_executing()) || listener.removed) {
+                    Callbacks::remove_signal_algorithm(*listener.signal, id);
+                    ++canceled_listener_signals;
+                    return;
+                }
+                listener_signals.remove_all_matching([](auto const& record) { return !record.realm.ptr() || !record.listener.ptr() || !record.signal.ptr(); });
+                listener_signals.append({ realm, listener, *listener.signal, id });
+                return;
+            }
+        }
+        if (previous_gate.listener_signal) previous_gate.listener_signal(previous_gate.context, target, listener, id);
+    }
+    void cancel_listeners(JS::Realm& realm)
+    {
+        // Remove metadata first so native remove/notification reentry sees a
+        // consistent registry. Root all affected objects until cleanup finishes.
+        struct Removal { GC::Root<Web::DOM::EventTarget> target; GC::Root<Web::DOM::DOMEventListener> listener; };
+        struct SignalRemoval { GC::Root<Web::DOM::AbortSignal> signal; u64 id; };
+        Vector<Removal> removed;
+        Vector<SignalRemoval> signals;
+        listeners.remove_all_matching([&](auto const& record) {
+            if (record.realm.ptr().ptr() == &realm && record.target.ptr() && record.listener.ptr()) {
+                removed.append({ GC::Root { *record.target.ptr() }, GC::Root { *record.listener.ptr() } }); return true;
+            }
+            return !record.realm.ptr() || !record.target.ptr() || !record.listener.ptr();
+        });
+        listener_signals.remove_all_matching([&](auto const& record) {
+            if (record.realm.ptr().ptr() == &realm && record.signal.ptr()) {
+                signals.append({ GC::Root { *record.signal.ptr() }, record.id }); return true;
+            }
+            return !record.realm.ptr() || !record.signal.ptr() || !record.listener.ptr();
+        });
+        for (auto const& signal : signals) { Callbacks::remove_signal_algorithm(*signal.signal, signal.id); ++canceled_listener_signals; }
+        for (auto const& record : removed) { Callbacks::remove_listener(*record.target, *record.listener); ++canceled_listeners; }
+    }
     JS::Completion invoke_listener(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event)
     {
         auto delegate = [&] {
@@ -385,7 +478,7 @@ ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
     if (m_state->realms.contains(*realm)) return {};
     m_state->realms.set(*realm, owner.make_weak_ptr());
     owner.add_detach_hook([state = m_state, realm = GC::Weak<JS::Realm> { *realm }] {
-        if (realm.ptr()) { state->cancel_timers(*realm.ptr()); state->cancel_observers(*realm.ptr()); }
+        if (realm.ptr()) { state->cancel_timers(*realm.ptr()); state->cancel_observers(*realm.ptr()); state->cancel_listeners(*realm.ptr()); }
     });
     return {};
 }
@@ -403,6 +496,16 @@ Vector<GC::Root<Web::DOM::MutationObserver>> WorldJobGuard::owned_observer_snaps
     for (auto const& record : m_state->observers) if (record.observer.ptr()) result.append(GC::Root { *record.observer.ptr() });
     return result;
 }
+Vector<GC::Root<Web::DOM::DOMEventListener>> WorldJobGuard::owned_listener_snapshot() const
+{
+    Vector<GC::Root<Web::DOM::DOMEventListener>> result;
+    for (auto const& record : m_state->listeners) if (record.listener.ptr()) result.append(GC::Root { *record.listener.ptr() });
+    return result;
+}
+size_t WorldJobGuard::owned_listener_count() const { return m_state->listeners.size(); }
+size_t WorldJobGuard::owned_listener_signal_count() const { return m_state->listener_signals.size(); }
+size_t WorldJobGuard::canceled_listener_count() const { return m_state->canceled_listeners; }
+size_t WorldJobGuard::canceled_listener_signal_count() const { return m_state->canceled_listener_signals; }
 size_t WorldJobGuard::owned_observer_count() const { return m_state->observers.size(); }
 size_t WorldJobGuard::canceled_observer_count() const { return m_state->canceled_observers; }
 size_t WorldJobGuard::owned_timer_count() const { return m_state->timers.size(); }

@@ -7,6 +7,7 @@
 #include <LibWeb/HTML/WindowOrWorkerGlobalScope.h>
 #include <LibWeb/DOM/EventTarget.h>
 #include <LibWeb/DOM/MutationObserver.h>
+#include <LibWeb/DOM/AbortSignal.h>
 // Preserve the unrelated class member declaration under this token name.
 #include <LibWeb/PerformanceTimeline/PerformanceObserver.h>
 namespace Web::WebIDL {
@@ -56,6 +57,28 @@ void restore_gate(JS::VM& vm, void* context, Gate previous)
     if (!current.has_value() || current->context != context) return;
     if (previous.invoke) gates->set(&vm, previous);
     else gates->remove(&vm);
+}
+void listener_changed(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener)
+{
+    auto gate = gates->get(&target.vm());
+    if (gate.has_value() && gate->listener_changed) gate->listener_changed(gate->context, target, listener);
+}
+void listener_signal(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener, u64 id)
+{
+    auto gate = gates->get(&target.vm());
+    if (gate.has_value() && gate->listener_signal) gate->listener_signal(gate->context, target, listener, id);
+}
+void remove_listener(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener) { target.remove_an_event_listener(listener); }
+bool has_listener(Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener)
+{
+    auto entries = target.event_listener_list_matching(listener.type, {});
+    return entries.contains([&](auto const& entry) { return entry.ptr() == &listener; });
+}
+void remove_signal_algorithm(Web::DOM::AbortSignal& signal, u64 id)
+{
+    // An abort in progress iterates this map; it clears it itself immediately
+    // afterwards. Do not mutate its iterator from a reentrant native cleanup.
+    if (!signal.aborted()) signal.remove_abort_algorithm(id);
 }
 JS::Completion dispatch_listener(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event)
 {

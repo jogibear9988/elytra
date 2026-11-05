@@ -112,3 +112,9 @@ native Event/receiver wrapping. Getter/proxy/last-owner detach and source error
 privacy have SDK/helper coverage (ADR 0037). Page listeners keep working. Listener
 registration removal, handler attributes and script-valued event fields remain
 open; this does not enable public preload or a general callback membrane.
+
+Internal source listener registrations and exact signal abort algorithms now release
+at physical world detach, including duplicate registration and callbacks registering
+after logical detach. Native-state/GC and helper page-listener/signal controls pass
+(ADR 0038). Handler attributes, other observers and script-valued event fields remain
+open; public preload/contextBridge/IPC remain unsupported.

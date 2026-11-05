@@ -8,7 +8,8 @@ addEventListener('error',event=>{
  event.preventDefault();
  if(event.error==='page-listener-control')pageErrors++;else sourceErrors++;
 });
-document.addEventListener('firefly-listener',()=>pageCalls++);
+const controller=new AbortController();
+document.addEventListener('firefly-listener',()=>pageCalls++,{signal:controller.signal});
 document.addEventListener('firefly-error-control',()=>{throw 'page-listener-control'});
 __fireflyFunctionProbe({mode:'start-listeners'});
 const canceled=!document.dispatchEvent(new Event('firefly-listener',{cancelable:true}));
@@ -16,6 +17,8 @@ document.dispatchEvent(new Event('firefly-error-control'));
 let denied=false;
 try{__fireflyFunctionProbe({mode:'detach-world'})}catch(e){denied=e instanceof TypeError}
 const continued=document.dispatchEvent(new Event('firefly-listener',{cancelable:true}));
+controller.abort();
+document.dispatchEvent(new Event('firefly-listener',{cancelable:true}));
 setTimeout(()=>{
  const ok=canceled && continued && denied && pageCalls===2 && pageErrors===1 && sourceErrors===0 &&
   document.documentElement.getAttribute('data-source-listener')==='1:true' &&

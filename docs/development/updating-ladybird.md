@@ -86,6 +86,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    sources cannot reach wrapper creation or handleEvent lookup. Keep function/
    object/getter/proxy, receiver/cancelation, last-owner/context/GC and live-page
    error controls. Generic WebIDL operations and event handlers are separate paths.
+   The same listener TU observes the original event_listener_list_changed calls
+   and maps the returned abort algorithm ID without replacing its closure. Keep
+   all virtual declarations preincluded (EventTarget, WebSocket, XMLHttpRequest,
+   RustEventTarget), two notification tokens and one abort token. Review original
+   add/remove/once/capture ordering, duplicate signal registrations, Optional::map
+   and AbortSignal's aborted flag/iteration/clear order. Preserve exact signal-ID
+   removal, in-flight late registration and native-GC evidence with rooted signals;
+   page listener/signal controls must continue to pass.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

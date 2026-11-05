@@ -4,6 +4,11 @@
 #include "CallbackGate.h"
 #include <LibWeb/HTML/Timer.h>
 #include <LibWeb/DOM/MutationObserver.h>
+#include <LibWeb/DOM/DOMEventListener.h>
+#include <LibWeb/DOM/IDLEventListener.h>
+#include <LibWeb/DOM/Event.h>
+#include <LibWeb/DOM/AbortSignal.h>
+#include <LibWeb/Bindings/Wrappable.h>
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -124,6 +129,8 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     for (auto mode : { 0, 1, 2, 3, 4, 5, 6 }) {
         auto timers_before=guard.owned_timer_count();
         auto canceled_before=guard.canceled_timer_count();
+        auto listeners_before=guard.owned_listener_count(),signals_before=guard.owned_listener_signal_count();
+        auto listener_canceled_before=guard.canceled_listener_count(),signal_canceled_before=guard.canceled_listener_signal_count();
         RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
         TRY(guard.protect(*transient));
         GC::Root realm { *transient->realm() };
@@ -145,6 +152,8 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
                 const deferred=requestAsyncDetach();
                 document.documentElement.setAttribute('data-inflight',deferred?'safe':'BAD');
                 setTimeout(()=>document.documentElement.setAttribute('data-late-timer','BAD'),60000);
+                const controller=new AbortController();
+                document.addEventListener('firefly-after-detach',()=>{},{signal:controller.signal});
                 Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
             };
             true;
@@ -165,6 +174,9 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
             return Error::from_string_literal("In-flight job retained its owner or failed physical detach/context restoration");
         if(guard.owned_timer_count()!=timers_before || guard.canceled_timer_count()!=canceled_before+1)
             return Error::from_string_literal("Timer created after logical detach escaped physical cleanup");
+        if(guard.owned_listener_count()!=listeners_before || guard.owned_listener_signal_count()!=signals_before ||
+            guard.canceled_listener_count()!=listener_canceled_before+(mode>=4?2:1) || guard.canceled_listener_signal_count()!=signal_canceled_before+1)
+            return Error::from_string_literal("Listener/signal created after logical detach escaped cleanup");
         vm.heap().collect_garbage();
     }
     outln("PASS running reaction/await/generator/microtask/listener/getter/proxy callbacks retain owners and defer detach");
@@ -371,12 +383,81 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         if(checked.is_error() || !checked.value().as_bool() || guard.source_job_error_count()!=errors_before+2)
             return Error::from_string_literal("Event listener identity/arguments/error privacy failed");
         auto blocked_before=guard.blocked_count();
+        auto snapshot=guard.owned_listener_snapshot();
+        auto canceled_before=guard.canceled_listener_count();
         listeners->detach();
+        if(snapshot.size()!=4 || guard.canceled_listener_count()!=canceled_before+4)
+            return Error::from_string_literal("Native listener detach did not cancel specific entries");
+        auto event=Web::DOM::Event::create(document.window()->principal_realm().global_object(), "firefly-listener"_fly_string);
+        for(auto const& listener:snapshot) {
+            if(!listener->removed || Firefly::Callbacks::has_listener(document,*listener))
+                return Error::from_string_literal("Detached listener remained in target map");
+            // A retained native dispatch reference must still be denied before
+            // wrapper construction, even after targeted registration removal.
+            auto denied=Firefly::Callbacks::dispatch_listener(listener->callback->callback(),*event);
+            if(denied.type()!=JS::Completion::Type::Normal)return Error::from_string_literal("Retained listener dispatch was not denied safely");
+        }
         TRY(page_check(u"document.dispatchEvent(new Event('firefly-listener',{cancelable:true}))===true && pageListenerRuns===2"sv));
         if(guard.blocked_count()!=blocked_before+4 || guard.source_job_error_count()!=errors_before+2)
             return Error::from_string_literal("Detached event listener/getter ran or page listener was blocked");
     }
     outln("PASS source function/object listeners preserve receiver/Event wrappers/cancelation, redact errors and block detached getters");
+    {
+        auto owned=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*owned));
+        ScopeGuard detach_owned([&]{owned->detach();});
+        auto before=guard.owned_listener_count(),signals_before=guard.owned_listener_signal_count();
+        auto setup=owned->evaluate(uR"JS(
+            globalThis.controller=new AbortController();globalThis.signal=controller.signal;
+            globalThis.listenerFunction=()=>{};
+            document.addEventListener('firefly-resources',listenerFunction,{signal});
+            document.addEventListener('firefly-resources',listenerFunction,{signal});
+            document.addEventListener('firefly-resources',listenerFunction,{signal,capture:true});
+            signal;
+        )JS"sv);
+        if(setup.is_error() || guard.owned_listener_count()!=before+2 || guard.owned_listener_signal_count()!=signals_before+3)
+            return Error::from_string_literal("Duplicate/capture listener or signal ownership incorrect");
+        auto signal_value=setup.release_value();
+        auto* native_signal=Web::Bindings::impl_from<Web::DOM::AbortSignal>(&signal_value.as_object());
+        if(!native_signal)return Error::from_string_literal("Missing native listener AbortSignal");
+        GC::Root signal_root { *native_signal };
+        auto explicit_remove=owned->evaluate(u"document.removeEventListener('firefly-resources',listenerFunction);true"sv);
+        if(explicit_remove.is_error() || guard.owned_listener_count()!=before+1 || guard.owned_listener_signal_count()!=signals_before+2)
+            return Error::from_string_literal("Explicit listener remove did not release exact abort algorithm");
+        auto abort=owned->evaluate(u"controller.abort();true"sv);
+        if(abort.is_error() || guard.owned_listener_count()!=before || guard.owned_listener_signal_count()!=signals_before+1)
+            return Error::from_string_literal("Abort listener removal failed or changed iteration");
+        // The duplicate native closure belongs to an entry not inserted in the
+        // target list. It is still accounted for until world detach.
+        auto once=owned->evaluate(u"document.addEventListener('firefly-once',()=>{},{once:true});true"sv);
+        if(once.is_error() || guard.owned_listener_count()!=before+1)return Error::from_string_literal("Once listener not tracked");
+        TRY(page_check(u"document.dispatchEvent(new Event('firefly-once'));true"sv));
+        if(guard.owned_listener_count()!=before)return Error::from_string_literal("Once listener retained ownership");
+        auto pending=owned->evaluate(uR"JS(
+            globalThis.liveController=new AbortController();
+            document.addEventListener('firefly-pending',()=>{},{signal:liveController.signal});
+            liveController.signal;
+        )JS"sv);
+        if(pending.is_error())return Error::from_string_literal("Cannot create pending abort listener");
+        auto live_value=pending.release_value();
+        GC::Root live_signal { *Web::Bindings::impl_from<Web::DOM::AbortSignal>(&live_value.as_object()) };
+        vm.heap().collect_garbage();
+        auto snapshot=guard.owned_listener_snapshot();
+        if(snapshot.size()!=1 || !Firefly::Callbacks::has_listener(document,*snapshot[0]))return Error::from_string_literal("Listener map/abort GC roots failed");
+        GC::Weak weak_listener { *snapshot[0] };
+        auto canceled_before=guard.canceled_listener_count(),signal_canceled_before=guard.canceled_listener_signal_count();
+        owned->detach();
+        if(guard.owned_listener_count()!=before || guard.owned_listener_signal_count()!=signals_before ||
+            guard.canceled_listener_count()!=canceled_before+1 || guard.canceled_listener_signal_count()!=signal_canceled_before+2 ||
+            !snapshot[0]->removed || Firefly::Callbacks::has_listener(document,*snapshot[0]))
+            return Error::from_string_literal("Listener/signal physical cleanup did not finish");
+        snapshot.clear();
+        // Both native signals remain strongly rooted. Their abort closures must
+        // no longer retain the removed listener after source teardown.
+        vm.heap().collect_garbage();
+        if(weak_listener.ptr())return Error::from_string_literal("Live signal retained detached native listener");
+    }
+    outln("PASS listener capture/duplicates/explicit-remove/once/abort and targeted native signal cleanup with GC");
     auto callback_errors_before=guard.source_job_error_count();
     auto micro_errors=other->evaluate(u"globalThis.callbackReasonTraps=0;queueMicrotask(()=>{throw new Proxy({}, {get(){callbackReasonTraps++;throw 1}})});true"sv);
     if(micro_errors.is_error())return Error::from_string_literal("Cannot schedule microtask exception fixture");

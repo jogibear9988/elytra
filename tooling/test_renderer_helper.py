@@ -4,7 +4,7 @@ import argparse
 import re
 from pathlib import Path
 from test_renderer import ROOT,run
-from check_renderer_hooks import HOOKS,verify_text
+from check_renderer_hooks import EXPECTED_COUNTS,HOOKS,verify_text
 
 
 def pid_of(result):
@@ -67,12 +67,14 @@ def main():
     pid=pid_of(listeners)
     failures=[int(n) for n in re.findall(rf'FIREFLY_WORLD_FAILURES_REDACTED pid={pid} rejections=\d+ job_errors=(\d+)',listeners.stderr)]
     assert failures and max(failures)>=2,listeners
-    blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',listeners.stderr)]
-    assert blocked and max(blocked)>=4,listeners
+    canceled=[(int(n),int(s)) for n,s in re.findall(rf'FIREFLY_WORLD_LISTENERS_CANCELED pid={pid} count=(\d+) signals=(\d+)',listeners.stderr)]
+    assert canceled and any(n>=4 and s>=2 for n,s in canceled),listeners
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
-    for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state','invoke_callback','invoke_event_listener','m_timers','m_node_list']:
-        for changed in ['',name+' '+name]:
+    for name in {name for names in HOOKS.values() for name in names}:
+        expected=EXPECTED_COUNTS.get(name,1)
+        verify_text(' '.join([name]*expected),[name])
+        for changed in ['', ' '.join([name]*(expected+1))]:
             try:verify_text(changed,[name])
             except ValueError:pass
             else:raise AssertionError('Changed entry adapter accepted')
@@ -86,7 +88,7 @@ def main():
     print('PASS source rejection objects/functions stay private; page reject/handle events remain')
     print('PASS source interval/timeout native cancellation leaves the document and page interval live')
     print('PASS source observer wrappers resist page prototypes; native disconnect leaves page observers live')
-    print('PASS source function/object listener lifetime, detached getters and error privacy; page listeners continue')
+    print('PASS source listener lifetime/error privacy and native registration/signal release; page listener/abort continues')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

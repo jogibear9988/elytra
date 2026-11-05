@@ -45,6 +45,8 @@ struct Session {
     size_t reported_jobs { 0 };
     size_t reported_timers { 0 };
     size_t reported_observers { 0 };
+    size_t reported_listeners { 0 };
+    size_t reported_listener_signals { 0 };
     size_t reported_rejections { 0 };
     size_t reported_job_errors { 0 };
 };
@@ -126,12 +128,15 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                     'use strict';
                     if(a.mode==='start-listeners') {
                         let count=0,gets=0;
-                        document.addEventListener('firefly-listener',function(event){
+                        const controller=new AbortController();
+                        const listener=function(event){
                             const valid=this===document && event.target===document &&
                                 Object.getPrototypeOf(event)===Event.prototype && !event.sourceEventPoison;
                             document.documentElement.setAttribute('data-source-listener',String(++count)+':'+valid);
                             event.preventDefault();
-                        });
+                        };
+                        document.addEventListener('firefly-listener',listener,{signal:controller.signal});
+                        document.addEventListener('firefly-listener',listener,{signal:controller.signal});
                         const object={get handleEvent(){
                             document.documentElement.setAttribute('data-source-listener-gets',String(++gets));
                             return function(event){document.documentElement.setAttribute('data-source-listener-object',String(this===object && event.currentTarget===document));};
@@ -260,6 +265,13 @@ void initialize()
             if (observers != session->reported_observers) {
                 session->reported_observers = observers;
                 warnln("FIREFLY_WORLD_OBSERVERS_CANCELED pid={} count={}", Core::System::getpid(), observers);
+            }
+            auto listeners = session->jobs->canceled_listener_count();
+            auto signals = session->jobs->canceled_listener_signal_count();
+            if (listeners != session->reported_listeners || signals != session->reported_listener_signals) {
+                session->reported_listeners = listeners;
+                session->reported_listener_signals = signals;
+                warnln("FIREFLY_WORLD_LISTENERS_CANCELED pid={} count={} signals={}", Core::System::getpid(), listeners, signals);
             }
             auto rejections = session->jobs->source_rejection_count();
             auto errors = session->jobs->source_job_error_count();

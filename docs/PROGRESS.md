@@ -852,7 +852,47 @@ remain open. Public preload/contextBridge/IPC stay rejected. No complete reclama
 new platform/package/audit or visible-desktop support is claimed. Standalone Mite
 is unchanged; its previous suites were not rerun. No newer upstream pin was tried.
 
-Next: complete other observer/listener resources and remaining callback conversions,
+Native listener/signal resources now release with their owning world (ADR 0038).
+The existing EventTarget adapter preserves the original virtual list-changed call,
+then observes its two successful add/remove sites. Preincluded original virtual
+headers preserve class declarations. The original abort algorithm expression maps
+its actual returned Optional ID and records exact signal/ID without replacing its
+closure. This also catches duplicate registrations that create an abort algorithm
+without inserting a native listener. No additional TU seam or vendor changes.
+
+Weak registries track source listener and signal ownership independently. Explicit
+remove/once/abort update listener metadata; exact normal signal removal releases
+its recorded closure too. Physical detach erases metadata before rooted native
+cleanup, removes exact signal IDs and calls original targeted listener removal.
+Never clear all listeners or abort a shared signal. Aborted signals finish clearing
+their own algorithm map, avoiding reentrant iterator mutation. Counters describe
+cleanup requests; aborted duplicate bookkeeping may remain weak until pruning.
+Late registrations inside logically detached but executing frames are included at
+physical teardown, with invalid owners cleaned at the native boundary.
+
+SDK tests pass in build/listener-resources-test.log. Native SDK, ordinary renderer/
+compositor/process and Firefly/Electron reference pass in
+build/listener-resources-acceptance-test.log. Its helper behavior passed, but the
+final synthetic guard test wrongly treated the expected two notification tokens
+as invalid. The test now derives valid/missing/extra counts from the same named
+count table as the guard. The complete helper gate passes in
+build/listener-resources-helper-final-test.log. Tests cover duplicate/
+capture/once/abort/explicit removal, actual target list absence and native removed
+flags, retained dispatch refs denied by the earlier guard, and GC before snapshots.
+A native listener is collected after detach even while its signal is strongly
+rooted. In-flight job/listener/getter/proxy cases create listeners/signals after
+logical detach and require complete targeted cleanup. Helper matching-PID counters
+require four source entries/two signal algorithms removed; source results stay
+stable while page listeners and later page signal abort continue. No newer pin was
+tried; Ladybird remains unchanged. Existing linker/deployment warnings persist.
+
+Public preload/contextBridge/IPC remain rejected. Handler attributes, generic
+WebIDL object operations, script-valued event fields, other observer kinds/results,
+direct transfers, workers/finalization, navigation/BFCache and hard bounds remain
+open. No complete reclamation, new platform/package/audit or visible-desktop support
+is claimed. Standalone Mite is unchanged and its earlier suites were not rerun.
+
+Next: complete other observer resources, handler attributes and callback conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around
