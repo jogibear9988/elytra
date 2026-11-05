@@ -1403,6 +1403,28 @@ zeroization/audit and native Windows/Linux validation remain open. Public preloa
 contextBridge/IPC, packaging and broader milestones remain incomplete. Existing
 SDK/linker/locked-desktop limits persist; no newer upstream pin was evaluated.
 
+The user requested regular pushes, a GitHub Pages project/API website, release
+build automation and a pinned web-component-designer-demo app for macOS/Windows.
+The implementation branch through 063123d has been pushed to origin. HMAC work was
+not started; the publication/release/sample request is the current priority.
+
+The new static homepage describes both Mite and Firefly, with original styling
+inspired by Electron/Node/Bun, responsive code tabs and explicit support boundaries.
+Markdown API references document the implemented Mite/Firefly signatures, events,
+errors and examples. The pinned markdown-it build renders the existing architecture,
+compatibility and development docs too. GitHub Pages uses an SHA-pinned Actions
+workflow; pull requests build/check without deployment. Local validation: 66 generated
+pages and 1,087 local link/resource/fragment checks, desktop/mobile tab keyboard
+behavior and overflow checks, plus visually inspected 1440/390 captures in build/.
+No runtime or upstream change. Native test results remain the previous 35 suites.
+
+Release/sample work remains in progress: demo source 0b3c56bcd30c8047b14f847c7ec1ffab114cc597
+was inspected and its locked npm dependencies installed with scripts disabled;
+its explicit Monaco build and TypeScript compilation pass locally. This does not
+prove it runs in Ladybird. Firefly still lacks native Windows/Linux desktop adapters,
+a redistributable package layout, relocation/resource tests and signing. Those are
+required before claiming downloadable Windows/macOS apps or a complete release.
+
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
