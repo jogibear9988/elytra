@@ -44,6 +44,7 @@ struct Session {
     size_t destroyed { 0 };
     size_t reported_jobs { 0 };
     size_t reported_timers { 0 };
+    size_t reported_observers { 0 };
     size_t reported_rejections { 0 };
     size_t reported_job_errors { 0 };
 };
@@ -123,6 +124,19 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='start-observer') {
+                        let count=0;
+                        const observer=new MutationObserver(function(records,same) {
+                            const valid=same===observer && this===observer &&
+                                Object.getPrototypeOf(records)===Array.prototype && records.observerTrap===undefined &&
+                                Object.getPrototypeOf(same)===MutationObserver.prototype && !same.observerPoison &&
+                                records.every(record=>Object.getPrototypeOf(record)===MutationRecord.prototype &&
+                                    !record.observerPoison && record.target===document.documentElement);
+                            document.documentElement.setAttribute('data-source-observer',String(++count)+':'+valid);
+                        });
+                        observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-observer-input']});
+                        return true;
+                    }
                     if(a.mode==='start-timers') {
                         globalThis.__sourceTimerTicks=0;
                         setInterval(()=>document.documentElement.setAttribute('data-source-interval',String(++__sourceTimerTicks)),0);
@@ -212,6 +226,11 @@ void initialize()
             if (timers != session->reported_timers) {
                 session->reported_timers = timers;
                 warnln("FIREFLY_WORLD_TIMERS_CANCELED pid={} count={}", Core::System::getpid(), timers);
+            }
+            auto observers = session->jobs->canceled_observer_count();
+            if (observers != session->reported_observers) {
+                session->reported_observers = observers;
+                warnln("FIREFLY_WORLD_OBSERVERS_CANCELED pid={} count={}", Core::System::getpid(), observers);
             }
             auto rejections = session->jobs->source_rejection_count();
             auto errors = session->jobs->source_job_error_count();

@@ -135,4 +135,7 @@ also requires a source interval to stop while an existing page interval and the
 document remain live. A missing executable
 or failed fixture fails the gate. Only compiled harmless scripts are installed;
 public preload/contextBridge, complete source-job revocation and validated IPC
-remain open. See ADRs 0027–0035.
+remain open. MutationObserver coverage additionally checks source wrapper/prototype
+identity despite page poisoning, explicit disconnect/re-observe accounting, native
+node/record cleanup and continued page delivery after source detach. See ADRs
+0027–0036.

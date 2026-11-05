@@ -783,7 +783,41 @@ still need work. No complete realm reclamation, new platform/package/security-au
 or visible-desktop support is claimed. Standalone Mite is unchanged and its earlier
 suites were not rerun. No newer Ladybird pin was evaluated.
 
-Next: complete observer/listener resources and remaining callback conversions,
+MutationObserver registration cleanup and source argument wrapping now form the
+next internal slice (ADR 0036). A third owned LibWeb TU adapter includes the full
+original MutationObserver.cpp and views its weak node list by reference. It tracks
+successful append/disconnect-clear without class-layout, vendor or algorithm
+changes. Exact source-substitution and three-token guards join the existing
+callback/timer checks. Weak source metadata deduplicates multi-node registrations;
+explicit disconnect removes it, re-observe restores it, and physical world detach
+roots affected observers while invoking upstream targeted disconnect. Native node
+registrations, transient registrations and pending records are cleared.
+
+Upstream currently constructs mutation callback arguments in the settings object's
+principal realm. The source callback gate now rebuilds only recognized native
+mutation deliveries in the source wrapper world: record Array, MutationRecord
+wrappers, observer and receiver. It reads own native descriptors and preserves
+identity/order/shared DOM without invoking page getters. SDK and helper fixtures
+poison page Array/Observer/Record prototypes to verify actual source isolation.
+
+All gates pass in build/observer-acceptance-test.log: SDK isolation, actual helper,
+ordinary renderer/compositor/process and Firefly/Electron reference tests. Additional
+SDK repeated/multi-node observe, explicit disconnect and re-observe checks pass in
+build/observer-isolation-final-test.log. GC runs before native snapshots. Pending
+record detach requires empty native node lists/records; source callbacks stop while
+page observers and the document remain live. The helper additionally requires a
+matching-PID native cancellation counter. No newer pin was tried; Ladybird remains
+unmodified. Standalone Mite is unchanged and its earlier suites were not rerun.
+
+This does not prove complete realm reclamation: an upstream queued notification
+can retain the observer until a checkpoint. Other observer/listener resources,
+other callback conversions/results, direct cross-world function transfers,
+workers/finalization, navigation/BFCache and hard resource bounds remain open.
+Public preload/contextBridge/IPC remain rejected. Native Windows/Linux, packaging,
+full audit and the locked-desktop visible gate remain unverified/open. Existing
+linker/deployment warnings remain.
+
+Next: complete other observer/listener resources and remaining callback conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

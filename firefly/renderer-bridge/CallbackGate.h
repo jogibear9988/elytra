@@ -1,19 +1,28 @@
 #pragma once
 #include <LibWeb/WebIDL/AbstractOperations.h>
 #include <AK/HashMap.h>
+namespace Web::DOM { class MutationObserver; }
 namespace Web::HTML { class Timer; class WindowOrWorkerGlobalScopeMixin; }
 
 namespace Firefly::Callbacks {
 using TimerMap = HashMap<int, GC::Ref<Web::HTML::Timer>>;
 using TimerAdded = void (*)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int, Web::HTML::Timer&);
 using TimerRemoved = void (*)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int);
+using ObserverChange = void (*)(void*, Web::DOM::MutationObserver&);
 using Invoke = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Optional<JS::Value>, Web::WebIDL::ExceptionBehavior, ReadonlySpan<JS::Value>);
 struct Gate {
     void* context { nullptr };
     Invoke invoke { nullptr };
     TimerAdded added { nullptr };
     TimerRemoved removed { nullptr };
+    ObserverChange observer_added { nullptr };
+    ObserverChange observer_removed { nullptr };
 };
+WEB_API void observer_added(Web::DOM::MutationObserver&);
+WEB_API void observer_removed(Web::DOM::MutationObserver&);
+WEB_API void disconnect_observer(Web::DOM::MutationObserver&);
+WEB_API size_t take_observer_record_count(Web::DOM::MutationObserver&);
+WEB_API bool observer_has_nodes(Web::DOM::MutationObserver&);
 WEB_API void timer_added(Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int, Web::HTML::Timer&);
 WEB_API void timer_removed(Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int);
 WEB_API void stop_timer(Web::HTML::Timer&);

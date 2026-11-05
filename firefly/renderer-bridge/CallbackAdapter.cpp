@@ -6,6 +6,7 @@
 #include <LibWeb/WebIDL/CallbackType.h>
 #include <LibWeb/HTML/WindowOrWorkerGlobalScope.h>
 #include <LibWeb/DOM/EventTarget.h>
+#include <LibWeb/DOM/MutationObserver.h>
 // Preserve the unrelated class member declaration under this token name.
 #include <LibWeb/PerformanceTimeline/PerformanceObserver.h>
 namespace Web::WebIDL {
@@ -18,6 +19,19 @@ JS::Completion firefly_original_invoke_callback(CallbackType&, Optional<JS::Valu
 
 namespace Firefly::Callbacks {
 static thread_local NeverDestroyed<HashMap<JS::VM*, Gate>> gates;
+void observer_added(Web::DOM::MutationObserver& observer)
+{
+    auto gate = gates->get(&observer.vm());
+    if (gate.has_value() && gate->observer_added) gate->observer_added(gate->context, observer);
+}
+void observer_removed(Web::DOM::MutationObserver& observer)
+{
+    auto gate = gates->get(&observer.vm());
+    if (gate.has_value() && gate->observer_removed) gate->observer_removed(gate->context, observer);
+}
+void disconnect_observer(Web::DOM::MutationObserver& observer) { observer.disconnect(); }
+size_t take_observer_record_count(Web::DOM::MutationObserver& observer) { return observer.take_records().size(); }
+bool observer_has_nodes(Web::DOM::MutationObserver& observer) { return !observer.node_list().is_empty(); }
 void timer_added(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id, Web::HTML::Timer& timer)
 {
     auto gate = gates->get(&global.this_impl().vm());

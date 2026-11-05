@@ -2,6 +2,7 @@
 #include "IsolatedWorld.h"
 #include <LibJS/Runtime/VM.h>
 
+namespace Web::DOM { class MutationObserver; }
 namespace Web::HTML { class Timer; }
 namespace Firefly {
 // Install once on the VM owner thread. The VM hook retains the guard state even
@@ -16,6 +17,9 @@ public:
     WorldJobGuard& operator=(WorldJobGuard const&) = delete;
     ErrorOr<void> protect(IsolatedWorld&);
     Vector<GC::Root<Web::HTML::Timer>> owned_timer_snapshot() const;
+    Vector<GC::Root<Web::DOM::MutationObserver>> owned_observer_snapshot() const;
+    size_t owned_observer_count() const;
+    size_t canceled_observer_count() const;
     size_t owned_timer_count() const;
     size_t canceled_timer_count() const;
     size_t blocked_count() const;

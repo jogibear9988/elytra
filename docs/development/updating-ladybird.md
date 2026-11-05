@@ -70,6 +70,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    Keep exact TU/token guards, pre-snapshot GC/native stop assertions, and the
    source-detach test with an existing page interval still running. Do not replace
    targeted release with clearing every timer in the document.
+   ObserverAdapter.cpp additionally substitutes DOM/MutationObserver.cpp. Review
+   its original class declaration, weak node-list append/iteration/clear accesses,
+   node/transient registrations and disconnect/queued-record behavior. Preserve
+   exactly-one-TU and three-token guards. Review mutation delivery settings/realm,
+   record Array construction and native wrapping against WorldJobGuard's source
+   argument rewrapping. Retain poisoned page-prototype, receiver/identity, GC,
+   repeated observe/disconnect/re-observe and live page observer controls. Never
+   substitute blanket document teardown for targeted observer release.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

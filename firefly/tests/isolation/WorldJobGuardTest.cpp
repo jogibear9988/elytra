@@ -3,6 +3,7 @@
 #include "FunctionBridge.h"
 #include "CallbackGate.h"
 #include <LibWeb/HTML/Timer.h>
+#include <LibWeb/DOM/MutationObserver.h>
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -274,6 +275,70 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         if(!hook_ran || cleanup_world || weak.strong_ref())return Error::from_string_literal("Reentrant cleanup/last-owner release did not finish safely");
     }
     outln("PASS detach hooks reject evaluation, permit repeated detach and retain the last owner until cleanup completes");
+    {
+        auto watched=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*watched));
+        ScopeGuard detach_watched([&]{watched->detach();});
+        auto baseline=guard.owned_observer_count();
+        auto canceled=guard.canceled_observer_count();
+        auto preflight=watched->evaluate(uR"JS(
+            globalThis.reusableObserver=new MutationObserver(()=>{});
+            reusableObserver.observe(document.documentElement,{attributes:true});
+            reusableObserver.observe(document.documentElement,{attributes:true,attributeOldValue:true});
+            reusableObserver.observe(document.body,{childList:true});true;
+        )JS"sv);
+        if(preflight.is_error() || guard.owned_observer_count()!=baseline+1)return Error::from_string_literal("Repeated/multi-node observe duplicated ownership");
+        auto disconnected=watched->evaluate(u"reusableObserver.disconnect();true"sv);
+        if(disconnected.is_error() || guard.owned_observer_count()!=baseline)return Error::from_string_literal("Explicit disconnect retained ownership");
+        auto reobserved=watched->evaluate(u"reusableObserver.observe(document.documentElement,{attributes:true});true"sv);
+        if(reobserved.is_error() || guard.owned_observer_count()!=baseline+1)return Error::from_string_literal("Re-observe failed to restore ownership");
+        auto cleared=watched->evaluate(u"reusableObserver.disconnect();delete globalThis.reusableObserver;true"sv);
+        if(cleared.is_error() || guard.owned_observer_count()!=baseline || guard.canceled_observer_count()!=canceled)return Error::from_string_literal("Explicit observer release counted as forced cancellation");
+        TRY(page_check(uR"JS(
+            globalThis.observerGetterHits=0;globalThis.pageObserverCalls=0;
+            Object.defineProperty(Array.prototype,'observerTrap',{get(){observerGetterHits++;return true},configurable:true});
+            MutationObserver.prototype.observerPoison=true;MutationRecord.prototype.observerPoison=true;
+            globalThis.pageObserver=new MutationObserver(()=>pageObserverCalls++);
+            pageObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-observer-input']});
+            true;
+        )JS"sv));
+        ScopeGuard clean_page([&]{MUST(page_check(u"pageObserver.disconnect();delete Array.prototype.observerTrap;delete MutationObserver.prototype.observerPoison;delete MutationRecord.prototype.observerPoison;true"sv));});
+        auto setup=watched->evaluate(uR"JS(
+            globalThis.observerCalls=0;globalThis.deliveryValid=true;
+            (()=>{const observer=new MutationObserver(function(records,same){
+                observerCalls++;
+                deliveryValid=deliveryValid && same===observer && this===observer &&
+                    Object.getPrototypeOf(records)===Array.prototype && records.observerTrap===undefined &&
+                    Object.getPrototypeOf(same)===MutationObserver.prototype && !same.observerPoison &&
+                    records.every(record=>Object.getPrototypeOf(record)===MutationRecord.prototype &&
+                        !record.observerPoison && record.target===document.documentElement);
+                document.documentElement.setAttribute('data-source-observer',String(observerCalls));
+            });observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-observer-input']})})();
+            true;
+        )JS"sv);
+        if(setup.is_error() || guard.owned_observer_count()!=baseline+1)return Error::from_string_literal("Observer registration not tracked");
+        vm.heap().collect_garbage(); // No test snapshot until after node/observer GC edges are checked.
+        TRY(page_check(u"document.documentElement.setAttribute('data-observer-input','first');true"sv));
+        checkpoint();
+        auto delivered=watched->evaluate(u"observerCalls===1 && deliveryValid"sv);
+        if(delivered.is_error() || !delivered.value().as_bool())return Error::from_string_literal("Observer callback got foreign wrappers/prototypes");
+        TRY(page_check(u"pageObserverCalls===1 && observerGetterHits===0"sv));
+        auto snapshot=guard.owned_observer_snapshot();
+        for(auto const& observer:snapshot)if(!Firefly::Callbacks::observer_has_nodes(*observer))return Error::from_string_literal("Observed nodes not registered");
+        TRY(page_check(u"document.documentElement.setAttribute('data-observer-input','pending');true"sv));
+        watched->detach();
+        if(guard.owned_observer_count()!=baseline || guard.canceled_observer_count()!=canceled+1)return Error::from_string_literal("Observer detach did not remove owned registration");
+        for(auto const& observer:snapshot) {
+            if(Firefly::Callbacks::observer_has_nodes(*observer) || Firefly::Callbacks::take_observer_record_count(*observer)!=0)
+                return Error::from_string_literal("Observer detach left nodes or queued records");
+        }
+        checkpoint();
+        TRY(page_check(u"document.documentElement.setAttribute('data-observer-input','after');true"sv));
+        checkpoint();
+        TRY(page_check(u"pageObserverCalls===3 && document.documentElement.getAttribute('data-source-observer')==='1' && observerGetterHits===0"sv));
+        vm.heap().collect_garbage();
+    }
+    outln("PASS owned MutationObserver wrappers/prototypes stay isolated, disconnect clears nodes/records and page observers continue");
     auto callback_errors_before=guard.source_job_error_count();
     auto micro_errors=other->evaluate(u"globalThis.callbackReasonTraps=0;queueMicrotask(()=>{throw new Proxy({}, {get(){callbackReasonTraps++;throw 1}})});true"sv);
     if(micro_errors.is_error())return Error::from_string_literal("Cannot schedule microtask exception fixture");

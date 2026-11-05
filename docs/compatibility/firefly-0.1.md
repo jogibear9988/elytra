@@ -100,3 +100,9 @@ Internal source timeouts/intervals now release their specific native timer/map
 entries at physical world detach. SDK native-state/GC tests and a helper test with
 a continuing page interval pass (ADR 0035). This is not public preload/timer parity;
 string-handler realm policy and other native resources remain incomplete.
+
+Internal MutationObserver delivery now reconstructs record arrays and native DOM
+wrappers in the source world, preventing page prototype influence. Specific native
+registrations/records are disconnected at physical detach; SDK and actual helper
+page-observer controls pass (ADR 0036). Other observers/listeners and callback
+conversions remain incomplete; public preload/contextBridge/IPC stay unsupported.

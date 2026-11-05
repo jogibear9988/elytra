@@ -11,6 +11,10 @@
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/DOM/MutationObserver.h>
+#include <LibWeb/DOM/MutationRecord.h>
+#include <LibWeb/Bindings/Wrappable.h>
+#include <LibJS/Runtime/Array.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/HTML/Timer.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
@@ -35,6 +39,12 @@ struct WorldJobGuard::State : public RefCounted<State> {
         int id;
     };
     Vector<TimerRecord> timers;
+    struct ObserverRecord {
+        GC::Weak<JS::Realm> realm;
+        GC::Weak<Web::DOM::MutationObserver> observer;
+    };
+    Vector<ObserverRecord> observers;
+    size_t canceled_observers { 0 };
     size_t canceled_timers { 0 };
     size_t blocked { 0 };
     size_t source_rejections { 0 };
@@ -50,9 +60,45 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->add_timer(global, map, id, timer);
         },+[](void* context, Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id) {
             static_cast<State*>(context)->remove_timer(global, map, id);
+        },+[](void* context, Web::DOM::MutationObserver& observer) {
+            static_cast<State*>(context)->add_observer(observer);
+        },+[](void* context, Web::DOM::MutationObserver& observer) {
+            static_cast<State*>(context)->remove_observer(observer);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    void add_observer(Web::DOM::MutationObserver& observer)
+    {
+        auto& callback = observer.callback();
+        auto& realm = callback.callback->shape().realm();
+        if (!realms.contains(realm)) {
+            if (previous_gate.observer_added) previous_gate.observer_added(previous_gate.context, observer);
+            return;
+        }
+        for (auto const& record : observers) if (record.observer.ptr().ptr() == &observer) return;
+        observers.remove_all_matching([](auto const& record) { return !record.realm.ptr() || !record.observer.ptr(); });
+        auto owner = owner_for(realm);
+        if (!owner || (owner->is_detached() && !owner->is_executing())) {
+            Callbacks::disconnect_observer(observer);
+            ++canceled_observers;
+            return;
+        }
+        observers.append({realm, observer});
+    }
+    void remove_observer(Web::DOM::MutationObserver& observer)
+    {
+        observers.remove_all_matching([&](auto const& record) { return record.observer.ptr().ptr() == &observer; });
+        if (previous_gate.observer_removed) previous_gate.observer_removed(previous_gate.context, observer);
+    }
+    void cancel_observers(JS::Realm& realm)
+    {
+        Vector<GC::Root<Web::DOM::MutationObserver>> removed;
+        observers.remove_all_matching([&](auto const& record) {
+            if (record.realm.ptr().ptr() == &realm && record.observer.ptr()) { removed.append(GC::Root { *record.observer.ptr() }); return true; }
+            return !record.realm.ptr() || !record.observer.ptr();
+        });
+        for (auto& observer : removed) { Callbacks::disconnect_observer(*observer); ++canceled_observers; }
+    }
     void cancel_timer(TimerRecord const& record)
     {
         if (!record.global.ptr() || !record.timer.ptr()) return;
@@ -134,7 +180,41 @@ struct WorldJobGuard::State : public RefCounted<State> {
             [&]() -> JS::ThrowCompletionOr<JS::Value> {
                 // Capture the abrupt completion before the upstream Report path
                 // can put its raw source object into a principal ErrorEvent.
-                auto completion = Callbacks::invoke_original(callback, receiver, Web::WebIDL::ExceptionBehavior::Rethrow, arguments);
+                GC::RootVector<JS::Value> safe_arguments;
+                for (auto value : arguments) safe_arguments.append(value);
+                auto safe_receiver = receiver;
+                if (receiver.has_value() && receiver->is_object()) {
+                    auto receiver_value = *receiver;
+                    auto* observer = Web::Bindings::impl_from<Web::DOM::MutationObserver>(&receiver_value.as_object());
+                    if (observer && &observer->callback() == &callback) {
+                        if (arguments.size() != 2 || !arguments[0].is_object())
+                            return vm.throw_completion<JS::TypeError>("Invalid mutation observer delivery"sv);
+                        auto source_array_value = arguments[0];
+                        auto& source_array = source_array_value.as_object();
+                        if (source_array.engine_class_id() != JS_LAYOUT_CLASS_ID_ARRAY || JS::host_class_of(source_array))
+                            return vm.throw_completion<JS::TypeError>("Invalid mutation record list"sv);
+                        auto length = TRY(source_array.internal_get_own_property("length"_utf16));
+                        if (!length.has_value() || !length->value.has_value() || !length->value->is_number())
+                            return vm.throw_completion<JS::TypeError>("Missing mutation record length"sv);
+                        auto size = static_cast<u32>(length->value->as_double());
+                        GC::Root array { TRY(JS::Array::create(associated, size)) };
+                        auto& world = Web::Bindings::host_defined_wrapper_world(associated);
+                        for (u32 i = 0; i < size; ++i) {
+                            auto descriptor = TRY(source_array.ordinary_get_own_property(i));
+                            if (!descriptor.has_value() || !descriptor->is_data_descriptor() || !descriptor->value.has_value() || !descriptor->value->is_object())
+                                return vm.throw_completion<JS::TypeError>("Invalid mutation record"sv);
+                            auto value = *descriptor->value;
+                            auto* record = Web::Bindings::impl_from<Web::DOM::MutationRecord>(&value.as_object());
+                            if (!record) return vm.throw_completion<JS::TypeError>("Unknown mutation record"sv);
+                            TRY(array->create_data_property_or_throw(i, Web::Bindings::wrap(world, associated, GC::Ref { *record })));
+                        }
+                        GC::Root wrapped_observer { Web::Bindings::wrap(world, associated, GC::Ref { *observer }) };
+                        safe_arguments[0] = array.ptr();
+                        safe_arguments[1] = wrapped_observer.ptr();
+                        safe_receiver = wrapped_observer.ptr();
+                    }
+                }
+                auto completion = Callbacks::invoke_original(callback, safe_receiver, Web::WebIDL::ExceptionBehavior::Rethrow, safe_arguments.span());
                 if (completion.type() == JS::Completion::Type::Throw) return JS::throw_completion(completion.release_value());
                 return completion.release_value();
             });
@@ -275,7 +355,7 @@ ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
     if (m_state->realms.contains(*realm)) return {};
     m_state->realms.set(*realm, owner.make_weak_ptr());
     owner.add_detach_hook([state = m_state, realm = GC::Weak<JS::Realm> { *realm }] {
-        if (realm.ptr()) state->cancel_timers(*realm.ptr());
+        if (realm.ptr()) { state->cancel_timers(*realm.ptr()); state->cancel_observers(*realm.ptr()); }
     });
     return {};
 }
@@ -287,6 +367,14 @@ Vector<GC::Root<Web::HTML::Timer>> WorldJobGuard::owned_timer_snapshot() const
     }
     return result;
 }
+Vector<GC::Root<Web::DOM::MutationObserver>> WorldJobGuard::owned_observer_snapshot() const
+{
+    Vector<GC::Root<Web::DOM::MutationObserver>> result;
+    for (auto const& record : m_state->observers) if (record.observer.ptr()) result.append(GC::Root { *record.observer.ptr() });
+    return result;
+}
+size_t WorldJobGuard::owned_observer_count() const { return m_state->observers.size(); }
+size_t WorldJobGuard::canceled_observer_count() const { return m_state->canceled_observers; }
 size_t WorldJobGuard::owned_timer_count() const { return m_state->timers.size(); }
 size_t WorldJobGuard::canceled_timer_count() const { return m_state->canceled_timers; }
 size_t WorldJobGuard::blocked_count() const { return m_state->blocked; }
