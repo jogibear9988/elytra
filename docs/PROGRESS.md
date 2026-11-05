@@ -1789,6 +1789,24 @@ Run 42125657222 was started with the same known-incomplete prerequisite command;
 replace it with the corrected-source run rather than claiming either build passed.
 The alpha remains conditional on actual hosted compilation/native/package success.
 
+
+Windows run 42125657167 (4ec4360, job 127589126627) now passes the filesystem
+compile barrier and reaches object 297/300. Its embedded-host target fails in MSVC
+thread because our Process.h shadows the CRT process.h on Windows's case-insensitive
+include path, hiding _beginthreadex. Rename the private header to ProcessHost.h and
+update the three owned includes. Local Release compilation and both host-module/
+embedding CTest suites pass (1.77s); native Windows still needs the next actual job.
+No SDK/vendor patch or skipped host target is used.
+
+The clean 004b7fe package with updated Ladybird, bundled production assets, native
+symbol stripping and corrected minimize test is regenerated at
+build/designer-final-alpha/Web Component Designer.app. Its full relocated test
+passes in build/designer-final-alpha-test.log, including main-owned restoration
+and actual HTML close. Metadata is clean Release/Release with the exact source/pin;
+actual file sizes are 249.43 MiB Designer and 215.30 MiB framework. This is a local
+candidate only; hosted run 42125911196 is still in its compile/test/package step.
+Its predecessor failed the missing autotools macros; no hosted alpha is claimed.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

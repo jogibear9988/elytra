@@ -74,3 +74,13 @@ Windows job must establish native compilation and behavior.
 Node's [constant exports](https://github.com/nodejs/node/blob/v24.15.0/src/node_constants.cc)
 are likewise conditional for unavailable native file types. This is a compile
 portability fix, not a Windows runtime/renderer/package support announcement.
+
+## CRT header shadowing
+
+Run 42125657167 reached object 297/300, then the embedded-host test's standard
+thread header could not find _beginthreadex. Our generic Process.h shadowed the
+Windows CRT's process.h on the case-insensitive include search path. Rename the
+private header to ProcessHost.h and update its three includes. Do not patch the
+CRT, reorder system headers as a workaround or drop the embedded-host target.
+Local Release build plus both host-module/embedding suites pass; the next native
+Windows run must confirm the real CRT lookup and complete remaining runtime gates.

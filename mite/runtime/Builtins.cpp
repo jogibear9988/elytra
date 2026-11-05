@@ -3,7 +3,7 @@
 #include "ModuleSource.h"
 #include "BuiltinSources.h"
 #include "BuiltinNames.h"
-#include "Process.h"
+#include "ProcessHost.h"
 #include "FileSystem.h"
 #include "URL.h"
 #include "Encoding.h"

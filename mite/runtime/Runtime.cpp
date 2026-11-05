@@ -2,7 +2,7 @@
 #include "EventLoop.h"
 #include <AK/ScopeGuard.h>
 #include "ModuleLoader.h"
-#include "Process.h"
+#include "ProcessHost.h"
 #include <uv.h>
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
