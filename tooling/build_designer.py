@@ -22,13 +22,14 @@ def main():
     if output.exists():parser.error('Output already exists; choose a fresh staging directory')
     if source==output or source in output.parents:parser.error('Output must be separate from the source checkout')
     pin=json.loads((EXAMPLE/'upstream.json').read_text())
-    if not source.exists():
+    fresh=not source.exists()
+    if fresh:
         source.parent.mkdir(parents=True,exist_ok=True)
-        run('git','clone','--no-checkout',pin['repository'],source)
+        run('git','clone','--no-checkout','--depth','1',pin['repository'],source)
     remote=subprocess.check_output(['git','remote','get-url','origin'],cwd=source,text=True).strip()
     if remote!=pin['repository']:parser.error('Source remote differs from pinned repository')
     dirty=subprocess.check_output(['git','status','--porcelain','--untracked-files=normal'],cwd=source,text=True)
-    if dirty:parser.error('Source checkout contains local changes')
+    if dirty and not fresh:parser.error('Source checkout contains local changes')
     run('git','fetch','--depth','1','origin',pin['revision'],cwd=source)
     run('git','checkout','--detach',pin['revision'],cwd=source)
     if hashlib.sha256((source/'package-lock.json').read_bytes()).hexdigest()!=pin['packageLockSha256']:parser.error('Pinned package-lock hash differs')

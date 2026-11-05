@@ -1490,7 +1490,21 @@ full license/security audit, complete Designer feature coverage and remaining pu
 preload/contextBridge/IPC requirements stay open. Follow the release and upstream
 update guides; do not skip a required platform or weaken sandboxing for a green run.
 
-Next: complete remaining Source API/callback boundaries and event-field conversions,
+Fresh-CI follow-up: the demo builder now distinguishes its own newly cloned
+--no-checkout repository from a user-modified existing checkout. A first clone's
+unmaterialized tracked files must not be rejected as user deletions. New clones are
+shallow, then fetch the exact pinned commit; existing dirty sources still reject.
+Both a new full checkout and the final shallow-clone path build successfully in
+build/designer-fresh-build.log and build/designer-ci-build.log. The fresh staged app
+also passes the actual Firefly boot/edit/Monaco gate using the new Release Mite for
+its server checks (build/designer-ci-test.log). Release argument rejection and
+workflow syntax checks pass. The release driver fetches locked Cargo sources before
+offline notice collection; cargo fetch --locked completes without upstream changes.
+
+Next: establish native Windows CI, implement/validate the missing desktop/process/
+sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
+release upload. Keep required jobs failing honestly until their native gates pass.
+Continue remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

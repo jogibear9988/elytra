@@ -47,6 +47,7 @@ def main():
     run(sys.executable,'tooling/test_designer.py','--mite',mite,'--app',designer,'--firefly',ROOT/'build/renderer/bin/firefly')
     stage=ROOT/'build/release-stage'
     if sys.platform!='darwin':raise RuntimeError('Native desktop packaging not implemented for '+sys.platform)
+    run('cargo','fetch','--locked','--manifest-path',ROOT/'vendor/ladybird/Cargo.toml')
     run(sys.executable,'tooling/package_macos.py','--mite-build',build,'--output',stage,'--version',args.tag[1:])
     packaged=stage/'Web Component Designer.app/Contents'
     run(sys.executable,'tooling/test_designer.py','--mite',stage/'bin/mite','--app',packaged/'Resources/app','--launcher',packaged/'MacOS/Launcher')
