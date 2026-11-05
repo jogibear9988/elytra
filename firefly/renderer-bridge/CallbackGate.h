@@ -2,9 +2,10 @@
 #include <LibWeb/WebIDL/AbstractOperations.h>
 #include <AK/HashMap.h>
 namespace Web::DOM { class MutationObserver; class Event; class DOMEventListener; class EventTarget; class AbortSignal; }
-namespace Web::HTML { class Timer; class WindowOrWorkerGlobalScopeMixin; }
+namespace Web::HTML { class EventHandler; class Timer; class WindowOrWorkerGlobalScopeMixin; }
 
 namespace Firefly::Callbacks {
+using HandlerMap = HashMap<Utf16FlyString, GC::Ref<Web::HTML::EventHandler>>;
 using TimerMap = HashMap<int, GC::Ref<Web::HTML::Timer>>;
 using TimerAdded = void (*)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int, Web::HTML::Timer&);
 using TimerRemoved = void (*)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int);
@@ -14,6 +15,9 @@ using InvokeListener = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Web
 using InvokeHandler = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
 using ListenerChange = void (*)(void*, Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 using ListenerSignal = void (*)(void*, Web::DOM::EventTarget&, Web::DOM::DOMEventListener&, u64);
+using SelectHandlerMap = HandlerMap* (*)(void*, Web::DOM::EventTarget&);
+using VisitHandlerMaps = void (*)(void*, Web::DOM::EventTarget&, GC::Cell::Visitor&);
+using ClearHandlerMaps = void (*)(void*, Web::DOM::EventTarget&);
 struct Gate {
     void* context { nullptr };
     Invoke invoke { nullptr };
@@ -25,6 +29,9 @@ struct Gate {
     ListenerChange listener_changed { nullptr };
     ListenerSignal listener_signal { nullptr };
     InvokeHandler invoke_handler { nullptr };
+    SelectHandlerMap select_handler_map { nullptr };
+    VisitHandlerMaps visit_handler_maps { nullptr };
+    ClearHandlerMaps clear_handler_maps { nullptr };
 };
 WEB_API void observer_added(Web::DOM::MutationObserver&);
 WEB_API void observer_removed(Web::DOM::MutationObserver&);
@@ -42,6 +49,8 @@ WEB_API void listener_signal(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&
 WEB_API void remove_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API bool has_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API void remove_signal_algorithm(Web::DOM::AbortSignal&, u64);
+WEB_API JS::Completion probe_handler(JS::Object&, Web::DOM::Event&);
+WEB_API void clear_handler_map(Web::DOM::EventTarget&, HandlerMap&);
 WEB_API GC::Ref<Web::DOM::Event> make_beforeunload_probe();
 WEB_API bool is_beforeunload_event(Web::DOM::Event&);
 WEB_API JS::Completion dispatch_handler(Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);

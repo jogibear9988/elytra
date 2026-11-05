@@ -20,6 +20,7 @@
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/PrimitiveString.h>
 #include <LibWeb/HTML/BeforeUnloadEvent.h>
+#include <LibWeb/HTML/EventHandler.h>
 #include <LibWeb/HTML/EventNames.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/HTML/Timer.h>
@@ -63,6 +64,13 @@ struct WorldJobGuard::State : public RefCounted<State> {
     };
     Vector<ListenerRecord> listeners;
     Vector<SignalRecord> listener_signals;
+    struct HandlerRecord {
+        GC::Weak<JS::Realm> realm;
+        GC::Weak<Web::DOM::EventTarget> target;
+        OwnPtr<Callbacks::HandlerMap> map;
+    };
+    Vector<HandlerRecord> handler_maps;
+    size_t canceled_handler_maps { 0 };
     size_t canceled_listeners { 0 };
     size_t canceled_listener_signals { 0 };
     size_t canceled_observers { 0 };
@@ -93,9 +101,64 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->add_listener_signal(target, listener, id);
         },+[](void* context, Web::WebIDL::CallbackType& callback, Web::DOM::Event& event, bool special) {
             return static_cast<State*>(context)->invoke_handler(callback, event, special);
+        },+[](void* context, Web::DOM::EventTarget& target) {
+            return static_cast<State*>(context)->select_handler_map(target);
+        },+[](void* context, Web::DOM::EventTarget& target, GC::Cell::Visitor& visitor) {
+            static_cast<State*>(context)->visit_handler_maps(target, visitor);
+        },+[](void* context, Web::DOM::EventTarget& target) {
+            auto& state = *static_cast<State*>(context);
+            state.clear_handler_maps(nullptr, &target);
+            if (state.previous_gate.clear_handler_maps) state.previous_gate.clear_handler_maps(state.previous_gate.context, target);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
+    Callbacks::HandlerMap* select_handler_map(Web::DOM::EventTarget& target)
+    {
+        auto* realm = vm.current_realm();
+        if (!realm || !realms.contains(*realm)) {
+            if (previous_gate.select_handler_map) return previous_gate.select_handler_map(previous_gate.context, target);
+            return nullptr;
+        }
+        handler_maps.remove_all_matching([](auto const& record) { return !record.realm.ptr() || !record.target.ptr(); });
+        for (auto& record : handler_maps)
+            if (record.realm.ptr().ptr() == realm && record.target.ptr().ptr() == &target) return record.map.ptr();
+        auto map = make<Callbacks::HandlerMap>();
+        auto* result = map.ptr();
+        handler_maps.append({ *realm, target, move(map) });
+        auto owner = owner_for(*realm);
+        if (!owner || (owner->is_detached() && !owner->is_executing())) {
+            // A foreign direct call into an already revoked realm must never
+            // fall back to the page map. Clear any late writes after return.
+            NonnullRefPtr self { *this };
+            Web::HTML::queue_a_microtask(nullptr, GC::create_function(vm.heap(),
+                [self, realm_root = GC::Ref { *realm }, target_root = GC::Ref { target }] {
+                    self->clear_handler_maps(realm_root.ptr(), target_root.ptr());
+                }));
+        }
+        return result;
+    }
+    void visit_handler_maps(Web::DOM::EventTarget& target, GC::Cell::Visitor& visitor)
+    {
+        for (auto const& record : handler_maps)
+            if (record.target.ptr().ptr() == &target && record.realm.ptr()) visitor.visit(*record.map);
+        if (previous_gate.visit_handler_maps) previous_gate.visit_handler_maps(previous_gate.context, target, visitor);
+    }
+    void clear_handler_maps(JS::Realm* realm, Web::DOM::EventTarget* target)
+    {
+        struct Removal { GC::Root<Web::DOM::EventTarget> target; OwnPtr<Callbacks::HandlerMap> map; };
+        Vector<Removal> removed;
+        handler_maps.remove_all_matching([&](auto& record) {
+            if ((!realm || record.realm.ptr().ptr() == realm) && (!target || record.target.ptr().ptr() == target) && record.target.ptr()) {
+                removed.append({ GC::Root { *record.target.ptr() }, move(record.map) }); return true;
+            }
+            return !record.realm.ptr() || !record.target.ptr();
+        });
+        // Native EventTargets normally trace these maps. Once removed from the
+        // registry, keep all handler cells rooted through native cleanup/reentry.
+        Vector<GC::Root<Web::HTML::EventHandler>> roots;
+        for (auto const& record : removed) for (auto const& entry : *record.map) roots.append(GC::Root { entry.value });
+        for (auto const& record : removed) { Callbacks::clear_handler_map(*record.target, *record.map); ++canceled_handler_maps; }
+    }
     void release_signals(Web::DOM::DOMEventListener& listener)
     {
         Vector<SignalRecord> removed;
@@ -521,7 +584,7 @@ ErrorOr<void> WorldJobGuard::protect(IsolatedWorld& owner)
     if (m_state->realms.contains(*realm)) return {};
     m_state->realms.set(*realm, owner.make_weak_ptr());
     owner.add_detach_hook([state = m_state, realm = GC::Weak<JS::Realm> { *realm }] {
-        if (realm.ptr()) { state->cancel_timers(*realm.ptr()); state->cancel_observers(*realm.ptr()); state->cancel_listeners(*realm.ptr()); }
+        if (realm.ptr()) { state->cancel_timers(*realm.ptr()); state->cancel_observers(*realm.ptr()); state->cancel_listeners(*realm.ptr()); state->clear_handler_maps(realm.ptr().ptr(), nullptr); }
     });
     return {};
 }
@@ -545,6 +608,8 @@ Vector<GC::Root<Web::DOM::DOMEventListener>> WorldJobGuard::owned_listener_snaps
     for (auto const& record : m_state->listeners) if (record.listener.ptr()) result.append(GC::Root { *record.listener.ptr() });
     return result;
 }
+size_t WorldJobGuard::owned_handler_map_count() const { return m_state->handler_maps.size(); }
+size_t WorldJobGuard::canceled_handler_map_count() const { return m_state->canceled_handler_maps; }
 size_t WorldJobGuard::owned_listener_count() const { return m_state->listeners.size(); }
 size_t WorldJobGuard::owned_listener_signal_count() const { return m_state->listener_signals.size(); }
 size_t WorldJobGuard::canceled_listener_count() const { return m_state->canceled_listeners; }

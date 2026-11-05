@@ -130,6 +130,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         auto timers_before=guard.owned_timer_count();
         auto canceled_before=guard.canceled_timer_count();
         auto listeners_before=guard.owned_listener_count(),signals_before=guard.owned_listener_signal_count();
+        auto maps_before=guard.owned_handler_map_count(),maps_canceled_before=guard.canceled_handler_map_count();
         auto listener_canceled_before=guard.canceled_listener_count(),signal_canceled_before=guard.canceled_listener_signal_count();
         RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
         TRY(guard.protect(*transient));
@@ -154,6 +155,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
                 setTimeout(()=>document.documentElement.setAttribute('data-late-timer','BAD'),60000);
                 const controller=new AbortController();
                 document.addEventListener('firefly-after-detach',()=>{},{signal:controller.signal});
+                document.onauxclick=()=>false;
                 Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
             };
             true;
@@ -175,8 +177,10 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         if(guard.owned_timer_count()!=timers_before || guard.canceled_timer_count()!=canceled_before+1)
             return Error::from_string_literal("Timer created after logical detach escaped physical cleanup");
         if(guard.owned_listener_count()!=listeners_before || guard.owned_listener_signal_count()!=signals_before ||
-            guard.canceled_listener_count()!=listener_canceled_before+(mode>=4?2:1) || guard.canceled_listener_signal_count()!=signal_canceled_before+1)
+            guard.canceled_listener_count()!=listener_canceled_before+(mode>=4?3:2) || guard.canceled_listener_signal_count()!=signal_canceled_before+1)
             return Error::from_string_literal("Listener/signal created after logical detach escaped cleanup");
+        if(guard.owned_handler_map_count()!=maps_before || guard.canceled_handler_map_count()!=maps_canceled_before+1)
+            return Error::from_string_literal("Handler map written after logical detach escaped cleanup");
         vm.heap().collect_garbage();
     }
     outln("PASS running reaction/await/generator/microtask/listener/getter/proxy callbacks retain owners and defer detach");

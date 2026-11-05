@@ -44,7 +44,8 @@ add_custom_target(check-firefly-callback-hooks
 add_dependencies(LibWeb check-firefly-callback-hooks)
 
 # Rename definitions only: preprocessor token renaming also bypasses guards at
-# internal calls in the same upstream TU. Preserve every implementation body.
+# internal calls in the same upstream TU. Retain original algorithms while
+# adapting explicit map, tracing, realm and document-scope seams.
 set(firefly_event_entries "${CMAKE_BINARY_DIR}/firefly-adapters/EventTarget.inc")
 add_custom_command(OUTPUT "${firefly_event_entries}"
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/adapt_event_entries.py"

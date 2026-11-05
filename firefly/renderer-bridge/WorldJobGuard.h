@@ -19,6 +19,8 @@ public:
     Vector<GC::Root<Web::HTML::Timer>> owned_timer_snapshot() const;
     Vector<GC::Root<Web::DOM::MutationObserver>> owned_observer_snapshot() const;
     Vector<GC::Root<Web::DOM::DOMEventListener>> owned_listener_snapshot() const;
+    size_t owned_handler_map_count() const;
+    size_t canceled_handler_map_count() const;
     size_t owned_listener_count() const;
     size_t owned_listener_signal_count() const;
     size_t canceled_listener_count() const;

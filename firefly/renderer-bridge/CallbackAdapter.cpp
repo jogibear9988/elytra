@@ -1,6 +1,8 @@
 // Compile the complete pinned upstream implementation once, with only the two
 // public callback entry names adapted. No source is copied or patched.
 #include "CallbackGate.h"
+#include "HandlerStorage.h"
+#include <LibWeb/HTML/EventHandler.h>
 #include <AK/HashMap.h>
 #include <AK/NeverDestroyed.h>
 #include <LibWeb/WebIDL/CallbackType.h>
@@ -22,6 +24,26 @@ JS::Completion firefly_original_invoke_callback(CallbackType&, Optional<JS::Valu
 
 namespace Firefly::Callbacks {
 static thread_local NeverDestroyed<HashMap<JS::VM*, Gate>> gates;
+static thread_local JS::VM* principal_handler_vm;
+static thread_local Web::DOM::EventTarget* handler_override_target;
+static thread_local HandlerMap* handler_override_map;
+JS::Completion probe_handler(JS::Object& function, Web::DOM::Event& event)
+{
+    GC::Root callback { function.heap().allocate<Web::WebIDL::CallbackType>(function, function.shape().realm()) };
+    return dispatch_handler(*callback, event, false);
+}
+void clear_handler_map(Web::DOM::EventTarget& target, HandlerMap& map)
+{
+    auto* previous_target = handler_override_target;
+    auto* previous_map = handler_override_map;
+    handler_override_target = &target;
+    handler_override_map = &map;
+    ScopeGuard restore([&] { handler_override_target = previous_target; handler_override_map = previous_map; });
+    GC::RootVector<GC::Ref<Web::HTML::EventHandler>> roots;
+    for (auto const& entry : map) roots.append(entry.value);
+    for (auto const& name : map.keys()) target.set_event_handler_attribute(name, nullptr);
+    VERIFY(map.is_empty());
+}
 void observer_added(Web::DOM::MutationObserver& observer)
 {
     auto gate = gates->get(&observer.vm());
@@ -115,5 +137,38 @@ JS::Completion invoke_callback(CallbackType& callback, Optional<JS::Value> recei
 JS::Completion invoke_callback(CallbackType& callback, Optional<JS::Value> receiver, ReadonlySpan<JS::Value> arguments)
 {
     return invoke_callback(callback, move(receiver), ExceptionBehavior::NotSpecified, arguments);
+}
+}
+
+namespace Firefly::Handlers {
+PrincipalScope::PrincipalScope(JS::VM& vm) : m_previous(Callbacks::principal_handler_vm) { Callbacks::principal_handler_vm = &vm; }
+PrincipalScope::~PrincipalScope() { Callbacks::principal_handler_vm = m_previous; }
+Callbacks::HandlerMap& select_map(Web::DOM::EventTarget& target, Callbacks::HandlerMap& principal)
+{
+    if (Callbacks::handler_override_target == &target) return *Callbacks::handler_override_map;
+    if (Callbacks::principal_handler_vm == &target.vm()) return principal;
+    auto gate = Callbacks::gates->get(&target.vm());
+    if (gate.has_value() && gate->select_handler_map) {
+        if (auto* map = gate->select_handler_map(gate->context, target)) return *map;
+    }
+    return principal;
+}
+JS::Realm& listener_realm(Web::DOM::EventTarget& target, JS::Realm& fallback)
+{
+    if (Callbacks::principal_handler_vm == &target.vm()) return fallback;
+    auto gate = Callbacks::gates->get(&target.vm());
+    if (gate.has_value() && gate->select_handler_map && gate->select_handler_map(gate->context, target))
+        return *target.vm().current_realm();
+    return fallback;
+}
+void visit_maps(Web::DOM::EventTarget& target, GC::Cell::Visitor& visitor)
+{
+    auto gate = Callbacks::gates->get(&target.vm());
+    if (gate.has_value() && gate->visit_handler_maps) gate->visit_handler_maps(gate->context, target, visitor);
+}
+void clear_maps(Web::DOM::EventTarget& target)
+{
+    auto gate = Callbacks::gates->get(&target.vm());
+    if (gate.has_value() && gate->clear_handler_maps) gate->clear_handler_maps(gate->context, target);
 }
 }

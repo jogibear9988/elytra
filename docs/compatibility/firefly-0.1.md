@@ -124,3 +124,10 @@ redacts errors and converts beforeunload results within the retained source fram
 SDK/helper and app regressions pass (ADR 0039). Shared handler maps/raw callback
 getters and handler cleanup remain unresolved; direct calls can bypass native
 dispatch. Public preload/contextBridge/IPC stay unsupported.
+
+Registered internal worlds now have private native on… handler maps. Their getters
+return their own callback/null; page and other-world handlers keep separate identity
+and delivery. SDK/helper GC, ordering, inline attribute, erasure/rearm, foreign-
+callback and independent detach controls pass (ADR 0040). Other event fields,
+observers and callback boundaries remain incomplete; public preload/contextBridge/
+IPC remain unsupported.

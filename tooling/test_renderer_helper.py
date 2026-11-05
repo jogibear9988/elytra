@@ -73,8 +73,8 @@ def main():
     pid=pid_of(handlers)
     failures=[int(n) for n in re.findall(rf'FIREFLY_WORLD_FAILURES_REDACTED pid={pid} rejections=\d+ job_errors=(\d+)',handlers.stderr)]
     assert failures and max(failures)>=1,handlers
-    blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',handlers.stderr)]
-    assert blocked and max(blocked)>=1,handlers
+    maps=[int(n) for n in re.findall(rf'FIREFLY_WORLD_HANDLER_MAPS_CLEARED pid={pid} count=(\d+)',handlers.stderr)]
+    assert maps and max(maps)>=2,handlers
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in {name for names in HOOKS.values() for name in names}:

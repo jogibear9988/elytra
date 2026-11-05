@@ -932,7 +932,58 @@ open. Public preload/contextBridge/IPC remain rejected. No complete reclamation,
 new platform/package/audit or visible-desktop support is claimed. Existing warnings
 remain; standalone Mite is unchanged and no newer Ladybird pin was tried.
 
-Next: complete isolated handler storage/cleanup, other observer resources and callback conversions,
+Registered isolated worlds now use private native handler storage (ADR 0040),
+closing ordinary handler getter sharing identified in ADR 0039. The existing
+EventTarget adapter routes four map addresses through a per-realm/target selector,
+adds native target tracing, selects native listener realm from storage ownership
+and scopes principal document attribute/full-erasure algorithms. The generator
+requires exact seam counts and its regression reverses all edits to recover every
+upstream byte. Native algorithms/class layouts/vendor files remain unchanged;
+compiled engine behavior is adapted, not a bit-identical upstream binary.
+
+Native map metadata holds weak realm/target keys. Actual native EventTargets trace
+private handler values, so dead node/callback cycles do not become registry roots.
+Private property getters return own callbacks/null, preserving identity and
+upstream replacement order; principal and other-world getters remain separate.
+HTML text event attributes keep document/principal compilation and storage even
+when Source sets/removes them. A handler listener uses its storage owner's realm,
+including when its assigned callback belongs to a different realm. Actual callback
+invocation still uses the associated callback realm.
+
+Physical detach removes native listeners and map metadata, roots targets/handler
+cells and calls original null setters under exact-map overrides. It preserves page
+and other-world maps. Full native target erasure clears every private map and then
+principal state, including when invoked from source; subsequent handlers can rearm.
+Logical-detach late writes are included at physical cleanup. Revoked direct calls
+get private storage with rooted native microtask cleanup, never principal fallback.
+
+All gates pass in build/handler-storage-acceptance-test.log: native SDK, sandboxed
+helper, ordinary renderer/compositor/process and Firefly/Electron reference. SDK
+checks page/two-world getter isolation, function identity/prototypes, replacement
+order, inline attributes, independent clear/detach and GC before dispatch. A detached
+node/callback cycle collects while its world remains live. Native erase/rearm and
+foreign callback owner-map selection pass. Retained native handler probes still
+verify denial before detached wrapping. Helper source/page getters stay separate,
+source cancellation/error behavior remains correct, page handlers/listeners continue
+after source detach, matching-PID map counters advance, and self-removing frame
+handler/lifetime controls pass. Existing beforeunload and other isolation gates pass.
+Additional SDK checks pass in build/handler-storage-late-write-test.log. All active
+reaction/await/generator/microtask/listener/getter/proxy modes create handler maps
+after logical detach and require release at frame pop. An explicitly retained raw
+C++ harness call after physical detach cannot reach principal storage: its native
+registration is removed immediately and late private map clears at the native
+checkpoint. No raw-call JavaScript API is enabled.
+
+Counts include empty getter-created maps, and dead records prune on lookup/teardown.
+Additional map memory is not yet charged to upstream external-memory accounting;
+hard resource bounds remain open. Other script-valued event fields, generic object
+operations, observers/results, direct transfers, workers/finalization and navigation/
+BFCache still need work. Public preload/contextBridge/IPC remain rejected. No full
+reclamation/audit, new platform/package or visible-desktop support is claimed.
+Ladybird stays unmodified; no newer pin was tried. Standalone Mite is unchanged and
+its earlier suites were not rerun. Existing deployment/linker warnings remain.
+
+Next: complete other observer resources and callback/event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
-"""Rename only free entry definitions; preserve internal calls to guarded entries."""
+"""Adapt native entries and handler-map addresses without replacing algorithms."""
 import argparse
 import json
 import re
 from pathlib import Path
 
+# Exact address/scope seams, not copies of the event-handler algorithms.
+STORAGE_EDITS=(
+    ('JS::Realm& realm = event_handler_listener_realm(*this, event_handler);', 'JS::Realm& realm = Firefly::Handlers::listener_realm(*this, event_handler_listener_realm(*this, event_handler));', 1),
+    ('auto& handler_map = ensure_data().event_handler_map;', 'auto& handler_map = Firefly::Handlers::select_map(*this, ensure_data().event_handler_map);', 2),
+    ('auto& handler_map = event_target->ensure_data().event_handler_map;', 'auto& handler_map = Firefly::Handlers::select_map(*event_target, event_target->ensure_data().event_handler_map);', 2),
+    ('visitor.visit(data->event_handler_map);', 'visitor.visit(data->event_handler_map);\n        Firefly::Handlers::visit_maps(*this, visitor);', 1),
+    ('void EventTarget::element_event_handler_attribute_changed(Utf16FlyString const& local_name, Optional<Utf16String> const& value)\n{', 'void EventTarget::element_event_handler_attribute_changed(Utf16FlyString const& local_name, Optional<Utf16String> const& value)\n{\n    Firefly::Handlers::PrincipalScope firefly_principal_scope(vm());', 1),
+    ('void EventTarget::erase_all_event_listeners_and_handlers()\n{', 'void EventTarget::erase_all_event_listeners_and_handlers()\n{\n    Firefly::Handlers::PrincipalScope firefly_principal_scope(vm());\n    Firefly::Handlers::clear_maps(*this);', 1),
+)
 ENTRIES=('invoke_event_listener','invoke_event_handler')
 
 
@@ -14,6 +23,10 @@ def adapt(text):
         text,count=pattern.subn('JS::Completion firefly_original_'+name,text)
         if count!=1:
             raise ValueError(f'Expected exactly one {name} definition; review upstream entry')
+    for original,replacement,expected in STORAGE_EDITS:
+        if text.count(original)!=expected:
+            raise ValueError('Review upstream handler storage seam: '+original)
+        text=text.replace(original,replacement)
     return text
 
 

@@ -1,6 +1,7 @@
 // Guard native listener entry before the upstream implementation wraps the
 // receiver/Event. Keep the full original EventTarget algorithms and declarations.
 #include "CallbackGate.h"
+#include "HandlerStorage.h"
 #include <LibWeb/DOM/BindingsGlue.h>
 #include <LibWeb/DOM/AbortSignal.h>
 #include <LibWeb/WebSockets/WebSocket.h>

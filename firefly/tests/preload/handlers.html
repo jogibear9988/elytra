@@ -2,13 +2,15 @@
 <meta charset="utf-8">
 <body><p id="status">WAITING_FOR_HANDLERS</p>
 <script>
-let pageCalls=0,pageErrors=0,sourceErrors=0;
-// Exercise replacement of existing principal native handler listeners.
-document.onclick=()=>{};document.onkeydown=()=>{};window.onbeforeunload=()=>{};
+let pageCalls=0,pageErrors=0,sourceErrors=0,pageHandlerCalls=0;
+// Source property handlers must coexist with principal native handlers.
+const pageHandler=()=>{pageHandlerCalls++};
+document.onclick=pageHandler;document.onkeydown=()=>{};window.onbeforeunload=()=>{};
 document.onkeyup=()=>{throw 'page-handler-control'};
 document.addEventListener('click',()=>pageCalls++);
 addEventListener('error',event=>{event.preventDefault();if(event.error==='page-handler-control')pageErrors++;else sourceErrors++});
 __fireflyFunctionProbe({mode:'start-handlers'});
+const getterIsolated=document.onclick===pageHandler && Object.getPrototypeOf(document.onclick)===Function.prototype;
 const canceled=!document.dispatchEvent(new Event('click',{cancelable:true}));
 document.dispatchEvent(new Event('keydown'));
 document.dispatchEvent(new Event('keyup'));
@@ -17,7 +19,7 @@ let denied=false;
 try{__fireflyFunctionProbe({mode:'detach-world'})}catch(e){denied=e instanceof TypeError}
 const continued=document.dispatchEvent(new Event('click',{cancelable:true}));
 setTimeout(()=>{
- const ok=canceled && continued && ignored && denied && pageCalls===2 && pageErrors===1 && sourceErrors===0 &&
+ const ok=canceled && continued && ignored && denied && getterIsolated && document.onclick===pageHandler && pageHandlerCalls===2 && pageCalls===2 && pageErrors===1 && sourceErrors===0 &&
   document.documentElement.getAttribute('data-source-handler')==='1:true' &&
   document.documentElement.getAttribute('data-handler-trap')===null;
  if(!ok){document.querySelector('#status').textContent='HANDLER_WORLD_MISSING';return}

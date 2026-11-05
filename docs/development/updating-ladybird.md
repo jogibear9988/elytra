@@ -96,13 +96,20 @@ candidate commits from the official repository in .gitmodules / the manifest.
    page listener/signal controls must continue to pass.
    EventTarget's listener/handler free definitions now pass through
    tooling/adapt_event_entries.py, which renames definitions only so internal
-   handler calls still hit the guard. No implementation body is rewritten. Review
+   handler calls still hit the guard. The same generator now adapts only declared
+   handler storage/trace/scope/realm expressions (ADR 0040). Review
    both exact signatures, generated #line/includes/dependencies and the source
    preservation test. Keep two handler-entry tokens and verify internal calls.
    Retain page-created-listener/source-replacement, error/strict-bool and native
    beforeunload conversion tests: cancellation precedes ToString; nonempty
    returnValue skips it; detach/last-owner release must wait through conversion.
-   Handler map/getter isolation remains an explicit unresolved boundary (ADR 0039).
+   Review all four handler-map addresses, native visit_edges, storage-owner realm
+   selection and the principal scopes for inline attributes/full erasure. Keep
+   target/realm metadata weak and trace values through native target liveness.
+   Retain page/two-world getter/identity/order, native erasure/rearm, inline string,
+   detached-cycle GC, foreign callback and source-detach/page continuity controls.
+   The preservation test reverses every declared edit to recover exact upstream
+   bytes; counts cannot substitute for this semantic review.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

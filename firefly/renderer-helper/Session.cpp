@@ -45,6 +45,7 @@ struct Session {
     size_t reported_jobs { 0 };
     size_t reported_timers { 0 };
     size_t reported_observers { 0 };
+    size_t reported_handler_maps { 0 };
     size_t reported_listeners { 0 };
     size_t reported_listener_signals { 0 };
     size_t reported_rejections { 0 };
@@ -127,12 +128,15 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                 (function(a) {
                     'use strict';
                     if(a.mode==='start-handlers') {
+                        if(document.onclick!==null || document.onkeyup!==null)throw Error('Page handler reference leaked');
                         let runs=0;
-                        document.onclick=function(event){
+                        const handler=function(event){
                             const valid=this===document && event.target===document && Object.getPrototypeOf(event)===Event.prototype;
                             document.documentElement.setAttribute('data-source-handler',String(++runs)+':'+valid);
                             return false;
                         };
+                        document.onclick=handler;
+                        if(document.onclick!==handler || Object.getPrototypeOf(document.onclick)!==Function.prototype)throw Error('Source handler identity changed');
                         document.onkeydown=()=>{throw {privateCallback(){return 42}}};
                         document.onmousedown=()=>new Proxy({},{get(){document.documentElement.setAttribute('data-handler-trap','BAD');throw 1}});
                         window.onbeforeunload=()=>{document.documentElement.setAttribute('data-handler-late','BAD');return 'BAD'};
@@ -294,6 +298,11 @@ void initialize()
                 session->reported_listeners = listeners;
                 session->reported_listener_signals = signals;
                 warnln("FIREFLY_WORLD_LISTENERS_CANCELED pid={} count={} signals={}", Core::System::getpid(), listeners, signals);
+            }
+            auto maps = session->jobs->canceled_handler_map_count();
+            if (maps != session->reported_handler_maps) {
+                session->reported_handler_maps = maps;
+                warnln("FIREFLY_WORLD_HANDLER_MAPS_CLEARED pid={} count={}", Core::System::getpid(), maps);
             }
             auto rejections = session->jobs->source_rejection_count();
             auto errors = session->jobs->source_job_error_count();
