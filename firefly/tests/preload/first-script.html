@@ -7,6 +7,9 @@ window.firstScriptOK = window.name === 'FIREFLY_WORLD_READY:' + location.href &&
  Object.getPrototypeOf(__fireflyDataProbe)===Object.prototype &&
  Object.getPrototypeOf(__fireflyDataProbe.nested)===Array.prototype &&
  Object.isFrozen(__fireflyDataProbe) && Object.isFrozen(__fireflyDataProbe.nested) &&
+ (()=>{const r=__fireflyFunctionProbe({n:41});return r.answer===42 && r.ownThis &&
+ r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
+ __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})() &&
   ['process','require','Buffer'].every(k=>!(k in globalThis));
 </script>
 <meta charset="utf-8">

@@ -60,3 +60,9 @@ before first author scripts. Native tests cover cycles, sparse arrays, aliases,
 GC, prototype safety, trap-free rejection and snapshot size limits (ADR 0028).
 This does not enable the public bridge: function/Promise forwarding, document
 revocation, IPC validation and hard enumeration scratch-memory bounds remain open.
+
+Internal synchronous function endpoints now round-trip copied data with fixed
+error sanitation, native reentry rejection and explicit/document-inactivity
+revocation. SDK and actual helper tests cover retained functions after frame
+removal, including 70 cycles (ADR 0029). Public preload/contextBridge/IPC remain
+unsupported: async Promise/callback lifetime and validated transport are still open.

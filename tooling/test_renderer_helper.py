@@ -51,7 +51,7 @@ def main():
     for relative,names in HOOKS.items():verify_text((ROOT/'vendor/ladybird'/relative).read_text(),names)
     print('PASS unmodified control lacks early world, owned helper creates it before first author script')
     print('PASS isolated globals and frozen data-only copies in top-level/srcdoc frames and matching renderer PID')
-    print('PASS 70 frame cycles detach old worlds without exhausting the live-world budget')
+    print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

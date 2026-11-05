@@ -1,6 +1,7 @@
 #include "Session.h"
 #include "IsolatedWorld.h"
 #include "BridgeData.h"
+#include "FunctionBridge.h"
 #include <AK/HashMap.h>
 #include <AK/HashTable.h>
 #include <AK/JsonObject.h>
@@ -25,6 +26,12 @@ namespace {
 struct WorldRecord {
     NonnullRefPtr<IsolatedWorld> owner;
     GC::Root<Web::DOM::Document> document;
+    RefPtr<FunctionBridge> function {};
+    void detach()
+    {
+        if (function) function->revoke();
+        owner->detach();
+    }
 };
 struct Session {
     HashMap<String, WorldRecord> worlds;
@@ -50,7 +57,7 @@ void sweep_inactive()
     }
     for (auto const& id : stale) {
         auto record = session->worlds.take(id);
-        record->owner->detach();
+        record->detach();
         ++session->destroyed;
         warnln("FIREFLY_WORLD_DESTROYED pid={} count={} reason=inactive", Core::System::getpid(), session->destroyed);
     }
@@ -65,7 +72,7 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
         if (!id.has_value() || id->is_empty() || id->bytes().size() > 1024) fail("Invalid realm identity"sv);
         if (name == "script.realmDestroyed"sv) {
             if (auto world = session->worlds.take(*id); world.has_value()) {
-                world->owner->detach();
+                world->detach();
                 ++session->destroyed;
                 warnln("FIREFLY_WORLD_DESTROYED pid={} count={}", Core::System::getpid(), session->destroyed);
             }
@@ -98,6 +105,20 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
                 "__fireflyDataProbe"_utf16, copied.value(), JS::default_attributes);
             // Prove the copy does not share state with its source.
             if (world->evaluate(u"__fireflyCopySource.answer=99"sv).is_error()) fail("Cannot mutate probe source"sv);
+            auto callback = world->evaluate(uR"JS(
+                (function(a) {
+                    'use strict';
+                    return {answer:a.n+1, ownThis:this===undefined,
+                        ownPrototype:Object.getPrototypeOf(a)===Object.prototype,
+                        frozen:Object.isFrozen(a)};
+                })
+            )JS"sv);
+            if (callback.is_error() || !callback.value().is_function()) fail("Cannot create function probe"sv);
+            auto endpoint = FunctionBridge::create(*world, callback.release_value().as_function(), *document);
+            if (endpoint.is_error()) fail("Cannot export function probe"sv);
+            session->worlds.find(*id)->value.function = endpoint.value().owner;
+            document->window()->principal_realm().global_object().define_direct_property(
+                "__fireflyFunctionProbe"_utf16, endpoint.value().function, JS::default_attributes);
             ++session->created;
             warnln("FIREFLY_WORLD_CREATED pid={} count={}", Core::System::getpid(), session->created);
         }
@@ -146,7 +167,7 @@ void shutdown()
     if (!session) return;
     session->sweep_timer->stop();
     session->sweep_timer.clear();
-    for (auto& entry : session->worlds) entry.value.owner->detach();
+    for (auto& entry : session->worlds) entry.value.detach();
     delete session;
     session = nullptr;
 }

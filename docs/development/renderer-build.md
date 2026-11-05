@@ -93,7 +93,8 @@ selected constructor paths, GC and deferred owner teardown. It also tests the
 internal BridgeData snapshot adapter, including cyclic data, frozen target-realm
 containers, trap-free rejection and copy budgets (ADR 0028). It does not enable
 public preload or contextBridge. See ADR 0026 for ownership and the remaining
-async/membrane/IPC gates.
+async/membrane/IPC gates. The same gate now tests synchronous data-only function
+endpoints, error sanitation, reentry and in-flight revocation (ADR 0029).
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -110,7 +111,7 @@ to use the original helper. No distribution bundle is produced.
 
 The gate checks the original helper as a negative control, first author-script
 ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
-helper PIDs, 70 frame cleanup
-cycles and rejected missing/duplicate entry tokens. A missing executable or failed
+helper PIDs, synchronous function calls and revoked removed-frame references
+across 70 cleanup cycles and rejected missing/duplicate entry tokens. A missing executable or failed
 fixture fails the gate. Only a compiled harmless script is installed: this is not
 public preload/contextBridge, async revocation or validated IPC. See ADR 0027.

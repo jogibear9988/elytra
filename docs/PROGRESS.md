@@ -530,8 +530,42 @@ previous suites were not rerun. Public preload/contextBridge/IPC remain unsuppor
 including function/Promise proxies and generation-based async revocation. No new
 platform, packaging, COI, screenshot or full sandbox-audit claim is made.
 
-Next: implement generation-aware function/Promise membranes and validated IPC,
-with resource/sender/frame limits, alongside Windows process/sandbox feasibility.
+The internal FunctionBridge now exports one synchronous data-only endpoint per
+exact isolated world/document. Arguments (up to 64) are copied together to preserve
+aliases, and results are reconstructed/frozen in the target realm. Callers cannot
+supply the source receiver or obtain raw source objects. Callable proxy/bound
+source functions, unsupported arguments/results and nested entry are rejected.
+Source exceptions are never inspected; callers receive a fixed target TypeError.
+
+Native tests exposed an SDK integration trap: NativeFunction::create's first
+realm argument only chooses the allocation VM. The adapter now sets and checks
+the optional function realm explicitly; constructor-chain isolation passes.
+IsolatedWorld shares its rooted context boundary for evaluate/call, preserving
+reentry rejection and deferred detach. Explicit endpoint revoke releases roots
+and the source owner. The helper performs revoke before world detach on every
+cleanup path; activity/detach checks deny removed documents immediately, and a
+post-call check denies output after revocation during a running callback.
+
+Both check-firefly-isolation and check-firefly-renderer-helper pass, including
+alias/cycle/freeze/receiver/constructor checks, rejected argument traps, arity and
+output bounds, generic errors for thrown proxies and function/Promise results,
+native reentry, GC, repeated revoke, in-flight revoke/detach with restored context,
+and retained child function references denied immediately after frame removal.
+The separate sandboxed helper exercises compiled arithmetic probes before first
+author scripts in top-level/srcdoc documents and through 70 cleanup cycles, with
+an unchanged helper negative control. Log: build/function-test.log. ADR 0029
+records ownership requirements and limits. Ladybird is still entirely unmodified.
+
+This is synchronous endpoint revocation, not full async/document-generation
+safety. Promise jobs, timers/listeners, BFCache and cross-process navigation still
+need implementation and adversarial tests; returning a rejected Promise may have
+already scheduled source work. Public preload/contextBridge/IPC remain unsupported;
+the regular Firefly app is unchanged. Hard resource containment, native
+Windows/Linux, packaging, nondefault COI, sandbox audit and the visible desktop
+gate remain open. Existing Mite/public-app suites were not rerun for this slice.
+
+Next: implement Promise and callback membranes with async generation revocation
+and validated IPC with resource/sender/frame limits, alongside Windows feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

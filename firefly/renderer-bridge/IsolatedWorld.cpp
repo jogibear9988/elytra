@@ -1,6 +1,7 @@
 #include "IsolatedWorld.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
 #include <LibWeb/Bindings/HostDefined.h>
@@ -59,7 +60,7 @@ IsolatedWorld::~IsolatedWorld()
     detach();
 }
 
-JS::ThrowCompletionOr<JS::Value> IsolatedWorld::evaluate(Utf16View source)
+JS::ThrowCompletionOr<JS::Value> IsolatedWorld::execute(Function<JS::ThrowCompletionOr<JS::Value>()> operation)
 {
     // The renderer owner thread must have an active caller context, including
     // when asking a detached owner to reject an evaluation.
@@ -75,11 +76,26 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::evaluate(Utf16View source)
         m_evaluating = false;
         if (m_detach_requested) detach();
     });
-    auto parsed = JS::Script::parse(Utf16String::from_utf16(source), *m_realm, "firefly:isolated-world"sv);
-    if (parsed.is_error())
-        return m_vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
-    GC::Root script { parsed.release_value() };
-    return m_vm.run(*script);
+    return operation();
+}
+
+JS::ThrowCompletionOr<JS::Value> IsolatedWorld::evaluate(Utf16View source)
+{
+    return execute([&]() -> JS::ThrowCompletionOr<JS::Value> {
+        auto parsed = JS::Script::parse(Utf16String::from_utf16(source), *m_realm, "firefly:isolated-world"sv);
+        if (parsed.is_error())
+            return m_vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
+        GC::Root script { parsed.release_value() };
+        return m_vm.run(*script);
+    });
+}
+
+JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call(JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments)
+{
+    if (is_detached() || function.realm() != realm())
+        return m_vm.throw_completion<JS::Error>("Function does not belong to a live isolated world"sv);
+    GC::Root protect_function { function };
+    return execute([&] { return JS::call(m_vm, function, JS::js_undefined(), arguments); });
 }
 
 void IsolatedWorld::detach()
