@@ -97,8 +97,8 @@ def main():
         assert values[0]==values[1]=={'trace':['closed',f'quit:{code}']},values
     print('PASS app.exit signed exit codes, forced close, event suppression and explicit status precedence')
     result=success(execute(firefly,ROOT/'firefly/tests/migration/main-esm.mjs'))
-    assert result=={'esm':True,'http':True,'rendererIsolated':True},result
-    print('PASS static ESM firefly import, top-level await, Mite HTTP server and native loadURL')
+    assert result=={'esm':True,'http':True,'os':True,'rendererIsolated':True},result
+    print('PASS static ESM firefly import, top-level await, Mite OS queries/HTTP server and native loadURL')
     with tempfile.TemporaryDirectory(prefix='firefly-app-fixtures-') as directory:
         root=Path(directory)
         script=root/'main.cjs'

@@ -31,9 +31,9 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 27 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 28 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1199,6 +1199,37 @@ reclamation/audit is claimed. Public preload/contextBridge/IPC, other callbacks/
 registries, arbitrary transfers, workers/finalization, navigation/BFCache and hard
 bounds remain open. No standalone Mite change, newer pin, new platform/package or
 visible-desktop validation. Existing warnings persist.
+
+Standalone Mite now implements a native node:os foundation (ADR 0047): system/
+architecture identity, hostname, home/temp paths, endianness, available parallelism,
+free/total memory, uptime/loadavg and EOL/devNull. It uses existing libuv and our
+LibJS/JS module adapters, with no Node/V8, LibWeb, new dependency or vendor change.
+CJS/bare/node:/ESM module identities and supported named exports share the normal
+builtin cache. OS information strings snapshot at module import; dynamic queries
+and native environment reads remain live. PATH_MAX home-directory failures match
+the observed native Node behavior instead of accepting oversized environment paths.
+
+All 28 standalone CTest suites pass in build/os-ctest.log. The new Node 24.15.0 OS
+fixture compares fixed host values, 15 argument/receiver checks, 12 coercions,
+retained function coercion, module identities/named imports, EOL/devNull descriptors,
+fresh/nonnegative load arrays, native memory/uptime bounds and 15 environment
+observations. Environment tests include precedence, empty values, roots/relative/
+Unicode/long paths, HOME failure metadata and replacement process.env objects.
+Changing free-memory/load values are range/shape checked rather than advertised as
+simultaneous identical snapshots. Separate fixtures require six unsupported API/
+property groups to throw explicitly. otool still shows platform libraries only,
+without Node/V8/LibWeb/Qt. Firefly's shared runtime build and full existing Electron
+reference gate pass in build/os-firefly-test.log; its ESM/HTTP migration fixture also
+imports/executes OS named functions in the native main process before renderer load.
+
+CPU/network lists, userInfo, priorities and constants remain unimplemented with
+ERR_MITE_UNSUPPORTED_API; constants is absent from ESM named exports. Full function/
+error descriptor parity, all native error paths and privileged/setuid/capability
+execution remain unverified. Windows/Linux native behavior, the Windows path branch
+and fallback buffer still need runners. No packaging/new npm/audit or visible-
+desktop validation is claimed. Public preload/contextBridge/IPC and the other
+remaining runtime/renderer milestones stay open. Existing build warnings persist;
+Ladybird remains unmodified at the same pin, with no new candidate evaluated.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

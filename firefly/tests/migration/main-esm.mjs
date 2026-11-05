@@ -1,7 +1,9 @@
 import {app,BrowserWindow} from 'firefly';
+import {arch,platform,hostname,homedir,availableParallelism} from 'node:os';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
+if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
 await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
@@ -10,5 +12,5 @@ const win=new BrowserWindow({width:640,height:400});
 await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 if(win.webContents.getTitle()!=='RENDERER_ISOLATED') throw Error('ESM/HTTP renderer isolation');
 await new Promise(resolve=>server.close(resolve));
-console.log(JSON.stringify({esm:true,http:true,rendererIsolated:true}));
+console.log(JSON.stringify({esm:true,http:true,os:true,rendererIsolated:true}));
 win.on('closed',()=>app.quit());win.destroy();

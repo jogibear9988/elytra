@@ -160,6 +160,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    and weak TreeWalker/filter collection controls plus native invocation tests.
    Review Document's iterator registration/GC edges separately; filter metadata
    cleanup is not proof of upstream native container reclamation.
+   Standalone CTest now also includes the node:os differential gate (ADR 0047).
+   Preserve builtin CJS/ESM identities and native OS/environment observations when
+   adapting LibJS string/value/array APIs. Its libuv adapter needs no Ladybird seam
+   or new dependency. Run the Firefly ESM/HTTP fixture's OS imports too, since the
+   main process uses the shared Mite runtime graph; native Windows/Linux remain
+   independently unverified.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

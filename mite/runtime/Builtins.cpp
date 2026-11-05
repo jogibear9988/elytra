@@ -10,6 +10,7 @@
 #include "Network.h"
 #include "DNS.h"
 #include "HTTP.h"
+#include "OS.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -63,7 +64,9 @@ static constexpr std::string_view net_exports[] = { "Socket", "Server", "createS
 static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDefaultResultOrder", "getDefaultResultOrder", "ADDRCONFIG", "V4MAPPED", "ALL" };
 static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
+static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "EOL", "devNull" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
     { "dns/promises", {}, dns_promises_exports },
@@ -139,6 +142,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             auto native = create_encoding_host(m_realm);
             host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
+    }
+    if (name == "os") {
+        host->define_direct_property("native"_utf16, TRY(create_os_host(m_realm)), JS::default_attributes);
+        host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
     }
     if (name == "http") {
         host->define_direct_property("native"_utf16, create_http_host(m_realm), JS::default_attributes);
