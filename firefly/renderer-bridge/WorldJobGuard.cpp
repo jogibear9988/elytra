@@ -18,6 +18,9 @@
 #include <LibWeb/DOM/MutationRecord.h>
 #include <LibWeb/Bindings/Wrappable.h>
 #include <LibJS/Runtime/Array.h>
+#include <LibJS/Runtime/PrimitiveString.h>
+#include <LibWeb/HTML/BeforeUnloadEvent.h>
+#include <LibWeb/HTML/EventNames.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/HTML/Timer.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
@@ -88,6 +91,8 @@ struct WorldJobGuard::State : public RefCounted<State> {
             static_cast<State*>(context)->change_listener(target, listener);
         },+[](void* context, Web::DOM::EventTarget& target, Web::DOM::DOMEventListener& listener, u64 id) {
             static_cast<State*>(context)->add_listener_signal(target, listener, id);
+        },+[](void* context, Web::WebIDL::CallbackType& callback, Web::DOM::Event& event, bool special) {
+            return static_cast<State*>(context)->invoke_handler(callback, event, special);
         }});
     }
     ~State() { Callbacks::restore_gate(vm, this, previous_gate); }
@@ -161,6 +166,44 @@ struct WorldJobGuard::State : public RefCounted<State> {
         });
         for (auto const& signal : signals) { Callbacks::remove_signal_algorithm(*signal.signal, signal.id); ++canceled_listener_signals; }
         for (auto const& record : removed) { Callbacks::remove_listener(*record.target, *record.listener); ++canceled_listeners; }
+    }
+    JS::Completion invoke_handler(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event, bool special)
+    {
+        auto delegate = [&] {
+            if (previous_gate.invoke_handler) return previous_gate.invoke_handler(previous_gate.context, callback, event, special);
+            return Callbacks::invoke_handler_original(callback, event, special);
+        };
+        auto& associated = Callbacks::callback_realm(callback);
+        GC::Ptr<JS::Realm> actual;
+        if (callback.callback->is_function()) {
+            auto realm = JS::get_function_realm(vm, static_cast<JS::FunctionObject&>(*callback.callback));
+            if (!realm.is_error()) actual = realm.value();
+        }
+        bool own_associated = realms.contains(associated);
+        bool own_actual = actual && realms.contains(*actual);
+        if (!own_associated && !own_actual) return delegate();
+        if (own_associated && blocked_realm(associated)) return JS::js_undefined();
+        if (own_actual && actual.ptr() != &associated && blocked_realm(*actual)) return JS::js_undefined();
+        auto result = run_owned(own_associated ? owner_for(associated) : nullptr, own_actual ? owner_for(*actual) : nullptr,
+            [&]() -> JS::ThrowCompletionOr<JS::Value> {
+                auto completion = Callbacks::invoke_handler_original(callback, event, special);
+                if (completion.is_error()) return JS::throw_completion(completion.release_value());
+                auto value = completion.release_value();
+                // No source object may escape for conversion after the owner
+                // frame ends. Ordinary/error handlers consume strict booleans.
+                if (event.type() == Web::HTML::EventNames::beforeunload && Callbacks::is_beforeunload_event(event)) {
+                    if (value.is_nullish()) return JS::js_undefined();
+                    // Upstream sets this before ToString, including when it
+                    // throws. Keep that order while protecting conversion code.
+                    event.set_cancelled(true);
+                    auto& before = static_cast<Web::HTML::BeforeUnloadEvent&>(event);
+                    if (!before.return_value().is_empty()) return JS::Value(true);
+                    return JS::PrimitiveString::create(vm, TRY(value.to_utf16_string(vm)));
+                }
+                return value.is_boolean() ? value : JS::js_undefined();
+            });
+        if (result.is_error()) { ++source_job_errors; return JS::js_undefined(); }
+        return result.release_value();
     }
     JS::Completion invoke_listener(Web::WebIDL::CallbackType& callback, Web::DOM::Event& event)
     {

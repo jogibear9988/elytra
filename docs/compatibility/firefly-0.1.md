@@ -118,3 +118,9 @@ at physical world detach, including duplicate registration and callbacks registe
 after logical detach. Native-state/GC and helper page-listener/signal controls pass
 (ADR 0038). Handler attributes, other observers and script-valued event fields remain
 open; public preload/contextBridge/IPC remain unsupported.
+
+Internal native on… handler dispatch now checks source lifetime before wrapping,
+redacts errors and converts beforeunload results within the retained source frame.
+SDK/helper and app regressions pass (ADR 0039). Shared handler maps/raw callback
+getters and handler cleanup remain unresolved; direct calls can bypass native
+dispatch. Public preload/contextBridge/IPC stay unsupported.

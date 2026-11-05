@@ -126,6 +126,28 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='start-handlers') {
+                        let runs=0;
+                        document.onclick=function(event){
+                            const valid=this===document && event.target===document && Object.getPrototypeOf(event)===Event.prototype;
+                            document.documentElement.setAttribute('data-source-handler',String(++runs)+':'+valid);
+                            return false;
+                        };
+                        document.onkeydown=()=>{throw {privateCallback(){return 42}}};
+                        document.onmousedown=()=>new Proxy({},{get(){document.documentElement.setAttribute('data-handler-trap','BAD');throw 1}});
+                        window.onbeforeunload=()=>{document.documentElement.setAttribute('data-handler-late','BAD');return 'BAD'};
+                        return true;
+                    }
+                    if(a.mode==='remove-self-handler') {
+                        document.onclick=()=>{
+                            __fireflyDetachWorldProbe();
+                            window.frameElement.remove();
+                            document.documentElement.setAttribute('data-after-remove','safe');
+                            queueMicrotask(()=>document.documentElement.setAttribute('data-next-job','BAD'));
+                            return false;
+                        };
+                        return true;
+                    }
                     if(a.mode==='start-listeners') {
                         let count=0,gets=0;
                         const controller=new AbortController();

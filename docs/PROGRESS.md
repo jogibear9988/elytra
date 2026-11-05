@@ -892,7 +892,47 @@ direct transfers, workers/finalization, navigation/BFCache and hard bounds remai
 open. No complete reclamation, new platform/package/audit or visible-desktop support
 is claimed. Standalone Mite is unchanged and its earlier suites were not rerun.
 
-Next: complete other observer resources, handler attributes and callback conversions,
+Native handler dispatch and return conversion now have their own lifetime/error
+gate (ADR 0039). Replacing a handler can reuse a native listener originally created
+in the page; its principal callback cannot stand in for the source handler owner.
+The new handler entry checks source realms before receiver/Event wrapping, retains
+the owners and sanitizes abrupt completions before native page error reporting.
+Ordinary/error returns are reduced to strict boolean/undefined. BeforeUnloadEvent
+conversion happens inside the retained frame, preserving cancellation-before-
+ToString, nullish returns and skipping conversion for nonempty returnValue.
+
+The existing EventTarget adapter uses a build-generated include. It renames only
+two free definitions, preserving bodies, internal calls, licenses and every other
+byte. Plain token renaming would also rename the internal handler call and bypass
+the guard. The generator requires exact single definitions, emits source #line,
+has explicit build dependencies and no committed vendor-source copy. Its regression
+test checks source preservation, internal public call and missing/duplicate rejection.
+No new TU substitution or vendor edits; header/layout/algorithm boundaries remain.
+
+All acceptance gates pass in build/handler-acceptance-test.log: SDK isolation,
+sandboxed helper, ordinary renderer/compositor/process and Firefly/Electron reference.
+SDK tests create principal native listeners first, replace callbacks from source,
+verify receiver/Event/strict-false and special error semantics, ignored object
+results without traps, redacted throw and detached rejection. Handler and native
+beforeunload ToString cases detach/drop the last owner yet safely finish DOM work,
+unwind contexts and physically detach. Throwing conversion leaves canceled=true
+and empty returnValue; an existing value skips hostile conversion. Helper tests
+repeat source-only detach, stable DOM, principal errors/listeners and self-removing
+frame handlers; normal close retains a detached beforeunload replacement safely.
+
+Handler storage isolation is still open and now explicitly identified from source:
+native EventTarget handler maps are shared, and generated getters return callback
+objects directly (e.g. HTMLElement.onclick). Raw references could bypass native
+entry guards on direct calls, and removing a listener need not release its stored
+handler value. Implement world-specific handler storage/getter/setter semantics
+and targeted cleanup before public preload. These passing dispatch tests do not
+prove that boundary. Script-valued event fields, generic operations, other observers,
+direct transfers, workers/finalization, navigation/BFCache and hard bounds remain
+open. Public preload/contextBridge/IPC remain rejected. No complete reclamation,
+new platform/package/audit or visible-desktop support is claimed. Existing warnings
+remain; standalone Mite is unchanged and no newer Ladybird pin was tried.
+
+Next: complete isolated handler storage/cleanup, other observer resources and callback conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside
 Windows feasibility.
 Broaden host APIs and real-package coverage around

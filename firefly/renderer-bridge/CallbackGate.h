@@ -11,6 +11,7 @@ using TimerRemoved = void (*)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&,
 using ObserverChange = void (*)(void*, Web::DOM::MutationObserver&);
 using Invoke = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Optional<JS::Value>, Web::WebIDL::ExceptionBehavior, ReadonlySpan<JS::Value>);
 using InvokeListener = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Web::DOM::Event&);
+using InvokeHandler = JS::Completion (*)(void*, Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
 using ListenerChange = void (*)(void*, Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 using ListenerSignal = void (*)(void*, Web::DOM::EventTarget&, Web::DOM::DOMEventListener&, u64);
 struct Gate {
@@ -23,6 +24,7 @@ struct Gate {
     InvokeListener invoke_listener { nullptr };
     ListenerChange listener_changed { nullptr };
     ListenerSignal listener_signal { nullptr };
+    InvokeHandler invoke_handler { nullptr };
 };
 WEB_API void observer_added(Web::DOM::MutationObserver&);
 WEB_API void observer_removed(Web::DOM::MutationObserver&);
@@ -40,6 +42,10 @@ WEB_API void listener_signal(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&
 WEB_API void remove_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API bool has_listener(Web::DOM::EventTarget&, Web::DOM::DOMEventListener&);
 WEB_API void remove_signal_algorithm(Web::DOM::AbortSignal&, u64);
+WEB_API GC::Ref<Web::DOM::Event> make_beforeunload_probe();
+WEB_API bool is_beforeunload_event(Web::DOM::Event&);
+WEB_API JS::Completion dispatch_handler(Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
+WEB_API JS::Completion invoke_handler_original(Web::WebIDL::CallbackType&, Web::DOM::Event&, bool);
 WEB_API JS::Completion dispatch_listener(Web::WebIDL::CallbackType&, Web::DOM::Event&);
 WEB_API JS::Realm& callback_realm(Web::WebIDL::CallbackType&);
 WEB_API JS::Completion invoke_listener_original(Web::WebIDL::CallbackType&, Web::DOM::Event&);

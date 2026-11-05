@@ -9,12 +9,12 @@ HOOKS={
     'Services/WebContent/WebDriverBiDi.cpp':['set_webdriver_bidi_session_state'],
     'Libraries/LibWeb/WebIDL/AbstractOperations.cpp':['invoke_callback'],
     'Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp':['m_timers'],
-    'Libraries/LibWeb/DOM/EventTarget.cpp':['invoke_event_listener','event_listener_list_changed','add_abort_algorithm'],
+    'Libraries/LibWeb/DOM/EventTarget.cpp':['invoke_event_listener','invoke_event_handler','event_listener_list_changed','add_abort_algorithm'],
     'Libraries/LibWeb/DOM/MutationObserver.cpp':['m_node_list'],
 }
 
 
-EXPECTED_COUNTS={'invoke_callback':4,'m_timers':15,'m_node_list':3,'event_listener_list_changed':2}
+EXPECTED_COUNTS={'invoke_callback':4,'m_timers':15,'m_node_list':3,'event_listener_list_changed':2,'invoke_event_handler':2}
 
 def verify_text(text, names):
     for name in names:

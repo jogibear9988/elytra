@@ -69,6 +69,12 @@ def main():
     assert failures and max(failures)>=2,listeners
     canceled=[(int(n),int(s)) for n,s in re.findall(rf'FIREFLY_WORLD_LISTENERS_CANCELED pid={pid} count=(\d+) signals=(\d+)',listeners.stderr)]
     assert canceled and any(n>=4 and s>=2 for n,s in canceled),listeners
+    handlers=run(probe,'--headless=manual',(fixture/'handlers.html').as_uri())
+    pid=pid_of(handlers)
+    failures=[int(n) for n in re.findall(rf'FIREFLY_WORLD_FAILURES_REDACTED pid={pid} rejections=\d+ job_errors=(\d+)',handlers.stderr)]
+    assert failures and max(failures)>=1,handlers
+    blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',handlers.stderr)]
+    assert blocked and max(blocked)>=1,handlers
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in {name for names in HOOKS.values() for name in names}:
@@ -89,6 +95,7 @@ def main():
     print('PASS source interval/timeout native cancellation leaves the document and page interval live')
     print('PASS source observer wrappers resist page prototypes; native disconnect leaves page observers live')
     print('PASS source listener lifetime/error privacy and native registration/signal release; page listener/abort continues')
+    print('PASS source replacement handler return/cancelation/error/lifetime and continuing page controls')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 
