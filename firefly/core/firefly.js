@@ -82,7 +82,7 @@
       if(exited) throw error('ERR_FIREFLY_APP_EXITED','Application is exiting');
       if(!ready) throw error('ERR_FIREFLY_NOT_READY','Cannot create BrowserWindow before app is ready');
       if(!options || typeof options!=='object' || Array.isArray(options)) throw error('ERR_INVALID_ARG_TYPE','BrowserWindow options must be an object');
-      for(const key of Object.keys(options)) if(!['width','height','title','show','webPreferences'].includes(key)) unsupported(`BrowserWindow option ${key}`);
+      for(const key of Object.keys(options)) if(!['width','height','title','show','frame','webPreferences'].includes(key)) unsupported(`BrowserWindow option ${key}`);
       const prefs=options.webPreferences ?? {};
       if(!prefs || typeof prefs!=='object' || Array.isArray(prefs)) throw error('ERR_INVALID_ARG_TYPE','webPreferences must be an object');
       for(const key of Object.keys(prefs)) {
@@ -90,10 +90,10 @@
         if(prefs[key] !== (key!=='nodeIntegration')) unsupported(`webPreferences.${key}=${prefs[key]}`);
       }
       const width=dimension(options.width ?? 800,'width'), height=dimension(options.height ?? 600,'height');
-      const title=options.title ?? 'Firefly'; const show=options.show ?? true;
-      if(typeof title!=='string' || typeof show!=='boolean') throw error('ERR_INVALID_ARG_TYPE','Invalid title/show option');
+      const title=options.title ?? 'Firefly'; const show=options.show ?? true; const frame=options.frame ?? true;
+      if(typeof title!=='string' || typeof show!=='boolean' || typeof frame!=='boolean') throw error('ERR_INVALID_ARG_TYPE','Invalid title/show option');
       this._destroyed=false; this._closing=false;
-      this.id=native.create(width,height,title,show);
+      this.id=native.create(width,height,title,show,frame);
       this.webContents=new WebContents(this);
       windows.set(this.id,this);
     }
@@ -113,6 +113,12 @@
     isVisible() {alive(this);return native.visible(this.id);}
     focus() {alive(this);native.focus(this.id);}
     setSize(width,height,animate=false) {alive(this);if(animate) unsupported('animated resize');native.resize(this.id,dimension(width,'width'),dimension(height,'height'));}
+    minimize() {alive(this);native.minimize(this.id);}
+    maximize() {alive(this);native.maximize(this.id);}
+    unmaximize() {alive(this);native.unmaximize(this.id);}
+    restore() {alive(this);native.restore(this.id);}
+    isMinimized() {alive(this);return native.minimized(this.id);}
+    isMaximized() {alive(this);return native.maximized(this.id);}
     getSize() {alive(this);return native.size(this.id);}
     setTitle(title) {alive(this);if(typeof title!=='string') throw error('ERR_INVALID_ARG_TYPE','title must be a string');native.title(this.id,title);}
     getTitle() {alive(this);return native.titleText(this.id);}
@@ -141,6 +147,7 @@
     else if(type==='paint') win.emit('ready-to-show');
     else if(type==='failed') {contents._reject(error('ERR_FAILED',data));contents.emit('did-fail-load',event(),-2,data,contents._url,true);}
     else if(type==='crashed') {contents._reject(error('ERR_FAILED','Renderer process crashed'));contents.emit('render-process-gone',event(),{reason:'crashed',exitCode:-1});}
+    else if(['minimize','maximize','unmaximize','restore'].includes(type)) win.emit(type);
     else if(type==='resize') win.emit('resize');
   });
   return {app,BrowserWindow};

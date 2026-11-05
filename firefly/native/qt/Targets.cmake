@@ -10,7 +10,7 @@ set(firefly_qt_files)
 foreach(source IN LISTS firefly_qt_sources)
     list(APPEND firefly_qt_files "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.cpp")
 endforeach()
-add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" ${firefly_qt_files})
+add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" ${firefly_qt_files})
 set_target_properties(firefly-qt-view PROPERTIES AUTOMOC ON)
 target_include_directories(firefly-qt-view PUBLIC "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
 target_link_libraries(firefly-qt-view PUBLIC LibWebView LibIPC LibURL LibGfx LibCore LibMain AK Qt::Core Qt::Gui Qt::Widgets Qt::GuiPrivate)
@@ -35,6 +35,9 @@ add_custom_target(check-firefly-window
         --probe "$<TARGET_FILE:firefly-window-probe>"
     DEPENDS firefly-window-probe USES_TERMINAL VERBATIM)
 
+add_executable(firefly-chrome-probe "${CMAKE_CURRENT_LIST_DIR}/ChromeProbe.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp")
+target_link_libraries(firefly-chrome-probe PRIVATE Qt::Widgets)
+
 if(FIREFLY_BUILD_RUNTIME)
     include("${FIREFLY_SOURCE_DIR}/mite/cmake/Runtime.cmake")
     mite_add_runtime(firefly-mite "${FIREFLY_SOURCE_DIR}" LibJS)
@@ -45,6 +48,9 @@ if(FIREFLY_BUILD_RUNTIME)
     file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/firefly.js" FIREFLY_API_SOURCE)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/firefly/core/firefly.js")
     configure_file("${FIREFLY_SOURCE_DIR}/firefly/core/ApiSource.h.in" "${CMAKE_BINARY_DIR}/firefly-generated/ApiSource.h" @ONLY)
+    file(READ "${CMAKE_CURRENT_LIST_DIR}/AppRegions.js" FIREFLY_APP_REGIONS_SOURCE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/AppRegions.js")
+    configure_file("${CMAKE_CURRENT_LIST_DIR}/AppRegions.h.in" "${CMAKE_BINARY_DIR}/firefly-generated/AppRegions.h" @ONLY)
     add_executable(firefly "${CMAKE_CURRENT_LIST_DIR}/Application.cpp" "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp")
     target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
     target_compile_definitions(firefly PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
@@ -53,7 +59,8 @@ if(FIREFLY_BUILD_RUNTIME)
     ladybird_check_skia_confinement(firefly)
     set(FIREFLY_ELECTRON_REFERENCE "${FIREFLY_SOURCE_DIR}/build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" CACHE FILEPATH "Electron behavioral reference executable")
     add_custom_target(check-firefly
+        COMMAND "$<TARGET_FILE:firefly-chrome-probe>"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_firefly.py"
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
-        DEPENDS firefly USES_TERMINAL VERBATIM)
+        DEPENDS firefly firefly-chrome-probe USES_TERMINAL VERBATIM)
 endif()

@@ -15,6 +15,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | height | Integer 1..16384, default 600 |
 | title | String, default Firefly |
 | show | Boolean, default true |
+| frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
@@ -45,6 +46,8 @@ show:true is also supported.
 | show(), hide(), focus() | undefined; native control |
 | isVisible() | boolean |
 | setSize(width, height[, animate = false]) | undefined; dimensions as above; truthy animate rejects as unsupported |
+| minimize(), maximize(), unmaximize(), restore() | undefined; native state transitions |
+| isMinimized(), isMaximized() | boolean; native state queries |
 | getSize() | [width, height] from native window |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
@@ -78,6 +81,7 @@ when its window closes.
 | close | event; synchronous preventDefault cancels normal close |
 | closed | No arguments; native closure recorded, registry entry removed |
 | resize | No arguments; observed native resize |
+| minimize, restore, maximize, unmaximize | No arguments; observed native window-state changes |
 | ready-to-show | No arguments; native paint observed |
 | page-title-updated | event, string title, boolean explicitSet; preventDefault suppresses automatic window-title assignment |
 
@@ -86,9 +90,39 @@ parity. A window title set by the app can differ from webContents.getTitle().
 The close event does not implement renderer beforeunload. Event objects expose
 preventDefault/defaultPrevented, not the full Electron event structure.
 
+## Custom title bar and dragging
+
+Use frame:false and HTML buttons for a fully custom bar. This is different from
+Electron's titleBarStyle:hidden, which retains macOS traffic lights; that option
+still rejects here. The current owned adapter recognizes stylesheet declarations:
+
+```css
+.toolbar { app-region: drag; -webkit-app-region: drag; user-select: none; }
+.toolbar button { app-region: no-drag; -webkit-app-region: no-drag; }
+```
+
+The host intercepts left-button drag/double-click in drag rectangles and subtracts
+no-drag rectangles so buttons still receive input. Double-click toggles maximize.
+Regions update at 250 ms intervals; snapshots older than one second stop intercepting
+input. Navigation clears them. This is an experimental macOS adapter, not full
+Electron non-client-area behavior or native resize-edge parity.
+
+Supported scope: top-document style elements and same-origin linked stylesheets,
+ordinary selectors/media rules and observed rectangular layout. Inline style
+attributes, shadow-root/frame styles, @import chains, cross-origin sheets, strict CSP
+that blocks the alias stylesheet, live CSSOM-only edits and browser zoom scaling
+are not validated/supported. At most 256 matching elements are accepted. Put the
+bar in the top document, use same-origin CSS, and allow its style policy. No native
+bindings are installed in page JS; the owned shim only supplies bounded geometry.
+
+Minimize/maximize/restore states match the pinned Electron fixture on this host.
+Firefly state events pass; Electron maximize-event delivery could not be established
+in the locked desktop session, so full reference event timing/presentation remains
+unverified. See [ADR 0055](../architecture/0055-custom-window-chrome.md).
+
 ## Missing surface and evidence
 
-Menus, fullscreen/maximize/minimize, bounds/position, parent/modal windows, icons,
+Menus, fullscreen, bounds/position, parent/modal windows, icons,
 platform material/style options and the wider Electron window surface are absent.
 Only constructor options listed above are accepted. Public preload/IPC remain
 unsupported; see [security](../guides/security.md).

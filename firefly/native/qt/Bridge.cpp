@@ -1,4 +1,8 @@
 #include "Bridge.h"
+#include "ChromeWindow.h"
+#include "AppRegions.h"
+#include <AK/JsonArray.h>
+#include <AK/JsonValue.h>
 #include "EventLoop.h"
 #include <LibCore/EventLoop.h>
 #include <LibGC/Root.h>
@@ -25,22 +29,6 @@
 
 namespace Firefly {
 namespace {
-class Window final : public QWidget {
-public:
-    std::function<bool()> request_close;
-    std::function<void()> resized;
-    void closeEvent(QCloseEvent* event) override
-    {
-        // The JS facade handles cancellation and schedules actual destruction.
-        if (request_close) request_close();
-        event->ignore();
-    }
-    void resizeEvent(QResizeEvent* event) override
-    {
-        QWidget::resizeEvent(event);
-        if (resized) resized();
-    }
-};
 JS::Value text(JS::VM& vm, StringView value)
 {
     return JS::PrimitiveString::create(vm, Utf16String::from_utf8_with_replacement_character(value));
@@ -48,7 +36,7 @@ JS::Value text(JS::VM& vm, StringView value)
 }
 struct Bridge::Impl {
     struct State {
-        Window* window;
+        ChromeWindow* window;
         Ladybird::WebContentView* view;
         bool closing { false };
         bool painted { false };
@@ -112,25 +100,65 @@ struct Bridge::Impl {
         found->second.window->hide();
         found->second.window->deleteLater();
     }
-    int create(int width, int height, QString const& title, bool show)
+    int create(int width, int height, QString const& title, bool show, bool frame)
     {
         auto id = next_id++;
-        auto* window = new Window;
+        auto* window = new ChromeWindow(frame);
         window->setWindowTitle(title);
         window->resize(width,height);
         auto* layout = new QVBoxLayout(window);
         layout->setContentsMargins(0,0,0,0);
         auto* view = new Ladybird::WebContentView(window);
-        layout->addWidget(view);
+        layout->addWidget(view);window->observe(view);
         windows.emplace(id, State {window,view,false,false,false,false,{}, {}});
         QObject::connect(window, &QObject::destroyed, context.get(), [this,id] {
             windows.erase(id); enqueue(id,"closed");
         });
         window->request_close = [this,id] {enqueue(id,"close-request");return true;};
         window->resized = [this,id] {enqueue(id,"resize");};
+        window->state_changed=[this,id](auto before,auto after) {
+            if(before.testFlag(Qt::WindowMinimized)!=after.testFlag(Qt::WindowMinimized))enqueue(id,after.testFlag(Qt::WindowMinimized)?"minimize":"restore");
+            if(before.testFlag(Qt::WindowMaximized)!=after.testFlag(Qt::WindowMaximized))enqueue(id,after.testFlag(Qt::WindowMaximized)?"maximize":"unmaximize");
+        };
+        if(!frame) {
+            auto* timer=new QTimer(window);timer->setInterval(250);
+            auto active=std::make_shared<bool>(false),pending=std::make_shared<bool>(false);
+            auto epoch=std::make_shared<unsigned>(0),requested=std::make_shared<unsigned>(0);
+            view->on_received_js_console_result=[window,active,pending,epoch,requested](WebView::DebuggerValue result) {
+                if(!*pending)return;
+                *pending=false;
+                window->set_regions({});
+                if(!*active||*requested!=*epoch||result.type!=WebView::DebuggerValueType::String||result.text.length_in_code_units()>65536)return;
+                auto json=JsonValue::from_string(result.text.to_byte_string());
+                std::vector<ChromeWindow::Region> regions;
+                if(!json.is_error()&&json.value().is_array()&&json.value().as_array().size()<=256) {
+                    for(auto const& value:json.value().as_array().values()) {
+                        if(!value.is_array()||value.as_array().size()!=5){regions.clear();break;}
+                        auto const& a=value.as_array();
+                        bool valid=a.at(4).is_bool();
+                        for(int i=0;i<4;++i)valid=valid&&a.at(i).is_integer<int>()&&a.at(i).as_integer<int>()>=0&&a.at(i).as_integer<int>()<=32768;
+                        if(!valid){regions.clear();break;}
+                        regions.push_back({QRect(a.at(0).as_integer<int>(),a.at(1).as_integer<int>(),a.at(2).as_integer<int>(),a.at(3).as_integer<int>()).intersected(window->rect()),a.at(4).as_bool()});
+                    }
+                }
+                window->set_regions(std::move(regions));
+            };
+            QObject::connect(timer,&QTimer::timeout,window,[view,active,pending,epoch,requested]{
+                if(!*active||*pending)return;
+                *pending=true;*requested=*epoch;
+                view->js_console_input("typeof __fireflyRegionSnapshot === 'function' ? __fireflyRegionSnapshot() : '[]'"_string);
+            });
+            view->on_load_start=[this,id,window,active,epoch] {*active=false;++*epoch;window->set_regions({});enqueue(id,"load-start");};
+            // Install only browser-side CSS/layout code, with no native bindings.
+            view->on_load_finish=[view,active](auto const&) {view->run_javascript(MUST(String::from_utf8(StringView(FIREFLY_APP_REGIONS_SOURCE,sizeof(FIREFLY_APP_REGIONS_SOURCE)-1))));*active=true;};
+            timer->start();
+        }
+        auto region_start=move(view->on_load_start);
+        auto region_finish=move(view->on_load_finish);
         view->on_close = [this,id] {enqueue(id,"close-request");};
-        view->on_load_start = [this,id] {enqueue(id,"load-start");};
-        view->on_load_finish = [this,id](auto const& url) {
+        view->on_load_start = [this,id,region_start=move(region_start)] {if(region_start)region_start();else enqueue(id,"load-start");};
+        view->on_load_finish = [this,id,region_finish=move(region_finish)](auto const& url) {
+            if(region_finish)region_finish(url);
             auto found=windows.find(id);
             if(found==windows.end() || found->second.closing || found->second.failed || !found->second.requested_url.has_value()) return;
             auto& current=found->second;
@@ -170,8 +198,8 @@ struct Bridge::Impl {
         },1,JS::default_attributes);
         host->define_native_function(realm,"create"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
             auto title=TRY(vm.argument(2).to_utf16_string(vm));
-            return JS::Value(create(TRY(vm.argument(0).to_i32(vm)),TRY(vm.argument(1).to_i32(vm)),qstring_from_utf16_string(title),vm.argument(3).to_boolean()));
-        },4,JS::default_attributes);
+            return JS::Value(create(TRY(vm.argument(0).to_i32(vm)),TRY(vm.argument(1).to_i32(vm)),qstring_from_utf16_string(title),vm.argument(3).to_boolean(),vm.argument(4).to_boolean()));
+        },5,JS::default_attributes);
         host->define_native_function(realm,"destroy"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
             TRY(state(vm));destroy(vm.argument(0).as_i32());return JS::js_undefined();
         },1,JS::default_attributes);
@@ -207,6 +235,10 @@ struct Bridge::Impl {
             },1,JS::default_attributes);
         };
         method("show"_utf16,[](auto& window){window.show();});
+        method("minimize"_utf16,[](auto& window){window.showMinimized();});
+        method("maximize"_utf16,[](auto& window){window.showMaximized();});
+        method("unmaximize"_utf16,[](auto& window){window.showNormal();});
+        method("restore"_utf16,[](auto& window){window.setWindowState(window.windowState() & ~Qt::WindowMinimized);window.show();});
         method("hide"_utf16,[](auto& window){window.hide();});
         method("focus"_utf16,[](auto& window){window.raise();window.activateWindow();window.setFocus();});
         host->define_native_function(realm,"resize"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
@@ -217,6 +249,8 @@ struct Bridge::Impl {
             return JS::Array::create_from(realm,values);
         },1,JS::default_attributes);
         host->define_native_function(realm,"visible"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {return JS::Value(TRY(state(vm))->window->isVisible());},1,JS::default_attributes);
+        host->define_native_function(realm,"minimized"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {return JS::Value(TRY(state(vm))->window->isMinimized());},1,JS::default_attributes);
+        host->define_native_function(realm,"maximized"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {return JS::Value(TRY(state(vm))->window->isMaximized());},1,JS::default_attributes);
         host->define_native_function(realm,"pid"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {return JS::Value(static_cast<double>(TRY(state(vm))->view->web_content_pid()));},1,JS::default_attributes);
         host->define_native_function(realm,"title"_utf16,[this](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value> {
             auto* current=TRY(state(vm));current->window->setWindowTitle(qstring_from_utf16_string(TRY(vm.argument(1).to_utf16_string(vm))));return JS::js_undefined();

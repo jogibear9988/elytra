@@ -1609,6 +1609,23 @@ inspected. Existing homepage tab/keyboard/image/font checks also pass at those
 widths. Electron serves only as a website preview/test tool, not product runtime.
 No native runtime test rerun is claimed for this documentation-only change.
 
+
+Custom window chrome (ADR 0055): frame:false, native minimize/maximize/unmaximize/
+restore and state queries/events now exist in the owned Qt adapter. An owned CSS
+shim recognizes Electron app-region/-webkit-app-region drag/no-drag rules, with
+bounded expiring top-document geometry and native mouse routing. No native binding
+is installed in the page and Ladybird remains unmodified. titleBarStyle:hidden,
+inline/shadow/frame/cross-origin/import/CSP/zoom cases and native resize-edge/full
+non-client parity remain unsupported/unverified; public preload/IPC is unchanged.
+
+Validation: Release native build; ChromeProbe passes real Qt input/position changes,
+no-drag exclusion, double-click and stale expiration. The full Firefly suite passes
+in build/chrome-firefly-test.log, including actual LibWeb CSS/media/layout/change/
+removal/isolation and shared Electron frameless/minimize/maximize/restore states.
+Firefly state events pass, but locked-host Electron maximize-event delivery did not;
+reference event timing and visible native presentation remain unverified. No native
+Windows/Linux acceptance is claimed. Designer shell/package changes follow separately.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

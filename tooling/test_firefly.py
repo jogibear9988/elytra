@@ -78,6 +78,10 @@ def main():
     reference=success(execute(electron,fixture,'electron'))
     assert actual==reference==expected,(actual,reference)
     print('PASS shared Electron/Firefly lifecycle, native controls, load promise and renderer isolation')
+    chrome=ROOT/'firefly/tests/migration/window-chrome.cjs'
+    expected_chrome={'frameless':True,'minimize':True,'maximize':True,'restore':True}
+    assert success(execute(firefly,chrome))==success(execute(electron,chrome,'electron'))==expected_chrome
+    print('PASS shared frameless/minimize/maximize/restore states and destroyed controls; Firefly native events (reference event timing unverified)')
     cancellation=ROOT/'firefly/tests/migration/quit-cancellation.cjs'
     expected_cancel={'trace':['before:1','before:2','close:1','before:3','close:2','closed','will:1','replacement-created','before:4','replacement-closed','will:2','quit:0']}
     assert success(execute(firefly,cancellation))==success(execute(electron,cancellation,'electron'))==expected_cancel
@@ -109,7 +113,7 @@ def main():
         script.write_text("""
 const {app,BrowserWindow}=require('firefly');
 app.whenReady().then(async()=>{
-  for(const options of [{webPreferences:{preload:'x.js'}},{webPreferences:{nodeIntegration:true}},{webPreferences:{contextIsolation:false}},{width:0},{transparent:true}]) {
+  for(const options of [{webPreferences:{preload:'x.js'}},{webPreferences:{nodeIntegration:true}},{webPreferences:{contextIsolation:false}},{width:0},{transparent:true},{frame:'false'},{titleBarStyle:'hidden'}]) {
     let denied=false;try{new BrowserWindow(options);}catch(e){denied=!!e.code;}
     if(!denied)throw Error('unsupported or invalid option accepted');
   }
@@ -138,6 +142,10 @@ app.whenReady().then(async()=>{
         started=time.monotonic()
         assert success(execute(firefly,script))=={'networkFailed':True}
         assert time.monotonic()-started<15,'Network failure used a deadline instead of its error callback'
+        regions=str(ROOT/'firefly/tests/migration/regions.html')
+        script.write_text("const {app,BrowserWindow}=require('firefly');app.whenReady().then(async()=>{const win=new BrowserWindow({frame:false,width:640,height:400});const timeout=setTimeout(()=>app.exit(1),10000);win.on('page-title-updated',(_e,title)=>{if(title.startsWith('REGIONS_FAILED'))throw Error(title);if(title==='REGIONS_CSS_LAYOUT_OK'){clearTimeout(timeout);console.log(JSON.stringify({regions:true}));win.on('closed',()=>app.quit());win.destroy();}});await win.loadFile("+json.dumps(regions)+");});")
+        assert success(execute(firefly,script))=={'regions':True}
+        print('PASS actual LibWeb CSS drag/no-drag aliases, media/layout, dynamic/removal and absent Node globals')
         page=str(ROOT/'firefly/tests/migration/page.html')
         script.write_text("const {app,BrowserWindow}=require('firefly');app.whenReady().then(async()=>{const win=new BrowserWindow();win.on('closed',()=>app.quit());win.webContents.on('render-process-gone',(_e,details)=>{if(details.reason!=='crashed')throw Error('crash reason');console.log(JSON.stringify({crash:true}));win.destroy();});await win.loadFile("+json.dumps(page)+");console.log('CRASH_READY '+win.webContents.getOSProcessId());});")
         crash_probe(firefly,script)

@@ -63,8 +63,10 @@ const window = new BrowserWindow({
 });
 ```
 
-Defaults: width 800, height 600, title Firefly, show true. Dimensions must be integers
-in 1..16384. Only the options shown are supported. The three webPreferences values
+Defaults: width 800, height 600, title Firefly, show true, frame true. Dimensions must be integers
+in 1..16384. frame:false removes the native title bar; [custom chrome](browser-window.md#custom-title-bar-and-dragging)
+uses Electron app-region CSS with documented adapter limits. Only the options
+shown and frame are supported. The three webPreferences values
 can only request their safe defaults. `preload`, nodeIntegration true, sandbox false,
 contextIsolation false and other options explicitly reject with
 ERR_FIREFLY_UNSUPPORTED_API. Public preload/bridge support is not enabled by the
@@ -77,6 +79,8 @@ internal isolated-world research tests.
 | `window.loadFile(filePath[, options])` | Forward to webContents; Promise<void> |
 | `window.loadURL(url[, options])` | Forward to webContents; Promise<void> |
 | `window.show()`, `hide()`, `focus()` | Native window controls |
+| `window.minimize()`, `maximize()`, `unmaximize()`, `restore()` | Native window-state controls |
+| `window.isMinimized()`, `isMaximized()` | Native state booleans |
 | `window.isVisible()` | boolean |
 | `window.setSize(width, height[, animate = false])` | Resize; animated resizing rejects |
 | `window.getSize()` | [width, height] |
