@@ -1693,6 +1693,24 @@ matching both existing project files. No funding transaction or account setting
 changed. Validation: exact source-file comparison; publishing follows the authorized
 master push with the current work.
 
+
+Package-size audit: the clean 6c3bc8f/old-Ladybird-pin regeneration is complete at
+build/designer-verified-release/Web Component Designer.app, with clean source
+metadata, Release/Release builds, strict signatures/helper entitlements and a
+passing relocated native smoke including HTML close. It measures 249.8 MiB of
+actual files; Firefly hello-world is 215.7 MiB. The packaged Mite CLI also receives
+symbol stripping. This is a local experimental candidate, not a published alpha.
+
+The native dependency/symbol audit confirms no separate Mite CLI or second complete
+LibJS engine in the app; versioned dylib aliases are symlinks. Firefly/LibCrypto do
+share 903 OpenSSL public symbol definitions, a consolidation candidate without a
+claimed byte estimate. Only 34 KiB of physical dylibs are outside the link closure.
+Unicode's roughly 38 MiB is mostly constant data; dead stripping is already enabled
+and release LTO remains disabled. docs/development/package-size.md records these
+measurements and scoped next experiments. The new smoke assertion also checks that
+actual external-toolbar drag/no-drag geometry covers the HTML maximize button;
+it passes on the current Ladybird update candidate along with native actions.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

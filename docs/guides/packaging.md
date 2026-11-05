@@ -39,6 +39,9 @@ must be rebuilt to change dependency mode. SIZE.json reports actual file/compone
 bytes; download compression is measured separately. A smaller package still needs
 native boot/edit/worker/window-control tests after relocation.
 
+The [size analysis](../development/package-size.md) records the actual baseline,
+engine linkage, duplicate crypto symbols and further optimization candidates.
+
 ## Signing and installation status
 
 macOS packages are ad-hoc signed and not notarized. The conservative minimum OS

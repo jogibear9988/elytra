@@ -28,6 +28,9 @@ This explicitly limited alpha does not satisfy the requested Windows/macOS relea
 The all-platform Native release workflow below retains its required Windows gate.
 No hosted alpha is available until an actual successful build/publication is recorded.
 
+See [package size analysis](package-size.md) for the measured baseline and what is
+already stripped/shared versus remaining optimization candidates.
+
 ## GitHub workflow
 
 After committing and pushing a tested version, create a version tag for that exact

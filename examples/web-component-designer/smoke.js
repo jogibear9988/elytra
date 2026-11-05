@@ -18,6 +18,17 @@
     if(!find(document,'.monaco-editor'))throw Error('Monaco editor is missing');
     if(typeof process!=='undefined'||typeof require!=='undefined')throw Error('Unexpected renderer privileges');
     if(!window.designerWindow)throw Error('Window controls missing');
+    let geometry=false;
+    for(let attempt=0;attempt<30&&!geometry;attempt++){
+      if(typeof __fireflyRegionSnapshot==='function'){
+        const regions=JSON.parse(__fireflyRegionSnapshot());
+        const button=document.getElementById('window-maximize').getBoundingClientRect();
+        const x=button.left+button.width/2,y=button.top+button.height/2;
+        geometry=regions.some(r=>r[4])&&regions.some(r=>!r[4]&&x>=r[0]&&x<r[0]+r[2]&&y>=r[1]&&y<r[1]+r[3]);
+      }
+      if(!geometry)await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!geometry)throw Error('External toolbar drag/no-drag geometry is missing');
     const waitFor=async predicate=>{for(let i=0;i<50;i++){if(predicate(await designerWindow.state()))return;await new Promise(r=>setTimeout(r,100));}throw Error('Window state timeout');};
     document.getElementById('window-maximize').click();await waitFor(s=>s.maximized);
     await new Promise(r=>setTimeout(r,100));
