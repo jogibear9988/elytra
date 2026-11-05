@@ -1,7 +1,7 @@
 name: Project website
 on:
   push:
-    branches: [main, codex/mite-firefly]
+    branches: [master]
     paths: ['site/**', 'docs/**', 'README.md', 'tooling/site/**', 'tooling/check_site.py', '.github/workflows/pages.yml']
   pull_request:
     paths: ['site/**', 'docs/**', 'README.md', 'tooling/site/**', 'tooling/check_site.py', '.github/workflows/pages.yml']

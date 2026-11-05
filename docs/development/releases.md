@@ -27,9 +27,9 @@ checksums, and refuses to overwrite an already published release. A failed platf
 prevents that final job. Failure logs are retained separately as diagnostic artifacts.
 No workflow secret beyond the scoped GitHub token is required for draft upload.
 
-The workflow is on the implementation branch. GitHub's manual dispatch UI requires
-its workflow file on the repository's default branch; after merge, it is available
-under Actions → Native release. Tag events use the workflow checked in at that tag.
+The workflow is on master, the repository's primary implementation branch.
+It is available under Actions → Native release once master is the default branch.
+Tag events use the workflow checked in at that tag.
 No version tag or release was created just to add this infrastructure.
 
 ## Local build orchestration

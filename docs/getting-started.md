@@ -19,7 +19,7 @@ time for the first build.
 ```sh
 git clone --recurse-submodules https://github.com/jogibear9988/elytra.git
 cd elytra
-git checkout codex/mite-firefly
+git checkout master
 git submodule update --init --recursive
 python3 tooling/bootstrap.py
 cmake --preset dev

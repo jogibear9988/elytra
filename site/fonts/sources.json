@@ -1,0 +1,20 @@
+[
+  {
+    "package": "fontsource-variable-bricolage-grotesque-5.3.0",
+    "file": "bricolage.woff2",
+    "sha256": "a97804dc9fbe5fc972a08018c5eda4dab7ef2346f64c57e61419d05e6de4ea1c",
+    "source": "https://fontsource.org/"
+  },
+  {
+    "package": "fontsource-ibm-plex-sans-5.3.0",
+    "file": "plex-sans.woff2",
+    "sha256": "3b646991d30055a93a4ecc499713d4347953a74a947ecab435ab72070cbdab0e",
+    "source": "https://fontsource.org/"
+  },
+  {
+    "package": "fontsource-ibm-plex-mono-5.3.0",
+    "file": "plex-mono.woff2",
+    "sha256": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7",
+    "source": "https://fontsource.org/"
+  }
+]

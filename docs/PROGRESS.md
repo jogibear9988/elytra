@@ -1,7 +1,7 @@
 # Implementation progress
 
 The specification is `mite-firefly-agent-instructions.md`. Work proceeds on
-`codex/mite-firefly` in resumable commits. This is a large implementation project;
+`master` in resumable commits. This is a large implementation project;
 unchecked steps are requirements still outstanding, not supported features.
 
 ## Milestones
@@ -1500,6 +1500,30 @@ also passes the actual Firefly boot/edit/Monaco gate using the new Release Mite 
 its server checks (build/designer-ci-test.log). Release argument rejection and
 workflow syntax checks pass. The release driver fetches locked Cargo sources before
 offline notice collection; cargo fetch --locked completes without upstream changes.
+
+The user rejected the first website's overall layout and requested a fresh design
+closer to Node/Bun (with some Electron influence), plus direct commits/pushes to master
+without pull requests. master now carries the existing implementation history; no
+remote master branch existed previously. Publishing/source links/getting-started docs
+now target master. The Pages environment explicitly permits master; production push
+triggers no longer deploy the earlier implementation branch.
+
+The homepage is rebuilt around oversized paired product wordmarks and owned SVG
+Mite/Firefly characters, followed by a full-width three-example code workbench,
+ruled project descriptions, a real Designer capture, an implementation ledger and
+an engine overview. Paper/ink styling, green/yellow product accents and self-hosted
+Bricolage/Plex fonts also update API pages. Fontsource 5.3.0 OFL notices/checksums are
+preserved. The actual Node/Bun/Electron homepage captures were visually inspected;
+no reference artwork or logos were copied. API/support claims remain conservative.
+
+Local website validation: 69 pages and 1,151 relative link/resource/fragment checks;
+all three tabs, keyboard selection, image/font loading and no document overflow at
+1440/768/390/320 widths. Desktop/mobile homepage, content and API-page captures were
+visually inspected in build/site-v2-*.png. Copy controls provide clipboard and selection
+fallback; there is no server or framework runtime in the published site. No native
+runtime or Ladybird source changed. The Windows CI setup was interrupted for this
+user-requested redesign; its owned release-workflow/composite-action edits remain
+uncommitted WIP and do not establish native Windows support.
 
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
