@@ -44,7 +44,7 @@ console.log(JSON.stringify(observations));
 ESM="""import os, * as ns from 'node:os';import {arch,tmpdir,EOL} from 'os';
 console.log(JSON.stringify(os.arch===arch && os.tmpdir===tmpdir && os.EOL===EOL && (await import('os'))===ns));
 """
-UNSUPPORTED="""const os=require('os');for(const name of ['getPriority','setPriority','constants']){try{if(name==='constants')void os.constants;else os[name]();throw Error('unsupported succeeded')}catch(error){if(error.code!=='ERR_MITE_UNSUPPORTED_API')throw error;}}console.log('explicit unsupported OS APIs');"""
+UNSUPPORTED="""const os=require('os');for(const name of ['constants']){try{if(name==='constants')void os.constants;else os[name]();throw Error('unsupported succeeded')}catch(error){if(error.code!=='ERR_MITE_UNSUPPORTED_API')throw error;}}console.log('explicit unsupported OS APIs');"""
 
 def run(executable,fixture):
     result=subprocess.run([executable,str(fixture)],capture_output=True,text=True,timeout=20)

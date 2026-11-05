@@ -180,6 +180,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    observations, so investigate actual OS reconfiguration before diagnosing a
    differential failure. Firefly's main ESM fixture also calls this API. No new
    Ladybird source seam or vendor change is needed.
+   Retain mite-os-priority validation/native syscall checks (ADR 0050), including
+   safe finite/int32 conversion, own-child setter mutations and native error fields.
+   Preserve explicit reference controls for negative-zero Node assertions and
+   argument-formatter property effects; they are documented differences, not a
+   reason to reproduce an engine abort. The Firefly main fixture confirms its own
+   existing priority. Windows mapping/permissions still need native validation.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

@@ -33,7 +33,7 @@ Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
 reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 31 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 32 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1286,6 +1286,35 @@ ASCII names, noncontiguous configured masks, syscall failures, interface hotplug
 reconfiguration, privileged execution and full error/prototype-poisoning parity remain
 unverified. Public preload/contextBridge/IPC and the broader runtime, platform,
 packaging/audit and visible-desktop goals stay open. Existing warnings persist.
+
+Mite node:os now implements native getPriority/setPriority (ADR 0050), with optional
+PID/one-argument setter overload, strict int32 PID and -20..19 integer priority
+validation, Node error codes, validation order and undefined setter success. Native
+range checks precede C++ int conversion and libuv calls; OS errors use the existing
+SystemError fields. No new dependency, privileged renderer capability or vendor seam.
+
+All 32 standalone CTest suites pass in build/os-priority-ctest.log. The priority gate
+compares 106 observations with Node 24.15.0: argument types/ranges/undefined/precedence,
+native getter ESRCH/EINVAL metadata, PID/default/same-value operations, receiver,
+function metadata and CJS/ESM identity. Disposable children verify own nice changes
+0 -> 1 -> 19 using both setter forms; no foreign/parent process priority is changed.
+Detailed output is in build/os-priority-differential.log. Firefly's ESM/HTTP main
+fixture reads/confirms its own original priority and its existing full Electron
+reference gate passes in build/os-priority-firefly-test.log.
+
+Two measured intentional differences have explicit controls: installed Node aborts
+on getPriority(-0) in its native IsInt32 check; Mite normalizes -0 to PID zero.
+Node's invalid-argument formatter also executes hostile argument proxy property
+reads, propagating a thrown Error; Mite rejects with TypeError/code and zero property
+traps. The reference control accepts either that known assertion or successful
+normalization in a future Node. These cases are separate from the 106 shared rows.
+
+OS constants remain explicitly unsupported. Native Windows/Linux, class/elevation
+mapping, priority boosts/other-process permissions, native setter failures and full
+error accessor/constructor/formatting or monkey-patched-intrinsics parity remain
+unverified. Public preload/contextBridge/IPC, broader runtime/platform/packaging/
+audit and visible-desktop milestones remain open. No newer Ladybird candidate;
+upstream integrity stays clean. Existing warnings persist.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

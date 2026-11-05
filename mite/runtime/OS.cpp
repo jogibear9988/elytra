@@ -10,6 +10,7 @@
 #include <bit>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 #include <limits.h>
 #include <vector>
 #include <uv.h>
@@ -142,6 +143,15 @@ JS::ThrowCompletionOr<JS::Value> user_info(JS::VM& vm)
     result->define_direct_property("shell"_utf16,TRY(copy(entry.shell)),JS::default_attributes);
     return result.ptr();
 }
+JS::ThrowCompletionOr<int> priority_integer(JS::VM& vm,size_t index,double min,double max)
+{
+    auto value=vm.argument(index);
+    if(!value.is_number())return vm.throw_completion<JS::TypeError>("Invalid internal priority argument"sv);
+    auto number=value.as_double();
+    if(!std::isfinite(number) || std::trunc(number)!=number || number<min || number>max)
+        return vm.throw_completion<JS::TypeError>("Invalid internal priority range"sv);
+    return static_cast<int>(number);
+}
 template<typename Read>
 JS::ThrowCompletionOr<JS::Value> read_text(JS::VM& vm, char const* syscall, Read read, bool missing_is_undefined = false)
 {
@@ -169,6 +179,18 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
     info->define_direct_property("machine"_utf16,text(vm,information.machine),JS::default_attributes);
     host->define_direct_property("information"_utf16,info.ptr(),JS::default_attributes);
     host->define_direct_property("endianness"_utf16,text(vm,std::endian::native==std::endian::big?"BE":"LE"),JS::default_attributes);
+    host->define_native_function(realm,"getPriority"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
+        auto pid=TRY(priority_integer(vm,0,-2147483648.0,2147483647.0));
+        int priority=0;
+        if(auto status=uv_os_getpriority(pid,&priority);status)return system_error(vm,"uv_os_getpriority",status);
+        return JS::Value(priority);
+    },1,JS::default_attributes);
+    host->define_native_function(realm,"setPriority"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
+        auto pid=TRY(priority_integer(vm,0,-2147483648.0,2147483647.0));
+        auto priority=TRY(priority_integer(vm,1,-20,19));
+        if(auto status=uv_os_setpriority(pid,priority);status)return system_error(vm,"uv_os_setpriority",status);
+        return JS::js_undefined();
+    },2,JS::default_attributes);
     host->define_native_function(realm,"getenv"_utf16,+[](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
         if(!vm.argument(0).is_string())return vm.throw_completion<JS::TypeError>("Invalid internal environment key"sv);
         auto key=MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());

@@ -19,6 +19,26 @@
     function uptime(){return native.query('uptime');}
     function availableParallelism(){return native.query('availableParallelism');}
     function loadavg(){return native.query('loadavg');}
+    function priorityArgument(value,name,min=-2147483648,max=2147483647){
+        let error;
+        if(typeof value!=='number'){
+            error=new TypeError(`The "${name}" argument must be a number`);error.code='ERR_INVALID_ARG_TYPE';
+        }else if(!Number.isInteger(value) || value<min || value>max){
+            error=new RangeError(`The "${name}" argument must be an integer between ${min} and ${max}`);error.code='ERR_OUT_OF_RANGE';
+        }
+        if(error)throw error;
+    }
+    function getPriority(pid){
+        if(pid===undefined)pid=0;
+        else priorityArgument(pid,'pid');
+        return native.getPriority(pid);
+    }
+    function setPriority(pid,priority){
+        if(priority===undefined){priority=pid;pid=0;}
+        priorityArgument(pid,'pid');
+        priorityArgument(priority,'priority',-20,19);
+        native.setPriority(pid,priority);
+    }
     function networkInterfaces(){return native.query('networkInterfaces');}
     function cpus(){return native.query('cpus');}
     function userInfo(options){
@@ -52,12 +72,9 @@
         }
         return directory;
     }
-    const os={arch,availableParallelism,cpus,userInfo,networkInterfaces,endianness,freemem,homedir,hostname,loadavg,platform,release,tmpdir,totalmem,type,uptime,version,machine};
+    const os={arch,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,endianness,freemem,homedir,hostname,loadavg,platform,release,tmpdir,totalmem,type,uptime,version,machine};
     for(const name of ['arch','availableParallelism','endianness','freemem','homedir','hostname','platform','release','tmpdir','totalmem','type','uptime','version','machine']){
         const fn=os[name];fn[Symbol.toPrimitive]=()=>fn();
-    }
-    for(const name of ['getPriority','setPriority']){
-        os[name]=function(){const error=new Error(`os.${name} is not implemented`);error.code='ERR_MITE_UNSUPPORTED_API';throw error;};
     }
     Object.defineProperties(os,{
         constants:{get(){const error=new Error('os.constants is not implemented');error.code='ERR_MITE_UNSUPPORTED_API';throw error;},enumerable:true},
