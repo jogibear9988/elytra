@@ -168,6 +168,9 @@ Windows/Linux values and behavior still need validation.
 
 ## node:crypto
 
+See the [detailed crypto reference](crypto.md) for parameter/error tables,
+resource lifetime, executable example and precise compatibility limits.
+
 ### randomBytes(size[, callback])
 
 Without callback, return a Buffer of OS-generated random bytes. With callback, return

@@ -1899,6 +1899,24 @@ unverified. Existing local LTO renderer session 86784 continues (past 1,000 of
 macOS run 42125911196 remains live at its compile/test/package step. No restarted
 job or alpha publication is inferred from the elapsed observation time.
 
+## Crypto reference depth (2026-11-06)
+
+Add a dedicated node:crypto reference for the implemented four exports, covering
+parameters/limits, return/callback ordering, native error fields, Hash lifecycle,
+stream/manual use, provider limits and explicit absent APIs. It links existing
+random/hash examples and their verification gates rather than adding duplicate
+sample programs. Detailed current-subset contracts derive from owned source and
+Node differential fixtures; the pinned Node 24.15 primary reference is linked
+as the compatibility baseline, not as an assertion that its full API exists.
+Add grouped reference navigation and links from both overview pages and the
+documentation-baseline inventory. No runtime implementation or platform status
+is changed. Both existing examples pass under Mite and Node, including the SHA-256
+abc vector and independent snapshot check. Site validation passes 99 pages and
+5126 local links/resources/fragments (build/crypto-reference-site.log).
+
+Local LTO renderer session 86784 and hosted native jobs remain live; their
+completion and framework-size results are independent of this documentation slice.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
