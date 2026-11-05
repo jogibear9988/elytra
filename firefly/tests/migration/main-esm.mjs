@@ -1,5 +1,6 @@
 import {app,BrowserWindow} from 'firefly';
 import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
+import {randomBytes,randomUUID} from 'node:crypto';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -11,6 +12,8 @@ if(Object.getPrototypeOf(nativeInterfaces)!==Object.prototype || !Object.values(
 const originalPriority=getPriority();
 if(!Number.isInteger(originalPriority) || getPriority(process.pid)!==originalPriority || setPriority(process.pid,originalPriority)!==undefined)throw Error('Native main-process priority query/set');
 if(Object.getPrototypeOf(osConstants)!==null || !Object.isFrozen(osConstants.signals) || osConstants.priority.PRIORITY_NORMAL!==0 || osConstants.errno.EINVAL<=0)throw Error('Native main-process OS constants');
+const nonce=await new Promise((resolve,reject)=>randomBytes(32,(error,value)=>error?reject(error):resolve(value)));
+if(nonce.length!==32 || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(randomUUID()))throw Error('Native main-process random APIs');
 await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});

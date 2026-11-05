@@ -61,6 +61,10 @@ priority queries/setters and OS constant groups are also available. Native valid
 currently covers macOS ARM64; see the
 [Mite compatibility matrix](docs/compatibility/mite-0.1.md).
 
+`node:crypto` currently provides OS-backed `randomBytes()` and UUIDv4
+`randomUUID()`. The [random CLI example](examples/mite-cli/random.mjs) uses both;
+hashes, ciphers, key services and Web Crypto remain unimplemented.
+
 Measured real-package scenarios are recorded in the [npm compatibility matrix](docs/compatibility/npm-packages-0.1.md). Missing test dependencies cause a test failure with installation instructions.
 
 The [filesystem example](examples/mite-cli/files.mjs) copies its source using

@@ -31,9 +31,9 @@ candidate or native Windows/Linux update was validated in this step.
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
-reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
+reporting, and native libuv timers with cancellation and ref/unref support. ESM, JSON and CommonJS file loading are implemented; Node-style package resolution is implemented in part; the events, process, path, buffer, filesystem, stream, string_decoder, net, dns, os, crypto and HTTP server builtins are implemented in part; other built-ins and remaining Firefly services are unimplemented.
 
-Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 33 CTest
+Validation: native Debug build with Apple Clang 21 / Rust 1.98.0; all 34 CTest
 suites pass. This includes 110 runtime/module/npm/tick checks (101 shared Node
 fixtures, 7 CLI, 1 unsupported-API fixture and 1 Mite identity check), 3,968 path
 comparisons plus identity/live-cwd, 3,558 Buffer comparisons plus allocation
@@ -1343,6 +1343,36 @@ The priority negative-zero/error-formatter differences remain intentional. No ne
 UDP/addon/signal implementation, npm/platform/package/audit or visible-desktop
 validation is claimed. Public preload/contextBridge/IPC and broader runtime/renderer
 requirements remain incomplete. Existing build warnings persist; no newer pin tried.
+
+Mite now provides a native node:crypto random foundation (ADR 0052): synchronous/
+callback randomBytes and UUIDv4 randomUUID through existing libuv uv_random. There
+is no JS PRNG fallback, Node/V8, LibWeb dependency, new crypto library or vendor seam.
+Sync bytes fill private rooted VM storage; Buffer views share those owned bytes.
+Async workers use EventLoop::queue_work with native-only storage and rooted owner-
+thread JS completion. Native byte storage releases after VM copy before user callbacks
+and on abrupt completion, rather than lingering in unreachable GC closures. Existing
+pending-work/fatal/shutdown accounting remains in use. Partial RNG output never publishes.
+
+All 34 standalone CTest suites pass in build/crypto-random-ctest.log. The random gate
+compares 76 Node 24.15.0 validation/shape cases, plus UUIDv4 format/variant/uniqueness
+smoke, independent Buffer mutation, poisoned Math.random, named/CJS identities,
+synchronous zero-size callback and nonempty async Promise ordering, arity, 64 KiB
+result, 16 queued allocation-stress requests and fatal callback handling. Stress is
+not a forced-GC or cryptographic-quality proof. Missing crypto methods/named imports
+explicitly fail. Detailed output is in build/crypto-random-differential.log. Firefly's
+main ESM/HTTP fixture awaits random bytes and validates a UUID before isolated renderer
+loading; its existing full Electron-reference gate passes in
+build/crypto-random-firefly-test.log. examples/mite-cli/random.mjs executes with Mite
+and Node; standalone linkage remains platform-only. Upstream integrity stays clean.
+
+Intentional differences: every UUID uses fresh OS entropy without a cache; nonempty
+async callback strict receiver is undefined instead of Node's internal RandomBytesJob.
+Hash/HMAC/cipher/signature/KDF/key-generation, randomFill/randomInt/timingSafeEqual and
+Web Crypto/global crypto remain absent. Provider/queue failures, extreme allocations,
+Windows/Linux native behavior, full error/receiver/intrinsics parity, zeroization,
+certification/FIPS and a full audit remain unverified. No new npm/platform/package or
+visible-desktop support is claimed. Public preload/contextBridge/IPC and broader
+runtime/renderer milestones stay open. Existing build warnings persist; no newer pin.
 
 Next: complete remaining Source API/callback boundaries and event-field conversions,
 callback membranes and validated IPC with resource/sender/frame limits, alongside

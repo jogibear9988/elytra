@@ -192,6 +192,13 @@ candidate commits from the official repository in .gitmodules / the manifest.
    numbers, mutable group identity, native signal freezing and CJS/named ESM export
    identity. Reference tests compare the available host set; native Windows/Linux
    still require their own runs. The Firefly main fixture checks the named export.
+   Run mite-crypto-random and the Firefly main-process random ESM fixture (ADR 0052).
+   Preserve rooted VM output, native-only worker storage, owner-thread completion,
+   prompt native-byte release and EventLoop pending-work/shutdown ownership. Keep
+   zero-size synchronous callback and nonzero Promise-order controls, buffer/UUID
+   identities, explicit missing APIs and documented receiver/cache differences.
+   Do not replace uv_random with a JS PRNG to accommodate an SDK change. Provider
+   failures/extreme allocations and native Windows/Linux still need validation.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the

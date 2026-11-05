@@ -11,6 +11,7 @@
 #include "DNS.h"
 #include "HTTP.h"
 #include "OS.h"
+#include "Crypto.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -65,7 +66,9 @@ static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDe
 static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "constants", "EOL", "devNull" };
+static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
@@ -142,6 +145,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             auto native = create_encoding_host(m_realm);
             host->define_direct_property("byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
+    }
+    if (name == "crypto") {
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+        host->define_direct_property("native"_utf16, create_crypto_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
     }
     if (name == "os") {
         auto buffer = TRY(builtin("buffer"));
