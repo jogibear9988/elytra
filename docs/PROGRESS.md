@@ -1686,6 +1686,13 @@ No hosted macOS package success or GitHub alpha is claimed yet; publish only aft
 an actual successful hosted build. Latest Ladybird candidate 97ad425b is fetched
 for a separate pin/adapters/build/test step, with unchanged Rust/vcpkg versions.
 
+
+Funding configuration: copied the user's existing Designer/layout2vector FUNDING.yml
+into .github/FUNDING.yml. It names jogibear9988 on GitHub Sponsors and Patreon,
+matching both existing project files. No funding transaction or account setting
+changed. Validation: exact source-file comparison; publishing follows the authorized
+master push with the current work.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
