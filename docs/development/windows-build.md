@@ -60,3 +60,17 @@ Designer acceptance, dependency deployment and Windows packaging remain required
 The release workflow must fail until all its native requirements pass. Never replace
 the engine, relax renderer isolation or publish a macOS-only success as a complete
 macOS/Windows release. Follow the upstream update guide and keep source unmodified.
+
+## Filesystem compile follow-up
+
+Run 42121184088 (source 1c5f535) passed the LF integrity gate and reached native
+compilation, then rejected POSIX-only S_IFSOCK/S_IFBLK and O_SYNC identifiers in our
+filesystem adapter. Optional device-type exports/cases are now guarded, and the
+sync-open value comes from libuv's portable UV_FS_O_SYNC (FILE_FLAG_WRITE_THROUGH
+mapping on Windows). No invented device type or ignored synchronous-open flag is
+used. Local Release compilation and filesystem differentials pass; the next actual
+Windows job must establish native compilation and behavior.
+
+Node's [constant exports](https://github.com/nodejs/node/blob/v24.15.0/src/node_constants.cc)
+are likewise conditional for unavailable native file types. This is a compile
+portability fix, not a Windows runtime/renderer/package support announcement.

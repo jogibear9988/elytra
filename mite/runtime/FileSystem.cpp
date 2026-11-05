@@ -189,9 +189,13 @@ static void execute(NativeRequest& request)
                     case S_IFDIR: type = UV_DIRENT_DIR; break;
                     case S_IFLNK: type = UV_DIRENT_LINK; break;
                     case S_IFIFO: type = UV_DIRENT_FIFO; break;
+#ifdef S_IFSOCK
                     case S_IFSOCK: type = UV_DIRENT_SOCKET; break;
+#endif
                     case S_IFCHR: type = UV_DIRENT_CHAR; break;
+#ifdef S_IFBLK
                     case S_IFBLK: type = UV_DIRENT_BLOCK; break;
+#endif
                     }
                 }
                 request.entries.push_back({ entry.name, type });
@@ -274,9 +278,16 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
     auto host = JS::Object::create(realm, nullptr);
     auto constants = JS::Object::create(realm, nullptr);
 #define CONSTANT(name) constants->define_direct_property(#name##_utf16, JS::Value(name), JS::Attribute::Enumerable)
-    CONSTANT(O_RDONLY); CONSTANT(O_WRONLY); CONSTANT(O_RDWR); CONSTANT(O_CREAT); CONSTANT(O_EXCL); CONSTANT(O_TRUNC); CONSTANT(O_APPEND); CONSTANT(O_SYNC);
+    CONSTANT(O_RDONLY); CONSTANT(O_WRONLY); CONSTANT(O_RDWR); CONSTANT(O_CREAT); CONSTANT(O_EXCL); CONSTANT(O_TRUNC); CONSTANT(O_APPEND);
+    constants->define_direct_property("O_SYNC"_utf16, JS::Value(UV_FS_O_SYNC), JS::Attribute::Enumerable);
     CONSTANT(F_OK); CONSTANT(R_OK); CONSTANT(W_OK); CONSTANT(X_OK);
-    CONSTANT(S_IFMT); CONSTANT(S_IFREG); CONSTANT(S_IFDIR); CONSTANT(S_IFCHR); CONSTANT(S_IFBLK); CONSTANT(S_IFIFO); CONSTANT(S_IFLNK); CONSTANT(S_IFSOCK);
+    CONSTANT(S_IFMT); CONSTANT(S_IFREG); CONSTANT(S_IFDIR); CONSTANT(S_IFCHR); CONSTANT(S_IFIFO); CONSTANT(S_IFLNK);
+#ifdef S_IFBLK
+    CONSTANT(S_IFBLK);
+#endif
+#ifdef S_IFSOCK
+    CONSTANT(S_IFSOCK);
+#endif
 #undef CONSTANT
     host->define_direct_property("constants"_utf16, constants, JS::default_attributes);
     host->define_native_function(realm, "own"_utf16, [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

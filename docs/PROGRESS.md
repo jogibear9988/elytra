@@ -1736,6 +1736,17 @@ fix any hosted-only failures, then publish a clearly macOS ARM64 alpha only afte
 its native/relocated gates pass. No GitHub release or hosted success is claimed yet.
 The all-platform workflow retains its Windows requirement for a complete release.
 
+
+Native Windows compile follow-up: run 42121184088 (1c5f535, job 127575365884)
+passed the corrected checkout/integrity gate and then failed in our FileSystem.cpp
+on absent S_IFSOCK/S_IFBLK/O_SYNC identifiers. Guard optional native file-type
+cases/exports and use libuv's portable UV_FS_O_SYNC rather than a fabricated value.
+Local Release compilation and all existing filesystem differentials/policy fixtures
+pass in build/windows-fs-portability-test.log. A first relative-path runner invocation
+was invalid because the runner changes cwd; the validated invocation uses the full
+executable path. Upstream is unchanged. Actual Windows compile/runtime acceptance
+still awaits a new job; do not infer support from macOS checks.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.
