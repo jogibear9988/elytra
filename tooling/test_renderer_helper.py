@@ -49,6 +49,8 @@ def main():
     pid=pid_of(jobs)
     blocked=[int(n) for n in re.findall(rf'FIREFLY_WORLD_JOBS_BLOCKED pid={pid} count=(\d+)',jobs.stderr)]
     assert blocked and max(blocked)>=6,jobs
+    active=run(probe,'--headless=manual',(fixture/'async-frames.html').as_uri())
+    pid_of(active)
     # A lifecycle-only manual run must still fail the process if page ordering or
     # isolation fails, so the fixture additionally checks it before closing.
     for name in ['ladybird_main','initialize_main_thread_vm','set_webdriver_bidi_session_state']:
@@ -62,6 +64,7 @@ def main():
     print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
     print('PASS native Promise results and removed-frame pending rejection')
     print('PASS removed-frame reaction/thenable/async jobs blocked before execution')
+    print('PASS running reaction/await/generator jobs remove their own frames and reject target promises safely')
     print('PASS changed entry points rejected; default sandbox and physical resource staging retained')
 
 

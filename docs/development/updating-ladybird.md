@@ -53,7 +53,8 @@ candidate commits from the official repository in .gitmodules / the manifest.
    HostEnqueuePromiseJob/HostCallJobCallback and direct async-resume paths against
    our WorldJobGuard: preserve script/callback contexts and microtask ordering,
    ensure new job types cannot bypass revocation, and retain bound/proxy/await/
-   async-generator/late-resolution/GC controls. Its owned-world dispatch uses public
+   async-generator/late-resolution/GC controls, including owner release/detach
+   during active jobs and target continuations after source revocation. Its owned-world dispatch uses public
    SDK APIs; no engine patch is acceptable to restore these gates.
 7. Commit the pin, our necessary adapter changes, validation evidence, dependency
    changes and docs/PROGRESS.md together. Record remaining regressions honestly.

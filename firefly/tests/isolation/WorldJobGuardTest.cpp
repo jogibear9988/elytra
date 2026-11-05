@@ -1,5 +1,6 @@
 #include "WorldJobGuardTest.h"
 #include "WorldJobGuard.h"
+#include "FunctionBridge.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -90,6 +91,75 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     TRY(page_check(u"document.documentElement.getAttribute('data-job')==='active'"sv));
     if(guard.blocked_count()!=blocked+1)return Error::from_string_literal("Late queued callback bypassed revocation");
     if(!guard.protect(*source).is_error())return Error::from_string_literal("Detached world was registered again");
+    // Active jobs retain their native owner even when the callback drops the
+    // last application reference. Logical detach denies new jobs immediately;
+    // physical wrapper/context teardown waits until the current job returns.
+    for (auto mode : { 0, 1, 2 }) {
+        RefPtr<Firefly::IsolatedWorld> transient=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*transient));
+        GC::Root realm { *transient->realm() };
+        auto weak=transient->make_weak_ptr();
+        auto* active=transient.ptr();
+        auto request=JS::NativeFunction::create(*realm,[&](JS::VM&)->JS::ThrowCompletionOr<JS::Value>{
+            bool running=active->is_executing();
+            active->detach();
+            bool deferred=running && active->is_detached() && active->realm()==nullptr &&
+                !Web::Bindings::host_defined_wrapper_world(*realm).is_detached();
+            transient.clear();
+            return JS::Value(deferred);
+        },0,"requestAsyncDetach"_utf16,GC::Ptr<JS::Realm>{*realm});
+        realm->global_object().define_direct_property("requestAsyncDetach"_utf16,request,JS::default_attributes);
+        ScopeGuard clear_request([&]{realm->global_object().define_direct_property("requestAsyncDetach"_utf16,JS::js_undefined(),JS::default_attributes);});
+        TRY(page_check(u"document.documentElement.removeAttribute('data-inflight');document.documentElement.removeAttribute('data-next-job');true"sv));
+        auto setup=transient->evaluate(uR"JS(
+            globalThis.finishJob=()=>{
+                const deferred=requestAsyncDetach();
+                document.documentElement.setAttribute('data-inflight',deferred?'safe':'BAD');
+                Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
+            };
+            true;
+        )JS"sv);
+        if(setup.is_error())return Error::from_string_literal("Cannot initialize in-flight job fixture");
+        auto queued=transient->evaluate(mode==0 ? u"Promise.resolve().then(finishJob);true"sv :
+            mode==1 ? u"(async()=>{await 0;finishJob()})();true"sv :
+            u"(async function*(){await 0;finishJob();yield 1})().next();true"sv);
+        if(queued.is_error())return Error::from_string_literal("Cannot schedule in-flight job fixture");
+        auto depth=vm.execution_context_stack().size();
+        vm.heap().collect_garbage();
+        checkpoint();
+        TRY(page_check(u"document.documentElement.getAttribute('data-inflight')==='safe' && document.documentElement.getAttribute('data-next-job')===null"sv));
+        if(transient || weak.strong_ref() || !Web::Bindings::host_defined_wrapper_world(*realm).is_detached() || vm.execution_context_stack().size()!=depth)
+            return Error::from_string_literal("In-flight job retained its owner or failed physical detach/context restoration");
+    }
+    outln("PASS running reaction/await/generator jobs retain their owner and defer detach while denying later jobs");
+    {
+        auto producer=TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*producer));
+        auto function=producer->evaluate(u"(()=>Promise.resolve().then(()=>({n:42})))"sv);
+        if(function.is_error())return Error::from_string_literal("Cannot create published-result fixture");
+        auto endpoint=TRY(Firefly::FunctionBridge::create(*producer,function.release_value().as_function(),document));
+        auto& principal=document.window()->principal_realm();
+        principal.global_object().define_direct_property("publishedCall"_utf16,endpoint.function,JS::default_attributes);
+        auto revoke=JS::NativeFunction::create(principal,[&](JS::VM&)->JS::ThrowCompletionOr<JS::Value>{
+            endpoint.owner->revoke();producer->detach();return JS::js_undefined();
+        },0,"detachAfterPublish"_utf16,GC::Ptr<JS::Realm>{principal});
+        principal.global_object().define_direct_property("detachAfterPublish"_utf16,revoke,JS::default_attributes);
+        ScopeGuard cleanup([&]{
+            principal.global_object().define_direct_property("detachAfterPublish"_utf16,JS::js_undefined(),JS::default_attributes);
+            endpoint.owner->revoke();producer->detach();
+        });
+        TRY(page_check(uR"JS(
+            globalThis.publishedResultReceived=false;
+            publishedCall().then(v=>{publishedResultReceived=v.n===42 && Object.isFrozen(v)});
+            // Source completion -> forwarding -> source detach -> target handler.
+            Promise.resolve().then(()=>{Promise.resolve().then(()=>detachAfterPublish())});
+            true;
+        )JS"sv));
+        checkpoint();
+        TRY(page_check(u"publishedResultReceived"sv));
+        if(!producer->is_detached())return Error::from_string_literal("Producer was not detached after publication");
+    }
+    outln("PASS approved target Promise continuations survive later source revocation");
     other->detach();
     checkpoint();
     outln("PASS detached-world jobs blocked for reactions/bound/proxy/thenable/async/async-generator/late resolution; page and live worlds continue");

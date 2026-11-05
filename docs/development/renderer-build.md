@@ -98,7 +98,9 @@ endpoints, error sanitation, reentry and in-flight revocation (ADR 0029), plus
 Promise results, microtask ordering, pending limits and late-result revocation
 (ADR 0030). Owned-world Promise job guards also exercise reactions, bound/proxy
 callbacks, thenables, async/await, async generators, late resolution, GC and
-unregistered/live-world controls (ADR 0031).
+unregistered/live-world controls (ADR 0031). In-flight job tests also cover last
+external owner release, logical/deferred physical detach and independent target
+Promise settlement (ADR 0032).
 
 ## Actual renderer early-world prototype (macOS only)
 
@@ -117,8 +119,8 @@ The gate checks the original helper as a negative control, first author-script
 ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
 helper PIDs, synchronous function calls and revoked removed-frame references
 across 70 cleanup cycles, Promise fulfillment/rejection, retained removed-frame
-Promise rejection, blocked removed-frame Promise jobs and rejected missing/duplicate
-entry tokens. A missing executable
+Promise rejection, blocked removed-frame Promise jobs, self-removing frames during
+reaction/await/generator jobs and rejected missing/duplicate entry tokens. A missing executable
 or failed fixture fails the gate. Only compiled harmless scripts are installed;
 public preload/contextBridge, complete source-job revocation and validated IPC
-remain open. See ADRs 0027–0031.
+remain open. See ADRs 0027–0032.

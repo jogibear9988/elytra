@@ -639,8 +639,43 @@ unchanged, and their earlier app/runtime suites were not rerun. Ladybird remains
 unmodified; native Windows/Linux, COI, packaging, full security audit and the
 locked-desktop visible gate are still open.
 
-Next: complete callback/timer/listener revocation and callback membranes, then
-validated IPC with resource/sender/frame limits, alongside Windows feasibility.
+Guarded Promise jobs now retain their native world owners for the duration of
+execution. IsolatedWorld is weak-referenceable, and the job registry maps weak
+realms to weak native owners instead of retaining them between jobs. Origin/job
+and callback owners enter the same rooted execution boundary used by evaluate/call;
+nested JS callbacks reuse an already active frame. Logical detach and missing
+owners deny further jobs immediately, while physical wrapper/context teardown waits
+for frame pop. Inactivity requests go through owner.detach rather than raw SDK
+detach. Dropping the last external owner inside a running job is safe.
+
+Native target Promise settlement now runs under a synthetic target context with
+source execution frames saved/rooted. This keeps sanitized rejection handlers and
+already approved result continuations outside the source job's cancellation scope.
+A specific SDK regression publishes a copied/frozen result, revokes the source
+before its target consumer runs and requires that consumer to receive the result.
+
+Both native gates pass: build/async-frame-final-test.log; the additional SDK
+regression also passes in build/async-frame-isolation-test.log. SDK reaction/await/generator jobs request
+detach, release their last external owner, continue current-turn DOM access and
+attempt another job. The new job is denied; afterward the native owner weak link
+is expired, SDK wrappers are detached and context depth is restored. GC and the
+existing pre-start cancellation/live/foreign controls pass. Actual helper probes
+remove their own iframe during each of those three running job types: current DOM
+access completes, further source work is blocked and the live parent receives the
+endpoint Promise rejection. Existing ordering/Promise/70-cycle gates still pass.
+ADR 0032 records the lifetime and target-settlement policies. Ladybird is unchanged.
+
+Public preload/contextBridge/IPC remain unsupported. queueMicrotask, timer and
+DOM/WebIDL callbacks, direct/cross-world function transfers, finalization/worker
+paths, source error-event isolation, BFCache/cross-process navigation and resource
+containment still need work. Running JS is not interrupted mid-turn; every future
+privileged endpoint must enforce logical revocation. No total realm collection,
+new platform/package/security-audit or visible-desktop claim is made. Normal
+Firefly/Mite were unchanged and their previous app/runtime suites were not rerun.
+
+Next: complete callback/timer/listener and error-event isolation, callback
+membranes and validated IPC with resource/sender/frame limits, alongside Windows
+feasibility.
 Broaden host APIs and real-package coverage around
 those vertical slices. CommonJS named-export detection, synchronous
 require(ESM), eval CJS globals and require.resolve options remain unsupported.

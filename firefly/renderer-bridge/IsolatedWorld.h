@@ -4,6 +4,7 @@
 #include <AK/OwnPtr.h>
 #include <AK/RefCounted.h>
 #include <AK/Utf16View.h>
+#include <AK/Weakable.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Completion.h>
 #include <LibJS/Runtime/ExecutionContext.h>
@@ -12,7 +13,7 @@ namespace Web::HTML { class Window; }
 namespace Firefly {
 // Internal renderer-side owner. This does not install privileges or a public
 // preload API; cross-world values must go through a separate validated membrane.
-class IsolatedWorld final : public RefCounted<IsolatedWorld> {
+class IsolatedWorld final : public RefCounted<IsolatedWorld>, public Weakable<IsolatedWorld> {
 public:
     AK_ALLOC_WITH_KMALLOC;
     static ErrorOr<NonnullRefPtr<IsolatedWorld>> create(Web::HTML::Window&);
@@ -21,8 +22,12 @@ public:
     IsolatedWorld& operator=(IsolatedWorld const&) = delete;
     JS::ThrowCompletionOr<JS::Value> evaluate(Utf16View);
     JS::ThrowCompletionOr<JS::Value> call(JS::FunctionObject&, ReadonlySpan<JS::Value>);
-    // The caller must revoke exported callbacks and stop asynchronous activity
-    // before final detach; this owner currently handles synchronous evaluation.
+    // Internal job-dispatch scope. Keep the owner/context alive while an engine
+    // job runs; ordinary evaluate/call still reject recursive entry.
+    JS::ThrowCompletionOr<JS::Value> run_async_frame(Function<JS::ThrowCompletionOr<JS::Value>()>);
+    bool is_executing() const { return m_evaluating; }
+    // The caller must revoke exported callbacks before final detach. Synchronous
+    // evaluation and guarded jobs defer physical teardown until their frame exits.
     void detach();
     bool is_detached() const { return !m_world || m_detach_requested || m_world->is_detached(); }
     JS::Realm* realm() const { return is_detached() ? nullptr : m_realm.ptr(); }

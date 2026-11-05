@@ -113,6 +113,17 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto callback = world->evaluate(uR"JS(
                 (function(a) {
                     'use strict';
+                    if(a.mode==='remove-self-job') {
+                        const finish=()=>{
+                            window.frameElement.remove();
+                            document.documentElement.setAttribute('data-after-remove','safe');
+                            Promise.resolve().then(()=>document.documentElement.setAttribute('data-next-job','BAD'));
+                            return 42;
+                        };
+                        if(a.kind==='await')return(async()=>{await 0;return finish()})();
+                        if(a.kind==='generator')return(async function*(){await 0;return finish()})().next();
+                        return Promise.resolve().then(finish);
+                    }
                     if(a.mode==='queue-jobs') {
                         const bad=()=>document.documentElement.setAttribute('data-source-job','BAD');
                         Promise.resolve().then(bad);

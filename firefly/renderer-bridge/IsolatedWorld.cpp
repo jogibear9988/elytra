@@ -98,6 +98,11 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call(JS::FunctionObject& functio
     return execute([&] { return JS::call(m_vm, function, JS::js_undefined(), arguments); });
 }
 
+JS::ThrowCompletionOr<JS::Value> IsolatedWorld::run_async_frame(Function<JS::ThrowCompletionOr<JS::Value>()> operation)
+{
+    return execute(move(operation));
+}
+
 void IsolatedWorld::detach()
 {
     if (!m_world)

@@ -78,3 +78,8 @@ document removal, including tested await/async-generator and bound/proxy paths.
 SDK controls and actual helper PID/DOM checks pass (ADR 0031). Timers, WebIDL/DOM
 callbacks, queueMicrotask and other async boundaries remain open; public
 preload/contextBridge/IPC remain unsupported.
+
+Guarded Promise jobs now retain native ownership through in-flight detach/last
+external release. SDK and actual helper reaction/await/generator tests pass,
+including self-removing frames and independent target Promise settlement (ADR 0032).
+This does not establish timer/DOM/WebIDL callback safety or enable public preload.

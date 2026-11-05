@@ -32,22 +32,28 @@ static GC::Ref<JS::TypeError> bridge_error(JS::Realm& target, Utf16View message)
     return JS::TypeError::create(target, message);
 }
 
-static void reject_pending(JS::PromiseCapability& capability, JS::Realm& target)
+static void settle_target(JS::PromiseCapability& capability, JS::Realm& target, JS::Value value, bool reject)
 {
     auto& vm = target.vm();
-    // A lifecycle timer/shutdown may run with no JS context. Supply only a
-    // native-call frame; do not trigger a microtask checkpoint while revoking.
-    OwnPtr<JS::ExecutionContext> context;
-    if (!vm.has_running_execution_context()) {
-        context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
-        context->realm = &target;
-        vm.push_execution_context(*context);
-    }
-    ScopeGuard pop([&] { if (context) VERIFY(vm.pop_execution_context() == context.ptr()); });
-    // Built-in resolving functions cannot run a source getter or reject twice.
-    GC::Root error { bridge_error(target, u"Firefly bridge promise rejected"sv) };
-    MUST(JS::call(target.vm(), *capability.reject(), JS::js_undefined(), error.ptr()));
+    auto root = GC::Root<JS::Value>::create(value, SourceLocation::current());
+    // Approved copied values and sanitized errors belong to target continuations,
+    // not to the source job's cancellation generation. Never inherit its frames
+    // when built-in settlement enqueues the target's Promise reactions.
+    vm.save_execution_context_stack();
+    ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+    auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+    context->realm = &target;
+    vm.push_execution_context(*context);
+    ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
+    auto function = reject ? capability.reject() : capability.resolve();
+    MUST(JS::call(vm, *function, JS::js_undefined(), value));
 }
+static void reject_pending(JS::PromiseCapability& capability, JS::Realm& target)
+{
+    GC::Root error { bridge_error(target, u"Firefly bridge promise rejected"sv) };
+    settle_target(capability, target, error.ptr(), true);
+}
+
 FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& function, Web::DOM::Document& document)
     : m_source(source), m_function(function), m_document(document)
 {
@@ -158,7 +164,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         reject_pending(*capability, *target);
         return JS::js_undefined();
     }
-    MUST(JS::call(target->vm(), *capability->resolve(), JS::js_undefined(), copied.release_value()));
+    settle_target(*capability, *target, copied.release_value(), false);
     return JS::js_undefined();
 }
 
