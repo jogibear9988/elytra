@@ -140,4 +140,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          gh release create "$RELEASE_TAG" build/release-assets/* --verify-tag --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file docs/development/alpha-release-notes.md
+          if gh release view "$RELEASE_TAG" --json isDraft > build/release-state.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("build/release-state.json"))["isDraft"], "Refusing to overwrite a published release"'
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file docs/development/alpha-release-notes.md
+          fi
+          gh release upload "$RELEASE_TAG" build/release-assets/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

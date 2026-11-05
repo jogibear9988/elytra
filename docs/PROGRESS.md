@@ -1807,6 +1807,14 @@ actual file sizes are 249.43 MiB Designer and 215.30 MiB framework. This is a lo
 candidate only; hosted run 42125911196 is still in its compile/test/package step.
 Its predecessor failed the missing autotools macros; no hosted alpha is claimed.
 
+
+Alpha publication is now the last step after asset upload: create/reuse only a
+draft, attach all verified archives/checksums/size reports, then publish it as a
+prerelease (not latest). Existing published releases refuse overwrite. This avoids
+a visible partial alpha if uploading fails and supports retrying an incomplete
+draft. actionlint passes. This changes publication orchestration only; no alpha
+tag or release has been created and hosted native success is still required.
+
 Next: establish native Windows CI, implement/validate the missing desktop/process/
 sandbox adapters and packaging, then unblock the requested macOS+Windows Designer
 release upload. Keep required jobs failing honestly until their native gates pass.

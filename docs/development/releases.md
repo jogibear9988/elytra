@@ -23,7 +23,9 @@ than Electron. Build prerequisites remain external tools.
 
 Manual dispatch can build an exact existing tag and publish a **macOS-only alpha**
 when publish_alpha is selected and the tag matches vX.Y.Z-alpha.N. Publication runs
-only after the full native/package job passes; no existing release is overwritten.
+only after the full native/package job passes. Assets are uploaded to a draft
+first, then publication occurs only when every upload succeeds; an existing
+published release is never overwritten.
 This explicitly limited alpha does not satisfy the requested Windows/macOS release.
 Alpha tags are excluded from the all-platform tag trigger and use the explicitly
 scoped manual macOS path. The all-platform Native release workflow below retains
