@@ -23,6 +23,7 @@ its binaries include them.
 - [Run an HTTP server](guides/http-server.md)
 - [Create a Firefly desktop app](guides/first-desktop-app.md)
 - [Browse the runnable examples](guides/examples.md)
+- [Desktop feature examples: all Electron guide topics](examples/index.md)
 
 ## Understand the model
 

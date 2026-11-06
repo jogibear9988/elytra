@@ -19,11 +19,20 @@ covered by dedicated compatibility fixtures. A runnable example does not establi
 | [Native desktop](../../examples/firefly-hello-world/main.mjs) | Build Firefly, run `python3 tooling/build_hello.py`, then launch `build/firefly-hello-world/main.mjs` | Native window, file load, renderer PID and close/quit |
 | [Designer](../../examples/web-component-designer/README.md) | Build pinned demo with Node/npm as build tools | Actual app boot, document edit and Monaco through Firefly |
 
+## Desktop feature catalog
+
+The [desktop catalog](../examples/index.md) adds ESM source apps and individual
+API guides for all 21 Electron example topics, plus quick-start and lifecycle.
+Six narrow slices have shared native Firefly/Electron assertions. Seventeen
+currently reject explicitly in Firefly because their desktop APIs/platforms are
+missing. Those reference examples are migration and implementation material,
+not claims that the feature works in Firefly.
+
 The [test tooling](../../tooling/) adds Node/Electron differentials, independent
 network peers and security-boundary fixtures. Test-only endpoints and compiled SDK
 probes are not application APIs. [npm measurements](../compatibility/npm-packages-0.1.md)
 record exact published package versions and the narrow workflows verified.
 
 When adding an example, include its runtime/build prerequisites, a deterministic
-success observation, cleanup/failure behavior and a verification command. Do not add
-an example for an unsupported API merely to match an upstream tutorial category.
+success observation, cleanup/failure behavior and a verification command. Reference examples for unsupported APIs must have explicit preflight guards, a
+status page and separate manual prerequisites; never count rejection as feature acceptance.

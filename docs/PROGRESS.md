@@ -3028,6 +3028,43 @@ smaller-build candidate to include ESM-authored samples and wire gates. No secon
 alpha is claimed before its own complete hosted artifact validation. The published
 first alpha remains the immutable 745c7af snapshot described above.
 
+## 2026-11-06 — ESM desktop feature catalog
+
+Add original ESM source apps and individual API-linked guides for all 21 topics in
+Electron's current examples overview, plus quick-start and lifecycle (23 apps).
+Record upstream reference URLs, reviewed date, exact dependencies and per-example
+status in examples/electron/catalog.json. Build-time runtime selection is explicit:
+Firefly by default, a separate pinned Electron reference tree for comparison;
+never fall back from a missing Firefly capability. Authored preloads stay ESM and
+are bundled with locked esbuild into each sandbox's required CommonJS format.
+
+Six narrow real Firefly/Electron slices pass: isolated quick-start, browser module
+worker, initial online/offline state, iframe postMessage handshake, frameless
+startup, and lifecycle cancellation/retry. Also compare forced app.exit(7) and
+its exact non-cancellable trace. The 17 other Firefly examples fail preflight with
+explicit missing-API/platform errors; these are BLOCKED, not feature acceptance.
+Their reference/native interactions remain manual/unverified. No test purchases,
+protocol registration, permissions, recent-document changes or notifications.
+IAP requires a real trusted receipt verifier; local AI requires a real backend.
+
+Real file:// tests exposed Ladybird CSP self-origin resource blocking. Use an
+owned loopback static server with exact public HTML/module/CSS route allowlists,
+Host validation and no privileged actions, main/preload/utility/config exposure.
+Independent Python HTTP probes pass against Node and Mite for allowed GET/HEAD,
+MIME, rejected POST/Host/query/traversal/private-file requests. Fixed IPC action
+names validate exact window, main frame and approved page in reference examples;
+this does not implement Firefly's missing public IPC. CSS/script CSP remains
+explicit; the frameless alias shim's inline-style limitation is documented.
+
+Validation: complete test_electron_examples.py native run passes (six shared paths,
+17 explicit blocks and forced exit; build/electron-examples-tests-final.log).
+Asset probes pass on build/release-mite/bin/mite and Node. ESM/Python syntax,
+actionlint, diff and unmodified Ladybird pin checks pass. Release orchestration now
+builds/tests both trees and probes the asset boundary; hosted acceptance of this
+new gate remains pending. Documentation navigation includes the catalog and each
+topic's setup/limits. Ladybird unchanged; desktop platform/API implementation
+remains incomplete. The published alpha.1 predates these examples.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

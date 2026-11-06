@@ -50,6 +50,16 @@ the default optimization profile.
 See [package size analysis](package-size.md) for the measured baseline and what is
 already stripped/shared versus remaining optimization candidates.
 
+## Desktop example gate
+
+Current master additionally builds the [23 ESM example apps](../examples/index.md)
+for explicit Firefly and pinned Electron runtimes. The release driver compares
+six supported native slices plus forced exit, and requires explicit API/platform
+rejection for the 17 blocked Firefly examples. Reference-only examples remain
+manual/unverified. The static asset allowlist is probed by an independent HTTP peer
+against Node and Mite. These gates do not request device permissions, perform
+purchases, register protocols or modify OS recent-document lists.
+
 ## GitHub workflow
 
 After committing and pushing a tested version, create a version tag for that exact

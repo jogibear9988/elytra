@@ -1,0 +1,1 @@
+A local file from the Elytra native drag example.

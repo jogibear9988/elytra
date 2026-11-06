@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Elytra launcher example
+Exec=/ABSOLUTE/PATH/TO/firefly /ABSOLUTE/PATH/TO/examples/desktop-launcher-actions/main.mjs
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New window
+Exec=/ABSOLUTE/PATH/TO/firefly /ABSOLUTE/PATH/TO/examples/desktop-launcher-actions/main.mjs --new-window

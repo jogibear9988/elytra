@@ -1,0 +1,389 @@
+{
+  "reference": "https://www.electronjs.org/docs/latest/tutorial/examples",
+  "reviewed": "2026-11-06",
+  "examples": [
+    {
+      "id": "quick-start",
+      "title": "Quick start",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/examples",
+      "apis": [
+        "app.whenReady",
+        "BrowserWindow",
+        "contextBridge.exposeInMainWorld"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "actions": [],
+      "preload": true,
+      "notes": "Real isolated preload and renderer startup; activation/dock behavior is not implemented.",
+      "platforms": []
+    },
+    {
+      "id": "dark-mode",
+      "title": "Dark mode",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/dark-mode",
+      "apis": [
+        "nativeTheme",
+        "ipcMain.handle",
+        "ipcRenderer.invoke"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "toggle",
+        "system"
+      ],
+      "preload": true,
+      "notes": "Firefly lacks nativeTheme and public IPC. CSS-only theming does not establish native theme compatibility.",
+      "platforms": []
+    },
+    {
+      "id": "device-access",
+      "title": "Device access",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/devices",
+      "apis": [
+        "session.setPermissionCheckHandler",
+        "session.setDevicePermissionHandler",
+        "navigator.hid"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Manual HID selection with a cancel-first native chooser, scoped loopback-origin permissions and explicit user gesture. Bluetooth/serial/USB need separate scoped permissions; none is claimed for Firefly.",
+      "platforms": []
+    },
+    {
+      "id": "in-app-purchases",
+      "title": "In-app purchases",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/in-app-purchases",
+      "apis": [
+        "inAppPurchase.getProducts",
+        "inAppPurchase.purchaseProduct"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "lookup"
+      ],
+      "preload": true,
+      "notes": "Requires a signed Mac App Store sandbox app and configured products. Product lookup is implemented in this reference example; payment/receipt verification must be supplied before enabling purchases. No purchase is run by tests.",
+      "platforms": [
+        "darwin"
+      ]
+    },
+    {
+      "id": "keyboard-shortcuts",
+      "title": "Keyboard shortcuts",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/keyboard-shortcuts",
+      "apis": [
+        "Menu.buildFromTemplate",
+        "globalShortcut.register"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Native menu/global shortcut registration is manual and scoped to this process. Native Firefly shortcut APIs are absent.",
+      "platforms": []
+    },
+    {
+      "id": "deep-links",
+      "title": "Deep links",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app",
+      "apis": [
+        "app.setAsDefaultProtocolClient",
+        "app.requestSingleInstanceLock",
+        "app.on(open-url)"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "No protocol registration occurs without the explicit environment opt-in. Packaging needs OS protocol declarations. OS delivery and single-instance handling are unsupported in Firefly.",
+      "platforms": []
+    },
+    {
+      "id": "desktop-launcher-actions",
+      "title": "Desktop launcher actions",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/linux-desktop-actions",
+      "apis": [
+        "process.argv",
+        "Linux .desktop Actions"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Linux manual packaging example. The .desktop template must be installed with a real absolute executable path; Firefly Linux desktop packaging remains unavailable.",
+      "platforms": [
+        "linux"
+      ]
+    },
+    {
+      "id": "local-ai-handler",
+      "title": "Local AI handler",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/local-ai-handler",
+      "apis": [
+        "utilityProcess.fork",
+        "session.registerLocalAIHandler",
+        "localAIHandler.setPromptAPIHandler",
+        "LanguageModel"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Experimental Electron utility-process integration, not Firefly support. Requires a real local backend module; no fake model is included or inference claimed.",
+      "platforms": []
+    },
+    {
+      "id": "menus",
+      "title": "Menus",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/menus",
+      "apis": [
+        "Menu.buildFromTemplate",
+        "Menu.popup"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Application and context menus use the real Menu API. Firefly Menu/MenuItem are not implemented.",
+      "platforms": []
+    },
+    {
+      "id": "multithreading",
+      "title": "Multithreading",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/multithreading",
+      "apis": [
+        "Worker",
+        "postMessage"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "actions": [],
+      "preload": false,
+      "notes": "Browser-only module workers; Node/Mite APIs in workers and nodeIntegrationInWorker remain unsupported. File-worker loading and worker execution require their own native test result.",
+      "platforms": []
+    },
+    {
+      "id": "native-file-drag-drop",
+      "title": "Native file drag and drop",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/native-file-drag-drop",
+      "apis": [
+        "webContents.startDrag",
+        "ipcMain.handle",
+        "nativeImage"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "drag"
+      ],
+      "preload": true,
+      "notes": "Manual native drag interaction. The drag file is fixed in main; renderer input is not a filesystem path. Firefly nativeImage/startDrag/IPC are absent.",
+      "platforms": []
+    },
+    {
+      "id": "navigation-history",
+      "title": "Navigation history",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/navigation-history",
+      "apis": [
+        "webContents.navigationHistory"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "back",
+        "forward"
+      ],
+      "preload": true,
+      "notes": "Uses the current navigationHistory object, not deprecated WebContents goBack aliases. Firefly host history APIs and IPC remain absent.",
+      "platforms": []
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/notifications",
+      "apis": [
+        "Notification.isSupported",
+        "Notification.show"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "notify"
+      ],
+      "preload": true,
+      "notes": "Requires OS notification permission. Nothing is posted during automated checks. Firefly Notification is absent.",
+      "platforms": []
+    },
+    {
+      "id": "offscreen-rendering",
+      "title": "Offscreen rendering",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/offscreen-rendering",
+      "apis": [
+        "app.disableHardwareAcceleration",
+        "webContents.setFrameRate",
+        "paint"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Real offscreen paint events, not screenshots relabeled as offscreen rendering. Firefly offscreen/paint API is absent; no frame-rate performance claim.",
+      "platforms": []
+    },
+    {
+      "id": "online-offline",
+      "title": "Online and offline events",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/online-offline-events",
+      "apis": [
+        "navigator.onLine",
+        "online/offline events"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "actions": [],
+      "preload": false,
+      "notes": "Smoke validates initial browser state/listener installation only. Real OS network transition delivery is a separate manual gate; onLine is not proof of internet reachability.",
+      "platforms": []
+    },
+    {
+      "id": "progress-bars",
+      "title": "Progress bars",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/progress-bar",
+      "apis": [
+        "BrowserWindow.setProgressBar"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Native taskbar/dock progress, not an HTML progress-element substitute. Firefly setProgressBar is absent.",
+      "platforms": []
+    },
+    {
+      "id": "recent-documents",
+      "title": "Recent documents",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/recent-documents",
+      "apis": [
+        "app.addRecentDocument",
+        "app.clearRecentDocuments"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [
+        "add"
+      ],
+      "preload": true,
+      "notes": "This changes the user\u2019s recent-document list only after an explicit button click. Tests do not clear or modify that list. Firefly native recent-document APIs are absent.",
+      "platforms": [
+        "darwin",
+        "win32"
+      ]
+    },
+    {
+      "id": "represented-file",
+      "title": "Represented file",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/represented-file",
+      "apis": [
+        "BrowserWindow.setRepresentedFilename",
+        "BrowserWindow.setDocumentEdited"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "macOS native represented-document icon/edited marker. Firefly methods are absent; an HTML filename is not equivalent.",
+      "platforms": [
+        "darwin"
+      ]
+    },
+    {
+      "id": "spellchecker",
+      "title": "Spellchecker",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/spellchecker",
+      "apis": [
+        "webContents.session",
+        "Menu.buildFromTemplate",
+        "webContents.replaceMisspelling"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Native spell suggestions/context menu require manual validation and dictionaries. Firefly spellcheck constructor option/session APIs are unsupported.",
+      "platforms": []
+    },
+    {
+      "id": "web-embeds",
+      "title": "Web embeds",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/web-embeds",
+      "apis": [
+        "iframe",
+        "WebContentsView"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "actions": [],
+      "preload": false,
+      "notes": "Runnable browser iframe slice. Native WebContentsView/webview and session/navigation controls remain unsupported; no Chrome extension embedding claim.",
+      "platforms": []
+    },
+    {
+      "id": "taskbar-customization",
+      "title": "Taskbar customization",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/windows-taskbar",
+      "apis": [
+        "BrowserWindow.setOverlayIcon",
+        "BrowserWindow.setThumbarButtons"
+      ],
+      "firefly": "unsupported",
+      "smoke": false,
+      "actions": [],
+      "preload": false,
+      "notes": "Windows-only native taskbar UI. Firefly Windows desktop and these methods are not implemented; macOS/Linux checks are explicit platform errors.",
+      "platforms": [
+        "win32"
+      ]
+    },
+    {
+      "id": "window-customization",
+      "title": "Window customization",
+      "reference": "https://www.electronjs.org/docs/latest/tutorial/window-customization",
+      "apis": [
+        "BrowserWindow(frame:false)",
+        "app-region CSS",
+        "window.close"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "actions": [],
+      "preload": false,
+      "notes": "Frameless/drag regions use the actual native adapter. This smoke checks construction/page startup; drag gestures and HTML native min/max controls have separate existing Designer/native tests. Title-bar overlay/transparency/fullscreen are not implied.",
+      "platforms": []
+    },
+    {
+      "id": "lifecycle",
+      "title": "Application lifecycle",
+      "reference": "https://www.electronjs.org/docs/latest/api/app",
+      "apis": [
+        "app.isReady",
+        "app.whenReady",
+        "app.quit",
+        "app.exit",
+        "before-quit",
+        "will-quit",
+        "quit"
+      ],
+      "firefly": "partial",
+      "smoke": true,
+      "preload": false,
+      "actions": [],
+      "platforms": [],
+      "notes": "Readiness, cancellable normal quit/retry and forced exit. OS activation/dock/shutdown behavior is not implemented."
+    }
+  ]
+}

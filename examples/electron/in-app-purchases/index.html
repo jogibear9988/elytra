@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>
+  In-app purchases
+</title>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'self'"
+/>
+<link rel="stylesheet" href="../shared/style.css" />
+<h1>In-app purchases</h1>
+<p>Store-sandbox product lookup. This sample does not automatically make purchases.</p>
+<input id="product" placeholder="Your configured store product ID" /><button id="lookup">
+  Look up product
+</button>
+<output id="result" aria-live="polite"></output>
+<script type="module" src="./renderer.mjs"></script>

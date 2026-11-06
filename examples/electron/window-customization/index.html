@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>
+  Window customization
+</title>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self'"
+/>
+<link rel="stylesheet" href="../shared/style.css" />
+<h1>Window customization</h1>
+<header class="toolbar">Drag this toolbar <button id="close">Close</button></header>
+<p>This is a frameless window using Electron-compatible drag/no-drag CSS.</p>
+<output id="result" aria-live="polite"></output>
+<script type="module" src="./renderer.mjs"></script>

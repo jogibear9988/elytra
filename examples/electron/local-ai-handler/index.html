@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>
+  Local AI handler
+</title>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'self'"
+/>
+<link rel="stylesheet" href="../shared/style.css" />
+<h1>Local AI handler</h1>
+<p>
+  Provide ELYTRA_LOCAL_AI_MODULE with a real model-backed LanguageModelUtility subclass. This
+  example does not download a model or return a mock answer.
+</p>
+<input id="prompt" value="Describe this application" /><button id="ask">Ask local model</button>
+<output id="result" aria-live="polite"></output>
+<script type="module" src="./renderer.mjs"></script>

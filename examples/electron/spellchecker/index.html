@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>
+  Spellchecker
+</title>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'self'"
+/>
+<link rel="stylesheet" href="../shared/style.css" />
+<h1>Spellchecker</h1>
+<textarea rows="8" cols="60" spellcheck="true">
+Type a misspelled word and open its context menu.</textarea
+>
+<output id="result" aria-live="polite"></output>
+<script type="module" src="./renderer.mjs"></script>

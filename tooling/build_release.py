@@ -59,6 +59,13 @@ def main():
     run(sys.executable,'tooling/build_renderer.py','--target','firefly','--jobs',args.jobs,*renderer_options)
     run(sys.executable,'tooling/bootstrap_electron.py')
     run('cmake','--build','build/renderer','--target','check-firefly','check-firefly-renderer','check-firefly-isolation','check-firefly-renderer-helper','--parallel',args.jobs)
+    run(npm,'ci','--ignore-scripts','--no-audit','--no-fund','--prefix','tooling/runtime-js')
+    run(sys.executable,'tooling/test_example_assets.py','--mite',build/'bin/mite')
+    examples=ROOT/'build/desktop-examples'
+    reference_examples=ROOT/'build/desktop-examples-reference'
+    run('node','tooling/build_electron_examples.mjs',examples,'firefly')
+    run('node','tooling/build_electron_examples.mjs',reference_examples,'electron')
+    run(sys.executable,'tooling/test_electron_examples.py','--firefly',ROOT/'build/renderer/bin/firefly','--electron',ROOT/'build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron','--firefly-apps',examples,'--electron-apps',reference_examples)
     designer=ROOT/'build/designer-app'
     run(sys.executable,'tooling/build_designer.py','--output',designer,'--dependencies','production')
     mite=build/'bin'/('mite.exe' if os.name=='nt' else 'mite')

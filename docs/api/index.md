@@ -46,6 +46,7 @@ app.on('window-all-closed', () => app.quit());
 
 ## Compatibility and examples
 
+- [Desktop feature examples and API dependencies](../examples/index.md)
 - [Getting started](../getting-started.md)
 - [Mite compatibility](../compatibility/mite-0.1.md)
 - [Firefly compatibility](../compatibility/firefly-0.1.md)
