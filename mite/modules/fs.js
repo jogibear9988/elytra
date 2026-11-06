@@ -203,8 +203,11 @@
     }
     function writePosition(value) {
         // Node's write overloads use the current position for non-number input.
-        if (typeof value !== 'number' || value < 0) return '-1';
+        // Keep safe negative integers distinct: libuv's native interpretation
+        // need not be identical to the -1 cursor sentinel on every platform.
+        if (typeof value !== 'number') return '-1';
         if (!Number.isInteger(value)) return '-1';
+        if (value < -Number.MAX_SAFE_INTEGER) return '-1';
         if (value > Number.MAX_SAFE_INTEGER) unsupported('Write positions above the safe integer range');
         return String(Math.trunc(value));
     }

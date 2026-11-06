@@ -2333,6 +2333,28 @@ baseline. It does not accept subsequent Unicode/module/filesystem changes or
 desktop/size-profile support. Windows 42141915944 remains live in compilation;
 macOS release 42125911196 remains live at the full Release step.
 
+## Preserve native scalar write positions (2026-11-06)
+
+Inspect the Node 24.15 native GetOffset contract against our fs facade after the
+Windows scalar-validation final-file mismatch. Node passes safe integer write
+positions to libuv verbatim, including negative values below -1; our facade
+collapsed every negative number to the -1 cursor sentinel. Preserve safe negative
+integers instead. Non-number/fractional/out-of-safe-negative inputs still select
+the cursor, positive excessive positions retain the explicit unsupported policy,
+and read-position validation is unchanged. Native Windows can interpret distinct
+negative offsets differently, so do not emulate them by collapsing values.
+
+Add write-positions.cjs to the real filesystem differential suite: eleven position
+values through sync, callback and FileHandle writes, snapshot actual bytes after
+each operation and after an ordinary cursor write. This measures both data and
+cursor effects instead of comparing only returned byte counts. The targeted
+filesystem suite passes; all 41 local macOS Release/size-profile CTests pass in
+17.77s (build/write-position-{build,test,full-test}.log). API docs record the native
+position boundary. Site, syntax, diff and upstream checks pass. This is a source-
+grounded correction; whether it fully explains the Windows final-file difference
+requires the next actual native job. No Windows acceptance, vendor patch or test
+normalization is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

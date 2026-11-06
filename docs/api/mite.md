@@ -76,6 +76,14 @@ with read/write, stat/truncate, sync/datasync, whole-file I/O, close and async d
 Closing waits for active operations. Callback/sync whole-file APIs also accept numeric
 descriptors. File URL paths are supported and validated.
 
+Scalar writes pass safe integer positions to native libuv, including negative
+integers. Use null/undefined for ordinary cursor-relative writes; distinct negative
+values can have platform-specific native behavior. Non-number/fractional write
+positions select the cursor; excessive positive positions fail explicitly.
+Reads have their own integer/BigInt validation and do not inherit write coercions.
+Sync, callback and FileHandle position/data/cursor behavior is compared with Node;
+the new negative-position Windows fix still requires native acceptance.
+
 The Windows adapter now prepares namespaced paths for native operations, retains
 the caller's Dirent parentPath and strips the internal namespace prefix from error
 path/dest fields. Recursive mkdir returns the first created native namespace path

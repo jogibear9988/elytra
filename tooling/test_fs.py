@@ -40,7 +40,8 @@ def main():
              ('pending-throw.cjs', 1, 'pending fs fixture'), ('identity.cjs', 0, None), ('scalar.cjs', 0, None),
              ('scalar-async.mjs', 0, None), ('scalar-validation.cjs', 0, None),
              ('filehandle.mjs', 0, None), ('filehandle-close.mjs', 0, None),
-             ('filehandle-validation.mjs', 0, None), ('url.mjs', 0, None), ('paths.mjs', 0, None)]
+             ('filehandle-validation.mjs', 0, None), ('url.mjs', 0, None), ('paths.mjs', 0, None),
+             ('write-positions.cjs', 0, None)]
     if hasattr(os, 'mkfifo'):
         cases.extend([('nonblocking.mjs', 0, None), ('descriptors.cjs', 0, None)])
     else:
