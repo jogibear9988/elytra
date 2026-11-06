@@ -233,7 +233,7 @@ back to Buffer, matching the tested Node version. Symbol output coercion throws 
 finalization. `options.outputLength` controls SHAKE bytes; fixed digests accept only
 their natural length. Above Mite's Buffer limit it explicitly rejects. Native contexts
 are freed on finalization/collection; secure-heap zeroization/FIPS/audit parity is not
-claimed. HMAC, ciphers, signatures, keys, KDFs, getHashes and Web Crypto remain absent.
+claimed. Ciphers, asymmetric signatures, KeyObject/CryptoKey, KDFs, getHashes and Web Crypto remain absent.
 
 ```js
 import {createHash} from 'node:crypto';
@@ -242,3 +242,17 @@ const first = original.copy().update('one').digest('hex');
 const second = original.update('two').digest('hex');
 console.log(first, second);
 ```
+
+### createHmac(algorithm, key[, options]) / Hmac / timingSafeEqual
+
+Create an incremental native OpenSSL HMAC from a string or exact key byte range.
+update returns this; digest returns Buffer or encoded text. Later key mutation
+cannot change the HMAC. KeyObject/CryptoKey are not implemented. Hmac supports
+the tested lazy Transform/pipeline workflows; stream completion finalizes it and
+later digest returns empty output. Hmac has no copy method.
+
+timingSafeEqual compares exact equal-length byte ranges using native CRYPTO_memcmp.
+Unequal lengths throw ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH. Strings are not byte
+arguments. Caller logic and argument/type/length handling are outside that property.
+See [the detailed signatures/errors/lifetime reference](crypto.md#createhmacalgorithm-key-options-hmac)
+and [the ESM signing/verification example](../../examples/mite-cli/hmac.mjs).

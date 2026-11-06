@@ -73,10 +73,10 @@ def main():
         for executable in [args.node,args.mite]:
             result=subprocess.run([executable,str(fatal)],capture_output=True,text=True,timeout=10)
             assert result.returncode==1 and 'RANDOM_CALLBACK' in result.stdout and 'random-callback-fatal' in result.stderr,result
-        unsupported=root/'unsupported.cjs';unsupported.write_text("const crypto=require('crypto');for(const key of ['createHmac','randomFillSync','webcrypto']){if(crypto[key]!==undefined)throw Error('Unexpected crypto surface');}try{crypto.createHmac('sha256','key');throw Error('Unsupported HMAC succeeded')}catch(error){if(!(error instanceof TypeError))throw error;}console.log('UNSUPPORTED_CRYPTO_REJECTED');")
+        unsupported=root/'unsupported.cjs';unsupported.write_text("const crypto=require('crypto');for(const key of ['createSecretKey','randomFillSync','webcrypto']){if(crypto[key]!==undefined)throw Error('Unexpected crypto surface');}try{crypto.createSecretKey('key');throw Error('Unsupported KeyObject creation succeeded')}catch(error){if(!(error instanceof TypeError))throw error;}console.log('UNSUPPORTED_CRYPTO_REJECTED');")
         result=subprocess.run([args.mite,str(unsupported)],capture_output=True,text=True,timeout=10)
         assert result.returncode==0 and not result.stderr and result.stdout.strip()=='UNSUPPORTED_CRYPTO_REJECTED',result
-        named=root/'unsupported.mjs';named.write_text("import {createHmac} from 'node:crypto';console.log('BAD');")
+        named=root/'unsupported.mjs';named.write_text("import {createSecretKey} from 'node:crypto';console.log('BAD');")
         result=subprocess.run([args.mite,str(named)],capture_output=True,text=True,timeout=10)
         assert result.returncode!=0 and result.stderr and 'BAD' not in result.stdout,result
     print(f'PASS {len(cases)} random API validation/shape comparisons, UUIDv4/native byte smoke, async ordering/liveness/stress/error and CJS/ESM identity')

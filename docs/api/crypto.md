@@ -7,12 +7,12 @@ compiler/SDK-profile acceptance remain pending.
 Ladybird renderers do not receive this module or a privileged global crypto object.
 
 ```js
-import {randomBytes, randomUUID, randomInt, createHash, Hash} from 'node:crypto';
+import {randomBytes, randomUUID, randomInt, createHash, Hash, createHmac, Hmac, timingSafeEqual} from 'node:crypto';
 ```
 
 CommonJS require('crypto') and require('node:crypto') return the same module.
 ESM named exports refer to the same functions, and its default export is that
-module. These five exports are the current public surface. The
+module. These eight exports are the current public surface. The
 [Node 24.15 crypto reference](https://nodejs.org/download/release/v24.15.0/docs/api/crypto.html)
 is the compatibility baseline; it also contains many APIs Mite does not implement.
 
@@ -126,6 +126,110 @@ Do not mix stream and manual mutation without checking the documented/tested pat
 Complete stream/error parity, forced-GC behavior and secure-heap zeroization are
 not certified.
 
+## createHmac(algorithm, key[, options]) / Hmac
+
+Return a new Hmac instance, also a Transform stream. Hmac(algorithm, key, options)
+and new Hmac(algorithm, key, options) are supported. It has update/digest; there is
+no Hmac.copy method. Hmac is separate from Hash.
+
+| Parameter | Type / supported values |
+| --- | --- |
+| algorithm | String naming an available fixed-output OpenSSL digest; no default |
+| key | String, Buffer, TypedArray, DataView, ArrayBuffer or SharedArrayBuffer |
+| options.encoding | String-key encoding; omitted/null uses UTF-8; Buffer encodings supported |
+| Other options | The existing Transform options, initialized when a stream operation first needs state |
+
+The native OpenSSL 3 EVP_MAC provider holds the incremental state. Key bytes are
+consumed synchronously at construction: later mutation, detachment or resizing
+of the supplied key does not change the HMAC. Typed arrays/DataViews use their raw
+byte range and offset, not their numeric elements. Empty keys and messages are
+accepted. No key material is logged or stored in a main-process JS state field.
+Temporary JS/string/shared-buffer copies are not promised to be securely erased.
+
+Measured algorithms include MD5, SHA-1, SHA-224/256/384/512, SHA3-256/512 and
+BLAKE2b512/BLAKE2s256. Aliases depend on the pinned provider; this is not a complete
+provider inventory or a recommendation to use every supported digest. XOF/SHAKE
+is not accepted for HMAC. KeyObject/CryptoKey and key-management APIs are absent.
+
+| Failure | Result |
+| --- | --- |
+| Algorithm is not a string; unsupported key type; nonstring nonnull options.encoding | TypeError, ERR_INVALID_ARG_TYPE |
+| Unknown string-key encoding | TypeError, ERR_UNKNOWN_ENCODING |
+| Unknown digest name | TypeError, ERR_CRYPTO_INVALID_DIGEST |
+| Unavailable native provider/digest | Error, ERR_OSSL_EVP_UNSUPPORTED |
+| XOF/SHAKE digest | Error, no stable code in the reference-compatible path |
+| Native context allocation failure | Error, ERR_CRYPTO_HASH_CREATION_FAILED; not fault-injection tested |
+
+Getter exceptions from options.encoding propagate unchanged. Binary keys ignore
+unknown string encoding labels for key decoding, but the same option can be
+validated later as a readable stream encoding. This follows Node's lazy stream
+initialization: manual digest does not eagerly initialize stream state.
+An outputLength option does not change the HMAC length. Extreme-size key allocation,
+provider fault injection, FIPS and secure-heap behavior remain unverified.
+
+### hmac.update(data[, inputEncoding])
+
+Return this for chaining. Accept strings (UTF-8 by default), Buffer, TypedArray and
+DataView. ArrayBuffer input must first be wrapped in a view. Byte inputs are
+consumed before return and are not retained as JS data. Input encodings and raw
+byte-view behavior use the same measured subset as Hash.update above. Unsupported
+data throws TypeError / ERR_INVALID_ARG_TYPE; malformed odd-length hex strings
+throw ERR_INVALID_ARG_VALUE. Updating after manual digest or stream completion
+throws ERR_CRYPTO_HASH_FINALIZED in Mite. A rejected input does not finalize a
+previously valid HMAC; a later valid update can still succeed.
+
+### hmac.digest([encoding])
+
+Finalize and return a new Buffer, or encoded text for a recognized output label.
+The output length is fixed by the digest algorithm. Native provider state is freed
+on finalization; abandoned handles release it on collection/runtime teardown.
+Invalid output-label coercion, such as a Symbol, throws before finalization.
+Unknown output labels return a Buffer in the measured first-call behavior.
+
+Unlike Hash.digest, a repeated manual HMAC digest returns empty output: a Buffer
+for omitted/falsey encoding or 'buffer', otherwise an empty string. That repeated
+path does not coerce the encoding again. Calls with invalid receivers throw
+TypeError; cross-calling Hash methods on Hmac or Hmac methods on Hash is unsupported.
+
+### HMAC as a stream
+
+write/end, pipe/pipeline, readable output encoding and the tested backpressure
+machinery come from the pinned Transform implementation. The stream emits its
+MAC once. options.encoding decodes a string key and also controls readable output
+when stream state initializes; setEncoding can explicitly select the output codec.
+
+Use either the manual or stream lifecycle for application code. Mite deliberately
+marks stream completion finalized: subsequent digest returns empty output rather
+than reproducing unstable post-stream native output seen in Node 24.15. Invalid
+object-mode chunks emit a JS error rather than triggering the native assertions
+observed in related Node crypto paths. Full stream/receiver/error parity and
+forced-GC/zeroization guarantees are not claimed.
+
+```js
+import {createHmac} from 'node:crypto';
+const signature = createHmac('sha256', 'example-key')
+  .update('message', 'utf8')
+  .digest('hex');
+console.log(signature);
+```
+
+## timingSafeEqual(left, right)
+
+Both parameters must be Buffer, TypedArray, DataView, ArrayBuffer or
+SharedArrayBuffer. Compare their exact byte ranges; typed-array values are not
+converted to numbers. Return a boolean. Equal zero-length inputs return true.
+Different byte lengths throw RangeError / ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH;
+unsupported types, including strings, throw TypeError / ERR_INVALID_ARG_TYPE.
+
+Equal-length byte comparison uses OpenSSL CRYPTO_memcmp without content-dependent
+early exit in our adapter. Type/length checks, argument evaluation, caller logic
+and allocation are outside that property; this does not make an entire signature
+verification flow constant-time. Shared buffers use the engine's native snapshots;
+concurrent mutation is not an atomic two-buffer comparison contract. Detached and
+out-of-bounds views follow the current empty-byte normalization of the encoding
+adapter. Do not infer equal numeric arrays from equal native byte patterns across
+machines with different byte orders.
+
 ## Run an example
 
 The [random example](../../examples/mite-cli/random.mjs) demonstrates native random
@@ -135,7 +239,14 @@ SHA-256 and independent hash copies, with an optional input file:
 ```sh
 build/release-mite/bin/mite examples/mite-cli/random.mjs
 build/release-mite/bin/mite examples/mite-cli/hash.mjs
+MITE_HMAC_KEY=example-key build/release-mite/bin/mite examples/mite-cli/hmac.mjs message
 ```
+
+The [HMAC example](../../examples/mite-cli/hmac.mjs) signs a message using an
+environment-supplied key. Pass an optional 64-character hex signature after the
+message to verify it: prints VALID/INVALID and exits 1 for invalid input. Its format
+checks concern public signature data; the fixed-size MAC bytes use timingSafeEqual.
+The example key above is demonstration data.
 
 For supported behavior, the same example runs under Node. UUID values naturally
 differ between executions. See [modules](../concepts/modules-and-packages.md) and
@@ -143,13 +254,13 @@ differ between executions. See [modules](../concepts/modules-and-packages.md) an
 
 ## Unsupported APIs and verification
 
-HMAC, randomFill, ciphers, keys/signatures, KDFs, getHashes, timingSafeEqual
+randomFill, ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, getHashes
 and Web Crypto are absent. Calling an absent property fails as an ordinary JS
 TypeError; importing an absent named export fails during module loading. There is
 no fallback to Node/V8. Do not treat incremental hashing as encryption or password
 storage support.
 
-The mite-crypto-random, mite-crypto-random-int and mite-crypto-hash CTest suites compare supported contracts
+The mite-crypto-random, mite-crypto-random-int, mite-crypto-hash and mite-crypto-hmac CTest suites compare supported contracts
 against Node, including validation, byte views, copy independence, callback ordering,
 Transform/pipeline, CJS/ESM identity and error paths. The Firefly main-process gate
 also imports these APIs. Mite safely handles negative-zero SHAKE lengths and invalid
@@ -158,3 +269,9 @@ These are intentional differences, not omitted tests. See the
 [compatibility matrix](../compatibility/mite-0.1.md),
 [random design](../architecture/0052-native-crypto-random-foundation.md) and
 [hash design](../architecture/0053-native-hash.md).
+
+HMAC verification also uses independent Python stdlib vectors and an RFC 4231
+known answer, including digest block-size boundaries, long/empty keys and messages.
+See [the HMAC/equality design](../architecture/0071-native-hmac-and-byte-comparison.md).
+New HMAC/equality exports are subsequent master work and are not in alpha.1.
+Native Windows/Linux acceptance for these new exports remains pending hosted CI.

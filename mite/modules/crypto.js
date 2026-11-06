@@ -108,5 +108,62 @@
         this.push(value);callback();
     };
     function createHash(algorithm,options){return new Hash(algorithm,options);}
-    return {randomBytes,randomUUID,randomInt,createHash,Hash};
+    const hmacs=new WeakMap();
+    function hmacState(value){const state=hmacs.get(value);if(!state)throw new TypeError('Invalid Hmac receiver');return state;}
+    function binaryBytes(value){
+        if(value===undefined)fail('key or buffer',TypeError,'ERR_INVALID_ARG_TYPE');
+        return host.encoding.byteView(value);
+    }
+    function keyEncoding(options){
+        // Like Node, inspect encoding even for binary keys, before validating key.
+        const label=options==null?undefined:options.encoding;
+        if(label!=null && typeof label!=='string')fail('options.encoding',TypeError,'ERR_INVALID_ARG_TYPE');
+        return label;
+    }
+    function Hmac(algorithm,key,options){
+        if(!new.target)return new Hmac(algorithm,key,options);
+        if(typeof algorithm!=='string')fail('algorithm',TypeError,'ERR_INVALID_ARG_TYPE');
+        const label=keyEncoding(options);
+        let bytes;
+        if(typeof key==='string'){
+            if(label && label!=='buffer' && !Buffer.isEncoding(label))fail('encoding',TypeError,'ERR_UNKNOWN_ENCODING');
+            bytes=Buffer.from(key,!label || label==='buffer'?'utf8':label);
+        }else bytes=binaryBytes(key);
+        const handle=native.hmac.create(algorithm,bytes);
+        hmacs.set(this,{handle,finalized:false,options});
+        // Node initializes crypto stream state only when stream methods need it.
+        // Manual digest must not eagerly validate a readable output encoding.
+    }
+    Object.setPrototypeOf(Hmac.prototype,Transform.prototype);
+    Object.setPrototypeOf(Hmac,Transform);
+    for(const name of ['_readableState','_writableState'])Object.defineProperty(Hmac.prototype,name,{
+        configurable:true,
+        get(){Transform.call(this,hmacState(this).options);return this[name];},
+        set(value){Object.defineProperty(this,name,{value,writable:true,enumerable:true,configurable:true});}
+    });
+    Hmac.prototype.update=function update(data,inputEncoding){
+        const state=hmacState(this);if(state.finalized)finalized();
+        if(!state.handle.update(inputBytes(data,inputEncoding)))fail('HMAC update',Error,'ERR_CRYPTO_HASH_UPDATE_FAILED');
+        return this;
+    };
+    Hmac.prototype.digest=function digest(outputEncoding){
+        const state=hmacState(this);
+        // Node returns empty output on repeated HMAC digest (unlike Hash).
+        if(state.finalized)return outputEncoding && outputEncoding!=='buffer'?'':Buffer.alloc(0);
+        const label=outputEncoding?`${outputEncoding}`:undefined;
+        const value=buffer(state.handle.digest());state.finalized=true;
+        const codec=encoding(label);return codec?value.toString(codec):value;
+    };
+    Hmac.prototype._transform=function(chunk,codec,callback){
+        try{this.update(chunk,codec);}catch(error){callback(error);return;}
+        callback();
+    };
+    Hmac.prototype._flush=function(callback){
+        let value;
+        try{value=this.digest();}catch(error){callback(error);return;}
+        this.push(value);callback();
+    };
+    function createHmac(algorithm,key,options){return new Hmac(algorithm,key,options);}
+    function timingSafeEqual(left,right){return native.hmac.equal(binaryBytes(left),binaryBytes(right));}
+    return {randomBytes,randomUUID,randomInt,createHash,Hash,createHmac,Hmac,timingSafeEqual};
 })

@@ -3089,6 +3089,49 @@ passes after these changes; the six real catalog assertions and forced-exit trac
 passed in the preceding step. Windows/Linux desktop, missing APIs, broader native
 integration and newer hosted artifact acceptance remain work in progress.
 
+## 2026-11-06 — Native HMAC and byte comparison
+
+The preceding goal turn made concrete progress: committed/pushed the 23-app catalog
+and detailed desktop references; Pages deployment succeeded. Resume from that
+clean tracked state. The complete specification remains active and incomplete.
+
+Implement node:crypto createHmac/Hmac and timingSafeEqual in the independent Mite
+runtime and Firefly main process. C++ owns OpenSSL 3 EVP_MAC contexts with RAII;
+no deprecated HMAC_CTX, Node/V8 dependency or Ladybird edits. Consume exact key
+bytes at construction, support empty/long keys and incremental byte ranges, and
+release native contexts after digest/collection. Native CRYPTO_memcmp compares
+equal-length byte ranges; type/length/caller logic is outside that property.
+Reuse existing Buffer/encoding adapters, with explicit unsupported key objects.
+
+Keep HMAC's repeated manual digest empty-output semantics. Match Node's lazy
+Transform initialization: options.encoding applies to string keys, while stream
+validation/output setup happens only when a stream operation needs state. Eager
+construction or stripping that option lost reference behavior; the real encoded
+stream differential now covers it. Mite explicitly finalizes the streaming path,
+returning empty output on later manual digest rather than reproducing unstable
+post-stream native bytes observed in Node. Invalid object-mode input yields a JS
+error. No complete stream/error/cross-receiver/secure-heap/FIPS claim.
+
+Add an ESM signing/verification example with environment-supplied key, strict hex
+length/format, native byte comparison and invalid-signature status. Actual Node
+and Mite runs agree for Unicode messages, tampering, malformed/trailing-newline
+signatures and uppercase hex. Extend the real Firefly ESM migration fixture with a
+known HMAC and native equality. New APIs replace only the prior createHmac-absent
+fixture; unsupported KeyObject creation remains explicitly tested instead.
+
+Validation: 357 Node HMAC/equality observations and 127 independent Python/RFC
+known-answer vectors pass, including SHA256/SHA512 block boundaries, key snapshots,
+raw/detached/resized views, encoding/error recovery, ESM/CJS identity, native-state
+allocation pressure and Transform/pipeline output (hmac-tests-with-example.log).
+All 44 CTests pass (hmac-regression.log, 114.11 s). Actual rebuilt Firefly check-firefly
+passes lifecycle/controls/crash/ESM main plus the production public-preload boundary
+(hmac-firefly-tests.log). Site validates 140 pages and 8063 local links/resources/
+fragments; syntax/actionlint/diff checks pass. Update API/matrix/README and ADR 0071.
+
+Native Windows/Linux acceptance of these new APIs and a new hosted package remain
+pending. The published alpha.1 predates this work. Public IPC, TLS/fetch, native
+Windows/Linux Firefly and broader specification requirements remain incomplete.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

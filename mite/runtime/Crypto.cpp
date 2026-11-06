@@ -35,6 +35,7 @@ struct RandomRequest { std::vector<unsigned char> bytes; int status {0}; };
 GC::Ref<JS::Object> create_crypto_host(JS::VM&,JS::Realm& realm,EventLoop& loop)
 {
     GC::Root host {JS::Object::create(realm,nullptr)};
+    host->define_direct_property("hmac"_utf16,create_hmac_host(realm),JS::default_attributes);
     host->define_direct_property("hash"_utf16,create_hash_host(realm),JS::default_attributes);
     host->define_native_function(realm,"random"_utf16,[&realm,&loop](JS::VM& vm)->JS::ThrowCompletionOr<JS::Value>{
         auto size=TRY(requested_size(vm));

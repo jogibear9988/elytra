@@ -49,7 +49,7 @@ documentation status. Current module-level detail is in the [Mite matrix](../com
 | Events and streams | Partial | Backpressure/lifetime recipes, state/error contracts and unsupported cancellation/Web Streams modes |
 | Filesystem | Partial sync/callback/Promise/FileHandle APIs | Per-overload reference; streams/watch, permissions, metadata and remaining options |
 | TCP, DNS, HTTP | Partial | HTTP clients, HTTPS/TLS, fetch, upgrades and wider protocol/timeout coverage |
-| Crypto | Random APIs and incremental Hash; [detailed current-subset reference](../api/crypto.md) | HMAC, ciphers, keys, signatures, KDFs, Web Crypto and complete provider/error contracts |
+| Crypto | Random, incremental Hash/HMAC and byte equality; [detailed current-subset reference](../api/crypto.md) | Ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, Web Crypto and complete provider/error contracts |
 | Child processes and concurrency | Unsupported | child_process, workers and necessary native lifetime/IPC behavior before documenting runnable examples |
 | Testing/assertion and diagnostics | Unsupported built-ins | Decide practical assert/test, inspector, performance, tracing/reporting and async-context priorities |
 | UDP, HTTP/2, compression, readline/TTY | Unsupported | Demand-led implementation and migration guidance |

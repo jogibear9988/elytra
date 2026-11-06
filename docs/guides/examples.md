@@ -8,6 +8,7 @@ covered by dedicated compatibility fixtures. A runnable example does not establi
 | Example | Command / prerequisite | What it demonstrates |
 | --- | --- | --- |
 | [Basic CLI](../../examples/mite-cli/hello.mjs) | `build/dev/bin/mite examples/mite-cli/hello.mjs world` | Script entry, console and arguments |
+| [HMAC signatures](../../examples/mite-cli/hmac.mjs) | Set MITE_HMAC_KEY; pass message and optional hex signature | Native HMAC-SHA256 signing and fixed-size byte comparison |
 | [Native hashing](../../examples/mite-cli/hash.mjs) | `build/dev/bin/mite examples/mite-cli/hash.mjs` | ESM imports and native hash state |
 | [Modules](../../examples/mite-cli/modules.mjs) | `build/dev/bin/mite examples/mite-cli/modules.mjs` | ESM/JSON imports and timer-driven await |
 | [File copy](../../examples/mite-cli/files.mjs) | Pass a destination that does not exist | Promise filesystem I/O and exclusive creation |
