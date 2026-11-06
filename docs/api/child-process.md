@@ -1,11 +1,12 @@
 # node:child_process
 
 Partial native process support, locally tested on macOS ARM64 in standalone Mite
-and the Firefly main process. Hosted Linux/Windows acceptance of this new module is
-pending. Renderers do not receive this privileged API.
+and the Firefly main process. The spawn suite also passes hosted Linux. New
+execFile and Windows corrections still await hosted acceptance. Renderers do not
+receive this privileged API.
 
 ```js
-import {spawn, ChildProcess} from 'node:child_process';
+import {spawn, execFile, ChildProcess} from 'node:child_process';
 ```
 
 require('child_process'), require('node:child_process'), the default ESM export and
@@ -33,7 +34,7 @@ are converted to strings. Prefer explicit string arguments in application code.
 
 Shell execution, IPC/additional stdio channels, stream-object stdio adoption,
 AbortSignal, uid/gid and serialization options fail with ERR_MITE_UNSUPPORTED_API.
-exec, execFile, fork and synchronous process APIs are absent. Direct construction
+exec, fork and synchronous process APIs are absent. Direct construction
 with new ChildProcess is also explicitly unsupported; use spawn.
 
 ## Process and stream lifetime
@@ -63,7 +64,48 @@ killing the independent child, matching the tested detached/unreferenced workflo
 Process groups, orphan reaping in arbitrary embedding hosts and descendants are not
 a certified process-supervision facility.
 
-## Example and verification
+## execFile(file[, args][, options][, callback])
+
+Run an executable and collect stdout/stderr separately. The optional callback
+receives (error, stdout, stderr); the function returns the live ChildProcess so
+applications can write its stdin or request termination. Callbacks run
+asynchronously and once, including failed starts. A nonzero exit produces an
+error with code, killed, signal and cmd; start errors retain native errno,
+syscall, path and spawnargs. Native error text/stack fidelity remains incomplete.
+The callback normally follows exit after output closure; a failed start can call
+back during the error event before close. Omitting the callback still runs the
+child and enforces the output/timeout policies.
+
+Default encoding is utf8, with incremental stream decoding across split byte
+sequences. encoding:'buffer', null and unrecognized encodings return Buffers,
+following the reference behavior. Supported Buffer encodings such as hex also
+work. maxBuffer defaults to 1 MiB **per output stream**; Infinity explicitly
+disables the limit. Overflow destroys output streams, requests termination and
+reports ERR_CHILD_PROCESS_STDIO_MAXBUFFER with retained output. The reference's
+decoded-string truncation uses code-unit slicing with a remaining byte budget;
+returned Unicode text can therefore encode to more bytes than maxBuffer. Use
+encoding:'buffer' for an exact byte prefix. Termination is a request, not a
+guarantee that an uncooperative process or its descendants have exited.
+Explicit maxBuffer:undefined also disables comparison, while null behaves as zero,
+matching the tested reference; omit the property to retain the default limit.
+
+cwd, env, timeout, killSignal, windowsHide and windowsVerbatimArguments use the
+native spawn machinery. Timeout zero disables the timer; values above 0x7fffffff
+fail explicitly. Shell execution, AbortSignal and privilege switching remain
+unsupported. exec, fork, synchronous variants and util.promisify integration are
+not implemented. Extra stdio/detached/argv0 behavior from spawn is not part of the
+execFile contract; this API always creates the three capture/input pipes.
+
+```js
+const child = execFile('/path/to/tool', ['argument'], {maxBuffer: 65536},
+  (error, stdout, stderr) => {
+    if (error) console.error(error.message);
+    else console.log(stdout);
+  });
+child.stdin.end();
+```
+
+## Examples and verification
 
 The [standalone example](../../examples/mite-cli/spawn.mjs) starts another copy of
 the current CLI, reads its pipe and awaits close. Run it under Mite or Node.
@@ -78,3 +120,11 @@ detached/unreferenced parent exit. Python is a test peer, not a shipped runtime
 dependency. The Firefly ESM fixture also starts a real native process and reads its
 pipe alongside normal renderer/crash/lifecycle checks. See
 [ADR 0062](../architecture/0062-native-child-processes.md).
+
+The [buffered CLI example](../../examples/mite-cli/exec-file.mjs) uses execFile
+with the current runtime. mite-exec-file compares captured text/binary/hex output,
+split Unicode decoding, exit/start/cwd errors, stdout/stderr/default/zero/fractional/
+Unicode byte limits, 1 MiB stdin, timeout, callback overloads/absence/count/order,
+29 validation cases and fatal callback behavior against Node using independent
+Python peers. The Firefly main fixture executes and captures a real printf child.
+See [ADR 0066](../architecture/0066-buffered-native-exec-file.md).

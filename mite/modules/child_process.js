@@ -134,5 +134,60 @@
         }
         return child;
     }
-    return {spawn,ChildProcess};
+    function execFile(file,args,opts,callback){
+        if(Array.isArray(args))args=args.slice();
+        else if(args!==null&&typeof args==='object'){callback=opts;opts=args;args=[];}
+        else if(typeof args==='function'){callback=args;opts=undefined;args=[];}
+        args=args??[];
+        if(typeof opts==='function'){callback=opts;opts=undefined;}
+        else if(opts!=null&&(typeof opts!=='object'||Array.isArray(opts)))fail(TypeError,'ERR_INVALID_ARG_TYPE','options must be an object');
+        if(callback!=null&&typeof callback!=='function')fail(TypeError,'ERR_INVALID_ARG_TYPE','callback must be a function');
+        const config={encoding:'utf8',maxBuffer:1024*1024,timeout:0,...opts};
+        if(config.timeout!=null&&(typeof config.timeout!=='number'||!Number.isInteger(config.timeout)||config.timeout<0))fail(RangeError,'ERR_OUT_OF_RANGE','Invalid timeout');
+        if(config.timeout>0x7fffffff)unsupported('ExecFile timeouts above the timer limit');
+        if(config.maxBuffer!=null&&(typeof config.maxBuffer!=='number'||!(config.maxBuffer>=0)))fail(RangeError,'ERR_OUT_OF_RANGE','Invalid maxBuffer');
+        if(config.argv0!=null)text(config.argv0,'argv0');
+        const killSignal=config.killSignal??'SIGTERM';signal(killSignal);
+        const child=spawn(file,args,{cwd:config.cwd,env:config.env,uid:config.uid,gid:config.gid,signal:config.signal,shell:config.shell,
+            windowsHide:!!config.windowsHide,windowsVerbatimArguments:!!config.windowsVerbatimArguments});
+        const output=[[],[]],streams=[child.stdout,child.stderr],counts=[0,0];
+        let failure=null,settled=false,timer=null,terminated=false;
+        function finish(code,termination){
+            if(settled)return;settled=true;
+            if(timer)clearTimeout(timer);
+            if(!callback)return;
+            const values=output.map((chunks,index)=>streams[index]?.readableEncoding?chunks.join(''):Buffer.concat(chunks));
+            if(!failure&&code===0&&termination===null){callback(null,...values);return;}
+            const command=args.length?file+' '+args.join(' '):file;
+            if(!failure){failure=new Error(`Command failed: ${command}\n${values[1]}`);failure.code=code;failure.killed=child.killed||terminated;failure.signal=termination;}
+            failure.cmd=command;callback(failure,...values);
+        }
+        function stop(){
+            for(const stream of streams)stream?.destroy();
+            terminated=true;
+            try{child.kill(killSignal);}catch(error){failure=error;finish();}
+        }
+        const encoding=Buffer.isEncoding(config.encoding)?config.encoding:null;
+        for(const [index,stream] of streams.entries())if(stream){
+            if(encoding)stream.setEncoding(encoding);
+            stream.on('data',chunk=>{
+                if(failure)return;
+                if(config.maxBuffer===Infinity){output[index].push(chunk);return;}
+                const length=stream.readableEncoding?Buffer.byteLength(chunk,stream.readableEncoding):chunk.length;
+                const previous=counts[index];counts[index]+=length;
+                if(counts[index]>config.maxBuffer){
+                    // Node's decoded mode slices string code units with the
+                    // remaining byte budget. Preserve that observable boundary.
+                    output[index].push(chunk.slice(0,config.maxBuffer-previous));
+                    failure=new RangeError(`${index===0?'stdout':'stderr'} maxBuffer length exceeded`);
+                    failure.code='ERR_CHILD_PROCESS_STDIO_MAXBUFFER';stop();
+                }else output[index].push(chunk);
+            });
+        }
+        child.on('error',error=>{failure=error;for(const stream of streams)stream?.destroy();finish();});
+        child.on('close',finish);
+        if(config.timeout>0)timer=setTimeout(stop,config.timeout);
+        return child;
+    }
+    return {spawn,execFile,ChildProcess};
 })

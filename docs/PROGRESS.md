@@ -2591,6 +2591,52 @@ pin/diff checks pass; site checks 109 pages / 5910 local links. New Windows/Linu
 hosted acceptance and the complete hosted M1 package build remain pending. No
 new package size or alpha publication is claimed.
 
+## Buffered native execFile vertical slice (2026-11-06)
+
+Add callback-based node:child_process.execFile and its CJS/ESM export identity on
+the existing native spawn/pipes/lifecycle. Return a live ChildProcess, collect
+stdout/stderr independently with incremental decoding or Buffer/hex encodings,
+and call back asynchronously once on close or the earlier startup error. Preserve
+nonzero-exit code/killed/signal/cmd and native startup metadata; exact native error
+text/stack fidelity remains incomplete. Optional callback execution still applies
+the same timeout/output policies. No Node/V8 runtime, native transport duplication,
+new dependency or Ladybird modification.
+
+Default capture budget is 1 MiB per stream. Overflow destroys output readers and
+requests configured termination, with ERR_CHILD_PROCESS_STDIO_MAXBUFFER and the
+retained prefix. Infinity/explicit undefined disable comparison; null acts as
+zero, matching the reference. Decoded mode retains Node's code-unit truncation
+with a byte-derived budget; Buffer mode gives the exact byte prefix. Timeout and
+killSignal use native termination, not an implied descendant-supervision guarantee.
+Shells, AbortSignal, privilege switching, exec/fork/sync APIs and util.promisify
+integration remain unsupported. Existing spawn semantics remain separate.
+
+New mite-exec-file uses independent Python peers and Node comparison for separate
+text/binary/hex output, split Unicode, startup/cwd/nonzero errors, ordinary/default/
+zero/fractional/Unicode/undefined limits, a live overflowing child's actual
+termination, 1 MiB stdin echo, SIGTERM/SIGKILL timeout, callback overloads/absence/
+asynchrony/count/order, 29 validation cases, explicit unsupported modes and fatal
+callbacks. Local target tests pass, including the final added termination and
+undefined-limit cases (build/exec-file-test{,-final}.log). All 43 Release/size-profile
+CTest suites pass in 20.61s (build/exec-file-full-test.log). The CLI example passes
+under both Node and Mite. API, matrix, README and ADR 0066 record current scope.
+
+Rebuild Firefly's shared runtime and require actual execFile output in the ESM
+main workflow alongside spawn, HTTP and native renderer loading. All four actual
+native desktop/renderer/isolation/helper gates pass (build/exec-file-native-gates.log).
+Pin, Python, actionlint and diff checks pass; site checks 110 pages / 5964 local
+links. New API hosted acceptance remains pending, with no package relabeling,
+new size claim or alpha publication.
+
+During this step, older Windows 42148050382 at 2c0d09c / job 127665903960 completed
+40/42 in 44.13s, failing short-name metadata and console CRLF before those fixes;
+HTTP passes in that run, confirming the earlier finish ordering failure can be
+intermittent. This is not acceptance of the later corrections. Windows 42149420070
+at 6ba8af1 / job 127670651541 was confirmed compiling; macOS 42144098371 at f3f08b9
+remained live in its release compile. Do not cancel or replace live builds merely
+for observation time. New Windows corrections/TCP path and the full hosted M1
+package build still require their own native results.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

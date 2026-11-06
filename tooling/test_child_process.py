@@ -108,7 +108,7 @@ def main():
             observations.append(json.loads(result.stdout))
         assert observations[0] == observations[1], list(zip(cases, *observations))
         assert [i for i,row in enumerate(observations[0]) if row=='ACCEPTED'] == [15,16], observations
-        fixture.write_text("const cp=require('child_process');for(const options of [{shell:true},{signal:{}},{uid:0},{gid:0},{stdio:'ipc'},{stdio:['pipe','pipe','pipe','pipe']}]){let caught=false;try{cp.spawn('x',[],options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported process option accepted')}for(const name of ['exec','execFile','fork','spawnSync'])if(cp[name]!==undefined)throw Error('Unexpected process export');console.log('POLICY_OK');", encoding='utf-8')
+        fixture.write_text("const cp=require('child_process');for(const options of [{shell:true},{signal:{}},{uid:0},{gid:0},{stdio:'ipc'},{stdio:['pipe','pipe','pipe','pipe']}]){let caught=false;try{cp.spawn('x',[],options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported process option accepted')}for(const name of ['exec','fork','spawnSync'])if(cp[name]!==undefined)throw Error('Unexpected process export');console.log('POLICY_OK');", encoding='utf-8')
         result = subprocess.run([args.mite, str(fixture)], capture_output=True, text=True, timeout=10)
         assert result.returncode == 0 and not result.stderr and result.stdout.strip() == 'POLICY_OK', result
         fixture.write_text("require('child_process').spawn(" + json.dumps(sys.executable) + ",['-c','pass'],{stdio:'ignore'}).on('exit',()=>{console.log('CHILD_EXIT');throw Error('child-exit-fatal')});", encoding='utf-8')

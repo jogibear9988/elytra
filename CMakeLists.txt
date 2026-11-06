@@ -109,6 +109,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_commonjs.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-child-process COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_child_process.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-exec-file COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_exec_file.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-packages COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"

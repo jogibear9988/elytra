@@ -80,7 +80,9 @@ platform limitations are recorded in the compatibility matrix and ADR 0053.
 `node:child_process.spawn()` now launches native executables with real pipes and
 process lifecycle events. The [CLI example](examples/mite-cli/spawn.mjs) starts
 another copy of the current runtime. See the [process reference](docs/api/child-process.md)
-for options and the still unsupported shell/IPC/synchronous APIs.
+for options and the still unsupported shell/IPC/synchronous APIs. Callback-based
+`execFile()` adds buffered text/binary output, per-stream limits and timeout;
+the [buffered execution example](examples/mite-cli/exec-file.mjs) runs in Node and Mite.
 
 Measured real-package scenarios are recorded in the [npm compatibility matrix](docs/compatibility/npm-packages-0.1.md). Missing test dependencies cause a test failure with installation instructions.
 

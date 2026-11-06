@@ -68,7 +68,7 @@ static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefau
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "constants", "EOL", "devNull" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash" };
-static constexpr std::string_view child_process_exports[] = { "spawn", "ChildProcess" };
+static constexpr std::string_view child_process_exports[] = { "spawn", "execFile", "ChildProcess" };
 static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 }, child_process_exports },

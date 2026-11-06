@@ -2,7 +2,7 @@ import {app,BrowserWindow} from 'firefly';
 import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
 import {randomBytes,randomUUID,randomInt,createHash} from 'node:crypto';
 import {createServer,get} from 'node:http';
-import {spawn} from 'node:child_process';
+import {spawn,execFile} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
@@ -24,6 +24,8 @@ const childOutput=await new Promise((resolve,reject)=>{
     child.on('close',code=>code===0?resolve(text):reject(Error('Native child exit')));
 });
 if(childOutput!=='firefly-native-child')throw Error('Native main-process child pipe');
+const capturedChild=await new Promise((resolve,reject)=>execFile('/usr/bin/printf',['%s','firefly-exec-file'],(error,stdout,stderr)=>error?reject(error):resolve([stdout,stderr])));
+if(capturedChild[0]!=='firefly-exec-file'||capturedChild[1]!=='')throw Error('Native main-process buffered child');
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
