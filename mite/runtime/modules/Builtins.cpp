@@ -70,6 +70,11 @@ static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Wr
     "isDestroyed", "isDisturbed", "isErrored", "isReadable", "isWritable",
     "getDefaultHighWaterMark", "setDefaultHighWaterMark", "promises" };
 static constexpr std::string_view stream_promises_exports[] = { "pipeline", "finished" };
+static constexpr std::string_view web_streams_exports[] = { "ByteLengthQueuingStrategy",
+    "CountQueuingStrategy", "ReadableByteStreamController", "ReadableStream",
+    "ReadableStreamBYOBReader", "ReadableStreamBYOBRequest", "ReadableStreamDefaultController",
+    "ReadableStreamDefaultReader", "TransformStream", "TransformStreamDefaultController",
+    "WritableStream", "WritableStreamDefaultController", "WritableStreamDefaultWriter" };
 static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" };
 static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect",
     "createConnection", "isIP", "isIPv4", "isIPv6" };
@@ -109,7 +114,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "dns/promises", {}, dns_promises_exports },
     { "net", { MITE_NET_SOURCE, sizeof(MITE_NET_SOURCE) - 1 }, net_exports },
     { "stream", { MITE_STREAM_SOURCE, sizeof(MITE_STREAM_SOURCE) - 1 }, stream_exports },
-    { "stream/promises", {}, stream_promises_exports },
+    { "stream/promises", {}, stream_promises_exports }, { "stream/web", {}, web_streams_exports },
     { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 },
         string_decoder_exports },
     { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
@@ -153,6 +158,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
 
         m_builtins.emplace(name, GC::Root<JS::Object> { *result });
         return *result;
+    }
+
+    if (name == "stream/web") {
+        m_builtins.emplace(name, m_web_streams);
+        return *m_web_streams;
     }
 
     if (name == "process") {
@@ -400,9 +410,14 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
             return JS::js_undefined();
         },
         1, JS::default_attributes);
-    auto hooks = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
-    VERIFY(hooks.is_object());
+    auto globals = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
+    VERIFY(globals.is_object());
+    GC::Root installed { globals.as_object() };
+    auto hooks = TRY(installed->get("abort"_utf16));
+    auto streams = TRY(installed->get("streams"_utf16));
+    VERIFY(hooks.is_object() && streams.is_object());
     m_abort_hooks = hooks.as_object();
+    m_web_streams = streams.as_object();
     // Capture original timer functions before application code can replace globals.
     TRY(builtin("timers"));
     auto buffer = TRY(builtin("buffer"));

@@ -24,6 +24,7 @@ def main():
             destination / (name + ".LICENSE.txt") for name in manifest["bundles"]
         }
         assert "event-target-shim 6.0.2" in (destination / "web-globals.LICENSE.txt").read_text()
+        assert "web-streams-polyfill 4.5.1" in (destination / "web-globals.LICENSE.txt").read_text()
         (source / "web-globals.LICENSE.txt").write_text("Removed copyright")
         try:
             copy_runtime_notices(root / "tampered", source)

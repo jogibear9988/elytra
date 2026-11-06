@@ -141,6 +141,10 @@ process and events adapters. Exports include Stream, Readable, Writable, Duplex,
 Transform, PassThrough, pipeline, finished, compose and selected state helpers.
 `node:stream/promises` exposes pipeline and finished. Export presence does not imply
 all option modes are supported; AbortSignal integration is limited by the host.
+Web-standard ReadableStream, WritableStream and TransformStream are available as
+globals and through `node:stream/web`; see [Web Streams](web-streams.md) for the
+tested byte/pressure/cancellation contract. Node-stream `toWeb`/`fromWeb` bridges
+remain unsupported.
 
 ```js
 import {Readable, Transform, Writable} from 'node:stream';

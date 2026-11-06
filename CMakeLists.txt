@@ -165,6 +165,10 @@ if(BUILD_TESTING)
     add_test(NAME mite-abort
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_abort.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-web-streams
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_streams.py"
+                --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-runtime-line-endings
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_runtime_line_endings.py")

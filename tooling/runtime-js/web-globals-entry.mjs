@@ -8,6 +8,7 @@ import {
 } from 'event-target-shim';
 import createAbortGlobals from '../../mite/runtime/bootstrap/web/abort.mjs';
 import createDOMException from '../../mite/runtime/bootstrap/web/dom-exception.mjs';
+import * as streams from 'web-streams-polyfill';
 import createWeakRefAdapter, {
   createFinalizationAdapter
 } from '../../mite/runtime/bootstrap/web/weak-lifetime.mjs';
@@ -45,9 +46,12 @@ export default function installWebGlobals(host) {
     EventTarget,
     DOMException,
     AbortController: hooks.AbortController,
-    AbortSignal: hooks.AbortSignal
+    AbortSignal: hooks.AbortSignal,
+    ...streams
   })) {
     Object.defineProperty(globalThis, name, { value, writable: true, configurable: true });
   }
-  return hooks;
+  // Keep the module's original constructors alive independently of writable globals.
+  // Copies avoid exposing esbuild's internal namespace getters to application code.
+  return { abort: hooks, streams: { ...streams } };
 }

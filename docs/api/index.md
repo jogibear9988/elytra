@@ -30,6 +30,8 @@ The [cancellation reference](abort.md) covers EventTarget/AbortController/AbortS
 and native Promise timer consumers.
 The [timers reference](timers.md) covers native timeout/immediate callbacks,
 checkpoints and handle lifetime.
+The [Web Streams reference](web-streams.md) covers readable/writable/transform
+streams, byte ownership, piping, pressure and current interoperability limits.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 

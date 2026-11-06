@@ -3961,6 +3961,55 @@ Windows/Linux desktop/distribution maturity. Complete OS trust policy, all provi
 error/closure cases and full Node/Electron parity remain unfinished. Overall goal
 active; local GUI acceptance stays infrequent and batched.
 
+## Web Stream primitives for incremental bodies (2026-11-06)
+
+Add ReadableStream, WritableStream, TransformStream and the associated reader,
+writer, controller and queue classes to Mite globals and node:stream/web. The
+13 constructors are shared by global/CJS/ESM access; a rooted startup snapshot
+preserves module identity after application global replacement. Bootstrap now
+returns separate private cancellation and stream objects.
+
+Reuse pinned MIT-licensed web-streams-polyfill 4.5.1 on LibJS, with lock integrity,
+generated source metadata and full distributed notices. No runtime Node/V8/LibWeb
+or Ladybird edits. Native ArrayBuffer.transfer supplies actual buffer detachment
+for byte enqueue/BYOB reads rather than an ownership approximation.
+
+Validation:
+- All 54 standalone CTests pass in 50.68 seconds (web-streams-all-tests.log),
+  including existing TCP/HTTP/TLS/HTTPS, filesystem/process, native GC/embedding,
+  generated source/checkout and notice distribution/tamper gates.
+- New non-GUI differential suite matches actual Node 24.15.0 for 15 workflows:
+  constructor/global descriptors, readable locks/pressure/close/errors, iterator
+  cleanup/from, serial sink writes and writer.ready, writable abort reason/signal,
+  transform flush/error propagation, both pipe error directions, signal and
+  prevention behavior, native BYOB buffer detachment/offset/EOF, byte tee isolation
+  and aggregate cancellation reasons. A terminal marker rejects incomplete runs.
+  Independent CommonJS fixture checks cache identity after replacing a global
+  before the module's first lookup.
+- Firefly compiles with the same embedded runtime (web-streams-firefly-build.log).
+  Existing linker warnings about locally built OpenSSL objects' deployment targets
+  persist; this compile does not validate deployment on older macOS versions.
+  No local GUI apps/tests are launched.
+- Source style passes 108 Python, 483 JS/web/config, 133 native and 14 CMake
+  sources plus Rust; both generators reproduce. Runtime/Firefly/upstream integrity
+  and actionlint pass. Site validates 159 pages / 10140 links, including the detailed
+  Web Streams reference and ADR 0081 (before adding this progress entry).
+- Hosted acceptance of this new slice remains pending. At inspection, the previous
+  daea064 style/Pages runs pass; Linux/Windows remain running and optimized macOS
+  42218926490 is pending behind an older build. Preserve running jobs. This is not
+  a new release or verified native desktop platform expansion.
+
+Limits: public-event cancellation follows the portable package rather than native
+consumers' private abort hooks. Full WPT, every BYOB/termination edge, encoding/
+compression streams, Node-stream toWeb/fromWeb adapters and transferable streams
+are unverified or absent. Fetch/Request/Response/Headers are still absent. API docs
+and compatibility distinguish the tested subset from those remaining requirements.
+
+Next: implement owned Node/Web Stream bridges and incremental fetch bodies over the
+verified HTTP/HTTPS clients, then remaining networking/cancellation and desktop
+services/platform/distribution work. Keep local GUI acceptance infrequent/batched.
+Overall goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

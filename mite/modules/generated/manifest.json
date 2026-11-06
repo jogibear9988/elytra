@@ -1,7 +1,7 @@
 {
   "generator": "esbuild 0.25.12",
   "builderSha256": "097d6ea7eb7604a5c9a1da60ab3423df6b58d50d6bce2b44a437c763f4c73f23",
-  "lockSha256": "235c02465675ad8de2834170a6bdd8f0697048463fc7755378e4e338b67f7924",
+  "lockSha256": "91fd210798cdbb93abbdd46322d2871cfee7b46fd0664acc2eb037ab82bb5b01",
   "files": {
     "events.js": "a371264b64d3f6137cf9a40d72b6b3eda4e68572a9eafd48b72d26e25f745465",
     "process.js": "e80bba68813e9efd5f5b593cfb4b6a79b2cfa3ec3386556a6761cb27b90021bf",
@@ -24,8 +24,8 @@
     "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
     "stream.js": "b88106f1073dacd762b7f5c1d067e9f944cb39de75e9c61b3170ab4955dfdc0e",
     "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
-    "web-globals.js": "e5c8a37c22d495687c8f0ccdd010f762007c03a11253ccaab450e019d70b7f03",
-    "web-globals.LICENSE.txt": "23770e3ce2d838ccaaacd893dfc319862e4047984a9a396c8dc649a23c0d8779"
+    "web-globals.js": "1a3534942c1796ff341d8976544977f653c3c234659cae8bf4d9ca8f2ca97bbd",
+    "web-globals.LICENSE.txt": "eb3ca84ead2bd450fd4ecd2e1d1940fc4aa0b833052066d80f6c31d65646339e"
   },
   "bundles": {
     "string-decoder": {
@@ -237,8 +237,12 @@
           "sha256": "e673c53552bbc6e27f9dbc5d27b2e43f276ffcd6f4986f16693c2fea8ca29d7e"
         },
         {
+          "path": "node_modules/web-streams-polyfill/dist/ponyfill.mjs",
+          "sha256": "c1015f7373c643eb6520dff20489b47551cb2c00754a812d2d487e4fcb4ab93a"
+        },
+        {
           "path": "web-globals-entry.mjs",
-          "sha256": "fcafc67af9bffe0de9f15a533ab267bc04acd96edb92cdf790e9969acc8c70be"
+          "sha256": "554f5aabb33f1c32f23eb8a4617d5f7d821ce387b2891a9ef1db5e795e7c8ce4"
         }
       ],
       "packages": [
@@ -251,6 +255,18 @@
             {
               "path": "node_modules/event-target-shim/LICENSE",
               "sha256": "97d87142793695cd73243de7258694abe85b3b6060fca7f247b0a2afa8219678"
+            }
+          ]
+        },
+        {
+          "name": "web-streams-polyfill",
+          "version": "4.5.1",
+          "license": "MIT",
+          "integrity": "sha512-pFmV/G8K9uKW3I3xx3vqpKYLBer7K1wZej5uU66zhtjzG1bfE6e+OHNxhmGb9UsXe+geX4/lndxJDgs7wbYO9g==",
+          "notices": [
+            {
+              "path": "node_modules/web-streams-polyfill/LICENSE",
+              "sha256": "08da29e331bf06ef511aff652e22de39a72a7e1547864bbc53d2686b5e045ef3"
             }
           ]
         }
@@ -286,6 +302,6 @@
     "mite/runtime/bootstrap/web/abort.mjs": "9bd4d9802991ed008bcc5eed00ded5f4ca7a17576e02f5c05b9c2b55344f2e90",
     "mite/runtime/bootstrap/web/dom-exception.mjs": "0f479aac7511003455ec6e32161a8ba30a9337b108d6695908bbf7870656d996",
     "mite/runtime/bootstrap/web/weak-lifetime.mjs": "ce3c0110ebc190a75d29e68d3bdb703166f52471a1755df4ee919a03d1375d08",
-    "tooling/runtime-js/web-globals-entry.mjs": "fcafc67af9bffe0de9f15a533ab267bc04acd96edb92cdf790e9969acc8c70be"
+    "tooling/runtime-js/web-globals-entry.mjs": "554f5aabb33f1c32f23eb8a4617d5f7d821ce387b2891a9ef1db5e795e7c8ce4"
   }
 }
