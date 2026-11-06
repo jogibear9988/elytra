@@ -175,6 +175,10 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_theme.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME firefly-window-geometry-policy
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_window_geometry.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-web-streams
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_streams.py"
                 --mite "$<TARGET_FILE:mite>")

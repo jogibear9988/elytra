@@ -11,7 +11,7 @@ Windows/Linux desktop, complete preload/IPC isolation and distribution remain ou
 | Surface | Status | Evidence / remaining acceptance gate |
 | --- | --- | --- |
 | `app`, lifecycle | partial | isReady/whenReady, ready, window-all-closed, before-quit, will-quit, quit, cancellation/retry and app.exit signed codes tested; nested quit is coalesced as an intentional difference; OS activation/dock/Cmd-Q and beforeunload remain incomplete |
-| `BrowserWindow` | partial | Native macOS Qt/IOSurface view; width/height/title/show/frame, show/hide/focus, minimize/maximize/restore state methods, size/title controls, registry, cancellable close and destroy; most options, beforeunload and native OS event parity remain incomplete |
+| `BrowserWindow` | partial | Native macOS Qt/IOSurface view; width/height/title/show/frame/x/y/useContentSize, native outer/client bounds/size/position, AppKit centering, show/hide/focus, minimize/maximize/restore, registry, cancellable close and destroy; frame/constraint/mixed-DPI parity, most options and beforeunload remain incomplete. [Geometry contract](../api/browser-window.md#outer-and-content-geometry) |
 | Custom window chrome | partial | frame:false, top-document app-region/-webkit-app-region drag/no-drag CSS adapter; native drag/exclusion/double-click and actual LibWeb style/layout tests pass. Stylesheet/geometry/polling limits in ADR 0055; inline/shadow/frame/CSP/zoom/native resize parity remain incomplete |
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer browser modules | partial | External local static/dynamic ESM, live bindings/cache, Unicode paths, navigation, MIME/CSP and absent native imports tested against actual Electron. HTTP modules have Designer evidence. [Scope and file policy](../guides/renderer-modules.md); workers/full module types remain unverified |
@@ -28,7 +28,7 @@ Windows/Linux desktop, complete preload/IPC isolation and distribution remain ou
 
 Use `require('firefly')` or ESM imports from `firefly` in the main process. There
 is no `electron` alias. Standalone Mite does not register or depend on Firefly.
-Only width, height, title, show, frame, absolute CommonJS preload and the secure
+Only width, height, x/y, useContentSize, title, show, frame, absolute CommonJS preload and the secure
 default webPreferences settings are accepted. Unknown options, nodeIntegration=true,
 contextIsolation=false or sandbox=false fail explicitly. Dimensions are restricted
 to integer values in 1..16384. Extra load options are not implemented. The

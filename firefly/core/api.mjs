@@ -3,6 +3,7 @@ import createMainIpc from './ipc-main.mjs';
 import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
+import createWindowGeometry from './window/geometry.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -95,6 +96,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
   const theme = createTheme(native, EventEmitter, error);
+  const geometry = createWindowGeometry(native, EventEmitter, alive, dimension, error, unsupported);
   const {
     ipcMain,
     cancel: cancelIpc,
@@ -213,7 +215,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       }
     }
   }
-  class BrowserWindow extends EventEmitter {
+  class BrowserWindow extends geometry.WindowGeometry {
     constructor(options = {}) {
       super();
       if (exited) {
@@ -226,7 +228,19 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
         throw error('ERR_INVALID_ARG_TYPE', 'BrowserWindow options must be an object');
       }
       for (const key of Object.keys(options)) {
-        if (!['width', 'height', 'title', 'show', 'frame', 'webPreferences'].includes(key)) {
+        if (
+          ![
+            'width',
+            'height',
+            'x',
+            'y',
+            'useContentSize',
+            'title',
+            'show',
+            'frame',
+            'webPreferences'
+          ].includes(key)
+        ) {
           unsupported(`BrowserWindow option ${key}`);
         }
       }
@@ -261,12 +275,37 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       const title = options.title ?? 'Firefly';
       const show = options.show ?? true;
       const frame = options.frame ?? true;
+      const useContentSize = options.useContentSize ?? false;
+      const x = options.x === undefined ? undefined : geometry.coordinate(options.x, 'x');
+      const y = options.y === undefined ? undefined : geometry.coordinate(options.y, 'y');
+      if (
+        (x !== undefined && x + width - 1 > 2147483647) ||
+        (y !== undefined && y + height - 1 > 2147483647)
+      ) {
+        throw error(
+          'ERR_OUT_OF_RANGE',
+          'Initial window rectangle exceeds signed 32-bit coordinates'
+        );
+      }
+      if (typeof useContentSize !== 'boolean') {
+        throw error('ERR_INVALID_ARG_TYPE', 'useContentSize must be a boolean');
+      }
       if (typeof title !== 'string' || typeof show !== 'boolean' || typeof frame !== 'boolean') {
         throw error('ERR_INVALID_ARG_TYPE', 'Invalid title/show option');
       }
       this._destroyed = false;
       this._closing = false;
-      this.id = native.create(width, height, title, show, frame, prefs.preload);
+      this.id = native.create(
+        width,
+        height,
+        title,
+        show,
+        frame,
+        prefs.preload,
+        useContentSize,
+        x,
+        y
+      );
       this.webContents = new WebContents(this);
       windows.set(this.id, this);
 
@@ -335,14 +374,6 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       native.focus(this.id);
     }
 
-    setSize(width, height, animate = false) {
-      alive(this);
-      if (animate) {
-        unsupported('animated resize');
-      }
-      native.resize(this.id, dimension(width, 'width'), dimension(height, 'height'));
-    }
-
     minimize() {
       alive(this);
       native.minimize(this.id);
@@ -371,11 +402,6 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     isMaximized() {
       alive(this);
       return native.maximized(this.id);
-    }
-
-    getSize() {
-      alive(this);
-      return native.size(this.id);
     }
 
     setTitle(title) {
@@ -477,6 +503,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       win.emit(type);
     } else if (type === 'resize') {
       win.emit('resize');
+    } else if (type === 'move') {
+      win.emit('move');
     }
   });
 

@@ -124,6 +124,10 @@ add_executable(firefly-theme-probe "${CMAKE_CURRENT_LIST_DIR}/../theme/Probe.mm"
                                    "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeMac.mm")
 target_link_libraries(firefly-theme-probe PRIVATE Qt::Core "-framework AppKit")
 
+add_executable(firefly-geometry-probe "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryProbe.cpp"
+                                      "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp")
+target_link_libraries(firefly-geometry-probe PRIVATE Qt::Core)
+
 add_executable(firefly-screen-probe "${CMAKE_CURRENT_LIST_DIR}/../screen/Probe.cpp"
                                     "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenMac.mm")
 target_link_libraries(firefly-screen-probe PRIVATE Qt::Core "-framework AppKit"
@@ -166,6 +170,9 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardMac.mm"
         "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeHost.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeMac.mm"
+        "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryMac.mm"
+        "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenHost.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenMac.mm"
         "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
@@ -190,6 +197,7 @@ if(FIREFLY_BUILD_RUNTIME)
         COMMAND "$<TARGET_FILE:firefly-screen-probe>"
         COMMAND "$<TARGET_FILE:firefly-clipboard-probe>"
         COMMAND "$<TARGET_FILE:firefly-theme-probe>"
+        COMMAND "$<TARGET_FILE:firefly-geometry-probe>"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_preload.py"
@@ -200,6 +208,6 @@ if(FIREFLY_BUILD_RUNTIME)
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_ipc.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly firefly-chrome-probe firefly-screen-probe firefly-clipboard-probe
-                firefly-theme-probe
+                firefly-theme-probe firefly-geometry-probe
         USES_TERMINAL VERBATIM)
 endif()

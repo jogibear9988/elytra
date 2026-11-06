@@ -4503,6 +4503,59 @@ and targeted/batched, windowless/hosted checks preferred.
 Continue queued release/IPC validation and remaining runtime, desktop/platform,
 distribution/security requirements. Goal remains active.
 
+## 2026-11-06: Native BrowserWindow outer/content geometry and positioning
+
+- Extract commented geometry policy into core/window and checked native frame
+  helpers into native/window. Preserve BrowserWindow/EventEmitter ownership and
+  destroyed guards. Add x/y and useContentSize constructor options; get/setBounds,
+  get/setContentBounds, get/setPosition, get/setContentSize and native center.
+  Reconcile existing get/setSize with true outer dimensions instead of Qt client
+  dimensions. Expose queued native move notifications without renderer privilege.
+- Query actual QWindow frame margins and use primary-top-left DIP coordinates.
+  Preserve omitted outer rectangle fields, require complete content rectangles,
+  and reject unknown fields/animation and invalid/overflowed dimensions. Native
+  conversion uses checked 64-bit arithmetic. Tiny outer frames retain one client
+  DIP; unspecified constructor coordinates preserve native placement behavior.
+- A targeted native test exposed Qt's deferred hidden QWidget resize: immediate
+  native queries still included a 32-DIP excess frame. Synchronize QWidget and
+  QWindow sizes, rather than guessing a title-bar constant. Native QWindow x/y
+  signals also cover hidden moves, unlike deferred QWidget move events.
+- Actual Electron acceptance establishes complete setContentBounds rectangles,
+  versus partial setBounds. It also disproves a mathematical midpoint assertion
+  for center: pinned Electron delegates to AppKit NSWindow.center. Use that same
+  native operation, retaining macOS's higher vertical placement. Compare center
+  coordinates against the actual reference, not a synthetic work-area midpoint.
+- Final shared actual Firefly/Electron fixture passes with empty stderr:
+  decorated construction/outer bounds, content margins/size, partial outer/full
+  content setters, negative-origin policy, native positions, content-sized and
+  frameless construction, queued move and matching center [564,150] relative to
+  the tested work area. Windows remain hidden; load test documents before closing
+  so helper startup is complete. Compare rectangle values independently of JSON
+  key order. No full desktop suite is run locally.
+- The windowless native geometry probe covers checked decorated/frameless frame
+  translation, negative origins, minima and integer limits. Actual Node/Mite API
+  factory tests cover synthetic frame snapshots, constructor flags, ownership,
+  partial updates, content-size conversion, native center delegation, move events,
+  validation, animation and destroyed guards. These are distinguished from native
+  window acceptance. Add both policy CTest and hosted desktop fixture.
+- Firefly and geometry probe build (window-geometry-build.log); all final 62
+  CTests pass in 18.67 seconds with three workers (window-geometry-ctest.log).
+  Source style passes 116 Python, 535 JS/web/config, 156 native including .mm,
+  and 14 CMake sources plus Rust. Both generators, runtime/Firefly/upstream
+  integrity, actionlint and whitespace gates pass. Add detailed geometry API
+  contract/compatibility and ADR 0089; site validates 174 pages / 11632 links
+  before this entry, then regenerate/check final progress links before commit.
+- Mite remains independent of Qt/Firefly/LibWeb; Ladybird unmodified at the pin.
+  macOS da00ed4 optimized run 42239251129/job 127966455150 remains live on the
+  release compilation/test step; preserve it. New optimized master builds queue
+  behind it. No new package/alpha publication is claimed in this slice.
+
+Limits: OS constraints, exact minimum/coercion/event parity, visible resize/drag,
+maximized/fullscreen restore/normal bounds, physical mixed-DPI/multi-display and
+Windows/Linux desktop acceptance remain open. Continue hosted IPC/release and
+broader runtime, platform/distribution/security requirements. Goal active; keep
+local UI checks occasional and targeted/batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

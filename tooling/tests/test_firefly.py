@@ -127,6 +127,24 @@ def main():
     assert actual_screen == reference_screen, (actual_screen, reference_screen)
     assert actual_screen["screen"] is True and actual_screen["displays"] > 0, actual_screen
     print("PASS actual Electron/Firefly screen exports, native geometry and cursor without windows")
+    geometry = ROOT / "firefly/tests/migration/geometry.mjs"
+    actual_geometry = success(execute_public_esm(firefly, geometry))
+    reference_geometry = success(execute_public_esm(electron, geometry, "electron"))
+    expected_geometry = {
+        "geometry": True,
+        "decorated": True,
+        "content": True,
+        "frameless": True,
+        "move": True,
+        "center": reference_geometry["center"],
+    }
+    assert actual_geometry == reference_geometry == expected_geometry, (
+        actual_geometry,
+        reference_geometry,
+    )
+    print(
+        "PASS actual Electron/Firefly outer/content window geometry, frame margins and move events"
+    )
     theme = ROOT / "firefly/tests/migration/theme.mjs"
     actual_theme = success(execute_public_esm(firefly, theme))
     reference_theme = success(execute_public_esm(electron, theme, "electron"))

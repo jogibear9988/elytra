@@ -67,7 +67,9 @@ const window = new BrowserWindow({
 Defaults: width 800, height 600, title Firefly, show true, frame true. Dimensions must be integers
 in 1..16384. frame:false removes the native title bar; [custom chrome](browser-window.md#custom-title-bar-and-dragging)
 uses Electron app-region CSS with documented adapter limits. Only the options
-shown, frame and an absolute CommonJS preload path are supported. The three boolean
+shown, frame, x/y, useContentSize and an absolute CommonJS preload path are supported.
+Geometry now distinguishes outer and client dimensions; see [window geometry](browser-window.md#outer-and-content-geometry).
+The three boolean
 webPreferences values can only request their safe defaults. nodeIntegration true,
 sandbox false, contextIsolation false and other options explicitly reject with
 ERR_FIREFLY_UNSUPPORTED_API. See [preload/contextBridge](context-bridge.md) for
@@ -85,6 +87,9 @@ source limits, navigation policy and remaining differences.
 | `window.isVisible()` | boolean |
 | `window.setSize(width, height[, animate = false])` | Resize; animated resizing rejects |
 | `window.getSize()` | [width, height] |
+| `window.getBounds()`, `getContentBounds()`, `setBounds(rect)`, `setContentBounds(rect)` | Native outer/client DIP geometry; partial outer updates |
+| `window.getContentSize()`, `setContentSize(width, height)` | Native client dimensions |
+| `window.getPosition()`, `setPosition(x, y)`, `center()` | Native outer position and AppKit centering |
 | `window.setTitle(title)`, `getTitle()` | Native title control |
 | `window.close()` | Cancellable close request |
 | `window.destroy()` | Close without the cancellable close event |

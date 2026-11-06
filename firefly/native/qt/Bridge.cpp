@@ -7,6 +7,7 @@
 #include "../clipboard/ClipboardHost.h"
 #include "../screen/ScreenHost.h"
 #include "../theme/ThemeHost.h"
+#include "../window/Geometry.h"
 #include "AppRegions.h"
 #include "ChromeWindow.h"
 #include "PreloadHooks.h"
@@ -33,10 +34,13 @@
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
 #include <QCloseEvent>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QResizeEvent>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QWindow>
 #include <UI/Qt/StringUtils.h>
 #include <UI/Qt/WebContentView.h>
 #include <cstring>
@@ -375,8 +379,8 @@ struct Bridge::Impl {
         page.client().async_set_webdriver_bidi_session_state(move(state));
     }
 
-    int create(int width, int height, QString const& title, bool show, bool frame,
-        Optional<Preload> preload)
+    Optional<int> create(int width, int height, QString const& title, bool show, bool frame,
+        Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y)
     {
         auto id = next_id++;
         auto* window = new ChromeWindow(frame);
@@ -387,6 +391,23 @@ struct Bridge::Impl {
         auto* view = new Ladybird::WebContentView(window);
         layout->addWidget(view);
         window->observe(view);
+        auto bounds = window_bounds(*window, false);
+        auto size_bounds = use_content_size ? window_bounds(*window, true) : bounds;
+        size_bounds.setSize(QSize(width, height));
+        if (!set_window_bounds(*window, size_bounds, use_content_size, false)) {
+            delete window;
+            return {};
+        }
+
+        if (x.has_value() || y.has_value()) {
+            bounds = window_bounds(*window, false);
+            bounds.moveTopLeft(QPoint(x.value_or(bounds.x()), y.value_or(bounds.y())));
+            if (!set_window_bounds(*window, bounds, false)) {
+                delete window;
+                return {};
+            }
+        }
+
         windows.emplace(
             id, State { window, view, false, false, false, false, {}, {}, move(preload) });
         QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
@@ -401,6 +422,12 @@ struct Bridge::Impl {
         };
 
         window->resized = [this, id] { enqueue(id, "resize"); };
+        // QWindow position signals also cover hidden windows, whose QWidget move
+        // events can be deferred until show(). The context owns both connections.
+        QObject::connect(window->windowHandle(), &QWindow::xChanged, context.get(),
+            [this, id] { enqueue(id, "move"); });
+        QObject::connect(window->windowHandle(), &QWindow::yChanged, context.get(),
+            [this, id] { enqueue(id, "move"); });
         window->state_changed = [this, id](auto before, auto after) {
             if (before.testFlag(Qt::WindowMinimized) != after.testFlag(Qt::WindowMinimized))
                 enqueue(id, after.testFlag(Qt::WindowMinimized) ? "minimize" : "restore");
@@ -623,11 +650,19 @@ struct Bridge::Impl {
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto title = TRY(vm.argument(2).to_utf16_string(vm));
                 auto preload = TRY(read_preload(vm));
-                return JS::Value(create(TRY(vm.argument(0).to_i32(vm)),
-                    TRY(vm.argument(1).to_i32(vm)), qstring_from_utf16_string(title),
-                    vm.argument(3).to_boolean(), vm.argument(4).to_boolean(), move(preload)));
+                auto id = create(TRY(vm.argument(0).to_i32(vm)), TRY(vm.argument(1).to_i32(vm)),
+                    qstring_from_utf16_string(title), vm.argument(3).to_boolean(),
+                    vm.argument(4).to_boolean(), move(preload), vm.argument(6).to_boolean(),
+                    vm.argument(7).is_undefined() ? Optional<int> {}
+                                                  : TRY(vm.argument(7).to_i32(vm)),
+                    vm.argument(8).is_undefined() ? Optional<int> {}
+                                                  : TRY(vm.argument(8).to_i32(vm)));
+                if (!id.has_value())
+                    return vm.throw_completion<JS::RangeError>(
+                        "Window geometry exceeds native coordinates"_utf16);
+                return JS::Value(*id);
             },
-            6, JS::default_attributes);
+            9, JS::default_attributes);
         host->define_native_function(
             realm, "destroy"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -712,23 +747,37 @@ struct Bridge::Impl {
             window.setFocus();
         });
         host->define_native_function(
-            realm, "resize"_utf16,
+            realm, "setWindowBounds"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto* current = TRY(state(vm));
-                current->window->resize(
-                    TRY(vm.argument(1).to_i32(vm)), TRY(vm.argument(2).to_i32(vm)));
+                auto rect = QRect(TRY(vm.argument(1).to_i32(vm)), TRY(vm.argument(2).to_i32(vm)),
+                    TRY(vm.argument(3).to_i32(vm)), TRY(vm.argument(4).to_i32(vm)));
+                if (!set_window_bounds(*current->window, rect, vm.argument(5).to_boolean()))
+                    return vm.throw_completion<JS::RangeError>(
+                        "Window geometry exceeds native coordinates"_utf16);
                 return JS::js_undefined();
             },
-            3, JS::default_attributes);
+            6, JS::default_attributes);
         host->define_native_function(
-            realm, "size"_utf16,
+            realm, "centerWindow"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto* current = TRY(state(vm));
-                JS::Value values[] { JS::Value(current->window->width()),
-                    JS::Value(current->window->height()) };
-                return JS::Array::create_from(realm, values);
+                if (!center_window(*TRY(state(vm))->window))
+                    return vm.throw_completion<JS::Error>("Native window is unavailable"_utf16);
+                return JS::js_undefined();
             },
             1, JS::default_attributes);
+        host->define_native_function(
+            realm, "windowBounds"_utf16,
+            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* current = TRY(state(vm));
+                auto bounds = window_bounds(*current->window, vm.argument(1).to_boolean());
+                auto bytes = QJsonDocument(
+                    QJsonObject { { "x", bounds.x() }, { "y", bounds.y() },
+                        { "width", bounds.width() }, { "height", bounds.height() } })
+                                 .toJson(QJsonDocument::Compact);
+                return text(vm, StringView(bytes.data(), bytes.size()));
+            },
+            2, JS::default_attributes);
         host->define_native_function(
             realm, "visible"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

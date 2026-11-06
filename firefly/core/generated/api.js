@@ -450,6 +450,84 @@ function createTheme(native, EventEmitter, error) {
   return { nativeTheme, changed };
 }
 
+// firefly/core/window/geometry.mjs
+function createWindowGeometry(native, EventEmitter, alive, dimension, error, unsupported) {
+  function coordinate(value, name) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      throw error("ERR_INVALID_ARG_TYPE", `${name} must be a signed 32-bit integer`);
+    }
+    return value;
+  }
+  function get(window, content) {
+    alive(window);
+    return JSON.parse(native.windowBounds(window.id, content));
+  }
+  function set(window, value, content, animate) {
+    alive(window);
+    if (animate) {
+      unsupported("animated window geometry");
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw error("ERR_INVALID_ARG_TYPE", "bounds must be a rectangle object");
+    }
+    const updates = {};
+    if (content && ["x", "y", "width", "height"].some((key) => !Object.hasOwn(value, key))) {
+      throw error("ERR_INVALID_ARG_VALUE", "Content bounds require a complete rectangle");
+    }
+    for (const key of Object.keys(value)) {
+      if (!["x", "y", "width", "height"].includes(key)) {
+        unsupported(`window bounds ${key}`);
+      }
+      updates[key] = ["width", "height"].includes(key) ? dimension(value[key], key) : coordinate(value[key], key);
+    }
+    const rect = { ...get(window, content), ...updates };
+    if (rect.x + rect.width - 1 > 2147483647 || rect.y + rect.height - 1 > 2147483647) {
+      throw error("ERR_OUT_OF_RANGE", "Window rectangle exceeds signed 32-bit coordinates");
+    }
+    native.setWindowBounds(window.id, rect.x, rect.y, rect.width, rect.height, content);
+  }
+  class WindowGeometry extends EventEmitter {
+    getBounds() {
+      return get(this, false);
+    }
+    getContentBounds() {
+      return get(this, true);
+    }
+    setBounds(bounds, animate = false) {
+      set(this, bounds, false, animate);
+    }
+    setContentBounds(bounds, animate = false) {
+      set(this, bounds, true, animate);
+    }
+    getSize() {
+      const { width, height } = this.getBounds();
+      return [width, height];
+    }
+    getContentSize() {
+      const { width, height } = this.getContentBounds();
+      return [width, height];
+    }
+    setSize(width, height, animate = false) {
+      this.setBounds({ width, height }, animate);
+    }
+    setContentSize(width, height, animate = false) {
+      this.setContentBounds({ ...this.getContentBounds(), width, height }, animate);
+    }
+    getPosition() {
+      const { x, y } = this.getBounds();
+      return [x, y];
+    }
+    setPosition(x, y, animate = false) {
+      this.setBounds({ x, y }, animate);
+    }
+    center() {
+      alive(this);
+      native.centerWindow(this.id);
+    }
+  }
+  return { WindowGeometry, coordinate };
+}
+
 // firefly/core/api.mjs
 function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -532,6 +610,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
   const theme = createTheme(native, EventEmitter, error);
+  const geometry = createWindowGeometry(native, EventEmitter, alive, dimension, error, unsupported);
   const {
     ipcMain,
     cancel: cancelIpc,
@@ -638,7 +717,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       }
     }
   }
-  class BrowserWindow extends EventEmitter {
+  class BrowserWindow extends geometry.WindowGeometry {
     constructor(options = {}) {
       super();
       if (exited) {
@@ -651,7 +730,17 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
         throw error("ERR_INVALID_ARG_TYPE", "BrowserWindow options must be an object");
       }
       for (const key of Object.keys(options)) {
-        if (!["width", "height", "title", "show", "frame", "webPreferences"].includes(key)) {
+        if (![
+          "width",
+          "height",
+          "x",
+          "y",
+          "useContentSize",
+          "title",
+          "show",
+          "frame",
+          "webPreferences"
+        ].includes(key)) {
           unsupported(`BrowserWindow option ${key}`);
         }
       }
@@ -686,12 +775,34 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       const title = options.title ?? "Firefly";
       const show = options.show ?? true;
       const frame = options.frame ?? true;
+      const useContentSize = options.useContentSize ?? false;
+      const x = options.x === void 0 ? void 0 : geometry.coordinate(options.x, "x");
+      const y = options.y === void 0 ? void 0 : geometry.coordinate(options.y, "y");
+      if (x !== void 0 && x + width - 1 > 2147483647 || y !== void 0 && y + height - 1 > 2147483647) {
+        throw error(
+          "ERR_OUT_OF_RANGE",
+          "Initial window rectangle exceeds signed 32-bit coordinates"
+        );
+      }
+      if (typeof useContentSize !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "useContentSize must be a boolean");
+      }
       if (typeof title !== "string" || typeof show !== "boolean" || typeof frame !== "boolean") {
         throw error("ERR_INVALID_ARG_TYPE", "Invalid title/show option");
       }
       this._destroyed = false;
       this._closing = false;
-      this.id = native.create(width, height, title, show, frame, prefs.preload);
+      this.id = native.create(
+        width,
+        height,
+        title,
+        show,
+        frame,
+        prefs.preload,
+        useContentSize,
+        x,
+        y
+      );
       this.webContents = new WebContents(this);
       windows.set(this.id, this);
       this.once("closed", () => cancelIpc(this));
@@ -747,13 +858,6 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       alive(this);
       native.focus(this.id);
     }
-    setSize(width, height, animate = false) {
-      alive(this);
-      if (animate) {
-        unsupported("animated resize");
-      }
-      native.resize(this.id, dimension(width, "width"), dimension(height, "height"));
-    }
     minimize() {
       alive(this);
       native.minimize(this.id);
@@ -777,10 +881,6 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
     isMaximized() {
       alive(this);
       return native.maximized(this.id);
-    }
-    getSize() {
-      alive(this);
-      return native.size(this.id);
     }
     setTitle(title) {
       alive(this);
@@ -877,6 +977,8 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       win.emit(type);
     } else if (type === "resize") {
       win.emit("resize");
+    } else if (type === "move") {
+      win.emit("move");
     }
   });
   return {

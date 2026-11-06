@@ -11,8 +11,10 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 
 | Option | Accepted value / default |
 | --- | --- |
-| width | Integer 1..16384, default 800 |
-| height | Integer 1..16384, default 600 |
+| width | Integer 1..16384, default 800; outer DIP unless useContentSize |
+| height | Integer 1..16384, default 600; outer DIP unless useContentSize |
+| x, y | Optional signed 32-bit integer outer-window coordinates in DIP |
+| useContentSize | Boolean, default false; dimensions refer to the client area when true |
 | title | String, default Firefly |
 | show | Boolean, default true |
 | frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
@@ -54,6 +56,12 @@ show:true is also supported.
 | minimize(), maximize(), unmaximize(), restore() | undefined; native state transitions |
 | isMinimized(), isMaximized() | boolean; native state queries |
 | getSize() | [width, height] from native window |
+| getBounds(), getContentBounds() | Fresh native outer/client `{x, y, width, height}` DIP rectangles |
+| setBounds(rect[, animate = false]) | Partial outer rectangle; preserve omitted fields |
+| setContentBounds(rect[, animate = false]) | Complete client rectangle |
+| getContentSize(), setContentSize(width, height[, animate = false]) | Client size excluding native frame |
+| getPosition(), setPosition(x, y[, animate = false]) | Outer-window top-left DIP coordinates |
+| center() | Use native AppKit window centering on macOS |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
 | loadFile(path[, options]), loadURL(url[, options]) | Forward to webContents; Promise<void> |
@@ -66,6 +74,58 @@ destroy is idempotent for destroyed/already-closing windows. Do not assume that
 calling destroy makes isDestroyed true before the native closed notification.
 A pending load rejects when the window is closed. Loading has its own
 [validation and Promise contract](web-contents.md).
+
+## Outer and content geometry
+
+Geometry methods use the same primary-top-left DIP coordinate system as
+[screen](screen.md). Other displays can have negative origins. Native frame
+margins come from QWindow; there is no fixed title-bar-height guess. getBounds
+and getSize include decorations; getContentBounds and getContentSize exclude
+them. For frame:false the two sizes match. Constructor useContentSize changes
+the meaning of width/height, while x/y always position the outer frame.
+
+This corrects the earlier adapter, which treated all sizes as Qt client sizes.
+An app requesting a framed 800-by-600 outer window now receives a smaller client
+height rather than an oversized outer window. Resize updates both QWidget and
+its native QWindow so queries work immediately for hidden windows; native
+window placement is not forced when constructor coordinates are omitted.
+
+```js
+const work = screen.getPrimaryDisplay().workArea;
+const window = new BrowserWindow({
+  x: work.x + 40, y: work.y + 40,
+  width: 900, height: 650, show: false
+});
+window.setBounds({width: 1000}); // Keep the current x/y/height.
+window.setContentSize(800, 500);
+window.center();
+```
+
+Rectangle setters accept only own x/y/width/height fields. setBounds permits
+omitted fields; setContentBounds requires all four fields. Unknown fields reject
+with ERR_FIREFLY_UNSUPPORTED_API. Position fields must be signed 32-bit integers;
+invalid coordinates throw ERR_INVALID_ARG_TYPE. Dimension limits remain 1..16384
+with ERR_INVALID_ARG_VALUE. Endpoint overflow rejects with ERR_OUT_OF_RANGE;
+native frame conversion additionally checks decorated coordinates before calling
+Qt and raises RangeError if those cannot be represented. Truthy animation requests explicitly reject. All geometry methods retain
+the destroyed-window guard and synchronous return behavior.
+
+Native minimum frame/client sizes and OS placement rules may constrain results;
+query the actual bounds afterward. Very small outer dimensions retain at least
+one client DIP. center uses NSWindow.center, including macOS's intentionally
+higher-than-midpoint vertical placement. It does not impose a mathematical
+work-area midpoint. Exact Electron multi-display selection, constrained
+minimum, maximized/fullscreen/restore, mixed-DPI and physical multi-display
+behavior is not established. A move can generate more than one native position
+notification; exact Electron event counts/timing are not promised.
+
+The windowless [policy suite](../../firefly/tests/window/geometry-policy.mjs)
+runs the real API factory in Node/Mite, with explicit synthetic frame margins,
+negative origins, partial setters, content-sized/frameless construction, centering,
+snapshot ownership, validation and destroyed guards. The native geometry probe
+tests checked frame arithmetic without a GUI application. The shared
+[desktop fixture](../../firefly/tests/migration/geometry.mjs) exercises actual
+hidden native windows against Electron, separately from synthetic policy tests.
 
 ## Instance properties
 
@@ -214,6 +274,7 @@ when its window closes.
 | close | event; synchronous preventDefault cancels normal close |
 | closed | No arguments; native closure recorded, registry entry removed |
 | resize | No arguments; observed native resize |
+| move | No arguments; queued native QWindow position notifications |
 | minimize, restore, maximize, unmaximize | No arguments; observed native window-state changes |
 | ready-to-show | No arguments; native paint observed |
 | page-title-updated | event, string title, boolean explicitSet; preventDefault suppresses automatic window-title assignment |
