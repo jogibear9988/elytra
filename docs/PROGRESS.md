@@ -2499,6 +2499,36 @@ local links. Hosted ef61124 Linux/Windows compilation and f3f08b9 macOS release
 compilation were confirmed live during this step; no jobs canceled or alpha
 published. Windows 8.3 module metadata and full hosted package gates remain open.
 
+## Windows module realpath spelling candidate (2026-11-06)
+
+Replace the five module-loader canonicalization calls with one owned real_path
+boundary. POSIX retains std::filesystem::canonical. Windows walks absolute,
+lexically normalized components using UTF-8 libuv lstat/stat/readlink, preserving
+ordinary short/case spelling and following symlinks/junctions. Broken targets and
+excessive link traversal fail; lexical-only identities are not substituted. No
+Ladybird, Node embedding, crate or filesystem public-API changes. ADR 0064 records
+the observed distinction from Node's native realpath variant and remaining scope.
+
+Expand mite-module-paths to compare raw Node/Mite Unicode/npm/entry metadata
+through ordinary and linked directory paths, and require shared CJS/ESM cache
+instances through links. Windows uses a mandatory junction, mixed-case entries
+and GetShortPathNameW aliases when exposed by the volume. Replace the inappropriate
+Python Path.resolve spelling oracle with samefile identity checks, retaining the
+exact Node output comparison. No normalizing of observed output. UNC module URLs
+remain explicitly unsupported. Local native Release/size-profile rebuild and all
+42 CTests pass in 19.00s (build/module-realpath-{build,test}.log). The expanded
+linked-path regression passes locally; the new Windows implementation and
+Windows-only test branches await native CI. Site/Python/pin/diff checks pass.
+
+Latest completed hosted source ef61124: Linux 42147228375 / job 127661544940
+passes all 42 suites in 26.16s, including child processes. Windows 42147228418 /
+job 127661590822 passes 39/42 in 35.66s, accepting the previous URL, environment
+and reference-harness corrections. Three genuine failures remain: short-name
+module metadata (this candidate), child subprocess stdout CRLF versus Node LF,
+and an HTTP response observing writableFinished=false where Node reports true.
+Those latter two require separate runtime corrections, not output filtering or
+weaker test assertions. No hosted package success or alpha is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

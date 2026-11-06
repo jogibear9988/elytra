@@ -4,9 +4,14 @@
 #include <LibURL/URL.h>
 #include <filesystem>
 #include <string>
+#include <system_error>
 
 namespace Mite::ModulePaths {
 namespace fs = std::filesystem;
+
+// Node module identity resolves links without expanding ordinary Windows 8.3
+// names or changing the caller's spelling of non-link components.
+fs::path real_path(fs::path const&, std::error_code&);
 
 inline StringView view(std::string const& value)
 {

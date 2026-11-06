@@ -28,6 +28,11 @@ to native filesystem paths. Unicode entry/dependency/package paths are compared
 with Node locally; native Windows acceptance of these fixes remains pending.
 UNC file-module URLs are still unsupported on Windows and fail explicitly with
 ERR_MITE_UNSUPPORTED_API. On POSIX, a nonlocal file-URL host remains invalid.
+Windows module realpaths now use an owned link-aware path walk to preserve normal
+component spelling, including 8.3 aliases, while resolving symlinks/junctions.
+Exact Node metadata and shared linked-module caches are tested; the new Windows
+branch still requires native acceptance. See
+[ADR 0064](../architecture/0064-windows-module-realpaths.md).
 A top-level await
 that never settles exits with status 13. JSON modules require `with {type: 'json'}`.
 Unknown import attributes may fail in the engine before host-specific error shaping.

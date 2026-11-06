@@ -25,7 +25,7 @@ function(mite_add_runtime target root js_target)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${root}/mite/modules/generated/stream.js" "${root}/mite/modules/generated/string-decoder.js")
     configure_file("${root}/mite/runtime/BuiltinSources.h.in" "${generated}/BuiltinSources.h" @ONLY)
-    set(sources Runtime EventLoop ModuleLoader PackageResolver HostModules Builtins Process FileSystem URL Encoding Network DNS HTTP OS OSConstants Crypto CryptoHash ChildProcess)
+    set(sources Runtime EventLoop ModuleLoader ModulePaths PackageResolver HostModules Builtins Process FileSystem URL Encoding Network DNS HTTP OS OSConstants Crypto CryptoHash ChildProcess)
     set(files)
     foreach(source IN LISTS sources)
         list(APPEND files "${root}/mite/runtime/${source}.cpp")

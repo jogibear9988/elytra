@@ -189,6 +189,21 @@ with Node. These checks pass locally; native Windows runtime/path acceptance is
 still pending. Native filesystem API differences remain independent of this loader
 fix and are not normalized away.
 
+### Module realpath spelling
+
+Run 42143633063 at 4994a92 exposes a genuine metadata mismatch: Windows filesystem
+canonicalization expands RUNNER~1 while Node's module resolver retains that normal
+component spelling. The owned loader now uses component-wise libuv lstat/readlink
+on Windows, preserving ordinary names while following symbolic links and directory
+junctions. POSIX keeps its existing canonicalization. See
+[ADR 0064](../architecture/0064-windows-module-realpaths.md).
+
+The expanded differential suite checks linked entry metadata and shared CJS/ESM
+cache instances, native short-name aliases when available, and mixed-case Windows
+entry spelling. Python samefile verifies filesystem identity; no output is
+normalized to mask differences. Local POSIX regression checks pass; native Windows
+acceptance of this candidate remains pending.
+
 ## Wide-entry runtime result and remaining contract fixes
 
 Run [42141915944](https://github.com/jogibear9988/elytra/actions/runs/42141915944)

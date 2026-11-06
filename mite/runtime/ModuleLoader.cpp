@@ -144,7 +144,7 @@ std::string ModuleLoader::referrer_url(JS::ImportedModuleReferrer const& referre
 JS::ThrowCompletionOr<bool> ModuleLoader::is_es_module(fs::path const& path)
 {
     std::error_code canonical_error;
-    auto actual_path = fs::canonical(path, canonical_error);
+    auto actual_path = real_path(path, canonical_error);
     if (canonical_error)
         actual_path = path;
     auto extension = actual_path.extension();
@@ -206,7 +206,7 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
         return error("ERR_UNSUPPORTED_DIR_IMPORT", "Directory import is not supported: " + path_string(path));
     if (filesystem_error || !fs::is_regular_file(status))
         return error("ERR_MODULE_NOT_FOUND", "Cannot find module: " + path_string(path));
-    auto canonical = fs::canonical(path, filesystem_error);
+    auto canonical = real_path(path, filesystem_error);
     if (filesystem_error)
         return error("ERR_MODULE_NOT_FOUND", "Cannot resolve module path: " + path_string(path));
     auto canonical_url = path_to_url(canonical);
@@ -321,7 +321,7 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::legacy_path(fs::path con
         std::error_code ec;
         if (!fs::is_regular_file(path, ec))
             return {};
-        auto canonical = fs::canonical(path, ec);
+        auto canonical = real_path(path, ec);
         if (ec)
             return {};
         return canonical;
@@ -386,7 +386,7 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
         std::error_code ec;
         if (!fs::is_regular_file(resolved, ec))
             return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
-        auto canonical = fs::canonical(resolved, ec);
+        auto canonical = real_path(resolved, ec);
         if (ec)
             return error("MODULE_NOT_FOUND", "Cannot resolve module '" + request + "'");
         return RequireResolution { canonical, {}, path_string(canonical), {} };
@@ -588,7 +588,7 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(fs::path const& fil
 JS::ThrowCompletionOr<JS::Value> ModuleLoader::run_commonjs_entry()
 {
     std::error_code ec;
-    auto filename = fs::canonical(m_entry_path, ec);
+    auto filename = real_path(m_entry_path, ec);
     if (ec)
         return error("MODULE_NOT_FOUND", "Cannot resolve entry module");
     return load_commonjs(filename, nullptr, true);
