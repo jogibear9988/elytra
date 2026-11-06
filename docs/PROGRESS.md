@@ -4965,6 +4965,26 @@ Limits: only a successful current native/package source can qualify for the next
 alpha. Real draft upload/server-digest/publication acceptance and native Windows/
 Linux desktop delivery remain open. Goal active; no local GUI test is run.
 
+## 2026-11-06: Fresh native Windows/Linux acceptance of child-pipe correction
+
+- Actual 2c594a3 native Windows run 42298513503/job 128170703077 now succeeds:
+  all 64 Release suites pass in 114.29 seconds, with mite-child-process passing
+  in 8.47 seconds. This reaches the corrected binary acknowledgement and later
+  native closed-peer write branch; Node/Mite results match without parent-side
+  newline normalization or suppressed write errors.
+- Actual native Linux run 42298512805/job 128170689712 also passes all 64 suites
+  in 75.57 seconds, with child-process acceptance in 7.41 seconds. Together with
+  local native macOS acceptance this verifies the scoped correction on all three
+  runtime platforms. Update child-process API and runtime compatibility baseline.
+- These runs predate the new offline release-artifact verifier CTest; the current
+  local suite has 65 tests and newer hosted runs must prove that source separately.
+  Do not confuse CLI/runtime acceptance with Firefly Windows/Linux desktop support,
+  native X11 service acceptance or a completed macOS package/alpha build.
+
+Limits: remaining Linux OS-service/renderer and macOS release candidates are still
+active. Continue their actual gates and the full native desktop/distribution
+requirements. Goal active; no local GUI test is needed for this evidence update.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

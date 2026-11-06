@@ -2,8 +2,8 @@
 
 Partial native process support, locally tested on macOS ARM64 in standalone Mite
 and the Firefly main process. The spawn/execFile suites also pass hosted Linux
-and native Windows x64 at 74bce40 (64-suite runtime gates). The new disconnected
-stdin regression below is locally tested; fresh hosted acceptance is pending. Renderers do not
+and native Windows x64 at 2c594a3 (64-suite Release gates), including the
+disconnected-stdin finish and preserved write-EPIPE regression. Renderers do not
 receive this privileged API.
 
 ```js

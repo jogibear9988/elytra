@@ -4,8 +4,9 @@ This is a versioned inventory, not a claim of general Node.js compatibility.
 Statuses describe this repository, not upstream LibJS's language conformance.
 The behavioral oracle is Node v24.15.0. Native macOS ARM64 tests and the
 [Linux](../development/linux-build.md) and [Windows](../development/windows-build.md)
-x64 default Release gates at 02ed03f pass all 63 enabled runtime suites, including
-decompression and process measurements. This is
+x64 default Release gates at 2c594a3 pass all 64 enabled suites, including
+decompression, process measurements and disconnected child-stdin/write-error
+acceptance. This is
 scoped acceptance of the documented subset, not full Node compatibility, desktop
 support or untested SDK/compiler profiles. Earlier pending platform notes are superseded for workflows in that baseline;
 additional unmeasured platform coverage remains open.
