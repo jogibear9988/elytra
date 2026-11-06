@@ -3580,6 +3580,19 @@ integration, TLS/HTTPS/fetch, remaining runtime APIs, desktop IPC/services and
 native Windows/Linux desktop/distribution work. Keep GUI acceptance infrequent,
 targeted and batched, using headless tests and hosted CI for routine validation.
 
+## 2026-11-06 — Binary Git path transport for Windows checkout regression
+
+Windows cd8f796 compiled successfully but failed the line-ending regression test:
+text-mode subprocess stdin converted LF-delimited paths to CRLF, and checkout-index
+looked up filenames containing a trailing carriage return. Use UTF-8 binary,
+NUL-delimited paths with checkout-index -z, avoiding platform newline translation.
+No runtime behavior or source-integrity expectation is relaxed.
+
+Validation: direct checkout regression passes; registered CTest passes 1/1 in
+1.62 seconds; Ruff formatting passes. The preceding runtime commit's final full
+49-test run passes in 105.00 seconds. Hosted Windows validation of this correction
+is pending; no Windows desktop support is claimed. No GUI tests are launched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -39,10 +39,11 @@ def main():
                 "checkout-index",
                 "--prefix=" + directory + "/",
                 "--stdin",
+                "-z",
             ],
             cwd=ROOT,
-            input="\n".join(expected) + "\n",
-            text=True,
+            # Binary NUL-delimited transport avoids Python CRLF conversion on Windows.
+            input=("\0".join(expected) + "\0").encode("utf-8"),
             check=True,
         )
         for name, digest in expected.items():
