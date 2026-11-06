@@ -3629,6 +3629,68 @@ Next: extend cancellation to real I/O consumers, then continue TLS/HTTPS/fetch,
 remaining Node/Electron APIs and native desktop/distribution work. Arbitrary GC
 schedules and complete Web/Node conformance remain unverified. Overall goal active.
 
+## 2026-11-06 — AbortSignal cancellation for native TCP resources
+
+Previous goal turn: progress (nested cancellation b5cadad committed/pushed).
+Hosted Linux and Windows Mite for 22d1b14 both succeed, including the corrected
+binary checkout regression and weak/finalization lifetime suite. Source style and
+Pages and native Linux Mite for b5cadad succeed; its Windows Mite run remains
+in progress. macOS optimized run 42200655334 remains running; newer
+optimized b5cadad run 42206030456 is pending. Preserve live runs; no new alpha or
+Windows/Linux desktop package is claimed.
+
+Pass realm-local private abort hooks into node:net. Support signal in Socket
+construction/createConnection/connect factory and Server.listen. Socket abort
+destroys the actual native transport with AbortError/ABORT_ERR and original reason
+cause; late DNS results cannot reconnect it. Pre-aborted errors defer until callers
+can install listeners. Discard the signal option before entering the portable
+stream constructor to avoid a second incompatible consumer. Dispose subscriptions
+on destruction or failed factory startup. Direct Socket.connect signal options
+and createServer signal options still reject explicitly; associate the signal at
+construction or listen instead.
+
+Server abort uses ordinary close: stop accepts, preserve accepted connections and
+wait for them to drain. Defer numeric listen startup, suppress pre-aborted listening
+notification, bind subscriptions to native transport identity and dispose them on
+close/bind/lookup failure. A failed listener's old signal cannot close a new one.
+A queued write waiting for connect reports ERR_SOCKET_CLOSED_BEFORE_CONNECTION
+separately from the Socket's original abort error.
+
+Actual echo/once-data tests exposed an existing EventEmitter defect: once bypassed
+Readable's overridden on and failed to start data flow. Route once/prependOnce
+through public subscription hooks, with a dedicated subclass identity/order test.
+Add detailed node:net API, ADR 0077, compatibility updates and a modern ESM TCP
+cancellation example with composed deadline and separate listener/socket lifetimes.
+
+Validation:
+- Standalone rebuild succeeds; all 50 CTests pass in 61.96 seconds
+  (net-abort-all-tests.log). Thirteen new actual Node 24.15.0/Mite TCP scenarios
+  exercise connected/pending/pre-aborted resources, buffered writes and late
+  resolver callbacks, propagation stops, accepted-client survival, validation,
+  startup cancellation, manual-close reuse and failed-bind reuse.
+- Preserve explicit assertions for measured differences: synthetic public events
+  do not cancel Mite's private native consumers; unconnected pre-aborted sockets
+  remain destroyed (reconnect unsupported); failed bind releases its stale signal
+  (Node 24 can let that signal close the next listener). No output normalization
+  disguises these differences. Existing TCP independent OS-peer/fatal/unsupported
+  gates and EventEmitter/streams/HTTP/lifetime regressions pass in the full suite.
+- Firefly rebuild succeeds (net-abort-firefly-build.log). No local GUI tests or
+  desktop applications are launched. Hosted desktop/platform acceptance remains
+  separate for this source.
+- Both generators reproduce; runtime/Firefly/upstream integrity and actionlint
+  pass. Style checks cover 104 Python, 450 JS/web/config, 129 native and 14 CMake
+  files plus Rust before adding the example. The additional example is formatted
+  and passes its targeted style check (451 maintained JS files in total).
+  Documentation validates 152 pages / 9392 links including this entry/example links.
+- The TCP cancellation example runs in actual Mite and Node with identical output:
+  echo payload, original abort reason, then listener closure.
+
+Next: extend I/O cancellation to HTTP/process/filesystem/stream consumers and
+continue TLS/HTTPS/fetch, broader runtime APIs and desktop IPC/services/native
+Windows/Linux distribution work. Native DNS request interruption, complete TCP
+phase/descriptor/reconnect parity and arbitrary event/GC cases remain open.
+Overall goal remains active; keep local GUI acceptance infrequent and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

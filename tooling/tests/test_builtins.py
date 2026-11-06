@@ -51,6 +51,12 @@ def main():
         ("process-drain.cjs", 7, "drained\n", None),
         ("process-exit-now.cjs", 6, "before\n", None),
         ("process-unsettled.mjs", 5, "pending\n", None),
+        (
+            "events-overrides.mjs",
+            0,
+            "identity true true\nhooks on:value,prepend:value,first,listener 0\n",
+            None,
+        ),
         ("events-basic.cjs", 0, "true true\nfalse\ntrue 5\ntrue 1\n", None),
         (
             "events-order.cjs",

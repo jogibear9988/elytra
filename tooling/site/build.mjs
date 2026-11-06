@@ -144,6 +144,7 @@ const groups = [
       ['docs/api/cli', 'Mite CLI'],
       ['docs/api/mite', 'Mite runtime'],
       ['docs/api/crypto', 'node:crypto'],
+      ['docs/api/net', 'node:net'],
       ['docs/api/http', 'node:http'],
       ['docs/api/child-process', 'node:child_process'],
       ['docs/api/timers', 'node:timers'],

@@ -275,6 +275,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     }
 
     if (name == "net") {
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
         host->define_direct_property("dns"_utf16, TRY(builtin("dns")), JS::default_attributes);
         host->define_direct_property("native"_utf16,
             create_network_host(m_vm, m_realm, m_event_loop), JS::default_attributes);

@@ -78,9 +78,21 @@ the returned Promise; they do not synchronously throw. ref:false leaves native
 work unreferenced, so an unresolved Promise alone does not keep Mite alive.
 
 Promise setInterval and scheduler remain unavailable. Installing these globals
-does not implement AbortSignal support in fs, child_process, TCP, HTTP or stream
+does not implement AbortSignal support in fs, child_process, HTTP or general stream
 operations that explicitly rejected that option previously. TLS/HTTPS/fetch remain
 separate work. Check each service contract before using signal there.
+
+## TCP consumers
+
+[node:net](net.md) now accepts signals in Socket construction/createConnection and
+Server.listen. Socket abort destroys the actual transport with AbortError/ABORT_ERR
+and the original reason as cause. Server abort closes the listener and waits for
+accepted clients without aborting them. Subscriptions end on destroy/close/failure;
+late resolver callbacks and stale listen signals cannot revive or close another
+transport. Pre-aborted startup, propagation stops and failed-listen reuse are tested.
+Synthetic public events do not run these private native cancellation algorithms.
+See the TCP contract for direct Socket.connect limitations and measured Node
+lifecycle differences. This does not add HTTP/fs/process cancellation.
 
 ## Explicit alpha differences and remaining acceptance
 
@@ -89,8 +101,10 @@ Three actual Node/Mite differences have dedicated assertions:
 - Portable abort events have isTrusted:false; Node emits true. This is event
   metadata, not an authority boundary for application authorization.
 - Manually dispatching a synthetic abort event cancels Node 24's Promise timer
-  while signal.aborted is still false. Mite's private consumer algorithm waits for
-  actual state change; the timer instead completes normally.
+  while signal.aborted is still false. Its socket consumer also destroys the transport
+  on that public event. Mite's private consumer algorithms wait for
+  actual state change; a timer completes normally and a socket stays open until
+  actual abort or ordinary closure.
 - With nested listener-only composition, Node 24.15.0 can drop the outer signal
   after collecting its intermediate input, even while the original controller is
   reachable. Mite connects composites directly to original sources and preserves

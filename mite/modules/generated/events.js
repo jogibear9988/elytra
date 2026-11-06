@@ -108,11 +108,11 @@ function createEventsModule(host) {
   };
   EventEmitter.prototype.once = function once(type, listener) {
     checkListener(listener);
-    return add(this, type, onceWrapper(this, type, listener), false);
+    return this.on(type, onceWrapper(this, type, listener));
   };
   EventEmitter.prototype.prependOnceListener = function prependOnceListener(type, listener) {
     checkListener(listener);
-    return add(this, type, onceWrapper(this, type, listener), true);
+    return this.prependListener(type, onceWrapper(this, type, listener));
   };
   EventEmitter.prototype.emit = function emit(type, ...args) {
     const map = events(this);

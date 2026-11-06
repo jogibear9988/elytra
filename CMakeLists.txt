@@ -237,6 +237,11 @@ if(BUILD_TESTING)
         NAME mite-dns-validation
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dns_validation.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-net-abort
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tooling/tests/test_net_abort.py"
+            --mite $<TARGET_FILE:mite>)
     add_test(NAME mite-net
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net.py" --mite
                      "$<TARGET_FILE:mite>")

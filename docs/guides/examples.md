@@ -37,3 +37,7 @@ record exact published package versions and the narrow workflows verified.
 When adding an example, include its runtime/build prerequisites, a deterministic
 success observation, cleanup/failure behavior and a verification command. Reference examples for unsupported APIs must have explicit preflight guards, a
 status page and separate manual prerequisites; never count rejection as feature acceptance.
+
+The [TCP cancellation example](../../examples/mite-tcp/cancellation.mjs) echoes over
+a real connection, aborts the Socket and stops the Server through separate signals.
+It also composes an unreferenced deadline; run it with `mite examples/mite-tcp/cancellation.mjs`.

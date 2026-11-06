@@ -127,12 +127,13 @@ export default function createEventsModule(host) {
 
   EventEmitter.prototype.once = function once(type, listener) {
     checkListener(listener);
-    return add(this, type, onceWrapper(this, type, listener), false);
+    // Subclasses such as Readable resume their data flow in on().
+    return this.on(type, onceWrapper(this, type, listener));
   };
 
   EventEmitter.prototype.prependOnceListener = function prependOnceListener(type, listener) {
     checkListener(listener);
-    return add(this, type, onceWrapper(this, type, listener), true);
+    return this.prependListener(type, onceWrapper(this, type, listener));
   };
 
   /** Dispatch a listener snapshot so additions/removals cannot corrupt the active emission. */

@@ -58,7 +58,7 @@ referenced work; fatal shutdown may abandon pending native writes.
 ## Cancellation
 
 [AbortController/AbortSignal](abort.md) and portable event globals are available,
-with Promise timeout/immediate consumers. Other service signal options remain
+with Promise timeout/immediate and TCP Socket/Server consumers. Other service signal options remain
 unsupported unless their individual contracts say otherwise.
 
 ## node:fs and node:fs/promises
@@ -161,7 +161,9 @@ await pipeline(
 - `node:net`: Socket, Server, createServer, connect/createConnection and isIP/isIPv4/
   isIPv6. TCP streams support listening, connecting, data, end/half-close, timeout,
   ref/unref, addresses and selected options. OS hostname lookup/custom lookup and
-  partial family retry are available. Unix sockets, complete retry parity and TLS
+  partial family retry are available. Socket construction/createConnection and
+  Server.listen accept AbortSignal; see the [TCP reference](net.md).
+  Unix sockets, complete retry parity and TLS
   remain open.
 - `node:dns` / `node:dns/promises`: lookup, getDefaultResultOrder and
   setDefaultResultOrder, plus ADDRCONFIG/V4MAPPED/ALL flags. Record query APIs are absent.

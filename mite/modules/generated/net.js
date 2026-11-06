@@ -9,6 +9,7 @@ function createNetworkModule(host) {
   const Buffer = host.Buffer;
   const tick = host.process.nextTick;
   const dnsLookup = host.dns.lookup;
+  const abort = host.abort;
   const sockets = /* @__PURE__ */ new WeakMap();
   const servers = /* @__PURE__ */ new WeakMap();
   function error(Type, code, message) {
@@ -18,6 +19,22 @@ function createNetworkModule(host) {
   }
   function unsupported(name) {
     throw error(Error, "ERR_MITE_UNSUPPORTED_API", `${name} is not implemented`);
+  }
+  function validateSignal(signal) {
+    if (signal !== void 0 && !abort.isSignal(signal)) {
+      throw error(TypeError, "ERR_INVALID_ARG_TYPE", "signal must be an AbortSignal");
+    }
+    return signal;
+  }
+  function abortError(signal) {
+    const failure = error(Error, "ABORT_ERR", "The operation was aborted");
+    failure.name = "AbortError";
+    failure.cause = abort.reason(signal);
+    return failure;
+  }
+  function releaseSignal(state) {
+    state.unsubscribe?.();
+    state.unsubscribe = null;
   }
   function port(value) {
     if (typeof value !== "number" && typeof value !== "string") {
@@ -239,7 +256,7 @@ function createNetworkModule(host) {
       if (opts === null || typeof opts !== "object") {
         throw error(TypeError, "ERR_INVALID_ARG_TYPE", "options must be an object");
       }
-      for (const key of ["fd", "signal", "onread", "handle", "blockList"]) {
+      for (const key of ["fd", "onread", "handle", "blockList"]) {
         if (opts[key] !== void 0) {
           unsupported(`Socket option ${key}`);
         }
@@ -249,8 +266,10 @@ function createNetworkModule(host) {
           throw error(TypeError, "ERR_INVALID_ARG_VALUE", `${key} is not supported for sockets`);
         }
       }
+      const signal = validateSignal(opts.signal || void 0);
       super({
         ...opts,
+        signal: void 0,
         autoDestroy: true,
         emitClose: true,
         objectMode: false,
@@ -274,7 +293,8 @@ function createNetworkModule(host) {
         referenced: true,
         noDelay: opts.noDelay,
         keepAlive: opts.keepAlive,
-        keepAliveInitialDelay: opts.keepAliveInitialDelay ?? 0
+        keepAliveInitialDelay: opts.keepAliveInitialDelay ?? 0,
+        unsubscribe: null
       };
       sockets.set(this, state);
       this.connecting = false;
@@ -282,6 +302,18 @@ function createNetworkModule(host) {
       this.bytesWritten = 0;
       this.timeout = 0;
       this._hadError = false;
+      if (signal !== void 0) {
+        const cancel = () => this.destroy(abortError(signal));
+        if (signal.aborted) {
+          tick(() => {
+            if (!this.destroyed) {
+              cancel();
+            }
+          });
+        } else {
+          state.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
     }
     emit(type, ...args) {
       return super.emit(type, ...type === "close" ? [this._hadError] : args);
@@ -498,6 +530,7 @@ function createNetworkModule(host) {
       this.connecting = false;
       state.connected = false;
       state.destroyError = err;
+      releaseSignal(state);
       clearAttempt(state);
       if (state.timer) {
         clearTimeout(state.timer);
@@ -507,7 +540,7 @@ function createNetworkModule(host) {
         const cb = state.writePending.callback;
         state.writePending = null;
         cb(
-          err ?? error(
+          error(
             Error,
             "ERR_SOCKET_CLOSED_BEFORE_CONNECTION",
             "Socket closed before the connection was established"
@@ -666,7 +699,8 @@ function createNetworkModule(host) {
         connections: /* @__PURE__ */ new Set(),
         closing: false,
         opts: { ...opts },
-        referenced: true
+        referenced: true,
+        unsubscribe: null
       });
       this.listening = false;
       if (listener) {
@@ -682,11 +716,12 @@ function createNetworkModule(host) {
         throw error(Error, "ERR_SERVER_ALREADY_LISTEN", "Listen called more than once");
       }
       const [opts, callback] = options(args);
-      for (const key of ["path", "fd", "handle", "signal", "reusePort"]) {
+      for (const key of ["path", "fd", "handle", "reusePort"]) {
         if (opts[key] !== void 0) {
           unsupported(`listen option ${key}`);
         }
       }
+      const signal = validateSignal(opts.signal);
       const listenPort = port(opts.port ?? 0);
       const listenHost = hostname(opts.host, "::");
       const backlog = opts.backlog === void 0 ? 511 : Number(opts.backlog);
@@ -723,12 +758,25 @@ function createNetworkModule(host) {
       if (!state.referenced) {
         native.ref(state.id, false);
       }
+      if (signal !== void 0) {
+        const cancel = () => {
+          if (state.id === id) {
+            this.close();
+          }
+        };
+        if (signal.aborted) {
+          tick(cancel);
+        } else {
+          state.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
       const bind = (address) => {
         if (state.id !== id || state.closing) {
           return;
         }
         const status = native.listen(id, address, listenPort, backlog, !!opts.ipv6Only);
         if (status) {
+          releaseSignal(state);
           native.close(id);
           state.id = null;
           tick(() => this.emit("error", systemError(status, "listen", address, listenPort)));
@@ -742,13 +790,14 @@ function createNetworkModule(host) {
         }
       };
       if (ip(listenHost)) {
-        bind(listenHost);
+        tick(() => bind(listenHost));
       } else {
         dnsLookup(listenHost, (err, address) => {
           if (state.id !== id || state.closing) {
             return;
           }
           if (err) {
+            releaseSignal(state);
             native.close(id);
             state.id = null;
             this.emit("error", err);
@@ -766,6 +815,7 @@ function createNetworkModule(host) {
     close(callback) {
       const state = servers.get(this);
       const running = this.listening;
+      releaseSignal(state);
       if (callback) {
         this.once(
           "close",
@@ -817,12 +867,17 @@ function createNetworkModule(host) {
     return new Server(...args);
   }
   function connect(...args) {
-    const [opts] = options(args);
+    const [opts, callback] = options(args);
     const socket = new Socket(opts);
-    if (opts.timeout) {
-      socket.setTimeout(opts.timeout);
+    try {
+      if (opts.timeout) {
+        socket.setTimeout(opts.timeout);
+      }
+      return socket.connect({ ...opts, signal: void 0 }, callback);
+    } catch (failure) {
+      socket.destroy();
+      throw failure;
     }
-    return socket.connect(...args);
   }
   return {
     Socket,

@@ -12,6 +12,7 @@ export default function createNetworkModule(host) {
   const Buffer = host.Buffer;
   const tick = host.process.nextTick;
   const dnsLookup = host.dns.lookup;
+  const abort = host.abort;
   const sockets = new WeakMap();
   const servers = new WeakMap();
 
@@ -23,6 +24,26 @@ export default function createNetworkModule(host) {
 
   function unsupported(name) {
     throw error(Error, 'ERR_MITE_UNSUPPORTED_API', `${name} is not implemented`);
+  }
+
+  function validateSignal(signal) {
+    if (signal !== undefined && !abort.isSignal(signal)) {
+      throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'signal must be an AbortSignal');
+    }
+    return signal;
+  }
+
+  function abortError(signal) {
+    const failure = error(Error, 'ABORT_ERR', 'The operation was aborted');
+    failure.name = 'AbortError';
+    failure.cause = abort.reason(signal);
+    return failure;
+  }
+
+  /** Dispose at resource shutdown, including before a delayed lookup can complete. */
+  function releaseSignal(state) {
+    state.unsubscribe?.();
+    state.unsubscribe = null;
   }
 
   function port(value) {
@@ -264,7 +285,7 @@ export default function createNetworkModule(host) {
       if (opts === null || typeof opts !== 'object') {
         throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'options must be an object');
       }
-      for (const key of ['fd', 'signal', 'onread', 'handle', 'blockList']) {
+      for (const key of ['fd', 'onread', 'handle', 'blockList']) {
         if (opts[key] !== undefined) {
           unsupported(`Socket option ${key}`);
         }
@@ -274,8 +295,12 @@ export default function createNetworkModule(host) {
           throw error(TypeError, 'ERR_INVALID_ARG_VALUE', `${key} is not supported for sockets`);
         }
       }
+      // Node ignores falsy constructor signals. Do not pass our public signal to
+      // readable-stream's separate private AbortController implementation.
+      const signal = validateSignal(opts.signal || undefined);
       super({
         ...opts,
+        signal: undefined,
         autoDestroy: true,
         emitClose: true,
         objectMode: false,
@@ -299,7 +324,8 @@ export default function createNetworkModule(host) {
         referenced: true,
         noDelay: opts.noDelay,
         keepAlive: opts.keepAlive,
-        keepAliveInitialDelay: opts.keepAliveInitialDelay ?? 0
+        keepAliveInitialDelay: opts.keepAliveInitialDelay ?? 0,
+        unsubscribe: null
       };
       sockets.set(this, state);
       // Accepted channels are private to this factory, never user-supplied ids.
@@ -308,6 +334,20 @@ export default function createNetworkModule(host) {
       this.bytesWritten = 0;
       this.timeout = 0;
       this._hadError = false;
+      if (signal !== undefined) {
+        const cancel = () => this.destroy(abortError(signal));
+
+        if (signal.aborted) {
+          // Let the caller install error listeners before a pre-aborted socket fails.
+          tick(() => {
+            if (!this.destroyed) {
+              cancel();
+            }
+          });
+        } else {
+          state.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
     }
 
     emit(type, ...args) {
@@ -537,6 +577,7 @@ export default function createNetworkModule(host) {
       this.connecting = false;
       state.connected = false;
       state.destroyError = err;
+      releaseSignal(state);
       clearAttempt(state);
       if (state.timer) {
         clearTimeout(state.timer);
@@ -545,13 +586,15 @@ export default function createNetworkModule(host) {
       if (state.writePending) {
         const cb = state.writePending.callback;
         state.writePending = null;
+        // A write waiting for connect never reached the transport. Its callback
+        // reports the closed-before-connect condition; the socket error event
+        // separately carries the abort reason or original connection failure.
         cb(
-          err ??
-            error(
-              Error,
-              'ERR_SOCKET_CLOSED_BEFORE_CONNECTION',
-              'Socket closed before the connection was established'
-            )
+          error(
+            Error,
+            'ERR_SOCKET_CLOSED_BEFORE_CONNECTION',
+            'Socket closed before the connection was established'
+          )
         );
       }
       if (state.id === null) {
@@ -738,7 +781,8 @@ export default function createNetworkModule(host) {
         connections: new Set(),
         closing: false,
         opts: { ...opts },
-        referenced: true
+        referenced: true,
+        unsubscribe: null
       });
       this.listening = false;
       if (listener) {
@@ -755,11 +799,12 @@ export default function createNetworkModule(host) {
         throw error(Error, 'ERR_SERVER_ALREADY_LISTEN', 'Listen called more than once');
       }
       const [opts, callback] = options(args);
-      for (const key of ['path', 'fd', 'handle', 'signal', 'reusePort']) {
+      for (const key of ['path', 'fd', 'handle', 'reusePort']) {
         if (opts[key] !== undefined) {
           unsupported(`listen option ${key}`);
         }
       }
+      const signal = validateSignal(opts.signal);
       const listenPort = port(opts.port ?? 0);
       const listenHost = hostname(opts.host, '::');
       const backlog = opts.backlog === undefined ? 511 : Number(opts.backlog);
@@ -799,12 +844,27 @@ export default function createNetworkModule(host) {
         native.ref(state.id, false);
       }
 
+      if (signal !== undefined) {
+        const cancel = () => {
+          if (state.id === id) {
+            this.close();
+          }
+        };
+
+        if (signal.aborted) {
+          tick(cancel);
+        } else {
+          state.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
+
       const bind = (address) => {
         if (state.id !== id || state.closing) {
           return;
         }
         const status = native.listen(id, address, listenPort, backlog, !!opts.ipv6Only);
         if (status) {
+          releaseSignal(state);
           native.close(id);
           state.id = null;
 
@@ -821,13 +881,16 @@ export default function createNetworkModule(host) {
       };
 
       if (ip(listenHost)) {
-        bind(listenHost);
+        // Match asynchronous listen startup and let a pre-aborted signal close
+        // the allocated transport before binding or delivering listening.
+        tick(() => bind(listenHost));
       } else {
         dnsLookup(listenHost, (err, address) => {
           if (state.id !== id || state.closing) {
             return;
           }
           if (err) {
+            releaseSignal(state);
             native.close(id);
             state.id = null;
             this.emit('error', err);
@@ -847,6 +910,7 @@ export default function createNetworkModule(host) {
     close(callback) {
       const state = servers.get(this);
       const running = this.listening;
+      releaseSignal(state);
       if (callback) {
         this.once('close', () =>
           callback(
@@ -904,12 +968,21 @@ export default function createNetworkModule(host) {
   }
 
   function connect(...args) {
-    const [opts] = options(args);
+    const [opts, callback] = options(args);
     const socket = new Socket(opts);
-    if (opts.timeout) {
-      socket.setTimeout(opts.timeout);
+    try {
+      if (opts.timeout) {
+        socket.setTimeout(opts.timeout);
+      }
+      // The public signal belongs to Socket construction. Direct Socket.connect
+      // signal options remain explicitly unsupported rather than silently ignored.
+      return socket.connect({ ...opts, signal: undefined }, callback);
+    } catch (failure) {
+      // A failed factory call never exposes its Socket. Release any signal and
+      // native state rather than retaining that abandoned object until abort.
+      socket.destroy();
+      throw failure;
     }
-    return socket.connect(...args);
   }
 
   return {
