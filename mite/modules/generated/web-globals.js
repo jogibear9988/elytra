@@ -885,16 +885,122 @@ function defineEventAttributeCallback(list) {
     }
   };
 }
-function defineEventAttribute(target, type, _eventClass) {
-  Object.defineProperty(target, `on${type}`, {
-    get() {
-      return getEventAttributeValue(this, type);
-    },
-    set(value) {
-      setEventAttributeValue(this, type, value);
-    },
-    configurable: true,
-    enumerable: true
+
+// ../../mite/runtime/bootstrap/web/abort-listeners.mjs
+function installAbortListeners(AbortSignal, { EventTarget: EventTarget2, getEventAttributeValue: getEventAttributeValue2, setEventAttributeValue: setEventAttributeValue2, state, update, subscribe }) {
+  const add = Function.call.bind(EventTarget2.prototype.addEventListener);
+  const remove = Function.call.bind(EventTarget2.prototype.removeEventListener);
+  const apply = Reflect.apply;
+  const guarded = new FinalizationRegistry((unsubscribe) => unsubscribe());
+  function guardedRemoval(weakSignal, weakCallback, weakRecord, capture) {
+    return () => {
+      const signal = weakSignal.deref();
+      const callback = weakCallback.deref();
+      const record = weakRecord.deref();
+      if (signal && callback && record) {
+        remove(signal, "abort", record.wrapper, capture);
+        forget(signal, callback, capture, record);
+      }
+    };
+  }
+  function forget(signal, callback, capture, record) {
+    const entry = state(signal);
+    const records = entry.listeners.get(callback);
+    if (records?.get(capture) !== record) {
+      return;
+    }
+    records.delete(capture);
+    if (records.size === 0) {
+      entry.listeners.delete(callback);
+    }
+    entry.listenerCount--;
+    guarded.unregister(record);
+    record.unsubscribe();
+    update(signal);
+  }
+  function addEventListener(type, callback, options) {
+    const signal = this;
+    const entry = state(signal);
+    type = String(type);
+    if (type !== "abort" || callback == null || !["function", "object"].includes(typeof callback)) {
+      return add(signal, type, callback, options);
+    }
+    const normalized = typeof options === "object" && options !== null ? {
+      capture: !!options.capture,
+      passive: !!options.passive,
+      once: !!options.once,
+      signal: options.signal ?? void 0
+    } : { capture: !!options, passive: false, once: false, signal: void 0 };
+    if (normalized.signal !== void 0) {
+      state(normalized.signal);
+      if (state(normalized.signal).aborted) {
+        return;
+      }
+    }
+    let records = entry.listeners.get(callback);
+    const existing = records?.get(normalized.capture);
+    if (existing) {
+      return add(signal, type, existing.wrapper, normalized);
+    }
+    const record = { unsubscribe: () => {
+    }, wrapper: null };
+    record.wrapper = function(event) {
+      if (normalized.once) {
+        forget(signal, callback, normalized.capture, record);
+      }
+      if (typeof callback === "function") {
+        return apply(callback, signal, [event]);
+      }
+      return apply(callback.handleEvent, callback, [event]);
+    };
+    add(signal, type, record.wrapper, { ...normalized, signal: void 0 });
+    if (!records) {
+      records = /* @__PURE__ */ new Map();
+      entry.listeners.set(callback, records);
+    }
+    records.set(normalized.capture, record);
+    entry.listenerCount++;
+    if (normalized.signal !== void 0) {
+      record.unsubscribe = subscribe(
+        normalized.signal,
+        guardedRemoval(
+          new WeakRef(signal),
+          new WeakRef(callback),
+          new WeakRef(record),
+          normalized.capture
+        )
+      );
+      guarded.register(record, record.unsubscribe, record);
+    }
+    update(signal);
+  }
+  function removeEventListener(type, callback, options) {
+    const signal = this;
+    const entry = state(signal);
+    type = String(type);
+    const capture = typeof options === "object" && options !== null ? !!options.capture : !!options;
+    const record = type === "abort" ? entry.listeners.get(callback)?.get(capture) : void 0;
+    remove(signal, type, record ? record.wrapper : callback, capture);
+    if (record) {
+      forget(signal, callback, capture, record);
+    }
+  }
+  Object.defineProperties(AbortSignal.prototype, {
+    addEventListener: { value: addEventListener, configurable: true, writable: true },
+    removeEventListener: { value: removeEventListener, configurable: true, writable: true },
+    onabort: {
+      get() {
+        state(this);
+        return getEventAttributeValue2(this, "abort");
+      },
+      set(value) {
+        state(this);
+        setEventAttributeValue2(this, "abort", value);
+        update(this);
+      },
+      configurable: true,
+      enumerable: true
+    }
   });
 }
 
@@ -902,7 +1008,8 @@ function defineEventAttribute(target, type, _eventClass) {
 function createAbortGlobals({
   Event: Event2,
   EventTarget: EventTarget2,
-  defineEventAttribute: defineEventAttribute2,
+  getEventAttributeValue: getEventAttributeValue2,
+  setEventAttributeValue: setEventAttributeValue2,
   DOMException: DOMException2
 }) {
   const signals = /* @__PURE__ */ new WeakMap();
@@ -911,6 +1018,56 @@ function createAbortGlobals({
   const schedule = globalThis.setTimeout;
   const clear = globalThis.clearTimeout;
   const tick = process.nextTick;
+  const finalizers = new FinalizationRegistry(({ links, timer }) => {
+    if (timer) {
+      clear(timer);
+    }
+    for (const [sourceRef, link] of links) {
+      const source = sourceRef.deref();
+      if (source) {
+        state(source).dependents.delete(link);
+        updateRetention(source);
+      }
+    }
+  });
+  function updateRetention(signal) {
+    const entry = state(signal);
+    const observed = !entry.aborted && (entry.listenerCount > 0 || typeof getEventAttributeValue2(signal, "abort") === "function" || entry.algorithms.size > 0);
+    for (const [source, link] of entry.sources) {
+      state(source).dependents.set(link, observed ? signal : null);
+    }
+    if (entry.timeoutSlot) {
+      entry.timeoutSlot.strong = !entry.aborted && (observed || entry.dependents.size > 0) ? signal : null;
+    }
+  }
+  function unsubscribeFrom(weakSignal, callback) {
+    return () => {
+      const signal = weakSignal.deref();
+      if (signal) {
+        state(signal).algorithms.delete(callback);
+        updateRetention(signal);
+      }
+    };
+  }
+  function subscribe(signal, callback) {
+    const entry = state(signal);
+    if (entry.aborted) {
+      callback();
+      return () => {
+      };
+    }
+    entry.algorithms.add(callback);
+    updateRetention(signal);
+    return unsubscribeFrom(new WeakRef(signal), callback);
+  }
+  function timeoutCallback(slot) {
+    return () => {
+      const target = slot.strong ?? slot.weak.deref();
+      if (target) {
+        abort(target, new DOMException2("The operation was aborted due to timeout", "TimeoutError"));
+      }
+    };
+  }
   function error(Type, code, message) {
     return Object.assign(new Type(message), { code });
   }
@@ -939,7 +1096,7 @@ function createAbortGlobals({
       seen.add(current);
       entry.aborted = true;
       entry.reason = value;
-      for (const dependent of entry.dependents) {
+      for (const [dependent] of entry.dependents) {
         const target = dependent.deref();
         if (target) {
           pending.push(target);
@@ -950,13 +1107,20 @@ function createAbortGlobals({
     }
     for (const current of seen) {
       const entry = state(current);
+      finalizers.unregister(current);
+      if (entry.timeoutTimer) {
+        clear(entry.timeoutTimer);
+        entry.timeoutTimer = null;
+      }
       for (const [source, link] of entry.sources) {
         state(source).dependents.delete(link);
+        updateRetention(source);
       }
       entry.sources = [];
       entry.dependents.clear();
       const algorithms = [...entry.algorithms];
       entry.algorithms.clear();
+      updateRetention(current);
       for (const algorithm of algorithms) {
         try {
           algorithm();
@@ -979,8 +1143,11 @@ function createAbortGlobals({
         aborted: false,
         reason: void 0,
         algorithms: /* @__PURE__ */ new Set(),
-        dependents: /* @__PURE__ */ new Set(),
-        sources: []
+        dependents: /* @__PURE__ */ new Map(),
+        sources: [],
+        listeners: /* @__PURE__ */ new Map(),
+        listenerCount: 0,
+        timeoutSlot: null
       });
     }
     get aborted() {
@@ -1008,18 +1175,12 @@ function createAbortGlobals({
         throw error(RangeError, "ERR_OUT_OF_RANGE", "delay must be an unsigned 32-bit integer");
       }
       const signal = new AbortSignal(token);
-      const weak = new WeakRef(signal);
-      const timer = schedule(() => {
-        const target = weak.deref();
-        if (target) {
-          abort(
-            target,
-            new DOMException2("The operation was aborted due to timeout", "TimeoutError")
-          );
-        }
-      }, delay);
+      const slot = { weak: new WeakRef(signal), strong: null };
+      const timer = schedule(timeoutCallback(slot), delay);
       timer.unref();
-      state(signal).algorithms.add(() => clear(timer));
+      state(signal).timeoutSlot = slot;
+      state(signal).timeoutTimer = timer;
+      finalizers.register(signal, { links: [], timer }, signal);
       return signal;
     }
     static any(values) {
@@ -1039,15 +1200,26 @@ function createAbortGlobals({
         abort(result, state(already).reason);
         return result;
       }
+      const cleanupLinks = [];
       for (const source of new Set(sources)) {
         const link = new WeakRef(result);
-        state(source).dependents.add(link);
+        state(source).dependents.set(link, null);
         state(result).sources.push([source, link]);
+        cleanupLinks.push([new WeakRef(source), link]);
+        updateRetention(source);
       }
+      finalizers.register(result, { links: cleanupLinks, timer: null }, result);
       return result;
     }
   }
-  defineEventAttribute2(AbortSignal.prototype, "abort");
+  installAbortListeners(AbortSignal, {
+    EventTarget: EventTarget2,
+    getEventAttributeValue: getEventAttributeValue2,
+    setEventAttributeValue: setEventAttributeValue2,
+    state,
+    update: updateRetention,
+    subscribe
+  });
   class AbortController {
     constructor() {
       controllers.set(this, new AbortSignal(token));
@@ -1078,16 +1250,7 @@ function createAbortGlobals({
     // Only trusted builtin factories receive these hooks; never publish them globally.
     isSignal: (value) => signals.has(value),
     reason: (signal) => state(signal).reason,
-    subscribe(signal, callback) {
-      const entry = state(signal);
-      if (entry.aborted) {
-        callback();
-        return () => {
-        };
-      }
-      entry.algorithms.add(callback);
-      return () => entry.algorithms.delete(callback);
-    }
+    subscribe
   };
 }
 
@@ -1164,8 +1327,89 @@ function createDOMException() {
   return DOMException2;
 }
 
+// ../../mite/runtime/bootstrap/web/weak-lifetime.mjs
+function createWeakRefAdapter(keepAlive) {
+  const NativeWeakRef = globalThis.WeakRef;
+  const dereference = Function.call.bind(NativeWeakRef.prototype.deref);
+  return class WeakRef extends NativeWeakRef {
+    constructor(target) {
+      super(target);
+      keepAlive(target);
+    }
+    deref() {
+      const target = dereference(this);
+      if (target !== void 0) {
+        keepAlive(target);
+      }
+      return target;
+    }
+  };
+}
+function createFinalizationAdapter() {
+  const NativeRegistry = globalThis.FinalizationRegistry;
+  const register = Function.call.bind(NativeRegistry.prototype.register);
+  const unregister = Function.call.bind(NativeRegistry.prototype.unregister);
+  const tokens = /* @__PURE__ */ new WeakMap();
+  const keyFor = Symbol.keyFor;
+  function table(registry) {
+    const value = tokens.get(registry);
+    if (!value) {
+      throw new TypeError("Value must be a FinalizationRegistry");
+    }
+    return value;
+  }
+  function weak(value) {
+    return typeof value === "object" && value !== null || typeof value === "function" || typeof value === "symbol" && keyFor(value) === void 0;
+  }
+  return class FinalizationRegistry extends NativeRegistry {
+    constructor(cleanup) {
+      super(cleanup);
+      tokens.set(this, /* @__PURE__ */ new WeakMap());
+    }
+    register(target, held, token = void 0) {
+      const groups = table(this);
+      if (!weak(target) || target === held || token !== void 0 && !weak(token)) {
+        throw new TypeError("Invalid finalization target, held value or unregister token");
+      }
+      if (token === void 0) {
+        return register(this, target, held);
+      }
+      let group = groups.get(token);
+      if (!group) {
+        group = {};
+        groups.set(token, group);
+      }
+      return register(this, target, held, group);
+    }
+    unregister(token) {
+      const groups = table(this);
+      if (!weak(token)) {
+        throw new TypeError("Invalid unregister token");
+      }
+      const group = groups.get(token);
+      if (!group) {
+        return false;
+      }
+      const result = unregister(this, group);
+      groups.delete(token);
+      return result;
+    }
+  };
+}
+
 // web-globals-entry.mjs
-function installWebGlobals() {
+function installWebGlobals(host) {
+  const WeakRef2 = createWeakRefAdapter(host.keepAlive);
+  Object.defineProperty(globalThis, "FinalizationRegistry", {
+    value: createFinalizationAdapter(),
+    writable: true,
+    configurable: true
+  });
+  Object.defineProperty(globalThis, "WeakRef", {
+    value: WeakRef2,
+    writable: true,
+    configurable: true
+  });
   const tick = process.nextTick;
   setErrorHandler(
     (error) => tick(() => {
@@ -1173,7 +1417,13 @@ function installWebGlobals() {
     })
   );
   const DOMException2 = createDOMException();
-  const hooks = createAbortGlobals({ Event, EventTarget, defineEventAttribute, DOMException: DOMException2 });
+  const hooks = createAbortGlobals({
+    Event,
+    EventTarget,
+    getEventAttributeValue,
+    setEventAttributeValue,
+    DOMException: DOMException2
+  });
   for (const [name, value] of Object.entries({
     Event,
     EventTarget,

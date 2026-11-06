@@ -28,6 +28,23 @@ A FileHandle close waits for active references. A Firefly window's destruction
 rejects its pending load. Different services have distinct cancellation rules; an
 AbortSignal option must not be assumed supported because it exists in Node.
 
+## Weak references and cleanup
+
+WeakRef targets created or successfully dereferenced during a job remain alive
+through that job's complete nextTick/Promise checkpoint. Afterwards they may be
+collected. Mite supplies host roots and advances LibJS's execution generation at
+that boundary; a weak reference is never an ownership guarantee for a later task.
+
+FinalizationRegistry callbacks run asynchronously on the VM owner thread, after
+collection, with normal Promise checkpoints. Cleanup exceptions use the same fatal
+error policy as other callbacks. Pending cleanup is discarded during fatal shutdown.
+The host restores the VM's previous cleanup hook before teardown. No exact ordering
+against every native I/O phase or guaranteed collection deadline is promised.
+
+[AbortSignal](../api/abort.md) uses relative listener retention and weak cleanup to
+release unused composite links and timeout handles. Prefer explicit abort/close for
+resources whose timely release matters; finalization is a fallback.
+
 ## Errors cross async boundaries
 
 Handle the returned Promise or error callback. Exceptions in an unrelated later

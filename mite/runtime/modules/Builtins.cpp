@@ -5,6 +5,7 @@
  */
 
 #include "BuiltinSources.h"
+#include "core/EventLoop.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -352,6 +353,13 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     VERIFY(initializer.is_function());
     GC::Root globals_factory { initializer.as_function() };
     GC::Root globals_host { JS::Object::create(m_realm, nullptr) };
+    globals_host->define_native_function(
+        m_realm, "keepAlive"_utf16,
+        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            loop.keep_weak_target(vm.argument(0));
+            return JS::js_undefined();
+        },
+        1, JS::default_attributes);
     auto hooks = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
     VERIFY(hooks.is_object());
     m_abort_hooks = hooks.as_object();

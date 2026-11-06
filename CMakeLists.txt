@@ -159,6 +159,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-builtins
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_builtins.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-lifetime
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_lifetime.py"
+                     --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-abort
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_abort.py"
                      --mite "$<TARGET_FILE:mite>")

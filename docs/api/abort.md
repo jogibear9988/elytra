@@ -92,10 +92,19 @@ Two actual Node/Mite differences have dedicated assertions:
   while signal.aborted is still false. Mite's private consumer algorithm waits for
   actual state change; the timer instead completes normally.
 
-Composite GC retention for listener-only signals, finalization/cleanup of large
-unused dependency graphs and all Web event types remain unverified. Keep useful
-composite signals reachable; this slice does not claim complete lifetime/conformance
-coverage. Native platform gates and broader cancellation integration remain required.
+Listener-only composite signals are retained by reachable source signals while
+an abort listener, onabort handler or private consumer needs notification. Removing
+listeners, consuming once listeners or clearing onabort releases that retention.
+Unreachable source/composite cycles remain eligible for collection. Timeout signals
+with observers survive to their deadline; unused collected timeouts release their
+native timer handles through asynchronous finalization.
+
+Forced-GC tests compare these cases, guarded listener removal and weak unregister
+tokens against Node. They also check actual native timer counts in Mite. Finalizers
+are nondeterministic: application correctness must use explicit cancellation and
+resource closure rather than assume prompt collection. Complete Web event types,
+arbitrary dependency graphs and all collection schedules remain unverified. Native
+platform gates and broader cancellation integration remain required.
 
 See [timers](timers.md), [async lifetime](../concepts/async-and-lifetime.md) and
 [Node cancellation globals](https://nodejs.org/api/globals.html#class-abortcontroller).

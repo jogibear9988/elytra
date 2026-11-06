@@ -3533,6 +3533,53 @@ before extending I/O consumers. Continue TLS/HTTPS/fetch, remaining runtime APIs
 IPC message modes/desktop services and native Windows/Linux desktop/distribution
 work. Keep readable ESM/native boundaries and infrequent batched local GUI tests.
 
+## 2026-11-06 — Weak target checkpoints and cancellation cleanup
+
+Previous goal turn: progress. Linux Mite, source style and Pages for cd8f796
+succeed. Windows compiled and passed runtime behavior except the newly registered
+line-ending fixture: Python text-mode stdin supplied CRLF paths to checkout-index.
+Fix that test transport separately. Optimized macOS run 42200655334 is in progress;
+no new release or desktop-platform acceptance is claimed here.
+
+Fix forced-GC failures entirely in owned adapters. WeakRef construction/deref
+retains object/symbol targets until the complete nextTick/Promise checkpoint, then
+advances LibJS execution generation. Queue rooted finalization registries through
+an otherwise unreferenced libuv async handle; run cleanup on the VM owner thread
+with checkpoints and fatal-error policy. Restore the original cleanup hook on
+teardown. Adapt native unregister tokens through weak keys and independent group
+tokens because the pinned engine otherwise traces target-as-token strongly.
+
+Track actual abort listeners, capture identity, once/removal, onabort and guarded
+removal. Reachable sources conditionally retain observed composites. Timeout
+callbacks retain observed signals through weak/strong slots; cleanup holdings have
+no strong path back to their signal. Collection releases unused dependency links
+and actual native timer handles. Keep closure scopes separate to avoid accidental
+capture. Add API/concept documentation and ADR 0076 with lifetime limits.
+
+Validation:
+- All 49 registered CTests pass before the final original-hook preservation fix
+  (79.90 seconds, lifetime-all-tests.log), including twelve actual Node 24.15.0/
+  non-GUI embedded-host lifetime comparisons and existing cancellation/I/O suites.
+  The final native rebuild and repeat full suite also pass all 49 tests
+  (lifetime-hook-tests.log).
+- Cases cover same-job object/symbol retention, later collection, asynchronous and
+  nested cleanup, callback failure/teardown, weak shared unregister tokens,
+  listener-only composites, removed/once/guard/attribute release, timeout delivery
+  and native handle counts. GC timing and arbitrary dependency graphs are not
+  universal conformance claims; explicit close/abort remains required.
+- Both generators reproduce; source integrity, upstream and actionlint checks pass.
+  Style passes 103 Python, 433 JS/web/config, 129 native and 14 CMake sources plus
+  Rust. Site validates 150 pages / 9112 local links including this progress entry.
+- No local GUI tests or desktop applications are launched. Firefly is compiled
+  only; both rebuilds succeed (lifetime-firefly-build.log and
+  lifetime-hook-firefly-build.log). Hosted desktop and native platform acceptance
+  remain separate.
+
+Overall goal remains active. Continue broader cancellation lifetime/consumer
+integration, TLS/HTTPS/fetch, remaining runtime APIs, desktop IPC/services and
+native Windows/Linux desktop/distribution work. Keep GUI acceptance infrequent,
+targeted and batched, using headless tests and hosted CI for routine validation.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

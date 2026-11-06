@@ -22,7 +22,7 @@
     "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
     "stream.js": "b88106f1073dacd762b7f5c1d067e9f944cb39de75e9c61b3170ab4955dfdc0e",
     "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
-    "web-globals.js": "f26a8cd44b724bf8738cc9129bd99ff376e71e1b0d2c4367f702f9c64016a3a1",
+    "web-globals.js": "98ed162f8b9c84000ec1253b4b13124d16b5b5f19da7019f4ef1a0933f05f6b1",
     "web-globals.LICENSE.txt": "23770e3ce2d838ccaaacd893dfc319862e4047984a9a396c8dc649a23c0d8779"
   },
   "bundles": {
@@ -236,7 +236,7 @@
         },
         {
           "path": "web-globals-entry.mjs",
-          "sha256": "5f0f1973072d31efaed0142a93fe67d4f099066f9a6267531835fb39b21fa519"
+          "sha256": "fcafc67af9bffe0de9f15a533ab267bc04acd96edb92cdf790e9969acc8c70be"
         }
       ],
       "packages": [
@@ -278,8 +278,10 @@
     "mite/modules/core/timers-promises.mjs": "89a1b8d2c033df96d01d52cfd022831080ce62cda01e6db214905aca3f6afe6a",
     "tooling/runtime-js/string-decoder-entry.mjs": "78387bd4b0d7fc0807ec76660e9c37221eb790ee44669ccf9950fa69d154fdfb",
     "tooling/runtime-js/stream-entry.mjs": "a54be05ad7231e548e618b41210c6435540012f5c5364d66a27798746abcaabf",
-    "mite/runtime/bootstrap/web/abort.mjs": "39da026a263cbfdcc0ef453d47fed48d29c48cdc533482bab9cb22b2be02906f",
+    "mite/runtime/bootstrap/web/abort-listeners.mjs": "551224b27c884b8f9fedadf0a5dee1990490ab10cc90dd9956b26c61e200ab89",
+    "mite/runtime/bootstrap/web/abort.mjs": "6fdffd923ae5c220692a64a32bd929c5bb220865aae4a48941390800bd363128",
     "mite/runtime/bootstrap/web/dom-exception.mjs": "0f479aac7511003455ec6e32161a8ba30a9337b108d6695908bbf7870656d996",
-    "tooling/runtime-js/web-globals-entry.mjs": "5f0f1973072d31efaed0142a93fe67d4f099066f9a6267531835fb39b21fa519"
+    "mite/runtime/bootstrap/web/weak-lifetime.mjs": "ce3c0110ebc190a75d29e68d3bdb703166f52471a1755df4ee919a03d1375d08",
+    "tooling/runtime-js/web-globals-entry.mjs": "fcafc67af9bffe0de9f15a533ab267bc04acd96edb92cdf790e9969acc8c70be"
   }
 }

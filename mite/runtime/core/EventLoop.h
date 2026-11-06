@@ -12,6 +12,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <uv.h>
 #include <vector>
 
@@ -28,6 +29,9 @@ public:
     EventLoop& operator=(EventLoop const&) = delete;
 
     JS::ThrowCompletionOr<JS::Value> install(JS::Realm&);
+
+    // Weak targets must remain rooted through synchronous code and its microtasks.
+    void keep_weak_target(JS::Value);
 
     int run_until_idle();
     // GUI hosts call this on the owner thread without blocking their native loop.
@@ -81,6 +85,8 @@ public:
         std::function<void()>, GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>);
 
 private:
+    void drain_finalizers();
+
     struct Timer;
     struct Work;
     JS::ThrowCompletionOr<JS::Value> schedule_timer();
@@ -97,6 +103,11 @@ private:
     void (*m_report_exception)(JS::Value);
 
     uv_loop_t m_loop {};
+    uv_async_t m_finalizer_wakeup {};
+    Function<void(JS::FinalizationRegistry&)> m_original_finalizer_hook;
+    GC::RootVector<GC::Ref<JS::FinalizationRegistry>> m_finalizers;
+    GC::RootVector<JS::Value> m_kept_values;
+    std::unordered_set<GC::Cell*> m_kept_cells;
     std::unique_ptr<ImmediateQueue> m_immediates;
     uint64_t m_next_timer_id { 1 };
     int m_status { 0 };

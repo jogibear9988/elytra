@@ -3,10 +3,13 @@
  * public event propagation, so synthetic events or stopImmediatePropagation cannot
  * cancel or suppress native consumer work. Composite links use weak dependents.
  */
+import installAbortListeners from './abort-listeners.mjs';
+
 export default function createAbortGlobals({
   Event,
   EventTarget,
-  defineEventAttribute,
+  getEventAttributeValue,
+  setEventAttributeValue,
   DOMException
 }) {
   const signals = new WeakMap();
@@ -15,6 +18,69 @@ export default function createAbortGlobals({
   const schedule = globalThis.setTimeout;
   const clear = globalThis.clearTimeout;
   const tick = process.nextTick;
+
+  // Holdings contain only weak source/link references and native timer handles,
+  // never a strong path back to the signal being finalized.
+  const finalizers = new FinalizationRegistry(({ links, timer }) => {
+    if (timer) {
+      clear(timer);
+    }
+    for (const [sourceRef, link] of links) {
+      const source = sourceRef.deref();
+      if (source) {
+        state(source).dependents.delete(link);
+        updateRetention(source);
+      }
+    }
+  });
+
+  function updateRetention(signal) {
+    const entry = state(signal);
+    const observed =
+      !entry.aborted &&
+      (entry.listenerCount > 0 ||
+        typeof getEventAttributeValue(signal, 'abort') === 'function' ||
+        entry.algorithms.size > 0);
+    for (const [source, link] of entry.sources) {
+      state(source).dependents.set(link, observed ? signal : null);
+    }
+    if (entry.timeoutSlot) {
+      entry.timeoutSlot.strong =
+        !entry.aborted && (observed || entry.dependents.size > 0) ? signal : null;
+    }
+  }
+
+  function unsubscribeFrom(weakSignal, callback) {
+    return () => {
+      const signal = weakSignal.deref();
+      if (signal) {
+        state(signal).algorithms.delete(callback);
+        updateRetention(signal);
+      }
+    };
+  }
+
+  function subscribe(signal, callback) {
+    const entry = state(signal);
+    if (entry.aborted) {
+      callback();
+      return () => {};
+    }
+    entry.algorithms.add(callback);
+    updateRetention(signal);
+    return unsubscribeFrom(new WeakRef(signal), callback);
+  }
+
+  // A separate closure scope prevents the native timer from accidentally retaining
+  // timeout()'s local signal through a shared lexical environment.
+  function timeoutCallback(slot) {
+    return () => {
+      const target = slot.strong ?? slot.weak.deref();
+      if (target) {
+        abort(target, new DOMException('The operation was aborted due to timeout', 'TimeoutError'));
+      }
+    };
+  }
 
   function error(Type, code, message) {
     return Object.assign(new Type(message), { code });
@@ -50,7 +116,7 @@ export default function createAbortGlobals({
       seen.add(current);
       entry.aborted = true;
       entry.reason = value;
-      for (const dependent of entry.dependents) {
+      for (const [dependent] of entry.dependents) {
         const target = dependent.deref();
         if (target) {
           pending.push(target);
@@ -61,13 +127,20 @@ export default function createAbortGlobals({
     }
     for (const current of seen) {
       const entry = state(current);
+      finalizers.unregister(current);
+      if (entry.timeoutTimer) {
+        clear(entry.timeoutTimer);
+        entry.timeoutTimer = null;
+      }
       for (const [source, link] of entry.sources) {
         state(source).dependents.delete(link);
+        updateRetention(source);
       }
       entry.sources = [];
       entry.dependents.clear();
       const algorithms = [...entry.algorithms];
       entry.algorithms.clear();
+      updateRetention(current);
       for (const algorithm of algorithms) {
         try {
           algorithm();
@@ -91,8 +164,11 @@ export default function createAbortGlobals({
         aborted: false,
         reason: undefined,
         algorithms: new Set(),
-        dependents: new Set(),
-        sources: []
+        dependents: new Map(),
+        sources: [],
+        listeners: new Map(),
+        listenerCount: 0,
+        timeoutSlot: null
       });
     }
 
@@ -125,21 +201,12 @@ export default function createAbortGlobals({
         throw error(RangeError, 'ERR_OUT_OF_RANGE', 'delay must be an unsigned 32-bit integer');
       }
       const signal = new AbortSignal(token);
-      const weak = new WeakRef(signal);
-      // A deadline alone must not keep the process alive or strongly retain a signal.
-      const timer = schedule(() => {
-        const target = weak.deref();
-        if (target) {
-          abort(
-            target,
-            new DOMException('The operation was aborted due to timeout', 'TimeoutError')
-          );
-        }
-      }, delay);
+      const slot = { weak: new WeakRef(signal), strong: null };
+      const timer = schedule(timeoutCallback(slot), delay);
       timer.unref();
-
-      state(signal).algorithms.add(() => clear(timer));
-
+      state(signal).timeoutSlot = slot;
+      state(signal).timeoutTimer = timer;
+      finalizers.register(signal, { links: [], timer }, signal);
       return signal;
     }
 
@@ -160,15 +227,26 @@ export default function createAbortGlobals({
         abort(result, state(already).reason);
         return result;
       }
+      const cleanupLinks = [];
       for (const source of new Set(sources)) {
         const link = new WeakRef(result);
-        state(source).dependents.add(link);
+        state(source).dependents.set(link, null);
         state(result).sources.push([source, link]);
+        cleanupLinks.push([new WeakRef(source), link]);
+        updateRetention(source);
       }
+      finalizers.register(result, { links: cleanupLinks, timer: null }, result);
       return result;
     }
   }
-  defineEventAttribute(AbortSignal.prototype, 'abort');
+  installAbortListeners(AbortSignal, {
+    EventTarget,
+    getEventAttributeValue,
+    setEventAttributeValue,
+    state,
+    update: updateRetention,
+    subscribe
+  });
 
   class AbortController {
     constructor() {
@@ -204,14 +282,6 @@ export default function createAbortGlobals({
 
     reason: (signal) => state(signal).reason,
 
-    subscribe(signal, callback) {
-      const entry = state(signal);
-      if (entry.aborted) {
-        callback();
-        return () => {};
-      }
-      entry.algorithms.add(callback);
-      return () => entry.algorithms.delete(callback);
-    }
+    subscribe
   };
 }

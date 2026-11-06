@@ -59,6 +59,21 @@ int main(int argc, char** argv)
                 return JS::Value(static_cast<double>(pump_count));
             },
             0, JS::default_attributes);
+        host->define_native_function(
+            realm, "activeTimerCount"_utf16,
+            [&loop](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                unsigned count = 0;
+                uv_walk(
+                    &loop.native_loop(),
+                    [](uv_handle_t* handle, void* data) {
+                        if (handle->type == UV_TIMER && !uv_is_closing(handle)
+                            && uv_is_active(handle))
+                            ++*static_cast<unsigned*>(data);
+                    },
+                    &count);
+                return JS::Value(count);
+            },
+            0, JS::default_attributes);
         auto state = JS::Object::create(realm, nullptr);
         state->define_direct_property("count"_utf16, JS::Value(0), JS::default_attributes);
         host->define_direct_property("state"_utf16, state, JS::default_attributes);

@@ -1,9 +1,29 @@
 /** Install portable event classes and authored cancellation policy without LibWeb. */
-import { Event, EventTarget, defineEventAttribute, setErrorHandler } from 'event-target-shim';
+import {
+  Event,
+  EventTarget,
+  getEventAttributeValue,
+  setEventAttributeValue,
+  setErrorHandler
+} from 'event-target-shim';
 import createAbortGlobals from '../../mite/runtime/bootstrap/web/abort.mjs';
 import createDOMException from '../../mite/runtime/bootstrap/web/dom-exception.mjs';
+import createWeakRefAdapter, {
+  createFinalizationAdapter
+} from '../../mite/runtime/bootstrap/web/weak-lifetime.mjs';
 
-export default function installWebGlobals() {
+export default function installWebGlobals(host) {
+  const WeakRef = createWeakRefAdapter(host.keepAlive);
+  Object.defineProperty(globalThis, 'FinalizationRegistry', {
+    value: createFinalizationAdapter(),
+    writable: true,
+    configurable: true
+  });
+  Object.defineProperty(globalThis, 'WeakRef', {
+    value: WeakRef,
+    writable: true,
+    configurable: true
+  });
   const tick = process.nextTick;
 
   setErrorHandler((error) =>
@@ -13,7 +33,13 @@ export default function installWebGlobals() {
   );
 
   const DOMException = createDOMException();
-  const hooks = createAbortGlobals({ Event, EventTarget, defineEventAttribute, DOMException });
+  const hooks = createAbortGlobals({
+    Event,
+    EventTarget,
+    getEventAttributeValue,
+    setEventAttributeValue,
+    DOMException
+  });
   for (const [name, value] of Object.entries({
     Event,
     EventTarget,

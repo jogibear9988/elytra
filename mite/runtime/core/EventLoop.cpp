@@ -11,6 +11,7 @@
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/FinalizationRegistry.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibJS/Script.h>
 #include <cmath>
@@ -41,9 +42,24 @@ struct EventLoop::Timer {
 EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
     : m_vm(vm)
     , m_report_exception(report_exception)
+    , m_original_finalizer_hook(move(vm.host_enqueue_finalization_registry_cleanup_job))
 {
     VERIFY(uv_loop_init(&m_loop) == 0);
     m_immediates = std::make_unique<ImmediateQueue>(*this, vm);
+    VERIFY(uv_async_init(&m_loop, &m_finalizer_wakeup, [](uv_async_t* handle) {
+        static_cast<EventLoop*>(handle->data)->drain_finalizers();
+    }) == 0);
+    m_finalizer_wakeup.data = this;
+    uv_unref(reinterpret_cast<uv_handle_t*>(&m_finalizer_wakeup));
+    m_vm.host_enqueue_finalization_registry_cleanup_job
+        = [this](JS::FinalizationRegistry& registry) {
+              if (m_shutting_down || m_status)
+                  return;
+              m_finalizers.append(registry);
+              uv_ref(reinterpret_cast<uv_handle_t*>(&m_finalizer_wakeup));
+              VERIFY(uv_async_send(&m_finalizer_wakeup) == 0);
+          };
+
     m_vm.host_enqueue_promise_job = [this](JS::PromiseJob job, GC::Ptr<JS::Realm> realm) {
         m_jobs.append(GC::create_function(m_vm.heap(), [job, realm] {
             (void)realm;
@@ -65,6 +81,11 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
 EventLoop::~EventLoop()
 {
     m_shutting_down = true;
+    m_vm.host_enqueue_finalization_registry_cleanup_job = move(m_original_finalizer_hook);
+    m_finalizers.clear();
+    m_kept_values.clear();
+    m_kept_cells.clear();
+    uv_close(reinterpret_cast<uv_handle_t*>(&m_finalizer_wakeup), nullptr);
     m_immediates.reset();
     // Close even unreferenced timers, and release their JS roots before the VM.
     while (!m_timers.empty())
@@ -274,6 +295,32 @@ void EventLoop::dispatch(std::function<JS::ThrowCompletionOr<JS::Value>()> const
     checkpoint();
 }
 
+void EventLoop::keep_weak_target(JS::Value value)
+{
+    VERIFY(value.is_object() || value.is_symbol());
+    if (m_kept_cells.insert(&value.as_cell()).second)
+        m_kept_values.append(value);
+}
+
+void EventLoop::drain_finalizers()
+{
+    // GC only enqueues registries. Invoke their JS cleanup on a later owner-thread
+    // turn, keeping every registry rooted through its individual checkpoint.
+    auto batch = move(m_finalizers);
+    m_finalizers = {};
+    uv_unref(reinterpret_cast<uv_handle_t*>(&m_finalizer_wakeup));
+    if (m_shutting_down || m_status)
+        return;
+    for (auto registry : batch) {
+        if (m_status)
+            break;
+        dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+            TRY(registry->cleanup());
+            return JS::js_undefined();
+        });
+    }
+}
+
 void EventLoop::fail(JS::Value error)
 {
     if (m_status)
@@ -307,6 +354,11 @@ void EventLoop::checkpoint()
     m_rejections.remove_all_matching([](auto const& promise) { return promise->is_handled(); });
     if (!m_status && !m_rejections.is_empty())
         fail(m_rejections.first()->result());
+    // Match ClearKeptObjects at the end of the complete checkpoint, not between
+    // Promise/nextTick jobs. The roots also cover the pinned engine's weak traces.
+    m_kept_values.clear();
+    m_kept_cells.clear();
+    m_vm.finish_execution_generation();
 }
 
 bool EventLoop::is_alive() const
