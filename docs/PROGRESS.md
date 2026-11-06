@@ -4398,6 +4398,39 @@ cross-app acceptance remain unfinished. Preserve unmodified Ladybird pin and
 Mite independence. Continue release blocker plus broader specification work;
 goal active, local UI acceptance occasional and batched.
 
+## 2026-11-06: Preserve actionable IPC and HTTPS CI failure diagnostics
+
+- Older optimized macOS 42226301275 failed public IPC security acceptance, with
+  the deliberately sanitized contextBridge error hiding the actual assertion.
+  Keep production exception sanitization unchanged. Fixture-owned security/fresh
+  actions now return bounded plain failure records with phase and assertion
+  message; renderer fixtures require the exact true result before readiness.
+  Failed assertions remain failures. No retries or weakened expected results.
+- Run one targeted local security-main acceptance, using hidden test windows,
+  after the previous windowless build/policy gates. It passes all serialization,
+  zero-trap, raw-capability denial, 16-slot, three-navigation/same-document and
+  destruction assertions with empty stderr. The old hosted failure is not
+  reproduced or claimed fixed. New diagnostic CI must identify its source.
+  No complete local desktop suite or repeated UI loops are run.
+- Screen da00ed4 Windows run 42239236689/job 127964907545 fails one of 59 suites:
+  HTTPS's first positive workflow reports zero peer requests, before printing
+  actual HTTPS:get. The failure lacks client/runtime context, so its cause is
+  unproven. Its independent native-only follow-up passes all 22 HTTPS workflows;
+  the screen policy also passes. Preserve this distinction, not a green full gate.
+- Positive HTTPS fixtures now throw unexpected TLS/socket errors instead of
+  quietly exiting with no response/output. Check client status before peer
+  counters and include mode, executable and complete client result in assertions.
+  Existing expected abort/certificate rejections retain their exact behavior.
+  Full targeted HTTPS differential suite passes locally against actual Node/Mite
+  plus independent peers, fatal certificate and embedded-host GC checks.
+- Source style, generated Firefly integrity, unmodified upstream and whitespace
+  checks pass before commit. Broader unchanged sources retain the clipboard
+  commit's 60/60 result; no duplicate full-suite claim. macOS da00ed4 remains live
+  while newer commits queue; do not interrupt it. No new package/alpha claimed.
+
+Continue exact hosted IPC/HTTPS diagnostics, release acceptance and remaining
+specification. Goal active. Local GUI tests remain occasional, targeted/batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -3,7 +3,10 @@ try {
   if (typeof rawIpc !== 'undefined' || typeof ipcRenderer !== 'undefined') {
     throw Error('Raw native capability in page');
   }
-  await desktop.check();
+  const result = await desktop.check();
+  if (result !== true) {
+    throw new Error(JSON.stringify(result));
+  }
   document.title = 'SECURITY_READY';
 } catch (error) {
   document.title = 'FAIL:' + error.message;

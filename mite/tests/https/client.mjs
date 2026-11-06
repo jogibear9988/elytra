@@ -136,6 +136,11 @@ pending.on('socket', (socket) => {
 pending.on('error', (error) => {
   errors++;
   code = error.code;
+  if (!['cancel', 'pre', 'socket-abort', 'mismatch', 'expired', 'untrusted'].includes(mode)) {
+    // A failed positive case must report the actual TLS/socket error, not exit
+    // quietly with no response while the peer only reports zero requests.
+    throw error;
+  }
   if (
     mode === 'cancel' &&
     (error.name !== 'AbortError' || error.cause !== 'HTTPS response cancelled')

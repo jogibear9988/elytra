@@ -15,3 +15,8 @@ the target PID is an owned WebContent child before killing that process.
 
 Run through check-firefly or tooling/tests/test_public_ipc.py. Renderer/main code
 cannot select a different native owner by supplying an ID in payload arguments.
+
+Security preload actions return fixture-owned assertion diagnostics as plain
+records; page fixtures require the exact true result before marking readiness.
+This preserves the production bridge's sanitized exceptions while identifying a
+failing check in CI. Rejections remain test failures, never successful readiness.

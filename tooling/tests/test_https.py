@@ -227,15 +227,15 @@ def main():
                 stdout, stderr = peer.communicate("done\n", timeout=3)
                 assert peer.returncode == 0 and not stderr, (stdout, stderr, peer.returncode)
                 report = json.loads(stdout)
+                assert client.returncode == 0 and client.stderr == (
+                    "HOST_SHUTDOWN\n" if exe == args.host else ""
+                ), (mode, exe, client, report)
                 assert report == {
                     "requests": 0
                     if mode in ["mismatch", "expired", "untrusted", "pre", "socket-abort"]
                     else 1,
                     "bytes": 11 if mode == "post" else 0,
-                }, report
-                assert client.returncode == 0 and client.stderr == (
-                    "HOST_SHUTDOWN\n" if exe == args.host else ""
-                ), (mode, exe, client)
+                }, (mode, exe, report, client)
                 results.append(client.stdout)
             finally:
                 watchdog.cancel()

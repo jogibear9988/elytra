@@ -3,8 +3,20 @@ import { contextBridge, ipcRenderer } from 'firefly';
 
 let traps = 0;
 let settled = 0;
+let phase = 'initial';
+
+// Return fixture-owned diagnostics as plain data: production bridges deliberately
+// sanitize source-world exceptions, so throwing here hides which assertion failed.
+async function report(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    return { failure: error.message, phase };
+  }
+}
 
 async function rejects(operation, code) {
+  phase = code;
   try {
     await operation();
   } catch (error) {
@@ -18,54 +30,67 @@ async function rejects(operation, code) {
 
 contextBridge.exposeInMainWorld('desktop', {
   async check() {
-    let denied = false;
-    try {
-      contextBridge.exposeInMainWorld('rawIpc', ipcRenderer);
-    } catch {
-      denied = true;
-    }
-    if (!denied) {
-      throw Error('Published native IPC capability');
-    }
-    await rejects(() => ipcRenderer.invoke(42), 'ERR_INVALID_ARG_TYPE');
-    await rejects(() => ipcRenderer.invoke('a'.repeat(257)), 'ERR_INVALID_ARG_TYPE');
-    await rejects(() => ipcRenderer.invoke('ping', ...Array(65)), 'ERR_INVALID_ARG_TYPE');
-    const getter = {
-      get secret() {
-        traps++;
-        return 42;
+    return report(async () => {
+      phase = 'raw capability publication';
+      let denied = false;
+      try {
+        contextBridge.exposeInMainWorld('rawIpc', ipcRenderer);
+      } catch {
+        denied = true;
       }
-    };
-    const proxy = new Proxy(
-      {},
-      {
-        ownKeys() {
+      if (!denied) {
+        throw Error('Published native IPC capability');
+      }
+      await rejects(() => ipcRenderer.invoke(42), 'ERR_INVALID_ARG_TYPE');
+      await rejects(() => ipcRenderer.invoke('a'.repeat(257)), 'ERR_INVALID_ARG_TYPE');
+      await rejects(() => ipcRenderer.invoke('ping', ...Array(65)), 'ERR_INVALID_ARG_TYPE');
+      const getter = {
+        get secret() {
           traps++;
-          return [];
+          return 42;
         }
+      };
+      const proxy = new Proxy(
+        {},
+        {
+          ownKeys() {
+            traps++;
+            return [];
+          }
+        }
+      );
+      for (const value of [
+        getter,
+        proxy,
+        () => 1,
+        document,
+        new Uint8Array(1),
+        'x'.repeat(65537)
+      ]) {
+        await rejects(() => ipcRenderer.invoke('ping', value), 'ERR_FIREFLY_IPC_SERIALIZATION');
       }
-    );
-    for (const value of [getter, proxy, () => 1, document, new Uint8Array(1), 'x'.repeat(65537)]) {
-      await rejects(() => ipcRenderer.invoke('ping', value), 'ERR_FIREFLY_IPC_SERIALIZATION');
-    }
-    if (traps !== 0) {
-      throw Error('Serialization ran an input trap');
-    }
-    await rejects(() => ipcRenderer.invoke('bad-result'), 'ERR_FIREFLY_IPC_REMOTE');
-    for (let index = 0; index < 16; index++) {
-      ipcRenderer.invoke('held').then(() => {
-        settled++;
-        document.title = 'OLD_REPLY_RAN';
-      });
-    }
-    await rejects(() => ipcRenderer.invoke('held'), 'ERR_FIREFLY_IPC_LIMIT');
-    return true;
+      if (traps !== 0) {
+        throw Error('Serialization ran an input trap');
+      }
+      await rejects(() => ipcRenderer.invoke('bad-result'), 'ERR_FIREFLY_IPC_REMOTE');
+      for (let index = 0; index < 16; index++) {
+        ipcRenderer.invoke('held').then(() => {
+          settled++;
+          document.title = 'OLD_REPLY_RAN';
+        });
+      }
+      await rejects(() => ipcRenderer.invoke('held'), 'ERR_FIREFLY_IPC_LIMIT');
+      return true;
+    });
   },
 
   async fresh() {
-    if (settled !== 0 || (await ipcRenderer.invoke('ping')) !== 'PONG') {
-      throw Error('New document inherited old replies');
-    }
-    return true;
+    return report(async () => {
+      phase = 'fresh document ping';
+      if (settled !== 0 || (await ipcRenderer.invoke('ping')) !== 'PONG') {
+        throw Error('New document inherited old replies');
+      }
+      return true;
+    });
   }
 });
