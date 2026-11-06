@@ -2726,6 +2726,37 @@ unreached junction/short-alias checks, remains pending. The detached-child pipe
 capture and Node-reference DNS fail-fast are independent open issues; no timeout
 or output normalization was relaxed and no alpha/package size is claimed.
 
+## Windows CLI inherited-stdio policy and liveness diagnostics (2026-11-06)
+
+Add the recommended early uv_disable_stdio_inheritance call in Windows wmain,
+before stream modes/argument setup. Pinned libuv's CreateProcess path enables
+handle inheritance and deliberately duplicates requested stdio, but the CLI had
+not cleared inheritance on its own inherited standard handles. An ignored-stdio
+descendant can consequently retain output capture after its parent exits. This
+is a candidate correction for the 6ba8af1 timeout, not definitive attribution
+without the new native Windows result. The call is best effort, not a complete
+arbitrary-handle policy. Keep it in CLI startup; embeddable Mite::run does not
+silently change its host's process-wide descriptor policy. No vendor changes or
+new dependencies; explicit stdio:'inherit' retains deliberate libuv duplication.
+
+Replace the detached fixture's ambiguous run/communicate timeout with separate
+parent wait and capture EOF observations sharing the original three-second
+deadline. Distinguish a still-live parent from an exited parent with descendant
+pipe ownership. An independent Python parent/child positive control intentionally
+retains inherited capture pipes and must trigger that diagnosis; acknowledgement
+releases it. Every path releases the owned helper. The separate five-second
+cleanup drain never extends acceptance, and no timeout/output normalization is
+relaxed. Existing marker still proves independent child survival after parent exit.
+
+Local POSIX CLI rebuild and all 43 CTests pass in 23.62s
+(build/stdio-inheritance-{build,full-test}.log). The final stricter zero-remaining
+deadline calculation and positive control pass the targeted child suite again
+(build/stdio-inheritance-test-final.log). These local results validate the harness
+and existing explicit pipe/inherit behavior, not the new Windows-only startup body.
+API/Windows notes and ADR 0062 record scope. Pin/Python/site/diff checks pass;
+site checks 111 pages / 6022 local links. Windows acceptance, the Node DNS native
+reference abort, full hosted M1 packaging and public preload/IPC remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -215,6 +215,30 @@ workflow also imports a real tilde-named dependency both ways. New Windows
 acceptance, including the previously unreached junction/short-alias checks, remains
 pending. File-path spelling itself is preserved, and general URL parsing is unchanged.
 
+## CLI stdio inheritance and detached-child diagnostics
+
+The 6ba8af1 detached/unreferenced-child fixture times out while capturing Mite's
+parent output. A capture timeout alone does not establish that the parent is
+alive: a descendant can retain an inherited output handle after the parent exits.
+Pinned libuv's Windows CreateProcess path inherits inheritable handles; its
+recommended early uv_disable_stdio_inheritance call was missing from Mite's CLI.
+The Windows wmain now calls it before stream-mode/argument setup. Explicitly
+requested stdio:'inherit' still uses libuv's deliberate handle duplication.
+
+The fixture now observes process exit and pipe EOF separately within the same
+three-second acceptance deadline. An independent Python parent/child control
+deliberately retains inherited capture pipes, proving that the harness detects
+the distinction. Cleanup always acknowledges the owned child; its separate drain
+deadline does not extend acceptance. No sleep/timeout increase masks the failure.
+Local controls pass; native Windows acceptance and definitive attribution of the
+original timeout still require the new hosted result.
+
+This is CLI process-start policy. Embedded hosts retain control of their process
+inheritance settings and should establish their policy before starting Mite or
+duplicating inherited handles. The
+[libuv call](https://docs.libuv.org/en/v1.x/process.html#c.uv_disable_stdio_inheritance)
+is best effort, not a complete arbitrary-handle allowlist or sandbox guarantee.
+
 ## CLI console byte output
 
 Native ef61124 run 42147228418 exposes an output-byte difference in the child

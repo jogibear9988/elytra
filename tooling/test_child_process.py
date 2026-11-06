@@ -117,14 +117,44 @@ def main():
             assert result.returncode == 1 and result.stdout.strip() == 'CHILD_EXIT' and 'child-exit-fatal' in result.stderr, result
         helper = root / 'detached.py'
         helper.write_text("import pathlib,sys,time\nack=pathlib.Path(sys.argv[1]);result=pathlib.Path(sys.argv[2])\nfor _ in range(400):\n if ack.exists():\n  result.write_text('CHILD_SURVIVED');break\n time.sleep(.02)\n", encoding='utf-8')
+        def observe_parent(command, ack, expect_capture_leak=False):
+            parent = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+            deadline = time.monotonic() + 3
+            captured = False
+            try:
+                try:
+                    parent.wait(timeout=max(0, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired as error:
+                    raise AssertionError(f'Unreferenced parent remains alive: {Path(command[0]).name}, pid={parent.pid}') from error
+                assert parent.returncode == 0, (command, parent.returncode)
+                try:
+                    stdout, stderr = parent.communicate(timeout=max(0, deadline - time.monotonic()))
+                    captured = True
+                except subprocess.TimeoutExpired as error:
+                    if not expect_capture_leak:
+                        raise AssertionError(f'Parent exited, but descendant retains its capture pipes: {Path(command[0]).name}, status={parent.returncode}') from error
+                else:
+                    assert not expect_capture_leak, 'Inherited-stdio control unexpectedly closed capture before child exit'
+            finally:
+                ack.touch()  # Always release the independent child, including failed assertions.
+                if parent.poll() is None:
+                    parent.kill()
+                if not captured:
+                    stdout, stderr = parent.communicate(timeout=5)  # Cleanup, not extra acceptance time.
+            assert stdout.strip() == 'UNREF_DONE' and not stderr, (stdout, stderr)
+
+        # Independent positive control: this Python parent really exits while
+        # its child intentionally inherits the capture pipes. The harness must
+        # detect the pipe hold, not mistake it for a live parent/keepalive bug.
+        control_ack, control_marker = root / 'ack-control', root / 'marker-control'
+        control = 'import subprocess;subprocess.Popen(' + repr([sys.executable, str(helper), str(control_ack), str(control_marker)]) + ");print('UNREF_DONE')"
+        observe_parent([sys.executable, '-c', control], control_ack, expect_capture_leak=True)
+        assert control_marker.read_text() == 'CHILD_SURVIVED', control_marker
+        print('PASS capture-pipe inheritance control detects exited parent with living descendant')
         for index, exe in enumerate([args.node, args.mite]):
             ack, marker = root / f'ack-{index}', root / f'marker-{index}'
             fixture.write_text("const child=require('child_process').spawn(" + json.dumps(sys.executable) + "," + json.dumps([str(helper), str(ack), str(marker)]) + ",{detached:true,stdio:'ignore'});child.on('error',e=>{throw e});child.unref();console.log('UNREF_DONE');", encoding='utf-8')
-            try:
-                result = subprocess.run([exe, str(fixture)], capture_output=True, text=True, timeout=3)
-                assert result.returncode == 0 and not result.stderr and result.stdout.strip() == 'UNREF_DONE', result
-            finally:
-                ack.touch()  # Release the owned helper even if the parent fails.
+            observe_parent([exe, str(fixture)], ack)
             deadline = time.monotonic() + 5
             while not marker.exists() and time.monotonic() < deadline:
                 time.sleep(.02)

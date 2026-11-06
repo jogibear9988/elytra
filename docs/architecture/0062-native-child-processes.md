@@ -56,3 +56,20 @@ registered renderer/helper crash detection with the owned monitor. Follow
 [Node contract](https://nodejs.org/download/release/v24.15.0/docs/api/child_process.html);
 do not replace native process execution with a shell, Node embedding or JS success
 placeholders.
+
+## Windows CLI inheritance policy
+
+The CLI calls uv_disable_stdio_inheritance before configuring/duplicating inherited
+streams, following the [libuv startup recommendation](https://docs.libuv.org/en/v1.x/process.html#c.uv_disable_stdio_inheritance).
+Pinned libuv's Windows spawn path uses inheritable handles; explicit stdio modes
+still deliberately duplicate their requested handles. This is CLI process-start
+policy, not a global side effect inside the embeddable Mite::run entry point.
+The library call is best effort and does not certify arbitrary-handle confinement.
+
+The detached-child regression observes parent process exit separately from output
+pipe EOF, using the same combined three-second deadline. An independent Python
+control deliberately keeps inherited capture pipes open after its parent exits,
+then releases through an acknowledgement. The normal Node/Mite ignored-stdio
+workflow must deliver parent exit AND EOF before acknowledging its still-living
+child. Cleanup deadlines never extend the acceptance window. Windows acceptance
+of the startup correction remains pending.

@@ -64,6 +64,14 @@ killing the independent child, matching the tested detached/unreferenced workflo
 Process groups, orphan reaping in arbitrary embedding hosts and descendants are not
 a certified process-supervision facility.
 
+The Windows CLI establishes a non-inheritable policy for its inherited standard
+handles at startup. Explicit stdio:'inherit' still passes the requested streams.
+This is intended to stop an ignored-stdio descendant from accidentally keeping
+the CLI's capture pipes open; native acceptance of the startup correction is pending.
+Embedded hosts own their process-wide inheritance policy. See the
+[Windows build notes](../development/windows-build.md#cli-stdio-inheritance-and-detached-child-diagnostics)
+for scope and separate process-exit/pipe-EOF diagnostics.
+
 ## execFile(file[, args][, options][, callback])
 
 Run an executable and collect stdout/stderr separately. The optional callback

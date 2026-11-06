@@ -7,11 +7,17 @@
 #ifdef _WIN32
 // Keep upstream's Windows include boundary local to this platform entry point.
 #include <AK/Windows.h>
+#include <uv.h>
 #include <fcntl.h>
 #include <io.h>
 
 int wmain(int argc, wchar_t** wide_argv)
 {
+    // uv_spawn explicitly duplicates requested stdio, but Windows otherwise
+    // inherits any inheritable handles. Do not let a stdio:'ignore' child retain
+    // the CLI launcher's output pipes after this parent has already exited.
+    // This is process-start policy, not an implicit change in embedded run().
+    uv_disable_stdio_inheritance();
     // The CRT text default turns every LF written by console.log/error into
     // CRLF, including when output is a child-process pipe. Node writes these
     // bytes unchanged. Set CLI-owned output descriptors before any diagnostics;
