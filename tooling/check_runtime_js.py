@@ -28,7 +28,9 @@ def main():
         for source in bundle["sources"]:
             if not source["path"].startswith("node_modules/"):
                 path = build / source["path"]
-                if not path.resolve().is_relative_to(build):
+                if not path.resolve().is_relative_to(build) and not path.resolve().is_relative_to(
+                    ROOT / "mite/runtime/bootstrap"
+                ):
                     raise SystemExit("Invalid runtime source path")
                 expected[path] = source["sha256"]
     for name, value in manifest.get("sources", {}).items():

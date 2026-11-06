@@ -87,7 +87,11 @@ static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUI
 static constexpr std::string_view child_process_exports[] = { "spawn", "execFile", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
-static constexpr BuiltinDefinition definitions[] = { { "timers", {}, timers_exports },
+static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
+static constexpr BuiltinDefinition definitions[] = {
+    { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
+        timers_promises_exports },
+    { "timers", {}, timers_exports },
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
@@ -108,7 +112,8 @@ static constexpr BuiltinDefinition definitions[] = { { "timers", {}, timers_expo
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
     { "process", {}, process_exports },
     { "path", { MITE_PATH_SOURCE, sizeof(MITE_PATH_SOURCE) - 1 }, path_exports },
-    { "path/posix", {}, path_exports }, { "path/win32", {}, path_exports } };
+    { "path/posix", {}, path_exports }, { "path/win32", {}, path_exports }
+};
 
 static BuiltinDefinition const* definition_for(std::string const& name)
 {
@@ -175,6 +180,12 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "timers/promises") {
+        host->define_direct_property(
+            "timers"_utf16, TRY(builtin("timers")), JS::default_attributes);
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+    }
+
     if (name == "child_process") {
         host->define_direct_property("native"_utf16,
             create_child_process_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
@@ -330,6 +341,20 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
 
 JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
 {
+    // Portable EventTarget plus authored cancellation state; no LibWeb/Node host.
+    auto parsed_globals = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_WEB_GLOBALS_SOURCE, sizeof(MITE_WEB_GLOBALS_SOURCE) - 1)),
+        m_realm, "mite:web-globals"sv);
+    VERIFY(!parsed_globals.is_error());
+    GC::Root globals_script { parsed_globals.release_value() };
+    auto initializer = TRY(m_vm.run(*globals_script));
+    VERIFY(initializer.is_function());
+    GC::Root globals_factory { initializer.as_function() };
+    GC::Root globals_host { JS::Object::create(m_realm, nullptr) };
+    auto hooks = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
+    VERIFY(hooks.is_object());
+    m_abort_hooks = hooks.as_object();
     // Capture original timer functions before application code can replace globals.
     TRY(builtin("timers"));
     auto buffer = TRY(builtin("buffer"));

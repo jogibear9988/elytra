@@ -12,5 +12,6 @@
   "os": "mite/modules/system/os.mjs",
   "crypto": "mite/modules/crypto/index.mjs",
   "child_process": "mite/modules/process/child-process.mjs",
-  "bootstrap": "mite/runtime/bootstrap/globals.mjs"
+  "bootstrap": "mite/runtime/bootstrap/globals.mjs",
+  "timers_promises": "mite/modules/core/timers-promises.mjs"
 }

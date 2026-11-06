@@ -51,8 +51,9 @@ and fractional delays are truncated. Interval callbacks repeat until cleared.
 
 `clearTimeout` and `clearInterval` cancel timer handles/IDs. Immediate handles have
 no numeric conversion contract; use clearImmediate for them. Timeout.refresh,
-Node's delay/deprecation warnings, timers/promises, scheduler and promisify custom
-hooks remain unsupported. Missing modules/methods reject through the existing
+Node's delay/deprecation warnings, Promise interval/scheduler and promisify custom
+hooks remain unsupported. [Promise timeout/immediate](abort.md#promise-timer-consumers)
+are implemented with signal/ref options. Missing modules/methods reject through the existing
 unsupported-builtin or ordinary JavaScript API errors.
 
 ## Native ownership and validation

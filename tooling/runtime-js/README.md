@@ -69,3 +69,12 @@ pinned Node build tools. Git attributes retain these exact bytes on Windows.
 app-region installer. It writes `firefly/core/generated` with an independent
 manifest; standalone Mite remains independent of Firefly source and validation.
 See [Firefly authoring](../../firefly/core/README.md) for regeneration commands.
+
+## Portable event globals
+
+web-globals-entry.mjs composes pinned event-target-shim 6.0.2 with maintained
+bootstrap/web ESM. Its generated bundle has no external runtime imports and is
+initialized before application modules. Stream's older private abort dependency
+retains its separate version. Authored bootstrap hashes use repository-relative
+names; dependency source hashes and complete notices remain bundle provenance.
+Package staging copies every verified portable bundle notice and its manifest.

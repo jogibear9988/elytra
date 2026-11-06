@@ -22,6 +22,9 @@ function relative(file) {
 }
 
 function metadata(file) {
+  if (!relative(file).startsWith('node_modules/')) {
+    return null;
+  }
   let directory = path.dirname(file);
   while (directory !== root && !fs.existsSync(path.join(directory, 'package.json'))) {
     directory = path.dirname(directory);
@@ -98,7 +101,7 @@ function save(name, text, manifest) {
       manifest.sources[input] = digest(fs.readFileSync(path.join(repository, input)));
     }
   }
-  for (const name of ['string-decoder', 'stream']) {
+  for (const name of ['string-decoder', 'stream', 'web-globals']) {
     const result = await esbuild.build({
       absWorkingDir: root,
       entryPoints: [`${name}-entry.mjs`],
@@ -135,17 +138,34 @@ function save(name, text, manifest) {
     if (output.imports.some((item) => !item.external || !external.includes(item.path))) {
       throw Error(`Unexpected import in ${name}`);
     }
+    if (name === 'web-globals' && imports.length) {
+      throw Error('Initial event/abort globals cannot import runtime builtins');
+    }
     const packages = new Map();
     const sources = Object.keys(result.metafile.inputs)
       .sort()
       .map((input) => {
         const file = path.resolve(root, input);
+        const repositoryPath = path.relative(repository, file).split(path.sep).join('/');
+        if (!input.startsWith('node_modules/') && !path.relative(root, file).startsWith('..')) {
+          manifest.sources[repositoryPath] = digest(fs.readFileSync(file));
+        } else if (repositoryPath.startsWith('mite/runtime/bootstrap/')) {
+          manifest.sources[repositoryPath] = digest(fs.readFileSync(file));
+        } else if (!input.startsWith('node_modules/')) {
+          throw Error('Unexpected portable adapter source: ' + input);
+        }
+        // Authored bootstrap inputs are already recorded with repository-relative
+        // names above. Dependency-bundle paths stay within the build package.
+        if (repositoryPath.startsWith('mite/runtime/bootstrap/')) {
+          return null;
+        }
         const pkg = metadata(file);
         if (pkg) {
           packages.set(pkg.name, pkg);
         }
         return { path: input, sha256: digest(fs.readFileSync(file)) };
-      });
+      })
+      .filter(Boolean);
     const records = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name, 'en'));
     const notices = records
       .map(
@@ -165,7 +185,7 @@ function save(name, text, manifest) {
       result.outputFiles[0].text +
       '\nconst factory=module.exports.default;return factory(host);\n})\n';
     save(`${name}.js`, source, manifest);
-    save(`${name}.LICENSE.txt`, notices + '\n', manifest);
+    save(`${name}.LICENSE.txt`, notices.trimEnd() + '\n', manifest);
     manifest.bundles[name] = {
       imports,
       sources,

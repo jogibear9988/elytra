@@ -622,9 +622,9 @@ var require_errors = __commonJS({
   }
 });
 
-// node_modules/event-target-shim/dist/event-target-shim.js
+// node_modules/abort-controller/node_modules/event-target-shim/dist/event-target-shim.js
 var require_event_target_shim = __commonJS({
-  "node_modules/event-target-shim/dist/event-target-shim.js"(exports2, module2) {
+  "node_modules/abort-controller/node_modules/event-target-shim/dist/event-target-shim.js"(exports2, module2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     var privateData = /* @__PURE__ */ new WeakMap();

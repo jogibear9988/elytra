@@ -74,8 +74,23 @@ def cache_value(build, key, default=""):
     return default
 
 
+def copy_runtime_notices(destination, generated=ROOT / "mite/modules/generated"):
+    """Distribute every embedded portable dependency notice, verified against its manifest."""
+    manifest = json.loads((generated / "manifest.json").read_text())
+    names = [name + ".LICENSE.txt" for name in manifest["bundles"]]
+    for name in names:
+        if Path(name).name != name or name not in manifest["files"]:
+            raise ValueError("Missing or invalid runtime dependency notice")
+        if hashlib.sha256((generated / name).read_bytes()).hexdigest() != manifest["files"][name]:
+            raise ValueError("Changed runtime dependency notice: " + name)
+    destination.mkdir(parents=True)
+    for name in names + ["manifest.json"]:
+        shutil.copy2(generated / name, destination / name)
+
+
 def notices(destination, renderer, mite):
     destination.mkdir(parents=True)
+    copy_runtime_notices(destination / "runtime-js")
     shutil.copy2(ROOT / "LICENSE", destination / "Mite-Firefly-MIT.txt")
     shutil.copy2(ROOT / "vendor/ladybird/LICENSE", destination / "Ladybird-BSD-2-Clause.txt")
     shutil.copy2(ROOT / "vendor/ladybird.json", destination / "ladybird-pin.json")

@@ -3464,6 +3464,75 @@ Continue coherent vertical slices with honest platform evidence and infrequent,
 batched local GUI acceptance, using hosted tests for routine desktop regressions.
 The overall goal remains active.
 
+## 2026-11-06 — Cancellation globals and native Promise timer consumers
+
+Previous goal turn: progress (check-phase immediates committed/pushed). Hosted
+Linux/Windows Mite, style and Pages gates for de663f3 now all succeed. Optimized
+macOS de663f3 run 42195524566 is pending behind the confirmed running 439667b
+release build 42193613073. Keep live runs rather than restarting on observation
+timeouts. This step launches no local GUI/desktop tests.
+
+Install realm-local Event/EventTarget/DOMException/AbortController/AbortSignal
+without LibWeb or Node. Reuse separately pinned event-target-shim 6.0.2 for public
+portable events while preserving readable-stream's existing private 5.0.1 version.
+Maintain abort reason/idempotence/timeout/composition and DOMException policy as
+commented bootstrap/web ESM; generated adapters preserve exact lock, dependency
+source hashes and complete notices. Check authored bootstrap inputs separately
+with repository-relative hashes. Normalize dependency metadata paths for Windows.
+Normal native builds still require no npm install. Package staging now includes
+all verified portable-runtime notice sidecars and their manifest, and refuses
+modified notice bytes before copying them.
+
+AbortController has one branded signal, preserved reasons and one-shot state.
+Support throwIfAborted, abort/timeout/any and onabort/listener dispatch. Composition
+marks dependent state before callbacks; private consumer algorithms are independent
+of public event propagation. ModuleLoader roots the private hook object and passes
+it only to trusted builtin factories. AbortController wrong-receiver errors and
+three obsolete DOMException numeric mappings were corrected using actual Node
+observations rather than assumptions. Timeout signals are unreferenced.
+
+Add node:timers/promises/bare alias with shared default/named timeout/immediate
+functions, values and signal/ref options. Cancelling rejects AbortError/ABORT_ERR
+with cause and clears the actual native handle; settlement releases subscriptions.
+Ref:false does not turn a pending Promise into native liveness. Promise intervals,
+scheduler and cancellation of other I/O services remain unsupported.
+
+Validation:
+- Standalone rebuild and all 47 then-registered CTests pass (30.39 seconds,
+  abort-verified-tests.log). Sixteen actual Node/Mite CJS/ESM scenarios include
+  controllers, composition/propagation, EventTarget, reasons/exception codes,
+  deadlines, real timer/immediate consumers, option errors, listener failures,
+  references and module identity. Two differences have explicit assertions:
+  portable abort isTrusted metadata is false; synthetic public abort events do
+  not run Mite's private timer-cancellation algorithms (Node cancels the timer).
+- Audit found test_runtime_line_endings.py existed but was not registered in CTest;
+  preceding full-suite claims did not by themselves prove that check ran. Wire it
+  into CMake and verify it directly plus as the new CTest (1/1, 1.61 seconds,
+  abort-line-ending-ctest.log). The configured suite now contains 48 tests; no
+  single full 48-test invocation is claimed. Windows-mode checkout preserves all
+  current integrity-protected source/adapter/license bytes.
+- After the path-normalization-only builder correction, both generators reproduce;
+  integrity and runtime notice tests pass (2/2, abort-final-integrity-tests.log).
+  Exact-source/upstream and actionlint checks pass. Ladybird pin remains unchanged.
+- Firefly rebuild succeeds with the updated shared runtime
+  (abort-final-firefly-build.log). Desktop smoke/relocation remains hosted work;
+  no additional local window/compositor/input/Designer tests are run.
+- Source style checks pass 102 Python, 419 JS/web/config, 129 native and 14 CMake
+  sources plus Rust; the final CMake-only test registration is checked separately.
+  Documentation passes 149 pages / 9049 local links before this entry.
+
+Add API reference, ADR 0075 and a modern ESM cancellation example. Public support
+is partial, not full Node/Web conformance: foreign/polyfill signals in Promise
+timers, complete EventTarget options/descriptors and composite listener-only GC/
+finalization/large dependency-graph lifetime remain unverified or unsupported as
+specified in the API. Desktop/native platform acceptance of this source is pending;
+no new alpha or unsupported platform claim is made. Overall goal remains active.
+
+Next: follow hosted acceptance and strengthen cancellation lifetime/composition
+before extending I/O consumers. Continue TLS/HTTPS/fetch, remaining runtime APIs,
+IPC message modes/desktop services and native Windows/Linux desktop/distribution
+work. Keep readable ESM/native boundaries and infrequent batched local GUI tests.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

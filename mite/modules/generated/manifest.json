@@ -1,7 +1,7 @@
 {
   "generator": "esbuild 0.25.12",
-  "builderSha256": "944f17f2943d81329a36fe0d047a98392148c06aea34ff2b019b4243c5dea063",
-  "lockSha256": "3096d22fa2bb00ac53b7fa6c7c88379d13ad89b9b0b8f9c73e72c3a72fa9f6d7",
+  "builderSha256": "097d6ea7eb7604a5c9a1da60ab3423df6b58d50d6bce2b44a437c763f4c73f23",
+  "lockSha256": "235c02465675ad8de2834170a6bdd8f0697048463fc7755378e4e338b67f7924",
   "files": {
     "events.js": "b36147975c3cf3403c3231c346f16a5f145de003efcfb0f474936a247b5edae1",
     "process.js": "e80bba68813e9efd5f5b593cfb4b6a79b2cfa3ec3386556a6761cb27b90021bf",
@@ -17,10 +17,13 @@
     "crypto.js": "728948cc673fa0b70f7c16ae25f5463fbd1e98f939f88d5286eec87d6f9034b8",
     "child_process.js": "b5905f690d7f632adad795a65201fae79fa7c07a2d874d42f31940a019079fa4",
     "bootstrap.js": "ab0908491255da7c1e6fc38a940ba222488653e5e22da50ab8ea92c6a43661e7",
+    "timers_promises.js": "d3c761054a1bf7bd0015f4b79db7c293a2fa5c4717599b4c7ceef04328cbb510",
     "string-decoder.js": "8aa0f9a948b94bd157b8683f0a2e1e6b7280e6634d81f1695f20cdcff8ca60e4",
-    "string-decoder.LICENSE.txt": "53cbbfb9c8c75ce815a625e70b36a166b69d78fc2cb7754a997873bf8304eb2b",
-    "stream.js": "96047da6e0d56b3ea712dc0efdbd82164f3aac12aa002892bcf1dac46ef72cf6",
-    "stream.LICENSE.txt": "aa1b8b377c0ecaebabe25019b51271d1439498ee39f6deb573bdfc596d49cd49"
+    "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
+    "stream.js": "b88106f1073dacd762b7f5c1d067e9f944cb39de75e9c61b3170ab4955dfdc0e",
+    "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
+    "web-globals.js": "f26a8cd44b724bf8738cc9129bd99ff376e71e1b0d2c4367f702f9c64016a3a1",
+    "web-globals.LICENSE.txt": "23770e3ce2d838ccaaacd893dfc319862e4047984a9a396c8dc649a23c0d8779"
   },
   "bundles": {
     "string-decoder": {
@@ -81,7 +84,7 @@
           "sha256": "6b0b8d42ccfc69741b3f11b8268f094ce2a456715a5c8d2042ca5b2a033ea842"
         },
         {
-          "path": "node_modules/event-target-shim/dist/event-target-shim.js",
+          "path": "node_modules/abort-controller/node_modules/event-target-shim/dist/event-target-shim.js",
           "sha256": "927f1aa229bf227acec02b374b7120b5c971dc97136e55152ce5d49b4c20cbf5"
         },
         {
@@ -205,7 +208,7 @@
           "integrity": "sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==",
           "notices": [
             {
-              "path": "node_modules/event-target-shim/LICENSE",
+              "path": "node_modules/abort-controller/node_modules/event-target-shim/LICENSE",
               "sha256": "97d87142793695cd73243de7258694abe85b3b6060fca7f247b0a2afa8219678"
             }
           ]
@@ -223,11 +226,38 @@
           ]
         }
       ]
+    },
+    "web-globals": {
+      "imports": [],
+      "sources": [
+        {
+          "path": "node_modules/event-target-shim/index.mjs",
+          "sha256": "e673c53552bbc6e27f9dbc5d27b2e43f276ffcd6f4986f16693c2fea8ca29d7e"
+        },
+        {
+          "path": "web-globals-entry.mjs",
+          "sha256": "5f0f1973072d31efaed0142a93fe67d4f099066f9a6267531835fb39b21fa519"
+        }
+      ],
+      "packages": [
+        {
+          "name": "event-target-shim",
+          "version": "6.0.2",
+          "license": "MIT",
+          "integrity": "sha512-8q3LsZjRezbFZ2PN+uP+Q7pnHUMmAOziU2vA2OwoFaKIXxlxl38IylhSSgUorWu/rf4er67w0ikBqjBFk/pomA==",
+          "notices": [
+            {
+              "path": "node_modules/event-target-shim/LICENSE",
+              "sha256": "97d87142793695cd73243de7258694abe85b3b6060fca7f247b0a2afa8219678"
+            }
+          ]
+        }
+      ]
     }
   },
   "sources": {
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",
-    "tooling/runtime-js/modules.json": "778c7801da071664d46d3e08ded2046814805f4d00c433f4aa0a861f5b34ec35",
+    "tooling/runtime-js/modules.json": "f871f9cee42f6726f1a6a4b25b5cb46b2ca7e91cae7f75f0293cb2d0500ed943",
     "mite/modules/core/events.mjs": "54a5b9ab933ae603e22c83f6ad55c9c2859d0be785059a702c12eed4cfbf38ee",
     "mite/modules/core/process.mjs": "df42d34258352a5714e697824157f567e657cf4e283e001759a2abff966d3244",
     "mite/modules/core/path.mjs": "9f5a527f113a86d14ceaeeb065392853fee9deb3d536c909ce95d0471a53d6dd",
@@ -244,6 +274,12 @@
     "mite/modules/crypto/index.mjs": "890a231651c0e72cf1c5488bb601b81b5c476935cd7060cd5b7a8a99f14513fd",
     "mite/modules/crypto/random.mjs": "d8b4b69cf77e2a48fa21ab4c2abfa81a5d2c4322c348d809a3b7827efe80da22",
     "mite/modules/process/child-process.mjs": "f2b637ebc06f73c01186847eff9797035f52e52956be85ae78faf3ee0a8424a5",
-    "mite/runtime/bootstrap/globals.mjs": "f1f1ce997afa94e92485b9b6fc0ffec70c8b0d9145607024957bc42b4ab6314d"
+    "mite/runtime/bootstrap/globals.mjs": "f1f1ce997afa94e92485b9b6fc0ffec70c8b0d9145607024957bc42b4ab6314d",
+    "mite/modules/core/timers-promises.mjs": "89a1b8d2c033df96d01d52cfd022831080ce62cda01e6db214905aca3f6afe6a",
+    "tooling/runtime-js/string-decoder-entry.mjs": "78387bd4b0d7fc0807ec76660e9c37221eb790ee44669ccf9950fa69d154fdfb",
+    "tooling/runtime-js/stream-entry.mjs": "a54be05ad7231e548e618b41210c6435540012f5c5364d66a27798746abcaabf",
+    "mite/runtime/bootstrap/web/abort.mjs": "39da026a263cbfdcc0ef453d47fed48d29c48cdc533482bab9cb22b2be02906f",
+    "mite/runtime/bootstrap/web/dom-exception.mjs": "0f479aac7511003455ec6e32161a8ba30a9337b108d6695908bbf7870656d996",
+    "tooling/runtime-js/web-globals-entry.mjs": "5f0f1973072d31efaed0142a93fe67d4f099066f9a6267531835fb39b21fa519"
   }
 }

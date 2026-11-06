@@ -134,6 +134,7 @@ private:
     std::unordered_map<std::string, HostModule> m_host_modules;
     std::unordered_set<void const*> m_host_shims;
     std::unordered_set<void const*> m_builtin_shims;
+    GC::Root<JS::Object> m_abort_hooks;
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;

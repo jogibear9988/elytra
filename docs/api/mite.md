@@ -55,6 +55,12 @@ clearTimeout/clearInterval. `fetch` and global Web Crypto are absent.
 Unhandled rejections and fatal callbacks exit nonzero. Normal exitCode waits for
 referenced work; fatal shutdown may abandon pending native writes.
 
+## Cancellation
+
+[AbortController/AbortSignal](abort.md) and portable event globals are available,
+with Promise timeout/immediate consumers. Other service signal options remain
+unsupported unless their individual contracts say otherwise.
+
 ## node:fs and node:fs/promises
 
 Supported operation families include whole-file read/write/append, access, stat/lstat,

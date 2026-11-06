@@ -20,6 +20,8 @@ The [node:crypto reference](crypto.md) details the supported random/hash APIs,
 parameters, errors, resource lifetime and Node differences.
 The [node:http reference](http.md) covers client streams, options, errors and the
 current connection policy alongside the existing server API.
+The [cancellation reference](abort.md) covers EventTarget/AbortController/AbortSignal
+and native Promise timer consumers.
 The [timers reference](timers.md) covers native timeout/immediate callbacks,
 checkpoints and handle lifetime.
 The [child-process reference](child-process.md) describes native spawn, pipes,
