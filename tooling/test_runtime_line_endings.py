@@ -10,11 +10,12 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def main():
     manifest=json.loads((ROOT/'mite/modules/generated/manifest.json').read_text())
-    expected={'tooling/runtime-js/build.cjs':manifest['builderSha256'],'tooling/runtime-js/package-lock.json':manifest['lockSha256']}
+    expected={'tooling/runtime-js/build.mjs':manifest['builderSha256'],'tooling/runtime-js/package-lock.json':manifest['lockSha256']}
     expected.update({'mite/modules/generated/'+name:digest for name,digest in manifest['files'].items()})
     for bundle in manifest['bundles'].values():
         for source in bundle['sources']:
             if not source['path'].startswith('node_modules/'):expected['tooling/runtime-js/'+source['path']]=source['sha256']
+    expected.update(manifest.get('sources', {}))
     attributes=subprocess.check_output(['git','check-attr','eol','--',*expected],cwd=ROOT,text=True)
     assert all(line.endswith(': eol: lf') for line in attributes.splitlines()),attributes
     with tempfile.TemporaryDirectory(prefix='mite-windows-checkout-') as directory:

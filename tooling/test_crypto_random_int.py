@@ -91,7 +91,7 @@ assert.equal(result,-5);assert.equal(calls,1);
 values=[token];api.randomInt(5,e=>{assert.equal(e,token);calls++});pending.shift()();assert.equal(calls,2);
 assert.equal(pending.length,0);assert.equal(values.length,0);
 console.log(JSON.stringify({rejection:true,errorIdentity:true}));
-'''.replace('SOURCE', json.dumps(str(ROOT / 'mite/modules/crypto.js')))
+'''.replace('SOURCE', json.dumps(str(ROOT / 'mite/modules/generated/crypto.js')))
     with tempfile.TemporaryDirectory(prefix='mite-random-int-') as directory:
         root = Path(directory)
         fixture = root / 'integer.cjs'

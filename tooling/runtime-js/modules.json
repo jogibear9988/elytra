@@ -1,0 +1,16 @@
+{
+  "events": "mite/modules/core/events.mjs",
+  "process": "mite/modules/core/process.mjs",
+  "path": "mite/modules/core/path.mjs",
+  "buffer": "mite/modules/core/buffer.mjs",
+  "url": "mite/modules/core/url.mjs",
+  "util": "mite/modules/core/util.mjs",
+  "fs": "mite/modules/filesystem/fs.mjs",
+  "net": "mite/modules/network/net.mjs",
+  "dns": "mite/modules/network/dns.mjs",
+  "http": "mite/modules/network/http.mjs",
+  "os": "mite/modules/system/os.mjs",
+  "crypto": "mite/modules/crypto/index.mjs",
+  "child_process": "mite/modules/process/child-process.mjs",
+  "bootstrap": "mite/runtime/bootstrap/globals.mjs"
+}

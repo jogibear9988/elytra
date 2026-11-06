@@ -1,6 +1,6 @@
-# Embedded portable runtime libraries
+# Embedded runtime sources
 
-These build inputs produce checked-in JavaScript factories in
+Maintained ESM inputs produce checked-in JavaScript embedding adapters in
 `mite/modules/generated`. Mite embeds those factories in its executable and
 runs them with LibJS. Neither Node nor npm is linked or launched at runtime.
 A normal native build needs Python to check their hashes, but needs no npm install
@@ -10,8 +10,8 @@ To update or regenerate:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
-node tooling/runtime-js/build.cjs
-node tooling/runtime-js/build.cjs --check
+node tooling/runtime-js/build.mjs
+node tooling/runtime-js/build.mjs --check
 python3 tooling/check_runtime_js.py
 cmake --build --preset dev --parallel 4
 ctest --preset dev --output-on-failure
@@ -39,3 +39,26 @@ packages. Keep generated notices with any source redistribution, and include
 runtime library notices with binary distributions as well.
 
 See `docs/architecture/0016-portable-streams.md` for integration and known limits.
+
+## Authored ESM and synchronous bootstrap
+
+modules.json maps builtin names to maintained sources under mite/modules and the
+initial globals under mite/runtime/bootstrap. Private imports are bundled; every
+builtin entry exports one default factory. Factories receive native dependencies
+from the embedding loader and construct one realm-local builtin instance.
+
+factories.mjs compiles those entries as ESM, checks the pinned compiler's single
+factory export, and emits a synchronous callable expression with strict semantics.
+This is the internal embedding ABI, not a public CommonJS implementation source.
+It preserves synchronous require and initial global construction while application
+ESM/CommonJS keep their existing shared module identities. Only bootstrap.js calls
+its generated initializer immediately.
+
+Portable npm adapters are also authored as ESM. Their generated wrapper supplies
+only Mite's reviewed host.require imports while constructing the portable library.
+Third-party CommonJS is a bundled dependency format, not a Node runtime fallback.
+
+The manifest covers all authored source/helper/catalog hashes, generated files,
+compiler/lockfile provenance and existing dependency notices. Normal C++ builds
+verify this state with Python and fail on stale ESM edits; regeneration needs the
+pinned Node build tools. Git attributes retain these exact bytes on Windows.

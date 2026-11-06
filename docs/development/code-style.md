@@ -20,7 +20,7 @@ Do not mix generated bundles or third-party implementation into authored sources
 Use ESM for maintained implementation sources, build tools and examples. Internal
 builtin factories need a generated synchronous bootstrap form because require()
 and initial global construction cannot await ESM evaluation. Author that logic as
-ESM and generate/check the embedding adapter; application ESM and CommonJS must
+ESM (now implemented for Mite builtins/globals) and generate/check the embedding adapter; application ESM and CommonJS must
 continue sharing the same native builtin instances. CommonJS compatibility fixtures
 remain CommonJS because that is the behavior they test.
 

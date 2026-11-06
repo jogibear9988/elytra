@@ -1629,7 +1629,7 @@ Windows/Linux acceptance is claimed. Designer shell/package changes follow separ
 
 Native Windows run 42114277910 is now terminal failure, not still configuring:
 dependencies configured and initial native objects compiled, then the runtime JS
-integrity gate correctly rejected CRLF conversion of tooling/runtime-js/build.cjs.
+integrity gate correctly rejected CRLF conversion of tooling/runtime-js/build.mjs.
 Add narrow LF checkout attributes for the hashed runtime builder/adapter inputs and
 generated artifacts; do not normalize away a hash mismatch or edit upstream. The
 core.autocrlf=true checkout regression verifies all protected bytes against the
@@ -3195,6 +3195,42 @@ Remaining HIGH-PRIORITY refactor sequence:
    run full runtime/native/application/site acceptance before resuming IPC.
 Scratch build/migrate_modules_to_esm.py stages the planned source move but has not
 been applied at this checkpoint. The general product goal remains incomplete.
+
+## 2026-11-06 — Maintained builtin sources are ESM
+
+Continue the user's readability priority; IPC remains parked in the recorded stash.
+Move authored compatibility modules into core/network/filesystem/crypto/process/
+system source families and use named default ESM factories. Native dependencies
+remain explicit injection arguments. Split crypto assembly, entropy, digest/HMAC
+and byte helpers into actual private ESM imports. DNS now has descriptive option/
+error helpers and comments explaining scheduling and hostname preservation. Expand
+compound declarations/control bodies, use normal indentation and separate methods.
+
+Convert the generator and portable npm adapters to ESM. Compile private builtin
+imports into a checked synchronous factory expression, preserving strict execution
+and original native call/constructor semantics. Initial globals are authored as
+bootstrap/globals.mjs and generated as the eager bootstrap adapter. Normal native
+builds read committed outputs and run Python integrity checks; Node/npm are still
+build tools only, not runtime dependencies. CJS application compatibility remains.
+
+Extend the manifest to all authored source/helper/catalog hashes and generated
+builtin/bootstrap files. Preserve pinned package provenance and complete notices.
+Reject compiler export-format drift or unbundled private imports. Avoid rewriting
+unchanged generated files. LF attributes and the Windows checkout-index gate now
+cover authored ESM inputs as well. The controlled entropy fixture intentionally
+loads the generated host-factory ABI; no test override is shipped in Mite.
+
+Validation: outputs reproduce exactly; Python integrity and all 44 CTests pass
+(refactor-esm-tests.log, 54.28 s). Rebuilt Firefly check-firefly passes real native
+main lifecycle/I/O/crypto plus production preloads (refactor-esm-firefly-tests.log).
+The 21 maintained module/bootstrap/build-adapter JS files pass the new formatting
+check. Source/API docs and commands follow the new paths. Ladybird unchanged.
+
+Still REQUIRED before returning to feature work: complete Firefly/tooling/sample
+formatting, source-purpose comments and organization; convert remaining maintained
+Firefly script factories to ESM authoring; use explicit syntax-fixture exceptions,
+wire a whole-repository style gate and finish full native/application/site checks.
+This is a coherent intermediate commit, not completion of the user's refactor.
 
 ## Resume
 

@@ -1,3 +1,7 @@
 # Integrity manifests hash these exact bytes. Keep them stable on Windows too.
 /tooling/runtime-js/** text eol=lf
 /mite/modules/generated/** text eol=lf
+
+# Authored ESM sources also participate in the bootstrap integrity manifest.
+/mite/modules/** text eol=lf
+/mite/runtime/bootstrap/** text eol=lf
