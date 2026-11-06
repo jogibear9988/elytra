@@ -95,7 +95,9 @@ def main():
     files = sources(args.paths)
     passed = True
     if not (args.python_only or args.js_only):
-        selected = [name for name in files if Path(name).suffix in [".cpp", ".h", ".c"]]
+        selected = [
+            name for name in files if Path(name).suffix in [".cpp", ".h", ".c", ".m", ".mm"]
+        ]
         if selected:
             passed = format_native(selected, args.check) and passed
         selected = [

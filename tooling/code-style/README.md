@@ -19,6 +19,8 @@ choices. Avoid comments that merely repeat a method name or individual statement
 The JS formatter uses pinned Prettier followed by Acorn-based definition spacing.
 Native formatting uses the pinned clang-format profile; native.py supplies blank
 lines around completed definitions/declarations while preserving literal contents.
+The native selector includes C/C++ (`.c`, `.cpp`, `.h`) and Objective-C/Objective-C++
+(`.m`, `.mm`), so maintained macOS adapters receive the same automatic CI gate.
 Python uses Ruff's formatter, which provides normal method/function separation.
 CMake uses pinned cmake-format and Rust uses the repository's pinned Rust toolchain.
 The source-style workflow checks formatting and reproduces both embedding generators.

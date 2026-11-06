@@ -4485,6 +4485,24 @@ rendering and Windows/Linux desktop remain open. Continue pending release/IPC
 acceptance and broader specification. Goal active; local GUI tests occasional
 and targeted/batched, windowless/hosted checks preferred.
 
+## 2026-11-06: Include Objective-C adapters in automatic source formatting
+
+- Close the native formatter's selector gap: .m/.mm now join .c/.cpp/.h in the
+  existing pinned clang-format/definition-spacing gate. This automatically covers
+  all five maintained macOS Objective-C++ files, instead of relying on manual
+  formatting for new adapters. Generated/vendor/build files stay excluded.
+- Apply the gate to existing sources; only ScreenMac.mm needs whitespace/layout
+  normalization. No runtime behavior or upstream source changes. Document the
+  covered suffixes in the source-style tooling guide. The same existing style CI
+  command now checks 151 native files rather than 146.
+- Full source style, upstream/Firefly integrity and whitespace gates pass before
+  commit. Native behavior retains the preceding 61-suite acceptance; this
+  formatting-only step does not repeat a desktop suite or claim fresh native
+  behavior coverage. Regenerate/check site after this progress entry.
+
+Continue queued release/IPC validation and remaining runtime, desktop/platform,
+distribution/security requirements. Goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

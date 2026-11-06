@@ -24,7 +24,8 @@ QJsonObject screen_snapshot()
         auto primary_height = screens.count ? NSHeight(screens[0].frame) : 0;
         for (NSScreen* screen in screens) {
             auto id = [screen.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
-            if (!displays.size()) primary_id = id;
+            if (!displays.size())
+                primary_id = id;
             auto bounds = rectangle(screen.frame, primary_height);
             auto work = rectangle(screen.visibleFrame, primary_height);
             double frequency = 0;
@@ -32,18 +33,21 @@ QJsonObject screen_snapshot()
                 frequency = CGDisplayModeGetRefreshRate(mode);
                 CGDisplayModeRelease(mode);
             }
-            displays.append(QJsonObject {
-                { "id", static_cast<double>(id) }, { "bounds", bounds }, { "workArea", work },
-                { "size", QJsonObject { { "width", bounds["width"] }, { "height", bounds["height"] } } },
-                { "workAreaSize", QJsonObject { { "width", work["width"] }, { "height", work["height"] } } },
+
+            displays.append(QJsonObject { { "id", static_cast<double>(id) }, { "bounds", bounds },
+                { "workArea", work },
+                { "size",
+                    QJsonObject { { "width", bounds["width"] }, { "height", bounds["height"] } } },
+                { "workAreaSize",
+                    QJsonObject { { "width", work["width"] }, { "height", work["height"] } } },
                 { "scaleFactor", screen.backingScaleFactor },
                 { "rotation", static_cast<int>(std::llround(CGDisplayRotation(id))) },
                 { "internal", CGDisplayIsBuiltin(id) != 0 }, { "detected", true },
                 { "displayFrequency", frequency },
                 { "label", QString::fromUtf8(screen.localizedName.UTF8String) },
-                { "touchSupport", "unknown" }, { "accelerometerSupport", "unknown" }
-            });
+                { "touchSupport", "unknown" }, { "accelerometerSupport", "unknown" } });
         }
+
         return { { "primaryId", primary_id }, { "displays", displays } };
     }
 }
