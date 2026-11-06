@@ -25,7 +25,7 @@ Use a fresh output directory when rebuilding. The shared launcher serves only al
 
 **Native shared assertions passed:** quick-start, browser module worker, initial online/offline state, iframe messaging, frameless window startup and lifecycle/cancellation. These narrow checks do not imply complete feature parity.
 
-**Blocked in Firefly:** the other 17 topics explicitly fail with a missing-API or platform error. Their Electron reference implementations are present as code, but hardware, store, OS integration and experimental AI paths remain manual/unverified. A successful preflight rejection is not feature acceptance.
+**Other topics:** Dark mode has partial native API coverage and an explicit manual-validation gate; button/visual acceptance remains open. The other 16 topics are blocked by missing APIs or platform requirements. Their Electron reference implementations are present as code, but hardware, store, OS integration and experimental AI paths remain manual/unverified. A successful preflight rejection is not feature acceptance.
 
 | Example | Firefly status and scope | API dependencies |
 | --- | --- | --- |
@@ -69,6 +69,6 @@ python3 tooling/tests/test_example_assets.py --mite build/release-mite/bin/mite
 It checks allowed HTML/CSS/module routes, HEAD, MIME, Host validation, rejected POST
 and rejection of main/preload/utility/config/traversal/query routes.
 
-The runner compares real Firefly/Electron processes for the six supported slices, checks ESM syntax and validates explicit rejection for blocked Firefly topics. It never performs purchases, registers protocols, changes recent documents, requests device permission or posts notifications. Manual prerequisites are listed on each topic page.
+The runner compares real Firefly/Electron processes for the six supported slices, checks ESM syntax and validates explicit rejection for blocked Firefly topics. It passes --smoke to the manual dark-mode app and requires its explicit manual-validation exit rather than leaving an interactive window waiting. That exit does not certify the example's buttons or appearance. It never performs purchases, registers protocols, changes recent documents, requests device permission or posts notifications. Manual prerequisites are listed on each topic page.
 
 Detailed implemented references: [app](../api/app.md), [BrowserWindow](../api/browser-window.md), [webContents](../api/web-contents.md), [preload/contextBridge](../api/context-bridge.md). Missing desktop services are tracked in the [compatibility matrix](../compatibility/firefly-0.1.md).

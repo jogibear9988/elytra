@@ -4,8 +4,11 @@ Copy and read native desktop text from the main process.
 
 **Availability:** partial macOS implementation. The native private-pasteboard
 probe passes on macOS ARM64; the actual API factory passes in Node and Mite
-without a graphical application. Public Electron/Firefly acceptance is added to
-the hosted desktop suite and is pending execution. Native Windows/Linux desktop
+without a graphical application. Public Electron/Firefly async text/MIME-item
+acceptance passes in hosted macOS
+[run 42296377267](https://github.com/jogibear9988/elytra/actions/runs/42296377267),
+job 128162578490. That overall package run later fails in the manual-example
+harness; it is not release acceptance. Native Windows/Linux desktop
 adapters remain unfinished. This API is not exported by standalone Mite,
 preloads, contextBridge or document JavaScript.
 

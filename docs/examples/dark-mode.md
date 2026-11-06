@@ -20,6 +20,12 @@ build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/
 
 This example remains in manual validation mode. Its startup is not recorded as button/visual acceptance. Read the platform/setup requirements; the direct API/CSS fixture has separate measured coverage.
 
+CI passes --smoke to request a bounded run. This example exits with
+ERR_EXAMPLE_MANUAL_VALIDATION after loading its page, rather than waiting for
+button interaction. That explicit manual gate is distinct from a missing API;
+neither result counts as button/visual acceptance. Normal interactive startup
+without --smoke remains available for the manual checks.
+
 ## API connections
 
 - [nativeTheme](../api/native-theme.md)

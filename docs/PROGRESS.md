@@ -5146,6 +5146,38 @@ This runtime API addition does not establish new desktop/platform or release
 acceptance. Continue the complete specification and required platform work.
 Goal active.
 
+## 2026-11-06: Bound manual examples after the native macOS API gates pass
+
+- Standard macOS 4dc3cab run 42296377267/job 128162578490 reaches terminal failure
+  in test_electron_examples.py: dark-mode is marked manual, but the harness starts
+  it interactively without --smoke and waits until its 40-second process deadline.
+  Its nativeTheme capability now exists, so the old expectation of an unsupported
+  API error no longer stops the app. This is an example-harness failure, not a
+  successful package/release result or a reason to increase the timeout.
+- The same hosted logs establish passing actual Electron/Firefly screen, outer/
+  content geometry, nativeTheme/CSS, async clipboard, public preload and IPC
+  gates, including the prior canonical-sender correction. Preserve that scoped
+  evidence while keeping the overall package run failed and alpha unpublished.
+- Pass --smoke to non-smoke examples as well. For a partial/manual catalog entry,
+  require the existing ERR_EXAMPLE_MANUAL_VALIDATION exit; for unsupported entries,
+  still require an API/platform rejection. Label manual and blocked coverage
+  separately, without promoting either to feature acceptance or silently skipping.
+- Targeted native local verification stages all current ESM examples but runs
+  only dark-mode once with the existing compiled Firefly binary and --smoke.
+  It exits 1 with the exact manual-validation marker and no success JSON. No
+  buttons, theme changes or complete desktop suite are invoked. This is one
+  narrowly scoped GUI run after the preceding non-GUI development, not repeated
+  desktop polling. Normal interactive behavior is unchanged.
+- Source style, actionlint, upstream integrity, whitespace and 180-page site checks
+  pass. Update the catalog's coverage summary and public clipboard acceptance
+  without claiming that the failed overall package run produced an alpha.
+
+Limits: the optimized 1e044e9 candidate is still live and contains this exact old
+harness (git comparison with 4dc3cab is identical for the runner/catalog/example).
+It cannot establish a corrected end-to-end release without the new source. Build
+the corrected current candidate and require all gates before alpha promotion.
+No missing/manual feature is advertised as working. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

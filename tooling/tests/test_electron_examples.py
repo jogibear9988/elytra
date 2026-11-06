@@ -26,16 +26,26 @@ def main():
     for entry in catalog:
         if not entry["smoke"]:
             result = execute(
-                args.firefly.resolve(), args.firefly_apps.resolve() / entry["id"] / "main.mjs"
+                args.firefly.resolve(),
+                args.firefly_apps.resolve() / entry["id"] / "main.mjs",
+                extra_args=["--smoke"],
             )
-            assert result.returncode == 1 and (
-                "ERR_FIREFLY_UNSUPPORTED_API:" in result.stderr
-                or "ERR_EXAMPLE_PLATFORM:" in result.stderr
-            ), (entry["id"], result)
-            print(
-                "BLOCKED Firefly:",
+            manual = entry["firefly"] == "partial"
+            expected = (
+                ["ERR_EXAMPLE_MANUAL_VALIDATION:"]
+                if manual
+                else ["ERR_FIREFLY_UNSUPPORTED_API:", "ERR_EXAMPLE_PLATFORM:"]
+            )
+            assert result.returncode == 1 and any(code in result.stderr for code in expected), (
                 entry["id"],
-                "(explicit API/platform rejection; not feature acceptance)",
+                result,
+            )
+            print(
+                "MANUAL Firefly:" if manual else "BLOCKED Firefly:",
+                entry["id"],
+                "(explicit manual-validation gate; not feature acceptance)"
+                if manual
+                else "(explicit API/platform rejection; not feature acceptance)",
                 flush=True,
             )
             continue
