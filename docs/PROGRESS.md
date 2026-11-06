@@ -4711,6 +4711,34 @@ Limits: preserve failing Linux CI evidence until the real graph passes. Resolve
 macOS child-pipe shutdown and IPC sender-URL failures before optimized release
 publication. Goal active; no additional local desktop suite is run in this slice.
 
+## 2026-11-06: Finish disconnected child stdin without losing native write errors
+
+- Reproduce the hosted macOS release failure with an actual Python child closing
+  descriptor 0 before acknowledging readiness. Node succeeds; old Mite reports
+  shutdown ENOTCONN. Match Node 24.15 Socket finalization in owned readable ESM:
+  disconnected immediate shutdown and asynchronous completion finish stdin;
+  unrelated immediate failures retain native error metadata.
+- The new positive/negative native test exposed another actual failure: writing
+  to that closed peer killed the CLI with SIGPIPE (-13). Add an executable-owned
+  POSIX signal-policy helper and opt in at Mite CLI/Firefly startup. Mite::run
+  preserves embedder signal policy. Windows remains a no-op. Do not suppress
+  native write errors: the real closed-peer write must still report EPIPE.
+- Native Node/Mite regression passes four disconnected finishes plus preserved
+  write EPIPE. Separate clearly labeled owned-policy injection tests cover
+  ENOTCONN, async completion/cancellation and immediate EIO propagation. Existing
+  full spawn/execFile/one-MiB pressure/exit/close/kill/timeout/inheritance suites
+  pass. All 64 Release CLI CTests pass in 20.12 seconds. Mite and Firefly compile;
+  both generated builtin provenance records update reproducibly. No GUI test is
+  run for this correction. Document API, startup scope and embedder responsibility.
+- Native Linux ELF regression in bd1a39b run 42293973172/job 128154307621 has now
+  actually passed: failing PC32 control, adapted shared link, executed public API
+  and hidden dynamic internals. Full real renderer compilation is in progress;
+  this focused result does not yet prove LibWeb/media graph acceptance.
+
+Limits: fresh hosted Windows/Linux/macOS shutdown acceptance remains pending.
+The optimized macOS IPC sender-URL/history-ordering failure still needs its own
+fix and native acceptance before packaging/publication. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

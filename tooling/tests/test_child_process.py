@@ -100,6 +100,20 @@ def main():
     args = parser.parse_args()
     if not args.node:
         parser.error("Node is required")
+    fixtures = Path(__file__).resolve().parents[2] / "mite/tests/child-process"
+    for name in ["stdin-shutdown.mjs", "shutdown-policy.mjs"]:
+        results = [
+            subprocess.run(
+                [binary, str(fixtures / name), sys.executable],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            for binary in [args.node, str(Path(args.mite).resolve())]
+        ]
+        assert all(result.returncode == 0 and not result.stderr for result in results), results
+        assert results[0].stdout == results[1].stdout, results
+        print(results[1].stdout, end="", flush=True)
     with child_directory() as directory:
         root = Path(directory)
         work = root / "work é文🪲"

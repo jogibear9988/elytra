@@ -8,6 +8,7 @@
 #include "core/EventLoop.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
+#include "platform/process/SignalPolicy.h"
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
 #include <LibGC/Root.h>
@@ -135,6 +136,8 @@ private:
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+    if (!Mite::ignore_broken_pipe_signal())
+        return Error::from_string_literal("Cannot configure Firefly broken-pipe signal policy");
     if (arguments.argc < 2 || arguments.strings[1] == "--help"sv) {
         outln("Usage: firefly <main.js> [arguments...]");
         return arguments.argc < 2 ? 1 : 0;

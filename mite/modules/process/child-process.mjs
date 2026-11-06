@@ -107,15 +107,17 @@ export default function createChildProcessModule(host) {
 
     _final(callback) {
       const s = pipes.get(this);
-      if (s.child.failed) {
+      if (s.child.failed || s.closed) {
         callback();
         return;
       }
-      const status = native.shutdown(s.child.id, (status) =>
-        callback(status ? systemError(status, 'shutdown') : undefined)
-      );
+      // Node's net.Socket finalizer treats an already disconnected peer as a
+      // completed half-close. Its asynchronous shutdown completion also succeeds;
+      // write failures are reported separately by _write, never swallowed here.
+      const status = native.shutdown(s.child.id, () => callback());
       if (status) {
-        callback(systemError(status, 'shutdown'));
+        const error = systemError(status, 'shutdown');
+        callback(error.code === 'ENOTCONN' ? undefined : error);
       }
     }
 

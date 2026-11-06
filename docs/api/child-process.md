@@ -2,7 +2,8 @@
 
 Partial native process support, locally tested on macOS ARM64 in standalone Mite
 and the Firefly main process. The spawn/execFile suites also pass hosted Linux
-and native Windows x64 at 745c7af (43-suite runtime gates). Renderers do not
+and native Windows x64 at 74bce40 (64-suite runtime gates). The new disconnected
+stdin regression below is locally tested; fresh hosted acceptance is pending. Renderers do not
 receive this privileged API.
 
 ```js
@@ -47,6 +48,20 @@ Input writes own their native byte snapshots until completion; output pressure
 stops native reads. Consumers must drain or destroy large outputs to avoid blocking
 the child. Unobserved small output is drained after process exit.
 
+Ending stdin after its peer has closed succeeds without an ENOTCONN stream
+error. As in [Node 24.15 net.Socket finalization](https://github.com/nodejs/node/blob/v24.15.0/lib/net.js),
+asynchronous shutdown completion finishes the stream; other immediate shutdown
+errors remain errors. Writes to a closed peer still report EPIPE. Native tests
+coordinate an actual Python child closing stdin before the parent ends/writes;
+separate labeled fault-injection tests cover completion/error-policy boundaries.
+
+On POSIX, the Mite CLI and Firefly executable ignore SIGPIPE at startup so native
+pipe failures reach JavaScript instead of terminating the process. Mite::run does
+not change an embedder's signal dispositions. Hosts that use native pipe/socket
+writes must establish an appropriate signal policy themselves; the optional
+Mite::ignore_broken_pipe_signal helper is an executable-startup choice. This does
+not implement JavaScript process signal listeners.
+
 spawn is emitted asynchronously on success. exit reports code/signal; close waits
 for process monitoring and pipe closure. Output can continue after exit. Missing
 executables report error asynchronously with native code/errno, syscall, path and
@@ -67,7 +82,8 @@ a certified process-supervision facility.
 The Windows CLI establishes a non-inheritable policy for its inherited standard
 handles at startup. Explicit stdio:'inherit' still passes the requested streams.
 This is intended to stop an ignored-stdio descendant from accidentally keeping
-the CLI's capture pipes open; native acceptance of the startup correction is pending.
+the CLI's capture pipes open; the scoped native Windows regression passes in the
+74bce40 gate. Arbitrary process-supervision and embedding policies remain separate.
 Embedded hosts own their process-wide inheritance policy. See the
 [Windows build notes](../development/windows-build.md#cli-stdio-inheritance-and-detached-child-diagnostics)
 for scope and separate process-exit/pipe-EOF diagnostics.

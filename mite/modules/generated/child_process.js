@@ -90,16 +90,14 @@ function createChildProcessModule(host) {
     }
     _final(callback) {
       const s = pipes.get(this);
-      if (s.child.failed) {
+      if (s.child.failed || s.closed) {
         callback();
         return;
       }
-      const status = native.shutdown(
-        s.child.id,
-        (status2) => callback(status2 ? systemError(status2, "shutdown") : void 0)
-      );
+      const status = native.shutdown(s.child.id, () => callback());
       if (status) {
-        callback(systemError(status, "shutdown"));
+        const error = systemError(status, "shutdown");
+        callback(error.code === "ENOTCONN" ? void 0 : error);
       }
     }
     _destroy(error, callback) {

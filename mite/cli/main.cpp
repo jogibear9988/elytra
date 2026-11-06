@@ -4,6 +4,7 @@
  */
 
 #include "core/Runtime.h"
+#include "platform/process/SignalPolicy.h"
 #include <cstdio>
 #include <string>
 #include <utility>
@@ -72,6 +73,11 @@ int wmain(int argc, wchar_t** wide_argv)
 #else
 int main(int argc, char** argv)
 {
+    if (!Mite::ignore_broken_pipe_signal()) {
+        fputs("mite: cannot configure broken-pipe signal policy\n", stderr);
+        return 9;
+    }
+
     return Mite::run(argc, argv);
 }
 #endif
