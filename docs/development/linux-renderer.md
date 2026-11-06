@@ -109,8 +109,9 @@ needs its own native process gate; public Linux Firefly integration remains unfi
 Local macOS validation covers the same CMake layout selection and unchanged helper/
 Firefly compilation. CMake/manifest adapter tests do not prove Linux compilation
 or execution. Linux source/backend failures remain visible until the dedicated
-hosted gates actually pass. Windows helper layouts and all non-macOS Firefly
-desktop runtime targets still refuse explicitly.
+hosted gates actually pass. Windows helper layouts/runtime still refuse explicitly.
+The experimental Linux application target below now has native wiring; its actual
+end-to-end runtime acceptance remains pending.
 
 ## Native X11 window probe
 
@@ -164,7 +165,8 @@ Qt 6.11.2 selection also builds and passes all three native-service tests in
 job 128192217506. The actual imported SDK feature guard passes; this is X11
 execution, not Wayland runtime or full renderer acceptance. The added geometry
 gate still requires its separate native result.
-It is not yet linked into a public Firefly Linux runtime. The existing macOS
+The experimental Linux application target now links this native backend; its
+public end-to-end runtime acceptance is still pending. The existing macOS
 runtime keeps its AppKit provider; standalone Mite still has no GUI dependency.
 
 ClipboardX11.cpp implements the shared bounded protocol through QClipboard and
@@ -269,6 +271,76 @@ opt-in. Local macOS validation compiles all these C++ sources and executes only
 the checked arithmetic and guard, opening no windows. The service workflow must
 establish the separate positive native result; do not run its GUI probe on the
 ordinary desktop. Upstream Ladybird remains unchanged.
+
+## Experimental Mite-driven X11 application
+
+Status: **implemented integration candidate; native Linux compilation/execution
+pending its hosted gate**. This extends the source/build path beyond renderer
+probes. It does not certify Linux desktop support, Electron parity or packaging.
+
+The actual firefly target embeds the same LibJS/Mite main process and common
+BrowserWindow, preload, contextBridge and IPC implementation used by macOS. It
+selects the native X11 clipboard and Linux geometry/centering adapters, plus the
+actual upstream Linux renderer sandbox. No Node/V8/Electron runtime is substituted.
+Display metadata and native theme preferences remain unavailable: native reads
+throw ERR_FIREFLY_UNSUPPORTED_API. The themeSource getter and setters also refuse,
+including assigning the existing default; no guessed display IDs/preferences or
+empty successful values are provided. Standalone Mite keeps its separate graph.
+
+Native services are selected through one platform binding seam. macOS retains
+its AppKit/CoreGraphics implementations and owner-scoped notification teardown.
+The Linux startup guard requires explicit QT_QPA_PLATFORM=xcb and a nonempty
+DISPLAY before GUI construction; Wayland and missing-display startup refuse.
+firefly --help remains available without a display.
+
+On a prepared native Linux machine, with the pinned compiler/dependencies:
+
+```sh
+python3 tooling/build_renderer.py --build-dir build/linux-renderer \
+  --target firefly --ccache --jobs 3
+QT_QPA_PLATFORM=xcb build/linux-renderer/bin/firefly /absolute/path/to/main.mjs
+```
+
+The combined manifest retains the renderer's full upstream dependency graph,
+Qt features, baseline and overlays, adding only the existing Mite libuv/llhttp
+requirements and exact overrides. The --linux checker rejects the renderer-only,
+service-only and macOS runtime manifests. A shared input reader avoids circular
+imports or changing upstream files. Runtime helpers/resources use
+firefly-runtime/bin and firefly-runtime/share/Lagom; macOS bundle paths are retained.
+Raw Linux builds use that configured owned helper directory. They must not select
+the adjacent upstream bin/WebContent, which lacks the runtime preload session;
+native Linux packaged helper discovery remains unfinished.
+
+The renderer workflow keeps every existing headless/window/isolation gate and
+only then builds this actual application. Its dedicated Xvfb/Openbox app fixture
+serves a real HTTP document from Mite, loads a bundled ESM-authored preload,
+requires a frozen document API and absent ambient Node capabilities, exchanges
+validated IPC through the real bridge, checks native clipboard bytes, exercises
+window sizing/centering, and verifies explicit preference/display refusals.
+
+An independent Python HTTP peer reads /proc while the observed renderer remains
+live: the actual /proc executable must be the owned runtime WebContent, with a
+different PID, real parent PID, NoNewPrivs=1, Seccomp=2 and more filters than
+the privileged main process. Only a successful response permits the app to exit
+successfully. This proves observed sandbox activation, not complete containment.
+Artifacts retain native stdout/stderr, window-manager output and kernel records.
+
+```sh
+# Requires a prepared native Linux build; use a fresh isolated X server.
+python3 tooling/tests/test_linux_runtime.py \
+  --firefly build/linux-renderer/bin/firefly --check-guard
+FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a \
+  python3 tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly
+# Build/syntax-check only, without opening a GUI (fresh destination):
+python3 tooling/tests/test_linux_runtime.py --stage-only build/linux-runtime-fixture
+```
+
+Current local validation compiles the common/macOS application and the actual
+Linux service seam, runs its environment-refusal probe and stages/checks the ESM
+fixture. It opens no local windows. Linux native execution is a separate pending
+result. Public screen/nativeTheme, further OS services, Linux Electron comparison,
+distribution/signing, Wayland, physical/mixed-DPI displays and native Windows
+desktop integration remain required work. See [ADR 0093](../architecture/0093-native-linux-app-integration.md).
 
 ## Reusing compiled renderer objects
 

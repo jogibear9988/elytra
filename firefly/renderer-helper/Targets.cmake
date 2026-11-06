@@ -66,33 +66,27 @@ add_custom_target(
     USES_TERMINAL VERBATIM)
 
 if(FIREFLY_BUILD_RUNTIME)
-    if(NOT APPLE)
-        message(FATAL_ERROR "Linux renderer probes do not yet provide the Firefly desktop runtime")
-    endif()
-    set(runtime_bundle "${CMAKE_BINARY_DIR}/FireflyRuntimeHelper.app/Contents")
     add_executable(
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
-        "${LADYBIRD_SOURCE_DIR}/Services/RendererSandboxMacOS.cpp")
+        ${firefly_renderer_platform_sources})
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
     target_link_libraries(FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world
                                                            LibSandbox LibURL)
     set_target_properties(
         FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
-                                                                   "${runtime_bundle}/MacOS")
+                                                                   "${firefly_runtime_binary_dir}")
     ladybird_sign_helper_process(FireflyRuntimeWebContent)
     ladybird_check_skia_confinement(FireflyRuntimeWebContent)
     add_custom_target(
         stage-firefly-runtime-helper
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${runtime_bundle}/MacOS"
-        COMMAND
-            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
-            --source "$<TARGET_FILE_DIR:ladybird>/../Resources" --destination
-            "${runtime_bundle}/Resources"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${firefly_runtime_binary_dir}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
+                --source "${firefly_resource_source}" --destination "${firefly_runtime_resources}"
         DEPENDS FireflyRuntimeWebContent ladybird ${ladybird_helper_processes}
         VERBATIM)
     foreach(helper IN LISTS ladybird_helper_processes)
@@ -101,7 +95,7 @@ if(FIREFLY_BUILD_RUNTIME)
                 TARGET stage-firefly-runtime-helper
                 POST_BUILD
                 COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>"
-                        "${runtime_bundle}/MacOS/${helper}"
+                        "${firefly_runtime_binary_dir}/${helper}"
                 VERBATIM)
         endif()
     endforeach()

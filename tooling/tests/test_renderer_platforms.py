@@ -8,7 +8,11 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from firefly_dependencies import manifest_data as runtime_manifest
+from firefly_dependencies import (
+    manifest_data as runtime_manifest,
+    prepare as prepare_runtime,
+    check as check_runtime,
+)
 from renderer_dependencies import prepare, check
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,6 +69,26 @@ def main():
             item if isinstance(item, str) else item["name"] for item in runtime["dependencies"]
         }
         assert {"libuv", "llhttp"} <= names
+        linux_runtime = prepare_runtime(ROOT, temporary / "linux-runtime", linux=True)
+        check_runtime(ROOT, linux_runtime, linux=True)
+        combined = json.loads((linux_runtime / "vcpkg.json").read_text())
+        assert combined["dependencies"][:-2] == manifest["dependencies"]
+        assert combined["dependencies"][-2:] == ["libuv", "llhttp"]
+        assert combined["builtin-baseline"] == manifest["builtin-baseline"]
+        assert all(item in combined["overrides"] for item in manifest["overrides"])
+        assert (linux_runtime / "vcpkg-configuration.json").read_bytes() == (
+            destination / "vcpkg-configuration.json"
+        ).read_bytes()
+        mac_runtime = prepare_runtime(ROOT, temporary / "mac-runtime")
+        for wrong in [destination, services, mac_runtime]:
+            try:
+                check_runtime(ROOT, wrong, linux=True)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(
+                    "Incomplete/wrong-platform manifest accepted as the Linux runtime graph"
+                )
         manifest["builtin-baseline"] = "tampered"
         (destination / "vcpkg.json").write_text(json.dumps(manifest))
         try:
@@ -86,7 +110,7 @@ set(CMAKE_SYSTEM_NAME "{system}")
 set(CMAKE_BINARY_DIR "{temporary.as_posix()}")
 set(LADYBIRD_SOURCE_DIR "{upstream.as_posix()}")
 include("{(ROOT / "firefly/renderer-helper/Layout.cmake").as_posix()}")
-file(WRITE "{output.as_posix()}" "${{firefly_helper_binary_dir}}\n${{firefly_helper_resources}}\n${{firefly_resource_source}}\n${{firefly_renderer_platform_sources}}\n")
+file(WRITE "{output.as_posix()}" "${{firefly_helper_binary_dir}}\n${{firefly_helper_resources}}\n${{firefly_resource_source}}\n${{firefly_renderer_platform_sources}}\n${{firefly_runtime_binary_dir}}\n${{firefly_runtime_resources}}\n")
 ''')
             result = subprocess.run(
                 ["cmake", "-P", str(script)], capture_output=True, text=True, timeout=15
@@ -98,12 +122,16 @@ file(WRITE "{output.as_posix()}" "${{firefly_helper_binary_dir}}\n${{firefly_hel
                 ), result
                 continue
             assert result.returncode == 0, result
-            binary, resources, source, platform = output.read_text().splitlines()
+            binary, resources, source, platform, runtime_binary, runtime_resources = (
+                output.read_text().splitlines()
+            )
             if system == "Linux":
                 assert binary.endswith("/firefly-helper/bin") and resources.endswith(
                     "/firefly-helper/share/Lagom"
                 )
                 assert source == temporary.as_posix() + "/share/Lagom"
+                assert runtime_binary.endswith("/firefly-runtime/bin")
+                assert runtime_resources.endswith("/firefly-runtime/share/Lagom")
                 assert platform.split(";") == [
                     str(upstream / "Services/RendererSandboxLinux.cpp").replace("\\", "/"),
                     str(upstream / "Services/LeakSanitizer.cpp").replace("\\", "/"),
@@ -113,6 +141,8 @@ file(WRITE "{output.as_posix()}" "${{firefly_helper_binary_dir}}\n${{firefly_hel
                 assert resources.endswith("/FireflyHelper.app/Contents/Resources")
                 assert source == "$<TARGET_FILE_DIR:ladybird>/../Resources"
                 assert platform.endswith("/Services/RendererSandboxMacOS.cpp")
+                assert runtime_binary.endswith("/FireflyRuntimeHelper.app/Contents/MacOS")
+                assert runtime_resources.endswith("/FireflyRuntimeHelper.app/Contents/Resources")
         print(
             "PASS actual CMake Linux/macOS resource and sandbox selection; unsupported Windows refuses"
         )

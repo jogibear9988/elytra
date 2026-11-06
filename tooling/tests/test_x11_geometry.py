@@ -66,6 +66,7 @@ def wait_for(predicate, message):
 
 def exercise(probe, mode, env):
     observations = {}
+    window = None
     process = subprocess.Popen(
         [str(probe), mode],
         stdin=subprocess.PIPE,
@@ -90,6 +91,9 @@ def exercise(probe, mode, env):
             return receive()
 
         window = int(receive()["window"])
+        # Establish that the native event loop can serve an actual geometry request
+        # before waiting for the window manager's independent decoration metadata.
+        observations["startup"] = request(op="get")
         wait_for(lambda: len(property_values(window, "_NET_FRAME_EXTENTS")) == 4, "WM decorations")
         margins = property_values(window, "_NET_FRAME_EXTENTS")
         assert any(margins) if mode == "framed" else not any(margins), (mode, margins)
@@ -140,6 +144,18 @@ def exercise(probe, mode, env):
         assert process.poll() is None
     finally:
         if sys.exc_info()[0] is not None:
+            for key, command in (
+                []
+                if window is None
+                else [
+                    ("xwininfo", ["xwininfo", "-id", str(window), "-all"]),
+                    ("xprop", ["xprop", "-id", str(window)]),
+                ]
+            ):
+                try:
+                    observations[key] = query(*command)
+                except Exception as error:
+                    observations[key] = repr(error)
             print(f"Last {mode} native/owned geometry: {observations}", file=sys.stderr)
         stop(process)
         stdout, stderr = process.communicate(timeout=5)
@@ -211,6 +227,8 @@ def main():
                     exercise(probe, mode, env)
                 assert manager.poll() is None, "window manager exited during acceptance"
             finally:
+                if sys.exc_info()[0] is not None:
+                    print(f"Openbox status before cleanup: {manager.poll()}", file=sys.stderr)
                 stop(manager)
                 manager.wait(timeout=5)
                 if sys.exc_info()[0] is not None:

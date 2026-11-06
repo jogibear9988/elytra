@@ -2,27 +2,12 @@
 
 import json
 from pathlib import Path
+from upstream_dependencies import upstream_manifest_data, write_json
+from renderer_dependencies import manifest_data as renderer_manifest
 
 
-def write_json(path, value):
-    text = json.dumps(value, indent=2) + "\n"
-    if not path.is_file() or path.read_text() != text:
-        path.write_text(text)
-
-
-def upstream_manifest_data(root: Path):
-    """Read an independent upstream manifest with absolute owned-build overlay paths."""
-    upstream = root / "vendor/ladybird"
-    manifest = json.loads((upstream / "vcpkg.json").read_text())
-    configuration = json.loads((upstream / "vcpkg-configuration.json").read_text())
-    for key in ["overlay-ports", "overlay-triplets"]:
-        if key in configuration:
-            configuration[key] = [str((upstream / item).resolve()) for item in configuration[key]]
-    return {"vcpkg.json": manifest, "vcpkg-configuration.json": configuration}
-
-
-def manifest_data(root: Path):
-    files = upstream_manifest_data(root)
+def manifest_data(root: Path, linux=False):
+    files = renderer_manifest(root) if linux else upstream_manifest_data(root)
     manifest = files["vcpkg.json"]
     mite = json.loads((root / "vcpkg.json").read_text())
     if manifest["builtin-baseline"] != mite["builtin-baseline"]:
@@ -44,16 +29,16 @@ def manifest_data(root: Path):
     return files
 
 
-def prepare(root: Path, destination: Path):
-    files = manifest_data(root)
+def prepare(root: Path, destination: Path, linux=False):
+    files = manifest_data(root, linux)
     destination.mkdir(parents=True, exist_ok=True)
     for name, value in files.items():
         write_json(destination / name, value)
     return destination
 
 
-def check(root: Path, destination: Path):
-    for name, expected in manifest_data(root).items():
+def check(root: Path, destination: Path, linux=False):
+    for name, expected in manifest_data(root, linux).items():
         path = destination / name
         if not path.is_file() or json.loads(path.read_text()) != expected:
             raise ValueError(
@@ -66,6 +51,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", required=True, type=Path)
+    parser.add_argument(
+        "--linux", action="store_true", help="Require the pinned native Linux Qt graph"
+    )
     args = parser.parse_args()
-    check(Path(__file__).resolve().parents[1], args.check)
+    check(Path(__file__).resolve().parents[1], args.check, args.linux)
     print("Current browser + Mite dependency manifest verified")

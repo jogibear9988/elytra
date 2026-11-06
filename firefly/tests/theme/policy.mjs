@@ -124,4 +124,27 @@ if (process.argv[2]) {
   }
   console.log('PASS actual macOS theme snapshot through Node/Mite API factory');
 }
+native.themeAvailable = false;
+const nativeCalls = calls.length;
+for (const operation of [
+  () => nativeTheme.themeSource,
+  () => {
+    nativeTheme.themeSource = 'system';
+  },
+  () => {
+    nativeTheme.themeSource = 'light';
+  },
+  () => nativeTheme.shouldUseDarkColors,
+  () => nativeTheme.shouldUseHighContrastColors
+]) {
+  let code;
+  try {
+    operation();
+  } catch (error) {
+    code = error.code;
+  }
+  check(code === 'ERR_FIREFLY_UNSUPPORTED_API', 'unavailable native theme must refuse explicitly');
+}
+check(calls.length === nativeCalls, 'unavailable source was applied');
+console.log('PASS explicit unavailable theme getters setters and no-op source refusal');
 console.log('DONE theme policy');

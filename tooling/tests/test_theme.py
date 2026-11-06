@@ -43,7 +43,7 @@ def main():
         assert all(result.returncode == 0 and not result.stderr for result in results), results
         assert results[0].stdout == results[1].stdout, results
         lines = results[0].stdout.splitlines()
-        assert len(lines) == (5 if args.probe else 4), results
+        assert len(lines) == (6 if args.probe else 5), results
         assert lines[-1] == "DONE theme policy", results
         assert all(line.startswith("PASS ") for line in lines[:-1]), results
         print(results[1].stdout, end="")

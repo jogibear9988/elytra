@@ -3,6 +3,7 @@
  * registered before application entry and disconnected before VM teardown.
  */
 
+#include "../platform/DesktopServices.h"
 #include "ApiSource.h"
 #include "Bridge.h"
 #include "core/EventLoop.h"
@@ -27,8 +28,9 @@
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
 namespace Firefly {
-// Prefer physically adjacent helpers/resources in a packaged application. The
-// development build keeps its existing upstream bundle; no cwd/env override.
+// Prefer the packaged macOS helper layout. Linux development bin/ also contains
+// upstream WebContent, so raw Linux builds must use the configured owned runtime
+// directory until native Linux packaging/discovery is implemented.
 static ByteString runtime_directory()
 {
     auto executable = Core::System::current_executable_path();
@@ -145,6 +147,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 
     if (arguments.strings[1].starts_with('-'))
         return Error::from_string_literal("Unsupported Firefly CLI option");
+    TRY(Firefly::verify_desktop_environment());
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     auto format = QSurfaceFormat::defaultFormat();
     format.setColorSpace(QColorSpace::SRgb);

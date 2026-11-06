@@ -5251,6 +5251,67 @@ Limits: no new package, size report, Linux geometry/renderer or alpha acceptance
 is inferred. Continue those exact live/queued gates and required public native
 Linux/Windows desktop integration/distribution. Goal active.
 
+## 2026-11-07: Wire the actual Mite-driven Linux X11 application candidate
+
+- Enable the owned firefly target on native Linux with the common LibJS/Mite
+  main process, Qt BrowserWindow and validated preload/contextBridge/IPC bridge.
+  Select the actual X11 clipboard and Linux geometry/centering providers; keep
+  native Windows desktop explicitly unsupported. This is source/build integration, not
+  a claim of completed Linux runtime acceptance.
+- Introduce one desktop service installer. macOS forwards to its existing native
+  display/theme bindings and QObject-scoped watchers; Linux registers explicit
+  unsupported errors for unfinished display/preferences services. The private
+  unavailable-theme flag also rejects source reads and same-value assignments,
+  preventing a silent default/success for an absent native provider. Real
+  Node/Mite policy comparisons pass for all those refusals.
+- Generate the full Linux graph from the unchanged renderer/Qt manifest plus
+  Mite's existing libuv/llhttp pins. Extract the shared upstream input reader to
+  avoid circular imports. Actual generator/layout tests retain original pins,
+  overlays and Mac paths, and reject renderer/service/Mac manifests as the full
+  Linux runtime. Owned runtime helpers use Linux sandbox/LeakSanitizer sources
+  and firefly-runtime/bin plus share/Lagom resources.
+- Keep Linux raw-build helper lookup explicitly configured. The upstream build
+  also places an unadapted WebContent in adjacent bin/, so treating that location
+  as a packaged runtime would bypass the owned preload session. The independent
+  peer requires /proc/renderer/exe to resolve to the actual owned runtime helper.
+  Native Linux packaged discovery/distribution remains required future work.
+- Add a modern ESM-authored app/preload/document fixture and isolated Xvfb/Openbox
+  gate: real Mite HTTP assets, LibWeb document, early frozen preload API, native
+  sender URL/ownership and IPC reply, clipboard bytes, window sizing/centering and explicit
+  unfinished-service refusals. An independent HTTP peer reads the live renderer's
+  executable/PID/parent, NoNewPrivs and seccomp/filter state before authorizing
+  the app's success exit. Preserve actual logs/kernel records, including failures.
+  No JS marker substitutes for the native process check; activation alone is not
+  complete containment. Existing probe/isolation/window gates remain mandatory.
+- Local current macOS application, Linux service translation unit and environment
+  probe compile/link. The actual environment probe rejects wrong plugin/missing
+  display without GUI initialization; firefly --help and geometry opt-in guards
+  pass. Bundle/syntax-check the final ESM fixture without running a GUI. The full
+  65-test Release CLI suite passes in 22.23 seconds. Source/generated/style,
+  actionlint, upstream, whitespace and 181-page site checks pass. No local window
+  or desktop suite is opened in this step.
+
+## 2026-11-07: Preserve the actual X11 geometry failure and improve its evidence
+
+- Native-service 368bd1c run 42305462825/job 128201839164 is terminal failure:
+  five of six tests pass, but geometry-native-x11 times out waiting for the
+  framed window's _NET_FRAME_EXTENTS. This does not prove geometry failure or
+  success beyond that observation; do not label the component/runtime accepted.
+- Establish a real probe event-loop/API response before the independent WM
+  metadata wait. On failure capture full xwininfo/xprop output and Openbox's
+  pre-cleanup process status, rather than only an empty observation map. Keep
+  required native extents/frame assertions and the existing deadline; do not
+  add guessed margins, skip the gate or promote its negative guard to success.
+- Include the same actual native geometry gate before the renderer workflow's
+  large compile/runtime gates, with explicit X11 tools and fresh isolated display.
+  Positive geometry execution and root-cause diagnosis still need the next run.
+
+Limits: Linux native end-to-end compilation/execution, geometry acceptance,
+display/theme and further OS services, Linux package/signing/physical displays,
+Wayland and native Windows desktop remain unfinished. Existing corrected
+optimized macOS 57c2675 run 42306965867 remains live; no new alpha or package
+success is inferred from this integration commit. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

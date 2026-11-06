@@ -16,6 +16,9 @@ with a shared Electron lifecycle fixture. General compatibility and native
 Windows/Linux desktop validation remain work in progress. See the
 [Firefly development build](docs/development/renderer-build.md) and
 [compatibility matrix](docs/compatibility/firefly-0.1.md).
+An [experimental native Linux app build/gate](docs/development/linux-renderer.md#experimental-mite-driven-x11-application)
+now connects the Mite main process to the X11 adapters; actual end-to-end native
+acceptance and Linux distribution remain pending.
 See [implementation progress](docs/PROGRESS.md) and the
 [upstream integration decision](docs/architecture/0001-upstream-and-boundaries.md).
 

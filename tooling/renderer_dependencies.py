@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from firefly_dependencies import upstream_manifest_data, write_json
+from upstream_dependencies import upstream_manifest_data, write_json
 
 
 def manifest_data(root: Path, services=False):

@@ -47,6 +47,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.15.0'
+      - name: Pinned preload authoring tools
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
       - uses: ./.github/actions/linux-environment
         with:
           renderer: 'true'
@@ -91,6 +93,8 @@ jobs:
           build/linux-renderer/bin/firefly-clipboard-protocol-probe 2>&1 | tee build/linux-renderer-clipboard-protocol.log
           cmake --build build/linux-renderer --target firefly-x11-clipboard-probe --parallel 3 2>&1 | tee build/linux-renderer-x11-clipboard-build.log
           FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_x11_clipboard.py --probe build/linux-renderer/bin/firefly-x11-clipboard-probe 2>&1 | tee build/linux-renderer-x11-clipboard.log
+          cmake --build build/linux-renderer --target firefly-x11-geometry-probe --parallel 3 2>&1 | tee build/linux-renderer-x11-geometry-build.log
+          FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_x11_geometry.py --probe build/linux-renderer/bin/firefly-x11-geometry-probe 2>&1 | tee build/linux-renderer-x11-geometry.log
           cmake --build build/linux-renderer --target firefly-preload-probe --parallel 3 2>&1 | tee build/linux-renderer-helper-build.log
           cmake --build build/linux-renderer --target firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe --parallel 3 2>&1 | tee build/linux-renderer-probes-build.log
           cmake --build build/linux-renderer --target firefly-window-probe --parallel 3 2>&1 | tee build/linux-renderer-window-build.log
@@ -127,7 +131,27 @@ jobs:
             trap "kill $manager 2>/dev/null || true" EXIT
             python tooling/tests/test_window.py --probe build/linux-renderer/bin/firefly-window-probe
           ' 2>&1 | tee build/linux-renderer-window.log
-      - name: Record upstream integrity
+      # All probe gates above remain required; only then enable the actual Mite-driven desktop target.
+      - name: Compile experimental Mite-driven native X11 runtime
+        run: |
+          set -o pipefail
+          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly --configure-only --ccache --jobs 3 2>&1 | tee build/linux-renderer-runtime-configure.log
+          cmake --build build/linux-renderer --target firefly firefly-linux-environment-probe --parallel 3 2>&1 | tee build/linux-renderer-runtime-build.log
+          python tooling/firefly_dependencies.py --check build/linux-renderer/firefly-manifest --linux
+          ldd build/linux-renderer/bin/firefly
+          ldd build/linux-renderer/firefly-runtime/bin/WebContent
+      - name: Verify real startup guards without a display
+        run: |
+          build/linux-renderer/bin/firefly-linux-environment-probe
+          python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly --check-guard
+      - name: Actual Mite app, LibWeb/preload/IPC, clipboard and live renderer kernel state
+        env:
+          QT_QPA_PLATFORM: xcb
+          FIREFLY_TEST_ISOLATED_X11: '1'
+        run: |
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
+      - name: Record final upstream integrity
         if: always()
         run: python tooling/check_upstream.py
       - name: Record actual compiler cache statistics
@@ -158,9 +182,11 @@ jobs:
             build/linux-renderer*.log
             build/linux-renderer-artifacts
             build/linux-renderer-helper-artifacts
+            build/linux-runtime-artifacts
             build/renderer-artifacts/window.png
             build/linux-renderer/CMakeCache.txt
             build/linux-renderer/CMakeFiles/CMakeConfigureLog.yaml
             build/linux-renderer/renderer-manifest
+            build/linux-renderer/firefly-manifest
             build/vcpkg/buildtrees/**/*.log
           if-no-files-found: warn

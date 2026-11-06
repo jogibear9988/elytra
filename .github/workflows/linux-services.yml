@@ -11,6 +11,7 @@ on:
       - 'firefly/native/qt/Requirements.cmake'
       - 'tooling/renderer_dependencies.py'
       - 'tooling/firefly_dependencies.py'
+      - 'tooling/upstream_dependencies.py'
       - 'tooling/bootstrap.py'
       - 'tooling/check_upstream.py'
       - 'tooling/tests/test_x11_clipboard.py'

@@ -10,7 +10,17 @@ export default function createTheme(native, EventEmitter, error) {
     'shouldDifferentiateWithoutColor'
   ];
 
+  function requireNativeTheme() {
+    if (native.themeAvailable === false) {
+      throw error(
+        'ERR_FIREFLY_UNSUPPORTED_API',
+        'Native theme services are not implemented on this platform'
+      );
+    }
+  }
+
   function snapshot() {
+    requireNativeTheme();
     const system = JSON.parse(native.themeSnapshot());
     const dark = source === 'system' ? system.dark : source === 'dark';
     const value = {
@@ -30,9 +40,13 @@ export default function createTheme(native, EventEmitter, error) {
   Object.defineProperty(nativeTheme, 'themeSource', {
     enumerable: true,
 
-    get: () => source,
+    get() {
+      requireNativeTheme();
+      return source;
+    },
 
     set(value) {
+      requireNativeTheme();
       if (!['system', 'light', 'dark'].includes(value)) {
         throw error('ERR_INVALID_ARG_VALUE', 'themeSource must be system, light or dark');
       }

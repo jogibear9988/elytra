@@ -11,10 +11,15 @@ if(NOT firefly_upstream_check EQUAL 0)
 endif()
 cmake_language(DEFER CALL include "${FIREFLY_SOURCE_DIR}/firefly/renderer/Targets.cmake")
 
+set(firefly_runtime_dependency_args)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    list(APPEND firefly_runtime_dependency_args --linux)
+endif()
 if(FIREFLY_BUILD_RUNTIME)
     execute_process(
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py"
-                --check "${VCPKG_MANIFEST_DIR}" RESULT_VARIABLE firefly_dependencies_check)
+                --check "${VCPKG_MANIFEST_DIR}" ${firefly_runtime_dependency_args}
+        RESULT_VARIABLE firefly_dependencies_check)
     if(NOT firefly_dependencies_check EQUAL 0)
         message(
             FATAL_ERROR

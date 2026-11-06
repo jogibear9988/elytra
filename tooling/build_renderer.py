@@ -70,8 +70,10 @@ def main():
         parser.error("--shared-openssl currently requires native macOS ARM64 --target firefly")
     if args.baseline_cpu and (sys.platform != "darwin" or platform.machine() != "arm64"):
         parser.error("--baseline-cpu is currently verified only for macOS ARM64")
-    if args.target == "firefly" and sys.platform != "darwin":
-        parser.error("The full desktop runtime is currently implemented only for macOS")
+    if args.target == "firefly" and sys.platform not in ["darwin", "linux"]:
+        parser.error(
+            "The desktop runtime currently supports macOS and experimental Linux X11 builds"
+        )
     if args.target == "firefly-window-probe" and sys.platform not in ["darwin", "linux"]:
         parser.error("The native window probe is available only for macOS/Linux")
     if args.target == "firefly-preload-probe" and sys.platform not in ["darwin", "linux"]:
@@ -112,7 +114,7 @@ def main():
     ]
     command.extend(cache_options)
     if args.target == "firefly":
-        manifest = prepare(ROOT, build / "firefly-manifest")
+        manifest = prepare(ROOT, build / "firefly-manifest", linux=sys.platform == "linux")
         command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=ON"])
     elif sys.platform == "linux":
         manifest = prepare_linux_renderer(ROOT, build / "renderer-manifest")
