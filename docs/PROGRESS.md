@@ -2084,6 +2084,24 @@ unwind a zero PC; collect a bounded caller candidate before guessing a runtime f
 macOS 42125911196 remains live in the full release step. Site validation passes
 101 pages / 5248 local links/resources/fragments.
 
+## Windows zero-PC caller diagnostics (2026-11-06)
+
+Run 42134241990 at 5b612ed is terminal failure after successful compilation:
+7/38 tests pass, including real VM/realm SDK construction/deallocation and the
+fixed Git guard. The deliberate-fault control produces native symbolized frames;
+real full-Mite evaluation faults executing zero, so the old zero-PC loop emits no
+caller frames. Extend only the diagnostic probe to read one pointer-sized captured
+stack candidate safely with ReadProcessMemory, require a loaded module, label it
+as a candidate and unwind a local copied context. This is not execution recovery
+or a guessed runtime fix; an indirect tail jump may require further investigation.
+Print native access metadata and preserve the actual exception status.
+
+Move the real startup gate immediately after compilation so a known startup fault
+fails before npm/broad runtime work. Once it passes, every enabled suite still
+must run/pass. actionlint/Python checks cover orchestration; the new Windows-only
+unwind path awaits native compilation and actual trace evidence. Local tested
+size-profile app and default Linux acceptance remain separate completed evidence.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

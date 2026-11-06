@@ -68,13 +68,13 @@ jobs:
       - name: Compile Mite and native test hosts
         id: compile
         run: cmake --build build/windows --target mite --parallel 3
+      - name: Diagnose native VM startup
+        if: always() && steps.compile.outcome == 'success'
+        run: python tooling/diagnose_windows_startup.py --probe build/windows/bin/mite-startup-probe.exe --output build/windows/native-startup.log
       - name: Install locked npm test fixtures
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
       - name: Run all enabled runtime suites
         run: ctest --test-dir build/windows --output-on-failure --output-junit windows-ctest.xml
-      - name: Diagnose native VM startup
-        if: always() && steps.compile.outcome == 'success'
-        run: python tooling/diagnose_windows_startup.py --probe build/windows/bin/mite-startup-probe.exe --output build/windows/native-startup.log
       - name: Record upstream integrity after native build
         if: always()
         run: python tooling/check_upstream.py

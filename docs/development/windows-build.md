@@ -107,3 +107,18 @@ Separately, the uninitialized-submodule guard fixture attempted to delete read-o
 Git object files. Moving the fixture's .git directory out of repository discovery
 preserves the same rejection assertion and lets TemporaryDirectory own cleanup.
 Its seven tests pass locally; Windows acceptance remains pending.
+
+Run 42134241990 compiles the corrected reporter and passes seven of 38 suites,
+including the real VM/realm null-deallocation SDK probe and revised Git fixture.
+The remaining Mite startup fault is therefore narrower than basic engine creation.
+The deliberate reporter fault yields symbolized frames, while actual Mite startup
+has instruction pointer/address zero. The reporter now reads one bounded return
+candidate safely from the captured stack, requiring a loaded module, before trying
+to unwind that candidate. A tail jump can differ, so this remains a candidate until
+its call site is reviewed. Only the local unwind-context copy changes; the program
+still terminates with the actual exception status. This new path awaits native CI.
+
+The startup probe now runs immediately after compilation. A failed real evaluation
+fails the job before spending time on npm installation and broad suites; those
+suites must all run/pass once the startup gate succeeds. Diagnostic/integrity
+artifacts remain unconditional. No skipped suite is treated as successful acceptance.

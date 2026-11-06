@@ -23,6 +23,27 @@ LONG WINAPI report_exception(EXCEPTION_POINTERS* exception)
         exception->ExceptionRecord->ExceptionCode, exception->ExceptionRecord->ExceptionAddress);
     auto process = GetCurrentProcess();
     auto context = *exception->ContextRecord;
+    if (exception->ExceptionRecord->NumberParameters >= 2) {
+        fprintf(stderr, "MITE_NATIVE_ACCESS operation=%llu address=0x%llx\n",
+            static_cast<unsigned long long>(exception->ExceptionRecord->ExceptionInformation[0]),
+            static_cast<unsigned long long>(exception->ExceptionRecord->ExceptionInformation[1]));
+    }
+    if (!context.Rip) {
+        // An indirect call to zero leaves a return address at RSP. A tail jump
+        // need not, so label this as a candidate until the call site is reviewed.
+        // Read safely and require a loaded module; never dereference fault memory.
+        DWORD64 candidate = 0;
+        SIZE_T bytes_read = 0;
+        if (ReadProcessMemory(process, reinterpret_cast<void const*>(context.Rsp),
+                &candidate, sizeof(candidate), &bytes_read)
+            && bytes_read == sizeof(candidate) && candidate && SymGetModuleBase64(process, candidate)) {
+            fprintf(stderr, "MITE_NATIVE_NULL_PC_CALLER_CANDIDATE 0x%llx\n",
+                static_cast<unsigned long long>(candidate));
+            // Only this local unwind copy changes; execution is never resumed.
+            context.Rip = candidate;
+            context.Rsp += sizeof(candidate);
+        }
+    }
     STACKFRAME64 frame {};
     frame.AddrPC = { context.Rip, 0, AddrModeFlat };
     frame.AddrFrame = { context.Rbp, 0, AddrModeFlat };
