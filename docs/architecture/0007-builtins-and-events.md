@@ -28,7 +28,7 @@ receives a private host object with a stderr warning writer. Internal ESM bridge
 imports are accepted only from host-created shim records. This is not a renderer
 capability mechanism; Firefly must use a separate constrained bridge.
 
-Incomplete behavior is explicit: captureRejections=true and once AbortSignal
+At the initial checkpoint, incomplete behavior was explicit: captureRejections=true and once AbortSignal
 options reject with ERR_MITE_UNSUPPORTED_API. EventTarget, async event iterators,
 async hooks/EventEmitterAsyncResource and addAbortListener are absent. Named
 builtin exports are initial values; syncBuiltinESMExports is not implemented.
@@ -36,6 +36,16 @@ MaxListeners warnings are emitted, but currently use a microtask and a simplifie
 stderr header, without process warning events/PID/stack formatting. Warning tests
 check the diagnostic marker and listener behavior, not exact Node formatting or
 nextTick ordering. These gaps prevent a general events compatibility claim.
+
+Later implementation supersedes those initial capture/cancellation limitations:
+the trusted events factory receives private AbortSignal hooks and the existing
+process object. Cancellable once waits dispose subscriptions and owned listeners;
+an authored ESM helper observes returned listener thenables and schedules captured
+rejections on native nextTick, using the rejection symbol/error fallback contract.
+Native Node/Mite/GC fixtures establish ownership and delivery. EventTarget is now
+a separate portable global; EventTarget sources for once, async iterators,
+async_hooks and complete Node parity remain unfinished. The current
+[events contract](../api/events.md) records measured scope and differences.
 
 References: [Node events](https://nodejs.org/api/events.html),
 [Node builtin modules](https://nodejs.org/api/module.html#modulebuiltinmodules).

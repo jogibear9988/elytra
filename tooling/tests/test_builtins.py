@@ -84,6 +84,15 @@ def main():
             None,
         ),
         ("events-promise.mjs", 0, '[1,2] 0 0\nfailure 0\n["payload"]\n', None),
+        ("events-capture-error.mjs", 1, "error once\n", "capture error-handler failure"),
+        ("events-capture-unhandled.mjs", 1, "emitted\n", "unhandled captured rejection"),
+        (
+            "events-capture.mjs",
+            0,
+            '["listener","after","microtask","tick","monitor","handled"]\n'
+            "PASS capture hook, thenables, sync errors, disabled mode, defaults and validation\n",
+            None,
+        ),
         (
             "events-identity.mjs",
             0,
@@ -114,16 +123,6 @@ def main():
         if not passed:
             failures += 1
             print(f"Node: {node}\nMite: {mite}", file=sys.stderr)
-    unsupported = run(args.mite, fixtures / "events-unsupported.cjs")
-    passed = (
-        unsupported.returncode == 0
-        and unsupported.stdout == "ERR_MITE_UNSUPPORTED_API\n" * 2
-        and unsupported.stderr == ""
-    )
-    print(f"{'PASS' if passed else 'FAIL'} explicit unsupported EventEmitter modes")
-    if not passed:
-        failures += 1
-        print(unsupported, file=sys.stderr)
     identity = run(args.mite, fixtures / "process-identity.cjs")
     passed = (
         identity.returncode == 0

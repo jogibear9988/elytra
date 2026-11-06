@@ -17,8 +17,10 @@ now implements the same bounded protocol for isolated Linux CI acceptance. It is
 not yet a verified public Firefly Linux clipboard API. Actual isolated native
 X11 ownership/reader/writer acceptance passes for f05a24b in
 [run 42299888412](https://github.com/jogibear9988/elytra/actions/runs/42299888412).
-The newer Wayland-enabled Qt SDK selection and full Linux runtime integration
-still require acceptance.
+The newer Wayland-enabled Qt 6.11.2 SDK selection also passes native X11
+acceptance for 4b3a83d in
+[run 42303495733](https://github.com/jogibear9988/elytra/actions/runs/42303495733).
+Wayland runtime behavior and full Linux runtime integration remain unfinished.
 
 
 The compatibility target is the pinned

@@ -157,9 +157,13 @@ until the real dependency graph passes the subsequent gates.
 Status: experimental native component; **isolated Linux X11 acceptance passed**
 for f05a24b in [run 42299888412](https://github.com/jogibear9988/elytra/actions/runs/42299888412),
 job 128174620346. All three tests pass in 0.44 seconds, including the actual
-independent cross-process X11 reader/writer pairs. That run uses the earlier
-X11-only Qt feature selection; rerunning with the newly required Wayland-enabled
-SDK and the added geometry gate remains necessary.
+independent cross-process X11 reader/writer pairs. The corrected Wayland-enabled
+Qt 6.11.2 selection also builds and passes all three native-service tests in
+0.29 seconds for 4b3a83d in
+[run 42303495733](https://github.com/jogibear9988/elytra/actions/runs/42303495733),
+job 128192217506. The actual imported SDK feature guard passes; this is X11
+execution, not Wayland runtime or full renderer acceptance. The added geometry
+gate still requires its separate native result.
 It is not yet linked into a public Firefly Linux runtime. The existing macOS
 runtime keeps its AppKit provider; standalone Mite still has no GUI dependency.
 

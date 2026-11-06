@@ -136,8 +136,9 @@ use existing native codecs plus owned adapters; exact Node error formatting diff
 - `node:events`: EventEmitter, synchronous on/once/prepend/removal, event names/counts,
   listener hooks/limits, errorMonitor and cancellable `once(emitter, eventName, { signal })`
   Promise waits. See the [events contract](events.md) for cleanup and measured Node
-  differences. `captureRejections: true`, EventTarget sources and async event iterators
-  remain unsupported.
+  differences. Opt-in `captureRejections: true` routes rejected listener results
+  through the rejection hook/error event. EventTarget sources and async event
+  iterators remain unsupported.
 - `node:util` currently provides only TextEncoder/TextDecoder, not the general util API.
 
 ## Streams

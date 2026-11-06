@@ -5196,6 +5196,61 @@ No missing/manual feature is advertised as working. Goal active.
   No successful package, new size measurement, tag or alpha is inferred from
   starting a replacement candidate. Goal active.
 
+## 2026-11-06: Opt-in listener rejection capture on native nextTick
+
+- Implement EventEmitter captureRejections with an authored ESM helper for
+  returned Promises/thenables. Read then once, preserve its receiver and original
+  event arguments, and deliver captured failures through the existing native
+  process.nextTick queue. A custom captureRejectionSymbol method receives the
+  original error/name/arguments; otherwise emit error through errorMonitor and
+  ordinary handlers. Synchronous listener/thenable failures retain their tested
+  contracts. Disabled emitters never inspect the returned then property.
+- Disable capture while delivering the fallback error, restore the saved state
+  afterward, and leave async error-handler failures unhandled rather than
+  recursively capturing them. Actual Node/Mite subprocesses prove fatal missing
+  error handlers and async error-handler rejection; no swallowed failure or
+  weakened exit assertion is introduced.
+- Implement the validated boolean static default, saved per instance. Preserve
+  the pinned Node 24.15.0 behavior of inheriting a true default for falsey
+  constructor options, including explicit false. Reject truthy invalid options
+  and non-boolean static assignments. Remove the obsolete unsupported fixture.
+- Actual Node/Mite fixtures pass for listener/microtask/nextTick/monitor/error
+  order, once hooks, symbol events, identities, thenable getters/calls, ordinary
+  values, hostile synchronous errors, disabled mode, defaults, state restoration
+  and async monitor failure. Native forced-GC tests retain 32 pending receivers
+  and payloads, then collect all 64 targets after rejection delivery. The full
+  lifetime suite and all 65 Release CLI CTests pass (20.45 seconds).
+- Generated events embedding/manifest reproduce from the commented ESM helper.
+  Update detailed events/runtime/compatibility documentation and clarify which
+  original ADR limitations have since been implemented. Formatting, actionlint,
+  upstream integrity, whitespace and 180-page site checks pass. No local GUI test
+  or app is launched. Fresh native Linux/Windows acceptance remains required.
+
+## 2026-11-06: Positive Wayland-enabled Qt provider and retire proven stale build sources
+
+- Linux-service 4b3a83d run 42303495733/job 128192217506 is terminal success.
+  Inspect logs: actual pinned Qtbase 6.11.2 includes wayland and the imported SDK
+  feature check passes. All three native Xvfb clipboard tests pass in 0.29 seconds.
+  This verifies the corrected provider/X11 service, not Wayland runtime behavior,
+  full LibWeb rendering or the later geometry gate (368bd1c job 128201839164).
+- Reinspect terminal renderer bd1a39b job 128154307621: ExternalURLActivationToken
+  fails with missing native QWaylandApplication/private QWaylandWindow. Execute
+  both manifest generators from failed bd1a39b and live d4bf7b0 against the same
+  unmodified pin; their entire generated renderer manifests are identical and
+  both omit the required feature. Cancel live renderer 42300216473 for that
+  proven configuration defect. Its compile step is confirmed cancelled and
+  completed-dependency preservation remains live; corrected queued sources can
+  now use the fixed provider and required native gates.
+- Also confirm active default macOS 368bd1c run 42305462916 has the identical
+  failing example-runner blob as terminal failed 4dc3cab. Request cancellation
+  rather than repeat that known manual-app timeout. The corrected optimized
+  57c2675 run 42306965867 remains live and is preserved. These cancellations follow
+  demonstrated source defects, not missing live logs or observation timeouts.
+
+Limits: no new package, size report, Linux geometry/renderer or alpha acceptance
+is inferred. Continue those exact live/queued gates and required public native
+Linux/Windows desktop integration/distribution. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

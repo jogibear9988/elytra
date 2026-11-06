@@ -1,6 +1,43 @@
 /* Generated from mite/modules/core/events.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// mite/modules/core/event-rejections.mjs
+function createRejectionObserver(capture, rejectionSymbol, schedule) {
+  const apply = Reflect.apply;
+  function deliver(emitter, error, type, args) {
+    const handler = emitter[rejectionSymbol];
+    if (typeof handler === "function") {
+      apply(handler, emitter, [error, type, ...args]);
+      return;
+    }
+    const previous = emitter[capture];
+    emitter[capture] = false;
+    try {
+      emitter.emit("error", error);
+    } finally {
+      emitter[capture] = previous;
+    }
+  }
+  return function observe(emitter, result, type, args) {
+    if (!emitter[capture] || result === void 0 || result === null) {
+      return;
+    }
+    try {
+      const then = result.then;
+      if (typeof then === "function") {
+        apply(then, result, [
+          void 0,
+          (error) => {
+            schedule(() => deliver(emitter, error, type, args));
+          }
+        ]);
+      }
+    } catch (error) {
+      emitter.emit("error", error);
+    }
+  };
+}
+
 // mite/modules/core/events.mjs
 function createEventsModule(host) {
   const apply = Reflect.apply;
@@ -11,6 +48,11 @@ function createEventsModule(host) {
   const captureRejectionSymbol = Symbol.for("nodejs.rejection");
   const capturedError = Error;
   const capture = Symbol("capture");
+  const observeRejection = createRejectionObserver(
+    capture,
+    captureRejectionSymbol,
+    (callback) => host.process.nextTick(callback)
+  );
   let defaultMaxListeners = 10;
   function failure(Type, code, message) {
     const error = new Type(message);
@@ -31,28 +73,21 @@ function createEventsModule(host) {
     }
   }
   function init(target, options) {
-    if (options && options.captureRejections !== void 0) {
-      if (typeof options.captureRejections !== "boolean") {
-        throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "captureRejections must be boolean");
-      }
-      if (options.captureRejections) {
-        throw failure(
-          capturedError,
-          "ERR_MITE_UNSUPPORTED_API",
-          "EventEmitter captureRejections is not implemented yet"
-        );
-      }
+    const enabled = options?.captureRejections;
+    if (enabled && typeof enabled !== "boolean") {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "captureRejections must be boolean");
     }
     if (!hasOwn(target, "_events") || target._events === void 0) {
       target._events = /* @__PURE__ */ Object.create(null);
       target._eventsCount = 0;
     }
     target._maxListeners = target._maxListeners;
-    target[capture] = false;
+    target[capture] = enabled || EventEmitter.prototype[capture];
   }
   function EventEmitter(options) {
     init(this, options);
   }
+  EventEmitter.prototype[capture] = false;
   function events(target) {
     if (!hasOwn(target, "_events") || target._events === void 0) {
       init(target);
@@ -118,9 +153,7 @@ function createEventsModule(host) {
     const map = events(this);
     if (type === "error") {
       if (map[errorMonitor]) {
-        for (const listener of slice(map[errorMonitor])) {
-          apply(listener, this, args);
-        }
+        this.emit(errorMonitor, ...args);
       }
       if (!map.error || map.error.length === 0) {
         if (args[0] instanceof capturedError) {
@@ -140,7 +173,8 @@ function createEventsModule(host) {
       return false;
     }
     for (const listener of slice(list)) {
-      apply(listener, this, args);
+      const result = apply(listener, this, args);
+      observeRejection(this, result, type, args);
     }
     return true;
   };
@@ -224,19 +258,13 @@ function createEventsModule(host) {
   Object.defineProperty(EventEmitter, "captureRejections", {
     enumerable: true,
     get() {
-      return false;
+      return EventEmitter.prototype[capture];
     },
     set(value) {
       if (typeof value !== "boolean") {
         throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "captureRejections must be boolean");
       }
-      if (value) {
-        throw failure(
-          capturedError,
-          "ERR_MITE_UNSUPPORTED_API",
-          "EventEmitter captureRejections is not implemented yet"
-        );
-      }
+      EventEmitter.prototype[capture] = value;
     }
   });
   EventEmitter.EventEmitter = EventEmitter;

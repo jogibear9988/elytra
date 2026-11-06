@@ -3,9 +3,9 @@
 Synchronous EventEmitter dispatch and a cancellable Promise for the next event.
 This module runs in standalone Mite and the Firefly main process, without LibWeb.
 
-Status: partial implementation. Existing emitter behavior and the new once signal
-consumer pass actual local macOS Node/Mite comparisons. Fresh Linux/Windows
-acceptance of this cancellation addition remains pending. The behavioral reference
+Status: partial implementation. Emitter behavior, the once signal consumer and
+opt-in listener rejection capture pass actual local macOS Node/Mite comparisons.
+Fresh Linux/Windows acceptance of these additions remains pending. The behavioral reference
 is [Node 24.15.0 events](https://nodejs.org/download/release/v24.15.0/docs/api/events.html).
 
 ```js
@@ -24,8 +24,8 @@ console.log(status);
 `events` and `node:events` refer to the same builtin instance. The default export
 is EventEmitter; the named EventEmitter export is that same constructor. Legacy
 CommonJS consumers can require the same instance. Symbols errorMonitor and
-captureRejectionSymbol are exported, but captureRejections:true remains explicitly
-unsupported. The default captureRejections setting is false.
+captureRejectionSymbol are exported. The default captureRejections setting is false;
+pass `{ captureRejections: true }` to observe rejected listener results.
 
 `new EventEmitter([options])` creates independent listener state. Function-style
 initialization with an explicit receiver is supported. Default maximum listeners
@@ -63,8 +63,44 @@ Node EventTarget inspection/limit API.
 Emitting error without an error listener throws. Error instances retain their
 identity; other payloads produce ERR_UNHANDLED_ERROR with context. errorMonitor
 observers run before ordinary error listeners and do not consume an unhandled
-error. Promise-returning listeners are not automatically observed: captureRejections
-remains unavailable, so callers must handle asynchronous listener failures.
+error. By default rejected listener results are not observed. Enable rejection
+capture explicitly, or handle asynchronous listener failures in the listener.
+
+## Asynchronous listener rejections
+
+```js
+import { EventEmitter } from 'node:events';
+
+const emitter = new EventEmitter({ captureRejections: true });
+emitter.on('error', (error) => console.error(error.message));
+emitter.on('work', async () => { throw new Error('Work failed'); });
+emitter.emit('work');
+```
+
+Capture observes returned Promises and thenables. It reads then once, calls a
+callable then with its original receiver, and queues rejection delivery through
+the existing native process.nextTick queue. Ordinary return values are ignored.
+Fulfillment does not emit another event. A throwing then getter or then call emits
+error synchronously; synchronous listener exceptions still propagate from emit.
+
+If the emitter has a callable `[captureRejectionSymbol]` method, it receives
+`(reason, eventName, ...originalArgs)` with the emitter as this. Otherwise the
+same reason is emitted as error; errorMonitor still runs first. Missing error
+handlers remain fatal. Capture is disabled while delivering that fallback error
+and restored afterward, preventing recursive capture of an async error handler.
+A rejected result from that handler remains unhandled; error handlers and custom
+rejection hooks must handle their own asynchronous failures.
+
+`EventEmitter.captureRejections = boolean` changes the constructor default for
+future instances. Existing instances retain their saved setting. The Node 24
+reference inherits that default for falsey constructor values, including an
+explicit false; this implementation preserves that measured behavior. Truthy
+non-boolean constructor values and non-boolean static assignments throw
+ERR_INVALID_ARG_TYPE. Prefer explicit true on the emitter needing capture.
+
+Native forced-GC comparisons verify that pending results retain their receiver
+and argument values until rejection delivery, then release them. This is scoped
+EventEmitter behavior, not async_hooks context propagation.
 
 ## once(emitter, name[, options])
 
@@ -102,7 +138,7 @@ stopImmediatePropagation. Each difference has an explicit Node/Mite fixture.
 
 ## Remaining scope
 
-Async event iterators, EventEmitterAsyncResource/async_hooks, captureRejections,
+Async event iterators, EventEmitterAsyncResource/async_hooks,
 EventTarget sources for once and complete Node warning/stack/descriptor parity
 remain unfinished. General npm or Electron event compatibility is not implied by
 these bounded comparisons.

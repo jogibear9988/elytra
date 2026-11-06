@@ -5,6 +5,8 @@
  * Native dependencies are supplied by the embedding loader. One factory call
  * constructs the shared builtin instance for one runtime/realm.
  */
+import createRejectionObserver from './event-rejections.mjs';
+
 export default function createEventsModule(host) {
   const apply = Reflect.apply;
   const ownKeys = Reflect.ownKeys;
@@ -14,6 +16,9 @@ export default function createEventsModule(host) {
   const captureRejectionSymbol = Symbol.for('nodejs.rejection');
   const capturedError = Error;
   const capture = Symbol('capture');
+  const observeRejection = createRejectionObserver(capture, captureRejectionSymbol, (callback) =>
+    host.process.nextTick(callback)
+  );
   let defaultMaxListeners = 10;
 
   function failure(Type, code, message) {
@@ -38,30 +43,24 @@ export default function createEventsModule(host) {
   }
 
   function init(target, options) {
-    if (options && options.captureRejections !== undefined) {
-      if (typeof options.captureRejections !== 'boolean') {
-        throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'captureRejections must be boolean');
-      }
-      if (options.captureRejections) {
-        throw failure(
-          capturedError,
-          'ERR_MITE_UNSUPPORTED_API',
-          'EventEmitter captureRejections is not implemented yet'
-        );
-      }
+    const enabled = options?.captureRejections;
+    if (enabled && typeof enabled !== 'boolean') {
+      throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'captureRejections must be boolean');
     }
     if (!hasOwn(target, '_events') || target._events === undefined) {
       target._events = Object.create(null);
       target._eventsCount = 0;
     }
     target._maxListeners = target._maxListeners;
-    target[capture] = false;
+    target[capture] = enabled || EventEmitter.prototype[capture];
   }
 
   /** Callable Node-compatible construction; listener state belongs to each emitter. */
   function EventEmitter(options) {
     init(this, options);
   }
+
+  EventEmitter.prototype[capture] = false;
 
   function events(target) {
     if (!hasOwn(target, '_events') || target._events === undefined) {
@@ -141,9 +140,7 @@ export default function createEventsModule(host) {
     const map = events(this);
     if (type === 'error') {
       if (map[errorMonitor]) {
-        for (const listener of slice(map[errorMonitor])) {
-          apply(listener, this, args);
-        }
+        this.emit(errorMonitor, ...args);
       }
       if (!map.error || map.error.length === 0) {
         if (args[0] instanceof capturedError) {
@@ -163,7 +160,8 @@ export default function createEventsModule(host) {
       return false;
     }
     for (const listener of slice(list)) {
-      apply(listener, this, args);
+      const result = apply(listener, this, args);
+      observeRejection(this, result, type, args);
     }
     return true;
   };
@@ -262,20 +260,14 @@ export default function createEventsModule(host) {
     enumerable: true,
 
     get() {
-      return false;
+      return EventEmitter.prototype[capture];
     },
 
     set(value) {
       if (typeof value !== 'boolean') {
         throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'captureRejections must be boolean');
       }
-      if (value) {
-        throw failure(
-          capturedError,
-          'ERR_MITE_UNSUPPORTED_API',
-          'EventEmitter captureRejections is not implemented yet'
-        );
-      }
+      EventEmitter.prototype[capture] = value;
     }
   });
   EventEmitter.EventEmitter = EventEmitter;
