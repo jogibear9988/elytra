@@ -4873,6 +4873,26 @@ remain pending. Current live jobs are preserved. Next resolve observed platform
 failures and finish remaining Linux/Windows native desktop/distribution services.
 Goal active; no local desktop suite is launched in this slice.
 
+## 2026-11-06: Make the independent child-stdin acknowledgement portable bytes
+
+- Hosted native Windows 186feef run 42294694385/job 128161062260 is terminal
+  failure in the new shutdown fixture. Both actual Node and Mite report the same
+  Python stdout CLOSED\r\n against the fixture's CLOSED\n byte contract. This
+  is a platform-specific fixture error, not evidence of a Mite/Node difference.
+- Have the independent Python peer write/flush sys.stdout.buffer explicitly.
+  Keep the parent-side byte/ordering assertions intact rather than normalizing
+  native pipe output or suppressing errors. No runtime API/implementation changes.
+- The actual Node/Mite child-process runner now passes native peer shutdown,
+  preserved EPIPE writes, owned-policy injected failures and existing complete
+  spawn/execFile/pressure/lifetime/inheritance workflows locally
+  (child-shutdown-binary-ack.log). Source style and whitespace checks pass;
+  fresh hosted Windows acceptance is required before calling that gate green.
+
+Limits: Windows may reveal further native differences after reaching the later
+write branch; preserve them as failures until actually understood. Independent
+Linux OS-service job 42298304152/job 128169184405 is now live, while the existing
+full Linux renderer/macOS package jobs remain active. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

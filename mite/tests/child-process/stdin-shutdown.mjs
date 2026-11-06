@@ -8,9 +8,13 @@ if (!python) {
 }
 
 for (const write of [false, false, false, false, true]) {
+  // The acknowledgement is bytes, bypassing Python's Windows text newline conversion.
   const child = spawn(
     python,
-    ['-c', "import os,time;os.close(0);print('CLOSED',flush=True);time.sleep(0.15)"],
+    [
+      '-c',
+      "import os,sys,time;os.close(0);sys.stdout.buffer.write(b'CLOSED\\n');sys.stdout.buffer.flush();time.sleep(0.15)"
+    ],
     { stdio: ['pipe', 'pipe', 'ignore'] }
   );
   const closed = once(child, 'close');
