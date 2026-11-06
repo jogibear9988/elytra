@@ -4142,6 +4142,29 @@ IPC/services, native Windows/Linux backend/distribution/security requirements;
 the full product specification is not complete. Overall goal stays active and
 local GUI acceptance remains infrequent/batched.
 
+## Explicit runtime identity in Fetch acceptance (2026-11-06)
+
+Hosted Windows run 42226281625 / job 127920555770 reaches and passes the shared
+Fetch object/HTTP workflows, then fails in the test harness: Path(binary).name is
+node.exe, not node, so a Node reference request using gzip is incorrectly checked
+against Mite's identity-only compression policy. Fifty-five other suites pass;
+this is not evidence of a native Fetch implementation failure or full Windows
+acceptance. The following TLS/policy checks had not yet run in that failed gate.
+
+Replace executable-basename inference with an explicit native-runtime argument in
+the diagnostic comparison. Keep all normal output and protocol assertions intact.
+A real Node invocation through build/reference-node.exe now passes the Fetch gate
+locally alongside Mite (fetch-windows-name-regression.log), exercising the filename
+case independently of the host OS. Validation used the current working runtime;
+Blob/File/FormData work remains separate and uncommitted. This commit retains the
+previous revision's 11 unsupported-policy assertions; their upcoming data-API
+changes are staged with that feature instead.
+
+The previous Fetch commit's Linux/style/Pages are green. Its optimized macOS
+run 42226301275 / job 127927667217 is authoritatively in progress in Release
+compile/test/package; preserve it. Fresh hosted Windows acceptance is still
+required after this harness correction. No local GUI tests are launched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

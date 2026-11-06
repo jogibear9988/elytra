@@ -150,7 +150,7 @@ class Handler(BaseHTTPRequestHandler):
     do_PUT = handle_request
 
 
-def network(binary, differences=False):
+def network(binary, differences=False, *, native=False):
     with Peer() as first, Peer() as second:
         threads = [
             threading.Thread(target=peer.serve_forever, kwargs={"poll_interval": 0.05})
@@ -202,7 +202,7 @@ def network(binary, differences=False):
                     and example.stdout == "status 200\nbytes 18\n"
                 ), example
             if differences:
-                if Path(binary).name != "node":
+                if native:
                     assert first.compression_request == "identity", first.compression_request
             return result.stdout
         finally:
@@ -289,7 +289,10 @@ def main():
     assert outputs[1].endswith("DONE Fetch network\n"), outputs
     print(outputs[1], end="")
     print("PASS runnable modern ESM Fetch example under Node and Mite")
-    outputs = [network(binary, differences=True) for binary in [args.node, args.mite]]
+    outputs = [
+        network(args.node, differences=True),
+        network(args.mite, differences=True, native=True),
+    ]
     assert (
         outputs[0]
         == "compression decoded compressed\nsuppressed public event pending\nearly upload cancelled false\nDONE Fetch differences\n"
