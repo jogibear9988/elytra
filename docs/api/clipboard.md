@@ -9,6 +9,12 @@ the hosted desktop suite and is pending execution. Native Windows/Linux desktop
 adapters remain unfinished. This API is not exported by standalone Mite,
 preloads, contextBridge or document JavaScript.
 
+An [experimental native X11 component](../development/linux-renderer.md#native-x11-clipboard-service)
+now implements the same bounded protocol for isolated Linux CI acceptance. It is
+not yet a verified public Firefly Linux clipboard API; native execution and full
+Linux runtime integration remain pending.
+
+
 The compatibility target is the pinned
 [Electron 45.2.3 clipboard API](https://github.com/electron/electron/blob/v45.2.3/docs/api/clipboard.md)
 and [ClipboardItem](https://github.com/electron/electron/blob/v45.2.3/docs/api/clipboard-item.md).

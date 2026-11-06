@@ -4812,6 +4812,38 @@ Goal active; no local GUI suite is run in this slice.
 Limits: the original pending run retains its old group until GitHub schedules it.
 Native Linux renderer and macOS release results remain pending; goal active.
 
+## 2026-11-06: Native X11 clipboard provider and isolated cross-process acceptance gate
+
+- Implement ClipboardX11.cpp using actual Qt xcb clipboard ownership, byte MIME
+  records and the shared preparation rules. Require the native GUI application
+  thread and verify write ownership; other backends refuse explicitly. Keep the
+  existing AppKit runtime and independent standalone Mite graph unchanged.
+- Read supported text/HTML/RTF, distinguish X11 transport metadata from content,
+  reject unknown content and track provider lifetime/dataChanged during native
+  transfers. The pinned Qt XCB implementation maps text aliases to text/plain.
+  Document ownership/event-loop requirements and Qt's empty-transfer/error limits;
+  do not claim Wayland/PRIMARY/Windows or hostile-provider containment acceptance.
+- Add a native probe that refuses before GUI initialization without an explicit
+  isolated-X11 opt-in. Its actual OS peers bypass the owned backend on one side:
+  owned writer/independent reader, independent writer/owned reader and external
+  unknown-format refusal. Require Unicode/NUL/HTML/RTF bytes, metadata, live owner,
+  failed-write preservation and clear. The Python harness runs only on Linux xcb
+  with DISPLAY/explicit isolation, bounds deadlines and kills owner process groups.
+- Add this small native target/gate under a dedicated Xvfb server immediately
+  after Linux configuration, before the full renderer build. No missing-binary,
+  offscreen, mock or silent-skip fallback is used. Public Linux Firefly linkage
+  remains unfinished; implementing the native component is not a support claim.
+- Local C++ adapter/probe compile succeeds (x11-clipboard-macos-build.log). Actual
+  guard check exits 77 before QGuiApplication; no local GUI/clipboard access.
+  Shared protocol and actual private AppKit probes still pass byte fidelity,
+  preparation refusal/provider/clear cases. Native Linux provider execution is
+  pending hosted CI. Source style, actionlint, upstream and whitespace gates pass.
+
+Limits: next observe the real X11 CI gate and integrate remaining Linux screen,
+theme, window/runtime/preload services before public Linux packaging. Existing
+Linux renderer and macOS release jobs remain live; no alpha result is claimed.
+Goal active; local desktop suites remain infrequent and targeted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

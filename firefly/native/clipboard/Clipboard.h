@@ -1,4 +1,4 @@
-/** Bounded macOS clipboard protocol; the probe uses an isolated named pasteboard. */
+/** Bounded native clipboard request protocol; platform providers never retain VM objects. */
 #pragma once
 #include <QJsonObject>
 

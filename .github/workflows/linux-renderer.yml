@@ -73,6 +73,8 @@ jobs:
           python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-preload-probe --configure-only --jobs 3 2>&1 | tee build/linux-renderer-build.log
           cmake --build build/linux-renderer --target firefly-clipboard-protocol-probe --parallel 3 2>&1 | tee build/linux-renderer-clipboard-build.log
           build/linux-renderer/bin/firefly-clipboard-protocol-probe 2>&1 | tee build/linux-renderer-clipboard-protocol.log
+          cmake --build build/linux-renderer --target firefly-x11-clipboard-probe --parallel 3 2>&1 | tee build/linux-renderer-x11-clipboard-build.log
+          FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_x11_clipboard.py --probe build/linux-renderer/bin/firefly-x11-clipboard-probe 2>&1 | tee build/linux-renderer-x11-clipboard.log
           cmake --build build/linux-renderer --target firefly-preload-probe --parallel 3 2>&1 | tee build/linux-renderer-helper-build.log
           cmake --build build/linux-renderer --target firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe --parallel 3 2>&1 | tee build/linux-renderer-probes-build.log
           cmake --build build/linux-renderer --target firefly-window-probe --parallel 3 2>&1 | tee build/linux-renderer-window-build.log

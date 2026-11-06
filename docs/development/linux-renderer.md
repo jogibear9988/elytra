@@ -89,8 +89,8 @@ with the real macOS backend. Its standalone native probe validates owned byte
 copies, item/representation shapes, supported MIME types, canonical Base64 and
 aggregate limits without creating a window or accessing any OS clipboard. The
 Linux workflow builds/runs that small target immediately after configuration.
-This establishes parser portability only; a native Linux clipboard service and
-public Linux Firefly integration remain separate unfinished work.
+This establishes parser portability only. The experimental X11 provider below
+needs its own native process gate; public Linux Firefly integration remains unfinished.
 
 Local macOS validation covers the same CMake layout selection and unchanged helper/
 Firefly compilation. CMake/manifest adapter tests do not prove Linux compilation
@@ -137,3 +137,42 @@ must succeed, its public API must execute and readelf must confirm that private
 archive symbols are absent from dynamic exports. This fixture is not FFmpeg
 media-decoding acceptance. Full native renderer linkage/execution remains pending
 until the real dependency graph passes the subsequent gates.
+
+## Native X11 clipboard service
+
+Status: implemented experimental native component; **Linux execution pending CI**.
+It is not yet linked into a public Firefly Linux runtime. The existing macOS
+runtime keeps its AppKit provider; standalone Mite still has no GUI dependency.
+
+ClipboardX11.cpp implements the shared bounded protocol through QClipboard and
+QMimeData on the native xcb application thread. Prepared text/plain, text/html
+and text/rtf byte snapshots acquire X11 clipboard ownership only after validation.
+Reads reject unknown content formats and changed providers instead of knowingly
+returning a mixed/partial item. The X11 transfer targets TARGETS, MULTIPLE,
+TIMESTAMP and SAVE_TARGETS are protocol metadata, not returned content. The pinned
+Qt implementation canonicalizes STRING/UTF8_STRING/TEXT to text/plain.
+
+The adapter requires a running native Qt GUI event loop. Under X11 the owner
+serves selection requests and must stay alive; see the
+[Qt clipboard documentation](https://doc.qt.io/qt-6/qclipboard.html).
+There is no persisted clipboard guarantee after owner exit. External providers
+may allocate/block during transfer; eight-MiB checks do not impose a total OS/
+process memory cap. Qt can represent a failed transfer as empty data; complete
+provider-error parity is not claimed. Wayland, PRIMARY selection and Windows
+clipboard integration remain separate unfinished work.
+
+The workflow builds firefly-x11-clipboard-probe immediately after configuration,
+before the large LibWeb graph, and runs tooling/tests/test_x11_clipboard.py under
+its own Xvfb server. The probe refuses before QGuiApplication construction unless
+FIREFLY_TEST_ISOLATED_X11=1; the harness also requires Linux, DISPLAY and xcb.
+Do not run it on your ordinary desktop: it intentionally replaces that X server's
+clipboard. No such probe is run against the local macOS desktop.
+
+Three actual owner/consumer pairs check an owned write with an independent Qt
+reader, an independent Qt writer with owned reads, and unknown external content
+refusal while plain text remains readable. Unicode, embedded NUL, HTML/RTF raw
+bytes, MIME metadata, live ownership, invalid-write preservation and clear are
+required. The independent roles bypass the Firefly wire/backend on their side.
+Each owner runs its native event loop; the harness kills its process group and
+waits for teardown. No offscreen backend, mocked clipboard or silent skip can
+satisfy this native gate. Compile/guard acceptance on macOS is not Linux acceptance.
