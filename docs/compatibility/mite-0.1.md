@@ -15,7 +15,7 @@ additional unmeasured platform coverage remains open.
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
 | `console.log`, `console.error` | partial | String conversion, space joining and immediate line flush (including pipes); raw LF/CRLF/NUL/SUB/UTF-8 byte checks. Windows CLI binary-output correction passes native CI; no Node object inspection or format substitutions |
-| `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals and hrtime absent |
+| `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested. Monotonic hrtime tuple/BigInt, runtime uptime and native process CPU microseconds pass local Node/GC/npm comparisons; fresh hosted acceptance pending. Lifecycle events, stdio streams, signals and broader reports absent. [Contract](../api/process.md) |
 | Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
 | Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; nextTick runs in a separate priority FIFO; no rejection events |

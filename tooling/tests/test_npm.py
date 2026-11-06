@@ -40,6 +40,7 @@ def main():
         ):
             parser.error(f"{location} is missing its upstream license notice. Run: {INSTALL}")
     cases = [
+        ("time-span.mjs", "span true true true true true 5\n"),
         ("once.cjs", "1 true 42 preserved\n5\nError true\n"),
         ("once-exports.cjs", "strict\nundefined\nTypeError\n"),
         ("escape.mjs", "true true\nTypeError Expected a string\nCJS imported by ESM\n"),

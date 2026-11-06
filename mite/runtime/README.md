@@ -10,7 +10,7 @@ small native hosts. The directories separate those layers by responsibility.
 | core | VM/realm lifetime, event-loop dispatch, asynchronous ownership and embedding hooks |
 | modules | ESM/CommonJS resolution, package rules, builtin caches and trusted host-module registration |
 | bootstrap | Initial global installation and its embedded-source template |
-| platform/process | Process identity/environment, subprocesses, pipes and termination |
+| platform/process | Process identity/environment, monotonic clocks/CPU usage, subprocesses, pipes and termination |
 | platform/filesystem | Filesystem operations, descriptors and native result/error conversion |
 | platform/network | TCP, DNS and HTTP parsing/transport |
 | platform/crypto | OS entropy and OpenSSL hash/HMAC/equality state |

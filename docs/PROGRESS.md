@@ -4556,6 +4556,56 @@ Windows/Linux desktop acceptance remain open. Continue hosted IPC/release and
 broader runtime, platform/distribution/security requirements. Goal active; keep
 local UI checks occasional and targeted/batched.
 
+## 2026-11-06: Native process clocks, CPU accounting and real timing npm workflow
+
+- Add owned, commented process-timing ESM beside the process initializer and
+  native platform/process/Timing.cpp. Global/CJS/named-ESM process exports share
+  hrtime, hrtime.bigint, uptime and cpuUsage. Native samples retain no JS state,
+  asynchronous request or event-loop handle; Mite gains no GUI/Firefly/LibWeb
+  dependency and Ladybird remains unmodified at the synchronized pin.
+- uv_hrtime returns exact second/remainder samples; reconstruct BigInt without
+  rounding a u64 nanosecond total through Number. Legacy tuple differences retain
+  borrow/coercion semantics. Native steady-clock uptime starts once at runtime
+  load, not per realm; document late-loaded embedder lifetime separately from
+  earlier host process lifetime. uv_getrusage provides process-wide user/system
+  microseconds, validation/differences and native failure metadata.
+- Actual Node/Mite native tests cover identities, normalized samples bracketed
+  by BigInt samples, timer advancement, fractional uptime, Date.now replacement,
+  actual CPU work/counters, unclamped differences and ordinary validation/getter
+  contracts. Actual Node --expose-gc and the non-GUI embedded host retain samples
+  across collection. Separate labeled owned-policy fixtures cover u64 maximum,
+  second borrow, native fractions and failure propagation; no fake OS probe claim.
+- Lock actual time-span 5.1.0 and convert-hrtime 5.0.0 with integrity records and
+  preserved installed MIT notices. Published ESM source runs unchanged through
+  ordinary npm resolution. A counting wrapper delegates all five clock calls to
+  the original native hrtime.bigint. All eleven real-package application fixtures
+  pass against actual Node/Mite; full upstream package suites remain unmeasured.
+- Add modern ESM process-metrics example; actual Node/Mite reports have an
+  independently computed Python SHA-256 result and valid timing/CPU records.
+  Add detailed process API, ADR 0090, source map, compatibility rows and site
+  navigation; correct the stale claim that child_process/streams are absent.
+- Standalone Release Mite and Firefly compile (process-timing-build.log and
+  process-timing-firefly-build.log). All 63 CTests pass in 20.34 seconds with three
+  workers (process-timing-ctest.log). Existing local OpenSSL deployment-target
+  warnings persist; no older-macOS support claim. No local GUI app/suite is run.
+- Source style passes 117 Python, 542 JS/web/config, 158 native and 14 CMake
+  sources plus Rust. Both generators, runtime/Firefly/upstream integrity,
+  actionlint and whitespace gates pass. Site validates 176 pages / 11945 links
+  before this entry; regenerate/check final progress links before commit.
+- Old optimized macOS da00ed4 run 42239251129/job 127966455150 is now terminal
+  failure: native compilation and screen probe passed, but Electron screen.mjs
+  timed out after 40 seconds during top-level-await ready bootstrap. The shared
+  ESM callback/static-import correction already shipped in cb180a9; this older
+  source did not contain it. Packaging/upload was not reached. Newer optimized
+  run 42248311164/job 128002407659 is authoritatively queued; preserve it, rather
+  than restarting the completed old source or claiming a new alpha.
+
+Limits: new native Windows/Linux timing acceptance, physical long-uptime/provider
+failure, late-loaded/repeated embedding and full proxy/reentrant/error-message
+behavior remain open. Process events, stdio/signals, thread/memory/resource APIs
+and perf_hooks still need work. Continue newer hosted desktop/release acceptance
+and remaining runtime/platform/distribution/security requirements. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

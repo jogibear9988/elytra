@@ -143,6 +143,7 @@ const groups = [
       ['docs/api/index', 'API overview'],
       ['docs/api/cli', 'Mite CLI'],
       ['docs/api/mite', 'Mite runtime'],
+      ['docs/api/process', 'process'],
       ['docs/api/crypto', 'node:crypto'],
       ['docs/api/net', 'node:net'],
       ['docs/api/tls', 'node:tls'],

@@ -5,6 +5,8 @@
  * Native dependencies are supplied by the embedding loader. One factory call
  * constructs the shared builtin instance for one runtime/realm.
  */
+import installProcessTiming from './process-timing.mjs';
+
 export default function installProcessModule(host, process) {
   const own = Function.call.bind(Object.prototype.hasOwnProperty);
 
@@ -117,5 +119,6 @@ export default function installProcessModule(host, process) {
     host.exit(process.exitCode === undefined ? 0 : process.exitCode);
   };
 
+  installProcessTiming(host, process, invalid);
   return process;
 }

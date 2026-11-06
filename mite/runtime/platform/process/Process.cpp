@@ -6,6 +6,7 @@
 #include "BuiltinSources.h"
 #include "UpstreamVersion.h"
 #include "platform/process/ProcessHost.h"
+#include "platform/process/Timing.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -170,6 +171,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
     process->define_direct_property("release"_utf16, release, constant);
 
     GC::Root host { JS::Object::create(realm, nullptr) };
+    install_process_timing(realm, *host);
     host->define_native_function(
         realm, "envGet"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
