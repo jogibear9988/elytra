@@ -19,6 +19,7 @@ def main():
     if not args.node:
         parser.error("Node is required for GC differential tests")
     expected = {
+        "emitter-once-release": "once released true 48 96\n",
         "http-release": "HTTP released true\n",
         "nested-composites": "nested true 32\n",
         "nested-source-lifetime": "intermediate collected true\nleaf true true 1\n",

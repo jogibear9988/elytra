@@ -47,6 +47,19 @@ def main():
                         "INTENTIONAL DIFFERENCE: portable event trust metadata; synthetic events do not run private abort algorithms",
                         flush=True,
                     )
+                elif source.stem == "emitter-once-policy":
+                    assert (
+                        results[0].stdout
+                        == "synthetic ABORT_ERR false 0 0\nreentrant pending 1 1\npartial true 1 0\n"
+                    ), results
+                    assert (
+                        results[1].stdout
+                        == "synthetic payload false 0 0\nreentrant ABORT_ERR 0 0\npartial true 0 0\n"
+                    ), results
+                    print(
+                        "INTENTIONAL DIFFERENCE: events.once ignores synthetic abort and cancels safely during registration",
+                        flush=True,
+                    )
                 else:
                     assert results[0].stdout == results[1].stdout, (file.name, results)
                 if status:

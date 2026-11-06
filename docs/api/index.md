@@ -16,6 +16,8 @@ depth still required alongside the implementation.
 [Mite runtime API](mite.md) covers entry points, modules, globals and Node-style
 built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
+The [events reference](events.md) covers synchronous EventEmitter dispatch,
+error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,
 parameters, errors, resource lifetime and Node differences.
 The [node:net reference](net.md) covers TCP sockets/listeners, stream ownership,

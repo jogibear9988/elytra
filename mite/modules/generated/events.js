@@ -270,30 +270,69 @@ function createEventsModule(host) {
     }
   };
   EventEmitter.once = async function once(emitter, type, options = {}) {
-    if (options.signal !== void 0) {
-      throw failure(
-        capturedError,
-        "ERR_MITE_UNSUPPORTED_API",
-        "AbortSignal options are not implemented yet"
-      );
+    if (options === null || typeof options !== "object" || Array.isArray(options)) {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "options must be an object");
+    }
+    const { signal } = options;
+    if (signal !== void 0 && !host.abort.isSignal(signal)) {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "options.signal must be an AbortSignal");
+    }
+    function aborted() {
+      const error = new capturedError("The operation was aborted");
+      error.name = "AbortError";
+      error.code = "ABORT_ERR";
+      error.cause = host.abort.reason(signal);
+      return error;
+    }
+    if (signal !== void 0 && signal.aborted) {
+      throw aborted();
     }
     if (!emitter || typeof emitter.once !== "function" || typeof emitter.removeListener !== "function") {
       throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "Expected an EventEmitter");
     }
     return new Promise((resolve, reject) => {
-      function success(...args) {
-        if (type !== "error") {
-          emitter.removeListener("error", failure2);
-        }
-        resolve(args);
-      }
-      function failure2(error) {
+      let complete = false;
+      let unsubscribe = () => {
+      };
+      function cleanup() {
+        unsubscribe();
         emitter.removeListener(type, success);
-        reject(error);
+        emitter.removeListener("error", rejected);
       }
-      emitter.once(type, success);
-      if (type !== "error") {
-        emitter.once("error", failure2);
+      function finish(error, args) {
+        if (complete) {
+          return;
+        }
+        complete = true;
+        cleanup();
+        if (args === void 0) {
+          reject(error);
+        } else {
+          resolve(args);
+        }
+      }
+      function success(...args) {
+        finish(void 0, args);
+      }
+      function rejected(error) {
+        finish(error);
+      }
+      if (signal !== void 0) {
+        unsubscribe = host.abort.subscribe(signal, () => rejected(aborted()));
+      }
+      try {
+        if (!complete) {
+          emitter.once(type, success);
+        }
+        if (!complete && type !== "error") {
+          emitter.once("error", rejected);
+        }
+      } catch (error) {
+        rejected(error);
+      } finally {
+        if (complete) {
+          cleanup();
+        }
       }
     });
   };

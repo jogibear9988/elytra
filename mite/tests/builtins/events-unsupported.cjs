@@ -9,5 +9,3 @@ try {
 } catch (error) {
   console.log(error.code);
 }
-
-E.once(new E(), 'work', { signal: {} }).catch((error) => console.log(error.code));

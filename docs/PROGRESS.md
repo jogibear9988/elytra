@@ -27,7 +27,24 @@ Runtime LibJS version metadata is generated from the manifest. See
 modified/staged/untracked, mismatched and uninitialized states. No newer upstream
 candidate or native Windows/Linux update was validated in this step.
 
-## Current work
+## Current scope and acceptance
+
+The detailed dated entries below supersede the initial historical baseline.
+Mite is a working native LibJS runtime; the current macOS Release CLI has 65
+passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
+Each new change still needs its own fresh platform acceptance. Mite remains
+independent of Firefly, LibWeb and graphical libraries.
+
+Firefly has a partial working macOS desktop runtime and an existing macOS ARM64
+alpha release. Linux renderer/helper and native OS services are under active
+implementation: the isolated native X11 clipboard gate passes, while current
+window geometry/SDK changes still need Linux acceptance. Public Linux/Windows
+desktop runtimes and distributable packages remain required and unfinished.
+The milestone checklist above remains open; scoped component success does not
+complete those cross-platform requirements. See the latest entries for exact
+source revisions, evidence, limits and live candidates.
+
+## Initial runtime baseline (historical)
 
 Mite is a working, statically linked LibJS script host on macOS ARM64. It has a
 CLI, basic console, process.argv, a rooted FIFO promise/microtask queue, rejection
@@ -5091,6 +5108,42 @@ still need hosted acceptance. Hidden/unmapped X11 decorations, fractional scale,
 multiple screens, reserved panels, oversized windows, other window managers and
 Wayland are not verified. Public native Linux/Windows desktop and packaging remain
 unfinished. Existing macOS candidates remain live; no new alpha is claimed.
+Goal active.
+
+## 2026-11-06: Cancellable EventEmitter Promise waits and actual release of retained state
+
+- Implement events.once(emitter, name, { signal }) through the existing private
+  branded AbortSignal hooks; inject those hooks only into the trusted builtin
+  factory. Invalid options/signals reject a Promise. Pre-abort or later abort
+  preserves AbortError/ABORT_ERR and original reason identity. Success/error/abort
+  remove only the owned event/error listeners and dispose cancellation hooks.
+- Handle registration exceptions and reentrant cancellation without stranding a
+  listener. Keep captureRejections explicitly unsupported; EventTarget sources
+  and async event iterators remain unimplemented rather than implied by this API.
+- Actual Node 24.15.0/Mite fixtures cover validation, pre/later abort, reasons,
+  public propagation stops, event/error/symbol results, immediate late abort,
+  independent concurrent waits and initial registration failure. Eighteen actual
+  cancellation comparisons pass. Legacy unsupported checks retain the two
+  captureRejections refusals; invalid signals now have the tested type error.
+- Record actual differential policies separately: Node cancels synthetic public
+  abort while Mite requires real signal state; Node can leave a pending wait when
+  newListener aborts during registration, or retain an event listener when error
+  listener registration throws. Mite cancels/cleans up those cases. The fixture
+  asserts exact distinct results; do not claim differential equality for them.
+- Native forced-GC Node/Mite fixture keeps 48 controllers alive while all 96 weak
+  emitter/payload targets from successful/error/aborted waits become collectible.
+  This proves release beyond an emitter listener-count assertion. The non-GUI
+  embedded host and its complete lifetime suite pass.
+- Regenerate the embedding bundle/manifest reproducibly from commented ESM. Add
+  a detailed events API reference and update cancellation/runtime/compatibility
+  links. Mark fresh native Linux/Windows acceptance of this addition pending.
+- All 65 Release CLI CTests pass in 20.56 seconds. Source formatting, generated
+  reproduction, actionlint, upstream integrity, whitespace and site checks pass.
+  No local GUI application is created or opened.
+
+Limits: ongoing native renderer/service and macOS package candidates remain live.
+This runtime API addition does not establish new desktop/platform or release
+acceptance. Continue the complete specification and required platform work.
 Goal active.
 
 ## Resume

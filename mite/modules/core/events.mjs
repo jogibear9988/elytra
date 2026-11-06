@@ -314,12 +314,24 @@ export default function createEventsModule(host) {
   };
 
   EventEmitter.once = async function once(emitter, type, options = {}) {
-    if (options.signal !== undefined) {
-      throw failure(
-        capturedError,
-        'ERR_MITE_UNSUPPORTED_API',
-        'AbortSignal options are not implemented yet'
-      );
+    if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+      throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'options must be an object');
+    }
+    const { signal } = options;
+    if (signal !== undefined && !host.abort.isSignal(signal)) {
+      throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'options.signal must be an AbortSignal');
+    }
+
+    function aborted() {
+      const error = new capturedError('The operation was aborted');
+      error.name = 'AbortError';
+      error.code = 'ABORT_ERR';
+      error.cause = host.abort.reason(signal);
+      return error;
+    }
+
+    if (signal !== undefined && signal.aborted) {
+      throw aborted();
     }
     if (
       !emitter ||
@@ -329,21 +341,56 @@ export default function createEventsModule(host) {
       throw failure(TypeError, 'ERR_INVALID_ARG_TYPE', 'Expected an EventEmitter');
     }
     return new Promise((resolve, reject) => {
-      function success(...args) {
-        if (type !== 'error') {
-          emitter.removeListener('error', failure);
-        }
-        resolve(args);
-      }
+      let complete = false;
 
-      function failure(error) {
+      let unsubscribe = () => {};
+
+      function cleanup() {
+        unsubscribe();
         emitter.removeListener(type, success);
-        reject(error);
+        emitter.removeListener('error', rejected);
       }
 
-      emitter.once(type, success);
-      if (type !== 'error') {
-        emitter.once('error', failure);
+      function finish(error, args) {
+        if (complete) {
+          return;
+        }
+        complete = true;
+        cleanup();
+        if (args === undefined) {
+          reject(error);
+        } else {
+          resolve(args);
+        }
+      }
+
+      function success(...args) {
+        finish(undefined, args);
+      }
+
+      function rejected(error) {
+        finish(error);
+      }
+
+      // Subscribe before user-controlled newListener hooks can abort the operation.
+      // The private algorithm cannot be suppressed by stopImmediatePropagation.
+      if (signal !== undefined) {
+        unsubscribe = host.abort.subscribe(signal, () => rejected(aborted()));
+      }
+      try {
+        if (!complete) {
+          emitter.once(type, success);
+        }
+        if (!complete && type !== 'error') {
+          emitter.once('error', rejected);
+        }
+      } catch (error) {
+        rejected(error);
+      } finally {
+        // A synchronous user hook can settle while once() is still installing.
+        if (complete) {
+          cleanup();
+        }
       }
     });
   };

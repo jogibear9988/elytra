@@ -117,7 +117,7 @@ def main():
     unsupported = run(args.mite, fixtures / "events-unsupported.cjs")
     passed = (
         unsupported.returncode == 0
-        and unsupported.stdout == "ERR_MITE_UNSUPPORTED_API\n" * 3
+        and unsupported.stdout == "ERR_MITE_UNSUPPORTED_API\n" * 2
         and unsupported.stderr == ""
     )
     print(f"{'PASS' if passed else 'FAIL'} explicit unsupported EventEmitter modes")

@@ -200,6 +200,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "events")
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
     if (name == "timers/promises") {
         host->define_direct_property(
             "timers"_utf16, TRY(builtin("timers")), JS::default_attributes);

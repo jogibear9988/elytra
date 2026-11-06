@@ -134,8 +134,10 @@ use existing native codecs plus owned adapters; exact Node error formatting diff
 - `node:url`: URL, URLSearchParams, fileURLToPath, fileURLToPathBuffer, pathToFileURL,
   domainToASCII, domainToUnicode and urlToHttpOptions. Legacy URL parser APIs are absent.
 - `node:events`: EventEmitter, synchronous on/once/prepend/removal, event names/counts,
-  listener hooks/limits, errorMonitor and `once(emitter, eventName)` Promise helper.
-  `captureRejections: true`, AbortSignal modes and async event iterators are unsupported.
+  listener hooks/limits, errorMonitor and cancellable `once(emitter, eventName, { signal })`
+  Promise waits. See the [events contract](events.md) for cleanup and measured Node
+  differences. `captureRejections: true`, EventTarget sources and async event iterators
+  remain unsupported.
 - `node:util` currently provides only TextEncoder/TextDecoder, not the general util API.
 
 ## Streams

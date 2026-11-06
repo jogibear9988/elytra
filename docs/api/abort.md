@@ -82,6 +82,18 @@ does not implement AbortSignal support in fs, child_process or general stream
 operations that explicitly rejected that option previously. TLS/HTTPS/fetch remain
 separate work. Check each service contract before using signal there.
 
+## EventEmitter Promise waits
+
+[`node:events.once`](events.md#onceemitter-name-options) accepts `{ signal }` for
+EventEmitter sources. Pre-abort or later abort rejects with AbortError/ABORT_ERR
+and the original reason as cause. Every settlement removes the owned event/error
+listeners and private abort subscription; aborting one wait preserves other waits.
+This cancels the wait, not the operation producing the event. Public propagation
+stops cannot suppress cancellation. Synthetic abort events do not impersonate
+actual signal state, and abort during registration cannot strand a new listener;
+these are measured differences from the pinned Node reference. EventTarget
+sources and async event iterators remain unfinished.
+
 ## TCP consumers
 
 [node:net](net.md) now accepts signals in Socket construction/createConnection and
