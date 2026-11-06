@@ -5178,6 +5178,24 @@ It cannot establish a corrected end-to-end release without the new source. Build
 the corrected current candidate and require all gates before alpha promotion.
 No missing/manual feature is advertised as working. Goal active.
 
+## 2026-11-06: Run the corrected optimized macOS release candidate
+
+- Dispatch the macOS workflow on 57c2675d925981728c2c18bbf4ec62f3f4961fc7 with
+  optimize_size=true, shared_openssl=true and publish_alpha=false. Actual run
+  42306965867/job 128198633168 starts checkout/build preparation. It includes the
+  fixed bounded example harness and the new cancellable events.once consumer.
+  Require its native API/security/renderer/example/package gates and measured
+  archive/provider evidence before using the existing alpha promotion workflow.
+- Verify the old optimized 1e044e9 run has the identical failing example runner,
+  catalog and dark-mode sources as terminal failed standard 4dc3cab. Request
+  ordinary cancellation because of that demonstrated source defect, not an
+  observation timeout. Its compile/test step is confirmed cancelled; the
+  always-run completed-dependency cache preservation step remains live. Avoid
+  spending another full test pass on the proven interactive-harness failure.
+- Existing Linux renderer/native-service candidates continue independently.
+  No successful package, new size measurement, tag or alpha is inferred from
+  starting a replacement candidate. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
