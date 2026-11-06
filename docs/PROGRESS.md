@@ -3593,6 +3593,42 @@ Validation: direct checkout regression passes; registered CTest passes 1/1 in
 49-test run passes in 105.00 seconds. Hosted Windows validation of this correction
 is pending; no Windows desktop support is claimed. No GUI tests are launched.
 
+## 2026-11-06 — Flatten nested cancellation sources
+
+Previous goal turn: progress (36f7e2c and 22d1b14 committed/pushed). Source style
+and Pages for 22d1b14 now succeed; native Linux/Windows remain in progress.
+Optimized macOS 42200655334 is still running; the newer optimized run 42205271586
+is pending. Preserve live builds. No new alpha or native desktop acceptance is
+claimed in this step.
+
+Nested AbortSignal.any now links directly to deduplicated original sources,
+instead of retaining intermediate composite graphs. Empty composites contribute
+no abort sources. Preserve complete iterable validation and first-already-aborted
+selection before flattening. Reachable sources retain observed outer signals;
+intermediates can be collected without losing delivery or needing recursive
+retention propagation. All changes stay in owned ESM/generated adapters, with the
+Ladybird pin unchanged.
+
+Validation:
+- Actual Node 24.15.0 and non-GUI Mite embedded-host tests add diamond/deduplicated
+  graphs, collected intermediates and reachable outer signals. A separate nested
+  listener-only fixture exposes a Node reference defect: all 32 notifications are
+  lost after intermediate cleanup. Assert that result explicitly and Mite's 32
+  deliveries separately. This is a documented correctness difference, not claimed
+  equality. Fifteen lifetime scenarios now run in the registered lifetime suite.
+- Standalone rebuild succeeds; all 49 CTests pass in 92.30 seconds, including
+  existing cancellation/timer/I/O tests (nested-all-tests.log).
+- Source style checks pass 103 Python, 436 JS/web/config, 129 native and 14 CMake
+  sources plus Rust. Both generators reproduce; runtime/Firefly integrity,
+  unmodified upstream and actionlint checks pass. API/ADR explain flattening and
+  the measured reference difference. Site validates 150 pages / 9115 links including this entry.
+- Firefly compile-only verification succeeds (nested-firefly-build.log).
+  No local GUI tests or desktop applications are launched.
+
+Next: extend cancellation to real I/O consumers, then continue TLS/HTTPS/fetch,
+remaining Node/Electron APIs and native desktop/distribution work. Arbitrary GC
+schedules and complete Web/Node conformance remain unverified. Overall goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

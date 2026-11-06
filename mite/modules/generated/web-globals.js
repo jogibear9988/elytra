@@ -1145,6 +1145,7 @@ function createAbortGlobals({
         algorithms: /* @__PURE__ */ new Set(),
         dependents: /* @__PURE__ */ new Map(),
         sources: [],
+        composite: false,
         listeners: /* @__PURE__ */ new Map(),
         listenerCount: 0,
         timeoutSlot: null
@@ -1195,13 +1196,25 @@ function createAbortGlobals({
         sources.push(signal);
       }
       const result = new AbortSignal(token);
+      state(result).composite = true;
       const already = sources.find((signal) => state(signal).aborted);
       if (already) {
         abort(result, state(already).reason);
         return result;
       }
+      const roots = /* @__PURE__ */ new Set();
+      for (const source of sources) {
+        const entry = state(source);
+        if (entry.composite) {
+          for (const [root] of entry.sources) {
+            roots.add(root);
+          }
+        } else {
+          roots.add(source);
+        }
+      }
       const cleanupLinks = [];
-      for (const source of new Set(sources)) {
+      for (const source of roots) {
         const link = new WeakRef(result);
         state(source).dependents.set(link, null);
         state(result).sources.push([source, link]);

@@ -84,19 +84,26 @@ separate work. Check each service contract before using signal there.
 
 ## Explicit alpha differences and remaining acceptance
 
-Two actual Node/Mite differences have dedicated assertions:
+Three actual Node/Mite differences have dedicated assertions:
 
 - Portable abort events have isTrusted:false; Node emits true. This is event
   metadata, not an authority boundary for application authorization.
 - Manually dispatching a synthetic abort event cancels Node 24's Promise timer
   while signal.aborted is still false. Mite's private consumer algorithm waits for
   actual state change; the timer instead completes normally.
+- With nested listener-only composition, Node 24.15.0 can drop the outer signal
+  after collecting its intermediate input, even while the original controller is
+  reachable. Mite connects composites directly to original sources and preserves
+  the notification. The forced-GC regression asserts the reference failure and
+  Mite's delivery separately; this is an intentional correctness difference.
 
 Listener-only composite signals are retained by reachable source signals while
 an abort listener, onabort handler or private consumer needs notification. Removing
 listeners, consuming once listeners or clearing onabort releases that retention.
-Unreachable source/composite cycles remain eligible for collection. Timeout signals
-with observers survive to their deadline; unused collected timeouts release their
+Nested composites flatten and deduplicate their original sources, so intermediate
+composites can be collected without breaking observed dependents. An empty composite
+contributes no possible source. Unreachable source/composite cycles remain eligible
+for collection. Timeout signals with observers survive to their deadline; unused collected timeouts release their
 native timer handles through asynchronous finalization.
 
 Forced-GC tests compare these cases, guarded listener removal and weak unregister

@@ -52,3 +52,18 @@ Node/Web conformance claim. Keep explicit close/abort as the primary resource
 contract. Native platform gates and hosted Firefly acceptance remain separate.
 See [the cancellation contract](../api/abort.md) and
 [async ownership](../concepts/async-and-lifetime.md).
+
+## Nested composition follow-up
+
+Connect any() directly to the distinct original sources of its inputs. This avoids
+needing a recursive strong-retention walk and lets intermediate composites die
+while original sources retain observed leaves. Empty composites contribute no
+sources. Keep the full input validation and first-already-aborted selection before
+building flattened links.
+
+Actual Node 24.15.0 loses listener-only leaves when an intermediate's cleanup
+removes its flattened source registration. Keep a dedicated assertion for that
+reference defect and Mite's correct delivery rather than copying the failure.
+Additional shared tests cover diamond/deduplicated inputs, collected intermediate
+signals and reachable leaves. The reference implementation is
+[Node's pinned abort controller](https://github.com/nodejs/node/blob/v24.15.0/lib/internal/abort_controller.js).

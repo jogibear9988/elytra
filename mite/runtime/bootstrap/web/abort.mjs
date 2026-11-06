@@ -166,6 +166,7 @@ export default function createAbortGlobals({
         algorithms: new Set(),
         dependents: new Map(),
         sources: [],
+        composite: false,
         listeners: new Map(),
         listenerCount: 0,
         timeoutSlot: null
@@ -222,13 +223,29 @@ export default function createAbortGlobals({
         sources.push(signal);
       }
       const result = new AbortSignal(token);
+      state(result).composite = true;
       const already = sources.find((signal) => state(signal).aborted);
       if (already) {
         abort(result, state(already).reason);
         return result;
       }
+      // Connect to original sources, not intermediate composites. Otherwise an
+      // unobserved intermediate can be collected with an observed dependent, and
+      // deep chains require recursive retention updates. Empty composites have
+      // no possible abort source and therefore contribute no dependency links.
+      const roots = new Set();
+      for (const source of sources) {
+        const entry = state(source);
+        if (entry.composite) {
+          for (const [root] of entry.sources) {
+            roots.add(root);
+          }
+        } else {
+          roots.add(source);
+        }
+      }
       const cleanupLinks = [];
-      for (const source of new Set(sources)) {
+      for (const source of roots) {
         const link = new WeakRef(result);
         state(source).dependents.set(link, null);
         state(result).sources.push([source, link]);
