@@ -203,7 +203,7 @@ def network(binary, differences=False, *, native=False):
                 ), example
             if differences:
                 if native:
-                    assert first.compression_request == "identity", first.compression_request
+                    assert first.compression_request == "gzip, deflate", first.compression_request
             return result.stdout
         finally:
             for peer in [first, second]:
@@ -299,9 +299,9 @@ def main():
     ), outputs
     assert (
         outputs[1]
-        == "compression rejected ERR_MITE_UNSUPPORTED_API\nsuppressed public event aborted\nearly upload cancelled true\nDONE Fetch differences\n"
+        == "compression decoded compressed\nsuppressed public event aborted\nearly upload cancelled true\nDONE Fetch differences\n"
     ), outputs
-    print("PASS explicit compression and suppressed-public-event differences")
+    print("PASS gzip decoding and explicit abort/early-upload differences")
     for binary in [args.node, args.mite]:
         print(tls(binary), end="")
     result = subprocess.run(

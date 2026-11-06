@@ -29,9 +29,10 @@ Fragments are omitted from transport and network Response.url.
 
 Each request uses one native connection, without Agents/pooling. Default request
 headers include Accept `*/*`, Accept-Language `*`, User-Agent `mite`, Sec-Fetch-Mode
-and Accept-Encoding `identity`, unless explicitly supplied. Automatic decompression
-is absent: a non-identity Content-Encoding rejects with TypeError whose cause is
-ERR_MITE_UNSUPPORTED_API. Encoded bytes are never silently presented as decoded text.
+and Accept-Encoding `gzip, deflate`, unless explicitly supplied. Native incremental
+[gzip/deflate decoding](decompression.md) reverses content-coding stacks while
+preserving original encoded headers. Unsupported algorithms reject explicitly;
+compression encoders, Brotli/zstd and a complete node:zlib surface remain absent.
 The underlying HTTP client still enforces its header/framing policies.
 Caller Host headers are ignored on the wire, matching the Node reference: HTTP
 authority and HTTPS SNI/verification derive from the URL.
@@ -170,13 +171,13 @@ for one of the supported redirect statuses; it performs no network request.
 Local differential tests cover 12 object workflows and 13 network workflows,
 including independent response barriers, one-MiB BYOB reads, 256-KiB chunked upload,
 clone/ownership, all redirect modes, credentials, truncation, cancellation and
-peer-observed early connection closure. Separate policies retain compression,
+peer-observed early connection closure. Separate policies retain
 public-event suppression and early-upload differences; seven unavailable options
 and three URL guards reject explicitly. An independent TLS peer observes ClientHello
 and zero HTTP data on refused self-signed trust. A manual macOS default-trust probe
 to https://example.com returns 200; it is not a repeatable hosted-platform gate.
 
-Still open: decompression, complete data/WebIDL/WPT coverage, integrity/referrer/cache policy,
+Still open: further compression formats/encoding, complete data/WebIDL/WPT coverage, integrity/referrer/cache policy,
 complete cookie/browser security behavior, connection pools/proxies/custom trust
 configuration, exhaustive abort/redirect/GC races, and full WHATWG/Web Platform
 Tests coverage. Fresh hosted bridge/fetch acceptance and native desktop distribution

@@ -10,6 +10,7 @@
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include "modules/ModuleSource.h"
+#include "platform/compression/Inflater.h"
 #include "platform/crypto/Crypto.h"
 #include "platform/filesystem/FileSystem.h"
 #include "platform/network/DNS.h"
@@ -70,11 +71,12 @@ static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Wr
     "isDestroyed", "isDisturbed", "isErrored", "isReadable", "isWritable",
     "getDefaultHighWaterMark", "setDefaultHighWaterMark", "promises" };
 static constexpr std::string_view stream_promises_exports[] = { "pipeline", "finished" };
-static constexpr std::string_view web_streams_exports[] = { "ByteLengthQueuingStrategy",
-    "CountQueuingStrategy", "ReadableByteStreamController", "ReadableStream",
-    "ReadableStreamBYOBReader", "ReadableStreamBYOBRequest", "ReadableStreamDefaultController",
-    "ReadableStreamDefaultReader", "TransformStream", "TransformStreamDefaultController",
-    "WritableStream", "WritableStreamDefaultController", "WritableStreamDefaultWriter" };
+static constexpr std::string_view web_streams_exports[]
+    = { "DecompressionStream", "ByteLengthQueuingStrategy", "CountQueuingStrategy",
+          "ReadableByteStreamController", "ReadableStream", "ReadableStreamBYOBReader",
+          "ReadableStreamBYOBRequest", "ReadableStreamDefaultController",
+          "ReadableStreamDefaultReader", "TransformStream", "TransformStreamDefaultController",
+          "WritableStream", "WritableStreamDefaultController", "WritableStreamDefaultWriter" };
 static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" };
 static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect",
     "createConnection", "isIP", "isIPv4", "isIPv6" };
@@ -452,6 +454,8 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     VERIFY(fetch_initializer.is_function());
     GC::Root fetch_factory { fetch_initializer.as_function() };
     GC::Root fetch_host { JS::Object::create(m_realm, nullptr) };
+    fetch_host->define_direct_property(
+        "inflate"_utf16, create_inflate_host(m_realm), JS::default_attributes);
     fetch_host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
     fetch_host->define_direct_property(
         "webStreams"_utf16, m_web_streams.ptr(), JS::default_attributes);
@@ -462,6 +466,26 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
         fetch_host->define_direct_property(name, TRY(url->get(name)), JS::default_attributes);
     for (auto name : { "TextEncoder"_utf16, "TextDecoder"_utf16 })
         fetch_host->define_direct_property(name, TRY(util->get(name)), JS::default_attributes);
+    auto parsed_decoder = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_DECOMPRESSION_SOURCE, sizeof(MITE_DECOMPRESSION_SOURCE) - 1)),
+        m_realm, "mite:decompression"sv);
+    VERIFY(!parsed_decoder.is_error());
+    GC::Root decoder_script { parsed_decoder.release_value() };
+    auto decoder_initializer = TRY(m_vm.run(*decoder_script));
+    VERIFY(decoder_initializer.is_function());
+    GC::Root decoder_factory { decoder_initializer.as_function() };
+    auto decoder_value
+        = TRY(JS::call(m_vm, *decoder_factory, JS::js_undefined(), fetch_host.ptr()));
+    VERIFY(decoder_value.is_object());
+    GC::Root decoder { decoder_value.as_object() };
+    auto decoder_constructor = TRY(decoder->get("DecompressionStream"_utf16));
+    m_web_streams->define_direct_property(
+        "DecompressionStream"_utf16, decoder_constructor, JS::default_attributes);
+    m_realm.global_object().define_direct_property("DecompressionStream"_utf16, decoder_constructor,
+        JS::Attribute::Writable | JS::Attribute::Configurable);
+    fetch_host->define_direct_property(
+        "decompression"_utf16, decoder.ptr(), JS::default_attributes);
     // Transport modules stay lazy: Headers/Response-only programs need no sockets.
     fetch_host->define_native_function(
         m_realm, "require"_utf16,

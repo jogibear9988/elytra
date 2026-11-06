@@ -2,15 +2,8 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const base = `http://127.0.0.1:${process.argv[2]}`;
-try {
-  const response = await fetch(base + '/compressed');
-  console.log('compression decoded', await response.text());
-} catch (error) {
-  if (error.cause?.code !== 'ERR_MITE_UNSUPPORTED_API') {
-    throw error;
-  }
-  console.log('compression rejected', error.cause.code);
-}
+const compressed = await fetch(base + '/compressed');
+console.log('compression decoded', await compressed.text());
 
 const control = new AbortController();
 

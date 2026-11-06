@@ -179,6 +179,10 @@ if(BUILD_TESTING)
     add_test(NAME mite-fetch-data
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fetch_data.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-compression
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_compression.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-runtime-line-endings
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_runtime_line_endings.py")

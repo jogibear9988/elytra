@@ -101,7 +101,7 @@ export default function createTransport(host, headers, bodies, objects) {
           fields.set('user-agent', 'mite');
         }
         if (!fields.has('accept-encoding')) {
-          fields.set('accept-encoding', 'identity');
+          fields.set('accept-encoding', 'gzip, deflate');
         }
         if (!fields.has('sec-fetch-mode')) {
           fields.set('sec-fetch-mode', entry.mode);
@@ -162,10 +162,6 @@ export default function createTransport(host, headers, bodies, objects) {
               }
               return;
             }
-            const encoding = fields.get('content-encoding');
-            if (encoding !== null && encoding.toLowerCase() !== 'identity') {
-              throw host.unsupported('Fetch compressed responses');
-            }
             let body = null;
             if (entry.method === 'HEAD' || [204, 205, 304].includes(status)) {
               reply.once('end', () => {
@@ -174,9 +170,30 @@ export default function createTransport(host, headers, bodies, objects) {
 
               reply.resume();
             } else {
-              rawReader = stream.Readable.toWeb(reply, {
+              let source = stream.Readable.toWeb(reply, {
                 strategy: { highWaterMark: 16384, size: (chunk) => chunk.byteLength }
-              }).getReader();
+              });
+              const encodings = (fields.get('content-encoding') ?? '')
+                .split(',')
+                .map((value) => value.trim().toLowerCase())
+                .filter((value) => value && value !== 'identity');
+              if (
+                encodings.some(
+                  (value) => !['gzip', 'x-gzip', 'deflate', 'x-deflate'].includes(value)
+                )
+              ) {
+                throw host.unsupported('Fetch content coding');
+              }
+              if (fields.get('content-length') !== '0') {
+                for (const encoding of encodings.reverse()) {
+                  source = source.pipeThrough(
+                    host.decompression.create(
+                      encoding.endsWith('gzip') ? 'gzip-http' : 'auto-deflate'
+                    )
+                  );
+                }
+              }
+              rawReader = source.getReader();
               body = new ReadableStream({
                 type: 'bytes',
 

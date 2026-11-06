@@ -5,6 +5,7 @@ function(mite_add_runtime target root js_target)
     find_package(libuv CONFIG REQUIRED)
     find_package(llhttp CONFIG REQUIRED)
     find_package(OpenSSL REQUIRED)
+    find_package(ZLIB 1.3.2 EXACT REQUIRED)
     find_package(ICU 78.3 EXACT REQUIRED COMPONENTS uc)
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${target}-generated")
     file(READ "${root}/vendor/ladybird.json" upstream_manifest)
@@ -37,6 +38,7 @@ function(mite_add_runtime target root js_target)
         http
         https
         fetch
+        decompression
         tls
         os
         crypto
@@ -92,6 +94,8 @@ function(mite_add_runtime target root js_target)
         # platform/system
         platform/system/OS
         platform/system/OSConstants
+        # platform/compression
+        platform/compression/Inflater
         # platform/crypto
         platform/crypto/Crypto
         platform/crypto/CryptoHash
@@ -117,7 +121,8 @@ function(mite_add_runtime target root js_target)
                $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>
                llhttp::llhttp_static
                OpenSSL::Crypto
-               OpenSSL::SSL)
+               OpenSSL::SSL
+               ZLIB::ZLIB)
     if(APPLE)
         target_link_libraries(${target} PUBLIC "-framework Security" "-framework CoreFoundation")
     endif()

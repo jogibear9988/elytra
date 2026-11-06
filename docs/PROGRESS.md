@@ -4236,6 +4236,74 @@ and broader runtime/npm APIs. Continue the remaining desktop IPC/services and
 native Windows/Linux backend/distribution/security work as well. Overall goal
 remains active; keep local GUI acceptance infrequent and batched.
 
+## Bounded native decompression and Fetch content codings (2026-11-06)
+
+Add an owned native zlib inflater under platform/compression with an ESM
+DecompressionStream coordinator. Pin standalone zlib 1.3.2#2 to the exact version
+already used by the renderer. Reuse the provider without modifying Ladybird/zlib,
+embedding Node/V8/LibWeb or adding a second event loop. Native package notices
+include the installed zlib copyright through existing distribution tooling.
+
+Each native step owns its input snapshot (at most one MiB), returns at most 64 KiB,
+reports consumed bytes and clears zlib pointers before JS allocation. RAII/shared
+ownership and explicit roots protect factory, context and output lifetime. The
+readable pulls one output block at a time rather than eagerly enqueueing an entire
+expansion. Writable completion tracks consumed input. Handle checksums/truncation,
+concatenated gzip, raw/zlib headers, BYOB EOF, explicit abort reasons and cleanup.
+Do not externally error the writable controller while its own abort signal is
+being dispatched: a new shared abort test caught and fixed that Promise ordering.
+
+Expose DecompressionStream globally and through node:stream/web for gzip, deflate
+and deflate-raw. Private HTTP modes add raw-deflate sniffing and gzip zero padding.
+Fetch now advertises gzip/deflate, reverses coding stacks, preserves original wire
+Content-Encoding/Length and decodes incrementally. Null bodies and explicitly empty
+framing are handled without a decoder. Unsupported algorithms reject explicitly;
+compression encoders, Brotli/zstd and node:zlib remain unavailable.
+
+Validation:
+- All 58 CTests pass in 57.86 seconds (compression-all-tests.log), including the
+  prior runtime/data/crypto/network, forced-GC/embedding, checkout and license gates.
+- Eight actual Node 24.15/Mite decoder workflows cover shared identity/format
+  rejection, one-byte fragmented headers, all three formats and one-MiB expansion,
+  concatenated members, checksum/truncation, Web trailing-padding policy and
+  writer abort. Five native-only invalid BufferSource/private-format guards also
+  fail explicitly. Separate exact outputs retain Node's early write acceptance
+  versus Mite's stronger demand/pressure and pending-write cancellation.
+- Four independent HTTP workflows prove gzip/zlib/raw fallback, stacked/concatenated
+  codings and HTTP padding, encoded headers vs decoded lengths, first flushed bytes
+  before peer release, checksum/empty framing, cancel/abort reason and peer-observed
+  closure. An unavailable HTTP coding also rejects explicitly. A strict gzip
+  trailer fixture preserves Node's successful truncated-body decode and Mite's
+  Z_BUF_ERROR rejection separately rather than claiming equal integrity policy.
+- Real collections between inflate steps pass under actual Node --expose-gc and
+  the non-GUI embedded host. The modern ESM file example runs under both runtimes
+  with identical decoded byte count. Existing Fetch differential gate also passes
+  with shared gzip decoding and its remaining explicit abort/upload differences.
+- Final Firefly compile succeeds (compression-firefly-build.log), reusing the same
+  renderer zlib. Existing local OpenSSL deployment-target warnings persist; older
+  macOS deployment is not established. No local GUI apps/tests are launched.
+- Both generators reproduce; runtime/Firefly/upstream integrity and actionlint
+  pass. Final style passes 112 Python, 519 JS/web/config, 135 native and 14 CMake
+  sources plus Rust. Site validates 167 pages / 10665 links before this entry;
+  final site validation runs before commit. Add detailed decoder API, modern
+  example and ADR 0085; update Fetch/data/compatibility references honestly.
+- Previous Fetch/data 20555f6 is now hosted green on Linux x64 (run 42231739039,
+  job 127939452215, all 57 suites in 60.56 seconds) and native Windows x64
+  (run 42231739218, job 127939718690, all 57 in 89.78 seconds), including the new
+  data/MIME suite. The executable-name correction 5ae0839 Windows gate also passes.
+  Update scoped baseline docs. This newer native zlib/decoder slice still needs
+  fresh hosted acceptance. Optimized macOS 42226301275 remains authoritatively
+  in progress on 5c5d64c; preserve it. No new alpha publication in this commit.
+
+Limits: VM-thread synchronous steps, stronger pressure and strict HTTP trailers
+are deliberate differences; no worker-pool or total decoded-memory quota is
+claimed. Complete format/dictionary/coercion/flush/provider/race/WPT coverage,
+encoders, additional codecs, TLS trust/proxy/pooling configuration and further
+Fetch/browser policies remain open. Continue broader runtime/npm and desktop
+IPC/services, native Windows/Linux backend/distribution/security requirements.
+Overall specification remains incomplete and goal active. Keep local GUI
+acceptance infrequent/batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -1,7 +1,8 @@
 # Blob, File and FormData
 
 Status: partial native-runtime data APIs, tested locally on macOS against actual
-Node 24.15.0. Fresh Linux/Windows acceptance is pending. These are Mite CLI/Firefly
+Node 24.15.0. Baseline 20555f6 also passes all 57 hosted suites on Linux x64
+and Windows x64, including the data API/MIME tests. These are Mite CLI/Firefly
 main-process globals; Ladybird renderer objects remain separate. Blob and File
 are also the same constructors exported by CommonJS/ESM `node:buffer`.
 
@@ -138,8 +139,8 @@ consumers and the ESM upload sample. A separate redirect diagnostic records both
 Node and Mite outputs rather than normalizing the boundary defect into parity.
 
 Run the [modern multipart example](../../examples/mite-fetch/multipart.mjs) with an
-explicit upload endpoint. Native platform, full File/WebIDL/WPT, Blob URL registry,
-filesystem-backed files and transferable object coverage remain open. Compression
+explicit upload endpoint. Broader native platform, full File/WebIDL/WPT, Blob URL registry,
+filesystem-backed files and transferable object coverage remain open. Further compression formats/encoding
 and other [Fetch policy limits](fetch.md) are separate work.
 
 References: [Fetch standard](https://fetch.spec.whatwg.org/),

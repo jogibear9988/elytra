@@ -16,5 +16,6 @@
   "timers_promises": "mite/modules/core/timers-promises.mjs",
   "tls": "mite/modules/network/tls.mjs",
   "https": "mite/modules/network/https.mjs",
-  "fetch": "mite/runtime/bootstrap/fetch/index.mjs"
+  "fetch": "mite/runtime/bootstrap/fetch/index.mjs",
+  "decompression": "mite/runtime/bootstrap/compression/decompression.mjs"
 }

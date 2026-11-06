@@ -16,6 +16,7 @@ covered by dedicated compatibility fixtures. A runnable example does not establi
 | [Web/Node stream bridges](../../examples/mite-stream/web-bridge.mjs) | `build/dev/bin/mite examples/mite-stream/web-bridge.mjs` | Web source/sink with a native-host Node Transform; no GUI |
 | [Fetch client](../../examples/mite-fetch/client.mjs) | `build/dev/bin/mite examples/mite-fetch/client.mjs https://example.com` | Incremental native HTTP/HTTPS; see [Fetch limits](../api/fetch.md) |
 | [Multipart upload](../../examples/mite-fetch/multipart.mjs) | `build/dev/bin/mite examples/mite-fetch/multipart.mjs http://localhost:8080/upload` | Blob/File/FormData body with an explicit upload endpoint |
+| [Decompression](../../examples/mite-compression/decompress.mjs) | `build/dev/bin/mite examples/mite-compression/decompress.mjs file.gz gzip` | Native Web Stream decoding; input file is explicitly read into memory |
 | [TCP echo](../../examples/mite-tcp/echo.mjs) | Pass a port; connect with a TCP client | Native socket streams and loopback listening |
 | [HTTP](../../examples/mite-http/server.mjs) | Pass a port; send requests with curl | JSON and streamed POST echo |
 | [Random](../../examples/mite-cli/random.mjs) | `build/dev/bin/mite examples/mite-cli/random.mjs` | Native random bytes and UUIDv4 |

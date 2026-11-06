@@ -4,8 +4,8 @@ Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
 macOS ARM64 plus the scoped [Linux Mite baseline](../development/linux-build.md).
 The [Windows x64 Mite gate](../development/windows-build.md) and Linux x64
-pass the 55-suite runtime baseline at dc3308b. The newer Fetch slice has local
-macOS validation and awaits fresh hosted acceptance. Windows/Linux desktop support and distributable releases
+pass the 57-suite Fetch/data baseline at 20555f6. The newer decompression slice
+has local macOS validation and awaits fresh hosted acceptance. Windows/Linux desktop support and distributable releases
 remain work in progress. Use the compatibility matrices to check individual features.
 
 For tutorials, concepts and migration, start at the [documentation home](../index.md).
@@ -39,6 +39,8 @@ The [Fetch reference](fetch.md) covers Headers, Request, Response, incremental
 HTTP/HTTPS bodies, redirects, cancellation and unsupported web-platform modes.
 The [Blob/File/FormData reference](blob-formdata.md) covers immutable bytes, file
 metadata, multipart uploads and body consumers.
+The [decompression reference](decompression.md) describes native Web Stream gzip/
+deflate decoding, automatic Fetch content handling, pressure and integrity limits.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 

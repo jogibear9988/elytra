@@ -113,8 +113,8 @@ Tests or full Node compatibility. Async iterator prototype details follow the
 portable package. Replacing globals used by the package (such as AbortController)
 can affect future stream construction.
 
-TextEncoderStream, TextDecoderStream, CompressionStream and DecompressionStream
-are absent. Missing exports fail ordinary API/import checks. Readable, Writable
+[DecompressionStream](decompression.md) adds native gzip/deflate/raw decoding.
+TextEncoderStream, TextDecoderStream and CompressionStream are absent. Missing exports fail ordinary API/import checks. Readable, Writable
 and Duplex `toWeb`/`fromWeb` now have owned adapters; see [Node/Web stream
 bridges](stream.md). Independent HTTP tests cover incremental responses, streamed
 uploads and cancellation. Filesystem Web Stream factories, transferable streams/
