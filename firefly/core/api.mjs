@@ -2,6 +2,7 @@
 import createMainIpc from './ipc-main.mjs';
 import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
+import createTheme from './theme/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -93,6 +94,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const app = new App();
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
+  const theme = createTheme(native, EventEmitter, error);
   const {
     ipcMain,
     cancel: cancelIpc,
@@ -410,6 +412,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       screens.changed();
       return;
     }
+    if (type === 'theme-changed') {
+      theme.changed();
+      return;
+    }
     const win = windows.get(id);
     if (!win) {
       return;
@@ -474,5 +480,13 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   });
 
-  return { app, BrowserWindow, ipcMain, screen: screens.screen, clipboard, ClipboardItem };
+  return {
+    app,
+    BrowserWindow,
+    ipcMain,
+    screen: screens.screen,
+    clipboard,
+    ClipboardItem,
+    nativeTheme: theme.nativeTheme
+  };
 }

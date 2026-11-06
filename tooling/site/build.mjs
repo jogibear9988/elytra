@@ -155,6 +155,7 @@ const groups = [
       ['docs/api/app', 'app'],
       ['docs/api/screen', 'screen'],
       ['docs/api/clipboard', 'clipboard / ClipboardItem'],
+      ['docs/api/native-theme', 'nativeTheme'],
       ['docs/api/browser-window', 'BrowserWindow'],
       ['docs/api/web-contents', 'webContents'],
       ['docs/api/context-bridge', 'contextBridge'],

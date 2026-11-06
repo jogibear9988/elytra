@@ -19,11 +19,11 @@
       "title": "Dark mode",
       "reference": "https://www.electronjs.org/docs/latest/tutorial/dark-mode",
       "apis": ["nativeTheme", "ipcMain.handle", "ipcRenderer.invoke"],
-      "firefly": "unsupported",
+      "firefly": "partial",
       "smoke": false,
       "actions": ["toggle", "system"],
       "preload": true,
-      "notes": "Firefly lacks nativeTheme and public IPC. CSS-only theming does not establish native theme compatibility.",
+      "notes": "Native macOS theme and direct CSS-query fixtures pass; example button/visible-chrome acceptance remains manual. Hidden media change-event timing and other desktop platforms remain open.",
       "platforms": []
     },
     {

@@ -55,7 +55,7 @@ webContents, events and errors. Firefly embeds Mite in its main process and uses
 separate Ladybird renderer processes. Detailed entries: [app](app.md),
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
 [preload/contextBridge](context-bridge.md), [ipcMain/ipcRenderer](ipc.md) and
-[screen](screen.md) and [clipboard/ClipboardItem](clipboard.md).
+[screen](screen.md), [clipboard/ClipboardItem](clipboard.md) and [nativeTheme](native-theme.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

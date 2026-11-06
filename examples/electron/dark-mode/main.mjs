@@ -1,6 +1,6 @@
 /**
- * Dark mode main-process reference. Firefly lacks nativeTheme and public IPC. CSS-only
- * theming does not establish native theme compatibility.
+ * Dark mode main-process example using native theme overrides and isolated IPC.
+ * Direct API/CSS fixtures pass; this example still requires manual button/visual acceptance.
  */
 import { runExample } from '../shared/run.mjs';
 

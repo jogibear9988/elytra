@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import selectors
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -48,6 +49,16 @@ def execute(binary, script, module="firefly", extra_env=None, extra_args=()):
         finally:
             stop(process)
             process.communicate()
+
+
+def execute_public_esm(binary, source, module="firefly", extra_env=None):
+    """Stage the shared ESM graph with a static desktop import, like migrated user apps."""
+    with tempfile.TemporaryDirectory(prefix="firefly-public-esm-") as directory:
+        root = Path(directory)
+        shutil.copytree(source.parent, root, dirs_exist_ok=True)
+        staged = root / source.name
+        staged.write_text(source.read_text().replace("from 'firefly'", f"from '{module}'"))
+        return execute(binary, staged, module, extra_env)
 
 
 def success(result):
@@ -111,17 +122,25 @@ def main():
     if not firefly.is_file() or not electron.is_file():
         parser.error("Build Firefly and install the pinned Electron reference first")
     screen = ROOT / "firefly/tests/migration/screen.mjs"
-    actual_screen = success(execute(firefly, screen))
-    reference_screen = success(execute(electron, screen, "electron"))
+    actual_screen = success(execute_public_esm(firefly, screen))
+    reference_screen = success(execute_public_esm(electron, screen, "electron"))
     assert actual_screen == reference_screen, (actual_screen, reference_screen)
     assert actual_screen["screen"] is True and actual_screen["displays"] > 0, actual_screen
     print("PASS actual Electron/Firefly screen exports, native geometry and cursor without windows")
+    theme = ROOT / "firefly/tests/migration/theme.mjs"
+    actual_theme = success(execute_public_esm(firefly, theme))
+    reference_theme = success(execute_public_esm(electron, theme, "electron"))
+    expected_theme = {"theme": True, "css": True, "initial": True, "existingAndNewWindows": True}
+    assert actual_theme == reference_theme == expected_theme, (actual_theme, reference_theme)
+    print("PASS actual Electron/Firefly nativeTheme overrides and CSS in existing/new views")
     if os.environ.get("CI") == "true":
         # Never modify the developer's general clipboard in the local desktop suite.
         fixture = ROOT / "firefly/tests/migration/clipboard.mjs"
         opt_in = {"FIREFLY_ALLOW_CLIPBOARD_TEST": "1"}
-        actual_clipboard = success(execute(firefly, fixture, extra_env=opt_in))
-        reference_clipboard = success(execute(electron, fixture, "electron", extra_env=opt_in))
+        actual_clipboard = success(execute_public_esm(firefly, fixture, extra_env=opt_in))
+        reference_clipboard = success(
+            execute_public_esm(electron, fixture, "electron", extra_env=opt_in)
+        )
         expected_clipboard = {"clipboard": True, "unicode": True, "representations": 3}
         assert actual_clipboard == reference_clipboard == expected_clipboard, (
             actual_clipboard,

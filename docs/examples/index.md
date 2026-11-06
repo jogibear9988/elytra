@@ -30,7 +30,7 @@ Use a fresh output directory when rebuilding. The shared launcher serves only al
 | Example | Firefly status and scope | API dependencies |
 | --- | --- | --- |
 | [Quick start](quick-start.md) | Partial; native smoke passed | `app.whenReady`, `BrowserWindow`, `contextBridge.exposeInMainWorld` |
-| [Dark mode](dark-mode.md) | Unsupported; explicit rejection | `nativeTheme`, `ipcMain.handle`, `ipcRenderer.invoke` |
+| [Dark mode](dark-mode.md) | Partial; direct API/CSS queries passed, buttons/visuals manual | `nativeTheme`, `ipcMain.handle`, `ipcRenderer.invoke` |
 | [Device access](device-access.md) | Unsupported; explicit rejection | `session.setPermissionCheckHandler`, `session.setDevicePermissionHandler`, `navigator.hid` |
 | [In-app purchases](in-app-purchases.md) | Unsupported; explicit rejection | `inAppPurchase.getProducts`, `inAppPurchase.purchaseProduct` |
 | [Keyboard shortcuts](keyboard-shortcuts.md) | Unsupported; explicit rejection | `Menu.buildFromTemplate`, `globalShortcut.register` |

@@ -379,6 +379,77 @@ function createClipboard(native, error, unsupported) {
   return { clipboard, ClipboardItem };
 }
 
+// firefly/core/theme/index.mjs
+function createTheme(native, EventEmitter, error) {
+  const nativeTheme = new EventEmitter();
+  let source = "system";
+  let baseline = null;
+  const fields = [
+    "shouldUseHighContrastColors",
+    "shouldUseInvertedColorScheme",
+    "prefersReducedTransparency",
+    "shouldDifferentiateWithoutColor"
+  ];
+  function snapshot() {
+    const system = JSON.parse(native.themeSnapshot());
+    const dark = source === "system" ? system.dark : source === "dark";
+    const value = {
+      themeSource: source,
+      shouldUseDarkColors: dark,
+      shouldUseDarkColorsForSystemIntegratedUI: dark
+    };
+    for (const key of fields) {
+      value[key] = system[key];
+    }
+    if (!baseline) {
+      baseline = value;
+    }
+    return value;
+  }
+  Object.defineProperty(nativeTheme, "themeSource", {
+    enumerable: true,
+    get: () => source,
+    set(value) {
+      if (!["system", "light", "dark"].includes(value)) {
+        throw error("ERR_INVALID_ARG_VALUE", "themeSource must be system, light or dark");
+      }
+      if (value === source) {
+        return;
+      }
+      snapshot();
+      native.themeSetSource(value);
+      source = value;
+    }
+  });
+  for (const key of [
+    "shouldUseDarkColors",
+    "shouldUseDarkColorsForSystemIntegratedUI",
+    ...fields
+  ]) {
+    Object.defineProperty(nativeTheme, key, {
+      enumerable: true,
+      get: () => snapshot()[key]
+    });
+  }
+  nativeTheme.on("newListener", (name) => {
+    if (name === "updated") {
+      snapshot();
+    }
+  });
+  function changed() {
+    if (!baseline) {
+      return;
+    }
+    const next = snapshot();
+    const previous = baseline;
+    baseline = next;
+    if (Object.keys(next).some((key) => next[key] !== previous[key])) {
+      nativeTheme.emit("updated");
+    }
+  }
+  return { nativeTheme, changed };
+}
+
 // firefly/core/api.mjs
 function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -460,6 +531,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
   const app = new App();
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
+  const theme = createTheme(native, EventEmitter, error);
   const {
     ipcMain,
     cancel: cancelIpc,
@@ -740,6 +812,10 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       screens.changed();
       return;
     }
+    if (type === "theme-changed") {
+      theme.changed();
+      return;
+    }
     const win = windows.get(id);
     if (!win) {
       return;
@@ -803,7 +879,15 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       win.emit("resize");
     }
   });
-  return { app, BrowserWindow, ipcMain, screen: screens.screen, clipboard, ClipboardItem };
+  return {
+    app,
+    BrowserWindow,
+    ipcMain,
+    screen: screens.screen,
+    clipboard,
+    ClipboardItem,
+    nativeTheme: theme.nativeTheme
+  };
 }
 return createFireflyApi;
 })()

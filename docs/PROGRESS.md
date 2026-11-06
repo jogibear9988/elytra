@@ -4431,6 +4431,60 @@ goal active, local UI acceptance occasional and batched.
 Continue exact hosted IPC/HTTPS diagnostics, release acceptance and remaining
 specification. Goal active. Local GUI tests remain occasional, targeted/batched.
 
+## 2026-11-06: Native appearance policy and real renderer color preferences
+
+- Add commented ESM nativeTheme EventEmitter and separated native theme sources.
+  Public Firefly ESM/CommonJS share system/light/dark selection and read-only
+  effective dark/integrated-UI, native contrast/invert/reduced-transparency and
+  differentiate-without-color properties. No Mite GUI dependency or renderer
+  native capability is added; Ladybird remains unmodified at the synchronized pin.
+- Reuse public upstream application interface/website appearance settings and Qt
+  SystemAppearance controls. Actual renderer color-preference IPC reaches existing
+  views and new views inherit the choice; no DOM class or stylesheet substitution.
+  The temporary application profile stores changes, never global macOS defaults.
+- Queue actual system/accessibility notifications through the Bridge owner;
+  detach NSWorkspace observers at QObject destruction and guard queued blocks
+  with QPointer. Compare/commit JS baselines before reentrant listeners, coalesce
+  unchanged observations, reject invalid sources and keep properties getter-only.
+- Windowless native probe reads actual OS flags and verifies notification
+  registration/removal with an in-process notification, without changing an OS
+  setting. The actual API factory passes in Node/Mite with both synthetic and
+  native records: source selection, fresh system/accessibility flags, queued/
+  coalesced updates, reentry, invalid/read-only values and native setter failure.
+- Firefly and native probe compile (theme-build.log). All 61 CTests pass in
+  19.30 seconds with three workers (theme-ctest.log). Source style passes 115
+  Python, 532 JS/web/config, 146 native and 14 CMake sources plus Rust; separately
+  check both new .mm files with the same pinned formatter. Both generators,
+  runtime/Firefly/upstream integrity, actionlint and whitespace checks pass.
+- Targeted Firefly native acceptance passes explicit override/current CSS queries
+  through system/light/dark transitions in existing and newly created hidden
+  windows, with empty stderr. Event-only hidden-view acceptance initially missed
+  a light transition; fresh matchMedia queries independently prove preference
+  delivery. Hidden rendering-driven media change-event timing remains unverified,
+  not reported as passed. No full local desktop suite is launched.
+- Actual pinned Electron 45.2.3 returns the same complete theme/CSS fixture result
+  after correcting the shared ESM harness. Top-level-await readiness caused a
+  40-second Electron startup wait; finish module evaluation and schedule assertions
+  in whenReady().then instead. Stage static desktop imports, retaining the exact
+  assertion results. Apply the same bootstrap correction to screen/clipboard
+  fixtures, whose new callback forms still need hosted public acceptance.
+- Add detailed nativeTheme API and ADR 0088; connect site navigation and update
+  the Dark mode example/catalog to partial. Button/visible-chrome acceptance
+  remains manual (smoke stays false); do not promote it from direct query evidence.
+  Site validates 173 pages / 11564 links before this entry; check final progress
+  links before commit.
+- Clipboard bcba2f8 Windows run 42241691687 is now green, including native job
+  127973834173 and both screen/clipboard factory suites. Earlier da00ed4's lone
+  HTTPS failure is retained as a separate observation, not erased by the later pass.
+  macOS da00ed4 optimized run 42239251129 remains live and is not interrupted.
+  No new release package or alpha publication is claimed.
+
+Limits: physical system/accessibility changes, visible native chrome, exact
+Electron event/coercion behavior, hidden media-event timing, accessibility
+rendering and Windows/Linux desktop remain open. Continue pending release/IPC
+acceptance and broader specification. Goal active; local GUI tests occasional
+and targeted/batched, windowless/hosted checks preferred.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

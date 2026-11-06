@@ -7,7 +7,7 @@ and [renderer build guide](../development/renderer-build.md) record the acceptan
 
 Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
 [webContents](web-contents.md), [IPC](ipc.md), [screen](screen.md) and
-[clipboard/ClipboardItem](clipboard.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+[clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).
 
 ## Application entry

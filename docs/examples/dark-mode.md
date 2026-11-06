@@ -1,8 +1,8 @@
 # Dark mode
 
-**Firefly:** Unsupported in Firefly; the launcher fails explicitly before unsupported operations. Electron feature execution is manual/unverified.
+**Firefly:** Partial native macOS implementation. Direct nativeTheme/CSS-query fixtures pass in Firefly and Electron; this example's individual buttons and visible native styling still require manual acceptance.
 
-Firefly lacks nativeTheme and public IPC. CSS-only theming does not establish native theme compatibility.
+Firefly now provides [nativeTheme](../api/native-theme.md) and isolated [invoke/handle IPC](../api/ipc.md). Native preferences drive renderer color-scheme queries; CSS-only class toggles are not the implementation.
 
 ## Run
 
@@ -18,15 +18,13 @@ For the explicit Electron comparison build:
 build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron build/desktop-examples-reference/dark-mode/main.mjs
 ```
 
-This is reference code for a missing feature, not a successful Firefly demo.
-No automated feature success is reported. Read the platform/setup requirements
-before using the reference app; smoke mode is not a substitute for manual validation.
+This example remains in manual validation mode. Its startup is not recorded as button/visual acceptance. Read the platform/setup requirements; the direct API/CSS fixture has separate measured coverage.
 
 ## API connections
 
-- `nativeTheme` (not a supported Firefly desktop export)
-- `ipcMain.handle` (not a supported Firefly desktop export)
-- `ipcRenderer.invoke` (not a supported Firefly desktop export)
+- [nativeTheme](../api/native-theme.md)
+- [ipcMain.handle](../api/ipc.md)
+- [ipcRenderer.invoke](../api/ipc.md)
 
 ## Source files
 
@@ -40,4 +38,4 @@ Toggle changes nativeTheme.themeSource; System restores automatic selection. The
 
 ## Reference and remaining work
 
-[Electron’s Dark mode guide](https://www.electronjs.org/docs/latest/tutorial/dark-mode) is the API-design baseline. This page documents our own code and measured limits. Implement and validate the listed native Firefly APIs before changing this topic to supported.
+[Electron’s Dark mode guide](https://www.electronjs.org/docs/latest/tutorial/dark-mode) is the API-design baseline. This page documents our own code and measured limits. Complete button/visible-chrome, physical system-change and further platform acceptance before broadening this topic's partial status.
