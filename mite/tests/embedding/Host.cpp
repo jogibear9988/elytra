@@ -1,7 +1,7 @@
-#include "Runtime.h"
-#include "ModuleLoader.h"
+#include "core/Runtime.h"
+#include "modules/ModuleLoader.h"
 #include <LibGC/Heap.h>
-#include "EventLoop.h"
+#include "core/EventLoop.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>

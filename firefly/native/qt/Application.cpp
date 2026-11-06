@@ -1,8 +1,8 @@
 #include "Bridge.h"
 #include "ApiSource.h"
-#include "Runtime.h"
-#include "EventLoop.h"
-#include "ModuleLoader.h"
+#include "core/Runtime.h"
+#include "core/EventLoop.h"
+#include "modules/ModuleLoader.h"
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
 #include <LibGC/Root.h>

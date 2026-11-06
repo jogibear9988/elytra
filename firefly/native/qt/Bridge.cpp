@@ -2,11 +2,11 @@
 #include "ChromeWindow.h"
 #include "AppRegions.h"
 #include "PreloadHooks.h"
-#include "ModulePaths.h"
+#include "modules/ModulePaths.h"
 #include <AK/JsonObject.h>
 #include <AK/JsonArray.h>
 #include <AK/JsonValue.h>
-#include "EventLoop.h"
+#include "core/EventLoop.h"
 #include <LibCore/EventLoop.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>

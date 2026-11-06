@@ -1,0 +1,11 @@
+{
+  "name": "elytra-code-style",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Pinned authoring formatters; not shipped in either runtime",
+  "devDependencies": {
+    "acorn": "8.15.0",
+    "prettier": "3.6.2"
+  }
+}

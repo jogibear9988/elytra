@@ -71,7 +71,7 @@ mite_adapt_execution_context("${CMAKE_SOURCE_DIR}")
 
 include(mite/cmake/Runtime.cmake)
 mite_add_runtime(mite-runtime "${CMAKE_SOURCE_DIR}" LibJSStandalone)
-add_executable(mite mite/runtime/main.cpp)
+add_executable(mite mite/cli/main.cpp)
 target_link_libraries(mite PRIVATE mite-runtime)
 include(CTest)
 if(BUILD_TESTING)

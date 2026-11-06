@@ -11,10 +11,10 @@ function(mite_add_runtime target root js_target)
     string(JSON MITE_LADYBIRD_REVISION GET "${upstream_manifest}" revision)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${root}/vendor/ladybird.json" "${root}/tooling/check_upstream.py")
-    configure_file("${root}/mite/runtime/UpstreamVersion.h.in" "${generated}/UpstreamVersion.h" @ONLY)
-    file(READ "${root}/mite/runtime/bootstrap.js" MITE_BOOTSTRAP_SOURCE)
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${root}/mite/runtime/bootstrap.js")
-    configure_file("${root}/mite/runtime/bootstrap.h.in" "${generated}/MiteBootstrap.h" @ONLY)
+    configure_file("${root}/mite/runtime/core/UpstreamVersion.h.in" "${generated}/UpstreamVersion.h" @ONLY)
+    file(READ "${root}/mite/runtime/bootstrap/bootstrap.js" MITE_BOOTSTRAP_SOURCE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${root}/mite/runtime/bootstrap/bootstrap.js")
+    configure_file("${root}/mite/runtime/bootstrap/bootstrap.h.in" "${generated}/MiteBootstrap.h" @ONLY)
     foreach(module events process path buffer fs url util net dns http os crypto child_process)
         string(TOUPPER "${module}" module_upper)
         file(READ "${root}/mite/modules/${module}.js" "MITE_${module_upper}_SOURCE")
@@ -24,8 +24,37 @@ function(mite_add_runtime target root js_target)
     file(READ "${root}/mite/modules/generated/string-decoder.js" MITE_STRING_DECODER_SOURCE)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
         "${root}/mite/modules/generated/stream.js" "${root}/mite/modules/generated/string-decoder.js")
-    configure_file("${root}/mite/runtime/BuiltinSources.h.in" "${generated}/BuiltinSources.h" @ONLY)
-    set(sources Runtime EventLoop ModuleLoader ModulePaths PackageResolver HostModules Builtins Process FileSystem URL Encoding Network DNS HTTP OS OSConstants Crypto CryptoHash CryptoHmac ChildProcess)
+    configure_file("${root}/mite/runtime/modules/BuiltinSources.h.in" "${generated}/BuiltinSources.h" @ONLY)
+    # Explicit sources keep subsystem ownership visible and builds reproducible.
+    set(sources
+        # core
+        core/Runtime
+        core/EventLoop
+        # modules
+        modules/Builtins
+        modules/HostModules
+        modules/ModuleLoader
+        modules/ModulePaths
+        modules/PackageResolver
+        # platform/process
+        platform/process/Process
+        platform/process/ChildProcess
+        # platform/filesystem
+        platform/filesystem/FileSystem
+        # platform/network
+        platform/network/Network
+        platform/network/DNS
+        platform/network/HTTP
+        # platform/text
+        platform/text/URL
+        platform/text/Encoding
+        # platform/system
+        platform/system/OS
+        platform/system/OSConstants
+        # platform/crypto
+        platform/crypto/Crypto
+        platform/crypto/CryptoHash
+        platform/crypto/CryptoHmac)
     set(files)
     foreach(source IN LISTS sources)
         list(APPEND files "${root}/mite/runtime/${source}.cpp")
