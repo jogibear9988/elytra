@@ -34,7 +34,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: macos-package-${{ inputs.tag || github.ref }}
+  # Push snapshots must not replace a queued, explicitly requested size/provider
+  # build. Keep one live run per ref, event and experimental profile.
+  group: macos-package-${{ inputs.tag || github.ref }}-${{ github.event_name }}-${{ inputs.optimize_size || false }}-${{ inputs.shared_openssl || false }}
   cancel-in-progress: false
 jobs:
   build:

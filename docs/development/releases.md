@@ -50,6 +50,15 @@ bytes. This is an experimental build selection, not a claim of a smaller or
 validated hosted binary before that particular job passes. Push builds retain
 the default optimization profile.
 
+macOS concurrency groups distinguish the source ref/tag, push versus manual
+request and size/shared-provider profile. A later ordinary push can therefore
+replace another queued ordinary snapshot, while preserving an explicitly queued
+experimental profile. Active jobs are never cancelled by this setting. Different
+profiles can execute concurrently if runner capacity permits; every profile still
+runs all native and package gates. GitHub's default pending-run replacement is
+explained in its [concurrency documentation](https://docs.github.com/en/actions/concepts/workflows-and-actions/concurrency).
+
+
 See [package size analysis](package-size.md) for the measured baseline and what is
 already stripped/shared versus remaining optimization candidates.
 

@@ -4792,6 +4792,26 @@ and verify it with a second OS process in isolated X11 CI. Current real Linux
 renderer and macOS release builds remain live; no completion/alpha claim is made.
 Goal active; no local GUI suite is run in this slice.
 
+## 2026-11-06: Preserve explicitly queued macOS release-profile requests
+
+- The previous macOS concurrency key used only ref/tag. GitHub's default single
+  pending slot lets later push snapshots replace an explicitly requested queued
+  size/shared-provider run, despite cancel-in-progress=false. Current optimized
+  1e044e9 run 42295091789 remains queued behind the live bd1a39b package build;
+  preserve it rather than cancelling/restarting it while pushing new work.
+- Include event and size/shared-provider profile in the concurrency group. New
+  ordinary pushes can replace stale ordinary pending snapshots without replacing
+  a manual profile. Keep cancel-in-progress=false. Different profiles may run
+  concurrently when runners permit; compilation/tests/publication gates are
+  unchanged. This is queue configuration, not a new successful package claim.
+- Validate workflow with actionlint, source style and whitespace checks. Document
+  queue semantics with the current GitHub primary reference. No local build or
+  GUI test is needed for this reversible workflow-only change. Hosted scheduling
+  acceptance remains observable after push; do not infer it from static lint.
+
+Limits: the original pending run retains its old group until GitHub schedules it.
+Native Linux renderer and macOS release results remain pending; goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
