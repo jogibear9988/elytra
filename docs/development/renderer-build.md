@@ -8,6 +8,11 @@ The renderer probe is a separate upstream-root build, injected through CMake's
 project-include/deferred-target hooks. It does not modify Ladybird or add
 LibWeb, Qt, or Firefly to the standalone Mite graph.
 
+The [native Linux renderer bring-up](linux-renderer.md) adds an experimental owned
+helper/layout and dedicated hosted acceptance path. Linux desktop windows and
+distribution remain separate unfinished work; compilation/execution is not yet
+accepted merely because the build adapter exists.
+
 ```sh
 python3 tooling/bootstrap.py
 python3 tooling/build_renderer.py --jobs 4

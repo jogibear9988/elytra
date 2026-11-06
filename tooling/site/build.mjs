@@ -191,6 +191,7 @@ const groups = [
     [
       ['docs/development/renderer-build', 'Build Firefly'],
       ['docs/development/windows-build', 'Windows bring-up'],
+      ['docs/development/linux-renderer', 'Linux renderer bring-up'],
       ['docs/development/linux-build', 'Linux bring-up'],
       ['docs/development/updating-ladybird', 'Update Ladybird'],
       ['docs/development/releases', 'Native releases'],

@@ -10,9 +10,20 @@ def write_json(path, value):
         path.write_text(text)
 
 
-def manifest_data(root: Path):
+def upstream_manifest_data(root: Path):
+    """Read an independent upstream manifest with absolute owned-build overlay paths."""
     upstream = root / "vendor/ladybird"
     manifest = json.loads((upstream / "vcpkg.json").read_text())
+    configuration = json.loads((upstream / "vcpkg-configuration.json").read_text())
+    for key in ["overlay-ports", "overlay-triplets"]:
+        if key in configuration:
+            configuration[key] = [str((upstream / item).resolve()) for item in configuration[key]]
+    return {"vcpkg.json": manifest, "vcpkg-configuration.json": configuration}
+
+
+def manifest_data(root: Path):
+    files = upstream_manifest_data(root)
+    manifest = files["vcpkg.json"]
     mite = json.loads((root / "vcpkg.json").read_text())
     if manifest["builtin-baseline"] != mite["builtin-baseline"]:
         raise ValueError("Browser and Mite dependency baselines must match")
@@ -30,11 +41,7 @@ def manifest_data(root: Path):
                 raise ValueError(f"Conflicting {name} pins; resolve in our build adapter")
             if not existing:
                 overrides.append(override)
-    configuration = json.loads((upstream / "vcpkg-configuration.json").read_text())
-    for key in ["overlay-ports", "overlay-triplets"]:
-        if key in configuration:
-            configuration[key] = [str((upstream / item).resolve()) for item in configuration[key]]
-    return {"vcpkg.json": manifest, "vcpkg-configuration.json": configuration}
+    return files
 
 
 def prepare(root: Path, destination: Path):

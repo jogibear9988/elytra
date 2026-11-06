@@ -67,7 +67,9 @@ its own gate. Investigate failures against native Node
 observations without weakening tests to advertise unsupported behavior.
 
 Firefly Linux windows, renderer helper/sandbox integration and distributable
-packages remain separate implementation and native acceptance work. See the
+packages remain separate implementation and native acceptance work. The new
+[renderer/helper bring-up](linux-renderer.md) has an experimental build/CI path,
+with actual native acceptance still pending. See the
 [renderer build](renderer-build.md), [support policy](../reference/support-policy.md)
 and [progress record](../PROGRESS.md).
 

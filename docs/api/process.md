@@ -6,8 +6,9 @@ default/CommonJS object from `process` and `node:process`. Firefly's main proces
 uses these services; Ladybird document JavaScript does not receive process.
 
 **Availability:** partial. Native timing/CPU tests pass locally on macOS ARM64
-against Node 24.15.0 and the non-GUI embedded host. New timing APIs need fresh
-Windows/Linux hosted acceptance. Existing broader runtime baselines have their
+against Node 24.15.0 and the non-GUI embedded host. Native Windows x64 and Linux
+x64 Release gates at 02ed03f pass all 63 suites, including timing/CPU/GC and the
+real time-span workflow. Existing broader runtime baselines have their
 own [platform evidence](../compatibility/mite-0.1.md). This is not the complete
 Node process API or Node identity emulation.
 

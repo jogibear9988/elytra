@@ -8,6 +8,10 @@ Electron 45.2.3 migration fixtures pass in both runtimes with the module name
 selected at import time. This does not establish general Electron compatibility.
 Windows/Linux desktop, complete preload/IPC isolation and distribution remain outstanding.
 
+The experimental [Linux renderer/helper path](../development/linux-renderer.md)
+now selects native sandbox/resources and has a dedicated compilation/process gate.
+It remains pending native acceptance and does not enable Firefly Linux windows.
+
 | Surface | Status | Evidence / remaining acceptance gate |
 | --- | --- | --- |
 | `app`, lifecycle | partial | isReady/whenReady, ready, window-all-closed, before-quit, will-quit, quit, cancellation/retry and app.exit signed codes tested; nested quit is coalesced as an intentional difference; OS activation/dock/Cmd-Q and beforeunload remain incomplete |

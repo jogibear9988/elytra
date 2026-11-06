@@ -4606,6 +4606,47 @@ behavior remain open. Process events, stdio/signals, thread/memory/resource APIs
 and perf_hooks still need work. Continue newer hosted desktop/release acceptance
 and remaining runtime/platform/distribution/security requirements. Goal active.
 
+## 2026-11-06: Native Linux renderer/helper build and acceptance path
+
+- Add a Linux development layout for the real owned WebContent helper, preserving
+  macOS bundle paths. Select upstream RendererSandboxLinux.cpp and its sanitizer
+  source; keep Ladybird unmodified. Linux resources use share/Lagom and sibling
+  real helper executables. Non-macOS desktop runtime targets still refuse.
+- Generate an owned standalone Linux renderer manifest using upstream's exact
+  baseline/Qt 6.11.2 overrides, original dependencies and absolute overlays. Add
+  Linux Qt features without introducing Mite's I/O graph into this renderer.
+  Manifest tests verify preservation and reject stale generated data.
+- Factor the existing pinned native Linux environment into a shared action. Add
+  a dedicated Linux renderer workflow that builds actual LibWeb/Compositor and
+  owned-helper probes, executes DOM/screenshot/process/realm/callback gates and
+  retains native diagnostics. No disable-sandbox fallback is used.
+- Linux process acceptance requires the actual reported renderer PID, its parent,
+  NoNewPrivs=1, Seccomp=2 and more Seccomp_filters than the parent frontend.
+  These kernel observations establish activation, not full sandbox containment.
+- Native Linux compilation/execution of this new renderer path is pending CI;
+  adapter tests are not represented as Linux acceptance. Linux BrowserWindow,
+  desktop services and relocatable distribution remain unimplemented. Add ADR
+  0091 and explicit build/status documentation and site navigation.
+- Local Release CLI suite passes all 64 CTests in 19.18 seconds, including new
+  manifest and actual CMake platform-layout tests. Existing macOS Firefly and
+  owned-helper targets compile successfully. No local GUI app/suite is launched.
+  Both generated-source checks, runtime/Firefly/upstream integrity, source style,
+  actionlint and whitespace checks pass. Final site is regenerated before commit.
+- Previous 02ed03f hosted native Release acceptance is now verified: Windows run
+  42251043181/job 128006815798 passes all 63 suites in 80.09 seconds; Linux run
+  42251043146/job 128005890982 passes all 63 in 68.80 seconds. Both include native
+  process timing/GC and all eleven locked npm application workflows. Update
+  scoped API/package compatibility evidence; full upstream package suites remain
+  unmeasured. These results do not establish Firefly desktop support there.
+- Optimized macOS 3934e49 run 42248311164 was cancelled before build steps ran;
+  02ed03f run 42251097845 was queued at last observation. Preserve queued/live
+  builds. No new alpha or optimized package result is claimed in this entry.
+
+Limits: the new hosted Linux renderer gate must compile and execute before any
+Linux renderer support claim. Native Linux/Windows desktop integration, hostile
+sandbox policy acceptance, broader API compatibility and updated release
+publication remain open. Goal active; local UI tests stay occasional and targeted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

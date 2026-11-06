@@ -129,6 +129,9 @@ if(BUILD_TESTING)
                      --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}"
                                           "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")
+    add_test(NAME firefly-renderer-platforms
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_renderer_platforms.py")
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
                                         "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"

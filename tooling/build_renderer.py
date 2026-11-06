@@ -11,6 +11,7 @@ import sys
 
 from check_upstream import check
 from firefly_dependencies import prepare
+from renderer_dependencies import prepare as prepare_linux_renderer
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,7 +43,12 @@ def main():
     )
     parser.add_argument(
         "--target",
-        choices=["firefly-renderer-probe", "firefly-window-probe", "firefly"],
+        choices=[
+            "firefly-renderer-probe",
+            "firefly-preload-probe",
+            "firefly-window-probe",
+            "firefly",
+        ],
         default="firefly-renderer-probe",
     )
     args = parser.parse_args()
@@ -54,6 +60,8 @@ def main():
         parser.error("--baseline-cpu is currently verified only for macOS ARM64")
     if args.target in ["firefly-window-probe", "firefly"] and sys.platform != "darwin":
         parser.error("The native window adapter is currently implemented only for macOS")
+    if args.target == "firefly-preload-probe" and sys.platform not in ["darwin", "linux"]:
+        parser.error("The owned sandboxed helper is available only for macOS/Linux probes")
     if args.jobs < 1:
         parser.error("--jobs must be positive")
     check(ROOT)
@@ -92,6 +100,9 @@ def main():
     if args.target == "firefly":
         manifest = prepare(ROOT, build / "firefly-manifest")
         command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=ON"])
+    elif sys.platform == "linux":
+        manifest = prepare_linux_renderer(ROOT, build / "renderer-manifest")
+        command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=OFF"])
     else:
         command.extend(
             [f"-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird", "-DFIREFLY_BUILD_RUNTIME=OFF"]

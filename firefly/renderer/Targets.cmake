@@ -88,7 +88,7 @@ add_custom_target(
     DEPENDS firefly-isolation-probe check-firefly-wire
     USES_TERMINAL VERBATIM)
 
-if(APPLE)
+if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
 

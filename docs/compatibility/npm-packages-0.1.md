@@ -1,14 +1,15 @@
 # npm package measurements for Mite 0.1
 
 Verified on macOS ARM64 with the native Release Mite executable and Node v24.15.0.
-The [Linux x64 baseline](../development/linux-build.md) also passes the enabled
-real-package/runtime suites in Release at ff51eab; later profiles need their own gate.
+Native [Linux x64](../development/linux-build.md) and [Windows x64](../development/windows-build.md)
+Release gates at 02ed03f pass all 63 suites, including these eleven package workflows.
+Later profiles need their own gate.
 Dependencies come from `tooling/npm-fixtures/package-lock.json`; npm ci verifies
 its locked integrity values, and package installation scripts are disabled.
 The eleven focused application fixtures pass with identical stdout, stderr and exit
 status in Mite and Node. They execute the published package source through the
 normal CJS/ESM loader and node_modules layout. Full upstream package test suites
-and native Windows execution remain unverified; Linux evidence is limited to the baseline above.
+remain unverified; native platform evidence is limited to the baseline above.
 
 | Package | Version | Status | Measured behavior | License |
 | --- | --- | --- | --- | --- |
@@ -21,8 +22,8 @@ and native Windows execution remain unverified; Linux evidence is limited to the
 | time-span | 5.1.0 | partial | Published ESM entry samples native process.hrtime.bigint; timer-spanning millisecond/rounded/second/nanosecond methods, units and five original-clock delegations pass locally against Node | MIT |
 | convert-hrtime | 5.0.0 | partial | Unmodified ESM dependency converts actual native BigInt elapsed values; units and BigInt nanoseconds exercised through time-span | MIT |
 
-The new time-span workflow is locally measured on macOS and still needs fresh
-hosted platform acceptance. Its counting wrapper delegates every call to the original
+The time-span workflow passes locally on macOS and in the scoped Linux/Windows
+02ed03f native Release gates. Its counting wrapper delegates every call to the original
 native BigInt clock; neither package source nor sampled clock values are replaced.
 
 The once README advertises a proto() helper, but this locked published version
@@ -39,7 +40,7 @@ Mite now has separate partial [Node](../api/stream.md) and [Web Stream](../api/w
 
 The filesystem package cases create isolated file/directory/symlink fixtures; they
 do not mock the native filesystem. Symlink creation requires host privileges,
-and native Windows execution remains unverified; Linux baseline scope is recorded above. No package source is edited.
+and Windows/Linux baseline scope is recorded above. No package source is edited.
 
 License notices remain in the installed package directories. The runner verifies
 that the installed versions match the lock and that their upstream license files

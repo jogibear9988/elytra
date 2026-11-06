@@ -11,9 +11,20 @@ import re
 import tempfile
 import struct
 import subprocess
+import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def linux_security(pid):
+    """Read native kernel state, not a page-supplied flag or launch-option claim."""
+    rows = (Path("/proc") / str(pid) / "status").read_text().splitlines()
+    fields = dict(line.split(":", 1) for line in rows if ":" in line)
+    return {
+        key: int(fields[key].strip())
+        for key in ["PPid", "NoNewPrivs", "Seccomp", "Seccomp_filters"]
+    }
 
 
 def stop(process):
@@ -126,7 +137,12 @@ def main():
             )
             found = set()
             children = {}
+            sandboxed = set()
+            security = {}
             try:
+                parent_filters = (
+                    linux_security(process.pid)["Seccomp_filters"] if sys.platform == "linux" else 0
+                )
                 deadline = time.monotonic() + 20
                 while process.poll() is None and time.monotonic() < deadline:
                     rows = subprocess.check_output(
@@ -138,6 +154,19 @@ def main():
                             name = Path(command).name
                             found.add(name)
                             children.setdefault(name, set()).add(int(pid))
+                            if sys.platform == "linux" and name == "WebContent":
+                                try:
+                                    state = linux_security(int(pid))
+                                except (FileNotFoundError, ProcessLookupError):
+                                    continue
+                                security[int(pid)] = state
+                                if (
+                                    state["NoNewPrivs"] == 1
+                                    and state["Seccomp"] == 2
+                                    and state["Seccomp_filters"] > parent_filters
+                                    and state["PPid"] == process.pid
+                                ):
+                                    sandboxed.add(int(pid))
                     # A spare WebContent can precede the actual navigated renderer.
                     # Observe the full session so the reported PID is checked too.
                     time.sleep(0.1)
@@ -154,6 +183,15 @@ def main():
                     )
                     return 1
                 print("PASS separate WebContent/RequestServer/Compositor OS processes")
+                if sys.platform == "linux":
+                    assert int(renderer_pid[1]) in sandboxed, (
+                        "Native Linux sandbox was not observed",
+                        security,
+                        parent_filters,
+                    )
+                    print(
+                        "PASS native Linux renderer no-new-privileges and an additional seccomp filter"
+                    )
             finally:
                 stop(process)
                 process.communicate()
