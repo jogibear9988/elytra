@@ -7,9 +7,22 @@
 #ifdef _WIN32
 // Keep upstream's Windows include boundary local to this platform entry point.
 #include <AK/Windows.h>
+#include <fcntl.h>
+#include <io.h>
 
 int wmain(int argc, wchar_t** wide_argv)
 {
+    // The CRT text default turns every LF written by console.log/error into
+    // CRLF, including when output is a child-process pipe. Node writes these
+    // bytes unchanged. Set CLI-owned output descriptors before any diagnostics;
+    // embedded hosts retain control over their own CRT stream configuration.
+    for (auto* stream : { stdout, stderr }) {
+        auto descriptor = _fileno(stream);
+        if (descriptor >= 0 && _setmode(descriptor, _O_BINARY) == -1) {
+            fputs("mite: cannot configure binary CLI output\n", stderr);
+            return 9;
+        }
+    }
     static_assert(sizeof(wchar_t) == 2);
     std::vector<std::string> storage;
     storage.reserve(static_cast<size_t>(argc));

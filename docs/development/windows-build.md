@@ -204,6 +204,18 @@ entry spelling. Python samefile verifies filesystem identity; no output is
 normalized to mask differences. Local POSIX regression checks pass; native Windows
 acceptance of this candidate remains pending.
 
+## CLI console byte output
+
+Native ef61124 run 42147228418 exposes an output-byte difference in the child
+process fixture: Mite's console.log writes CRLF through a pipe while Node writes
+LF. Python's ordinary text-mode capture hid this in earlier console tests.
+The Windows CLI now sets its stdout/stderr CRT descriptors to binary mode before
+printing diagnostics or entering the runtime. It leaves embedded hosts' stream
+configuration to the host. A raw-byte behavior test covers LF, explicit CRLF,
+NUL, SUB and UTF-8 on both output streams without newline conversion.
+Local regression checks pass; native Windows acceptance remains pending. This
+does not establish terminal code-page/rendering parity or add console formatting.
+
 ## Wide-entry runtime result and remaining contract fixes
 
 Run [42141915944](https://github.com/jogibear9988/elytra/actions/runs/42141915944)

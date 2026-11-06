@@ -46,6 +46,17 @@ def main():
         ("syntax-error.js", [], 1, ""),
     ]
     failures = []
+    # Capture bytes directly: universal-newline decoding hides a Windows CRT
+    # LF -> CRLF conversion, which corrupts console output inside native pipes.
+    raw_source = r"console.log('LF\nCRLF\r\nNUL\x00SUB\x1a文🪲');console.error('err\n文🪲');"
+    raw_expected = ('LF\nCRLF\r\nNUL\x00SUB\x1a文🪲\n'.encode('utf-8'), 'err\n文🪲\n'.encode('utf-8'))
+    for executable in [args.node, args.mite]:
+        result = subprocess.run([executable, '-e', raw_source], capture_output=True, timeout=15)
+        passed = result.returncode == 0 and (result.stdout, result.stderr) == raw_expected
+        print(f"{'PASS' if passed else 'FAIL'} raw console stdout/stderr bytes ({Path(executable).name})")
+        if not passed:
+            failures.append('raw console stdout/stderr bytes')
+            print(result, file=sys.stderr)
     # Each direct child must report this actual launcher as its parent, before
     # timers or async I/O could accidentally initialize platform services for it.
     for executable in [args.node, args.mite]:

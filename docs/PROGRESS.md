@@ -2529,6 +2529,28 @@ and an HTTP response observing writableFinished=false where Node reports true.
 Those latter two require separate runtime corrections, not output filtering or
 weaker test assertions. No hosted package success or alpha is claimed.
 
+## Windows CLI console byte preservation candidate (2026-11-06)
+
+Native ef61124 child-process observations expose an actual console output defect:
+Mite's Windows CRT text streams translate LF to CRLF, unlike Node, including bytes
+captured in native child pipes. Earlier Python text-mode capture normalized this
+away. Configure only the CLI-owned stdout/stderr descriptors as binary in wmain,
+before argument diagnostics or Mite::run. Preserve closed descriptors rather than
+calling the CRT mode API on an invalid descriptor. Embedded hosts retain control
+over their own stream modes. This does not certify Windows terminal code-page or
+formatting parity and does not change subprocess byte streams/test observations.
+
+Add raw-byte Node/Mite console behavior assertions for LF, explicit CRLF, NUL,
+SUB and Unicode UTF-8 on stdout AND stderr; no newline decoding/filtering. Local
+Release/size-profile rebuild and all 42 CTests pass in 19.40s, including the new
+console check and child-process suite (build/windows-console-{build,test}.log).
+Windows implementation still awaits native runner acceptance. Matrix and Windows
+build docs distinguish this scope; hosted Linux child-process acceptance is now
+recorded. Site checks 108 pages / 5856 local links; pin/Python/diff checks pass.
+The Windows HTTP writableFinished observation remains an independent unresolved
+failure; investigate actual write completion/event ordering next. No new package
+size, hosted package success or alpha publication is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
