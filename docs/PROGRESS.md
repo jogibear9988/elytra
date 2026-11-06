@@ -4765,6 +4765,33 @@ Limits: optimized hosted release acceptance is still pending, as are exhaustive
 history/redirect/subframe and hostile platform-policy cases. Continue Linux real
 renderer build/runtime and Windows desktop/platform distribution work. Goal active.
 
+## 2026-11-06: Share bounded native clipboard preparation across platform adapters
+
+- Extract MIME selection, wire/item shape, duplicate detection, canonical Base64
+  decoding and aggregate byte budgets into commented clipboard/Protocol.cpp/.h.
+  The prepared result owns plain bytes and no OS/VM objects; any failure discards
+  partial preparation before platform clipboard ownership can change.
+- macOS AppKit now consumes this shared result and retains its native read/type/
+  provider/publication logic. Build the parser as one QtCore-only static library
+  used by the runtime and native probes; standalone Mite gains no Qt dependency.
+- Add an actual non-GUI native protocol probe covering Unicode/embedded NUL,
+  three representations, clear, malformed shapes/MIME/duplicates/noncanonical
+  Base64, exact eight-MiB acceptance and combined-representation overflow. It runs
+  before desktop gates on macOS and before the large Linux renderer compilation.
+- Local parser probe passes. Existing actual private-pasteboard probe also passes
+  byte/type fidelity, invalid-write ownership preservation, external UTF-16,
+  unknown-format refusal and clear. Firefly and both probes compile successfully
+  (clipboard-protocol-build.log); no window or general clipboard is accessed.
+- Source style (120 Python, 546 JS/web/config, 162 native, 21 CMake), actionlint,
+  Firefly/upstream integrity and whitespace gates pass. Linux-native protocol
+  acceptance remains pending its dedicated workflow; parser portability is not
+  represented as a working Linux clipboard service or desktop runtime.
+
+Limits: next connect this shared protocol to the native Linux clipboard provider
+and verify it with a second OS process in isolated X11 CI. Current real Linux
+renderer and macOS release builds remain live; no completion/alpha claim is made.
+Goal active; no local GUI suite is run in this slice.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

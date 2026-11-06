@@ -1,7 +1,8 @@
 # These OS probes use AppKit directly; do not build them as Linux placeholders.
 add_executable(firefly-clipboard-probe "${CMAKE_CURRENT_LIST_DIR}/../clipboard/Probe.mm"
                                        "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardMac.mm")
-target_link_libraries(firefly-clipboard-probe PRIVATE Qt::Core "-framework AppKit")
+target_link_libraries(firefly-clipboard-probe PRIVATE firefly-clipboard-protocol
+                                                      "-framework AppKit")
 
 add_executable(firefly-theme-probe "${CMAKE_CURRENT_LIST_DIR}/../theme/Probe.mm"
                                    "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeMac.mm")

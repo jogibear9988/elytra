@@ -50,7 +50,7 @@ target_compile_definitions(
     firefly
     PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${CMAKE_BINARY_DIR}/FireflyRuntimeHelper.app/Contents/MacOS"
 )
-target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite)
+target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol)
 add_dependencies(firefly ladybird ${ladybird_helper_processes} check-firefly-upstream)
 ladybird_check_skia_confinement(firefly)
 set(FIREFLY_ELECTRON_REFERENCE
@@ -58,6 +58,7 @@ set(FIREFLY_ELECTRON_REFERENCE
     CACHE FILEPATH "Electron behavioral reference executable")
 add_custom_target(
     check-firefly
+    COMMAND "$<TARGET_FILE:firefly-clipboard-protocol-probe>"
     COMMAND "$<TARGET_FILE:firefly-chrome-probe>"
     COMMAND "$<TARGET_FILE:firefly-screen-probe>"
     COMMAND "$<TARGET_FILE:firefly-clipboard-probe>"
@@ -71,6 +72,11 @@ add_custom_target(
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_ipc.py"
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
-    DEPENDS firefly firefly-chrome-probe firefly-screen-probe firefly-clipboard-probe
-            firefly-theme-probe firefly-geometry-probe
+    DEPENDS firefly
+            firefly-chrome-probe
+            firefly-screen-probe
+            firefly-clipboard-probe
+            firefly-clipboard-protocol-probe
+            firefly-theme-probe
+            firefly-geometry-probe
     USES_TERMINAL VERBATIM)

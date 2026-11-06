@@ -1,17 +1,14 @@
 /** Copy byte snapshots at the OS boundary; never retain VM objects or promised providers. */
 #include "ClipboardMac.h"
 #include "Clipboard.h"
+#include "Protocol.h"
 #include <AppKit/AppKit.h>
 #include <QJsonArray>
 
 namespace Firefly {
 namespace {
-    constexpr qsizetype budget = 8 * 1024 * 1024;
-
-    QJsonObject failure(char const* code, char const* message)
-    {
-        return { { "error", QJsonObject { { "code", code }, { "message", message } } } };
-    }
+    constexpr auto budget = ClipboardProtocol::byte_budget;
+    using ClipboardProtocol::failure;
 
     NSString* native_type(QString const& mime)
     {
@@ -130,48 +127,26 @@ QJsonObject clipboard_request_on(NSPasteboard* board, QJsonObject const& request
             return { { "items", result } };
         }
 
-        if (op != "write" || !request["items"].isArray())
-            return failure("ERR_INVALID_ARG_VALUE", "Invalid clipboard operation");
-        auto items = request["items"].toArray();
-        if (items.size() > 1)
-            return failure(
-                "ERR_FIREFLY_UNSUPPORTED_API", "Multiple clipboard items are not implemented");
-        if (items.isEmpty()) {
+        auto prepared = ClipboardProtocol::prepare_write(request);
+        if (!prepared.valid())
+            return prepared.error;
+        if (prepared.representations.isEmpty()) {
             [board clearContents];
             return {};
         }
 
-        if (!items[0].isArray() || items[0].toArray().isEmpty() || items[0].toArray().size() > 3)
-            return failure("ERR_INVALID_ARG_VALUE", "Invalid clipboard representations");
-        auto* prepared = [[[NSPasteboardItem alloc] init] autorelease];
-        qsizetype size = 0;
-        for (auto const& value : items[0].toArray()) {
-            auto representation = value.toObject();
-            auto* type = native_type(representation["format"].toString());
-            if (!type)
-                return failure("ERR_FIREFLY_UNSUPPORTED_API", "Unsupported clipboard MIME type");
-            if ([prepared.types containsObject:type] || !representation["data"].isString())
-                return failure(
-                    "ERR_INVALID_ARG_VALUE", "Invalid or duplicate clipboard representation");
-            auto encoded = representation["data"].toString().toLatin1();
-            if (encoded.size() > (budget * 4 / 3 + 4))
-                return failure("ERR_FIREFLY_CLIPBOARD_LIMIT", "Clipboard data exceeds eight MiB");
-            auto decoded
-                = QByteArray::fromBase64Encoding(encoded, QByteArray::AbortOnBase64DecodingErrors);
-            if (!decoded || decoded.decoded.toBase64() != encoded)
-                return failure("ERR_INVALID_ARG_VALUE", "Invalid clipboard byte encoding");
-            if (decoded.decoded.size() > budget - size)
-                return failure("ERR_FIREFLY_CLIPBOARD_LIMIT", "Clipboard data exceeds eight MiB");
-            size += decoded.decoded.size();
-            auto* bytes = [NSData dataWithBytes:decoded.decoded.constData()
-                                         length:decoded.decoded.size()];
-            if (![prepared setData:bytes forType:type])
+        auto* item = [[[NSPasteboardItem alloc] init] autorelease];
+        for (auto const& representation : prepared.representations) {
+            auto* type = native_type(representation.mime);
+            auto const& data = representation.bytes;
+            auto* bytes = [NSData dataWithBytes:data.constData() length:data.size()];
+            if (![item setData:bytes forType:type])
                 return failure(
                     "ERR_FIREFLY_CLIPBOARD_UNAVAILABLE", "Cannot prepare clipboard representation");
         }
         // Resolve/validate every representation before acquiring clipboard ownership.
         [board clearContents];
-        if (![board writeObjects:@[ prepared ]])
+        if (![board writeObjects:@[ item ]])
             return failure(
                 "ERR_FIREFLY_CLIPBOARD_UNAVAILABLE", "Cannot publish native clipboard data");
         return {};

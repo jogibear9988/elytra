@@ -64,6 +64,7 @@ actual Linux executables, then requires:
   PNG and separate WebContent/RequestServer/Compositor process identities;
 - native realm isolation and cross-process serialized-data tests;
 - the owned helper's first-script preload, lifetime/callback/revocation tests;
+- QtCore-only clipboard wire preparation before the large renderer compilation;
 - kernel sandbox observations for both the upstream control and owned helper;
 - an actual Qt X11 window under Xvfb/Openbox: mouse/key delivery into LibWeb,
   viewport resize, navigation/close, painted screenshot colors and reported
@@ -82,6 +83,14 @@ network/process broker policies, adversarial escapes and real desktop GPU/input
 need further acceptance. A passing screenshot does not establish native windows.
 CI retains logs, images, dependency manifests and CMake/vcpkg diagnostics on failure.
 Software Mesa rendering is requested; sandbox settings are kept intact.
+
+Clipboard wire preparation lives in firefly/native/clipboard/Protocol.cpp, shared
+with the real macOS backend. Its standalone native probe validates owned byte
+copies, item/representation shapes, supported MIME types, canonical Base64 and
+aggregate limits without creating a window or accessing any OS clipboard. The
+Linux workflow builds/runs that small target immediately after configuration.
+This establishes parser portability only; a native Linux clipboard service and
+public Linux Firefly integration remain separate unfinished work.
 
 Local macOS validation covers the same CMake layout selection and unchanged helper/
 Firefly compilation. CMake/manifest adapter tests do not prove Linux compilation
