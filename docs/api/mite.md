@@ -58,7 +58,7 @@ referenced work; fatal shutdown may abandon pending native writes.
 ## Cancellation
 
 [AbortController/AbortSignal](abort.md) and portable event globals are available,
-with Promise timeout/immediate and TCP Socket/Server consumers. Other service signal options remain
+with Promise timeout/immediate, TCP Socket/Server and HTTP request consumers. Other service signal options remain
 unsupported unless their individual contracts say otherwise.
 
 ## node:fs and node:fs/promises

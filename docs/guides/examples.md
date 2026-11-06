@@ -41,3 +41,7 @@ status page and separate manual prerequisites; never count rejection as feature 
 The [TCP cancellation example](../../examples/mite-tcp/cancellation.mjs) echoes over
 a real connection, aborts the Socket and stops the Server through separate signals.
 It also composes an unreferenced deadline; run it with `mite examples/mite-tcp/cancellation.mjs`.
+
+The [HTTP cancellation example](../../examples/mite-http/cancellation.mjs) aborts an
+incomplete response, handles both request/body errors, and closes its local server.
+Run it with `mite examples/mite-http/cancellation.mjs`.

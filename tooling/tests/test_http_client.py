@@ -275,7 +275,7 @@ def main():
                     errors
                 )
                 fixture.write_text(
-                    "const http=require('http');for(const options of [{agent:{}},{createConnection(){}},{socketPath:'/x'},{signal:{}},{insecureHTTPParser:true},{uniqueHeaders:[]},{IncomingMessage:class{}},{localAddress:'127.0.0.1'},{headers:{upgrade:'test'}}]){let caught=false;try{http.request(options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported option accepted')}console.log('POLICY_OK');"
+                    "const http=require('http');for(const options of [{agent:{}},{createConnection(){}},{socketPath:'/x'},{insecureHTTPParser:true},{uniqueHeaders:[]},{IncomingMessage:class{}},{localAddress:'127.0.0.1'},{headers:{upgrade:'test'}}]){let caught=false;try{http.request(options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported option accepted')}console.log('POLICY_OK');"
                 )
                 result = subprocess.run(
                     [args.mite, str(fixture)], capture_output=True, text=True, timeout=10

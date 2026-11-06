@@ -78,7 +78,7 @@ the returned Promise; they do not synchronously throw. ref:false leaves native
 work unreferenced, so an unresolved Promise alone does not keep Mite alive.
 
 Promise setInterval and scheduler remain unavailable. Installing these globals
-does not implement AbortSignal support in fs, child_process, HTTP or general stream
+does not implement AbortSignal support in fs, child_process or general stream
 operations that explicitly rejected that option previously. TLS/HTTPS/fetch remain
 separate work. Check each service contract before using signal there.
 
@@ -94,6 +94,16 @@ Synthetic public events do not run these private native cancellation algorithms.
 See the TCP contract for direct Socket.connect limitations and measured Node
 lifecycle differences. This does not add HTTP/fs/process cancellation.
 
+## HTTP consumers
+
+[node:http](http.md#abortsignal-cancellation) accepts signal in request/get/
+ClientRequest options. Cancellation covers deferred startup, lookup, uploads and
+incomplete/paused responses. Upload finish does not remove the subscription.
+Request errors preserve AbortError/ABORT_ERR and the original reason; incomplete
+response bodies separately emit aborted and ECONNRESET. Pre-aborted requests return
+already destroyed but deliver error/close asynchronously. Handle both error paths.
+The inherited HTTP Server.listen signal permits accepted responses to finish.
+
 ## Explicit alpha differences and remaining acceptance
 
 Three actual Node/Mite differences have dedicated assertions:
@@ -102,7 +112,8 @@ Three actual Node/Mite differences have dedicated assertions:
   metadata, not an authority boundary for application authorization.
 - Manually dispatching a synthetic abort event cancels Node 24's Promise timer
   while signal.aborted is still false. Its socket consumer also destroys the transport
-  on that public event. Mite's private consumer algorithms wait for
+  on that public event, as does the HTTP request consumer. Mite's private consumer
+  algorithms wait for
   actual state change; a timer completes normally and a socket stays open until
   actual abort or ordinary closure.
 - With nested listener-only composition, Node 24.15.0 can drop the outer signal

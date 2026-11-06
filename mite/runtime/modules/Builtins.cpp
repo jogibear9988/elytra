@@ -253,6 +253,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     }
 
     if (name == "http") {
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
         auto url = TRY(builtin("url"));
         host->define_direct_property(
             "URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);

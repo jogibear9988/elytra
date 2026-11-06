@@ -9,6 +9,7 @@ function createHttpModule(host) {
   const URL = host.URL;
   const tick = host.process.nextTick;
   const native = host.native;
+  const abort = host.abort;
   const incoming = /* @__PURE__ */ new WeakMap();
   const outgoing = /* @__PURE__ */ new WeakMap();
   const servers = /* @__PURE__ */ new WeakMap();
@@ -572,7 +573,6 @@ ${headerLines(headers)}\r
     for (const key of [
       "createConnection",
       "socketPath",
-      "signal",
       "localAddress",
       "localPort",
       "uniqueHeaders",
@@ -588,6 +588,9 @@ ${headerLines(headers)}\r
     }
     if (opts.setDefaultHeaders === false) {
       unsupported("setDefaultHeaders:false");
+    }
+    if (opts.signal && !abort.isSignal(opts.signal)) {
+      throw error(TypeError, "ERR_INVALID_ARG_TYPE", "signal must be an AbortSignal");
     }
     let hostname = opts.hostname ?? opts.host ?? "localhost";
     if (typeof hostname !== "string") {
@@ -635,11 +638,6 @@ ${headerLines(headers)}\r
       return;
     }
     c.failed = true;
-    if (c.current && !c.current.complete) {
-      c.current.aborted = true;
-      c.current.emit("aborted");
-      c.current.destroy(error(Error, "ECONNRESET", "aborted"));
-    }
     if (!req.destroyed) {
       req.destroy(err);
     }
@@ -785,7 +783,8 @@ ${headerLines(headers)}\r
         complete: false,
         failed: false,
         closed: false,
-        pausedBy: null
+        pausedBy: null,
+        unsubscribe: null
       };
       clients.set(this, c);
       socket.on("data", (bytes) => {
@@ -824,6 +823,7 @@ ${headerLines(headers)}\r
         }
       });
       socket.on("close", () => {
+        const failedHere = !c.complete && !c.failed && !this.destroyed;
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, "ECONNRESET", "socket hang up"));
         }
@@ -832,7 +832,16 @@ ${headerLines(headers)}\r
           if (!this.destroyed) {
             this.destroy();
           }
-          this.emit("close");
+          if (c.current && !c.current.complete && !c.current.destroyed) {
+            c.current.aborted = true;
+            c.current.emit("aborted");
+            c.current.destroy(error(Error, "ECONNRESET", "aborted"));
+          }
+          if (failedHere) {
+            tick(() => this.emit("close"));
+          } else {
+            this.emit("close");
+          }
         }
       });
       socket.on("timeout", () => {
@@ -851,6 +860,20 @@ ${headerLines(headers)}\r
       });
       if (opts.timeout) {
         socket.setTimeout(opts.timeout);
+      }
+      if (opts.signal) {
+        const signal = opts.signal;
+        const cancel = () => {
+          const failure = error(Error, "ABORT_ERR", "The operation was aborted");
+          failure.name = "AbortError";
+          failure.cause = abort.reason(signal);
+          this.destroy(failure);
+        };
+        if (signal.aborted) {
+          cancel();
+        } else {
+          c.unsubscribe = abort.subscribe(signal, cancel);
+        }
       }
       tick(() => {
         if (this.destroyed) {
@@ -927,16 +950,13 @@ ${headerLines(headers)}\r
       const c = clients.get(this);
       if (c) {
         c.failed = true;
-        if (c.current && !c.current.complete && !c.current.destroyed) {
-          c.current.aborted = true;
-          c.current.emit("aborted");
-          c.current.destroy(error(Error, "ECONNRESET", "aborted"));
-        }
-        if (!c.socket.destroyed) {
-          c.socket.destroy();
-        }
+        c.unsubscribe?.();
+        c.unsubscribe = null;
       }
       callback(err);
+      if (c && !c.socket.destroyed) {
+        c.socket.destroy();
+      }
     }
     abort() {
       if (this.aborted) {

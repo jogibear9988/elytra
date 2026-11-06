@@ -3706,6 +3706,67 @@ Validation: all thirteen actual Node/Mite TCP cancellation cases pass locally
 pending. Native Windows b5cadad now succeeds. Source style/Pages 4b6f5f9 succeed;
 its native Windows run remains pending observation. No GUI tests are launched.
 
+## 2026-11-06 — Request-lifetime HTTP AbortSignal cancellation
+
+Previous goal turn: progress (native TCP 4b6f5f9 committed/pushed). Its source style
+and Pages succeed; Linux and Windows compiled but both failed in the same Node
+reference pre-aborted TCP peer teardown fixture. Commit d3aafbe gives accepted
+reference peers an explicit lifetime without relaxing connect/error assertions.
+Rerun hosted gates after pushing the coherent HTTP step. macOS optimized
+42200655334 is still running; newer optimized 4b6f5f9 42207843778 is pending.
+No new alpha or Windows/Linux desktop support is claimed.
+
+Associate private realm-local abort hooks with HTTP ClientRequest, not its Socket.
+Support request/get/new ClientRequest options and URL overloads. An actual abort
+destroys the request with AbortError/ABORT_ERR and original reason cause, closes
+its native transport and discards late resolver results. Pre-aborted requests are
+destroyed on return while error/close delivery remains deferred. Cancellation can
+occur during deferred socket assignment, lookup, upload, response or paused body.
+Do not detach at upload finish: the response still belongs to that request.
+Dispose subscriptions on destruction/normal transport closure.
+
+Queue request errors before closing an unconnected Socket; abort incomplete
+responses during native socket teardown, preserving tested request error / response
+aborted / request close / response ECONNRESET error-close ordering. Retain one-shot
+failure/close guards and completed-body state. Real cancellation is independent of
+public event propagation; synthetic events still intentionally do not run private
+consumers. Inherited HTTP Server.listen signal cancellation is now explicitly
+accepted with a graceful response from an already accepted connection.
+
+Validation:
+- Standalone rebuild and all 51 CTests pass in 64.60 seconds
+  (http-abort-all-tests.log). Sixteen actual Node 24.15.0/Mite HTTP cancellation
+  scenarios cover pre/immediate/socket-association/lookup races, upload finish,
+  partial and paused responses, deadlines, URL options, types, propagation stops,
+  settled disposal and graceful listener closure. Synthetic-event differences are
+  asserted separately, not normalized into equality.
+- An independent Python OS socket peer observes EOF/reset after cancellation
+  during an incomplete response and an open 8 MiB upload. This verifies native
+  closure separately from application flags and two copies of Mite.
+- The non-GUI lifetime suite now has sixteen scenarios: eight completed HTTP
+  requests become collectable while their original controller remains reachable.
+  Existing HTTP client independent-peer/framing/EOF/parser/fatal/policy workflows
+  pass unchanged except removing signal from the unsupported-option list; invalid
+  signals now have explicit ERR_INVALID_ARG_TYPE coverage.
+- The subsequent targeted TCP cancellation suite passes all thirteen cases after
+  the peer cleanup fix. Hosted Linux/Windows acceptance of that fix remains pending.
+- Source style passes 105 Python, 468 JS/web/config, 129 native and 14 CMake sources
+  plus Rust. Both generators reproduce; runtime/Firefly/upstream integrity and
+  actionlint pass. Ladybird remains unmodified at its pinned revision.
+- Firefly rebuild succeeds (http-abort-firefly-build.log). No local GUI tests or
+  desktop applications are launched. Hosted desktop/platform acceptance remains
+  separate for this source.
+- Modern ESM HTTP cancellation example executes under actual Mite and Node with
+  identical payload/reason/incomplete-body/server-close output. Add API/cancellation
+  reference, compatibility updates and ADR 0078. Site validates 153 pages / 9456
+  links including this progress entry.
+
+Next: continue TLS/HTTPS/fetch and broader runtime I/O/services, including remaining
+filesystem/process/general stream cancellation; complete desktop IPC/services and
+native Windows/Linux distribution/security maturity. OS DNS interruption, Agents,
+pooling and complete HTTP lifecycle/platform/error conformance remain open. The
+overall goal stays active; keep local GUI acceptance infrequent and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

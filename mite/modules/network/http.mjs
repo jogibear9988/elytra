@@ -12,6 +12,7 @@ export default function createHttpModule(host) {
   const URL = host.URL;
   const tick = host.process.nextTick;
   const native = host.native;
+  const abort = host.abort;
   const incoming = new WeakMap();
   const outgoing = new WeakMap();
   const servers = new WeakMap();
@@ -659,7 +660,6 @@ export default function createHttpModule(host) {
     for (const key of [
       'createConnection',
       'socketPath',
-      'signal',
       'localAddress',
       'localPort',
       'uniqueHeaders',
@@ -675,6 +675,10 @@ export default function createHttpModule(host) {
     }
     if (opts.setDefaultHeaders === false) {
       unsupported('setDefaultHeaders:false');
+    }
+    // Like Node's request constructor, falsy signals select no cancellation.
+    if (opts.signal && !abort.isSignal(opts.signal)) {
+      throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'signal must be an AbortSignal');
     }
     let hostname = opts.hostname ?? opts.host ?? 'localhost';
     if (typeof hostname !== 'string') {
@@ -732,11 +736,6 @@ export default function createHttpModule(host) {
       return;
     }
     c.failed = true;
-    if (c.current && !c.current.complete) {
-      c.current.aborted = true;
-      c.current.emit('aborted');
-      c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
-    }
     if (!req.destroyed) {
       req.destroy(err);
     }
@@ -899,7 +898,8 @@ export default function createHttpModule(host) {
         complete: false,
         failed: false,
         closed: false,
-        pausedBy: null
+        pausedBy: null,
+        unsubscribe: null
       };
       clients.set(this, c);
 
@@ -944,6 +944,9 @@ export default function createHttpModule(host) {
       });
 
       socket.on('close', () => {
+        // Request errors precede response abortion/close. Native teardown owns
+        // the incomplete response; queued response errors follow request close.
+        const failedHere = !c.complete && !c.failed && !this.destroyed;
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, 'ECONNRESET', 'socket hang up'));
         }
@@ -952,7 +955,16 @@ export default function createHttpModule(host) {
           if (!this.destroyed) {
             this.destroy();
           }
-          this.emit('close');
+          if (c.current && !c.current.complete && !c.current.destroyed) {
+            c.current.aborted = true;
+            c.current.emit('aborted');
+            c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
+          }
+          if (failedHere) {
+            tick(() => this.emit('close'));
+          } else {
+            this.emit('close');
+          }
         }
       });
 
@@ -975,6 +987,25 @@ export default function createHttpModule(host) {
 
       if (opts.timeout) {
         socket.setTimeout(opts.timeout);
+      }
+
+      if (opts.signal) {
+        const signal = opts.signal;
+
+        const cancel = () => {
+          const failure = error(Error, 'ABORT_ERR', 'The operation was aborted');
+          failure.name = 'AbortError';
+          failure.cause = abort.reason(signal);
+          this.destroy(failure);
+        };
+
+        if (signal.aborted) {
+          // Writable.destroy queues error delivery, so state is already destroyed
+          // on return while callers can still attach error/close listeners.
+          cancel();
+        } else {
+          c.unsubscribe = abort.subscribe(signal, cancel);
+        }
       }
 
       tick(() => {
@@ -1058,16 +1089,15 @@ export default function createHttpModule(host) {
       const c = clients.get(this);
       if (c) {
         c.failed = true;
-        if (c.current && !c.current.complete && !c.current.destroyed) {
-          c.current.aborted = true;
-          c.current.emit('aborted');
-          c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
-        }
-        if (!c.socket.destroyed) {
-          c.socket.destroy();
-        }
+        c.unsubscribe?.();
+        c.unsubscribe = null;
       }
+      // Queue the request error before an unconnected socket queues its close.
+      // No application JS runs until this frame has also initiated native close.
       callback(err);
+      if (c && !c.socket.destroyed) {
+        c.socket.destroy();
+      }
     }
 
     abort() {

@@ -52,8 +52,9 @@ Run the existing [server](../../examples/mite-http/server.mjs), then the
 | family / lookup / hints / autoSelectFamily / autoSelectFamilyAttemptTimeout | Forwarded to implemented native net.Socket connection logic |
 | noDelay / keepAlive / keepAliveInitialDelay | Native TCP options; noDelay defaults to true |
 | highWaterMark | Writable stream buffering option |
+| signal | Realm-local AbortSignal; cancel request/transport, including after upload finish |
 
-Unsupported agents, custom createConnection, socketPath, signal, local binding,
+Unsupported agents, custom createConnection, socketPath, local binding,
 uniqueHeaders, custom IncomingMessage, defaultPort and insecure parser mode throw
 ERR_MITE_UNSUPPORTED_API. Protocol upgrades and CONNECT are rejected explicitly.
 Non-close Connection headers are rejected; there is no silent pooling emulation.
@@ -95,11 +96,47 @@ aborted and ECONNRESET on the response with complete=false. Timeouts only notify
 call destroy to enforce an application deadline. Handle errors on both request and
 response. Callback exceptions are fatal through the normal runtime error path.
 
+## AbortSignal cancellation
+
+`request` / `get` / `new ClientRequest` accept signal in options, including URL plus
+options overloads. A real abort destroys the request with an Error named AbortError,
+code ABORT_ERR and cause equal to the original reason. It closes the actual TCP
+connection. Request.aborted and the legacy abort event belong to request.abort();
+signal cancellation does not set/emit them.
+
+A pre-aborted request is already destroyed when returned; its error/close events
+are deferred so the caller can install listeners. It does not publish a socket or
+send a request. Cancellation during deferred socket assignment or DNS lookup also
+prevents activation; late resolver results cannot reconnect it. Already-running OS
+DNS work may drain internally. The finish event only means the upload was sent:
+the request remains abortable while waiting for or consuming the response.
+
+For an incomplete response, cancellation emits request error, response aborted,
+request close, then response ECONNRESET error and close in the tested sequence.
+Handle errors on both request and response. A paused response also closes without
+requiring further readable demand. Completed responses retain their complete body
+state. Subscriptions are disposed during request destruction/normal transport
+closure, not upload finish. A forced-GC regression confirms completed request
+objects are collectable while their original controller stays reachable.
+
+Signals must be from Mite's realm; foreign/polyfill signals reject with
+ERR_INVALID_ARG_TYPE. Falsy signal options select no cancellation, matching the
+Node reference. Public stopImmediatePropagation cannot suppress native cancellation.
+A synthetic abort Event does not run private cancellation algorithms; Node 24
+cancels on that event, an intentional difference shared with timers/TCP.
+
+The inherited `Server.listen({ signal })` closes the listener on abort and allows
+accepted HTTP requests/responses to finish under the existing server close policy.
+It is tested with a graceful response after the listener was cancelled.
+
+See the [cancellation example](../../examples/mite-http/cancellation.mjs),
+[AbortSignal contract](abort.md) and [TCP ownership](net.md).
+
 ## Differences and remaining work
 
 Default connections close after each response, unlike Node's reusable default
-agent. Agent/globalAgent, HTTPS/TLS, fetch, redirects, tunneling, upgrades and
-AbortSignal integration remain absent. Error text, all event timing/option/header
+agent. Agent/globalAgent, HTTPS/TLS, fetch, redirects, tunneling and upgrades
+remain absent. Error text, all event timing/option/header
 parity and every stream edge case are not certified. The client uses the existing
 strict llhttp parser and native TCP service, with no Node/V8 or LibWeb dependency.
 
@@ -108,7 +145,10 @@ and Mite for uploads, fragmented replies, duplicate headers/trailers, HEAD/204,
 EOF/information, 2 MiB paused data, parser/overflow/ambiguous framing, truncation,
 lookup failure, timeout, abort, lifecycle and argument validation. Separate cases
 exercise explicit upgrade/options rejection and fatal callbacks. Existing server
-suites remain required. See [ADR 0061](../architecture/0061-http-client.md).
+suites remain required. The HTTP cancellation suite additionally checks request/
+response event order, startup/lookup/finish/paused/deadline cancellation, signal
+validation, settled disposal and independent OS-peer closure during partial
+response and large upload. See [ADR 0061](../architecture/0061-http-client.md).
 
 ## Server API
 
