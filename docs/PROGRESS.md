@@ -2409,6 +2409,63 @@ upstream checks pass. New Windows branch/reference checks await the next native
 job; the active 4994a92 job 42143633063 remains live in compilation. macOS release
 42125911196 remains live; no release or complete platform support is claimed.
 
+## Native child-process vertical slice and helper reaping ownership (2026-11-06)
+
+Implement node:child_process spawn/ChildProcess with libuv process and three native
+pipe handles on the existing owned EventLoop. Validate/normalize arguments,
+environment, cwd/URL, stdio and selected flags/timeouts before native allocation;
+recheck the private boundary. Child state roots its event callback until every
+initialized native handle closes. Writes own byte snapshots/rooted completions;
+read pressure stops native reads. Preserve spawn/exit/close/error metadata, kill,
+separate process/pipe ref/unref, independent detached-child lifetime and VM teardown
+without late JS calls. No Node/V8, shell fallback or new native dependency is added.
+Shells, exec/execFile/fork/sync APIs, IPC, AbortSignal, privilege switching and full
+Socket/stdio error parity remain explicit unsupported/incomplete work.
+
+The first actual Firefly main-process child test timed out even though standalone
+process/pipe comparisons passed. The pinned LibWebView ProcessMonitor owns SIGCHLD
+and calls waitpid(-1), consuming unregistered application children. Replace just
+that non-Windows TU with an owned adapter using registered-PID waitpid calls on a
+10ms Core timer, without installing a competing SIGCHLD handler. Retain its ABI
+and copyright; stop/release monitor timers explicitly. Configure/build checks pin
+the upstream header/source and fail on drift/source-count mismatch. Windows keeps
+the existing upstream handle monitor. Ladybird source remains unmodified; standalone
+Mite does not link the Firefly adapter. ADR 0062/update guide record the ownership
+boundary, bounded polling cost and future removal/review requirement.
+
+tooling/test_child_process.py compares real Node/Mite processes with independent
+Python children: Unicode args/cwd/env, URL/string cwd and missing cwd, 1MiB echo,
+forced stdin pressure and paused output, separate stderr, nonzero exit, ENOENT,
+ignore/inherit, argv0/coercion metadata, kill/timeout, eight concurrent children,
+unconsumed output, 18 validation cases, unsupported modes, fatal callbacks and
+detached/unreferenced parent exit with a bounded child-survival handshake. Python
+is only a test peer. The CLI example runs under both runtimes. Targeted suite
+passes in build/child-process-test.log; all 42 local Release/size-profile CTests
+pass in 18.93s (build/child-process-{build,full-test}.log).
+
+All four actual renderer/desktop gates pass with the selective monitor:
+build/child-process-{firefly,renderer,isolation,helper}-test.log. Firefly's ESM
+fixture reads a real child pipe, and existing renderer/helper crash/lifecycle/
+isolation/resource controls remain required and pass. Add API reference, example,
+compatibility entry and navigation. Site, Python syntax, actionlint, drift/pin and
+diff checks pass. New module/adapter hosted Windows/Linux and package acceptance
+remain pending; no old package is relabeled or remeasured as containing this code.
+
+Windows 42143633063 at 4994a92 (job 127649860700) is now terminal failure with
+36/41 suites passing in 39.39s: filesystem, negative write offsets, module/package
+basics and the corrected drain test pass. Four remaining failures predate f3f08b9's
+URL/environment/reference fixes. The new Unicode module metadata test exposes
+Windows 8.3 alias spelling: Node retains RUNNER~1 while std::filesystem canonical
+expands runneradmin; preserve/resolve that behavior in the next loader step rather
+than silently normalizing observed paths. Native Unicode file contents load, but
+the metadata comparison remains a real failed gate.
+
+macOS release 42125911196 at 004b7fe is terminal failure after its long compilation:
+ring 0.17.14 fails two const feature assertions in cpu/arm/darwin.rs while building
+libwebrtcclient_service. This is a CPU-feature build failure, not a successful hosted
+package. Its original log is job 127590007748. Alpha publication remains pending;
+investigate the owned Rust target/CPU build configuration without editing vendors.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

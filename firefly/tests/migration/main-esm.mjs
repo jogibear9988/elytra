@@ -2,6 +2,7 @@ import {app,BrowserWindow} from 'firefly';
 import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
 import {randomBytes,randomUUID,randomInt,createHash} from 'node:crypto';
 import {createServer,get} from 'node:http';
+import {spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
@@ -17,6 +18,12 @@ const nonce=await new Promise((resolve,reject)=>randomBytes(32,(error,value)=>er
 if(randomInt(-1,0)!==-1 || await new Promise((resolve,reject)=>randomInt(1,(error,value)=>error?reject(error):resolve(value)))!==0)throw Error('Native main-process integer entropy');
 if(nonce.length!==32 || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(randomUUID()))throw Error('Native main-process random APIs');
 await app.whenReady();
+const childOutput=await new Promise((resolve,reject)=>{
+    const child=spawn('/usr/bin/printf',['%s','firefly-native-child']);let text='';
+    child.on('error',reject);child.stdout.setEncoding('utf8');child.stdout.on('data',chunk=>text+=chunk);child.stdout.on('error',reject);
+    child.on('close',code=>code===0?resolve(text):reject(Error('Native child exit')));
+});
+if(childOutput!=='firefly-native-child')throw Error('Native main-process child pipe');
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));

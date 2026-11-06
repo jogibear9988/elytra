@@ -77,6 +77,11 @@ streams. The [hash CLI example](examples/mite-cli/hash.mjs) hashes text or a fil
 HMAC, ciphers, key services and Web Crypto remain unimplemented. Hash/provider and
 platform limitations are recorded in the compatibility matrix and ADR 0053.
 
+`node:child_process.spawn()` now launches native executables with real pipes and
+process lifecycle events. The [CLI example](examples/mite-cli/spawn.mjs) starts
+another copy of the current runtime. See the [process reference](docs/api/child-process.md)
+for options and the still unsupported shell/IPC/synchronous APIs.
+
 Measured real-package scenarios are recorded in the [npm compatibility matrix](docs/compatibility/npm-packages-0.1.md). Missing test dependencies cause a test failure with installation instructions.
 
 The [filesystem example](examples/mite-cli/files.mjs) copies its source using

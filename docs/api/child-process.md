@@ -1,0 +1,80 @@
+# node:child_process
+
+Partial native process support, locally tested on macOS ARM64 in standalone Mite
+and the Firefly main process. Hosted Linux/Windows acceptance of this new module is
+pending. Renderers do not receive this privileged API.
+
+```js
+import {spawn, ChildProcess} from 'node:child_process';
+```
+
+require('child_process'), require('node:child_process'), the default ESM export and
+named functions share identity. The [Node 24.15 reference](https://nodejs.org/download/release/v24.15.0/docs/api/child_process.html)
+is the compatibility baseline; only the surface described here is implemented.
+
+## spawn(file[, args][, options])
+
+Start a native executable directly and return a ChildProcess. file must be a
+nonempty string without NUL. args defaults to an empty array; arguments are passed
+individually rather than interpreted by a shell. Do not concatenate a command line.
+Node-shaped metadata preserves the public argument array while native arguments
+are converted to strings. Prefer explicit string arguments in application code.
+
+| Option | Current support |
+| --- | --- |
+| cwd | String or file URL; omitted/null/empty selects inherited cwd |
+| env | Environment object, default current process.env; undefined values omitted; Windows duplicate keys handled case-insensitively |
+| argv0 | Optional string override for the child's initial argument |
+| stdio | pipe (default), ignore, inherit, or up to three entries using those modes / nonnegative inherited file descriptors |
+| detached | Native libuv detached flag; does not itself unreference the process |
+| timeout | Nonnegative integer through 0x7fffffff milliseconds; zero disables it |
+| killSignal | Signal used by timeout; default SIGTERM |
+| windowsHide / windowsVerbatimArguments | Native libuv flags; their Windows behavior still requires native acceptance |
+
+Shell execution, IPC/additional stdio channels, stream-object stdio adoption,
+AbortSignal, uid/gid and serialization options fail with ERR_MITE_UNSUPPORTED_API.
+exec, execFile, fork and synchronous process APIs are absent. Direct construction
+with new ChildProcess is also explicitly unsupported; use spawn.
+
+## Process and stream lifetime
+
+The returned object is an EventEmitter with pid, spawnfile, spawnargs, exitCode,
+signalCode, killed, connected (false), stdin/stdout/stderr and stdio. Piped stdin is
+a Writable; piped outputs are Readables with setEncoding, pause/resume and ordinary
+stream operations. They provide ref/unref, but are not full net.Socket instances.
+Input writes own their native byte snapshots until completion; output pressure
+stops native reads. Consumers must drain or destroy large outputs to avoid blocking
+the child. Unobserved small output is drained after process exit.
+
+spawn is emitted asynchronously on success. exit reports code/signal; close waits
+for process monitoring and pipe closure. Output can continue after exit. Missing
+executables report error asynchronously with native code/errno, syscall, path and
+spawnargs; no successful spawn/exit event is fabricated. Argument validation is
+synchronous. Handle process errors and any stream errors relevant to your workflow.
+All native error timing/stdio edge cases and allocation/provider failures are not
+certified as Node-identical.
+
+kill([signal]) returns success and updates killed; this does not prove termination.
+ref/unref control the process handle and return undefined. Pipe references are
+independent. [Symbol.dispose] requests default termination. Signal semantics depend
+on the OS. A timeout sends its configured signal; it does not guarantee immediate
+termination. Parent runtime teardown closes monitoring/pipes without automatically
+killing the independent child, matching the tested detached/unreferenced workflow.
+Process groups, orphan reaping in arbitrary embedding hosts and descendants are not
+a certified process-supervision facility.
+
+## Example and verification
+
+The [standalone example](../../examples/mite-cli/spawn.mjs) starts another copy of
+the current CLI, reads its pipe and awaits close. Run it under Mite or Node.
+Firefly's executable is an application launcher, so spawning it with CLI eval
+arguments is not the same workflow.
+
+mite-child-process compares Node/Mite with independent Python children: Unicode
+arguments/cwd/environment, 1 MiB echo with write pressure/paused reads, separate
+stderr, nonzero exit, start/cwd failures, inherited/ignored pipes, argv0, kill,
+timeout, concurrent children, unconsumed output, validation, fatal callbacks and
+detached/unreferenced parent exit. Python is a test peer, not a shipped runtime
+dependency. The Firefly ESM fixture also starts a real native process and reads its
+pipe alongside normal renderer/crash/lifecycle checks. See
+[ADR 0062](../architecture/0062-native-child-processes.md).

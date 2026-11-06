@@ -229,6 +229,14 @@ candidate commits from the official repository in .gitmodules / the manifest.
    A rejected candidate stays unmerged; restore both manifest and gitlink to the
    previous accepted commit together, then initialize the submodule again.
 
+The non-Windows Firefly build also substitutes one owned LibWebView ProcessMonitor
+translation unit (ADR 0062). Run tooling/check_process_monitor.py and review both
+upstream source/header hashes when updating. Do not restore waitpid(-1) or a
+competing SIGCHLD handler: application children belong to libuv, renderer/service
+helpers to the registered-PID monitor. Revalidate native child completion and
+registered renderer/helper crash detection together. Remove the adapter if an
+upstream selective-monitoring API supplies the required ownership boundary.
+
 The update workflow is documented and its local guard is tested. No newer
 Ladybird candidate was evaluated as part of adding this workflow. Native
 Windows/Linux upgrade validation, CI automation and full renderer upgrade

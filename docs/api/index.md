@@ -19,6 +19,8 @@ The [node:crypto reference](crypto.md) details the supported random/hash APIs,
 parameters, errors, resource lifetime and Node differences.
 The [node:http reference](http.md) covers client streams, options, errors and the
 current connection policy alongside the existing server API.
+The [child-process reference](child-process.md) describes native spawn, pipes,
+process lifetime and remaining unsupported execution modes.
 
 ```js
 import {createHash} from 'node:crypto';

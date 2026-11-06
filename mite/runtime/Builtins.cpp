@@ -12,6 +12,7 @@
 #include "HTTP.h"
 #include "OS.h"
 #include "Crypto.h"
+#include "ChildProcess.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -67,8 +68,10 @@ static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefau
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "constants", "EOL", "devNull" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash" };
+static constexpr std::string_view child_process_exports[] = { "spawn", "ChildProcess" };
 static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
+    { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 }, child_process_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
@@ -133,6 +136,19 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "child_process") {
+        host->define_direct_property("native"_utf16, create_child_process_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        host->define_direct_property("events"_utf16, TRY(builtin("events")), JS::default_attributes);
+        host->define_direct_property("stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+        auto url = TRY(builtin("url"));
+        host->define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
+        host->define_direct_property("fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);
+        auto os = TRY(builtin("os"));
+        auto constants = TRY(os->get("constants"_utf16));
+        host->define_direct_property("signals"_utf16, TRY(constants.as_object().get("signals"_utf16)), JS::default_attributes);
+    }
     if (name == "stream" || name == "string_decoder") {
         host->define_native_function(m_realm, "require"_utf16, [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (!vm.argument(0).is_string()) return error("ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);

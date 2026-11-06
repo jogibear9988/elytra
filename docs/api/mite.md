@@ -172,6 +172,15 @@ createServer((request, response) => {
 }).listen(3000, '127.0.0.1');
 ```
 
+## node:child_process
+
+spawn and ChildProcess provide partial native executable creation with stdin,
+stdout/stderr pipes, exit/close/error events, kill/ref/unref, environment/cwd,
+inherited/ignored descriptors and selected timeouts/flags. See the
+[child-process reference](child-process.md) for signatures, lifecycle and limits.
+Shell execution, exec/execFile/fork, synchronous APIs, IPC and AbortSignal remain
+unsupported. New module acceptance is local macOS; hosted platforms are pending.
+
 ## node:os
 
 Functions: arch, availableParallelism, endianness, freemem, homedir, hostname, loadavg,

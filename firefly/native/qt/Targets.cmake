@@ -1,6 +1,7 @@
 # Reuse upstream's actual presentation/input widget and Core/Qt event loop.
 # Keep a curated list: no browser Application, tabs, chrome or copied sources.
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core Widgets GuiPrivate)
+include("${FIREFLY_SOURCE_DIR}/firefly/native/ProcessMonitor.cmake")
 set(firefly_qt_sources
     ChromeStyle CrashReportReviewWidget EventLoopImplementationQt
     EventLoopImplementationQtEventTarget Icon InputMethodUtils Popover ReportReview
