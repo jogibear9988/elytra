@@ -3352,6 +3352,65 @@ HTTP external modules retain the Designer evidence. Next investigate that local
 module-loading failure, then continue the broader specification and current-source
 hosted release acceptance. The overall goal remains active.
 
+## 2026-11-06 — External file renderer ESM repaired
+
+Previous goal turn: progress (native request/reply IPC committed and pushed).
+Hosted style, Pages and native Linux/Windows Mite checks for c74bec9 succeed.
+The d585807 macOS release run 42181805021 is still confirmed in progress; optimized
+c74bec9 run 42191274409 is pending. Do not restart a confirmed running build or
+claim either candidate is a new release.
+
+Reproduce classic file script success alongside external/dynamic module failures
+in actual Firefly; the same file graph works in the actual Electron reference.
+Locate the failure in Fetch's CORS branch: opaque file origins miss the same-origin
+condition and non-HTTP CORS fails before the existing file subresource loader.
+
+Add a small owned loading policy/adapter, with the exact upstream fingerprint,
+one-condition/source replacement counts and byte-preservation/drift guards.
+Keep Ladybird unmodified. The production helper alone enables the policy; default
+browser/diagnostic helpers stay disabled. It admits CORS-mode file Script requests
+from file-origin Window clients with native file creation snapshots. Existing file
+loader, MIME, CSP and sandbox behavior remain. No general CORS switch, fetch(file:)
+permission, Node loader, inlining or loopback rewrite is introduced. Workers,
+opaque/network clients, missing snapshots and other destinations/modes are denied
+by this exception. This is not an application-root path sandbox.
+
+Validation completed before the user's GUI-test frequency correction:
+- Actual Electron/Firefly external file module fixtures pass static/dynamic imports,
+  live bindings/cache identity, Unicode/space paths, reload, strict MIME/CSP and
+  absent native imports. Firefly-only pages retain fetch(file:) and HTTP-to-file
+  module refusal (file-modules-native-test.log).
+- Native policy tests verify default-off behavior and rejected request/client
+  combinations inside check-firefly-isolation (file-module-policy-test.log).
+- All four native desktop/renderer/isolation/helper groups pass with the new
+  adapter (file-modules-all-gates.log). IPC fixtures now load external .mjs files
+  directly; the inline staging workaround is removed, retaining sender, malicious
+  data, pending budgets, same-document/navigation, crash and real-deadline tests.
+- Designer boot/edit/round-trip/Monaco/window controls regression passes
+  (file-modules-designer-test.log). Standalone Mite host-module/embedding/generated
+  independence checks pass (3/3, file-modules-mite-tests.log). No new full 44-suite
+  Mite run is claimed for this renderer-only change.
+- Style passes 99 Python, 393 JS/web/config, 127 native and 14 CMake sources plus
+  Rust. Both generators reproduce; integrity/upstream/actionlint pass. Site checks
+  pass 145 pages / 8523 local links (before this progress entry). The preceding
+  IPC entry's final site log actually counted 8398 links, correcting its 8396 note.
+
+Document the native loading contract, migration distinction and update guards in
+ADR 0073 and the renderer module guide. Current-source hosted package acceptance
+and broader specification work remain outstanding; no Windows/Linux desktop or
+new alpha package is claimed. Existing alpha.1 predates these changes.
+
+User workflow preference: local GUI testing is allowed, but must be infrequent,
+targeted and batched because it interrupts their desktop. Persist this in AGENTS.
+Use native builds, non-GUI checks and hosted CI for routine edits; avoid repeated
+window/compositor/input/Designer runs for docs/formatting or unchanged behavior.
+At correction time no UI test was still running; no additional GUI run was started.
+
+Next: follow hosted acceptance and continue the missing IPC message modes/desktop
+services and runtime API/platform work in the specification. Keep readability,
+commented ESM authoring and limited local GUI-test frequency as standing constraints.
+The overall goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

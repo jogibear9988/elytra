@@ -1,0 +1,1 @@
+document.title = 'FAIL:module MIME bypass';

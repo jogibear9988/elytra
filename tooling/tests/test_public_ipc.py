@@ -19,22 +19,6 @@ def stage(directory, module):
     shutil.copytree(FIXTURES, directory, dirs_exist_ok=True)
     for file in directory.glob("*.mjs"):
         file.write_text(file.read_text().replace("from 'firefly'", f"from '{module}'"))
-    # Keep IPC acceptance independent of file-origin external module fetching.
-    # Maintained browser sources remain ESM; inline modules are also used by the
-    # hello-world app. HTTP-delivered external modules have their Designer gate.
-    for file in directory.glob("*.html"):
-        html = file.read_text()
-        for script in directory.glob("*-renderer.mjs"):
-            html = html.replace(
-                f'<script type="module" src="{script.name}"></script>',
-                '<script type="module">\n' + script.read_text() + "\n</script>",
-            )
-        script = directory / "renderer.mjs"
-        html = html.replace(
-            '<script type="module" src="renderer.mjs"></script>',
-            '<script type="module">\n' + script.read_text() + "\n</script>",
-        )
-        file.write_text(html)
     for source, output in [
         ("preload", "preload"),
         ("foreign-preload", "foreign"),

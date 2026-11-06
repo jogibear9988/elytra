@@ -163,6 +163,13 @@ locally. Registering a name such as ipc-message or dom-ready does not implement
 that native event. No page-title-updated event is emitted on this object; subscribe
 to the owning [BrowserWindow](browser-window.md#events).
 
+## Renderer modules
+
+`loadFile` pages can load external browser ESM using relative script URLs and
+static/dynamic imports. See the [renderer module guide](../guides/renderer-modules.md)
+for validated behavior, CSP/MIME checks and the retained file/network boundaries.
+These modules have no Mite/Node/native imports.
+
 ## Examples
 
 [Quick start](../examples/quick-start.md) and [iframe messaging](../examples/web-embeds.md)

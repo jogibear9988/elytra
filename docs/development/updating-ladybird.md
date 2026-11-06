@@ -268,3 +268,12 @@ creation, inherited header requirements, TLS 1.2/1.3/hostname and hash tests, pa
 symbol inventory and relocated full-app gates if OpenSSL/CMake linkage changes.
 Do not keep an accidental engine export as a substitute for the explicit provider.
 Unknown archive ABI/platform changes reject; static standalone Mite stays independent.
+
+## File module seam
+
+Review tooling/prepare_file_module_hook.py and renderer-bridge/loading when changing
+Fetching.cpp. The guard checks the complete pinned fingerprint, one condition and
+byte preservation; do not merely refresh the hash. Verify the native policy default
+is off outside the product helper, then run check-firefly-isolation and check-firefly.
+The latter runs actual external-module/MIME/CSP/file-security comparisons and the
+IPC fixtures with directly loaded ESM, without the earlier inline workaround.

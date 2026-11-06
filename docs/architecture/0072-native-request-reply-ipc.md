@@ -46,8 +46,7 @@ windows with prompt refusal/recovery. Existing wire and world-lifetime gates rem
 required. This does not establish a full security audit or complete Electron IPC.
 
 One-way/synchronous messages, ports, subframes, typed-array/full structured-clone
-support and native Windows/Linux desktop remain incomplete. Test fixtures inline
-their separately maintained renderer ESM at staging time: local file-origin
-external module loading failed in the current pin (null script result), while
-inline ESM and HTTP-served Designer modules pass. Investigate that web-loading
-boundary separately; IPC tests make no new external file-module compatibility claim.
+support and native Windows/Linux desktop remain incomplete. The initial IPC checkpoint inlined browser fixtures because local external module
+loading failed at the pinned file/CORS boundary. ADR 0073 records the owned loading
+adapter and external-module acceptance; IPC fixtures now load their ESM files
+directly. The historical workaround is no longer part of the test staging path.

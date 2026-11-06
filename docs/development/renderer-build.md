@@ -255,3 +255,10 @@ also runs the [public invoke/handle](../api/ipc.md) migration and adversarial te
 including native sender ownership, request limits and navigation/closure cleanup.
 Install `tooling/runtime-js` with its pinned npm lock before running the desktop
 tests; its bundler stages maintained ESM preloads into sandbox payloads. See [ADR 0070](../architecture/0070-bounded-ipc-wire-data.md).
+
+## External local browser modules
+
+check-firefly also runs tooling/tests/test_renderer_modules.py against actual
+Firefly/Electron binaries. Native policy rejection/default-off assertions run in
+check-firefly-isolation. See the [module guide](../guides/renderer-modules.md) and
+[owned adapter decision](../architecture/0073-local-renderer-modules.md).

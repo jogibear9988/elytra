@@ -38,6 +38,7 @@ its binaries include them.
 - [Mite runtime reference](api/mite.md)
 - [Firefly desktop reference](api/firefly.md)
 - [CLI reference](api/cli.md)
+- [Renderer ES modules](guides/renderer-modules.md)
 - [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md)
 
 Some APIs still have summary-level reference coverage. The [documentation baseline](reference/documentation-baseline.md)

@@ -2,6 +2,7 @@
 #include "ContextBridgeTest.h"
 #include "CustomEventTest.h"
 #include "ErrorEventTest.h"
+#include "FileModulePolicyTest.h"
 #include "FunctionBridgeTest.h"
 #include "HandlerTest.h"
 #include "MessageEventTest.h"
@@ -37,6 +38,7 @@ static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16V
 
 ErrorOr<int> ladybird_main(Main::Arguments)
 {
+    TRY(check_file_module_policy());
     auto& loop = Core::EventLoop::initialize_for_current_thread();
     (void)loop;
     Web::Platform::FontPlugin font_plugin(false);

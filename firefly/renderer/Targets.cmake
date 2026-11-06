@@ -26,6 +26,7 @@ add_custom_target(
     VERBATIM)
 add_dependencies(firefly-renderer-probe check-firefly-upstream)
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CallbackTargets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
 # Retain upstream's process boundary: Skia must stay in Compositor, including when our frontend is
 # added after the upstream root's own confinement check.
 ladybird_check_skia_confinement(firefly-renderer-probe)
@@ -66,7 +67,8 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/ErrorEventTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/MessageEventTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PrincipalCallbackTest.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp")
 target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world LibMain)
 ladybird_check_skia_confinement(firefly-isolation-probe)
 add_executable(

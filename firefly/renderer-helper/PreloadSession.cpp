@@ -7,6 +7,7 @@
 #include "RendererSession.h"
 #include "context/ContextBridge.h"
 #include "ipc/IpcEndpoint.h"
+#include "loading/FileModules.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/HashMap.h>
 #include <AK/JsonObject.h>
@@ -196,6 +197,7 @@ void initialize()
 {
     if (session)
         fail("Duplicate preload service"sv);
+    FileModules::set_enabled(true);
     session = new Session;
     session->jobs = make<WorldJobGuard>(Web::Bindings::main_thread_vm());
     apply({});
@@ -254,6 +256,7 @@ void apply(Web::WebDriver::BiDiSessionState state)
 
 void shutdown()
 {
+    FileModules::set_enabled(false);
     Web::WebDriver::BiDi::set_event_sink({});
     if (!session)
         return;

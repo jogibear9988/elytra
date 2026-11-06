@@ -9,6 +9,7 @@ The native service/helper selects the documented public subset.
 | worlds | Own isolated realms and reject jobs after document/world revocation |
 | serialization | Capture/materialize bounded data graphs and validate native wire bytes |
 | context | Publish frozen APIs and guarded callbacks/Promise results across worlds |
+| loading | Product-only file script module policy with pinned fetch composition |
 | callbacks | Checked WebIDL dispatch and callback-owner records |
 | callbacks/events | Listener/handler lifetimes and copied event values |
 | callbacks/timers | Native timer cancellation tied to a source world |

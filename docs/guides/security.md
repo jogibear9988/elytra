@@ -42,6 +42,14 @@ assets and keep privileged operations out of an unvalidated local route. The Des
 sample's production server is read-only and path-bounded; its smoke report exists
 only in explicit test mode and does not grant native privileges.
 
+## Local renderer scripts
+
+[External file modules](renderer-modules.md) use a production-helper-only script
+exception to reach the existing file subresource loader. HTTP-to-file imports and
+programmatic file fetch remain denied; CSP/MIME checks remain active. This supplies
+no Node capability or general CORS bypass, and is not an application-root path
+sandbox. Authorize IPC independently of how page scripts were loaded.
+
 ## Request/reply authorization
 
 Expose fixed actions that call fixed IPC channels. Each main handler must check the

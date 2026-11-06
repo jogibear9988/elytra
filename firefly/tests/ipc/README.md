@@ -2,9 +2,10 @@
 
 All maintained main, preload and browser sources are ESM. The Python runner stages
 fresh runtime-specific copies, bundles preloads to the supported sandbox format
-with the pinned compiler, and inlines browser modules into the HTML fixtures.
-This keeps IPC tests independent of the current local file-origin external module
-loading issue; HTTP-delivered modules have their Designer acceptance gate.
+with the pinned compiler, and loads browser modules directly from local files.
+External file-module loading has its own renderer/security acceptance gate; IPC
+fixtures no longer inline source as a workaround. HTTP-delivered modules also have
+their Designer acceptance gate.
 
 main.mjs compares the common subset against actual Electron. security-main.mjs,
 budget-main.mjs, crash-main.mjs and timeout-main.mjs assert Firefly's deliberate
