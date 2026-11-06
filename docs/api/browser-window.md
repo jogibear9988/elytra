@@ -264,11 +264,12 @@ for native features still missing from Firefly; each page states its exact statu
 
 Menus, fullscreen, bounds/position, parent/modal windows, icons,
 platform material/style options and the wider Electron window surface are absent.
-Only constructor options listed above are accepted. Public IPC remains unsupported;
+Only constructor options listed above are accepted. [Request/reply IPC](ipc.md) is
+implemented for the documented subset;
 [preload/contextBridge](context-bridge.md) has a bounded partial implementation.
 See [security](../guides/security.md).
 
-Implementation: [firefly.js](../../firefly/core/api.mjs) and owned native adapter.
+Implementation: [api.mjs](../../firefly/core/api.mjs) and owned native adapter.
 Validation: [Firefly runner](../../tooling/tests/test_firefly.py), including controls,
 registry, cancellation/destruction and unsupported options against the pinned
 Electron reference. Native Windows/Linux remain unverified. See the

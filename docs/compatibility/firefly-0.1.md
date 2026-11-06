@@ -15,8 +15,8 @@ Windows/Linux desktop, complete preload/IPC isolation and distribution remain ou
 | Custom window chrome | partial | frame:false, top-document app-region/-webkit-app-region drag/no-drag CSS adapter; native drag/exclusion/double-click and actual LibWeb style/layout tests pass. Stylesheet/geometry/polling limits in ADR 0055; inline/shadow/frame/CSP/zoom/native resize parity remain incomplete |
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer capability defaults | partial | No process/require/Buffer/Mite globals, node:fs import denied in shared HTML fixture; this is not a full sandbox/IPC security audit |
-| `ipcMain`, `ipcRenderer` | unsupported | Validated, bounded transport and malicious-input tests |
-| preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); main-process IPC remains unsupported |
+| `ipcMain`, `ipcRenderer` | partial | Native invoke/handle/handleOnce/removeHandler, early preload requests, mutable plain-data graphs, sender ownership, adversarial input, pending limits and navigation/closure tests pass; one-way/sync/port/subframe IPC and full clone types remain unsupported. [Contract](../api/ipc.md) |
+| preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); fixed invoke actions can call main-process handlers |
 | dialog, Menu, MenuItem, Tray | unsupported | Native services and observable Electron fixture behavior |
 | clipboard, shell, screen, nativeImage, session | unsupported | Native services and migration fixtures |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
@@ -29,9 +29,10 @@ default webPreferences settings are accepted. Unknown options, nodeIntegration=t
 contextIsolation=false or sandbox=false fail explicitly. Dimensions are restricted
 to integer values in 1..16384. Extra load options are not implemented. The
 contextIsolation setting requires the implemented isolated preload world; it cannot
-be disabled. ES module preloads and main-process IPC remain unsupported.
+be disabled. Native ES module preloads remain unsupported; bundle authored ESM
+into the supported payload. IPC currently supports request/reply only.
 
-Named ESM exports are fixed snapshots of app and BrowserWindow; CJS and ESM share
+Named ESM exports are fixed snapshots of app, BrowserWindow and ipcMain; CJS and ESM share
 the same objects. Relative loadFile paths use the application entry directory.
 No BrowserWindow creation is allowed before app is ready. The GUI driver currently
 polls Mite's nonblocking libuv pump every millisecond; idle-efficient backend

@@ -3283,6 +3283,75 @@ native invoke/handle transport from stash d8e6a1c728c50b419894dd09ba81a41b42e08a
 porting it to the new ESM and subsystem paths before native/security validation.
 Public IPC remains unsupported until that later implementation is tested.
 
+## 2026-11-06 — Native invoke/handle IPC vertical slice
+
+Previous goal turn: progress (readability refactor committed/pushed and validated).
+Hosted style, Pages, native Linux and native Windows gates for 61130d1 now all
+succeed. macOS d585807 run 42181805021 is still confirmed running; the optimized
+61130d1 candidate 42187878151 remains pending. Neither is restarted or labelled a
+new alpha, and existing alpha.1 remains the earlier immutable release.
+
+Port the parked native request/reply implementation to the new subsystem layout
+and maintained ESM sources, then correct and validate it. Main handler management
+is a separate core/ipc-main.mjs module. Export ipcMain from the main host module;
+preload imports gain ipcRenderer.invoke. Support handle/handleOnce/removeHandler,
+sync/async results, concurrent replies and bounded errors. Preserve standalone
+Mite independence and the unmodified synchronized Ladybird pin.
+
+Compose reserved events/commands over Ladybird's actual native routed connection,
+with an owned fingerprinted WebContentPage seam and the owned renderer command
+adapter. Authenticate actual page/navigable, active document and owning window;
+select the URL from canonical native state. Check realm/request identity and
+replays. Source callbacks enter the Mite event-loop boundary. Reply settlement
+uses both an HTML execution context (for the microtask checkpoint) and the guarded
+world frame. Raw native invoke functions cannot be exported through contextBridge;
+fixed application wrappers remain possible. Navigation/crash/window teardown
+reclaims pending reservations and timers, and late replies cannot revive a world.
+
+Use the existing bounded plain-data graph codec: mutable destination copies,
+cycles/aliases/holes, UTF-16 and IEEE number edge cases, no accessors/proxies/host
+objects/functions. Limits are 16 endpoint requests, 64 per renderer process and
+64 native host requests, 128 KiB encoded data and a real 30-second deadline.
+Correct host exhaustion to send an immediate bounded failure without reserving an
+extra slot or running JS in a busy VM. Pure native error strings use the codec,
+rather than hand-written wire bytes. Refresh sender-frame URLs for same-document
+requests. Limited frame snapshots are documented; full WebFrameMain is absent.
+
+Validation:
+- All four native desktop/renderer/isolation/helper groups pass
+  (ipc-native-gates.log), retaining existing callback/principal/GC and wire guards.
+- Final rebuilt check-firefly passes after ESM extraction and added tests
+  (ipc-final-main-gate.log). Actual Electron/Firefly fixtures cover early preload,
+  sync/async/once/missing/error handlers, parallel replies, clones and native sender
+  ownership. Firefly-only tests cover trap-free rejection, raw IPC publication
+  denial, 16 local slots, 3 navigation cycles plus same-document URL refresh,
+  pending replies after closure and a real owned renderer SIGKILL/replacement.
+  Five windows verify 64 host slots, prompt global rejection and recovery. A
+  never-resolving handler verifies the actual 30-second deadline and recovery.
+- Designer native regression passes boot/edit/round-trip/Monaco/window controls
+  (ipc-designer-regression.log). Standalone Mite host-module/embedding/generated
+  independence checks pass (3/3; ipc-mite-independence.log); unchanged Mite sources
+  retain the preceding 44/44 full-suite result, not a newly claimed full run.
+- Source style passes 97 Python, 381 JS/web/config, 123 native and 13 CMake sources
+  plus Rust; both generators reproduce, integrity/actionlint/upstream pass.
+  Site passes 143 pages / 8396 links/resources/fragments (ipc-final-site.log).
+
+Add detailed API contract, migration/security updates and ADR 0072. Move the pinned
+preload bundler installation before native desktop tests in the release script;
+normal native compilation still requires no Node install. Public status is partial
+macOS ARM64 only, not full Electron compatibility or a new packaged release.
+The original WIP stash is retained as a safety checkpoint; it is now ported and
+must not be blindly reapplied.
+
+Remaining: one-way/sync/port/subframe IPC, full clone types, stronger navigation/
+permission policy and a complete security audit; broad Mite APIs, desktop services
+and native Windows/Linux desktop/packaging remain incomplete. The fixture work
+also exposed failed local file-origin external ESM loading (null script result).
+Tests stage inline modules from maintained ESM files to isolate IPC acceptance;
+HTTP external modules retain the Designer evidence. Next investigate that local
+module-loading failure, then continue the broader specification and current-source
+hosted release acceptance. The overall goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

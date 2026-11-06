@@ -46,8 +46,9 @@ belong to the renderer; filesystem/OS services belong to the main process. See
 ## Public bridge status
 
 [CommonJS preload/contextBridge](../api/context-bridge.md) provides bounded isolated
-renderer API publication. ipcMain/ipcRenderer remain unsupported: a preload does
-not gain main-process filesystem/network privileges. Do not treat a shared DOM
+renderer API publication. [IPC](../api/ipc.md) supports bounded invoke/handle
+request/reply. A preload has no filesystem/network privileges of its own; only
+explicit main handlers can perform privileged work after validating the sender. Do not treat a shared DOM
 or the Designer sample's test-only report route as a privileged IPC contract.
 
 Electron's [process-model guide](https://www.electronjs.org/docs/latest/tutorial/process-model)

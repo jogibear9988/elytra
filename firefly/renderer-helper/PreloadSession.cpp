@@ -6,6 +6,7 @@
 
 #include "RendererSession.h"
 #include "context/ContextBridge.h"
+#include "ipc/IpcEndpoint.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/HashMap.h>
 #include <AK/JsonObject.h>
@@ -40,9 +41,11 @@ namespace {
         NonnullRefPtr<IsolatedWorld> owner;
         NonnullRefPtr<ContextBridge> bridge;
         GC::Root<Web::DOM::Document> document;
+        NonnullRefPtr<IpcEndpoint> ipc;
 
         void detach()
         {
+            ipc->revoke();
             bridge->revoke();
             owner->detach();
         }
@@ -67,21 +70,27 @@ namespace {
     void sweep()
     {
         Vector<String> stale;
-        for (auto const& entry : session->worlds)
+        for (auto const& entry : session->worlds) {
             if (!entry.value.document->is_fully_active())
                 stale.append(entry.key);
+            else
+                entry.value.ipc->expire();
+        }
+
         for (auto const& id : stale) {
             auto world = session->worlds.take(id);
             world->detach();
         }
     }
 
-    void run_preload(IsolatedWorld& world, ContextBridge& bridge, Preload const& preload)
+    void run_preload(
+        IsolatedWorld& world, ContextBridge& bridge, IpcEndpoint& ipc, Preload const& preload)
     {
         auto& realm = *world.realm();
         auto& vm = realm.vm();
         GC::Root imports { JS::Object::create(realm, nullptr) };
         imports->define_direct_property("contextBridge"_utf16, bridge.exports(), {});
+        imports->define_direct_property("ipcRenderer"_utf16, ipc.exports(), {});
         VERIFY(MUST(imports->set_integrity_level(JS::Object::IntegrityLevel::Frozen)));
         GC::Root require { JS::NativeFunction::create(
             realm,
@@ -177,8 +186,9 @@ namespace {
         auto bridge = ContextBridge::create(*world, *document);
         if (bridge.is_error())
             fail("Cannot create context bridge"sv);
-        session->worlds.set(*id, World { world, bridge.value(), GC::Root { *document } });
-        run_preload(*world, *bridge.value(), preload);
+        auto ipc = IpcEndpoint::create(*world, *document, *id);
+        session->worlds.set(*id, World { world, bridge.value(), GC::Root { *document }, ipc });
+        run_preload(*world, *bridge.value(), *ipc, preload);
     }
 }
 
@@ -252,5 +262,23 @@ void shutdown()
         entry.value.detach();
     delete session;
     session = nullptr;
+}
+}
+
+namespace Firefly::RendererSession {
+bool receive_ipc_reply(WebContent::PageClient& page, u64, Web::HTML::CrossProcessId navigable,
+    String const& name, JsonValue const& params)
+{
+    if (!name.starts_with_bytes("firefly.ipc."sv))
+        return false;
+    if (name != "firefly.ipc.reply.v1"sv || !session || !params.is_object())
+        return true;
+    auto realm = params.as_object().get_string("realm"sv);
+    if (!realm.has_value() || realm->bytes().size() > 1024)
+        return true;
+    auto found = session->worlds.find(*realm);
+    if (found != session->worlds.end())
+        found->value.ipc->receive(page, navigable, params);
+    return true;
 }
 }

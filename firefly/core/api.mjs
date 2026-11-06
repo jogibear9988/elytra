@@ -1,4 +1,6 @@
 /** Main-process desktop API and native-window lifecycle policy. */
+import createMainIpc from './ipc-main.mjs';
+
 export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
 
@@ -87,6 +89,11 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const {
+    ipcMain,
+    cancel: cancelIpc,
+    dispatch: dispatchIpc
+  } = createMainIpc(native, EventEmitter, error);
 
   function finishQuit() {
     const e = event();
@@ -120,6 +127,12 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       this._url = '';
       this._title = '';
       this._pending = null;
+      this._ipcFrame = null;
+    }
+
+    get mainFrame() {
+      alive(this._window);
+      return this._ipcFrame;
     }
 
     getURL() {
@@ -250,6 +263,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       this.id = native.create(width, height, title, show, frame, prefs.preload);
       this.webContents = new WebContents(this);
       windows.set(this.id, this);
+
+      this.once('closed', () => cancelIpc(this));
     }
 
     static getAllWindows() {
@@ -391,6 +406,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       return;
     }
     const contents = win.webContents;
+    if (type === 'ipc-invoke') {
+      dispatchIpc(win, JSON.parse(data));
+      return;
+    }
     if (type === 'close-request') {
       return win._closeRequest();
     }
@@ -419,6 +438,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
         pending.resolve();
       }
     } else if (type === 'load-start') {
+      cancelIpc(win);
       contents.emit('did-start-loading');
     } else if (type === 'url') {
       contents._url = data;
@@ -435,6 +455,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       contents._reject(error('ERR_FAILED', data));
       contents.emit('did-fail-load', event(), -2, data, contents._url, true);
     } else if (type === 'crashed') {
+      cancelIpc(win);
       contents._reject(error('ERR_FAILED', 'Renderer process crashed'));
       contents.emit('render-process-gone', event(), { reason: 'crashed', exitCode: -1 });
     } else if (['minimize', 'maximize', 'unmaximize', 'restore'].includes(type)) {
@@ -444,5 +465,5 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   });
 
-  return { app, BrowserWindow };
+  return { app, BrowserWindow, ipcMain };
 }

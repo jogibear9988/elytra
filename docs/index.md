@@ -8,7 +8,7 @@ subset before migrating an application.
 [Linux](development/linux-build.md) and [Windows](development/windows-build.md)
 x64 Mite runtime gates. Windows/Linux desktop releases remain unfinished.
 [CommonJS preload/contextBridge](api/context-bridge.md) has partial native macOS
-support; public main/renderer IPC remains unavailable. See [compatibility](compatibility/mite-0.1.md)
+support, including bounded [invoke/handle IPC](api/ipc.md). See [compatibility](compatibility/mite-0.1.md)
 and [implementation progress](PROGRESS.md) for the actual limits.
 
 The first [macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)

@@ -593,3 +593,11 @@ void shutdown()
     session = nullptr;
 }
 }
+
+namespace Firefly::RendererSession {
+bool receive_ipc_reply(
+    WebContent::PageClient&, u64, Web::HTML::CrossProcessId, String const& name, JsonValue const&)
+{
+    return name.starts_with_bytes("firefly.ipc."sv);
+}
+}

@@ -7,7 +7,10 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 HOOKS = {
     "Services/WebContent/main.cpp": ["ladybird_main", "initialize_main_thread_vm"],
-    "Services/WebContent/WebDriverBiDi.cpp": ["set_webdriver_bidi_session_state"],
+    "Services/WebContent/WebDriverBiDi.cpp": [
+        "set_webdriver_bidi_session_state",
+        "run_webdriver_bidi_command",
+    ],
     "Libraries/LibWeb/WebIDL/AbstractOperations.cpp": ["invoke_callback"],
     "Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp": ["m_timers"],
     "Libraries/LibWeb/DOM/EventTarget.cpp": [

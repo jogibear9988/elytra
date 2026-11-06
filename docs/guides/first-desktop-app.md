@@ -68,9 +68,9 @@ a CSP declaration is not a complete security audit or Chromium feature guarantee
 ## Main/renderer communication
 
 A bounded [CommonJS preload/contextBridge](../api/context-bridge.md) is supported;
-the existing hello-world demonstrates it. ipcMain/ipcRenderer remain unsupported. Use this first app
-for browser-only interaction; wait for a validated public bridge before granting
-native capabilities. Read [security](security.md) and [Electron migration](../migration/from-electron.md).
+the existing hello-world demonstrates it. [Invoke/handle IPC](../api/ipc.md) adds
+bounded native request/reply through fixed preload actions. Validate sender identity
+and URL in each main handler before granting native capabilities. Read [security](security.md) and [Electron migration](../migration/from-electron.md).
 
 ## Continue with a real app
 

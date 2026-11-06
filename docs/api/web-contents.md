@@ -2,7 +2,8 @@
 
 Availability: the main-process object at BrowserWindow.webContents. Partial native
 macOS ARM64 implementation; an EventEmitter associated with the owning window.
-It observes a separate Ladybird WebContent process and has no general script/IPC API.
+It observes a separate Ladybird WebContent process. General script execution and
+one-way messaging remain unavailable; [IPC](ipc.md) provides preload request/reply.
 
 ## Member index
 
@@ -173,11 +174,11 @@ provide reference implementations but explicitly remain blocked in Firefly.
 
 executeJavaScript, send, openDevTools, session, general frame APIs and the wider
 WebContents event/method surface are absent. The public isolated
-[preload/contextBridge subset](context-bridge.md) is implemented separately; public
-ipcMain/ipcRenderer messaging remains unsupported. Read [security](../guides/security.md)
+[preload/contextBridge subset](context-bridge.md) is implemented separately;
+[ipcMain/ipcRenderer](ipc.md) supports bounded invoke/handle request/reply. Read [security](../guides/security.md)
 and [Electron migration](../migration/from-electron.md).
 
-Implementation: [firefly.js](../../firefly/core/api.mjs).
+Implementation: [api.mjs](../../firefly/core/api.mjs).
 Validation: [Firefly runner](../../tooling/tests/test_firefly.py), file/HTTP loading,
 failures, PID, lifecycle and unsupported-mode fixtures; see the
 [native gates](../development/renderer-build.md) and [matrix](../compatibility/firefly-0.1.md).

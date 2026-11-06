@@ -74,8 +74,10 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
         "${LADYBIRD_SOURCE_DIR}/Services/RendererSandboxMacOS.cpp")
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
+    target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
     target_link_libraries(FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world
                                                            LibSandbox LibURL)
     set_target_properties(

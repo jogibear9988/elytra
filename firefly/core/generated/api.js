@@ -1,6 +1,134 @@
 /* Generated from firefly/core/api.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// firefly/core/ipc-main.mjs
+function createMainIpc(native, EventEmitter, error) {
+  const ipcHandlers = /* @__PURE__ */ new Map();
+  const ipcRequests = /* @__PURE__ */ new Map();
+  function channelName(channel) {
+    if (typeof channel !== "string" || channel.length > 256) {
+      throw error("ERR_INVALID_ARG_TYPE", "channel must be a string of at most 256 UTF-16 units");
+    }
+    return channel;
+  }
+  class IpcMain extends EventEmitter {
+    handle(channel, listener) {
+      this._register(channel, listener, false);
+    }
+    handleOnce(channel, listener) {
+      this._register(channel, listener, true);
+    }
+    _register(channel, listener, once) {
+      channelName(channel);
+      if (typeof listener !== "function") {
+        throw error("ERR_INVALID_ARG_TYPE", "IPC handler must be a function");
+      }
+      if (ipcHandlers.has(channel)) {
+        throw new Error("A handler is already registered for this channel");
+      }
+      ipcHandlers.set(channel, { listener, once });
+    }
+    removeHandler(channel) {
+      ipcHandlers.delete(channelName(channel));
+    }
+  }
+  const ipcMain = new IpcMain();
+  function cancelIpc(window) {
+    for (const [key, pending] of ipcRequests) {
+      if (pending.window === window) {
+        clearTimeout(pending.timer);
+        ipcRequests.delete(key);
+      }
+    }
+    window.webContents._ipcFrame = null;
+  }
+  function dispatchIpc(window, data) {
+    const key = `${window.id}/${data.document}/${data.request}`;
+    const finish = (success, value) => {
+      const pending = ipcRequests.get(key);
+      if (!pending) {
+        return;
+      }
+      ipcRequests.delete(key);
+      clearTimeout(pending.timer);
+      let wire;
+      try {
+        wire = native.encodeIpc(value);
+      } catch {
+        success = false;
+        wire = native.encodeIpc("IPC result is not supported bounded data");
+      }
+      native.replyIpc(window.id, data.document, data.realm, data.request, success, wire);
+    };
+    if (ipcRequests.size >= 64) {
+      native.replyIpc(
+        window.id,
+        data.document,
+        data.realm,
+        data.request,
+        false,
+        native.encodeIpc("IPC pending request budget exceeded")
+      );
+      return;
+    }
+    const timer = setTimeout(() => finish(false, "IPC handler timed out"), 3e4);
+    ipcRequests.set(key, { window, timer });
+    try {
+      const args = native.decodeIpc(data.wire);
+      if (!Array.isArray(args) || args.length < 1 || args.length > 65) {
+        throw Error("Invalid IPC arguments");
+      }
+      const channel = channelName(args.shift());
+      const record = ipcHandlers.get(channel);
+      if (!record) {
+        finish(false, `No handler registered for '${channel}'`);
+        return;
+      }
+      let frame = window.webContents._ipcFrame;
+      if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
+        frame = {
+          _document: data.document,
+          _realm: data.realm,
+          url: data.url,
+          isDestroyed() {
+            return window.isDestroyed() || window.webContents._ipcFrame !== frame;
+          }
+        };
+        window.webContents._ipcFrame = frame;
+      }
+      frame.url = data.url;
+      if (record.once) {
+        ipcHandlers.delete(channel);
+      }
+      const event = { sender: window.webContents, senderFrame: frame };
+      const result = Reflect.apply(record.listener, void 0, [event, ...args]);
+      Promise.resolve(result).then(
+        (value) => finish(true, value),
+        (failure) => {
+          let message = "IPC handler rejected";
+          try {
+            if (typeof failure?.message === "string") {
+              message = failure.message.slice(0, 1024);
+            }
+          } catch {
+          }
+          finish(false, message);
+        }
+      );
+    } catch (failure) {
+      let message = "IPC handler rejected";
+      try {
+        if (typeof failure?.message === "string") {
+          message = failure.message.slice(0, 1024);
+        }
+      } catch {
+      }
+      finish(false, message);
+    }
+  }
+  return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc };
+}
+
 // firefly/core/api.mjs
 function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -80,6 +208,11 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const {
+    ipcMain,
+    cancel: cancelIpc,
+    dispatch: dispatchIpc
+  } = createMainIpc(native, EventEmitter, error);
   function finishQuit() {
     const e = event();
     app.emit("will-quit", e);
@@ -109,6 +242,11 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       this._url = "";
       this._title = "";
       this._pending = null;
+      this._ipcFrame = null;
+    }
+    get mainFrame() {
+      alive(this._window);
+      return this._ipcFrame;
     }
     getURL() {
       alive(this._window);
@@ -232,6 +370,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       this.id = native.create(width, height, title, show, frame, prefs.preload);
       this.webContents = new WebContents(this);
       windows.set(this.id, this);
+      this.once("closed", () => cancelIpc(this));
     }
     static getAllWindows() {
       return [...windows.values()];
@@ -349,6 +488,10 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       return;
     }
     const contents = win.webContents;
+    if (type === "ipc-invoke") {
+      dispatchIpc(win, JSON.parse(data));
+      return;
+    }
     if (type === "close-request") {
       return win._closeRequest();
     }
@@ -377,6 +520,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
         pending.resolve();
       }
     } else if (type === "load-start") {
+      cancelIpc(win);
       contents.emit("did-start-loading");
     } else if (type === "url") {
       contents._url = data;
@@ -393,6 +537,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       contents._reject(error("ERR_FAILED", data));
       contents.emit("did-fail-load", event(), -2, data, contents._url, true);
     } else if (type === "crashed") {
+      cancelIpc(win);
       contents._reject(error("ERR_FAILED", "Renderer process crashed"));
       contents.emit("render-process-gone", event(), { reason: "crashed", exitCode: -1 });
     } else if (["minimize", "maximize", "unmaximize", "restore"].includes(type)) {
@@ -401,7 +546,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       win.emit("resize");
     }
   });
-  return { app, BrowserWindow };
+  return { app, BrowserWindow, ipcMain };
 }
 return createFireflyApi;
 })()

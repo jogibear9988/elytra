@@ -114,6 +114,8 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp")
 target_link_libraries(firefly-chrome-probe PRIVATE Qt::Widgets)
 
+include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/Targets.cmake")
+
 if(FIREFLY_BUILD_RUNTIME)
     add_custom_target(
         check-firefly-js
@@ -143,8 +145,13 @@ if(FIREFLY_BUILD_RUNTIME)
                  "${FIREFLY_SOURCE_DIR}/firefly/core/generated/app-regions.js")
     configure_file("${CMAKE_CURRENT_LIST_DIR}/AppRegions.h.in"
                    "${CMAKE_BINARY_DIR}/firefly-generated/AppRegions.h" @ONLY)
-    add_executable(firefly "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
-                           "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp")
+    add_executable(
+        firefly
+        "${CMAKE_CURRENT_LIST_DIR}/Application.cpp" "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
+        "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
+        "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp")
+    target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
+                                               "${FIREFLY_SOURCE_DIR}/firefly/native/ipc")
     target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
     target_compile_definitions(
         firefly
@@ -163,6 +170,8 @@ if(FIREFLY_BUILD_RUNTIME)
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_preload.py"
+                --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_ipc.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly firefly-chrome-probe
         USES_TERMINAL VERBATIM)

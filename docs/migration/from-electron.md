@@ -12,8 +12,9 @@ Check both the [Firefly matrix](../compatibility/firefly-0.1.md) and the
 [Mite matrix](../compatibility/mite-0.1.md): main-process Node dependencies also need
 to work. Read [process boundaries](../concepts/runtime-and-processes.md).
 
-Apps using public preload/contextBridge/ipcMain/ipcRenderer are currently blocked.
-Internal isolated-world experiments do not enable those exports. Menu, Tray,
+Bounded isolated preloads/contextBridge and invoke/handle IPC have native acceptance
+for the documented subset. Check [IPC limits and sender authorization](../api/ipc.md)
+before migrating; event/synchronous/port/subframe IPC remains blocked. Menu, Tray,
 dialogs, session, shell, clipboard and auto-updates are also unavailable. Do not
 remove security boundaries to force such an application to launch.
 

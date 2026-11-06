@@ -1,7 +1,8 @@
 # Preload and contextBridge
 
 Availability: partial native macOS ARM64 Firefly implementation. This API publishes
-an isolated renderer API to a document. Main-process IPC is still unsupported.
+an isolated renderer API to a document. [IPC](ipc.md) supports the bounded
+invoke/handle request/reply subset in configured top-level preloads.
 
 ## Author an ESM preload
 
@@ -99,8 +100,9 @@ function endpoints and pending work; copied inert data can remain reachable.
 
 Only expose narrow functions appropriate for all documents in the window. A
 function's ability to access its isolated closure is not privileged access to the
-main process. ipcRenderer, ipcMain, executeInMainWorld and additional contextBridge
-methods are not implemented. Main-process imports still expose app/BrowserWindow.
+main process. Use a fixed [ipcRenderer.invoke](ipc.md) action for that boundary;
+main-process imports expose app/BrowserWindow/ipcMain. executeInMainWorld and
+additional contextBridge methods are not implemented.
 
 ## Files, budgets and errors
 

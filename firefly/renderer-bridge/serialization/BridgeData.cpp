@@ -15,6 +15,16 @@
 #include <LibJS/Runtime/Realm.h>
 
 namespace Firefly {
+BridgeData BridgeData::from_string(Utf16View value)
+{
+    BridgeData result;
+    Node node;
+    node.kind = Kind::String;
+    node.string = Utf16String::from_utf16(value);
+    result.m_nodes.append(move(node));
+    return result;
+}
+
 ErrorOr<BridgeData> BridgeData::capture(
     JS::Value value, JS::Realm& source, Limits limits, CaptureFunction functions)
 {

@@ -2,7 +2,8 @@
 
 This is guidance for the implemented development slices. Mite/Firefly have not had
 a complete security audit or production-hardening sign-off. Bounded public
-[preload/contextBridge](../api/context-bridge.md) is available; privileged IPC remains unsupported. Current support/evidence is in the
+[preload/contextBridge](../api/context-bridge.md) and bounded
+[invoke/handle IPC](../api/ipc.md) are available. Current support/evidence is in the
 [Firefly matrix](../compatibility/firefly-0.1.md) and [process model](../concepts/runtime-and-processes.md).
 
 ## Place capabilities in the right process
@@ -41,12 +42,14 @@ assets and keep privileged operations out of an unvalidated local route. The Des
 sample's production server is read-only and path-bounded; its smoke report exists
 only in explicit test mode and does not grant native privileges.
 
-## Bridge requirements still ahead
+## Request/reply authorization
 
-Before public IPC ships, it needs explicit channel/capability policy, bounded data
-and pending work, sender/frame validation, lifetime/revocation, private error handling
-and adversarial renderer tests. Current preload publication supplies no main-process
-IPC capabilities; its narrower contract is documented in the API reference. See the [baseline](../reference/documentation-baseline.md)
+Expose fixed actions that call fixed IPC channels. Each main handler must check the
+native event.sender and senderFrame URL before performing privileged work. Caller
+arguments never establish sender identity. The [IPC reference](../api/ipc.md)
+documents data/pending limits, sanitized errors and document/window revocation.
+Native tests exercise those boundaries; broader event/port/subframe IPC and a
+complete security audit remain outstanding. See the [baseline](../reference/documentation-baseline.md)
 and [roadmap](../roadmap.md).
 
 ## Dependency and distribution review
@@ -73,4 +76,4 @@ token, exact same-origin/Host checks and POST with no body. It does not accept s
 filesystem paths or arbitrary IPC channels. Static assets remain publicly readable
 on loopback while the app runs, so this does not authenticate against other local
 processes. The capability grants only this app window's cosmetic/lifecycle controls;
-it is not a substitute for the still-unsupported public IPC bridge.
+it is separate from the bounded public request/reply IPC bridge.

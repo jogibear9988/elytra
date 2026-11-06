@@ -79,6 +79,6 @@ for the separate renderer, isolation, helper and Electron-reference gates.
 
 Read the [Mite API](api/mite.md), [Firefly API](api/firefly.md) and their compatibility
 matrices. [CommonJS preload/contextBridge](api/context-bridge.md) has a partial
-implementation. Public IPC, desktop services and native Windows/Linux desktop
+implementation. One-way/port IPC, desktop services and native Windows/Linux desktop
 acceptance gates remain outstanding; an Electron app cannot yet migrate by changing
 only its import in the general case.

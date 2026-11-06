@@ -140,6 +140,7 @@ void IsolatedWorld::detach()
     for (auto& hook : hooks)
         hook();
     m_world->detach();
+    m_nonexportable.clear();
     m_context.clear();
     m_realm = nullptr;
     m_world = nullptr;

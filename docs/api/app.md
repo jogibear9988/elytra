@@ -283,7 +283,7 @@ only changes a JS object and does not implement native metadata.
 - [Desktop launcher actions](../examples/desktop-launcher-actions.md): platform packaging contract.
 - [BrowserWindow](browser-window.md) and [webContents](web-contents.md): object/loading lifetime.
 
-Implementation: [firefly.js](../../firefly/core/api.mjs). Existing native/reference
+Implementation: [api.mjs](../../firefly/core/api.mjs). Existing native/reference
 evidence: [test_firefly.py](../../tooling/tests/test_firefly.py), especially lifecycle,
 quit cancellation/reentry and forced-exit fixtures. Gallery evidence:
 [test_electron_examples.py](../../tooling/tests/test_electron_examples.py). Commands and

@@ -34,7 +34,7 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 webContents, events and errors. Firefly embeds Mite in its main process and uses
 separate Ladybird renderer processes. Detailed entries: [app](app.md),
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
-[preload/contextBridge](context-bridge.md).
+[preload/contextBridge](context-bridge.md) and [ipcMain/ipcRenderer](ipc.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

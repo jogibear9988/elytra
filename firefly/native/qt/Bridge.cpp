@@ -7,8 +7,10 @@
 #include "AppRegions.h"
 #include "ChromeWindow.h"
 #include "PreloadHooks.h"
+#include "TransportHooks.h"
 #include "core/EventLoop.h"
 #include "modules/ModulePaths.h"
+#include "serialization/BridgeData.h"
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
@@ -22,6 +24,8 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibRequests/NetworkError.h>
 #include <LibURL/Parser.h>
+#include <LibWebView/CanonicalDocument.h>
+#include <LibWebView/CanonicalNavigable.h>
 #include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
@@ -66,6 +70,10 @@ struct Bridge::Impl {
         Optional<URL::URL> requested_url;
         std::unordered_set<u64> navigation_requests;
         Optional<Preload> preload;
+        ByteString ipc_document {};
+        ByteString ipc_realm {};
+        u32 ipc_last { 0 };
+        std::unordered_set<u32> ipc_pending {};
     };
 
     JS::VM& vm;
@@ -79,6 +87,7 @@ struct Bridge::Impl {
     std::unordered_map<int, State> windows;
     int next_id { 1 };
     bool stopping { false };
+    size_t ipc_pending_count { 0 };
 
     Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
         std::optional<int>& exit_code)
@@ -89,6 +98,9 @@ struct Bridge::Impl {
         , exit_code(exit_code)
     {
         set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
+        set_native_ipc_handler([this](auto& page, auto navigable, auto params) {
+            receive_ipc(page, navigable, move(params));
+        });
     }
 
     ~Impl()
@@ -102,6 +114,7 @@ struct Bridge::Impl {
             return;
         stopping = true;
         set_preload_configurator({});
+        set_native_ipc_handler({});
         while (!windows.empty())
             delete windows.begin()->second.window;
         context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.
@@ -133,6 +146,124 @@ struct Bridge::Impl {
             return;
         QTimer::singleShot(0, context.get(),
             [this, id, type = move(type), data = move(data)] { deliver(id, type, data); });
+    }
+
+    // Navigation/crash invalidates both queued replies and native budget slots.
+    void reset_ipc(int id)
+    {
+        auto found = windows.find(id);
+        if (found == windows.end())
+            return;
+        auto& window = found->second;
+        ipc_pending_count -= window.ipc_pending.size();
+        window.ipc_pending.clear();
+        window.ipc_document = {};
+        window.ipc_realm = {};
+        window.ipc_last = 0;
+    }
+
+    ByteString active_ipc_document(State const& window)
+    {
+        auto const& doc = window.view->page().traversable().active_document();
+        return ByteString::formatted("{}:{}", doc.id().namespace_id, doc.id().local_id);
+    }
+
+    bool ipc_current(int id, ByteString const& document, ByteString const& realm_id)
+    {
+        auto found = windows.find(id);
+        return found != windows.end() && !found->second.closing
+            && found->second.view->page().routed_connection()
+            && found->second.ipc_document == document && found->second.ipc_realm == realm_id
+            && active_ipc_document(found->second) == document;
+    }
+
+    void dispatch_ipc(int id, ByteString document, ByteString realm_id, ByteString data)
+    {
+        if (stopping || !ipc_current(id, document, realm_id))
+            return;
+        if (jobs.is_busy()) {
+            QTimer::singleShot(1, context.get(),
+                [this, id, document = move(document), realm_id = move(realm_id),
+                    data = move(data)] { dispatch_ipc(id, document, realm_id, data); });
+            return;
+        }
+
+        deliver(id, "ipc-invoke", data);
+    }
+
+    // This sends native data only: it is also safe while the Mite VM is busy.
+    void send_ipc_reply(State& window, ByteString const& document, ByteString const& realm_id,
+        u32 request, bool success, ByteString const& wire)
+    {
+        JsonObject data;
+        data.set("document"sv, MUST(String::from_utf8(document.view())));
+        data.set("realm"sv, MUST(String::from_utf8(realm_id.view())));
+        data.set("request"sv, request);
+        data.set("success"sv, success);
+        data.set("wire"sv, MUST(String::from_utf8(wire.view())));
+        auto& page = window.view->page();
+        page.async_run_webdriver_bidi_command(
+            0, page.traversable().id(), "firefly.ipc.reply.v1"sv, move(data));
+    }
+
+    void receive_ipc(
+        WebView::WebContentPage& page, Web::HTML::CrossProcessId navigable, JsonValue params)
+    {
+        if (stopping || !params.is_object() || params.as_object().size() != 4)
+            return;
+        auto const& data = params.as_object();
+        auto document = data.get_string("document"sv), realm_id = data.get_string("realm"sv),
+             wire = data.get_string("wire"sv);
+        auto request = data.get_u32("request"sv);
+        if (!document.has_value() || document->bytes().size() > 64 || !realm_id.has_value()
+            || realm_id->is_empty() || realm_id->bytes().size() > 1024 || !wire.has_value()
+            || wire->bytes().size() > 128 * 1024 || !request.has_value() || *request == 0)
+            return;
+        auto canonical = page.hosted_navigable(navigable);
+        if (!canonical.has_value() || !canonical->is_top_level_traversable()
+            || !page.hosts_active_document_of(*canonical))
+            return;
+        auto const& actual = canonical->active_document();
+        auto actual_key
+            = ByteString::formatted("{}:{}", actual.id().namespace_id, actual.id().local_id);
+        if (document->to_byte_string() != actual_key)
+            return;
+        for (auto& [id, window] : windows) {
+            if (window.closing || !window.preload.has_value() || &page.view() != window.view)
+                continue;
+            if (active_ipc_document(window) != actual_key)
+                return;
+            auto caller = realm_id->to_byte_string();
+            if (window.ipc_document != actual_key) {
+                ipc_pending_count -= window.ipc_pending.size();
+                window.ipc_pending.clear();
+                window.ipc_document = actual_key;
+                window.ipc_realm = caller;
+                window.ipc_last = 0;
+            }
+
+            if (window.ipc_realm != caller || *request <= window.ipc_last)
+                return;
+            window.ipc_last = *request;
+            if (window.ipc_pending.size() >= 16 || ipc_pending_count >= 64) {
+                // Refuse an authenticated request promptly without reserving another
+                // main-process slot. Never run an application handler over budget.
+                auto wire = MUST(BridgeData::from_string(u"IPC pending request budget exceeded"sv)
+                        .encode_wire({}));
+                send_ipc_reply(window, actual_key, caller, *request, false, wire);
+                return;
+            }
+
+            window.ipc_pending.insert(*request);
+            ++ipc_pending_count;
+            params.as_object().set("url"sv, canonical->active_document_url().serialize());
+            auto encoded = params.serialized().to_byte_string();
+            QTimer::singleShot(0, context.get(),
+                [this, id, document = actual_key, realm_id = caller, data = move(encoded)] {
+                    dispatch_ipc(id, document, realm_id, data);
+                });
+            return;
+        }
     }
 
     JS::ThrowCompletionOr<State*> state(JS::VM& vm)
@@ -254,6 +385,8 @@ struct Bridge::Impl {
         windows.emplace(
             id, State { window, view, false, false, false, false, {}, {}, move(preload) });
         QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
+            if (auto found = windows.find(id); found != windows.end())
+                ipc_pending_count -= found->second.ipc_pending.size();
             windows.erase(id);
             enqueue(id, "closed");
         });
@@ -345,6 +478,7 @@ struct Bridge::Impl {
         auto region_finish = move(view->on_load_finish);
         view->on_close = [this, id] { enqueue(id, "close-request"); };
         view->on_load_start = [this, id, region_start = move(region_start)] {
+            reset_ipc(id);
             if (region_start)
                 region_start();
             else
@@ -369,7 +503,11 @@ struct Bridge::Impl {
             = [this, id](auto const& url) { enqueue(id, "url", url.serialize().to_byte_string()); };
         view->on_title_change
             = [this, id](auto const& title) { enqueue(id, "title", title.to_byte_string()); };
-        view->on_web_content_crashed = [this, id](auto) { enqueue(id, "crashed"); };
+        view->on_web_content_crashed = [this, id](auto) {
+            reset_ipc(id);
+            enqueue(id, "crashed");
+        };
+
         view->on_network_request_started = [this, id](u64 request, auto const& url, auto const&,
                                                auto const&, auto, auto, auto, bool navigation,
                                                auto) {
@@ -417,6 +555,61 @@ struct Bridge::Impl {
                 return JS::js_undefined();
             },
             1, JS::default_attributes);
+        host->define_native_function(
+            realm, "encodeIpc"_utf16,
+            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto graph = BridgeData::capture(vm.argument(0), realm, {});
+                if (graph.is_error())
+                    return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION",
+                        "IPC accepts bounded plain data only"sv);
+                auto encoded = graph.value().encode_wire({});
+                if (encoded.is_error() || encoded.value().length() > 128 * 1024)
+                    return preload_error(
+                        vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC data budget exceeded"sv);
+                return text(vm, encoded.value());
+            },
+            1, JS::default_attributes);
+        host->define_native_function(
+            realm, "decodeIpc"_utf16,
+            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_string())
+                    return preload_error(
+                        vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire data"sv);
+                auto wire = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                if (wire.length() > 128 * 1024)
+                    return preload_error(
+                        vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC data budget exceeded"sv);
+                auto graph = BridgeData::decode_wire(wire, {});
+                if (graph.is_error())
+                    return preload_error(
+                        vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire graph"sv);
+                return graph.value().materialize(realm, {}, BridgeData::Materialization::Mutable);
+            },
+            1, JS::default_attributes);
+        host->define_native_function(
+            realm, "replyIpc"_utf16,
+            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32() || !vm.argument(1).is_string()
+                    || !vm.argument(2).is_string() || !vm.argument(3).is_number()
+                    || !vm.argument(4).is_boolean() || !vm.argument(5).is_string())
+                    return JS::js_undefined();
+                auto id = vm.argument(0).as_i32();
+                auto request = TRY(vm.argument(3).to_u32(vm));
+                auto doc = MUST(vm.argument(1).as_string().utf16_string_view().to_byte_string());
+                auto caller = MUST(vm.argument(2).as_string().utf16_string_view().to_byte_string());
+                if (!ipc_current(id, doc, caller))
+                    return JS::js_undefined();
+                auto& window = windows.at(id);
+                if (!window.ipc_pending.erase(request))
+                    return JS::js_undefined();
+                --ipc_pending_count;
+                auto wire = MUST(vm.argument(5).as_string().utf16_string_view().to_byte_string());
+                if (wire.length() > 128 * 1024)
+                    return JS::js_undefined();
+                send_ipc_reply(window, doc, caller, request, vm.argument(4).as_bool(), wire);
+                return JS::js_undefined();
+            },
+            6, JS::default_attributes);
         host->define_native_function(
             realm, "create"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

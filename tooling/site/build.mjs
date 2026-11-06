@@ -150,7 +150,8 @@ const groups = [
       ['docs/api/app', 'app'],
       ['docs/api/browser-window', 'BrowserWindow'],
       ['docs/api/web-contents', 'webContents'],
-      ['docs/api/context-bridge', 'contextBridge']
+      ['docs/api/context-bridge', 'contextBridge'],
+      ['docs/api/ipc', 'ipcMain / ipcRenderer']
     ]
   ],
   [

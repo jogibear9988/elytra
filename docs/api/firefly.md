@@ -6,7 +6,7 @@ today. Node integration in renderers is unavailable. [Compatibility matrix](../c
 and [renderer build guide](../development/renderer-build.md) record the acceptance gates.
 
 Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
-[webContents](web-contents.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+[webContents](web-contents.md), [IPC](ipc.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).
 
 ## Application entry
@@ -131,8 +131,8 @@ Use ordinary browser HTML/CSS/JavaScript for content. Ladybird web-platform cove
 differs from Chromium and must be checked with the actual application.
 
 Public [preload/contextBridge](context-bridge.md) supports bounded CommonJS source
-and frozen data/function publication in a separate realm. ipcMain/ipcRenderer remain
-unsupported. Native SDK/helper tests exercise selected boundaries; they do not
+and frozen data/function publication in a separate realm. [IPC](ipc.md) now supports
+invoke/handle request/reply with native sender validation and bounded plain data. Native SDK/helper tests exercise selected boundaries; they do not
 prove a complete security audit. Do not expose native privileges to page content.
 
 ## Errors and unsupported features

@@ -250,6 +250,8 @@ wire graphs, exact bounds and frozen/mutable reconstruction. Run it alone with:
 cmake --build build/renderer --target check-firefly-wire --parallel 3
 ```
 
-This is data serialization evidence, not public IPC. Request routing, sender/frame/
-document authentication, pending-work budgets and navigation/crash revocation still
-need integration. See [ADR 0070](../architecture/0070-bounded-ipc-wire-data.md).
+This gate proves serialization independently of the public API. `check-firefly`
+also runs the [public invoke/handle](../api/ipc.md) migration and adversarial tests,
+including native sender ownership, request limits and navigation/closure cleanup.
+Install `tooling/runtime-js` with its pinned npm lock before running the desktop
+tests; its bundler stages maintained ESM preloads into sandbox payloads. See [ADR 0070](../architecture/0070-bounded-ipc-wire-data.md).

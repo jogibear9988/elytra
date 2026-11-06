@@ -80,7 +80,8 @@ ErrorOr<FunctionExport> FunctionBridge::create(
 {
     // FunctionObject::realm() is a native field read. Callable proxies/bound
     // functions have no own realm and are rejected without invoking their hooks.
-    if (source.is_detached() || function.realm() != source.realm() || !document.is_fully_active()
+    if (source.is_detached() || source.function_export_blocked(function)
+        || function.realm() != source.realm() || !document.is_fully_active()
         || Web::Bindings::host_defined_of(*source.realm()).principal_realm.ptr()
             != &document.window()->principal_realm())
         return Error::from_string_literal(

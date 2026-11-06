@@ -39,6 +39,20 @@ public:
     // job runs; ordinary evaluate/call still reject recursive entry.
     JS::ThrowCompletionOr<JS::Value> run_async_frame(Function<JS::ThrowCompletionOr<JS::Value>()>);
 
+    // Native capabilities must not be published wholesale through contextBridge.
+    void block_function_export(JS::FunctionObject& function)
+    {
+        m_nonexportable.append(GC::Root { function });
+    }
+
+    bool function_export_blocked(JS::FunctionObject& function) const
+    {
+        for (auto const& entry : m_nonexportable)
+            if (entry.ptr() == &function)
+                return true;
+        return false;
+    }
+
     bool is_executing() const
     {
         return m_evaluating;
@@ -74,6 +88,7 @@ private:
     GC::Root<Web::Bindings::WrapperWorld> m_world;
     OwnPtr<JS::ExecutionContext> m_context;
     Vector<Function<void()>> m_detach_hooks;
+    Vector<GC::Root<JS::FunctionObject>> m_nonexportable;
     bool m_evaluating { false };
     bool m_detach_requested { false };
     bool m_detaching { false };

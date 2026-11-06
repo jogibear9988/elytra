@@ -1,7 +1,9 @@
 # Desktop JavaScript API
 
 `api.mjs` is the maintained ESM factory for the main-process desktop API. Native
-services and the shared Mite builtin instances are injected explicitly. Renderer
+services and the shared Mite builtin instances are injected explicitly.
+`ipc-main.mjs` owns request handlers, pending replies and sender snapshots; the API
+factory connects its cancellation to window/document lifecycle. Renderer
 publication and world ownership live in `../renderer-bridge`; window integration
 and the ESM DOM app-region installer live in `../native/qt`.
 

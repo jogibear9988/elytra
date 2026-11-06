@@ -28,7 +28,7 @@ Firefly should approach as its implementations grow.
 | Desktop reference | Detailed [app](../api/app.md), [BrowserWindow](../api/browser-window.md), [webContents](../api/web-contents.md) and [contextBridge](../api/context-bridge.md) entries | Keep method signatures, errors, cancellation and lifetime synchronized with each implemented change; add native services as they become available |
 | Examples | Runtime/Designer examples and [23 desktop topic apps](../examples/index.md), six native shared slices and 17 explicit Firefly blocks | Preserve per-topic source/API links, manual prerequisites and measured scope; reference-only code does not establish feature support |
 | Migration | Compatibility matrices | Practical Node and Electron audits, import changes, package/feature checks and known blockers |
-| Security | Detailed internal isolation ADRs and test gates | Application-author guidance describing actual controls and remaining gaps, plus the future public IPC contract |
+| Security | Detailed internal isolation ADRs and test gates | Application-author guidance describing actual controls and remaining gaps, plus the current bounded request/reply IPC contract |
 | Distribution | Experimental macOS packager and gated release driver | App-author guide, complete native platform acceptance, dependency notices, signing/notarization and installation/update lifecycle |
 | Testing/debugging | Native/differential scripts and build notes | A user-facing troubleshooting route, error lookup, bug-report evidence and supported debugging methods |
 | Versions/stability | Pinned upstreams and versioned matrices | Explain support labels; record API changes and migration notes when behavior changes; do not fabricate release history |
@@ -70,7 +70,7 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 | Family | Current Firefly scope | Next acceptance/reference needs |
 | --- | --- | --- |
 | app / BrowserWindow / webContents | Partial main-process API with detailed per-member references | Broader API and native OS acceptance remain; document each new implementation with behavior and differential evidence |
-| Preload / contextBridge / ipcMain / ipcRenderer | [Bounded CommonJS preload/publication reference](../api/context-bridge.md); IPC unsupported | Validated main/renderer transport, sender/frame policy and broader callback/value compatibility remain |
+| Preload / contextBridge / ipcMain / ipcRenderer | [Preload/publication](../api/context-bridge.md) and [bounded request/reply IPC](../api/ipc.md) references | One-way/sync/port/subframe IPC, full clone types and broader callback/value compatibility remain |
 | dialog / Menu / MenuItem / Tray | Unsupported | Native implementations and practical application examples |
 | clipboard / shell / screen / nativeImage / session | Unsupported | Native services, permission policies, platform differences and migration fixtures |
 | Navigation / frames / protocol / web preferences | Narrow loading/defaults only | Frame/navigation policy, session/network controls and structured option reference |

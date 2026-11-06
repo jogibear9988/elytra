@@ -4,6 +4,9 @@ Status: native codec and separate-process tests implemented on macOS ARM64.
 Application IPC routing, sender authentication and public invoke/handle remain
 unfinished. This is an internal building block, not an Electron IPC API claim.
 
+The public transport has since been integrated in [ADR 0072](0072-native-request-reply-ipc.md);
+the status above records this codec implementation checkpoint.
+
 ## Decision
 
 Extend BridgeData with encode_wire/decode_wire instead of serializing live JS values

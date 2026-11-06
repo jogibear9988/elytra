@@ -111,6 +111,7 @@ def main():
         args.jobs,
         *renderer_options,
     )
+    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
     run(sys.executable, "tooling/bootstrap_electron.py")
     run(
         "cmake",
@@ -124,7 +125,6 @@ def main():
         "--parallel",
         args.jobs,
     )
-    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
     run(sys.executable, "tooling/tests/test_example_assets.py", "--mite", build / "bin/mite")
     examples = ROOT / "build/desktop-examples"
     reference_examples = ROOT / "build/desktop-examples-reference"
