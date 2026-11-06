@@ -5348,6 +5348,29 @@ while Openbox is live; its root cause and native application acceptance remain
 unfinished. Continue those gates and all required desktop/platform work.
 Goal active.
 
+## 2026-11-07: Align the isolated X11 probe with native application window creation
+
+- c2c2db5 native-service job 128214890032 (run 42311835475) fails the same frame
+  metadata wait. Its newly retained diagnostics now establish actual server
+  state: the observed window is IsUnMapped, with root parent/no WM_STATE or frame
+  extents, while Openbox's process remains live. The probe can answer the startup
+  API request, so an unresponsive event loop is not inferred from that timeout.
+- Match the application's native creation sequence: set the same native-sibling
+  policy, materialize the widget's native window before show(), and emit readiness
+  from the running Qt event loop with the actual QWindow ID. Keep visibility,
+  widget/native IDs and offscreen state in failure evidence. Require visible
+  widget/native state before the independent server frame assertions; retain
+  native extents/nonzero decorations and the unchanged deadline.
+- This corrects probe initialization/identity; positive native mapping/geometry
+  acceptance still needs the next isolated Linux run. Do not mark the runtime
+  accepted or replace server evidence with the Qt visibility flags. Local current
+  source compiles; the four non-GUI service/guard tests pass. No local GUI opens.
+
+Limits: corrected GC source 87845c8 needs fresh profile CI; current Linux geometry
+and native application gates remain unverified. The optimized older macOS release
+candidate is separate and remains under its original native/package gates.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

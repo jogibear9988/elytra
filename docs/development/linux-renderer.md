@@ -245,7 +245,12 @@ Linux app lifecycle, integration, packaging or security containment.
 
 ## Native X11 window geometry component
 
-Status: implemented native adapter/probe, **actual Linux execution pending CI**.
+Status: implemented native adapter/probe, **positive Linux acceptance pending**.
+Native run 42311835475 reaches this gate but reports the observed window as
+IsUnMapped while Openbox remains live; frame extents are therefore unavailable.
+The probe now materializes its native handle before showing, matching the actual
+runtime's initialization order, and publishes the QWindow ID/visibility after the
+event loop starts. Native mapping and frame assertions still require a fresh run.
 The standalone service project now compiles the existing checked outer/content
 geometry translation with a Linux centering provider. The macOS Firefly runtime
 continues to use AppKit centering. Neither a public Linux BrowserWindow runtime

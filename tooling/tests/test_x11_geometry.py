@@ -90,7 +90,12 @@ def exercise(probe, mode, env):
             process.stdin.flush()
             return receive()
 
-        window = int(receive()["window"])
+        startup = receive()
+        window = int(startup["window"])
+        observations["visibility"] = startup
+        assert startup["widgetVisible"] and startup["nativeVisible"] and not startup["offscreen"], (
+            startup
+        )
         # Establish that the native event loop can serve an actual geometry request
         # before waiting for the window manager's independent decoration metadata.
         observations["startup"] = request(op="get")

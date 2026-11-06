@@ -5,7 +5,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSocketNotifier>
+#include <QTimer>
 #include <QWidget>
+#include <QWindow>
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -35,7 +37,9 @@ int main(int argc, char** argv)
         return 77;
     }
 
+    QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     QApplication app(argc, argv);
+    app.setQuitOnLastWindowClosed(false);
     if (app.platformName() != "xcb" || app.arguments().size() != 2)
         return 1;
     auto mode = app.arguments()[1];
@@ -45,8 +49,19 @@ int main(int argc, char** argv)
         nullptr, mode == "frameless" ? Qt::Window | Qt::FramelessWindowHint : Qt::Window);
     widget.setWindowTitle("Firefly isolated geometry acceptance");
     widget.resize(440, 300);
+    // Match the runtime's native-window creation before showing the widget.
+    // The observer must receive the actual QWindow handle after the loop starts,
+    // rather than an eagerly sampled QWidget ID during native initialization.
+    widget.winId();
     widget.show();
-    reply({ { "window", QString::number(widget.winId()) } });
+    QTimer::singleShot(0, &widget, [&] {
+        auto* window = widget.windowHandle();
+        reply({ { "window", QString::number(window->winId()) },
+            { "widgetWindow", QString::number(widget.winId()) },
+            { "widgetVisible", widget.isVisible() }, { "nativeVisible", window->isVisible() },
+            { "nativeExposed", window->isExposed() },
+            { "offscreen", widget.testAttribute(Qt::WA_DontShowOnScreen) } });
+    });
     QSocketNotifier input(STDIN_FILENO, QSocketNotifier::Read, &app);
     QObject::connect(&input, &QSocketNotifier::activated, &app, [&] {
         std::string line;
