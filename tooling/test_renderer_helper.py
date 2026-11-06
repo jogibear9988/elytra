@@ -29,6 +29,10 @@ def main():
     first=run(probe,'--headless=text',(fixture/'first-script.html').as_uri())
     pid=pid_of(first)
     assert 'BEFORE_SCRIPT_OK' in first.stdout and f'FIREFLY_WORLD_CREATED pid={pid} ' in first.stderr,first
+    missing_api=run(control,'--headless=text',(fixture/'context-api.html').as_uri())
+    pid_of(missing_api);assert 'CONTEXT_API_MISSING' in missing_api.stdout,missing_api
+    context_api=run(probe,'--headless=manual',(fixture/'context-api.html').as_uri())
+    pid_of(context_api)
     frame=run(probe,'--headless=text',(fixture/'frame.html').as_uri())
     pid_of(frame);assert 'FRAME_WORLD_OK' in frame.stdout,frame
     lifecycle=run(probe,'--headless=manual',(fixture/'frame.html').as_uri())
@@ -103,6 +107,7 @@ def main():
     print('PASS isolated globals and frozen data-only copies in top-level/srcdoc frames and matching renderer PID')
     print('PASS function calls copy data and reject removed-frame references across 70 cleanup cycles')
     print('PASS native Promise results and removed-frame pending rejection')
+    print('PASS nested context API before first script, guarded calls and removed-frame function/Promise revocation')
     print('PASS removed-frame Promise/WebIDL microtasks blocked before execution')
     print('PASS running reaction/await/generator/queueMicrotask callbacks remove frames and reject safely')
     print('PASS source rejection objects/functions stay private; page reject/handle events remain')

@@ -175,3 +175,11 @@ SDK/helper native traversal, identity/null, callback-kind and GC controls pass.
 Unknown provenance/unresolved callable realms reject explicitly. Native container
 retention and other API boundaries remain incomplete; public preload/contextBridge/
 IPC stay unsupported.
+
+The native publication engine now composes nested data/function APIs atomically
+(ADR 0067). It freezes copied data, preserves cycles/function aliases, rejects
+occupied names and unsupported/trapping values without partial publication, and
+revokes exported functions/pending promises on source detach. SDK and actual
+sandboxed helper tests cover principal reentry and removed-frame lifecycle. This
+is an internal integration step: public preload selection, production helper
+staging, navigation policy and main/renderer IPC still need implementation.

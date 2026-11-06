@@ -2637,6 +2637,71 @@ remained live in its release compile. Do not cancel or replace live builds merel
 for observation time. New Windows corrections/TCP path and the full hosted M1
 package build still require their own native results.
 
+## Atomic native context API publication (2026-11-06)
+
+Implement the renderer-side ContextBridge engine for exposeInMainWorld(apiKey,api)
+over the existing BridgeData/FunctionBridge. Nested data/function graphs preserve
+cycles and repeated function identity, freeze target-realm copies and publish an
+enumerable/nonwritable/nonconfigurable namespace only after complete preparation.
+Reject occupied own properties without running their getters, avoid inherited
+setters, and revoke all staged endpoints on failure. Keep default data snapshots
+function-free; opt-in native function tokens contain no VM pointers/callbacks and
+require a checked destination materializer. Root publication temporaries and
+sanitize foreign completion errors rather than leaking principal exception objects.
+
+Bound each owner to 64 publications/functions and 256 UTF-16 namespace units,
+plus existing snapshot and per-function limits. Require exact source/document,
+an active source owner and the first real script/owner caller frame: native
+function Realm alone does not authorize principal reentry through call/apply.
+Use weak publisher closures and source-detach hooks to revoke all functions and
+pending promises, retaining safe frozen data. Unsupported API values reject
+explicitly. Source enumeration scratch allocation is still not hard containment.
+No privileges, dependencies, Node/V8 embedding or Ladybird changes are introduced.
+
+New native SDK coverage checks nested aliases/cycles/frozen prototypes, copied
+results, trap-free rejection and staged rollback/function/key limits, occupied
+getters/inherited setters, deliberately leaked publisher calls, principal reentry
+while a source executes, pending rejection, detach and GC. The new test initially
+exposed a lexical-name collision between SDK scripts, fixed with block-scoped
+fixtures. It also changed the existing weak-filter collection observation. Native
+retaining-path inspection found no ownership path; now require an empty root-path
+observation at a separate native boundary before collection, retaining BOTH old
+weak realm/filter collection assertions. This also drains previous incremental
+sweeps. No runtime collector change, retry or removed assertion.
+
+The compiled sandboxed helper now exercises a harmless nested fixture API before
+first author script in top-level/srcdoc documents, with absent raw publisher/Mite
+globals, trap-free arguments, removed-frame function/Promise rejection and a live
+parent API. The unmodified helper is a negative control. Fixture publication skips
+transient initial about:blank, which can reuse its Window for srcdoc; duplicate
+immutable namespaces correctly reject. This is not a product navigation policy.
+
+All four native gates pass in build/context-api-native-gates.log. After final
+publisher rooting/error sanitation and caller tests, the affected isolation/helper
+gates pass again in build/context-api-final-validation.log. Existing security,
+renderer/compositor/process and Firefly main workflows remain enabled. The Mite
+runtime/build graph is unchanged; previous 43 local suites are not relabeled as
+new platform evidence. Pin, Python and diff checks pass; site checks 111 pages /
+6017 local links. ADR 0067, compatibility and update guidance record scope.
+
+Public preload/contextBridge/IPC remain unsupported in BrowserWindow. Required
+next integration: application-selected preload sources, a production helper with
+no diagnostic globals, per-window/document/navigation policy, bounded main/renderer
+transport, malicious wire-input controls and actual Electron migration fixtures.
+Do not select the diagnostic helper for applications. TLS/HTTPS/fetch, remaining
+desktop APIs and complete native Windows/Linux packages also remain open.
+
+Hosted 6ba8af1 Linux 42149419974 / job 127670385257 passes 42/42 in 28.46s.
+Windows 42149420070 / job 127670651541 completes 39/42 in 50.86s. The initial CJS
+path metadata and console byte fixes pass; ESM metadata now differs only in URL
+escaping of RUNNER~1 (Node %7E, Mite literal ~), before later alias/junction cases
+can run. Child-process execution reaches its detached/unreferenced-parent case,
+then Python communicate times out on Mite; inspect native handle inheritance and
+actual parent liveness before changing any timeout. DNS custom lookup fails in
+the Node reference with native status 3221226505 while Mite completes; keep that
+comparison failed pending diagnosis. New API hosted acceptance/full hosted M1
+packages remain pending. No alpha or new package-size claim.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -237,6 +237,15 @@ helpers to the registered-PID monitor. Revalidate native child completion and
 registered renderer/helper crash detection together. Remove the adapter if an
 upstream selective-monitoring API supplies the required ownership boundary.
 
+The internal ContextBridge publisher in
+[ADR 0067](../architecture/0067-atomic-context-api-publication.md) also depends on
+native function Realm metadata, execution-context enumeration and own-property
+descriptor semantics. Revalidate atomic nested publication, trap-free rollback,
+foreign caller/call/apply reentry denial, detach/Promise revocation and the
+compiled helper's first-script/srcdoc controls. Keep default data snapshots
+function-free; publication tokens are not an IPC decoder. Passing these controls
+does not enable public preload selection or production helper/IPC integration.
+
 The update workflow is documented and its local guard is tested. No newer
 Ladybird candidate was evaluated as part of adding this workflow. Native
 Windows/Linux upgrade validation, CI automation and full renderer upgrade

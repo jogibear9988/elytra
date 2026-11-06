@@ -2,6 +2,7 @@
 #include "IsolatedWorld.h"
 #include "BridgeData.h"
 #include "FunctionBridge.h"
+#include "ContextBridge.h"
 #include "WorldJobGuard.h"
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <AK/HashMap.h>
@@ -32,8 +33,10 @@ struct WorldRecord {
     NonnullRefPtr<IsolatedWorld> owner;
     GC::Root<Web::DOM::Document> document;
     RefPtr<FunctionBridge> function {};
+    RefPtr<ContextBridge> context {};
     void detach()
     {
+        if (context) context->revoke();
         if (function) function->revoke();
         owner->detach();
     }
@@ -102,10 +105,23 @@ void on_event(Web::HTML::Navigable const& navigable, String const& name, JsonVal
             auto world = owner.release_value();
             if (session->jobs->protect(*world).is_error()) fail("Cannot guard world jobs"sv);
             session->worlds.set(*id, WorldRecord { world, GC::Root { *document } });
+            auto publisher = ContextBridge::create(*world, *document);
+            if (publisher.is_error()) fail("Cannot create API publication probe"sv);
+            session->worlds.find(*id)->value.context = publisher.value();
+            world->realm()->global_object().define_direct_property("__fireflyContextBridge"_utf16, publisher.value()->exports(), JS::default_attributes);
             // Compiled, harmless ordering/isolation probe only. No user preload,
             // Node binding, IPC function or general WebDriver command is exposed.
             auto result = world->evaluate(uR"JS(
                 globalThis.__fireflyIsolatedMarker = 'renderer-only';
+                const echo=value=>value;
+                // Fixture policy: publish on the loaded test document. The
+                // transient initial about:blank can reuse its Window for
+                // srcdoc; a nonconfigurable namespace must not be installed
+                // twice on that same global. Public preload policy is separate.
+                if(location.href!=='about:blank')
+                    __fireflyContextBridge.exposeInMainWorld('__fireflyContextApiProbe', {
+                        version:42,nested:{echo,alias:echo},data:{frozen:true},pending:()=>new Promise(()=>{})
+                    });
                 Object.prototype.__fireflyWorldOnly = true;
                 window.name = 'FIREFLY_WORLD_READY:' + location.href;
                 globalThis.__fireflyCopySource = {answer:42,nested:[true]};

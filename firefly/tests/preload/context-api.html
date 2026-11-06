@@ -1,0 +1,35 @@
+<!doctype html>
+<script>
+// The compiled fixture publisher must run before this first author script.
+const earlyContextApi = globalThis.__fireflyContextApiProbe;
+if (earlyContextApi) {
+  if (typeof __fireflyContextBridge !== 'undefined' || typeof process !== 'undefined' || typeof require !== 'undefined') throw Error('Leaked isolated capability');
+  if (earlyContextApi.version !== 42 || !Object.isFrozen(earlyContextApi) || !Object.isFrozen(earlyContextApi.data) ||
+      earlyContextApi.nested.echo !== earlyContextApi.nested.alias || earlyContextApi.nested.echo({n:42}).n !== 42) throw Error('Invalid API publication');
+  let traps = 0, denied = false;
+  try { earlyContextApi.nested.echo({get n(){traps++;return 1}}); } catch(e) { denied = e instanceof TypeError; }
+  if (!denied || traps) throw Error('API argument getter ran');
+}
+window.onload = () => {
+  if (!earlyContextApi) return;
+  const frame = document.createElement('iframe');
+  frame.onload = () => {
+    const api = frame.contentWindow.__fireflyContextApiProbe, Type = frame.contentWindow.TypeError;
+    if (!api || !Object.isFrozen(api.nested) || api.nested.echo('ok') !== 'ok') throw Error('Frame API unavailable');
+    const retained = api.nested.echo;
+    let rejected = false;
+    api.pending().catch(error => { if (!(error instanceof Type)) throw Error('Wrong rejection realm'); rejected = true; });
+    frame.remove();
+    let denied = false;
+    try { retained(1); } catch(error) { denied = error instanceof Type; }
+    if (!denied) throw Error('Removed-frame API remained live');
+    setTimeout(() => {
+      if (!rejected || earlyContextApi.nested.echo(42) !== 42) throw Error('API lifetime was not independent');
+      document.body.textContent = 'CONTEXT_API_OK';window.close();
+    }, 30);
+  };
+  frame.srcdoc = '<!doctype html><title>frame</title>';
+  document.body.append(frame);
+};
+</script>
+<body>CONTEXT_API_MISSING</body>

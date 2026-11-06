@@ -1,6 +1,7 @@
 #include "IsolatedWorld.h"
 #include "BridgeDataTest.h"
 #include "FunctionBridgeTest.h"
+#include "ContextBridgeTest.h"
 #include "PromiseBridgeTest.h"
 #include "WorldJobGuardTest.h"
 #include "HandlerTest.h"
@@ -116,6 +117,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     if (!check(first->evaluate(u"preloadSecret==='isolated' && nativeProbe()===42 && document.documentElement.getAttribute('data-owner')==='isolated'"sv),"rooted world survives GC"sv)) return 1;
     TRY(check_bridge_data(vm, principal, *second->realm()));
     TRY(check_function_bridge(vm, *document));
+    TRY(check_context_bridge(vm, *document));
     TRY(check_promise_bridge(vm, *document));
     TRY(check_world_job_guard(vm, *document));
     TRY(check_handlers(vm, *document));

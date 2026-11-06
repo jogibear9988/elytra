@@ -4,12 +4,13 @@
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Intrinsics.h>
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/Realm.h>
 
 namespace Firefly {
-ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits)
+ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits, CaptureFunction functions)
 {
     // Root the whole source graph while the engine allocates key vectors. All
     // traversed objects are exact engine classes, and ordinary descriptor reads
@@ -45,6 +46,12 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
             TRY(charge_string(input.as_string().length_in_utf16_code_units()));
             node.kind = Kind::String;
             node.string = input.as_string().utf16_string();
+        } else if (input.is_function() && functions) {
+            auto& function = input.as_function();
+            if (&function.vm() != &source.vm() || function.realm() != &source)
+                return Error::from_string_literal("Bridge function requires its own source realm");
+            node.kind = Kind::Function;
+            node.length = TRY(functions(function));
         } else if (input.is_object()) {
             auto& object = input.as_object();
             bool array = object.engine_class_id() == JS_LAYOUT_CLASS_ID_ARRAY;
@@ -75,6 +82,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
         if (!input.is_object()) return index;
         auto& object = input.as_object();
         seen.set(&object, index);
+        if (result.m_nodes[index].kind == Kind::Function) return index;
         // The SDK enumerates into an engine-owned temporary vector before we can
         // enforce the property limit. Snapshot/output sizes are bounded; source
         // enumeration scratch space is not a hard resource containment boundary.
@@ -100,7 +108,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
     return result;
 }
 
-JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination) const
+JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination, MaterializeFunction functions) const
 {
     GC::Root destination_realm { destination };
     if (m_nodes.is_empty())
@@ -113,6 +121,14 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination)
         case Kind::Boolean: values.append(JS::Value(node.number != 0)); break;
         case Kind::Number: values.append(JS::Value(node.number)); break;
         case Kind::String: values.append(JS::PrimitiveString::create(destination.vm(), node.string)); break;
+        case Kind::Function: {
+            if (!functions) return destination.vm().throw_completion<JS::TypeError>("Missing bridge function materializer"sv);
+            auto function = TRY(functions(node.length));
+            if (!function.is_function() || &function.as_function().vm() != &destination.vm() || function.as_function().realm() != &destination)
+                return destination.vm().throw_completion<JS::TypeError>("Invalid bridge function destination"sv);
+            values.append(function);
+            break;
+        }
         case Kind::Object: values.append(JS::Object::create(destination, node.null_prototype ? nullptr : destination.intrinsics().object_prototype().ptr())); break;
         case Kind::Array: values.append(TRY(JS::Array::create(destination, node.length))); break;
         }

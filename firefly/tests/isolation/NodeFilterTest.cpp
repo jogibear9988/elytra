@@ -159,6 +159,13 @@ ErrorOr<void> check_node_filters(JS::VM& vm, Web::DOM::Document& document)
     }
     for(bool unknown_origin : {false,true}) {
         auto probe=TRY(foreign_filter_probe(guard,document,unknown_origin));
+        // Observe roots at a separate native boundary before collection. This
+        // also drains any earlier incremental sweep; dead producer temporaries
+        // must not masquerade as ownership in the collector's register snapshot.
+        // A real strong metadata edge fails this check as well as the weak-GC
+        // assertions below. The predicate retains only the indirect weak handle.
+        auto paths=vm.heap().find_retaining_paths([&](GC::Cell& cell){return static_cast<void*>(&cell)==static_cast<void*>(probe.writer.ptr().ptr());},1);
+        if(!paths.is_empty())return Error::from_string_literal("Foreign filter writer still has a retaining path");
         page.global_object().define_direct_property("filterIterator"_utf16,Web::Bindings::wrap(Web::Bindings::host_defined_wrapper_world(page),page,GC::Ref{*probe.iterator}),JS::default_attributes);
         vm.heap().collect_garbage();
         if(probe.writer.ptr())return Error::from_string_literal("Weak filter provenance retained a Source realm");
