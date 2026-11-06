@@ -40,7 +40,7 @@ def main():
              ('pending-throw.cjs', 1, 'pending fs fixture'), ('identity.cjs', 0, None), ('scalar.cjs', 0, None),
              ('scalar-async.mjs', 0, None), ('scalar-validation.cjs', 0, None),
              ('filehandle.mjs', 0, None), ('filehandle-close.mjs', 0, None),
-             ('filehandle-validation.mjs', 0, None), ('url.mjs', 0, None)]
+             ('filehandle-validation.mjs', 0, None), ('url.mjs', 0, None), ('paths.mjs', 0, None)]
     if hasattr(os, 'mkfifo'):
         cases.extend([('nonblocking.mjs', 0, None), ('descriptors.cjs', 0, None)])
     else:
@@ -49,7 +49,11 @@ def main():
         with tempfile.TemporaryDirectory(prefix='mite-fs-') as directory:
             results, contents = [], []
             for index, executable in enumerate([args.node, args.mite]):
-                cwd = Path(directory) / str(index)
+                # Absolute error/mkdir paths must refer to the same fixture root.
+                # Recreate it between runs rather than rewriting observed output.
+                cwd = Path(directory) / 'work'
+                if cwd.exists():
+                    shutil.rmtree(cwd)
                 prepare(cwd, name == 'nonblocking.mjs')
                 try:
                     results.append(execute(executable, fixtures / name, cwd))

@@ -2301,6 +2301,38 @@ live in compilation. No active build is restarted due to observation duration.
 Native filesystem API differences and the Node-reference network timeout remain
 separate work, as do UNC support and interactive console behavior.
 
+## Windows filesystem namespace boundary and fair path comparisons (2026-11-06)
+
+The first real Windows filesystem output (42139627506) shows Node returning
+absolute error paths and a namespaced first-created recursive mkdir path while
+Mite uses the original relative path. Node's native binding prepares namespace
+paths before libuv. Our fs facade now captures the existing path adapter, prepares
+Windows string/UTF-8 Buffer paths before native work, preserves readdir trailing
+separators and keeps Dirent.parentPath as supplied by the caller. Native error
+path/dest fields strip the internal namespace prefix; mkdir keeps its actual
+first-created native path. POSIX path bytes and descriptor behavior are unchanged.
+No vendor source is patched.
+
+The differential filesystem harness now recreates the same owned work directory
+between Node and Mite, rather than comparing absolute output from distinct 0/1
+roots. Output and file bytes remain compared directly, without path rewriting.
+New paths.mjs exercises recursive mkdir, Unicode file URL/Buffer identity,
+sync/callback-promise error source/destination fields and Dirent parent metadata.
+The targeted filesystem suite passes, and all 41 local Release/size-profile CTests
+pass in 17.22s (build/windows-fs-path-{build,test,full-test}.log). check-firefly
+passes native controls/lifecycle/ESM/HTTP/renderer/error/shutdown checks in
+build/windows-fs-path-firefly-test.log. Site, actionlint, Python syntax, diff and
+unmodified upstream checks pass. Native Windows namespace acceptance is pending;
+the scalar descriptor file-content mismatch and Node-reference network timeout
+remain independent unresolved failures, not skipped or normalized away.
+
+Linux run 42141507395 at d1c9513 (job 127642655545) is now terminal success:
+40/40 suites in 18.88s, including native randomInt and HTTP client, plus CLI,
+linkage and integrity gates. Update API/matrix/Linux docs to this source-scoped
+baseline. It does not accept subsequent Unicode/module/filesystem changes or
+desktop/size-profile support. Windows 42141915944 remains live in compilation;
+macOS release 42125911196 remains live at the full Release step.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

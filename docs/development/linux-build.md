@@ -51,6 +51,13 @@ initial platform gate.
 
 ## Diagnostics and remaining work
 
+The later d1c9513 run
+[42141507395](https://github.com/jogibear9988/elytra/actions/runs/42141507395)
+passes all 40 enabled suites in 18.88s, including native crypto.randomInt and the
+independent HTTP-client peer tests. CLI examples, linkage and upstream integrity
+also pass. This accepts default Linux Release at that source, not the subsequent
+Unicode/module/filesystem path changes, an untested size profile or desktop support.
+
 The workflow retains CMake, Cargo, vcpkg and CTest logs even after failures.
 Dependency caches use individual ABI keys and unique saves so partial build
 downloads can accumulate; a restored cache never substitutes for compilation or

@@ -76,6 +76,12 @@ with read/write, stat/truncate, sync/datasync, whole-file I/O, close and async d
 Closing waits for active operations. Callback/sync whole-file APIs also accept numeric
 descriptors. File URL paths are supported and validated.
 
+The Windows adapter now prepares namespaced paths for native operations, retains
+the caller's Dirent parentPath and strips the internal namespace prefix from error
+path/dest fields. Recursive mkdir returns the first created native namespace path
+on Windows. These new Windows semantics await native acceptance; local macOS
+checks do not establish them.
+
 ```js
 import {readFile, writeFile} from 'node:fs/promises';
 const bytes = await readFile('input.txt');

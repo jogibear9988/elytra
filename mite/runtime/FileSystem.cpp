@@ -216,12 +216,19 @@ static JS::ThrowCompletionOr<JS::Value> byte_array(JS::Realm& realm, unsigned ch
 }
 static GC::Ref<JS::Object> make_error(JS::VM& vm, NativeRequest const& request)
 {
+    auto display_path = [](std::string const& path) {
+#ifdef _WIN32
+        if (path.starts_with("\\\\?\\UNC\\")) return std::string("\\\\") + path.substr(8);
+        if (path.starts_with("\\\\?\\")) return path.substr(4);
+#endif
+        return path;
+    };
     auto error = JS::Error::create(vm.realm(), Utf16String::from_utf8(StringView(uv_strerror(request.error), strlen(uv_strerror(request.error)))));
     error->define_direct_property("errno"_utf16, JS::Value(request.error), JS::default_attributes);
     error->define_direct_property("code"_utf16, text(vm, uv_err_name(request.error)), JS::default_attributes);
     error->define_direct_property("syscall"_utf16, text(vm, request.syscall), JS::default_attributes);
-    if (request.descriptor < 0 && request.syscall != "read" && request.syscall != "write" && request.syscall != "close") error->define_direct_property("path"_utf16, text(vm, request.error_path), JS::default_attributes);
-    if (request.operation == "rename") error->define_direct_property("dest"_utf16, text(vm, request.dest), JS::default_attributes);
+    if (request.descriptor < 0 && request.syscall != "read" && request.syscall != "write" && request.syscall != "close") error->define_direct_property("path"_utf16, text(vm, display_path(request.error_path)), JS::default_attributes);
+    if (request.operation == "rename") error->define_direct_property("dest"_utf16, text(vm, display_path(request.dest)), JS::default_attributes);
     return error;
 }
 static JS::ThrowCompletionOr<JS::Value> result(JS::VM& vm, JS::Realm& realm, NativeRequest const& request)

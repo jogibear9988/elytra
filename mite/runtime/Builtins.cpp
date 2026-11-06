@@ -190,6 +190,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         host->define_direct_property("Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
     if (name == "fs") {
+        host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
         auto url = TRY(builtin("url"));
         host->define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
         host->define_direct_property("fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);

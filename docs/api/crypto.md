@@ -71,8 +71,9 @@ Rejection sampling avoids modulo bias, including near the 48-bit range limit.
 Mite requests six fresh OS entropy bytes for every attempt and does not cache
 integers. Consequently callback timing relative to nextTick/Promise callbacks can
 differ from Node's warm entropy-cache path. This is an explicit timing/performance
-difference; callers must not depend on that cache. Native behavior is tested locally
-on macOS ARM64; hosted Linux/Windows acceptance of this new export is pending.
+difference; callers must not depend on that cache. Native behavior is tested on
+macOS ARM64 and in the [Linux baseline](../development/linux-build.md); Windows
+acceptance remains pending.
 
 ## createHash(algorithm[, options])
 

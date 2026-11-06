@@ -1,8 +1,9 @@
 # node:http
 
 Partial HTTP/1 client/server support in Mite and the Firefly main process. The new
-client is locally tested on macOS ARM64; hosted Linux/Windows acceptance remains
-pending. No renderer Node API is exposed. See the
+client is tested on macOS ARM64 and the native
+[Linux baseline at d1c9513](../development/linux-build.md); Windows acceptance
+remains pending. No renderer Node API is exposed. See the
 [compatibility matrix](../compatibility/mite-0.1.md) for existing server/platform scope.
 
 ```js

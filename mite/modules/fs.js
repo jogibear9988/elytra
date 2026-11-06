@@ -3,6 +3,12 @@
     const native = host.native;
     const Buffer = host.Buffer;
     const constants = native.constants;
+    const windows = host.platform === 'win32', toNamespacedPath = host.path.toNamespacedPath;
+    function nativePath(value) {
+        if (!windows || typeof value === 'number') return value;
+        if (value instanceof Uint8Array) value = Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('utf8');
+        return toNamespacedPath(value);
+    }
     function fail(code, message, Type = TypeError) { const error = new Type(message); error.code = code; throw error; }
     function unsupported(feature) { fail('ERR_MITE_UNSUPPORTED_API', `${feature} is not implemented`); }
     function path(value) {
@@ -98,6 +104,9 @@
     function prepare(op, pathname, argument, data) {
         const descriptor = ['close','fstat','ftruncate','fsync','fdatasync'].includes(op);
         const spec = { op, path: descriptor || ((op === 'readFile' || op === 'writeFile') && typeof pathname === 'number') ? integer(pathname, 0, 0x7fffffff, 'fd') : path(pathname) };
+        const parentPath = spec.path;
+        spec.path = nativePath(spec.path);
+        if (windows && op === 'readdir' && /[\\/]$/.test(String(parentPath)) && !spec.path.endsWith('\\')) spec.path += '\\';
         let convert = () => undefined;
         let recover;
         if (op === 'open') {
@@ -125,7 +134,7 @@
             if (opts.recursive !== undefined && typeof opts.recursive !== 'boolean') fail('ERR_INVALID_ARG_TYPE', 'recursive must be a boolean');
             spec.mode = mode(opts.mode, 0o777); spec.recursive = !!opts.recursive;
             convert = value => value;
-        } else if (op === 'rename') spec.dest = path(argument);
+        } else if (op === 'rename') spec.dest = nativePath(path(argument));
         else if (op === 'rmdir') { if (options(argument).recursive) unsupported('Recursive rmdir'); }
         else if (op === 'readdir') {
             const opts = options(argument); const encoding = codec(opts.encoding === undefined ? 'utf8' : opts.encoding, true);
@@ -134,7 +143,7 @@
             convert = entries => entries.map(entry => {
                 const buffer = Buffer.from(entry.name);
                 const name = encoding === 'buffer' ? buffer : buffer.toString(encoding || 'utf8');
-                return opts.withFileTypes ? new Dirent(name, spec.path, entry.type) : name;
+                return opts.withFileTypes ? new Dirent(name, parentPath, entry.type) : name;
             });
         }
         return { spec, convert, recover };
