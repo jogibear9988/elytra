@@ -17,11 +17,14 @@ def main():
     root=Path(__file__).resolve().parents[1]/'mite/tests/net'
     failures=0
     for name in ['echo.cjs','half-open.mjs','backpressure.mjs','close-wait.mjs','refused.mjs','ipv6.mjs','unref.cjs','buffered.mjs','timeout.mjs','listen-errors.mjs','cancel.cjs','unref-client.mjs','checkpoint.mjs','cancel-write.mjs']:
-        try:
-            results=[subprocess.run([exe,str(root/name)],capture_output=True,text=True,timeout=20) for exe in [args.node,args.mite]]
-            passed=all(r.returncode==0 and not r.stderr for r in results) and results[0].stdout==results[1].stdout
-        except subprocess.TimeoutExpired as e:
-            print(f'FAIL {name}: timed out: {e} {e.stdout!r} {e.stderr!r}');failures+=1;continue
+        results=[]
+        for exe in [args.node,args.mite]:
+            try:
+                results.append(subprocess.run([exe,str(root/name)],capture_output=True,text=True,timeout=20))
+            except subprocess.TimeoutExpired as e:
+                print(f'FAIL {name} ({Path(exe).name}): timed out: {e.stdout!r} {e.stderr!r}')
+                results.append(None)
+        passed=all(r is not None and r.returncode==0 and not r.stderr for r in results) and results[0].stdout==results[1].stdout
         print(f'{"PASS" if passed else "FAIL"} net/{name}')
         if not passed:
             failures+=1;print('Node:',results[0]);print('Mite:',results[1])

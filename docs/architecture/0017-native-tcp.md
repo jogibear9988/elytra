@@ -40,14 +40,23 @@ destroying a connection and do not keep an otherwise idle process alive.
 The two network suites include 14 shared TCP workflows, 63 address/validation
 comparisons, an independent Python OS-socket peer against both runtimes, fatal
 native callback checks against both, and nine explicitly unsupported options.
-Workflows cover IPv4/IPv6, Unicode echo, class/builtin identity, 3 MiB backpressure
-and drain, half-close replies, delayed consumption, timeout notification, listener
+Workflows cover IPv4/IPv6, Unicode echo, class/builtin identity, direct and corked
+3 MiB transfers with backpressure/drain, half-close replies, delayed consumption, timeout notification, listener
 conflicts/retry, connection refusal, server close waiting, pending write/connect
 cancellation, live unreferenced handles and native callback queue ordering.
 Tests synchronize independent accept/connect events rather than assuming their
 relative order across kernels/runtimes. They compare application output with
 Node v24.15.0. The external peer additionally proves byte transport without a
 second copy of Mite masking a matching bug.
+
+The transfer fixture waits for drain only when write returns false. A direct large
+write can return true when the OS accepts it immediately, as observed on native
+Windows Node; waiting unconditionally then hangs the reference itself. A separate
+corked transfer forces the buffered-above-highWaterMark branch and requires false,
+registering its drain listener before uncork. Both modes await the write callback,
+check an empty write queue, received bytes/checksum/acknowledgement and bytesWritten.
+No payload reduction or timeout extension is used. The runner executes both
+runtimes even if one times out, keeping that timeout a failed comparison.
 
 Readiness published through piped console.log is exercised by that external peer.
 Console lines now flush immediately, rather than waiting for process exit or a

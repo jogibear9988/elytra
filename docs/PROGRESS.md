@@ -2355,6 +2355,30 @@ grounded correction; whether it fully explains the Windows final-file difference
 requires the next actual native job. No Windows acceptance, vendor patch or test
 normalization is claimed.
 
+## Deterministic network drain coverage (2026-11-06)
+
+Revisit the original native Windows reference timeout at 42139627506. Its actual
+Node stdout is 'backpressure true' before the 20s timeout: the fixture waited for
+drain even though write returned true, which does not promise that event. This is
+a fixture error, not evidence that native Node cannot resume the accepted socket.
+
+Keep the full 3 MiB+29 payload and delayed paused receiver, with two transfers:
+direct write waits for drain only when false, and a corked write above the watermark
+must return false and register drain before uncork. Both wait for their write
+callback, require an empty write queue and verify acknowledgement, actual byte
+count, checksum and bytesWritten. This covers both valid OS completion paths while
+retaining forced backpressure. No timeout increase, payload reduction or output
+filtering is used. Run both runtimes even if one times out; any timeout still fails
+the comparison instead of preventing the other runtime from being observed.
+
+The targeted native TCP suite passes locally (build/native-drain-test.log); all
+41 local Release/size-profile CTests pass in 16.84s
+(build/native-drain-full-test.log). Architecture, site, Python syntax, diff and
+actionlint checks pass. Windows acceptance of the changed fixture is pending.
+The live 1df78c8 Windows run 42141915944 has successfully compiled the wide CLI and
+passed startup, and now executes broad suites. It predates later path/offset/test
+fixes, so neither compilation nor this status implies full Windows acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
