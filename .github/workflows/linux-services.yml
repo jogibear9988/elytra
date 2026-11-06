@@ -7,11 +7,14 @@ on:
       - '.github/actions/linux-environment/**'
       - 'firefly/native/CMakeLists.txt'
       - 'firefly/native/clipboard/**'
+      - 'firefly/native/window/**'
+      - 'firefly/native/qt/Requirements.cmake'
       - 'tooling/renderer_dependencies.py'
       - 'tooling/firefly_dependencies.py'
       - 'tooling/bootstrap.py'
       - 'tooling/check_upstream.py'
       - 'tooling/tests/test_x11_clipboard.py'
+      - 'tooling/tests/test_x11_geometry.py'
       - 'vendor/ladybird'
       - 'vendor/ladybird.json'
   workflow_dispatch:
@@ -40,6 +43,8 @@ jobs:
       - uses: ./.github/actions/linux-environment
         with:
           renderer: 'true'
+      - name: Independent X11 geometry tools
+        run: sudo apt-get install -y x11-utils
       - name: Prepare shared native dependency cache
         run: |
           mkdir -p build/vcpkg-cache build/renderer-cache
@@ -66,7 +71,7 @@ jobs:
           python tooling/renderer_dependencies.py --services --prepare build/linux-native-services/manifest
           cmake -S firefly/native -B build/linux-native-services -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_MANIFEST_DIR="$GITHUB_WORKSPACE/build/linux-native-services/manifest" 2>&1 | tee build/linux-native-services-configure.log
           cmake --build build/linux-native-services --parallel 3 2>&1 | tee build/linux-native-services-build.log
-      - name: Actual native byte protocol, guard and independent X11 clipboard peers
+      - name: Actual native protocol, guards, clipboard peers and independent X11 window geometry
         env:
           FIREFLY_TEST_ISOLATED_X11: '1'
           QT_QPA_PLATFORM: xcb

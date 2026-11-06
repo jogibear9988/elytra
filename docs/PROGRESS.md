@@ -5059,6 +5059,40 @@ Limits: the separate native Linux service and optimized macOS package jobs remai
 live. Continue their actual acceptance; no new alpha or platform result is inferred
 from this tool-bootstrap correction. Goal active.
 
+## 2026-11-06: Independent X11 geometry component and native clipboard acceptance
+
+- Corrected standalone Linux-service f05a24b run 42299888412/job 128174620346
+  is terminal success. Inspect actual logs: pinned Qt 6.11.2 compiles, all three
+  registered tests pass in 0.44 seconds, including real Xvfb cross-process
+  clipboard ownership/readers/writers. This establishes the earlier X11 provider,
+  not public Linux Firefly integration or the newer Wayland-enabled SDK graph.
+- Source-style f0c997f run 42304728262/job 128191058320 is terminal success:
+  the isolated pinned Rust toolchain fix reaches and passes its actual source/
+  generated-adapter gates. Linux CLI 4b3a83d run 42303495838 is also successful.
+- Add an owned Linux window geometry library using the existing checked native
+  frame/content adapter plus screen-work-area centering. Preserve the AppKit
+  runtime provider and unmodified Ladybird. Native-service acceptance now builds
+  Widgets-based geometry independently of LibWeb, LibJS or Mite.
+- Add a dedicated X11 probe and independent xwininfo/xprop harness: decorate/map
+  framed and frameless windows under owned Openbox on the isolated Xvfb display;
+  compare native root coordinates, sizes and frame extents with the owned API;
+  require outer/content updates, size-only origin preservation, rejected-content
+  size preservation and actual desktop-work-area centering. Poll native configure
+  results with bounded deadlines, retain last native/owned observations on failure,
+  and terminate owned process groups. Install explicit X11 query prerequisites.
+- Guard before QApplication construction requires the opt-in, xcb and DISPLAY.
+  Local native build passes; all four non-GUI service tests pass in 0.97 seconds.
+  The guard checks missing opt-in, wrong plugin and missing display without
+  connecting to a desktop or creating any GUI application. No local GUI is opened.
+- Source formatting, actionlint, upstream/whitespace and 179-page site checks pass.
+
+Limits: actual Linux geometry execution and the new Qt Wayland feature selection
+still need hosted acceptance. Hidden/unmapped X11 decorations, fractional scale,
+multiple screens, reserved panels, oversized windows, other window managers and
+Wayland are not verified. Public native Linux/Windows desktop and packaging remain
+unfinished. Existing macOS candidates remain live; no new alpha is claimed.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -22,12 +22,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 elseif(NOT APPLE)
     message(FATAL_ERROR "Standalone native-service acceptance currently supports macOS/Linux only")
 endif()
-find_package(Qt6 6.10 REQUIRED COMPONENTS Core Gui GuiPrivate)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Core Gui GuiPrivate Widgets)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${CMAKE_CURRENT_SOURCE_DIR}/qt/Requirements.cmake")
     firefly_require_wayland_native_interfaces()
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/clipboard/Targets.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/window/Targets.cmake")
 enable_testing()
 add_test(NAME clipboard-protocol COMMAND firefly-clipboard-protocol-probe)
 add_test(
@@ -35,10 +36,20 @@ add_test(
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_clipboard.py"
             --probe "$<TARGET_FILE:firefly-x11-clipboard-probe>" --check-guard)
 set_tests_properties(clipboard-protocol clipboard-isolation-guard PROPERTIES TIMEOUT 15)
+add_test(NAME geometry-arithmetic COMMAND firefly-native-geometry-probe)
+add_test(NAME geometry-isolation-guard
+         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_geometry.py"
+                 --probe "$<TARGET_FILE:firefly-x11-geometry-probe>" --check-guard)
+set_tests_properties(geometry-arithmetic geometry-isolation-guard PROPERTIES TIMEOUT 15)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(
         NAME clipboard-native-x11
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_clipboard.py"
                 --probe "$<TARGET_FILE:firefly-x11-clipboard-probe>")
     set_tests_properties(clipboard-native-x11 PROPERTIES TIMEOUT 90)
+    add_test(
+        NAME geometry-native-x11
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_geometry.py"
+                --probe "$<TARGET_FILE:firefly-x11-geometry-probe>")
+    set_tests_properties(geometry-native-x11 PROPERTIES TIMEOUT 90)
 endif()

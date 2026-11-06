@@ -11,8 +11,11 @@ preloads, contextBridge or document JavaScript.
 
 An [experimental native X11 component](../development/linux-renderer.md#native-x11-clipboard-service)
 now implements the same bounded protocol for isolated Linux CI acceptance. It is
-not yet a verified public Firefly Linux clipboard API; native execution and full
-Linux runtime integration remain pending.
+not yet a verified public Firefly Linux clipboard API. Actual isolated native
+X11 ownership/reader/writer acceptance passes for f05a24b in
+[run 42299888412](https://github.com/jogibear9988/elytra/actions/runs/42299888412).
+The newer Wayland-enabled Qt SDK selection and full Linux runtime integration
+still require acceptance.
 
 
 The compatibility target is the pinned

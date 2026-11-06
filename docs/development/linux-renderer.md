@@ -154,7 +154,12 @@ until the real dependency graph passes the subsequent gates.
 
 ## Native X11 clipboard service
 
-Status: implemented experimental native component; **Linux execution pending CI**.
+Status: experimental native component; **isolated Linux X11 acceptance passed**
+for f05a24b in [run 42299888412](https://github.com/jogibear9988/elytra/actions/runs/42299888412),
+job 128174620346. All three tests pass in 0.44 seconds, including the actual
+independent cross-process X11 reader/writer pairs. That run uses the earlier
+X11-only Qt feature selection; rerunning with the newly required Wayland-enabled
+SDK and the added geometry gate remains necessary.
 It is not yet linked into a public Firefly Linux runtime. The existing macOS
 runtime keeps its AppKit provider; standalone Mite still has no GUI dependency.
 
@@ -223,7 +228,7 @@ FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a \
 ```
 
 The native Linux project requires byte-protocol, isolation-guard and real
-cross-process X11 acceptance. On macOS it only registers the two non-GUI tests;
+cross-process X11 acceptance. On macOS it only registers the four non-GUI tests;
 that local compilation/guard coverage is explicitly not Linux OS acceptance.
 The guard strips the test opt-in before launching the executable, requiring its
 refusal before GUI initialization. CTest and subprocess deadlines bound failures.
@@ -231,6 +236,35 @@ Missing X11 prerequisites fail, rather than silently skipping the native test.
 The complete renderer/window/sandbox/preload gates remain mandatory in their
 own workflow; a passing isolated clipboard component does not certify Firefly
 Linux app lifecycle, integration, packaging or security containment.
+
+## Native X11 window geometry component
+
+Status: implemented native adapter/probe, **actual Linux execution pending CI**.
+The standalone service project now compiles the existing checked outer/content
+geometry translation with a Linux centering provider. The macOS Firefly runtime
+continues to use AppKit centering. Neither a public Linux BrowserWindow runtime
+nor Electron geometry parity is certified by compiling this component.
+
+The Linux provider centers the actual outer frame in the current QScreen work
+area, without resizing the window or assuming symmetric frame margins. Window
+manager mapping and configure events are asynchronous: this gate waits for actual
+frame extents and settled observations. Hidden/unmapped X11 frame metrics,
+fractional DPI, multiple screens, reserved desktop panels, oversized windows,
+other window managers and Wayland remain unverified.
+
+The isolated native-service workflow starts Openbox on its fresh Xvfb display.
+tooling/tests/test_x11_geometry.py compares the owned queries with xwininfo client
+root coordinates/sizes and xprop _NET_FRAME_EXTENTS, independently of the owned
+geometry functions. It requires decorated and frameless windows, outer/content
+updates, size-only position preservation, rejected content-size preservation and
+centering against the actual desktop _NET_WORKAREA at 1x scale. It does not accept
+a Qt-only round trip as native evidence. Missing tools/WM state fail the gate.
+
+The probe refuses before QApplication initialization without the isolated-X11
+opt-in. Local macOS validation compiles all these C++ sources and executes only
+the checked arithmetic and guard, opening no windows. The service workflow must
+establish the separate positive native result; do not run its GUI probe on the
+ordinary desktop. Upstream Ladybird remains unchanged.
 
 ## Reusing compiled renderer objects
 

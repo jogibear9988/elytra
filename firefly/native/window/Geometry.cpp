@@ -1,4 +1,4 @@
-/** Read real frame margins, including for hidden native windows; no guessed title-bar height. */
+/** Read native margins without guessed title-bar heights; X11 needs mapped WM decorations. */
 #include "Geometry.h"
 #include <QWidget>
 #include <QWindow>
@@ -6,7 +6,7 @@
 namespace Firefly {
 QRect window_bounds(QWidget& widget, bool content)
 {
-    widget.winId(); // Materialize native decorations without showing/activating the window.
+    widget.winId(); // Materialize the platform window; decoration readiness is platform-specific.
     auto* window = widget.windowHandle();
     return content ? window->geometry() : window->frameGeometry();
 }
