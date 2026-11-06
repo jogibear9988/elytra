@@ -16,7 +16,7 @@ def main():
     if not args.node: parser.error('Node is required for differential tests')
     root=Path(__file__).resolve().parents[1]/'mite/tests/net'
     failures=0
-    for name in ['echo.cjs','half-open.mjs','backpressure.mjs','close-wait.mjs','refused.mjs','ipv6.mjs','unref.cjs','buffered.mjs','timeout.mjs','listen-errors.mjs','cancel.cjs','unref-client.mjs','checkpoint.mjs','cancel-write.mjs']:
+    for name in ['echo.cjs','half-open.mjs','backpressure.mjs','close-wait.mjs','refused.mjs','ipv6.mjs','unref.cjs','buffered.mjs','timeout.mjs','listen-errors.mjs','cancel.cjs','unref-client.mjs','checkpoint.mjs','cancel-write.mjs','fast-write.mjs']:
         results=[]
         for exe in [args.node,args.mite]:
             try:

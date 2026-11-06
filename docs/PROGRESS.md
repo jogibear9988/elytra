@@ -2551,6 +2551,46 @@ The Windows HTTP writableFinished observation remains an independent unresolved
 failure; investigate actual write completion/event ordering next. No new package
 size, hosted package success or alpha publication is claimed.
 
+## Immediate TCP write completion / HTTP finish candidate (2026-11-06)
+
+Investigate the third genuine Windows ef61124 failure from job 127661590822:
+the HTTP fixture's finished field records whether its finish listener ran, not
+the writableFinished getter. Its first normal GET response completed consumption
+before that listener, whereas Node observed finish. Mite always queued TCP
+writes, even empty completion writes after already sent headers. A new local
+observable regression proves Node's small/empty/small writableLength values
+[0,0,0] versus old Mite [1,1,2], with identical payload and asynchronous callbacks.
+
+Use uv_try_write in the owned TCP adapter. Full immediate success returns a
+private marker to JS Socket/Writable, which still defers public callbacks. Empty
+writes with no native queued bytes use this path without an extra native request.
+Partial immediate success queues only the remaining suffix while retaining the
+owned allocation/rooted callback until completion or cancellation. EAGAIN/ENOSYS
+fall back to uv_write; other native errors propagate. No blocking mode, upstream
+edit, stream-source change or new dependency. ADR 0065 and HTTP docs record scope.
+
+Keep all existing TCP backpressure/checksum/independent-peer/cancellation/error
+tests. Add the shared fast-write workflow with payload/ack/order/async-callback
+checks. Extend HTTP raw-peer comparisons with actual writableFinished/Ended,
+24 immediate complete-request exchanges and a deliberate early 413 before an
+upload ends. The early reply must arrive without fabricating request completion;
+do not force all responses behind finish. Targeted TCP/HTTP tests and all 42 local
+Release/size-profile CTests pass in 19.18s (build/tcp-fast-write-{net,http,full}-test.log).
+Final native source builds pass. The standalone uses the M1 CPU baseline; the
+local renderer returns to its documented development native CPU profile with
+size optimization, rebuilding the current shared runtime, not relabeling an old
+package as an M1 release.
+
+All four actual GUI/native gates pass: check-firefly, check-firefly-renderer,
+check-firefly-isolation and check-firefly-renderer-helper, including real main
+HTTP/child work, renderer/compositor/process checks and isolated/helper security
+controls (build/tcp-fast-write-native-gates.log). Both generated size-flag guards
+pass; existing duplicate-archive/dependency deployment-version linker warnings
+remain, with no new suppression or minimum-OS certification. Python, actionlint,
+pin/diff checks pass; site checks 109 pages / 5910 local links. New Windows/Linux
+hosted acceptance and the complete hosted M1 package build remain pending. No
+new package size or alpha publication is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

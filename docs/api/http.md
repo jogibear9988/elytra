@@ -82,6 +82,14 @@ propagates read pressure to the TCP socket. Parsed bytes from the current TCP ch
 can already be buffered before that pause; no aggregate application payload cap is
 imposed. Consumers must bound payloads and consume, resume or destroy responses.
 
+TCP writes now attempt immediate completion before queuing native work. Empty
+writes do not add a native completion when the socket has no queued bytes; public
+write callbacks remain asynchronous. Completed-request finish/state observations
+are compared with Node, including repeated immediate replies. A server can also
+reply before an upload finishes: an early 413 response is tested without marking
+the unsent request finished. New native Windows acceptance remains pending. See
+[ADR 0065](../architecture/0065-immediate-tcp-write-completion.md).
+
 Parser failures retain llhttp error codes and metadata. A truncated body emits
 aborted and ECONNRESET on the response with complete=false. Timeouts only notify;
 call destroy to enforce an application deadline. Handle errors on both request and

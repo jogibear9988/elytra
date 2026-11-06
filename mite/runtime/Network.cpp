@@ -223,6 +223,29 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
         }
         request->request.data = request;
         auto buffer = uv_buf_init(request->bytes.data(), static_cast<unsigned int>(size));
+        // Match a native stream's immediate completion path. In particular an
+        // empty write must not add an IOCP completion after already-sent HTTP
+        // headers. Return 1 for synchronous success; JS Writable defers public
+        // callbacks itself. Never call JS reentrantly from this native frame.
+        int written = 0;
+        if (size)
+            written = uv_try_write(socket->stream(), &buffer, 1);
+        else if (uv_stream_get_write_queue_size(socket->stream()))
+            written = UV_EAGAIN;
+        if (written >= 0 && static_cast<size_t>(written) == size) {
+            delete request;
+            return JS::Value(1);
+        }
+        if (written < 0 && written != UV_EAGAIN && written != UV_ENOSYS) {
+            delete request;
+            return JS::Value(written);
+        }
+        if (written > 0) {
+            buffer.base += written;
+            buffer.len -= written;
+        }
+        // The owned allocation retains the entire original payload until the
+        // remaining suffix completes, including partial immediate writes.
         int status = uv_write(&request->request, socket->stream(), &buffer, 1, [](uv_write_t* native, int status) {
             auto* request = static_cast<Write*>(native->data);
             auto& owner = request->socket.owner;

@@ -37,7 +37,7 @@ destroying a connection and do not keep an otherwise idle process alive.
 
 ## Evidence
 
-The two network suites include 14 shared TCP workflows, 63 address/validation
+The two network suites include 15 shared TCP workflows, 63 address/validation
 comparisons, an independent Python OS-socket peer against both runtimes, fatal
 native callback checks against both, and nine explicitly unsupported options.
 Workflows cover IPv4/IPv6, Unicode echo, class/builtin identity, direct and corked
@@ -57,6 +57,12 @@ registering its drain listener before uncork. Both modes await the write callbac
 check an empty write queue, received bytes/checksum/acknowledgement and bytesWritten.
 No payload reduction or timeout extension is used. The runner executes both
 runtimes even if one times out, keeping that timeout a failed comparison.
+
+The later immediate-write path in
+[ADR 0065](0065-immediate-tcp-write-completion.md) adds empty/small-write state
+and asynchronous callback coverage while retaining the queued partial-write,
+backpressure and cancellation workflows. It does not force HTTP response events
+to wait for a request upload to finish.
 
 Readiness published through piped console.log is exercised by that external peer.
 Console lines now flush immediately, rather than waiting for process exit or a

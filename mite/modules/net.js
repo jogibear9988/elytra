@@ -201,7 +201,7 @@
             if(!state.connected || state.id===null){callback(error(Error,'ERR_SOCKET_CLOSED','Socket is closed'));return;}
             this.bytesWritten+=chunk.length;refreshTimeout(this);
             const status=native.write(state.id,chunk,status=>{refreshTimeout(this);callback(status?systemError(status,'write'):undefined);});
-            if(status)callback(systemError(status,'write'));
+            if(status)callback(status<0?systemError(status,'write'):undefined);
         }
         _final(callback) {
             const state=sockets.get(this);

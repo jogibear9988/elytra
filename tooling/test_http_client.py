@@ -28,6 +28,11 @@ class Peer(socketserver.StreamRequestHandler):
                     return
                 name, value = line.decode('latin1').split(':', 1)
                 headers[name.lower()] = value.strip()
+            if path == '/early':
+                # A peer may reject a request before consuming its upload.
+                # Receiving a response must not fabricate request completion.
+                self.request.sendall(b'HTTP/1.1 413 Content Too Large\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+                return
             body = b''
             if headers.get('transfer-encoding') == 'chunked':
                 while True:
@@ -106,7 +111,7 @@ async function exchange(path,options={},upload){
     const text=Buffer.concat(chunks).toString();
     resolve({status:res.statusCode,message:res.statusMessage,version:res.httpVersion,body:path.startsWith('/echo')||path==='/info'?JSON.parse(text):text,
       complete:res.complete,aborted:res.aborted,headers:res.headers,distinct:res.headersDistinct,raw:res.rawHeaders,trailers:res.trailers,rawTrailers:res.rawTrailers,
-      info,socketEvents,finished});
+      info,socketEvents,finished,writableFinished:req.writableFinished,writableEnded:req.writableEnded});
    }catch(e){reject(e)}
   });
   if(!(req instanceof http.ClientRequest) || !(req instanceof http.OutgoingMessage))throw Error('Request identity');
@@ -123,6 +128,19 @@ for(const [path,options,upload] of [
  ['/echo',{method:'POST'},'chunks'],['/echo',{method:'PUT'},'stream'],['/chunked',{},undefined],
  ['/head',{method:'HEAD'},undefined],['/empty',{},undefined],['/eof',{},undefined],['/info',{},undefined]
 ])rows.push(await exchange(path,options,upload));
+for(let i=0;i<24;i++){
+ const result=await exchange('/echo?finish='+i);
+ if(!result.finished || !result.writableFinished || !result.writableEnded)throw Error('Fully sent request did not finish before response consumption');
+}
+const early=await new Promise((resolve,reject)=>{
+ let finished=false;
+ const req=http.request(base+'/early',{agent:false,method:'POST',headers:{'Content-Length':'1048576'}},res=>{
+  res.on('error',reject);res.resume();
+  res.on('end',()=>resolve({status:res.statusCode,finished,writableFinished:req.writableFinished,writableEnded:req.writableEnded}));
+ });
+ req.on('finish',()=>finished=true);req.on('error',reject);req.flushHeaders();
+});
+if(early.status!==413 || early.finished || early.writableFinished || early.writableEnded)throw Error('Early response falsely finished unsent request');
 const getResult=await new Promise((resolve,reject)=>{
  const req=http.get(base+'/echo', {agent:false},res=>{res.setEncoding('utf8');let data='';res.on('data',chunk=>data+=chunk);res.on('end',()=>resolve(JSON.parse(data)));});req.on('error',reject);
 });
@@ -164,7 +182,7 @@ const lookup=await new Promise(resolve=>{
  const req=http.get({hostname:'invalid.test',port:80,agent:false,lookup(_host,_options,callback){callback(Object.assign(Error('lookup'),{code:'LOOKUP_CONTROL'}))}});
  req.on('error',e=>resolve(e.code));
 });
-console.log(JSON.stringify({rows,getResult,large,errors,truncated,timeout,abort,lifecycle,lookup}));
+console.log(JSON.stringify({rows,early,getResult,large,errors,truncated,timeout,abort,lifecycle,lookup}));
 })().catch(e=>{console.error(e);process.exitCode=1});
 '''
 
