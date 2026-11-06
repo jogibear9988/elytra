@@ -132,6 +132,9 @@ if(BUILD_TESTING)
     add_test(NAME firefly-renderer-platforms
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_renderer_platforms.py")
+    add_test(NAME firefly-release-artifacts
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_release_artifacts.py")
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
                                         "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"

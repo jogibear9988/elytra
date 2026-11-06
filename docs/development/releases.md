@@ -62,6 +62,43 @@ explained in its [concurrency documentation](https://docs.github.com/en/actions/
 See [package size analysis](package-size.md) for the measured baseline and what is
 already stripped/shared versus remaining optimization candidates.
 
+## Promote an already verified macOS snapshot
+
+The [Promote verified macOS alpha workflow](../../.github/workflows/promote-alpha.yml)
+accepts a successful macOS package run ID and an exact vX.Y.Z-alpha.N tag. Its
+publish input defaults false: verification emits reviewable provenance/notes and
+performs no tag or release mutation. Once a current candidate has passed all
+native/package gates, publication can use its original artifacts without another
+lengthy native rebuild. This is the reproducible equivalent of alpha.1's promotion.
+
+The verifier requires a completed successful native macOS workflow from this same
+repository and a push/manual event. It checks exactly the three native archives,
+SIZE and SHA256SUMS; hashes are streamed. Every archive's root BUILD.json must
+match the workflow head commit, filename version, macOS ARM64 platform, known
+ad-hoc signing policy and the other archives' complete build metadata. Metadata
+is bounded; duplicate JSON keys and ambiguous build records fail. It reads ZIP
+metadata without extracting or repacking any payload.
+
+Only snapshots whose archive source matches the workflow head are eligible.
+A manually selected different-tag checkout should use the existing tag-build
+publication path instead. A successful unrelated workflow, fork, unfinished run,
+missing/mixed/tampered artifact or mismatched compressed-size record is rejected.
+The source CI remains responsible for actual runtime/renderer/sample/package
+acceptance. Verifier policy tests alone never certify native software.
+
+With publish enabled, a separate write-permission job reverifies the transferred
+bytes, creates an annotated tag at the **verified source commit**, and uploads to
+a draft. Existing tags cannot move and published releases cannot be overwritten.
+Every server-reported asset size/state/SHA-256 digest must match before the draft
+becomes public. A failed upload/verification leaves publication incomplete;
+rerunning can resume a matching draft. Notes record the actual source/run,
+measured package sizes and original snapshot version.
+
+Archive filenames, BUILD.json, application versions, signatures and resource
+forks retain their tested snapshot bytes. The alpha release tag does not pretend
+to rewrite the embedded version. Windows/Linux desktop delivery remains unfinished;
+this path only publishes the explicitly scoped experimental macOS ARM64 alpha.
+
 ## Desktop example gate
 
 Current master additionally builds the [23 ESM example apps](../examples/index.md)

@@ -4912,6 +4912,39 @@ Limits: the X11 clipboard gate has not run yet. Keep the full renderer and macOS
 package builds live while the corrected service prerequisites are checked.
 Goal active; no local GUI test is run.
 
+## 2026-11-06: Reproducible promotion of verified original macOS CI artifacts
+
+- Add a tracked offline artifact verifier and manual promotion workflow so a
+  successful current native/package snapshot can become a macOS-only alpha
+  without rebuilding or rewriting its tested bytes. Verification requires the
+  successful same-repository native macOS workflow, trusted event, exact source
+  commit/version/platform/signing metadata across three archives, four payload
+  checksums and measured compressed sizes; reject extra/symlink/mixed assets.
+- Stream hashes, bound JSON/archived metadata and reject duplicate JSON keys or
+  ambiguous root BUILD entries. Never extract/repack archives or run downloaded
+  code. Record reviewable run/commit/version/size provenance and notes, retaining
+  original snapshot filenames/embedded versions explicitly.
+- Default dry-run verification has read permissions and no tag/release mutation.
+  A separately gated write job reverifies transferred assets, refuses tag moves
+  and published-release overwrite, uploads to a draft, and requires every remote
+  asset state/size/server SHA-256 before publication. It cannot turn a failing
+  native build into an alpha; all original full-stack gates remain mandatory.
+- Owned policy tests use explicitly synthetic ZIP fixtures, covering source-run
+  refusal, hashes, duplicate/oversized metadata, mixed commit/version/platform/
+  signing/provenance, extra/symlink assets and remote-draft/digest refusal. Actual
+  original alpha.1 CI archives also verify against authoritative successful run
+  42155631670/source 745c7af/version 0.1.0-dev.34. This validates the tool against
+  real existing artifacts, not newer source/native acceptance or a new release.
+- All 65 local Release CLI CTests pass in 20.57 seconds with the new verifier
+  suite; focused policy and actual-archive checks pass after signing-policy
+  validation. Source style, actionlint, upstream integrity and whitespace gates
+  pass. No native desktop/GUI suite is launched for this publication tooling.
+
+Limits: fresh hosted workflow dry-run/remote-upload acceptance is pending. Current
+Linux services/renderer and macOS candidate gates remain separate/live; do not
+publish older easy-to-pass source as a substitute for the requested current
+candidate. Goal active; Windows/Linux desktop packages remain incomplete.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

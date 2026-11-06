@@ -1,0 +1,124 @@
+name: Promote verified macOS alpha
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful macOS package snapshot run ID
+        required: true
+        type: string
+      tag:
+        description: Alpha tag for the exact verified source, for example v0.1.0-alpha.2
+        required: true
+        type: string
+      publish:
+        description: Create the source tag and publish after all artifact and upload checks pass
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: promote-alpha-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Validate promotion scope and fetch authoritative run metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import os,re
+          assert os.environ['GITHUB_REF']=='refs/heads/master', 'Run promotion from master'
+          assert re.fullmatch(r'[1-9][0-9]*',os.environ['SOURCE_RUN']), 'Invalid source run ID'
+          assert re.fullmatch(r'v\d+\.\d+\.\d+-alpha\.\d+',os.environ['RELEASE_TAG']), 'An exact alpha tag is required'
+          PY
+          mkdir -p build
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > build/alpha-run.json
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-macos-arm64
+          path: build/alpha-assets
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run }}
+      - name: Verify original bytes, native metadata and successful source workflow
+        run: |
+          python3 tooling/verify_release_artifacts.py verify --assets build/alpha-assets --run-info build/alpha-run.json --repository "$GITHUB_REPOSITORY" --report build/alpha-verified.json --notes build/alpha-notes.md
+          cat build/alpha-notes.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve verified inputs and reviewable release notes
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: verified-alpha-inputs
+          compression-level: 0
+          path: |
+            build/alpha-assets
+            build/alpha-run.json
+            build/alpha-verified.json
+            build/alpha-notes.md
+  publish:
+    if: inputs.publish
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: verified-alpha-inputs
+          path: build
+      - name: Reverify transferred assets before any release mutation
+        run: python3 tooling/verify_release_artifacts.py verify --assets build/alpha-assets --run-info build/alpha-run.json --repository "$GITHUB_REPOSITORY" --report build/alpha-verified.json --notes build/alpha-notes.md
+      - name: Tag the exact verified source and create or resume its draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          source_sha=$(python3 -c 'import json; print(json.load(open("build/alpha-verified.json"))["commit"])')
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            actual_sha=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+            test "$actual_sha" = "$source_sha" || { echo 'Refusing to move an existing tag'; exit 1; }
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$RELEASE_TAG" "$source_sha" -m "Verified macOS CI artifact promotion: $RELEASE_TAG"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+          if gh release view "$RELEASE_TAG" --json isDraft > build/alpha-release-state.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("build/alpha-release-state.json"))["isDraft"], "Refusing to overwrite a published release"'
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file build/alpha-notes.md
+          fi
+      - name: Upload original assets and verify server-reported digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" build/alpha-assets/* --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > build/alpha-remote.json
+          python3 tooling/verify_release_artifacts.py remote --report build/alpha-verified.json --release-info build/alpha-remote.json --tag "$RELEASE_TAG"
+          gh release edit "$RELEASE_TAG" --notes-file build/alpha-notes.md --draft=false --prerelease --latest=false
+      - name: Preserve promotion evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: alpha-publication-evidence
+          path: |
+            build/alpha-verified.json
+            build/alpha-notes.md
+            build/alpha-remote.json
+            build/alpha-release-state.json
+          if-no-files-found: warn
