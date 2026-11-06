@@ -23,5 +23,6 @@ struct HostHooks {
     std::optional<int> exit_code;
 };
 
+// Hosts provide UTF-8 argument bytes; native Windows CLI conversion is at wmain.
 int run(int argc, char** argv, HostHooks const& = {});
 }

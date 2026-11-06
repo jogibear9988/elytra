@@ -1,7 +1,8 @@
 # Mite CLI reference
 
-Status: implemented source CLI, tested on macOS ARM64. Windows native bring-up and
-Linux validation are incomplete. This describes Mite's flags, not Node's CLI.
+Status: implemented source CLI, tested on macOS ARM64 and in the scoped
+[Linux baseline](../development/linux-build.md). Windows native bring-up remains
+incomplete. This describes Mite's flags, not Node's CLI.
 
 ## Invocation
 
@@ -32,6 +33,13 @@ installer or package-manager command is provided.
 For file execution, process.argv contains the executable path, entry path and
 following script arguments. process.execPath identifies the executable. See
 [process and globals](mite.md) for the supported subset.
+
+The Windows entry point receives wide CRT arguments through wmain and converts
+them to UTF-8 for the runtime, preserving valid Unicode instead of using the ANSI
+codepage. Conversion failure, including an unpaired UTF-16 surrogate, reports a
+command-line error and exits 9 before JavaScript runs. Native Windows acceptance
+of this new entry point is pending. This does not establish Unicode script-file,
+module-path or interactive-console parity; those require separate platform tests.
 
 Use .mjs for ESM and .cjs for CommonJS; .js follows package.json type. Eval does not
 provide require, module or __dirname as a CommonJS wrapper. Check the

@@ -2246,6 +2246,28 @@ actual Windows text I/O and remaining native failures await the next job.
 The CLI Unicode argument, module/package path and filesystem differences plus the
 Node-reference backpressure timeout remain separate unresolved evidence.
 
+## Windows wide CLI argument entry (2026-11-06)
+
+The first actual post-libuv suite (42139627506) still fails arguments.js with
+non-ASCII arguments. Replace only the Windows shipping CLI's narrow main with
+wmain and explicit checked UTF-16 -> UTF-8 conversion via WideCharToMultiByte.
+Use CP_UTF8/WC_ERR_INVALID_CHARS, size the destination from the native API's byte
+count including NUL, retain all string storage and argv pointers through run(),
+and terminate argv with nullptr. Conversion errors fail with exit 9 before JS.
+The runtime embedding contract remains UTF-8; native hosts choose their own entry
+boundary. The pinned Windows uv_setup_args simply returns the supplied argv.
+No locale/codepage change, command-line re-tokenizer or Ladybird patch is needed.
+
+Extend the shared runtime suite with non-ASCII eval source plus Unicode, empty,
+quoted, spaced, trailing-backslash, tab and combining-character arguments under
+both Node and Mite. On native Windows, an unpaired surrogate must reject explicitly
+before its JS marker executes. All 40 local macOS Release/size-profile suites pass
+in 16.48s (build/windows-argv-{build,test}.log); site checks pass 104 pages / 5522
+links, actionlint and diff checks pass. These local checks do not compile or certify
+wmain: actual Windows acceptance remains pending the next native job. Unicode
+script/module filenames, interactive console and other filesystem/network failures
+remain separate unresolved platform work. Update CLI/Windows docs accordingly.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

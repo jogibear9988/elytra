@@ -149,3 +149,21 @@ the Chocolatey prerequisite feed returned HTTP 504 and 503 respectively, before
 configuration/compilation. They are infrastructure failures, not new runtime traces.
 The shared setup action now retries the same pinned install at most three times.
 Actual startup and all runtime suites still require a successful native job.
+
+## Unicode CLI argument boundary
+
+The post-libuv Windows job 42139627506 passes actual startup and 25/38 suites,
+but the Unicode argument fixture fails. The CLI used narrow main/argv, whose
+Windows CRT conversion can lose characters outside the ANSI codepage before
+Mite sees them. Use [wmain](https://learn.microsoft.com/en-us/cpp/c-language/using-wmain)
+and convert each argument with
+[WideCharToMultiByte](https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte),
+CP_UTF8 and WC_ERR_INVALID_CHARS. Own all bytes and the terminating argv sentinel
+through run(). Embedded hosts still provide UTF-8 bytes explicitly.
+
+The shared runtime suite now exercises non-ASCII eval source and arguments,
+empty strings, quotes, spaces, trailing backslashes and combining characters.
+A Windows-only malformed-surrogate check requires explicit rejection before JS.
+Local macOS checks do not compile the Windows entry path; the next actual native
+job must validate it. Unicode script/module paths, console output and remaining
+filesystem/network differences remain separate work; no upstream patch is used.

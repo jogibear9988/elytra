@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run shared fixtures in real Node and Mite; no engine substitution or output filtering."""
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
@@ -53,6 +54,26 @@ def main():
         print(f"{'PASS' if passed else 'FAIL'} fresh process.ppid startup")
         if not passed:
             failures.append('fresh process.ppid startup')
+            print(result, file=sys.stderr)
+    # Exercise native argument decoding independently of script-file decoding.
+    # These values cover UTF-16 surrogate pairs and Windows CRT quote/backslash rules.
+    unicode_args = ['é文🪲', '', 'hello world', '"quoted"', 'back\\slash\\',
+                    'space and trailing\\', 'quote\\"inside', '\t', 'e\u0301']
+    unicode_source = "console.log('文🪲');console.log(JSON.stringify(process.argv.slice(1)));"
+    expected_unicode = '文🪲\n' + json.dumps(unicode_args, ensure_ascii=False, separators=(',', ':')) + '\n'
+    for executable in [args.node, args.mite]:
+        result = run(executable, '-e', unicode_source, *unicode_args)
+        passed = result.returncode == 0 and result.stdout == expected_unicode and not result.stderr
+        print(f"{'PASS' if passed else 'FAIL'} Unicode eval/quoted arguments ({Path(executable).name})")
+        if not passed:
+            failures.append('Unicode eval/quoted arguments')
+            print(result, file=sys.stderr)
+    if os.name == 'nt':
+        result = run(args.mite, '-e', "console.log('UNREACHABLE')", '\ud800')
+        passed = result.returncode == 9 and not result.stdout and 'cannot encode command-line argument as UTF-8' in result.stderr
+        print(f"{'PASS' if passed else 'FAIL'} invalid Windows UTF-16 argument rejects explicitly")
+        if not passed:
+            failures.append('invalid Windows UTF-16 argument')
             print(result, file=sys.stderr)
     for name, extra, status, output in cases:
         node = run(args.node, fixtures / name, *extra)
