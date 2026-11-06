@@ -264,6 +264,34 @@ python3 tooling/audit_openssl.py \
 
 Release builds accept the same --shared-openssl flag; the macOS workflow exposes
 it as an opt-in input. BUILD.json records the selection and packaging runs the
-required shared-provider audit for both apps. Defaults remain OFF pending hosted
-acceptance. Native Windows/Linux and macOS x64 profiles are not enabled. See
+required shared-provider audit for both apps. Defaults remain OFF; the first hosted acceptance is recorded below. Newer
+source snapshots still require their own complete gates. Native Windows/Linux and macOS x64 profiles are not enabled. See
 [ADR 0069](../architecture/0069-shared-openssl-provider.md).
+
+## First hosted size-profile/shared-provider acceptance
+
+The full macOS [run 42161235765](https://github.com/jogibear9988/elytra/actions/runs/42161235765)
+at fd2124e154c438fb312e859d6fdfe42e22a8844d now passes compilation, every native
+runtime/renderer/isolation/helper/provider gate, actual Designer editing/window
+controls, relocated bundle launch and packaging. Its alpha job is skipped because
+publish_alpha was false. This is a verified Actions artifact, not a newly published
+release or current-master acceptance.
+
+Download artifact 13481625336 through the Actions run above. Its archive SHA-256 is
+678d9ddcf9242ac8488a93a42cce07655aee42ad93b9de8ffbbfe19e4bb53514.
+The downloaded artifact and all inner archive checksums verify. Each archive's
+root BUILD.json records the same clean source, Release/Release, M1 baseline ON/ON,
+-Oz ON/ON, C++ LTO OFF/OFF, production npm dependencies, stripped symbols and
+sharedOpenSSL ON. Preserve its original 0.1.0-dev.37 metadata/filenames.
+
+| Hosted package | Uncompressed bytes | MiB | Download ZIP bytes |
+| --- | ---: | ---: | ---: |
+| Firefly | 205,458,549 | **195.94** | 98,218,961 |
+| Web Component Designer | 241,227,249 | **230.05** | 110,211,255 |
+
+The separate Mite ZIP is 30,194,701 bytes. The first published alpha's framework was
+215.27 MiB; these source snapshots also differ in preload/integration code, so the
+whole size difference is not an isolated optimization benchmark. The local
+same-source provider experiment above remains the evidence for that component's
+6.51-MiB saving. No new Windows/Linux/macOS x64 or notarization claim follows.
+Newer ESM/gallery/wire/HMAC work needs its own complete hosted artifact acceptance.

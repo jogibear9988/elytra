@@ -37,7 +37,10 @@ their bytes. Filenames and BUILD.json retain snapshot version 0.1.0-dev.34, with
 that provenance stated in the release notes. All five uploaded asset digests match
 the downloaded CI artifacts. This snapshot predates newer public preloads, ESM
 sample sources and size-profile/shared-OpenSSL changes; it is not current master.
-The smaller optimized candidate remains a separate running build.
+The first size-profile/shared-provider candidate at fd2124e now passes the full
+hosted build, with framework 195.94 MiB and Designer 230.05 MiB; see the verified
+[artifact/profile details](package-size.md#first-hosted-size-profileshared-provider-acceptance).
+It remains an Actions artifact; newer source acceptance is separate.
 
 Manual macOS dispatch also offers optimize_size, default false. It forwards the
 explicit C++ size profile to the same release driver; compilation, all native

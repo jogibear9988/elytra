@@ -3132,6 +3132,27 @@ Native Windows/Linux acceptance of these new APIs and a new hosted package remai
 pending. The published alpha.1 predates this work. Public IPC, TLS/fetch, native
 Windows/Linux Firefly and broader specification requirements remain incomplete.
 
+## 2026-11-06 — Hosted optimized package evidence
+
+Re-poll the confirmed-live run42161235765 rather than restarting it. Job127719422607
+now completes SUCCESS, including all Release/native/provider/Designer/packaging
+gates. Alpha job127738152360 is skipped because publish_alpha=false; alpha.1 is
+still the published immutable 745c7af snapshot. Fetch job logs and artifact13481625336
+through the GitHub connector. Download and verify exact outer SHA-256
+678d9ddcf9242ac8488a93a42cce07655aee42ad93b9de8ffbbfe19e4bb53514,
+all included checksums and all three archive-root BUILD.json manifests. Designer
+also includes application/browser BUILD.json files; select the archive root rather
+than mistaking nested build provenance for duplicate release manifests.
+
+All three root manifests name clean fd2124e154c438fb312e859d6fdfe42e22a8844d,
+Release/Release, M1 baseline ON/ON, -Oz ON/ON, LTO OFF/OFF, production/stripped and
+sharedOpenSSL ON. Framework is 205458549 bytes (195.94 MiB); Designer241227249 bytes
+(230.05 MiB). ZIP bytes: framework98218961, Designer110211255, Mite30194701. Record
+exact profiles and source/provenance in package-size and release docs. The local
+same-source OpenSSL comparison remains separate; do not attribute the entire
+source-to-source reduction to one flag. No new tag/release or newer-master/Windows/
+Linux acceptance is claimed. Keep subsequent live/pending builds intact.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
