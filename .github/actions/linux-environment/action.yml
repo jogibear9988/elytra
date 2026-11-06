@@ -11,7 +11,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y autoconf autoconf-archive automake build-essential curl gnupg libtool ninja-build pkg-config unzip zip
+        sudo apt-get install -y autoconf autoconf-archive automake build-essential curl gnupg libltdl-dev libtool ninja-build pkg-config unzip zip
         curl --fail --location --retry 3 https://apt.llvm.org/llvm-snapshot.gpg.key -o "$RUNNER_TEMP/llvm.asc"
         gpg --batch --yes --dearmor --output "$RUNNER_TEMP/llvm.gpg" "$RUNNER_TEMP/llvm.asc"
         sudo install -m 644 "$RUNNER_TEMP/llvm.gpg" /usr/share/keyrings/elytra-llvm.gpg

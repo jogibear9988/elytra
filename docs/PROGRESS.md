@@ -4893,6 +4893,25 @@ write branch; preserve them as failures until actually understood. Independent
 Linux OS-service job 42298304152/job 128169184405 is now live, while the existing
 full Linux renderer/macOS package jobs remain active. Goal active.
 
+## 2026-11-06: Supply the required Linux libtool development files
+
+- Independent Linux service run 42298304152/job 128169184405 is now terminal
+  failure during native dependency preparation. It successfully restores the
+  renderer cache (29 native packages), then libxcrypt explicitly requires the
+  system ltdl development headers. This is not a missing Ninja/compiler failure;
+  the later CMake errors follow the failed vcpkg toolchain initialization.
+- Add Ubuntu libltdl-dev to the shared Linux environment alongside libtool.
+  Preserve original dependency versions, ports and native acceptance gates; do
+  not update upstream or skip the failing provider. Actionlint/style/whitespace
+  checks pass. Native execution still awaits a fresh hosted service run.
+- Vcpkg may rebuild a dependency when removing the browser's other roots changes
+  transitive feature unions/ABIs, despite the same Qt version/features. Cache
+  reuse is validated per package rather than assumed to cover every dependency.
+
+Limits: the X11 clipboard gate has not run yet. Keep the full renderer and macOS
+package builds live while the corrected service prerequisites are checked.
+Goal active; no local GUI test is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
