@@ -13,6 +13,11 @@ import threading
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--native-only",
+        action="store_true",
+        help="Validate Mite independently; keep the normal Node differential gate separate",
+    )
     parser.add_argument("--mite", required=True)
     parser.add_argument("--host", required=True)
     parser.add_argument("--node", default=shutil.which("node"))
@@ -27,7 +32,7 @@ def main():
         policy
     )
     print("PASS explicit TLS option/mode policy", flush=True)
-    for exe in [args.node, args.mite]:
+    for exe in [args.mite] if args.native_only else [args.node, args.mite]:
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             listener.listen()
@@ -88,7 +93,10 @@ def main():
             "abort",
         ]:
             results = []
-            for exe in [args.node, args.host if mode == "gc" else args.mite]:
+            candidates = [args.host if mode == "gc" else args.mite]
+            if not args.native_only:
+                candidates.insert(0, args.node)
+            for exe in candidates:
                 peer = subprocess.Popen(
                     [args.node, str(root / "peer.mjs"), str(root / "fixtures"), version, mode],
                     stdin=subprocess.PIPE,
@@ -148,8 +156,13 @@ def main():
                     else f"TLS {mode} true true true true\n"
                 )
             )
-            assert results == [expected, expected], (mode, version, results)
-            print("PASS actual TLS:", version, mode, flush=True)
+            assert results == [expected] * len(candidates), (mode, version, results)
+            print(
+                "PASS actual TLS native" if args.native_only else "PASS actual TLS differential",
+                version,
+                mode,
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

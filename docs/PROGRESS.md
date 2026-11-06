@@ -3872,6 +3872,26 @@ pass; site validates 155 pages / 9733 links. No GUI is launched.
 Native platform acceptance of this source remains pending. Overall goal active;
 HTTPS/fetch and the broader specification remain unfinished.
 
+## 2026-11-06 — Keep Windows native TLS evidence independent of a crashed reference
+
+Previous goal turn: progress (TLS clients ec6d682 / policy 3981a56 committed/pushed).
+Native Linux ec6d682 succeeds. Windows compiles but its Node 24.15.0 TLS reference
+client exits 3221226505 (0xC0000409) without stderr in the first TLSv1.2 echo case;
+that stops comparison before the Mite client is exercised. Do not call the gate
+successful or assume this proves a Mite defect. The exact reference crash cause is
+not established from that exit code.
+
+Add an explicit --native-only mode to the same TLS harness. It retains ciphertext,
+trust, hostname, pressure, GC and cancellation assertions while omitting only the
+reference client; the independent Node/OpenSSL server remains. Windows runs it
+after a successful compile even if the differential step fails, preserving a
+separate diagnostic log/artifact. The normal Node comparison remains required and
+still fails on a reference crash; this diagnostic does not turn it green.
+
+Validation: native-only TLS acceptance passes locally against independent peers
+(https-turn-tls-native.log), with formatting and actionlint. New Windows diagnostic
+and complete platform acceptance remain pending. No GUI tests are launched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

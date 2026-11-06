@@ -99,6 +99,14 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
       - name: Run all enabled runtime suites
         run: ctest --test-dir build/windows --output-on-failure --output-junit windows-ctest.xml
+      - name: Record independent Mite TLS acceptance even if the Node reference fails
+        if: always() && steps.compile.outcome == 'success'
+        run: |
+          python tooling/tests/test_tls.py --mite build/windows/bin/mite.exe --host build/windows/bin/mite-embedded-host.exe --native-only *> build/windows/tls-native.log
+          $result = $LASTEXITCODE
+          Get-Content build/windows/tls-native.log
+          exit $result
+        shell: pwsh
       - name: Record upstream integrity after native build
         if: always()
         run: python tooling/check_upstream.py
@@ -119,6 +127,7 @@ jobs:
             build/windows/Testing/Temporary/LastTest.log
             build/windows/windows-ctest.xml
             build/windows/native-startup.log
+            build/windows/tls-native.log
             build/windows/bin/mite-startup-probe.pdb
             build/vcpkg/buildtrees/**/*.log
           if-no-files-found: warn
