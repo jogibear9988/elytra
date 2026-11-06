@@ -38,6 +38,23 @@ def main():
             item["platform"] == "linux" and item["default-features"] is False for item in added
         )
         assert {"gui", "widgets", "xcb", "fontconfig"} <= set(added[0]["features"])
+        services = prepare(ROOT, temporary / "services", services=True)
+        check(ROOT, services, services=True)
+        isolated = json.loads((services / "vcpkg.json").read_text())
+        assert isolated["dependencies"] == [added[0]], (
+            "Native services must use the exact renderer Qt graph"
+        )
+        assert isolated["builtin-baseline"] == manifest["builtin-baseline"]
+        assert isolated["overrides"] == manifest["overrides"]
+        assert (services / "vcpkg-configuration.json").read_bytes() == (
+            destination / "vcpkg-configuration.json"
+        ).read_bytes()
+        try:
+            check(ROOT, services)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Native-service manifest was accepted as the full renderer graph")
         configuration = json.loads((destination / "vcpkg-configuration.json").read_text())
         assert all(Path(path).is_absolute() for path in configuration["overlay-ports"])
         assert all((upstream / name).read_bytes() == value for name, value in originals.items()), (

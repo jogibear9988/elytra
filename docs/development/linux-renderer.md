@@ -176,3 +176,44 @@ required. The independent roles bypass the Firefly wire/backend on their side.
 Each owner runs its native event loop; the harness kills its process group and
 waits for teardown. No offscreen backend, mocked clipboard or silent skip can
 satisfy this native gate. Compile/guard acceptance on macOS is not Linux acceptance.
+
+## Independent native-service CI
+
+The [native OS-service workflow](../../.github/workflows/linux-services.yml) runs
+independently of the serialized full renderer workflow. It configures
+firefly/native as its own CMake project and builds only the owned Qt service
+libraries/probes. No LibWeb, LibJS, Mite or renderer process is linked into these
+small acceptance executables. It therefore provides OS-service feedback while
+the separate full browser/renderer graph is still compiling.
+
+The --services manifest mode retains the renderer's exact Linux Qtbase features,
+upstream baseline/overrides and absolute overlays. It selects Qt as the standalone
+service dependency instead of installing the whole browser graph; it does not
+change the renderer manifest or vendor files. Generated manifest guards reject
+using the service graph as the full renderer graph. Vcpkg checks dependency ABIs;
+matching cache paths permit reuse of already compiled renderer Qt packages.
+
+On a prepared native Linux machine, from the repository root:
+
+```sh
+python3 tooling/bootstrap.py
+python3 tooling/renderer_dependencies.py --services --prepare build/linux-native-services/manifest
+CC=clang-22 CXX=clang++-22 LDFLAGS=-fuse-ld=/usr/bin/ld.lld-22 \
+  cmake -S firefly/native -B build/linux-native-services -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_TOOLCHAIN_FILE="$PWD/build/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+  -DVCPKG_MANIFEST_DIR="$PWD/build/linux-native-services/manifest"
+cmake --build build/linux-native-services --parallel 3
+FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a \
+  ctest --test-dir build/linux-native-services --output-on-failure
+```
+
+The native Linux project requires byte-protocol, isolation-guard and real
+cross-process X11 acceptance. On macOS it only registers the two non-GUI tests;
+that local compilation/guard coverage is explicitly not Linux OS acceptance.
+The guard strips the test opt-in before launching the executable, requiring its
+refusal before GUI initialization. CTest and subprocess deadlines bound failures.
+Missing X11 prerequisites fail, rather than silently skipping the native test.
+The complete renderer/window/sandbox/preload gates remain mandatory in their
+own workflow; a passing isolated clipboard component does not certify Firefly
+Linux app lifecycle, integration, packaging or security containment.

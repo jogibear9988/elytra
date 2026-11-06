@@ -18,7 +18,27 @@ from test_renderer import environment, stop
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", required=True, type=Path)
+    parser.add_argument(
+        "--check-guard", action="store_true", help="Test refusal without creating a GUI application"
+    )
     args = parser.parse_args()
+    probe = args.probe.resolve()
+    if not probe.is_file():
+        parser.error("Build firefly-x11-clipboard-probe first")
+    if args.check_guard:
+        env = {
+            key: value for key, value in os.environ.items() if key != "FIREFLY_TEST_ISOLATED_X11"
+        }
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        result = subprocess.run(
+            [str(probe), "local"], env=env, capture_output=True, text=True, timeout=5
+        )
+        assert result.returncode == 77 and result.stdout == "", result
+        assert (
+            result.stderr == "Refusing clipboard probe without an explicitly isolated X11 server\n"
+        ), result
+        print("PASS native clipboard probe isolation guard before GUI initialization")
+        return
     if (
         sys.platform != "linux"
         or not os.environ.get("DISPLAY")
@@ -26,9 +46,6 @@ def main():
         or os.environ.get("FIREFLY_TEST_ISOLATED_X11") != "1"
     ):
         parser.error("Use the dedicated Xvfb CI display and explicit isolated-X11 environment")
-    probe = args.probe.resolve()
-    if not probe.is_file():
-        parser.error("Build firefly-x11-clipboard-probe first")
     with tempfile.TemporaryDirectory(prefix="firefly-x11-clipboard-") as directory:
         runtime = Path(directory) / "runtime"
         runtime.mkdir(mode=0o700)

@@ -48,3 +48,13 @@ runs real native executables under Xvfb/Openbox, checks page colors in the nativ
 capture as well as input/resize/navigation, and kills the actual renderer child
 to verify crash failure. Native Linux acceptance is still pending. This does not
 establish a Firefly BrowserWindow API or Wayland/physical-GPU compatibility.
+
+## OS-service feedback without waiting for the renderer graph
+
+Provide a separate native-service CMake project and CI group for Qt OS adapters.
+It uses the exact pinned renderer Qt provider/features but does not build or link
+the browser/JavaScript engines. Clipboard protocol and isolated native X11 peers
+can therefore expose platform failures while LibWeb compilation is still live.
+Do not replace the full renderer/window/sandbox/preload gates with these smaller
+component gates. Only the Linux native execution establishes service acceptance;
+local macOS compilation/guard checks retain their narrower scope.

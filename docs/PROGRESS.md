@@ -4844,6 +4844,35 @@ theme, window/runtime/preload services before public Linux packaging. Existing
 Linux renderer and macOS release jobs remain live; no alpha result is claimed.
 Goal active; local desktop suites remain infrequent and targeted.
 
+## 2026-11-06: Independent native OS-service graph and Linux X11 CI
+
+- Add firefly/native/CMakeLists.txt as a standalone Qt service acceptance graph,
+  with no LibWeb/LibJS/Mite or renderer-process linkage. Keep real renderer/window/
+  sandbox/preload gates separately mandatory; this accelerates feedback without
+  narrowing the required complete Linux desktop implementation.
+- Extend the owned Linux dependency generator with explicit --prepare/--check
+  and --services selection. Reuse the exact renderer Qtbase features, original
+  baseline/overrides and absolute overlays; the full renderer manifest remains
+  unchanged. Tests prove graph/provider preservation and refusal to accept the
+  services manifest as a full renderer manifest. No upstream bytes are modified.
+- Add an independent Linux OS-services workflow/concurrency group with pinned
+  toolchain/Qt packages, matching renderer cache paths and native diagnostics.
+  It builds only the small owned service targets and requires protocol, isolation
+  guard and actual cross-process clipboard peers under its own Xvfb server.
+  Native Linux results remain pending until this new hosted job executes.
+- Make the guard a reusable --check-guard CLI test, stripping isolation opt-in
+  before launching the native executable. It must refuse before GUI setup.
+  Standalone macOS CMake build succeeds: eight small compile/link steps; protocol
+  and guard CTests pass 2/2 in 1.03 seconds. No GUI application/clipboard is opened.
+- All 64 standalone Release CLI CTests pass in 20.41 seconds, including updated
+  manifest/layout guards. Document local native Linux commands, separate graph
+  boundaries and deadlines; preserve all full-stack acceptance requirements.
+
+Limits: native Linux clipboard, full renderer and optimized macOS package results
+remain pending. Current live jobs are preserved. Next resolve observed platform
+failures and finish remaining Linux/Windows native desktop/distribution services.
+Goal active; no local desktop suite is launched in this slice.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
