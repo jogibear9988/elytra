@@ -167,3 +167,24 @@ A Windows-only malformed-surrogate check requires explicit rejection before JS.
 Local macOS checks do not compile the Windows entry path; the next actual native
 job must validate it. Unicode script/module paths, console output and remaining
 filesystem/network differences remain separate work; no upstream patch is used.
+
+## Native module filenames and Unicode entry paths
+
+Use explicit UTF-8/native filesystem conversion when resolving and opening the
+CLI entry, retaining the native filesystem path for file operations. Module
+metadata now uses preferred native separators; file-URL construction separately
+uses generic separators. Mixing those representations made import.meta filenames
+and CommonJS module.paths disagree with Node on Windows.
+
+The package test now uses path.join(__dirname, 'node_modules') rather than a Unix
+separator concatenation. The file-URL error fixture checks a missing Windows drive
+on Windows and an invalid nonlocal host on POSIX, each against Node. A separate
+Windows-only policy test requires UNC module URLs to fail with
+ERR_MITE_UNSUPPORTED_API; no unsupported UNC import is silently attempted and the
+Node reference is not asked to probe a remote SMB host.
+
+The new mite-module-paths suite creates real Unicode entry/ESM/CommonJS/npm-package
+files, including escaped #/% URL components, and compares body/metadata/identity
+with Node. These checks pass locally; native Windows runtime/path acceptance is
+still pending. Native filesystem API differences remain independent of this loader
+fix and are not normalized away.

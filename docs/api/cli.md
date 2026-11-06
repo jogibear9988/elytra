@@ -38,8 +38,10 @@ The Windows entry point receives wide CRT arguments through wmain and converts
 them to UTF-8 for the runtime, preserving valid Unicode instead of using the ANSI
 codepage. Conversion failure, including an unpaired UTF-16 surrogate, reports a
 command-line error and exits 9 before JavaScript runs. Native Windows acceptance
-of this new entry point is pending. This does not establish Unicode script-file,
-module-path or interactive-console parity; those require separate platform tests.
+of this new entry point is pending. Entry filenames now also pass through explicit
+UTF-8/native filesystem conversion. Unicode entry/module/package paths have a
+local Node differential test; Windows path and interactive-console parity still
+require their separate native platform results.
 
 Use .mjs for ESM and .cjs for CommonJS; .js follows package.json type. Eval does not
 provide require, module or __dirname as a CommonJS wrapper. Check the

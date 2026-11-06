@@ -21,7 +21,14 @@ console.log(text);
 ```
 
 Static/dynamic imports, live bindings, cycles, top-level await and import.meta
-url/filename/dirname/main are implemented in measured cases. A top-level await
+url/filename/dirname/main are implemented in measured cases. Public filename,
+dirname and CommonJS module.paths values use native filesystem separators; URLs
+use URL separators and escaping. UTF-8 entry arguments are converted explicitly
+to native filesystem paths. Unicode entry/dependency/package paths are compared
+with Node locally; native Windows acceptance of these fixes remains pending.
+UNC file-module URLs are still unsupported on Windows and fail explicitly with
+ERR_MITE_UNSUPPORTED_API. On POSIX, a nonlocal file-URL host remains invalid.
+A top-level await
 that never settles exits with status 13. JSON modules require `with {type: 'json'}`.
 Unknown import attributes may fail in the engine before host-specific error shaping.
 

@@ -2,6 +2,7 @@
 #include "EventLoop.h"
 #include <AK/ScopeGuard.h>
 #include "ModuleLoader.h"
+#include "ModulePaths.h"
 #include "ProcessHost.h"
 #include <uv.h>
 #include <AK/Utf16String.h>
@@ -79,6 +80,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     }
 
     std::string filename;
+    std::filesystem::path native_filename;
     std::string source;
     int script_arg = 1;
     if (std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
@@ -95,15 +97,16 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
             return 9;
         }
         std::error_code error;
-        filename = std::filesystem::absolute(argv[1], error).string();
+        native_filename = std::filesystem::absolute(Mite::ModulePaths::path_from_utf8(argv[1]), error);
         if (error) {
             fprintf(stderr, "mite: cannot resolve script: %s\n", error.message().c_str());
             return 1;
         }
-        bool is_file = std::filesystem::is_regular_file(filename, error);
+        filename = Mite::ModulePaths::path_string(native_filename);
+        bool is_file = std::filesystem::is_regular_file(native_filename, error);
         std::ifstream input;
         if (is_file && !error)
-            input.open(filename, std::ios::binary);
+            input.open(native_filename, std::ios::binary);
         if (!input.is_open()) {
             fprintf(stderr, "mite: cannot read script: %s\n", filename.c_str());
             return 1;
@@ -166,7 +169,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         return 1;
     }
 
-    auto entry_path = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : std::filesystem::path(filename);
+    auto entry_path = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
     auto globals = modules.install_globals();
     if (globals.is_error()) {

@@ -91,7 +91,7 @@ console.log(require('legacy'), require('legacy/sub'));
 console.log(require('#local'), require('#wild/x'), require('#dual'));
 console.log(require('app-self'), require('app-self/read'));
 console.log(require('ordered'), require('nested'), require('array'), require('nullable'));
-console.log(require.resolve('dual').endsWith('cjs.cjs'), module.paths[0] === __dirname + '/node_modules');
+console.log(require.resolve('dual').endsWith('cjs.cjs'), module.paths[0] === require('node:path').join(__dirname, 'node_modules'));
 ''')
         write('main.mjs', '''
 import dual from 'dual';

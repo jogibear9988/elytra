@@ -2268,6 +2268,39 @@ wmain: actual Windows acceptance remains pending the next native job. Unicode
 script/module filenames, interactive console and other filesystem/network failures
 remain separate unresolved platform work. Update CLI/Windows docs accordingly.
 
+## Native module path representation and Unicode entry files (2026-11-06)
+
+Separate native filename strings from generic file-URL path strings in our
+ModulePaths/ModuleLoader adapter. Public filename/dirname/module.paths values now
+use preferred native separators and UTF-8; URL construction keeps generic
+separators before percent escaping. Runtime entry resolution/opening now converts
+UTF-8 arguments explicitly to std::filesystem native paths and retains that path
+for actual file operations, avoiding the Windows ANSI path constructor/string
+conversion. No Ladybird modification or extra runtime dependency is introduced.
+
+Correct the package fixture's Unix-only __dirname + '/node_modules' assertion to
+path.join. It still compares actual Node/Mite module.paths, without filtering the
+results. The ESM error fixture now checks missing drive on Windows vs nonlocal host
+on POSIX. The loader validates Windows file-URL drives explicitly. Valid UNC module
+URLs remain unsupported and now fail with ERR_MITE_UNSUPPORTED_API on Windows;
+a separate native-only policy test checks this without a Node SMB network probe.
+
+New mite-module-paths creates Unicode entry filenames/directories, ESM dependencies,
+CommonJS bridge imports and npm package main targets, including URL #/% escaping.
+It compares actual payloads, import.meta URL/filename/dirname, argv entry,
+require.resolve and module.paths metadata with Node. All 41 local macOS
+Release/size-profile suites pass in 18.06s (build/native-module-paths-{build,test}.log),
+and check-firefly passes native controls/lifecycle/ESM/HTTP/renderer/error/shutdown
+gates (build/native-module-paths-firefly-test.log). Documentation site, actionlint
+and diff checks pass. Update CLI/module/platform docs and compatibility scope.
+
+Actual Windows wide-entry/Unicode path acceptance remains pending; local tests do
+not certify the Windows conditional paths. Windows run 42141915944 at 1df78c8 is
+live in dependency bootstrap; Linux HTTP-client run 42141507395 at d1c9513 remains
+live in compilation. No active build is restarted due to observation duration.
+Native filesystem API differences and the Node-reference network timeout remain
+separate work, as do UNC support and interactive console behavior.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -28,7 +28,8 @@ URL::URL ModuleLoader::path_to_url(fs::path const& path)
     // Protect path characters which URL parsing would otherwise interpret as
     // delimiters, escapes, backslashes or stripped whitespace.
     std::string encoded;
-    for (unsigned char ch : path_string(path)) {
+    auto utf8 = path.generic_u8string();
+    for (unsigned char ch : utf8) {
         if (ch == '%' || ch == '#' || ch == '?' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
             static constexpr char hex[] = "0123456789ABCDEF";
             encoded += '%';
@@ -183,13 +184,21 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     if (url->scheme() != "file"sv)
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Unsupported module URL scheme: " + string(url->scheme()));
     if (!url->serialized_host().is_empty())
+#ifdef _WIN32
+        return error("ERR_MITE_UNSUPPORTED_API", "UNC file module URLs are not implemented");
+#else
         return error("ERR_INVALID_FILE_URL_HOST", "Only local file module URLs are currently supported", true);
+#endif
     auto encoded_path = url->serialize_path();
     if (encoded_path.contains("%2f"sv, CaseSensitivity::CaseInsensitive) || encoded_path.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
         return error("ERR_INVALID_MODULE_SPECIFIER", "Encoded path separators are not allowed in module URLs", true);
     auto bytes = url->file_path();
     if (bytes.contains('\0'))
         return error("ERR_INVALID_ARG_VALUE", "Module paths must not contain null bytes", true);
+#ifdef _WIN32
+    if (bytes.length() < 2 || !((bytes[0] >= 'A' && bytes[0] <= 'Z') || (bytes[0] >= 'a' && bytes[0] <= 'z')) || bytes[1] != ':')
+        return error("ERR_INVALID_FILE_URL_PATH", "File module URL must contain a Windows drive", true);
+#endif
     auto path = url_path(*url);
     std::error_code filesystem_error;
     auto status = fs::status(path, filesystem_error);

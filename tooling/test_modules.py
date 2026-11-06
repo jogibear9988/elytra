@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compare real module graphs, not transformed source, in Node and Mite."""
 import argparse
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -30,7 +31,7 @@ def main():
         ('encoded.mjs', 0, 'true\nGrüße\n', None),
         ('errors.mjs', 0, 'ERR_MODULE_NOT_FOUND\nERR_UNSUPPORTED_DIR_IMPORT\n'
          'ERR_MODULE_NOT_FOUND\nERR_INVALID_MODULE_SPECIFIER\nERR_UNKNOWN_FILE_EXTENSION\n'
-         'ERR_UNSUPPORTED_ESM_URL_SCHEME\nERR_INVALID_FILE_URL_HOST\n', None),
+         'ERR_UNSUPPORTED_ESM_URL_SCHEME\n' + ('ERR_INVALID_FILE_URL_PATH\n' if os.name=='nt' else 'ERR_INVALID_FILE_URL_HOST\n'), None),
         ('dynamic.js', 0, 'before\nafter\nmodule\n', None),
         ('typed/main.js', 0, 'module true\n', None),
         ('syntax-error.mjs', 1, '', 'SyntaxError'),

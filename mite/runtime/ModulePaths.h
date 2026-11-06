@@ -20,8 +20,14 @@ inline std::string string(StringView value)
 
 inline std::string path_string(fs::path const& path)
 {
-    auto utf8 = path.generic_u8string();
+    auto preferred = path;
+    auto utf8 = preferred.make_preferred().u8string();
     return { reinterpret_cast<char const*>(utf8.data()), utf8.size() };
+}
+
+inline fs::path path_from_utf8(std::string const& bytes)
+{
+    return fs::path(std::u8string(reinterpret_cast<char8_t const*>(bytes.data()), bytes.size()));
 }
 
 inline fs::path url_path(URL::URL const& url)
