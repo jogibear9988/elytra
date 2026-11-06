@@ -18,6 +18,18 @@ function createRejectionObserver(capture, rejectionSymbol, schedule) {
       emitter[capture] = previous;
     }
   }
+  function enqueue(record) {
+    schedule(() => {
+      try {
+        deliver(record.emitter, record.error, record.type, record.args);
+      } finally {
+        record.emitter = void 0;
+        record.error = void 0;
+        record.type = void 0;
+        record.args = void 0;
+      }
+    });
+  }
   return function observe(emitter, result, type, args) {
     if (!emitter[capture] || result === void 0 || result === null) {
       return;
@@ -28,7 +40,7 @@ function createRejectionObserver(capture, rejectionSymbol, schedule) {
         apply(then, result, [
           void 0,
           (error) => {
-            schedule(() => deliver(emitter, error, type, args));
+            enqueue({ emitter, error, type, args });
           }
         ]);
       }

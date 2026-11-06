@@ -101,6 +101,10 @@ ERR_INVALID_ARG_TYPE. Prefer explicit true on the emitter needing capture.
 Native forced-GC comparisons verify that pending results retain their receiver
 and argument values until rejection delivery, then release them. This is scoped
 EventEmitter behavior, not async_hooks context propagation.
+Each delivery uses a separate private record, cleared even if its handler throws.
+A completed callback still reachable from a conservative native stack scan cannot
+therefore retain those values through that record. Repeated calls by a retained
+thenable rejection callback continue to receive their original event arguments.
 
 ## once(emitter, name[, options])
 

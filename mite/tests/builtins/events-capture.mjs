@@ -212,4 +212,29 @@ check(
   observed.length === 2 && observed[0] === failure && observed[1] === secondary,
   'async monitor rejection was not captured'
 );
+// Each thenable rejection owns a separate delivery record; clearing one must
+// preserve later calls of the same retained rejection callback and arguments.
+const multiple = new E({ captureRejections: true });
+const received = [];
+let later;
+
+multiple[captureRejectionSymbol] = (reason, event, argument) => {
+  check(event === 'work' && argument === payload, 'later thenable arguments were cleared');
+  received.push(reason);
+};
+
+multiple.on('work', () => ({
+  then(resolve, reject) {
+    later = reject;
+    reject(1);
+    reject(2);
+  }
+}));
+
+multiple.emit('work', payload);
+await checkpoint();
+later(3);
+await checkpoint();
+check(received.join() === '1,2,3', 'independent thenable rejection deliveries');
+later = undefined;
 console.log('PASS capture hook, thenables, sync errors, disabled mode, defaults and validation');

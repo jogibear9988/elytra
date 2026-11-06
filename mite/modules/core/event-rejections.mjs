@@ -18,6 +18,22 @@ export default function createRejectionObserver(capture, rejectionSymbol, schedu
     }
   }
 
+  function enqueue(record) {
+    // A completed callback can remain conservatively reachable from a native
+    // stack slot. Give it a separate scope and clear its private delivery data,
+    // so that reachability does not extend emitter/argument ownership.
+    schedule(() => {
+      try {
+        deliver(record.emitter, record.error, record.type, record.args);
+      } finally {
+        record.emitter = undefined;
+        record.error = undefined;
+        record.type = undefined;
+        record.args = undefined;
+      }
+    });
+  }
+
   return function observe(emitter, result, type, args) {
     if (!emitter[capture] || result === undefined || result === null) {
       return;
@@ -29,7 +45,7 @@ export default function createRejectionObserver(capture, rejectionSymbol, schedu
           undefined,
           (error) => {
             // The native nextTick queue owns delivery outside the Promise reaction.
-            schedule(() => deliver(emitter, error, type, args));
+            enqueue({ emitter, error, type, args });
           }
         ]);
       }

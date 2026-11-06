@@ -5312,6 +5312,42 @@ Wayland and native Windows desktop remain unfinished. Existing corrected
 optimized macOS 57c2675 run 42306965867 remains live; no new alpha or package
 success is inferred from this integration commit. Goal active.
 
+## 2026-11-07: Release captured delivery data despite conservative callback reachability
+
+- Standard macOS ae6a3fe run 42308089209/job 128202577034 fails the unchanged
+  event-rejection-release fixture: Node collects every target, while Mite reports
+  capture released false after all 32 rejections were delivered. Keep that hosted
+  failure distinct from the earlier successful local size-profile suite.
+- Reproduce locally without rebuilding or modifying Ladybird: compile copies of
+  the embedding host, EventLoop.cpp and ImmediateQueue.cpp with -O3, reuse the
+  existing engine/dependencies, and link a separate ignored native executable.
+  The original fixture fails all three independent processes in this partial
+  O3 reproduction. This is not a full-profile/hosted acceptance claim.
+- Instrument only an ignored host copy through the pinned GC retaining-path API.
+  After delivery one payload remains reachable from a conservative StackPointer
+  to a completed ECMAScript callback, its environments and the argument array.
+  Pending targets have the expected precise Promise/VM roots. No upstream source
+  is changed; inspect capture-gc-o3-probe/{retention,retention-fixed}.log.
+- Give each queued rejection a private delivery record in a separate function
+  scope and clear every field in finally. A completed callback retained by a
+  native stack slot therefore cannot extend ownership through that record.
+  Keep the original thenable observer alive when its producer retains it;
+  repeated early/later rejection calls preserve the original event arguments.
+- The same partial O3 executables now pass the unchanged all-64-target collection
+  assertion in three independent native processes. Instrumented execution finds
+  zero tagged payload retainers after delivery. No retry, additional GC turn or
+  weakened collection assertion is used. Add actual Node/Mite coverage for
+  repeated/later thenable rejections and per-delivery argument independence.
+- Rebuild the real Release CLI and run all 65 CTests: pass in 20.82 seconds.
+  Regenerate the events embedding/manifest and document the delivery lifetime.
+  No GUI app is launched. Fresh native/profile CI still must establish acceptance.
+
+Limits: optimized macOS 57c2675 run 42306965867 remains live and predates the
+capture addition. The Linux geometry gate now exposes an unmapped native window
+while Openbox is live; its root cause and native application acceptance remain
+unfinished. Continue those gates and all required desktop/platform work.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
