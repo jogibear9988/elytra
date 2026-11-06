@@ -4,6 +4,7 @@
 import _support  # Shared build-helper import path for standalone test CLIs.
 
 import argparse
+from contextlib import contextmanager
 import json
 from pathlib import Path
 import shutil
@@ -72,6 +73,26 @@ console.log(JSON.stringify({echo,missing,badCwd,stringCwd,emptyCwd,ignored,inher
 """
 
 
+@contextmanager
+def child_directory():
+    """Allow Windows orphan shutdown to release file locks without skipping cleanup."""
+    directory = tempfile.mkdtemp(prefix="mite-child-")
+    try:
+        yield directory
+    finally:
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                shutil.rmtree(directory)
+                break
+            except PermissionError:
+                # Functional parent-exit/child-survival deadlines above are not
+                # extended. This is bounded filesystem teardown after acceptance.
+                if sys.platform != "win32" or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mite", required=True)
@@ -79,7 +100,7 @@ def main():
     args = parser.parse_args()
     if not args.node:
         parser.error("Node is required")
-    with tempfile.TemporaryDirectory(prefix="mite-child-") as directory:
+    with child_directory() as directory:
         root = Path(directory)
         work = root / "work é文🪲"
         work.mkdir()

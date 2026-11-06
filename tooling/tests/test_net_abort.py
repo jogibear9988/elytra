@@ -45,6 +45,14 @@ def main():
         elif file.stem == "synthetic":
             assert results[0].stdout == "synthetic socket true true\n", results
             assert results[1].stdout == "synthetic socket false true\n", results
+        elif file.stem == "pre-connecting":
+            # Hosted Linux/Windows Node can report a late connect after the abort
+            # error; macOS can suppress it. Assert both observed reference races
+            # explicitly, while Mite must always suppress the cancelled connect.
+            assert results[0].stdout in {"pre connect 0 1 true\n", "pre connect 1 1 true\n"}, (
+                results
+            )
+            assert results[1].stdout == "pre connect 0 1 true\n", results
         elif file.stem == "pre-aborted":
             # Node resets an unconnected Socket for later reuse after its abort;
             # Mite explicitly does not support reconnecting destroyed Sockets.

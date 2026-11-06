@@ -3767,6 +3767,27 @@ native Windows/Linux distribution/security maturity. OS DNS interruption, Agents
 pooling and complete HTTP lifecycle/platform/error conformance remain open. The
 overall goal stays active; keep local GUI acceptance infrequent and batched.
 
+## 2026-11-06 — Record hosted reference races and bound Windows test teardown
+
+Previous goal turn: progress (HTTP 8698725 and peer cleanup d3aafbe committed/pushed).
+Hosted Linux/Windows build that source and pass the new HTTP cancellation suite.
+Both expose Node 24.15.0 delivering one late connect after pre-abort/error in the
+TCP reference fixture; local macOS delivers zero. Assert the two observed reference
+outputs separately, preserving the strict zero-connect / one-correct-abort-error
+requirement for Mite. Do not normalize that Node difference into equality.
+
+Windows also fails temporary-directory deletion with WinError 32 after the orphan
+survival workflow; the source fixture still has an OS file lock at teardown. Add a
+bounded five-second Windows PermissionError cleanup retry. Parent exit/capture and
+child-survival acceptance deadlines/assertions remain unchanged; persistent locks
+still fail. This is test cleanup, not evidence that all native process inheritance
+or Windows file semantics are correct.
+
+Validation: targeted TCP/process regression and formatting are recorded in this
+turn's verification; new hosted acceptance remains required. No GUI is launched.
+Optimized macOS 8698725 run 42209659578 is now running, so preserve it rather than
+restart it. Native Windows/Linux desktop and new alpha acceptance remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
