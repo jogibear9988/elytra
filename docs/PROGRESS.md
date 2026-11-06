@@ -4985,6 +4985,35 @@ Limits: remaining Linux OS-service/renderer and macOS release candidates are sti
 active. Continue their actual gates and the full native desktop/distribution
 requirements. Goal active; no local GUI test is needed for this evidence update.
 
+## 2026-11-06: Checked C/C++ object reuse for long native renderer builds
+
+- Add an explicit --ccache renderer-driver option using the pinned upstream
+  setup hook and owned C/C++ launcher settings. Missing tools and unsupported
+  native platforms fail explicitly. Audit actual generated Ninja compile commands
+  for the selected target/dependencies so an overridden launcher cannot silently
+  claim caching. Opt-out clears saved launchers in an existing build directory.
+- Enable the option in future Linux renderer CI, install ccache with its native
+  prerequisites and keep object-cache storage separate from vcpkg. Use a strict
+  owned config: compiler-content identity, no sloppiness and 2G cache setting.
+  Preserve completed objects on failure and retain actual statistics. Fresh
+  linking and all native process/security/window/preload gates stay required;
+  no live job is cancelled/restarted to apply this change retroactively.
+- Native acceptance builds and runs actual C/C++ binaries with an isolated cache
+  and the actual upstream hook. Identical recompilation records real hits;
+  header/source/flag changes execute changed results. Explicit opt-out stops
+  cache activity and per-target launcher bypass is rejected. Local ccache 4.13.6
+  acceptance passes. This is build-cache correctness, not a native Linux renderer
+  or measured hosted speedup claim. No GUI app/test is launched.
+- Source style, actionlint, driver help, whitespace and upstream integrity checks
+  pass. Document configuration/reuse scope and required independent acceptance.
+  The cache test runs explicitly in renderer CI; it does not make ccache a new
+  dependency of the standalone Mite CLI/runtime or its ordinary 65-test suite.
+
+Limits: hosted cold/hot compiler statistics and Linux renderer execution remain
+pending. Existing Linux services/renderer and macOS package candidates are live;
+continue their actual results and full required platform/distribution work.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

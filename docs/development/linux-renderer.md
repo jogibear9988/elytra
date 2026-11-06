@@ -217,3 +217,13 @@ Missing X11 prerequisites fail, rather than silently skipping the native test.
 The complete renderer/window/sandbox/preload gates remain mandatory in their
 own workflow; a passing isolated clipboard component does not certify Firefly
 Linux app lifecycle, integration, packaging or security containment.
+
+## Reusing compiled renderer objects
+
+The large renderer workflow opts into the [checked C/C++ compiler cache](renderer-build.md#optional-cc-compiler-cache).
+Its object cache is separate from pinned vcpkg binary packages, uses the strict
+owned configuration and is preserved after partial builds. It audits generated
+compile commands and requires an actual cache-hit/invalidation executable gate
+before the real graph. Cache statistics are evidence of reuse, not evidence of
+Linux renderer behavior: all existing native DOM/compositor/process/sandbox/
+preload/window tests remain required. Hosted speedups are not claimed in advance.

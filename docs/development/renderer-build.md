@@ -58,6 +58,37 @@ build/renderer-artifacts/page.png. See docs/PROGRESS.md for the tested host and
 limits. Dependency deployment-target warnings preclude claiming support for older
 macOS versions without further native tests.
 
+## Optional C/C++ compiler cache
+
+```sh
+python3 tooling/build_renderer.py --ccache --target firefly-preload-probe --jobs 3
+python3 tooling/tests/test_compiler_cache.py
+```
+
+--ccache explicitly requires an installed ccache on macOS/Linux. The driver uses
+the existing unmodified upstream CMake hook and sets both C/C++ launchers. It then
+checks the actual generated Ninja compile commands for the selected target and
+its dependencies; a missing/overridden/bypassed launcher fails configuration.
+Without this option, saved C/C++ launchers are cleared in that build directory.
+The standalone Mite and release driver's default compiler profiles stay as before.
+
+Linux renderer CI stores compiler objects separately from the vcpkg dependency
+cache. Its owned configuration uses compiler_check=content, empty sloppiness and
+a 2G cache-size setting. The [ccache manual](https://ccache.dev/manual/4.13.6.html)
+describes compiler-content hashing and normal source/header/flag checks. No
+header/source/flag exclusions are enabled. Completed objects can be retained
+after a failed build; fresh linking and all native execution/security gates still
+run. Rust, Objective-C++, linking and final acceptance are outside this cache.
+
+The native cache gate builds/runs real C and C++ binaries in a temporary isolated
+cache. It requires actual cache-hit counters on identical recompilation, then
+executes new header/source/flag results, tests explicit opt-out and rejects a
+per-target bypass despite apparently configured global launchers. It uses the
+actual pinned upstream hook, not a simulated cache. Local acceptance passes with
+ccache 4.13.6; hosted full-graph hit rates/build-time improvements remain unmeasured
+until the new Linux jobs run. Version and actual cache statistics are retained in
+CI logs. Existing active jobs are preserved; they cannot gain a cache retroactively.
+
 ## Native window gate (macOS; experimental Linux X11)
 
 ```sh

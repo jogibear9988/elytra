@@ -9,6 +9,8 @@ on:
       - 'mite/cmake/**'
       - 'mite/runtime/adapters/**'
       - 'tooling/build_renderer.py'
+      - 'tooling/compiler_cache.py'
+      - 'tooling/compiler-cache.conf'
       - 'tooling/*dependencies.py'
       - 'tooling/check_*.py'
       - 'tooling/stage_renderer_resources.py'
@@ -33,6 +35,8 @@ jobs:
       VCPKG_MAX_CONCURRENCY: '3'
       CMAKE_BUILD_PARALLEL_LEVEL: '3'
       LIBGL_ALWAYS_SOFTWARE: '1'
+      CCACHE_DIR: ${{ github.workspace }}/build/compiler-cache
+      CCACHE_CONFIGPATH: ${{ github.workspace }}/tooling/compiler-cache.conf
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -65,12 +69,24 @@ jobs:
             linux-noble-clang22-
       - name: Bootstrap pinned native dependencies
         run: python tooling/bootstrap.py
+      - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        id: compiler-cache
+        with:
+          path: build/compiler-cache
+          key: linux-renderer-objects-clang22-${{ hashFiles('vendor/ladybird.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            linux-renderer-objects-clang22-${{ hashFiles('vendor/ladybird.json') }}-
+            linux-renderer-objects-clang22-
+      - name: Actual compiler cache hits and invalidation gates
+        run: |
+          ccache --version
+          python tooling/tests/test_compiler_cache.py
       - name: Native ELF private-codec relocation and export regression
         run: python tooling/tests/test_linux_ffmpeg_link.py
       - name: Configure and compile native renderer and owned helper
         run: |
           set -o pipefail
-          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-preload-probe --configure-only --jobs 3 2>&1 | tee build/linux-renderer-build.log
+          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-preload-probe --configure-only --ccache --jobs 3 2>&1 | tee build/linux-renderer-build.log
           cmake --build build/linux-renderer --target firefly-clipboard-protocol-probe --parallel 3 2>&1 | tee build/linux-renderer-clipboard-build.log
           build/linux-renderer/bin/firefly-clipboard-protocol-probe 2>&1 | tee build/linux-renderer-clipboard-protocol.log
           cmake --build build/linux-renderer --target firefly-x11-clipboard-probe --parallel 3 2>&1 | tee build/linux-renderer-x11-clipboard-build.log
@@ -114,6 +130,15 @@ jobs:
       - name: Record upstream integrity
         if: always()
         run: python tooling/check_upstream.py
+      - name: Record actual compiler cache statistics
+        if: always() && steps.compiler-cache.outcome == 'success'
+        run: ccache --show-stats 2>&1 | tee build/linux-renderer-ccache.log
+      - name: Preserve completed compiler objects
+        if: always() && steps.compiler-cache.outcome == 'success'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: build/compiler-cache
+          key: ${{ steps.compiler-cache.outputs.cache-primary-key }}
       - name: Preserve completed dependency packages
         if: always() && steps.dependencies.outcome == 'success'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5

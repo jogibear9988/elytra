@@ -12,6 +12,7 @@ import sys
 from check_upstream import check
 from firefly_dependencies import prepare
 from renderer_dependencies import prepare as prepare_linux_renderer
+import compiler_cache
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +22,11 @@ def main():
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build/renderer")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--configure-only", action="store_true")
+    parser.add_argument(
+        "--ccache",
+        action="store_true",
+        help="Cache C/C++ objects; retain all native execution gates",
+    )
     parser.add_argument(
         "--baseline-cpu",
         action="store_true",
@@ -52,6 +58,12 @@ def main():
         default="firefly-renderer-probe",
     )
     args = parser.parse_args()
+    if args.ccache and sys.platform not in ["darwin", "linux"]:
+        parser.error("Compiler-cache acceptance currently requires a macOS/Linux Ninja build")
+    try:
+        cache_options = compiler_cache.arguments(args.ccache)
+    except ValueError as error:
+        parser.error(str(error))
     if args.shared_openssl and (
         sys.platform != "darwin" or platform.machine() != "arm64" or args.target != "firefly"
     ):
@@ -95,10 +107,10 @@ def main():
         "-DBUILD_TESTING=OFF",
         "-DENABLE_JS_JIT=OFF",
         f"-DENABLE_LTO_FOR_RELEASE={'ON' if args.lto else 'OFF'}",
-        "-DENABLE_LAGOM_CCACHE=OFF",
         "-DENABLE_INSTALL_HEADERS=OFF",
         "-DCMAKE_SKIP_INSTALL_RULES=ON",
     ]
+    command.extend(cache_options)
     if args.target == "firefly":
         manifest = prepare(ROOT, build / "firefly-manifest")
         command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=ON"])
@@ -114,6 +126,8 @@ def main():
     command.append(f"-DENABLE_CI_BASELINE_CPU={'ON' if args.baseline_cpu else 'OFF'}")
     environment = {**os.environ, "VCPKG_MAX_CONCURRENCY": str(args.jobs)}
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    if args.ccache:
+        compiler_cache.check(build, args.target)
     if args.baseline_cpu:
         subprocess.run(
             [sys.executable, str(ROOT / "tooling/check_macos_cpu.py"), "--build", str(build)],
