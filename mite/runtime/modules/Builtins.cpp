@@ -85,7 +85,9 @@ static constexpr std::string_view os_exports[] = { "arch", "availableParallelism
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
     "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual" };
 static constexpr std::string_view child_process_exports[] = { "spawn", "execFile", "ChildProcess" };
-static constexpr BuiltinDefinition definitions[] = {
+static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
+    "clearTimeout", "clearInterval", "clearImmediate" };
+static constexpr BuiltinDefinition definitions[] = { { "timers", {}, timers_exports },
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
@@ -106,8 +108,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
     { "process", {}, process_exports },
     { "path", { MITE_PATH_SOURCE, sizeof(MITE_PATH_SOURCE) - 1 }, path_exports },
-    { "path/posix", {}, path_exports }, { "path/win32", {}, path_exports }
-};
+    { "path/posix", {}, path_exports }, { "path/win32", {}, path_exports } };
 
 static BuiltinDefinition const* definition_for(std::string const& name)
 {
@@ -129,6 +130,18 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     if (!definition)
         return error(
             "ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin module is not implemented: node:" + name);
+    if (name == "timers") {
+        GC::Root result { JS::Object::create(m_realm, m_realm.intrinsics().object_prototype()) };
+        for (auto name : timers_exports) {
+            auto key = Utf16String::from_utf8(StringView(name.data(), name.size()));
+            result->define_direct_property(
+                key, m_realm.global_object().get_without_side_effects(key), JS::default_attributes);
+        }
+
+        m_builtins.emplace(name, GC::Root<JS::Object> { *result });
+        return *result;
+    }
+
     if (name == "process") {
         m_builtins.emplace(name, m_process);
         return *m_process;
@@ -317,6 +330,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
 
 JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
 {
+    // Capture original timer functions before application code can replace globals.
+    TRY(builtin("timers"));
     auto buffer = TRY(builtin("buffer"));
     auto constructor = TRY(buffer->get("Buffer"_utf16));
     m_realm.global_object().define_direct_property(

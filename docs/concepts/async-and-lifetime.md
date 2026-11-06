@@ -1,7 +1,7 @@
 # Asynchronous work and resource lifetime
 
 Mite has a rooted FIFO Promise/microtask queue, a separate priority nextTick queue,
-native libuv timers and asynchronous native I/O. This is a tested subset of Node's
+native libuv timers, check-phase immediates and asynchronous native I/O. This is a tested subset of Node's
 event-loop behavior, not a claim that every Node phase/order is identical.
 
 ## Work on the JS owner thread
@@ -20,7 +20,9 @@ that actually exist in the current [reference](../api/mite.md).
 Referenced timers, listening/connected sockets and pending native work can keep the
 runtime alive. Use close/end for resources with those contracts. Timer handles have
 ref/unref/hasRef; an unreferenced timer alone does not guarantee the process stays
-alive to invoke it. Timer refresh and immediate timers remain unsupported.
+alive to invoke it. Pending Immediate handles also support ref/unref/hasRef and
+disposal; newly scheduled callbacks wait for the next check-phase batch. See the
+[timers contract](../api/timers.md). Timer refresh remains unsupported.
 
 A FileHandle close waits for active references. A Firefly window's destruction
 rejects its pending load. Different services have distinct cancellation rules; an

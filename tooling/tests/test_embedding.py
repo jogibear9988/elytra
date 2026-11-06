@@ -126,6 +126,32 @@ setTimeout(() => console.log(JSON.stringify(log)), 2);
     assert reentry.returncode == 0 and json.loads(reentry.stdout) == ["host", "tick", "promise"], (
         reentry
     )
+    immediate = execute(
+        args.host,
+        [
+            "-e",
+            """
+let first;
+setImmediate(function(value) {
+  if(value.label!=='rooted argument' || this.hasRef())throw Error('Immediate roots/state');
+  first=embeddedHost.pumpCount();
+  process.nextTick(()=>{if(embeddedHost.pumpCount()!==first)throw Error('Checkpoint phase');});
+  setImmediate(()=>{
+    if(embeddedHost.pumpCount()<=first)throw Error('Nested immediate reused a pump iteration');
+    console.log('rooted next-iteration immediate');
+  });
+}, {label:'rooted argument'});
+collectHostGarbage();
+""",
+        ],
+    )
+    assert immediate.returncode == 0 and immediate.stdout == "rooted next-iteration immediate\n", (
+        immediate
+    )
+    assert immediate.stderr.count("HOST_SHUTDOWN\n") == 1, immediate
+    print(
+        "PASS non-GUI external pump: immediate GC roots, per-callback checkpoint and next-iteration batching"
+    )
     print("PASS ESM/fs completion and host-owned liveness with rooted callbacks and checkpoints")
     fatal = execute(
         args.host, ["-e", "embeddedHost.onPulse(()=>{throw Error('host callback failure')})"]

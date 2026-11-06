@@ -5,6 +5,7 @@
 
 #include "core/EventLoop.h"
 #include "MiteBootstrap.h"
+#include "core/ImmediateQueue.h"
 
 #include <AK/TemporaryChange.h>
 #include <LibGC/Root.h>
@@ -42,6 +43,7 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
     , m_report_exception(report_exception)
 {
     VERIFY(uv_loop_init(&m_loop) == 0);
+    m_immediates = std::make_unique<ImmediateQueue>(*this, vm);
     m_vm.host_enqueue_promise_job = [this](JS::PromiseJob job, GC::Ptr<JS::Realm> realm) {
         m_jobs.append(GC::create_function(m_vm.heap(), [job, realm] {
             (void)realm;
@@ -63,6 +65,7 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
 EventLoop::~EventLoop()
 {
     m_shutting_down = true;
+    m_immediates.reset();
     // Close even unreferenced timers, and release their JS roots before the VM.
     while (!m_timers.empty())
         cancel_timer(m_timers.begin()->first);
@@ -186,6 +189,7 @@ JS::ThrowCompletionOr<JS::Value> EventLoop::install(JS::Realm& realm)
             return JS::js_undefined();
         },
         2, JS::default_attributes);
+    m_immediates->install(realm);
     auto parsed = JS::Script::parse(Utf16String::from_utf8(StringView(
                                         MITE_BOOTSTRAP_SOURCE, sizeof(MITE_BOOTSTRAP_SOURCE) - 1)),
         realm, "mite:bootstrap"sv);

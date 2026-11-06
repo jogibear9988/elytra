@@ -10,11 +10,13 @@
 #include <LibJS/Runtime/Promise.h>
 #include <LibJS/Runtime/VM.h>
 #include <functional>
+#include <memory>
 #include <unordered_map>
 #include <uv.h>
 #include <vector>
 
 namespace Mite {
+class ImmediateQueue;
 
 class EventLoop {
 public:
@@ -95,6 +97,7 @@ private:
     void (*m_report_exception)(JS::Value);
 
     uv_loop_t m_loop {};
+    std::unique_ptr<ImmediateQueue> m_immediates;
     uint64_t m_next_timer_id { 1 };
     int m_status { 0 };
     bool m_shutting_down { false };

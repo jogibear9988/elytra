@@ -94,4 +94,48 @@ export default function installRuntimeGlobals() {
   globalThis.clearInterval = function clearInterval(timer) {
     clearTimer(timer);
   };
+
+  const scheduleImmediate = globalThis.__miteScheduleImmediate;
+  const controlImmediate = globalThis.__miteControlImmediate;
+  delete globalThis.__miteScheduleImmediate;
+  delete globalThis.__miteControlImmediate;
+  const immediateIds = new WeakMap();
+
+  /** Handles query native state so fired/cancelled calls cannot be reactivated. */
+  class Immediate {
+    constructor(callback, args) {
+      if (typeof callback !== 'function') {
+        const error = new TypeError('The callback argument must be of type function');
+        error.code = 'ERR_INVALID_ARG_TYPE';
+        throw error;
+      }
+      immediateIds.set(this, scheduleImmediate(callback, this, ...args));
+    }
+
+    ref() {
+      controlImmediate(immediateIds.get(this), 1);
+      return this;
+    }
+
+    unref() {
+      controlImmediate(immediateIds.get(this), 2);
+      return this;
+    }
+
+    hasRef() {
+      return controlImmediate(immediateIds.get(this), 0);
+    }
+
+    [Symbol.dispose]() {
+      controlImmediate(immediateIds.get(this), 3);
+    }
+  }
+
+  globalThis.setImmediate = function setImmediate(callback, ...args) {
+    return new Immediate(callback, args);
+  };
+
+  globalThis.clearImmediate = function clearImmediate(handle) {
+    controlImmediate(immediateIds.get(handle), 3);
+  };
 }

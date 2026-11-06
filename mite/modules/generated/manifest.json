@@ -16,7 +16,7 @@
     "os.js": "bf9c1bfbc1770b348305656972e3b06c28ca7004704f94079586e1fe291f7a4d",
     "crypto.js": "728948cc673fa0b70f7c16ae25f5463fbd1e98f939f88d5286eec87d6f9034b8",
     "child_process.js": "b5905f690d7f632adad795a65201fae79fa7c07a2d874d42f31940a019079fa4",
-    "bootstrap.js": "6f1cb7f09e4df6d66b778ac4d50f0de9e7dcbebb6340370bd6e12f8c822eabda",
+    "bootstrap.js": "ab0908491255da7c1e6fc38a940ba222488653e5e22da50ab8ea92c6a43661e7",
     "string-decoder.js": "8aa0f9a948b94bd157b8683f0a2e1e6b7280e6634d81f1695f20cdcff8ca60e4",
     "string-decoder.LICENSE.txt": "53cbbfb9c8c75ce815a625e70b36a166b69d78fc2cb7754a997873bf8304eb2b",
     "stream.js": "96047da6e0d56b3ea712dc0efdbd82164f3aac12aa002892bcf1dac46ef72cf6",
@@ -244,6 +244,6 @@
     "mite/modules/crypto/index.mjs": "890a231651c0e72cf1c5488bb601b81b5c476935cd7060cd5b7a8a99f14513fd",
     "mite/modules/crypto/random.mjs": "d8b4b69cf77e2a48fa21ab4c2abfa81a5d2c4322c348d809a3b7827efe80da22",
     "mite/modules/process/child-process.mjs": "f2b637ebc06f73c01186847eff9797035f52e52956be85ae78faf3ee0a8424a5",
-    "mite/runtime/bootstrap/globals.mjs": "0a23fadfcb15e2024343a88ffe81dcdea3c6a0e355dcd711522d2c795bd4f2d3"
+    "mite/runtime/bootstrap/globals.mjs": "f1f1ce997afa94e92485b9b6fc0ffec70c8b0d9145607024957bc42b4ab6314d"
   }
 }

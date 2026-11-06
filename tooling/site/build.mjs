@@ -146,6 +146,7 @@ const groups = [
       ['docs/api/crypto', 'node:crypto'],
       ['docs/api/http', 'node:http'],
       ['docs/api/child-process', 'node:child_process'],
+      ['docs/api/timers', 'node:timers'],
       ['docs/api/firefly', 'Firefly overview'],
       ['docs/api/app', 'app'],
       ['docs/api/browser-window', 'BrowserWindow'],

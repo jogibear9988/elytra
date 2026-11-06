@@ -48,7 +48,9 @@ clearTimeout/clearInterval. `fetch` and global Web Crypto are absent.
 - `queueMicrotask(callback)` and Promise jobs share a FIFO; nextTick uses its own
   priority queue. Complete Node event-loop phases are not claimed.
 - Timer handles support `ref()`, `unref()`, `hasRef()`, `close()`, numeric conversion
-  and disposal. `refresh()` and immediate timers are unsupported.
+  and disposal. `refresh()` remains unsupported. `setImmediate`/`clearImmediate` use
+  the native check phase; [timers and immediates](timers.md) documents supported
+  handles, ordering, cancellation and module identities.
 
 Unhandled rejections and fatal callbacks exit nonzero. Normal exitCode waits for
 referenced work; fatal shutdown may abandon pending native writes.

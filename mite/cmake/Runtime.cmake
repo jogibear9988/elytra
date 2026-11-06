@@ -59,6 +59,7 @@ function(mite_add_runtime target root js_target)
         # core
         core/Runtime
         core/EventLoop
+        core/ImmediateQueue
         # modules
         modules/Builtins
         modules/HostModules

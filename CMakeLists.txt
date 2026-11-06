@@ -159,6 +159,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-builtins
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_builtins.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-immediates
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_immediates.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-ticks
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_ticks.py"
                      --mite "$<TARGET_FILE:mite>")

@@ -3411,6 +3411,59 @@ services and runtime API/platform work in the specification. Keep readability,
 commented ESM authoring and limited local GUI-test frequency as standing constraints.
 The overall goal remains active.
 
+## 2026-11-06 — Native setImmediate/check-phase runtime slice
+
+Previous goal turn: progress (external local renderer modules fixed, committed and
+pushed, and local GUI-test frequency preference persisted). At this turn's initial
+check, 439667b style/Pages succeed; its Linux/Windows Mite runs remain in progress
+and optimized macOS run 42193613073 is pending. Do not treat an observation timeout
+as a stopped native build. No local GUI tests are run in this step.
+
+Implement the missing Node check-phase callbacks in a separate commented native
+core/ImmediateQueue, shared by the CLI and embedded hosts. Use one libuv check
+handle plus a temporary unreferenced idle handle to avoid blocking before that
+phase. Stop both on empty queues; referenced pending calls control liveness. Drain
+one FIFO snapshot per iteration, checkpoint nextTick/jobs between callbacks and
+leave newly scheduled calls for a later iteration. Remove records before invoking
+JS; retain callback/receiver/argument GC roots through the checkpoint. Cancel roots
+promptly, compact stale IDs and free native handle storage during shutdown without
+running queued JS. Preserve unmodified Ladybird and Mite's LibWeb independence.
+
+Maintain setImmediate/clearImmediate and Immediate ref/unref/hasRef/dispose policy
+in bootstrap ESM with private hooks removed before application entry. Fired or
+cancelled handles cannot be reactivated. Add a cached node:timers/bare timers
+module with the six original global functions, captured before application code;
+CJS and ESM default/named imports share the same functions. No timers/promises,
+async_hooks/context or complete Node phase parity is claimed.
+
+Validation:
+- Standalone native build succeeds. All 45 CTests pass in 57.74 seconds
+  (immediates-final-tests.log), including the new immediate suite, existing
+  TCP/HTTP/process/stream/crypto/module gates and Windows-style checkout bytes.
+- Seventeen actual Node 24.15.0/Mite comparisons exercise CJS/ESM FIFO/checkpoints,
+  callback/argument/receiver identity, ref state, cancellation including batch
+  removal/stress, disposal, liveness, fatal errors, validation, I/O phase ordering
+  and module/global identity (immediates-tests.log). Startup timer vs immediate
+  races are deliberately not asserted as deterministic.
+- The non-GUI embedded host counts native pump iterations and forces GC while
+  arguments/callbacks are pending. Nested immediates require a subsequent pump,
+  ticks stay in the current checkpoint, and exactly-once shutdown still passes.
+- Firefly compiles with the same updated runtime (immediates-final-firefly-build.log).
+  No window/compositor/input/Designer suite is launched locally; hosted desktop
+  acceptance remains required for this changed main-process runtime.
+- Source style passes 100 Python, 404 JS/web/config, 129 native and 14 CMake sources
+  plus Rust. Both generators reproduce; source integrity/upstream checks pass.
+  Documentation validates 147 pages / 8782 local links before this progress entry.
+- New authored ESM CLI event-loop example runs under actual Mite and Node with
+  identical output. Add the detailed timers API reference and ADR 0074.
+
+Remaining goal scope is unchanged: complete runtime module/API/event-loop behavior,
+AbortSignal/cancellation, TLS/HTTPS/fetch and broader packages; remaining desktop
+IPC modes/services; native Windows/Linux desktop and distribution/security maturity.
+Continue coherent vertical slices with honest platform evidence and infrequent,
+batched local GUI acceptance, using hosted tests for routine desktop regressions.
+The overall goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

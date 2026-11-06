@@ -25,6 +25,9 @@ worker state separate from GC-managed values: JS values and callbacks belong to
 the VM owner thread. Document who owns a handle, when it closes, and how pending
 work is cancelled. Explain compatibility decisions rather than restating statements.
 
+core/ImmediateQueue owns the check-phase FIFO, reference accounting and rooted
+callback lifetime; EventLoop owns the shared libuv pump and JS checkpoints.
+
 The explicit source list is in [Runtime.cmake](../cmake/Runtime.cmake). Add new
 subsystems there, maintain the corresponding API/matrix and tests, and record the
 step in [PROGRESS](../../docs/PROGRESS.md). Application-facing CommonJS support is

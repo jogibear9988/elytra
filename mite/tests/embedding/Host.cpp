@@ -18,6 +18,7 @@ int main(int argc, char** argv)
     GC::Root<JS::FunctionObject> pulse;
     JS::VM* owner_vm = nullptr;
     bool initialized = false;
+    size_t pump_count = 0;
     Mite::HostHooks hooks;
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
@@ -50,6 +51,12 @@ int main(int argc, char** argv)
                     return vm.throw_completion<JS::Error>(
                         "External callback must hold a host turn"_utf16);
                 return JS::Value(loop.pump_once());
+            },
+            0, JS::default_attributes);
+        host->define_native_function(
+            realm, "pumpCount"_utf16,
+            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                return JS::Value(static_cast<double>(pump_count));
             },
             0, JS::default_attributes);
         auto state = JS::Object::create(realm, nullptr);
@@ -106,6 +113,7 @@ int main(int argc, char** argv)
         auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
         bool delivered = false;
         do {
+            ++pump_count;
             if (loop.pump_once())
                 break;
             if (!delivered && std::chrono::steady_clock::now() >= until) {
