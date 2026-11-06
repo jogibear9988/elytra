@@ -14,9 +14,11 @@ LibWeb, Qt, Node or V8 dependency. This validates the documented Mite subset on
 Ubuntu 24.04 x64, not arbitrary Linux distributions or a Firefly desktop/package gate.
 There is no Linux GUI dependency in the standalone Mite source graph.
 
-That baseline predates the new null-deallocation adapter and explicit size-profile
-experiment. Those changes need their own native Linux acceptance; a prior green
-job does not certify an untested compiler profile or subsequent SDK integration.
+The subsequent [run 42134116536](https://github.com/jogibear9988/elytra/actions/runs/42134116536)
+at f1a90a9 also passes native compilation, all **38** suites (20.96s), CLI examples
+and linkage checks. This includes the null-deallocation adapter and its SDK
+regression under default Release. The explicit size profile remains untested on
+Linux; these successes do not certify untested compiler modes or later changes.
 
 ## Compiler and prerequisites
 

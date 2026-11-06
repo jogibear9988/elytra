@@ -1,7 +1,7 @@
 # ADR 0058: null-safe execution-context deallocation
 
-Status: implemented and tested with the local macOS C++ size profile. Other native
-platforms and the size-profile renderer acceptance remain pending.
+Status: tested with the local macOS C++ size profile, including renderer/helper
+acceptance, and native Linux default Release. Windows acceptance remains pending.
 
 ## Evidence
 
@@ -46,4 +46,9 @@ build/size-mite-adapter-{build,test}.log.
 The local LLDB launch did not produce a debugger observation; its owned debugger
 processes were terminated. Diagnosis uses the reproducible panic, source contract,
 disassembly and passing native regression, not an invented debugger stack trace.
-Renderer/native Windows/Linux acceptance of this new adapter remains independent.
+The adapted size-profile renderer passes all Firefly/renderer/isolation/helper
+gates and the relocated Designer workflow. Linux run 42134116536 at f1a90a9 passes
+all 38 suites in default Release, including the native SDK regression (20.96s).
+That does not certify the Linux size profile. Windows run 42134241990 also passes
+the SDK regression, including real VM/realm construction; its full Mite startup
+still fails separately. The component regression is not Windows runtime acceptance.

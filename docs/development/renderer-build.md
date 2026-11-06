@@ -25,7 +25,8 @@ objects; use the same native test gates and compare stripped packages.
 The separate --optimize-size option selects the checked C++ size profile (-Oz or
 /O1); Rust and prebuilt dependency profiles stay unchanged. The driver verifies
 the final optimization flag in generated C++ commands, since upstream also adds
--O3. Defaults remain off pending full framework/sample acceptance. The owned
+-O3. The [local framework/sample profile passes](package-size.md#checked-c-size-profile-result);
+defaults remain off pending hosted profile acceptance. The owned
 null-deallocation adapter in [ADR 0058](../architecture/0058-null-safe-execution-context-deallocation.md)
 keeps moved-from execution-context cleanup safe under this compilation mode.
 Helpers and resources currently come from the companion Ladybird build/bundle; this is a

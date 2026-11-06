@@ -2049,6 +2049,41 @@ The obsolete f1a90a9 Windows run 42134116438 was cancelled because it predates t
 confirmed DbgHelp annotation fix and would repeat the same known compile failure;
 the corrected 5b612ed run 42134241990 is now live. The prior failure remains recorded.
 
+## Accepted local size-profile package (2026-11-06)
+
+The size renderer is now reconfigured/relinked with ExecutionContextAdapter.cpp;
+the generated-command guard checks all 2894 C++ commands. All four native gates
+pass in build/size-firefly-test.log: Firefly/Electron, renderer/compositor/process,
+isolation and registered-helper security. The real Designer workflow passes both
+before packaging and through the relocated .app launcher, including edit/round-trip,
+Monaco, fixed-action capability rejection, observed minimize and HTML close:
+build/size-designer-test.log and build/size-designer-relocated-test.log.
+
+The clean 5625bfb local package at build/designer-size-experiment is version
+0.1.0-size.1, Release/Release, C++ size ON (-Oz), LTO OFF, production bundled assets
+and stripped symbols. Strict ad-hoc signatures and all 7190 file hashes verify.
+Framework is 212,568,119 bytes (202.72 MiB), Designer 248,359,227 (236.85 MiB):
+13,189,175 bytes / 12.58 MiB below the earlier default 004b7fe candidate (5.84% /
+5.04%). Executables -591,136, libraries -12,568,032 (LibWeb -8,979,552), notice
+archives -30,007. App/resource byte counts and helper inventory stay unchanged;
+Rust notice inventories and all 19 fallback source-archive payloads match.
+This compares recorded candidate commits, not identical-source A/B or performance.
+No feature or required notice is removed. Hosted profile/default changes remain
+pending; the package is not a published alpha.
+
+Linux 42134116536 at f1a90a9 (job 127618157946) also completes successfully:
+38/38 tests in 20.96s, including the new SDK null-deallocation regression, CLI
+examples, normal system-only ELF linkage and upstream integrity. This accepts the
+adapter under default Linux Release, not the untested Linux size profile. Windows
+42134241990 (job 127619613442) is now terminal failure: 7/38 suites pass, including
+the SDK probe's real VM/realm construction and null/moved-owner cleanup. Thus the
+remaining full-Mite startup fault is not proof that basic engine construction fails.
+The corrected reporter's deliberate-fault control produces symbolized frames;
+actual Mite startup executes address zero (0xc0000005). Its first reporter cannot
+unwind a zero PC; collect a bounded caller candidate before guessing a runtime fix.
+macOS 42125911196 remains live in the full release step. Site validation passes
+101 pages / 5248 local links/resources/fragments.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

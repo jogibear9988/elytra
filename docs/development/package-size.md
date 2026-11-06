@@ -72,7 +72,7 @@ link closure alone does not prove optional runtime loads are unnecessary.
 
 - Evaluate LTO and size-oriented native/Rust compiler settings against this measured
   baseline. The owned renderer/release drivers now accept --lto; release defaults
-  remain off pending framework/sample validation. Local macOS C++ ThinLTO reduces
+  remain off; the full local result below shows a framework size increase. Local macOS C++ ThinLTO reduces
   the standalone unstripped Mite CLI from 51,286,136 to 50,675,688 bytes (610,448
   bytes, about 596 KiB), with all 37 runtime tests passing. This is not a measured
   reduction of the framework yet. Linker dead stripping is already enabled.
@@ -90,8 +90,8 @@ MSVC-compatible drivers) profile independently of LTO. Rust and prebuilt
 dependencies are unchanged. With the null-deallocation adapter in
 [ADR 0058](../architecture/0058-null-safe-execution-context-deallocation.md), the
 local CLI passes 38 tests and measures 50,793,784 unstripped bytes, versus the
-51,286,136-byte non-LTO baseline. The complete framework/sample result is still
-pending; defaults stay off. See
+51,286,136-byte non-LTO baseline. The complete local framework/sample result below
+also passes; hosted profile acceptance is still pending and defaults stay off. See
 [ADR 0059](../architecture/0059-explicit-cpp-size-profile.md) for scope and guards.
 
 Unicode data cannot simply be removed while retaining the same Intl/text behavior.
@@ -128,6 +128,39 @@ framework-size optimization on this host. No runtime performance conclusion is
 drawn. The candidate lives in build/designer-lto-experiment; it is not a published
 alpha. Next experiments should measure size-oriented compilation or deliberate
 shared crypto linkage, without removing supported Unicode/resources or helpers.
+
+## Checked C++ size-profile result
+
+The clean local 0.1.0-size.1 candidate at 5625bfb uses the same Ladybird pin,
+Release/Release, production bundled assets and stripped symbols. C++ size
+optimization is ON (-Oz) for both projects and LTO is OFF. The adapted renderer
+passes Firefly/Electron, compositor/process, isolation and helper gates. The real
+Designer edit/Monaco/HTML window controls pass before packaging and again through
+the relocated .app launcher. All 7190 file hashes and strict ad-hoc signatures
+verify. This is a local tested candidate, not a hosted release.
+
+| Recorded local candidate | Framework | Designer |
+| --- | ---: | ---: |
+| Default Release, 004b7fe | 215.30 MiB | 249.43 MiB |
+| C++ LTO, a377d04 | 216.72 MiB | 250.86 MiB |
+| C++ size profile, 5625bfb | **202.72 MiB** | **236.85 MiB** |
+
+The size-profile package contains 212,568,119 framework bytes and 248,359,227
+Designer bytes. That is 13,189,175 bytes (12.58 MiB) below the earlier default
+candidate: 5.84% of the framework, 5.04% of Designer. Native executables shrink
+591,136 bytes and shared libraries 12,568,032 bytes, including 8,979,552 from
+LibWeb. Application/resource bytes and helper inventory are unchanged. Notice
+archives differ by 30,007 bytes; the same Rust inventory and all 19 fallback
+source-archive payloads are retained.
+
+As above, this compares recorded candidates with different source IDs, including
+the intervening null-deallocation integration fix. It is not an identical-commit
+A/B benchmark, performance/memory claim or complete compatibility certification.
+No supported feature, Unicode policy, resource or helper was removed by the profile.
+The working app is at build/designer-size-experiment/Web Component Designer.app.
+Use --optimize-size for the explicit local/manual hosted experiment; defaults remain
+off until native hosted profile acceptance. Windows profile/runtime and desktop
+Linux/Windows packaging remain separate work.
 
 ## Repeat a measurement
 

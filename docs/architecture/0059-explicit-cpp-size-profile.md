@@ -1,6 +1,7 @@
 # ADR 0059: explicit C++ size optimization profile
 
-Status: local Mite profile tested; full framework size and native acceptance pending.
+Status: local macOS Mite/framework/Designer profile tested; hosted profile and
+Windows/Linux profile acceptance pending.
 
 C++ LTO increased the measured local framework size (package-size.md), so it
 remains optional and off by default. The next experiment uses size-focused C++
@@ -20,7 +21,9 @@ operation and security tests. Combining flags requires its own native validation
 
 Local macOS size compilation uncovered the null-deallocation SDK issue fixed by
 ADR 0058. Mite then passes 38 tests; the initial failing build is retained as
-negative evidence. The renderer rebuild remains live and must be reconfigured to
-include that adapter before final acceptance. No size or speed benefit is claimed
-for the complete framework until actual stripped package measurement. Windows /
-Linux profile configurations have not been certified by the macOS tests.
+negative evidence. The renderer was reconfigured/relinked with the adapter and
+passes the full native/security/helper gates, plus real Designer tests before/after
+packaging. The [measured package](../development/package-size.md#checked-c-size-profile-result)
+is 202.72 MiB framework / 236.85 MiB Designer, below the earlier default candidates.
+No speed claim is made. Windows/Linux profile configurations and hosted packaging
+have not been certified by the local macOS tests.

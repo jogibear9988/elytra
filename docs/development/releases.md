@@ -82,7 +82,8 @@ The separate --optimize-size experiment applies a checked C++ size flag after
 upstream Release optimization options. Rust/dependency profiles are unchanged;
 cppSizeOptimization records each project's enabled setting/flag in BUILD.json.
 The generated-command guard must confirm the size flag actually takes precedence.
-Full framework/sample acceptance is pending, so this also defaults off. Combining
+Local framework/sample acceptance passes; hosted profile acceptance is pending,
+so this also defaults off. Combining
 --lto and --optimize-size requires its own native validation; no size/performance
 claim follows merely from selecting either flag.
 
