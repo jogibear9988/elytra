@@ -3776,7 +3776,15 @@ function installWebGlobals(host) {
   })) {
     Object.defineProperty(globalThis, name, { value, writable: true, configurable: true });
   }
-  return { abort: hooks, streams: { ...ponyfill_exports } };
+  return {
+    abort: hooks,
+    streams: { ...ponyfill_exports },
+    streamState: {
+      // Pinned web-streams-polyfill 4.5.1 stores disturbance here. Keep this
+      // provider-specific detail behind a private host hook, never a public API.
+      isDisturbed: (stream) => stream._disturbed === true
+    }
+  };
 }
 
 const factory=module.exports.default;return factory(host);

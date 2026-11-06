@@ -173,6 +173,9 @@ if(BUILD_TESTING)
         NAME mite-web-adapters
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_adapters.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-fetch
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fetch.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-runtime-line-endings
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_runtime_line_endings.py")

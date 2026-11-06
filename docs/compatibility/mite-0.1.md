@@ -4,10 +4,11 @@ This is a versioned inventory, not a claim of general Node.js compatibility.
 Statuses describe this repository, not upstream LibJS's language conformance.
 The behavioral oracle is Node v24.15.0. Native macOS ARM64 tests and the
 [Linux](../development/linux-build.md) and [Windows](../development/windows-build.md)
-x64 default Release gates at 745c7af pass all 43 enabled runtime suites. This is
+x64 default Release gates at dc3308b pass all 55 enabled runtime suites. The newer
+Fetch slice has local macOS validation and needs fresh hosted acceptance. This is
 scoped acceptance of the documented subset, not full Node compatibility, desktop
-support or untested SDK/compiler profiles. Earlier pending platform notes below
-refer to additional coverage beyond those measured suites.
+support or untested SDK/compiler profiles. Earlier pending platform notes are superseded for workflows in that baseline;
+additional unmeasured platform coverage remains open.
 
 | Surface | Status | Scope / known difference |
 | --- | --- | --- |
@@ -52,8 +53,8 @@ refer to additional coverage beyond those measured suites.
 | Hash policies | intentional difference | outputLength above the 2 GiB-minus-one Buffer limit explicitly unsupported; negative zero normalizes safely and invalid object-mode stream chunks report JS errors instead of Node 24.15 native asserts. No provider/FIPS/zeroization/security-audit parity claimed |
 | Crypto random policies | intentional difference | UUID entropy is uncached for either option value; nonempty async callback strict receiver is undefined rather than Node's internal job. Provider errors use uv status metadata; no full error/FIPS/zeroization/security-audit parity claimed |
 | node:https client | partial | Shared HTTP request/response classes over verified TLS; default 443, SNI/Host, DNS/IP/IPv6, TLS options, framing/upload/trailers, paused body, GC and cancellation tested locally on macOS. Independent Python TLS/plaintext peers enforce protocol selection and failure. Agents, HTTPS servers, custom factories, HTTP/2 and complete native platform acceptance remain pending. [Contract](../api/https.md) |
-| fetch | unsupported | Not installed as a global |
-| Web Streams / node:stream/web | partial | Pinned web-streams-polyfill 4.5.1 on LibJS; shared global/CJS/ESM constructors, readable/writable pressure, iteration/from, transform/flush/errors, pipe errors/signals/prevention, byte BYOB transfer/detachment and tee isolation/cancellation tested locally on macOS against Node 24.15.0. Primitive baseline a5441d9 passes hosted Linux x64 (54 suites); fresh Windows/bridge acceptance, full WPT, encoding/compression streams and transferable streams remain pending; owned Node-stream bridges have their own [tested partial contract](../api/stream.md). [Contract](../api/web-streams.md) |
+| fetch / Headers / Request / Response | partial | Native HTTP/verified HTTPS globals; headers/body snapshots, direct consumption/clone/transfer, JSON/bytes, streaming upload/BYOB response, redirect modes/replay/cross-origin credential stripping, trust refusal and abort/cancel tested locally on macOS against Node 24.15 with independent peers. Manual system-trust HTTPS probe returns 200. Fresh hosted acceptance, decompression, Blob/FormData, integrity/cache/referrer policy, custom trust/dispatchers/pooling and full WPT/GC/binding parity remain open. [Contract](../api/fetch.md) |
+| Web Streams / node:stream/web | partial | Pinned web-streams-polyfill 4.5.1 on LibJS; shared global/CJS/ESM constructors, readable/writable pressure, iteration/from, transform/flush/errors, pipe errors/signals/prevention, byte BYOB transfer/detachment and tee isolation/cancellation tested locally on macOS against Node 24.15.0. Primitive/bridge baseline dc3308b passes hosted Linux and Windows x64 (55 suites); full WPT, encoding/compression streams and transferable streams remain pending; owned Node-stream bridges have their own [tested partial contract](../api/stream.md). [Contract](../api/web-streams.md) |
 | Builtin module loading | partial | Shared CommonJS objects and node: ESM identities/named exports; require.resolve identifiers and node: cache bypass tested; syncBuiltinESMExports unsupported |
 | node:events | partial | EventEmitter ordering/once/prepend/removal, mutation snapshots, hooks, symbols, errorMonitor/errors, counts/limits and Promise once tested; captureRejections=true and AbortSignal options reject explicitly; EventTarget is a separate portable global; async iterators/async hooks absent |
 | MaxListeners warnings | intentional difference | Emitted via a microtask with simplified stderr formatting; no process warning event or nextTick phase yet |

@@ -13,7 +13,7 @@ and compatibility matrices distinguish partial behavior from absent APIs.
 | Module cannot be resolved | Inspect explicit relative extensions, package type/exports/imports and node_modules layout; reduce to one specifier |
 | Named CommonJS import is missing | Consume its default/module.exports value; static named CJS detection is unsupported |
 | A built-in property is undefined | Check the implemented export surface; whole-module Node parity is not promised |
-| `fetch`, child_process or TLS call is absent | These are not implemented; check the roadmap rather than using a silent substitute |
+| Fetch/child_process/TLS mode rejects | Check the [Fetch](../api/fetch.md), [process](../api/child-process.md) or [TLS](../api/tls.md) partial contract; compression, execution modes and TLS options have explicit limits |
 | Console output is `[object Object]` | Node object inspection is absent; use an intentional JSON/string diagnostic |
 | Process stays alive | Close servers/sockets/handles and inspect referenced timers/work; see async/resource lifetime |
 | Program exits before an unref timer runs | An unreferenced timer alone does not keep the event loop alive |

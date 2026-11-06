@@ -4067,6 +4067,81 @@ need further work. Fetch/Request/Response/Headers remain absent. Keep the larger
 specification active; proceed with incremental body/fetch objects on these
 verified transport boundaries and remaining native desktop/platform services.
 
+## Fetch objects and native incremental HTTP(S) (2026-11-06)
+
+Install fetch, Headers, Request and Response globals through an owned ESM factory
+split into headers/body/objects/transport modules under bootstrap/fetch. Native
+loader hooks supply original Web constructors, private signal and disturbance
+state, URL/encoding/Buffer and lazy HTTP/HTTPS/stream resolution. Standalone Mite
+still embeds LibJS alone: no Node/V8/LibWeb, new npm dependency or upstream edits.
+
+Headers preserve normalized lists, Cookie/Set-Cookie behavior and immutable
+network/static-response guards. Body inputs snapshot bytes/text/URLSearchParams;
+stream bodies remain incremental. Consumption, direct reads, cancellation,
+tee-clone and Request ownership transfer observe actual disturbance. Network
+responses support BYOB, including the explicit zero-byte EOF response needed to
+settle pending BYOB reads. Convenience methods text/json/arrayBuffer/bytes collect
+only when requested. Blob/FormData consumers reject explicitly.
+
+Fetch uses existing verified HTTP/HTTPS transport, one connection per request,
+byte-counted response pressure, streamed uploads, HTTP failure responses,
+redirect follow/manual/error with a 20-hop limit, method/body rewrites, replay of
+snapshotted bodies and cross-origin credential stripping. Private signals cancel
+upload/native transport/response ownership; pre-aborted POST also cancels its
+producer without an HTTP request. Completed early responses cancel unfinished
+uploads. Reject compressed responses rather than misrepresent encoded bytes as
+text; default Accept-Encoding is identity. Custom agents/dispatchers, unavailable
+browser/cache/referrer/integrity modes and URL/port violations fail explicitly.
+
+Validation:
+- All 56 standalone CTests pass in 52.30 seconds (fetch-all-tests.log), including
+  native TLS/HTTPS, GC/embedding, streams/process/filesystem and source/license/
+  checkout gates. This follows the additional pre-aborted-upload ownership fix.
+- New actual Node 24.15.0/Mite differential suite covers 12 object and 13 independent
+  network workflows: header lists/guards, body snapshots/decoding/JSON, statuses,
+  clone/direct read/cancel/transfer, signal followers, URL/method metadata,
+  one-MiB incremental BYOB response behind a server barrier, 256-KiB streamed
+  upload, all redirect modes/replay/credentials, truncation/limits, pre/header/body
+  abort and peer-observed cancellation before eight MiB of a 64-MiB body can pass.
+  Terminal markers reject silently unsettled programs. Public ESM client example
+  also runs unchanged under both runtimes.
+- Three explicit Node differences remain visible: Node decompresses gzip, Mite
+  rejects unavailable compression; Node can stay pending when a public source
+  abort listener stops propagation, Mite's private subscriptions cancel; Node can
+  defer early-response producer cancellation behind a pending pull, Mite cancels
+  immediately. Eleven unavailable API/options and three URL guards reject explicitly.
+- Independent TLS peer observes ClientHello and zero HTTP application data on
+  DEPTH_ZERO_SELF_SIGNED_CERT refusal under Node and Mite. Manual system-trust
+  https://example.com probe returns 200. A final authority test ignores caller Host
+  headers on the wire, matching observed Node behavior, so SNI/verification derive
+  from URL. With Host deliberately wrong, Mite still returns URL-authorized HTTPS
+  200 / 577 bytes (fetch-public-https.log). This external probe is not a hosted gate.
+- After that final Host correction, targeted Fetch/runtime-artifact/portable-checkout
+  CTests pass 3/3 in 2.19 seconds (fetch-final-tests.log). Independent HTTP peer
+  explicitly checks URL-derived Host. Other existing runtime behavior is unchanged.
+- Firefly compiles with final embedded sources (fetch-firefly-build.log). Existing
+  local OpenSSL deployment-target warnings persist; this does not establish older
+  macOS deployment. No local GUI apps/tests are launched.
+- Both generators reproduce; runtime/Firefly/upstream integrity and actionlint pass.
+  Final style passes 110 Python, 499 JS/web/config, 133 native and 14 CMake sources
+  plus Rust. Site validates 163 pages / 10410 links before this progress entry;
+  final site validation is run before commit. Add detailed Fetch reference, ESM
+  sample, updated current API/compatibility/troubleshooting and ADR 0083.
+- Previous dc3308b stream/HTTPS baseline now passes all 55 hosted suites on Linux
+  x64 (run 42222081557, job 127906340591, 59.29 seconds) and native Windows x64
+  (run 42222081782, job 127906398350, 99.26 seconds), including Web bridges. Its
+  style/Pages also pass. Update those baseline docs without claiming this newer
+  Fetch slice already has hosted acceptance. Optimized macOS 42222097652 remains
+  pending; preserve running builds. No new alpha is published by this commit.
+
+Remaining: decompression, Blob/File/FormData, trust/proxy/pooling configuration,
+cache/referrer/integrity/browser security policy, exhaustive WebIDL/WPT and
+abort/redirect/GC/half-close coverage. Native Fetch hosted acceptance is still
+required. Continue toward practical runtime/npm coverage and the remaining desktop
+IPC/services, native Windows/Linux backend/distribution/security requirements;
+the full product specification is not complete. Overall goal stays active and
+local GUI acceptance remains infrequent/batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

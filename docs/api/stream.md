@@ -2,8 +2,8 @@
 
 Status: partial. The runtime uses pinned readable-stream 4.7.0 with owned ESM
 adapters to the realm's [Web Stream classes](web-streams.md). Conversion is tested
-locally on macOS against Node 24.15.0. Fresh Linux/Windows bridge acceptance remains
-pending. All of this runs in standalone Mite and Firefly's main process without
+locally on macOS against Node 24.15.0. Baseline dc3308b also passes all 55
+hosted suites on Linux x64 and Windows x64, including these bridges. All of this runs in standalone Mite and Firefly's main process without
 Node, V8 or LibWeb.
 
 The existing Node stream subset includes Readable, Writable, Duplex, Transform,
@@ -128,9 +128,9 @@ Writable.toWeb(ClientRequest), with exact peer-side byte validation. A separate
 held response is cancelled after its first block; the peer must observe connection
 failure instead of accepting the remaining body. Actual Node and Mite both pass.
 
-No fetch/Request/Response/Headers, filesystem stream factories, worker transfer,
-full mixed Web/Node pipeline/finished integration or arbitrary legacy stream parity
-is claimed. Native TLS bridge pressure/closure stress and every half-close/race/GC
+[Fetch/Request/Response/Headers](fetch.md) now use these bridges. Filesystem stream
+factories, worker transfer, full mixed Web/Node pipeline/finished integration and arbitrary legacy stream parity
+remain open. Native TLS bridge pressure/closure stress and every half-close/race/GC
 boundary still require more coverage. These bridge tests are not full Web Platform
 Tests or a complete Node stream conformance suite.
 

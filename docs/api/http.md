@@ -135,7 +135,8 @@ See the [cancellation example](../../examples/mite-http/cancellation.mjs),
 ## Differences and remaining work
 
 Default connections close after each response, unlike Node's reusable default
-agent. Agent/globalAgent, fetch, redirects, tunneling and upgrades remain absent.
+agent. Agent/globalAgent, direct HTTP-helper redirects, tunneling and upgrades remain
+absent. Global [Fetch](fetch.md) supplies its own redirect/body layer.
 [node:https](https.md) now provides the shared client over verified native TLS;
 node:http continues to reject https: inputs rather than changing transports. Error text, all event timing/option/header
 parity and every stream edge case are not certified. The client uses the existing

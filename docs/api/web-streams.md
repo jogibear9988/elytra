@@ -1,9 +1,10 @@
 # Web Streams
 
 Status: partial, tested locally with standalone Mite on macOS against Node 24.15.0.
-The primitive baseline also passes hosted Linux x64 (a5441d9, 54 suites);
-fresh Windows acceptance and the newer bridge changes remain pending. This supplies stream primitives;
-`fetch`, Request, Response and Headers are still absent.
+The primitive/bridge baseline dc3308b also passes all 55 hosted suites on Linux
+x64 and Windows x64. Fresh Fetch acceptance remains pending. This supplies stream primitives;
+global [Fetch, Request, Response and Headers](fetch.md) now have a partial
+transport/body implementation.
 
 The Mite CLI and Firefly main process expose the same constructors through globals,
 CommonJS `require('node:stream/web')` and ESM imports. Changing a writable global
@@ -117,7 +118,8 @@ are absent. Missing exports fail ordinary API/import checks. Readable, Writable
 and Duplex `toWeb`/`fromWeb` now have owned adapters; see [Node/Web stream
 bridges](stream.md). Independent HTTP tests cover incremental responses, streamed
 uploads and cancellation. Filesystem Web Stream factories, transferable streams/
-postMessage, worker integration and fetch body objects remain absent.
+postMessage and worker integration remain absent. [Fetch body objects](fetch.md)
+have a separate tested partial contract.
 
 References: [Node 24.15 Web Streams API](https://nodejs.org/download/release/v24.15.0/docs/api/webstreams.html),
 [portable implementation](https://github.com/MattiasBuelens/web-streams-polyfill).

@@ -20,11 +20,12 @@
     "timers_promises.js": "d3c761054a1bf7bd0015f4b79db7c293a2fa5c4717599b4c7ceef04328cbb510",
     "tls.js": "9b895eefc08508fe1f0a6b23dddf1e0ad3d0090d6ad473ae08058b32d214c1fb",
     "https.js": "2f734a0a3daef5a1bab61cf6b500e91839e1e40be172210bbdda673ebafeb2cb",
+    "fetch.js": "9993b16d56e622fbedacbb0cad733754ab55d4daaa2806b18c715e39820f571c",
     "string-decoder.js": "8aa0f9a948b94bd157b8683f0a2e1e6b7280e6634d81f1695f20cdcff8ca60e4",
     "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
     "stream.js": "c558112991e695b043ed7fc2d4e27dc08aa7f45f849125d78e9f478c8024a20a",
     "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
-    "web-globals.js": "1a3534942c1796ff341d8976544977f653c3c234659cae8bf4d9ca8f2ca97bbd",
+    "web-globals.js": "ac265e495f6f1b923d0da5723b89fb43d8870d5a90c619370e970c4df84f48f8",
     "web-globals.LICENSE.txt": "eb3ca84ead2bd450fd4ecd2e1d1940fc4aa0b833052066d80f6c31d65646339e"
   },
   "bundles": {
@@ -242,7 +243,7 @@
         },
         {
           "path": "web-globals-entry.mjs",
-          "sha256": "554f5aabb33f1c32f23eb8a4617d5f7d821ce387b2891a9ef1db5e795e7c8ce4"
+          "sha256": "ff24d9796a49b6f17d9cbede30566367bdfc221b44f29f00c9c8243be280b14d"
         }
       ],
       "packages": [
@@ -275,7 +276,7 @@
   },
   "sources": {
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",
-    "tooling/runtime-js/modules.json": "e1de15b59c0b12d6c6694bcf4ecf7f9a46c38c2529187594480c390c776a4b15",
+    "tooling/runtime-js/modules.json": "bb61e2ec8914179b87fb61dcda51b2159e2f89172de485381e0bd2669b3ed8b4",
     "mite/modules/core/events.mjs": "812b26cd270bb5feffe1e743628144d5edd7ce31ccee458b252896c7a3b4fcb2",
     "mite/modules/core/process.mjs": "df42d34258352a5714e697824157f567e657cf4e283e001759a2abff966d3244",
     "mite/modules/core/path.mjs": "9f5a527f113a86d14ceaeeb065392853fee9deb3d536c909ce95d0471a53d6dd",
@@ -296,6 +297,11 @@
     "mite/modules/core/timers-promises.mjs": "89a1b8d2c033df96d01d52cfd022831080ce62cda01e6db214905aca3f6afe6a",
     "mite/modules/network/tls.mjs": "d1a08bad64c022699a75d698ae77f8025da25f18c9e0f7622a9c8dbd45ad1dee",
     "mite/modules/network/https.mjs": "76a60a5d3412afd92b556a36a8aa676458263acb4ae51c2a618246fe31ead4b8",
+    "mite/runtime/bootstrap/fetch/body.mjs": "17fe54907fa388b935709755b25deb6f555ba12822e3b0b1799e2481993b8598",
+    "mite/runtime/bootstrap/fetch/headers.mjs": "5aa00c0ec12e59fa874fc0a6fa23549f1b63d452f9f0cd79b6e22d27c4c9efa0",
+    "mite/runtime/bootstrap/fetch/index.mjs": "84b0eb445003ff3620d25cd401f8f48a144bdb530e264b2cd68f15b813e36cee",
+    "mite/runtime/bootstrap/fetch/objects.mjs": "4775831ff311eb973a4ad18c8761fce0986decad96ec4967ed398576fb1457c9",
+    "mite/runtime/bootstrap/fetch/transport.mjs": "181ff2b3b1fcd96f5dbd737702d858e520572967d11762f016c239c87c3f07ec",
     "tooling/runtime-js/string-decoder-entry.mjs": "78387bd4b0d7fc0807ec76660e9c37221eb790ee44669ccf9950fa69d154fdfb",
     "mite/runtime/bootstrap/streams/web-adapters.mjs": "9eb9c66da5090af8d93a713c3a7a16b54731af9287fff206879775dfd66f4538",
     "tooling/runtime-js/stream-entry.mjs": "57dae20a3545d1d5f4106a292e13de134bf2259fd0a0728d2a4a1d1ae20c2ee4",
@@ -303,6 +309,6 @@
     "mite/runtime/bootstrap/web/abort.mjs": "9bd4d9802991ed008bcc5eed00ded5f4ca7a17576e02f5c05b9c2b55344f2e90",
     "mite/runtime/bootstrap/web/dom-exception.mjs": "0f479aac7511003455ec6e32161a8ba30a9337b108d6695908bbf7870656d996",
     "mite/runtime/bootstrap/web/weak-lifetime.mjs": "ce3c0110ebc190a75d29e68d3bdb703166f52471a1755df4ee919a03d1375d08",
-    "tooling/runtime-js/web-globals-entry.mjs": "554f5aabb33f1c32f23eb8a4617d5f7d821ce387b2891a9ef1db5e795e7c8ce4"
+    "tooling/runtime-js/web-globals-entry.mjs": "ff24d9796a49b6f17d9cbede30566367bdfc221b44f29f00c9c8243be280b14d"
   }
 }

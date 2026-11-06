@@ -136,6 +136,7 @@ private:
     std::unordered_set<void const*> m_builtin_shims;
     GC::Root<JS::Object> m_abort_hooks;
     GC::Root<JS::Object> m_web_streams;
+    GC::Root<JS::Object> m_web_stream_state;
     GC::Root<JS::Object> m_http_client_hooks;
     GC::Root<JS::Object> m_tls_client_hooks;
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;

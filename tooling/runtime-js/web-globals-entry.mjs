@@ -53,5 +53,13 @@ export default function installWebGlobals(host) {
   }
   // Keep the module's original constructors alive independently of writable globals.
   // Copies avoid exposing esbuild's internal namespace getters to application code.
-  return { abort: hooks, streams: { ...streams } };
+  return {
+    abort: hooks,
+    streams: { ...streams },
+    streamState: {
+      // Pinned web-streams-polyfill 4.5.1 stores disturbance here. Keep this
+      // provider-specific detail behind a private host hook, never a public API.
+      isDisturbed: (stream) => stream._disturbed === true
+    }
+  };
 }

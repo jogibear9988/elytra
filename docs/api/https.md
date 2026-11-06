@@ -80,7 +80,8 @@ close; response abortion is sequenced after that error.
 - A plaintext peer receives ClientHello, never an HTTP request. Node 24 wraps this
   failed negotiation as EPROTO; Mite preserves ERR_SSL_WRONG_VERSION_NUMBER. The
   independent wire test asserts both actual codes separately.
-- There are no redirects, decompression or global fetch here. HTTPS simply streams
+- Direct HTTPS helpers do not redirect or decompress; [global Fetch](fetch.md)
+  supplies a separate body/redirect layer. HTTPS simply streams
   response bytes and status/headers. Complete Node option/error/platform parity is
   not claimed.
 

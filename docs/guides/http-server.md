@@ -1,7 +1,8 @@
 # Run an HTTP server
 
 Mite implements a partial Node-style HTTP server on its native TCP/runtime loop.
-Client HTTP APIs, HTTPS/TLS, upgrades and fetch remain unsupported. Run this guide
+Client [HTTP](../api/http.md), [HTTPS/TLS](../api/https.md) and
+[Fetch](../api/fetch.md) have separate partial contracts; upgrades remain unsupported. Run this guide
 with a native Mite build; [getting started](../getting-started.md) covers prerequisites.
 
 ## Start the repository example

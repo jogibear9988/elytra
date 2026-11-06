@@ -424,6 +424,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     VERIFY(hooks.is_object() && streams.is_object());
     m_abort_hooks = hooks.as_object();
     m_web_streams = streams.as_object();
+    auto stream_state = TRY(installed->get("streamState"_utf16));
+    VERIFY(stream_state.is_object());
+    m_web_stream_state = stream_state.as_object();
     // Capture original timer functions before application code can replace globals.
     TRY(builtin("timers"));
     auto buffer = TRY(builtin("buffer"));
@@ -440,6 +443,44 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
         "TextEncoder"_utf16, TRY(util->get("TextEncoder"_utf16)), JS::default_attributes);
     m_realm.global_object().define_direct_property(
         "TextDecoder"_utf16, TRY(util->get("TextDecoder"_utf16)), JS::default_attributes);
+    auto parsed_fetch = JS::Script::parse(
+        Utf16String::from_utf8(StringView(MITE_FETCH_SOURCE, sizeof(MITE_FETCH_SOURCE) - 1)),
+        m_realm, "mite:fetch"sv);
+    VERIFY(!parsed_fetch.is_error());
+    GC::Root fetch_script { parsed_fetch.release_value() };
+    auto fetch_initializer = TRY(m_vm.run(*fetch_script));
+    VERIFY(fetch_initializer.is_function());
+    GC::Root fetch_factory { fetch_initializer.as_function() };
+    GC::Root fetch_host { JS::Object::create(m_realm, nullptr) };
+    fetch_host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+    fetch_host->define_direct_property(
+        "webStreams"_utf16, m_web_streams.ptr(), JS::default_attributes);
+    fetch_host->define_direct_property(
+        "streamState"_utf16, m_web_stream_state.ptr(), JS::default_attributes);
+    fetch_host->define_direct_property("Buffer"_utf16, constructor, JS::default_attributes);
+    for (auto name : { "URL"_utf16, "URLSearchParams"_utf16 })
+        fetch_host->define_direct_property(name, TRY(url->get(name)), JS::default_attributes);
+    for (auto name : { "TextEncoder"_utf16, "TextDecoder"_utf16 })
+        fetch_host->define_direct_property(name, TRY(util->get(name)), JS::default_attributes);
+    // Transport modules stay lazy: Headers/Response-only programs need no sockets.
+    fetch_host->define_native_function(
+        m_realm, "require"_utf16,
+        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto name = TRY(vm.argument(0).to_utf16_string(vm));
+            auto bytes = MUST(name.utf16_view().to_byte_string());
+            auto module = string(bytes);
+            if (module != "node:http" && module != "node:https" && module != "node:stream")
+                return error(
+                    "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
+            return TRY(builtin(module.substr(5)));
+        },
+        1, JS::default_attributes);
+    auto fetch_globals = TRY(JS::call(m_vm, *fetch_factory, JS::js_undefined(), fetch_host.ptr()));
+    VERIFY(fetch_globals.is_object());
+    GC::Root fetch_exports { fetch_globals.as_object() };
+    for (auto name : { "Headers"_utf16, "Request"_utf16, "Response"_utf16, "fetch"_utf16 })
+        m_realm.global_object().define_direct_property(name, TRY(fetch_exports->get(name)),
+            JS::Attribute::Writable | JS::Attribute::Configurable);
     return {};
 }
 

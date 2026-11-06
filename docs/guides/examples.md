@@ -14,6 +14,7 @@ covered by dedicated compatibility fixtures. A runnable example does not establi
 | [File copy](../../examples/mite-cli/files.mjs) | Pass a destination that does not exist | Promise filesystem I/O and exclusive creation |
 | [Streams](../../examples/mite-stream/pipeline.mjs) | `build/dev/bin/mite examples/mite-stream/pipeline.mjs` | In-memory pipeline; no filesystem stream claim |
 | [Web/Node stream bridges](../../examples/mite-stream/web-bridge.mjs) | `build/dev/bin/mite examples/mite-stream/web-bridge.mjs` | Web source/sink with a native-host Node Transform; no GUI |
+| [Fetch client](../../examples/mite-fetch/client.mjs) | `build/dev/bin/mite examples/mite-fetch/client.mjs https://example.com` | Incremental native HTTP/HTTPS; see [Fetch limits](../api/fetch.md) |
 | [TCP echo](../../examples/mite-tcp/echo.mjs) | Pass a port; connect with a TCP client | Native socket streams and loopback listening |
 | [HTTP](../../examples/mite-http/server.mjs) | Pass a port; send requests with curl | JSON and streamed POST echo |
 | [Random](../../examples/mite-cli/random.mjs) | `build/dev/bin/mite examples/mite-cli/random.mjs` | Native random bytes and UUIDv4 |

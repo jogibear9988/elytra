@@ -2,7 +2,7 @@
 
 Status: partial native client TLS. Native Linux/Windows CLI baseline 3981a56
 passes the TLS suite as well as local macOS ARM64 acceptance.
-[HTTPS clients](https.md) use this transport; TLS servers and fetch remain unfinished.
+[HTTPS clients](https.md) use this transport; TLS servers remain unfinished; [Fetch](fetch.md) now has a partial native client layer.
 The newer HTTPS-hook and canonical-address changes require fresh Windows/Linux
 acceptance. Mite uses OpenSSL and its existing TCP loop; no Node/V8 or LibWeb
 runtime is embedded.

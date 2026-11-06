@@ -3,8 +3,9 @@
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
 macOS ARM64 plus the scoped [Linux Mite baseline](../development/linux-build.md).
-The [Windows x64 Mite gate](../development/windows-build.md) also passes the
-43-suite runtime subset. Windows/Linux desktop support and distributable releases
+The [Windows x64 Mite gate](../development/windows-build.md) and Linux x64
+pass the 55-suite runtime baseline at dc3308b. The newer Fetch slice has local
+macOS validation and awaits fresh hosted acceptance. Windows/Linux desktop support and distributable releases
 remain work in progress. Use the compatibility matrices to check individual features.
 
 For tutorials, concepts and migration, start at the [documentation home](../index.md).
@@ -34,6 +35,8 @@ The [Web Streams reference](web-streams.md) covers readable/writable/transform
 streams, byte ownership, piping, pressure and current interoperability limits.
 The [Node/Web stream bridge reference](stream.md) describes conversion, endpoint
 ownership, errors and native HTTP integration.
+The [Fetch reference](fetch.md) covers Headers, Request, Response, incremental
+HTTP/HTTPS bodies, redirects, cancellation and unsupported web-platform modes.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 
