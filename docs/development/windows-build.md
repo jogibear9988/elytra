@@ -1,11 +1,12 @@
 # Native Windows bring-up
 
-Full Windows support remains unverified. Native Windows development Actions builds Mite
+The documented Mite runtime subset now passes native Windows CI; full Windows
+Firefly/desktop/package support remains unverified. Native Windows development Actions builds Mite
 on Windows Server 2025 with Visual Studio clang-cl x64, the pinned Rust toolchain
 and pinned vcpkg source/dependencies. No WSL, MinGW compiler or alternate JS engine
 is used as a runtime/build fallback. Node is only the differential test reference.
 
-The first job failed before compilation because the DNS NUL-input fixture had the
+Historical bring-up: the first job failed before compilation because the DNS NUL-input fixture had the
 reserved basename nul.mjs. It is now null-byte.mjs; its contents and assertions are
 unchanged. The next Windows run passed source/submodule checkout and native compiler
 environment setup and reached CMake dependency configuration. This proves those
@@ -273,3 +274,20 @@ strip a Windows drive prefix when resolving POSIX paths. The tests now check the
 observed platform-specific abort status with its exact assertion marker and compute
 the live POSIX cwd without a drive prefix. Mite must still produce the safe result;
 no arbitrary reference crash or runtime mismatch is accepted.
+
+
+## First complete runtime gate
+
+[Run 42155631612](https://github.com/jogibear9988/elytra/actions/runs/42155631612)
+at 745c7af passes native clang-cl x64 Release compilation, startup diagnostics,
+all **43** enabled CTests in **49.23 seconds**, and the post-build Ladybird integrity
+gate. This accepts the tested runtime subset, including canonical module paths,
+raw console bytes, spawn/execFile and detached-child capture. No test timeout or
+output normalization was relaxed. It supersedes the pending acceptance notes above
+for those scoped corrections; it does not prove all Windows edge cases.
+
+The earlier Node-reference DNS custom-lookup native abort did not recur in this
+run. Its root cause is not established; retain the comparison and diagnose any
+recurrence rather than treating unknown native exits as acceptable. This success
+is not native Firefly windows/sandbox, Windows app packaging, an installer or a
+published Windows release. Those requirements remain open.

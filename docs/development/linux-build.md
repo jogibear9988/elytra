@@ -70,3 +70,10 @@ Firefly Linux windows, renderer helper/sandbox integration and distributable
 packages remain separate implementation and native acceptance work. See the
 [renderer build](renderer-build.md), [support policy](../reference/support-policy.md)
 and [progress record](../PROGRESS.md).
+
+
+The latest [run 42155631610](https://github.com/jogibear9988/elytra/actions/runs/42155631610)
+at 745c7af passes all **43** enabled CTests in **32.81 seconds**, native compilation,
+CLI examples and linkage inspection. This extends the measured default Release
+runtime baseline through canonical file URLs, spawn/execFile and child lifecycle
+checks. It does not accept the optional size profile or Firefly Linux desktop.

@@ -2757,6 +2757,24 @@ API/Windows notes and ADR 0062 record scope. Pin/Python/site/diff checks pass;
 site checks 111 pages / 6022 local links. Windows acceptance, the Node DNS native
 reference abort, full hosted M1 packaging and public preload/IPC remain open.
 
+## Hosted Windows and Linux runtime acceptance (2026-11-06)
+
+Revalidate authoritative CI jobs for 745c7af: Windows run 42155631612,
+job 127691083073 passes native clang-cl x64 Release and all 43 CTests in 49.23s;
+Linux run 42155631610, job 127689774212 passes all 43 in 32.81s plus CLI/linkage
+gates. This accepts the measured canonical module URL/metadata, raw console,
+spawn/execFile and detached-parent capture corrections without relaxed timeouts,
+output normalization or skipped comparisons. Prior Node-reference DNS fail-fast
+does not recur; its root cause remains unknown and comparison remains enforced.
+Update runtime platform/API evidence; do not infer Windows/Linux Firefly desktop,
+sandbox, packages, optional size-profile or general Node compatibility.
+
+macOS f3f08b9 run 42144098371/job127654883895 fails renderer Rust ring with the
+known native-target-cpu static feature assertions. That source predates the M1
+baseline fix in 2c0d09c. The 745c7af package run is queued behind its diagnostic
+upload; no manual cancellation/restart and no alpha publication. Hosted packages
+with the baseline fix still need their own acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

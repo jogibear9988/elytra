@@ -3,16 +3,17 @@
 This is a versioned inventory, not a claim of general Node.js compatibility.
 Statuses describe this repository, not upstream LibJS's language conformance.
 The behavioral oracle is Node v24.15.0. Native macOS ARM64 tests and the
-[Linux x64 baseline through d1c9513](../development/linux-build.md) pass the documented
-runtime subset; the d1c9513 Linux run passes all 40 enabled suites plus CLI examples.
-This is not full Node compatibility, Firefly Linux support or acceptance of later
-SDK/compiler-profile changes.
+[Linux](../development/linux-build.md) and [Windows](../development/windows-build.md)
+x64 default Release gates at 745c7af pass all 43 enabled runtime suites. This is
+scoped acceptance of the documented subset, not full Node compatibility, desktop
+support or untested SDK/compiler profiles. Earlier pending platform notes below
+refer to additional coverage beyond those measured suites.
 
 | Surface | Status | Scope / known difference |
 | --- | --- | --- |
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
-| `console.log`, `console.error` | partial | String conversion, space joining and immediate line flush (including pipes); raw LF/CRLF/NUL/SUB/UTF-8 byte checks. Windows CLI binary-output correction awaits native acceptance; no Node object inspection or format substitutions |
+| `console.log`, `console.error` | partial | String conversion, space joining and immediate line flush (including pipes); raw LF/CRLF/NUL/SUB/UTF-8 byte checks. Windows CLI binary-output correction passes native CI; no Node object inspection or format substitutions |
 | `process` / `node:process` | partial | Native cwd/chdir, environment reads/writes/deletes/descriptors, pid/ppid, platform/arch, executable path, argv/argv0, exitCode and immediate exit tested; lifecycle events, stdio streams, signals and hrtime absent |
 | Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
@@ -56,7 +57,7 @@ SDK/compiler-profile changes.
 | Filesystem limits/options | intentional difference | Async writes snapshot data; whole-file read cap 2 GiB minus one with EFBIG; AbortSignal/flush/recursive readdir/rmdir explicitly unsupported; existsSync deprecation warnings absent; numeric scalar write positions above the safe-integer range explicitly unsupported |
 | Fatal errors with pending native work | intentional difference | Flush standard streams and terminate through _Exit; prevents blocked workers hanging fatal shutdown; pending writes may be abandoned. Normal exitCode drains referenced work |
 | node:os | partial | Native identity/hostname/home/temp paths, endianness, available parallelism, memory, uptime/loadavg, EOL/devNull; CJS/ESM identity, named imports, coercions, fresh arrays, live environment precedence and macOS PATH_MAX errors tested. CPU records and null-prototype account data with string/Buffer encodings, option getters and independent native snapshots tested; priority get/set types/ranges/overloads and native own-child mutations tested; native SDK/libuv constants, group descriptors/frozen signals and CJS/ESM constants identity tested. Native Windows, privileged environments and full metadata/error parity unverified (ADRs 0047/0048/0050/0051) |
-| node:child_process | partial | Native spawn/ChildProcess, three stdio slots, byte streams, exit/close/errors, cwd/env/argv0, kill/timeout/ref/unref and detached lifecycle tested locally on macOS and hosted Linux with independent child peers. Callback execFile adds bounded text/binary capture, encoding, failures and timeout; new API hosted acceptance pending. Actual Firefly main child workflows checked. Shells, exec/fork/sync APIs, IPC, AbortSignal, privilege switching, promisify integration and full Socket/stdio error parity absent; hosted Windows acceptance pending (ADRs 0062/0066). |
+| node:child_process | partial | Native spawn/ChildProcess, three stdio slots, byte streams, exit/close/errors, cwd/env/argv0, kill/timeout/ref/unref and detached lifecycle tested locally on macOS and hosted Linux with independent child peers. Callback execFile adds bounded text/binary capture, encoding, failures and timeout; spawn/execFile pass hosted Linux and Windows. Actual Firefly main child workflows checked. Shells, exec/fork/sync APIs, IPC, AbortSignal, privilege switching, promisify integration and full Socket/stdio error parity absent; full Windows process/stdio parity remains incomplete (ADRs 0062/0066). |
 | Other Node built-in modules | unsupported | Except events/process/path/buffer/fs/url/stream/string_decoder/net/dns/os, crypto random/hash APIs, child_process spawn/execFile, HTTP client/server and the util encoding classes, not implemented; known Node v24.15 names fail explicitly even when shadowed by local npm packages |
 | os.networkInterfaces | partial | Native grouped IPv4/IPv6 snapshots, MAC/internal/CIDR and IPv6 scope IDs; real Node comparison, independent CIDR/address checks, 320 mask cases, fresh graphs and CJS/ESM identity tested. Windows, reconfiguration, unusual names/native failures unverified; unknown families reject explicitly (ADR 0049) |
 | OS priority edge cases | intentional difference | Negative-zero PID normalizes to 0 instead of the observed Node 24 native assertion; invalid-argument error formatting avoids hostile property reads instead of propagating formatter getter errors. Exact error inspection/accessors/formatting not compatible (ADR 0050) |

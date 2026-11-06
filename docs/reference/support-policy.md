@@ -20,11 +20,12 @@ Export presence alone does not establish that every mode is supported.
 ## Platform status
 
 Native macOS ARM64 has working builds and the recorded runtime/renderer tests.
-Windows bring-up is ongoing; a successful checkout/compiler setup is not successful
-runtime, renderer, sandbox or package validation. The [Linux Mite baseline](../development/linux-build.md)
-at ff51eab passes all 37 runtime suites and CLI/linkage checks on Ubuntu 24.04 x64;
-it does not validate Firefly, other distributions or later compiler/SDK profiles.
-Lexical Windows path tests on macOS do not establish native Windows I/O behavior.
+The tested Mite subset passes all 43 enabled suites at 745c7af on native
+[Windows clang-cl x64](../development/windows-build.md) and
+[Ubuntu 24.04 Clang 22 x64](../development/linux-build.md). These gates do not
+validate Firefly desktop/sandbox/packages on either platform, arbitrary Linux
+distributions or optional compiler profiles. Lexical path tests alone do not
+establish native filesystem behavior; use the recorded native suite evidence.
 
 Experimental macOS packages are ad-hoc signed and not notarized. Their minimum OS
 version is conservatively the build host; older deployment targets in linker output

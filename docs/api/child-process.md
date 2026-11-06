@@ -1,8 +1,8 @@
 # node:child_process
 
 Partial native process support, locally tested on macOS ARM64 in standalone Mite
-and the Firefly main process. The spawn suite also passes hosted Linux. New
-execFile and Windows corrections still await hosted acceptance. Renderers do not
+and the Firefly main process. The spawn/execFile suites also pass hosted Linux
+and native Windows x64 at 745c7af (43-suite runtime gates). Renderers do not
 receive this privileged API.
 
 ```js
