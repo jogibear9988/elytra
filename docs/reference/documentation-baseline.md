@@ -70,7 +70,7 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 | Family | Current Firefly scope | Next acceptance/reference needs |
 | --- | --- | --- |
 | app / BrowserWindow / webContents | Partial main-process API | Complete documented signatures, options, events, resource lifetime, failures and OS behavior |
-| Preload / contextBridge / ipcMain / ipcRenderer | Public APIs unsupported | Bounded transport, sender/frame validation, capability policy, revocation and malicious-input tests before runnable bridge recipes |
+| Preload / contextBridge / ipcMain / ipcRenderer | [Bounded CommonJS preload/publication reference](../api/context-bridge.md); IPC unsupported | Validated main/renderer transport, sender/frame policy and broader callback/value compatibility remain |
 | dialog / Menu / MenuItem / Tray | Unsupported | Native implementations and practical application examples |
 | clipboard / shell / screen / nativeImage / session | Unsupported | Native services, permission policies, platform differences and migration fixtures |
 | Navigation / frames / protocol / web preferences | Narrow loading/defaults only | Frame/navigation policy, session/network controls and structured option reference |

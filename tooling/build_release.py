@@ -64,6 +64,7 @@ def main():
     if sys.platform!='darwin':raise RuntimeError('Native desktop packaging not implemented for '+sys.platform)
     run('cargo','fetch','--locked','--manifest-path',ROOT/'vendor/ladybird/Cargo.toml')
     run(sys.executable,'tooling/package_macos.py','--mite-build',build,'--output',stage,'--version',version_tag[1:],'--dependencies','production','--symbols','stripped')
+    run(sys.executable,'tooling/test_public_preload.py','--firefly',stage/'Firefly.app/Contents/MacOS/firefly','--electron',ROOT/'build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron')
     packaged=stage/'Web Component Designer.app/Contents'
     run(sys.executable,'tooling/test_designer.py','--mite',stage/'bin/mite','--app',packaged/'Resources/app','--launcher',packaged/'MacOS/Launcher')
     # Separate runtime/framework/sample archives; all include relevant notices.

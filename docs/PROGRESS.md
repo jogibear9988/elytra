@@ -2775,6 +2775,64 @@ baseline fix in 2c0d09c. The 745c7af package run is queued behind its diagnostic
 upload; no manual cancellation/restart and no alpha publication. Hosted packages
 with the baseline fix still need their own acceptance.
 
+## Public CommonJS preloads and production helper (2026-11-06)
+
+Implement BrowserWindow.webPreferences.preload with absolute UTF-8 regular-file
+validation, a construction-time source snapshot and explicit file/type/size errors.
+Limit source to 64 KiB/window, 16 configured windows and 1 MiB aggregate. Bind
+configuration to native view handles. An owned generated Qt WebContentView TU
+adds exactly one preparation hook; pinned source/header hashes, restoration and
+missing/duplicate-seam controls gate configure/build. Ladybird stays unmodified.
+The hook configures newly hosting pages before first script, including process
+replacement; existing hosting pages receive configuration before host loads.
+
+Add a separate production FireflyRuntimeWebContent/ProductSession, without test
+probe APIs. Validate narrow internal session configuration, strip application
+entries before upstream principal-world preload handling, and create protected
+isolated worlds/context publishers for top-level file/http/https documents. Skip
+initial about:blank/child frames. Require only firefly/contextBridge; no process,
+Buffer, filesystem loader or privileged IPC. Copy native metadata before JS entry;
+revoke inactive document worlds and limit active worlds to 32. Every supported
+document loaded into the selected window receives its API; no origin allowlist.
+Syntax/uncaught preload failures deliberately terminate the renderer and reject
+pending loads instead of Electron's preload-error/continue policy. HTTPS-specific
+preload, broader DOM/callback/value compatibility, error parity and IPC remain open.
+
+Select the production helper in development and require it during packaging;
+never ship the diagnostic helper or silently fall back upstream. Preserve physical
+helpers/resources, sandbox entitlements, relative linkage, notices and signatures.
+Update the hello-world with a working isolated data/function preload. Release
+packaging now repeats public preload acceptance against its own app executable.
+Add API reference/ADR 0068 and update current availability/migration/security docs;
+historical internal-gate notes retain their original scope.
+
+Validation: production helper and Qt app compile; all four native Firefly,
+renderer/compositor, SDK isolation and diagnostic-helper gates pass
+(build/public-preload-gates.log). Shared real Electron/Firefly tests cover first
+script, frozen nested APIs/Promise results, three windows, no subframe installation,
+navigation and file-to-HTTP process replacement. Firefly-specific tests cover eight
+constructor failures, exact 64 KiB source acceptance, CommonJS metadata/receiver,
+unsupported require, trap-free argument getter rejection, construction snapshot
+reuse and syntax/throw fail-closed loads (public-preload-test-snapshot.log).
+Standalone Mite code/graph unchanged; 745c7af native 43-suite gates remain its
+runtime evidence rather than a claim of a new standalone feature.
+
+An initial package used the stale build/designer-app and correctly FAILED the
+current Designer controls gate despite editor/Monaco success. Rebuild the pinned
+Designer from source into public-preload-designer-app with production dependencies
+and 19 bundled entries/5 workers; full native Designer controls then pass. Repackage
+fresh, move to build/public-preload current relocated é文, run the public preload
+suite and actual Designer launcher/edit/Monaco/HTML/native controls there. All pass;
+7191 file hashes and both strict ad-hoc app signatures verify
+(build/public-preload-current-relocation.log). These are dirty-source local
+validation artifacts, not a hosted release or new comparable size benchmark.
+Pin/source-adapter/Python/actionlint/diff checks pass. Site validates 113 pages /
+6155 local links/resources/fragments. Hosted macOS 745c7af
+run 42155631670/job127698599246 is now compiling with the M1 baseline correction;
+its final package result remains pending. No alpha published. Native Windows/Linux
+Firefly, privileged IPC, TLS/fetch, desktop services and complete release scope
+remain unfinished; the full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

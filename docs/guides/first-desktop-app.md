@@ -65,8 +65,8 @@ a CSP declaration is not a complete security audit or Chromium feature guarantee
 
 ## Main/renderer communication
 
-Public preload/contextBridge/ipcMain/ipcRenderer are unsupported. Do not add a
-preload option from an Electron tutorial and expect it to work. Use this first app
+A bounded [CommonJS preload/contextBridge](../api/context-bridge.md) is supported;
+the existing hello-world demonstrates it. ipcMain/ipcRenderer remain unsupported. Use this first app
 for browser-only interaction; wait for a validated public bridge before granting
 native capabilities. Read [security](security.md) and [Electron migration](../migration/from-electron.md).
 

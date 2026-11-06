@@ -3,8 +3,9 @@
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
 macOS ARM64 plus the scoped [Linux Mite baseline](../development/linux-build.md).
-Windows runtime, Windows/Linux desktop support and distributable releases remain
-work in progress. Use the compatibility matrices to check individual features.
+The [Windows x64 Mite gate](../development/windows-build.md) also passes the
+43-suite runtime subset. Windows/Linux desktop support and distributable releases
+remain work in progress. Use the compatibility matrices to check individual features.
 
 For tutorials, concepts and migration, start at the [documentation home](../index.md).
 The [documentation baseline](../reference/documentation-baseline.md) tracks reference
@@ -32,7 +33,8 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 [Firefly desktop API](firefly.md) covers app lifecycle, native BrowserWindow,
 webContents, events and errors. Firefly embeds Mite in its main process and uses
 separate Ladybird renderer processes. Detailed entries: [app](app.md),
-[BrowserWindow](browser-window.md) and [webContents](web-contents.md).
+[BrowserWindow](browser-window.md), [webContents](web-contents.md) and
+[preload/contextBridge](context-bridge.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

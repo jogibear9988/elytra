@@ -20,9 +20,10 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
 | webPreferences.sandbox | true only |
+| webPreferences.preload | Absolute path to a bounded UTF-8 CommonJS preload; see [preload/contextBridge](context-bridge.md) |
 
 Unknown window/preferences options and unsafe preference values throw
-ERR_FIREFLY_UNSUPPORTED_API. This includes preload. Invalid types/dimensions throw
+ERR_FIREFLY_UNSUPPORTED_API. Invalid types/dimensions throw
 ERR_INVALID_ARG_TYPE or ERR_INVALID_ARG_VALUE. Construction before readiness throws
 ERR_FIREFLY_NOT_READY; after app exit it throws ERR_FIREFLY_APP_EXITED.
 
@@ -124,8 +125,9 @@ unverified. See [ADR 0055](../architecture/0055-custom-window-chrome.md).
 
 Menus, fullscreen, bounds/position, parent/modal windows, icons,
 platform material/style options and the wider Electron window surface are absent.
-Only constructor options listed above are accepted. Public preload/IPC remain
-unsupported; see [security](../guides/security.md).
+Only constructor options listed above are accepted. Public IPC remains unsupported;
+[preload/contextBridge](context-bridge.md) has a bounded partial implementation.
+See [security](../guides/security.md).
 
 Implementation: [firefly.js](../../firefly/core/firefly.js) and owned native adapter.
 Validation: [Firefly runner](../../tooling/test_firefly.py), including controls,

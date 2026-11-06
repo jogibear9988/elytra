@@ -1,5 +1,9 @@
 # Renderer embedding build
 
+Historical prototype sections below retain their original scope; current public
+[CommonJS preload/contextBridge](../api/context-bridge.md) uses the separate
+production helper described at the end of this page.
+
 The renderer probe is a separate upstream-root build, injected through CMake's
 project-include/deferred-target hooks. It does not modify Ladybird or add
 LibWeb, Qt, or Firefly to the standalone Mite graph.
@@ -134,8 +138,8 @@ codesign --verify --strict build/renderer/FireflyHelper.app/Contents/MacOS/WebCo
 Use the existing configured renderer graph. This builds a separate sandboxed
 WebContent helper with the original bootstrap/service source and our compile
 adapters. Resources are physically staged in FireflyHelper.app; other service
-executables use the development Ladybird build. The normal Firefly app continues
-to use the original helper. No distribution bundle is produced.
+executables use the development Ladybird build. This diagnostic helper is never
+selected by the normal Firefly app or packager. This target produces no distribution bundle.
 
 The gate checks the original helper as a negative control, first author-script
 ordering, isolated globals, frozen data-only copies, srcdoc frames, matching
@@ -216,3 +220,20 @@ the native hook additionally checks the constructor seam. SDK/helper getter test
 cover own/page identity, null, cross-world denial without traps, callable/object
 variants, writer GC and weak TreeWalker/filter collection (ADR 0046). Native
 NodeIterator document retention is not a metadata reclamation claim.
+
+
+## Production application preload helper
+
+Building firefly also builds FireflyRuntimeWebContent, staged at
+build/renderer/FireflyRuntimeHelper.app/Contents/MacOS/WebContent with physical
+resources. It shares the narrow bootstrap/session adapters, but runs ProductSession
+instead of the compiled diagnostic probes. Development helper siblings can be
+symlinks; the packager copies physical executables and preserves helper entitlements.
+
+check-firefly now runs tooling/test_public_preload.py against the actual app and
+pinned Electron. The release driver repeats that suite against the packaged
+Firefly executable before archiving. The hello-world app has a CommonJS preload;
+its published desktop API has no main-process IPC privileges. See the
+[contract](../api/context-bridge.md) and [ADR 0068](../architecture/0068-public-commonjs-preload.md)
+for limits, failure behavior and the pinned Qt preparation hook. Native
+Windows/Linux renderer/package acceptance and broader callback parity remain open.

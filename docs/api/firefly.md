@@ -66,11 +66,11 @@ const window = new BrowserWindow({
 Defaults: width 800, height 600, title Firefly, show true, frame true. Dimensions must be integers
 in 1..16384. frame:false removes the native title bar; [custom chrome](browser-window.md#custom-title-bar-and-dragging)
 uses Electron app-region CSS with documented adapter limits. Only the options
-shown and frame are supported. The three webPreferences values
-can only request their safe defaults. `preload`, nodeIntegration true, sandbox false,
-contextIsolation false and other options explicitly reject with
-ERR_FIREFLY_UNSUPPORTED_API. Public preload/bridge support is not enabled by the
-internal isolated-world research tests.
+shown, frame and an absolute CommonJS preload path are supported. The three boolean
+webPreferences values can only request their safe defaults. nodeIntegration true,
+sandbox false, contextIsolation false and other options explicitly reject with
+ERR_FIREFLY_UNSUPPORTED_API. See [preload/contextBridge](context-bridge.md) for
+source limits, navigation policy and remaining differences.
 
 | Member | Behavior |
 | --- | --- |
@@ -130,10 +130,10 @@ require, process, Buffer or Mite filesystem capabilities; node:fs imports fail.
 Use ordinary browser HTML/CSS/JavaScript for content. Ladybird web-platform coverage
 differs from Chromium and must be checked with the actual application.
 
-Public ipcMain/ipcRenderer, contextBridge and preload remain unsupported. Internal
-SDK/helper tests exercise isolated realms, bounded data copies, revocation, callback
-ownership and selected DOM boundaries; they do not prove a complete security audit
-or make the public APIs available. Do not expose native privileges to page content.
+Public [preload/contextBridge](context-bridge.md) supports bounded CommonJS source
+and frozen data/function publication in a separate realm. ipcMain/ipcRenderer remain
+unsupported. Native SDK/helper tests exercise selected boundaries; they do not
+prove a complete security audit. Do not expose native privileges to page content.
 
 ## Errors and unsupported features
 

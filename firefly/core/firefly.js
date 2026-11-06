@@ -86,14 +86,20 @@
       const prefs=options.webPreferences ?? {};
       if(!prefs || typeof prefs!=='object' || Array.isArray(prefs)) throw error('ERR_INVALID_ARG_TYPE','webPreferences must be an object');
       for(const key of Object.keys(prefs)) {
+        if(key==='preload')continue;
         if(!['contextIsolation','nodeIntegration','sandbox'].includes(key)) unsupported(`webPreferences.${key}`);
         if(prefs[key] !== (key!=='nodeIntegration')) unsupported(`webPreferences.${key}=${prefs[key]}`);
+      }
+      if(prefs.preload!==undefined){
+        if(typeof prefs.preload!=='string')throw error('ERR_INVALID_ARG_TYPE','preload must be a string');
+        if(!paths.isAbsolute(prefs.preload))throw error('ERR_INVALID_ARG_VALUE','preload must be an absolute path');
+        if(paths.extname(prefs.preload)==='.mjs')unsupported('ES module preloads');
       }
       const width=dimension(options.width ?? 800,'width'), height=dimension(options.height ?? 600,'height');
       const title=options.title ?? 'Firefly'; const show=options.show ?? true; const frame=options.frame ?? true;
       if(typeof title!=='string' || typeof show!=='boolean' || typeof frame!=='boolean') throw error('ERR_INVALID_ARG_TYPE','Invalid title/show option');
       this._destroyed=false; this._closing=false;
-      this.id=native.create(width,height,title,show,frame);
+      this.id=native.create(width,height,title,show,frame,prefs.preload);
       this.webContents=new WebContents(this);
       windows.set(this.id,this);
     }

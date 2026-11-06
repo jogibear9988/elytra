@@ -118,9 +118,10 @@ python3 tooling/package_macos.py --mite-build build/release-mite \
 
 It produces bin/mite, a Firefly.app hello-world application and a Web Component
 Designer.app. Each app has a small native Finder launcher, the Firefly executable,
-physical renderer resources, all upstream helper executables and internal dynamic
-libraries. Our Firefly adapter prefers adjacent helpers/resources in that layout;
-the development layout retains its original upstream bundle. There is no source
+physical renderer resources, our production Firefly WebContent helper, the other
+upstream helper executables and internal dynamic libraries. Our Firefly adapter
+prefers adjacent helpers/resources in that layout; development uses the separate
+FireflyRuntimeHelper bundle. Packaging fails if its production WebContent is missing. There is no source
 patch to Ladybird and no working-directory/environment override for helper lookup.
 
 Build-machine RPATHs are removed. The packager checks non-system dependencies and

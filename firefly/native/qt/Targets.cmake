@@ -9,11 +9,26 @@ set(firefly_qt_sources
     SystemAppearance Theme WebCompatReportReview WebContentView)
 set(firefly_qt_files)
 foreach(source IN LISTS firefly_qt_sources)
-    list(APPEND firefly_qt_files "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.cpp")
+    if(source STREQUAL "WebContentView")
+        set(prepared_view "${CMAKE_BINARY_DIR}/firefly-generated/WebContentView.cpp")
+        execute_process(COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py" --output "${prepared_view}" RESULT_VARIABLE preparation_check)
+        if(NOT preparation_check EQUAL 0)
+            message(FATAL_ERROR "Review owned Qt preload preparation adapter")
+        endif()
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py" "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.cpp" "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.h")
+        list(APPEND firefly_qt_files "${prepared_view}")
+    else()
+        list(APPEND firefly_qt_files "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.cpp")
+    endif()
 endforeach()
-add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp" ${firefly_qt_files})
+add_library(firefly-qt-view STATIC "${CMAKE_CURRENT_LIST_DIR}/PreloadHooks.cpp" "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp" ${firefly_qt_files})
 set_target_properties(firefly-qt-view PROPERTIES AUTOMOC ON)
 target_include_directories(firefly-qt-view PUBLIC "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
+target_include_directories(firefly-qt-view PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${LADYBIRD_SOURCE_DIR}/UI/Qt")
+target_sources(firefly-qt-view PRIVATE "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.h")
+add_custom_target(check-firefly-preload-view
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py" --output "${prepared_view}" VERBATIM)
+add_dependencies(firefly-qt-view check-firefly-preload-view)
 target_link_libraries(firefly-qt-view PUBLIC LibWebView LibIPC LibURL LibGfx LibCore LibMain AK Qt::Core Qt::Gui Qt::Widgets Qt::GuiPrivate)
 if(APPLE)
     foreach(source Conversions DictionaryLookup LadybirdAccessibilityElement MacWindow MacWindowFocus
@@ -54,7 +69,7 @@ if(FIREFLY_BUILD_RUNTIME)
     configure_file("${CMAKE_CURRENT_LIST_DIR}/AppRegions.h.in" "${CMAKE_BINARY_DIR}/firefly-generated/AppRegions.h" @ONLY)
     add_executable(firefly "${CMAKE_CURRENT_LIST_DIR}/Application.cpp" "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp")
     target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
-    target_compile_definitions(firefly PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
+    target_compile_definitions(firefly PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${CMAKE_BINARY_DIR}/FireflyRuntimeHelper.app/Contents/MacOS")
     target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite)
     add_dependencies(firefly ladybird ${ladybird_helper_processes} check-firefly-upstream)
     ladybird_check_skia_confinement(firefly)
@@ -62,6 +77,8 @@ if(FIREFLY_BUILD_RUNTIME)
     add_custom_target(check-firefly
         COMMAND "$<TARGET_FILE:firefly-chrome-probe>"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_firefly.py"
+            --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_public_preload.py"
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly firefly-chrome-probe USES_TERMINAL VERBATIM)
 endif()

@@ -11,7 +11,7 @@ streams/networking and crypto foundations on tested macOS ARM64 and a scoped
 [Linux x64 runtime baseline](development/linux-build.md). Firefly has a native
 macOS window/lifecycle/loading slice, isolated renderer defaults and a runnable pinned
 Designer sample. Experimental relocated macOS bundles pass focused tests. The public
-preload/contextBridge/IPC APIs, broad Node/Electron parity and complete native
+IPC APIs, full preload/contextBridge compatibility, broad Node/Electron parity and complete native
 Windows/Linux releases remain unfinished.
 
 ## Implementation sequence
@@ -19,7 +19,7 @@ Windows/Linux releases remain unfinished.
 | Priority | Deliverable | Evidence needed before declaring it usable |
 | --- | --- | --- |
 | Now | Native Windows bring-up and requested Designer release | Actual native compiler/runtime results, Firefly window/process/sandbox tests, Designer acceptance, relocatable Windows package and successful required release jobs |
-| Now | Secure public preload/bridge/IPC | Complete remaining realm/callback boundaries, validated bounded transport, sender/frame identity, capability revocation and malicious renderer fixtures |
+| Now | Secure public preload/bridge/IPC | Build on partial CommonJS preload/contextBridge publication; complete remaining realm/callback boundaries, validated IPC transport, sender/frame identity and malicious renderer fixtures |
 | Next | Required Node services for practical apps | Missing globals/built-ins and options, including network clients/TLS/fetch, child processes and crypto services, verified against Node |
 | Next | Practical Electron migration services | Native dialog/menu/tray/clipboard/shell/screen/image/session slices with Electron migration fixtures |
 | Next | Native Linux and platform-complete CI | Native builds/tests, renderer and process/security evidence, packages and launch acceptance on every required OS |

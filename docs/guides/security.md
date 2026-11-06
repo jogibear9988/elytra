@@ -1,8 +1,8 @@
 # Security boundaries for application authors
 
 This is guidance for the implemented development slices. Mite/Firefly have not had
-a complete security audit or production-hardening sign-off. Public preload and
-privileged IPC remain unsupported. Current support/evidence is in the
+a complete security audit or production-hardening sign-off. Bounded public
+[preload/contextBridge](../api/context-bridge.md) is available; privileged IPC remains unsupported. Current support/evidence is in the
 [Firefly matrix](../compatibility/firefly-0.1.md) and [process model](../concepts/runtime-and-processes.md).
 
 ## Place capabilities in the right process
@@ -10,8 +10,9 @@ privileged IPC remain unsupported. Current support/evidence is in the
 Mite/main code can access its supported native files/network/OS APIs. Renderer
 content runs LibWeb/LibJS and must not receive process, require, Buffer or native
 module access. Firefly currently accepts only the restricted defaults:
-contextIsolation true, nodeIntegration false and sandbox true. Unsafe values and
-preload options explicitly reject.
+contextIsolation true, nodeIntegration false and sandbox true. Unsafe and
+unknown preference values explicitly reject. A selected preload publishes to every
+supported top-level document loaded into that window; no origin allowlist exists.
 
 Do not work around missing bridge support by exposing a native loader to document
 code or borrowing an internal test endpoint. Internal realm/callback/snapshot tests
@@ -29,7 +30,7 @@ Electron's [security guidance](https://www.electronjs.org/docs/latest/tutorial/s
 is a useful application-review baseline: minimize renderer privileges, validate
 communication/navigation decisions and keep shipped dependencies current. Firefly
 cannot yet implement all of Electron's permission/session/navigation controls. Methods
-such as permission handlers, navigation hooks, shell controls and public bridge APIs
+such as permission handlers, navigation hooks, shell controls and additional bridge APIs
 must not be assumed present.
 
 ## Native services and local HTTP
@@ -44,8 +45,8 @@ only in explicit test mode and does not grant native privileges.
 
 Before public IPC ships, it needs explicit channel/capability policy, bounded data
 and pending work, sender/frame validation, lifetime/revocation, private error handling
-and adversarial renderer tests. No working preload or contextBridge recipe is offered
-until those gates pass. See the [baseline](../reference/documentation-baseline.md)
+and adversarial renderer tests. Current preload publication supplies no main-process
+IPC capabilities; its narrower contract is documented in the API reference. See the [baseline](../reference/documentation-baseline.md)
 and [roadmap](../roadmap.md).
 
 ## Dependency and distribution review
@@ -72,4 +73,4 @@ token, exact same-origin/Host checks and POST with no body. It does not accept s
 filesystem paths or arbitrary IPC channels. Static assets remain publicly readable
 on loopback while the app runs, so this does not authenticate against other local
 processes. The capability grants only this app window's cosmetic/lifecycle controls;
-it is not a substitute for the still-unsupported public secure preload/IPC bridge.
+it is not a substitute for the still-unsupported public IPC bridge.

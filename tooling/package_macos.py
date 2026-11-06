@@ -95,7 +95,9 @@ def stage_bundle(build,application,destination,name,identifier,version,licenses,
         metadata['dependencies']=info;(resources/'app/BUILD.json').write_text(json.dumps(metadata,indent=2)+'\n')
     shutil.copytree(licenses,resources/'Licenses')
     shutil.copy2(build/'bin/firefly',mac/'firefly')
-    for helper in HELPERS:shutil.copy2(upstream/'MacOS'/helper,mac/helper)
+    runtime_helpers=build/'FireflyRuntimeHelper.app/Contents/MacOS'
+    if not (runtime_helpers/'WebContent').is_file():raise RuntimeError('Build the production Firefly renderer helper before packaging')
+    for helper in HELPERS:shutil.copy2(runtime_helpers/helper,mac/helper)
     libraries=contents/'lib';libraries.mkdir()
     for file in (build/'lib').glob('*.dylib'):
         target=libraries/file.name
@@ -123,7 +125,7 @@ def stage_bundle(build,application,destination,name,identifier,version,licenses,
     (contents/'Info.plist').write_bytes(plistlib.dumps(plist))
     run('codesign','--force','--sign','-',destination,stderr=subprocess.DEVNULL)
     run('codesign','--verify','--deep','--strict',destination)
-    check_helpers(upstream/'MacOS',mac)
+    check_helpers(runtime_helpers,mac)
     return len(binaries)
 
 def main():
@@ -151,7 +153,7 @@ def main():
     (stage/'bin').mkdir();shutil.copy2(mite/'bin/mite',stage/'bin/mite')
     if args.symbols=='stripped':run('xcrun','strip','-S','-x',stage/'bin/mite',stderr=subprocess.DEVNULL)
     run('codesign','--force','--sign','-',stage/'bin/mite',stderr=subprocess.DEVNULL)
-    hello=stage/'hello-source';hello.mkdir();shutil.copy2(ROOT/'examples/firefly-hello-world/main.cjs',hello/'main.cjs');shutil.copy2(ROOT/'examples/firefly-hello-world/index.html',hello/'index.html')
+    hello=stage/'hello-source';hello.mkdir();shutil.copy2(ROOT/'examples/firefly-hello-world/main.cjs',hello/'main.cjs');shutil.copy2(ROOT/'examples/firefly-hello-world/index.html',hello/'index.html');shutil.copy2(ROOT/'examples/firefly-hello-world/preload.cjs',hello/'preload.cjs')
     (hello/'main.mjs').write_text("import './main.cjs';\n")
     apps=[('Firefly',hello,'org.elytra.Firefly'),('Web Component Designer',designer,'org.elytra.WebComponentDesigner')]
     counts={}
@@ -161,6 +163,7 @@ def main():
     manifest={'dependencies':args.dependencies,'symbols':args.symbols,'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
     manifest['cppLTO']={name:cache_value(build,'ENABLE_LTO_FOR_RELEASE') for name,build in [('mite',mite),('firefly',renderer)]}
     manifest['cpuBaseline']={name:cache_value(build,'ENABLE_CI_BASELINE_CPU') for name,build in [('mite',mite),('firefly',renderer)]}
+    manifest['rendererHelper']='firefly-runtime; isolated top-level CommonJS preload support'
     manifest['cppSizeOptimization']={name:{'enabled':cache_value(build,'ELYTRA_OPTIMIZE_SIZE'),'flag':cache_value(build,'ELYTRA_CPP_SIZE_FLAG')} for name,build in [('mite',mite),('firefly',renderer)]}
     (stage/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (stage/'SIZE.json').write_text(json.dumps({name:bundle_size(stage/(name+'.app')) for name,_,_ in apps},indent=2)+'\n')

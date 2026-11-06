@@ -19,7 +19,7 @@ and compatibility matrices distinguish partial behavior from absent APIs.
 | Program exits before an unref timer runs | An unreferenced timer alone does not keep the event loop alive |
 | Nonzero exit after a Promise/callback failure | Handle the actual Promise/error callback; process exception/rejection event APIs are not implemented |
 | `ERR_FIREFLY_NOT_READY` | Await app.whenReady before constructing BrowserWindow |
-| `ERR_FIREFLY_UNSUPPORTED_API` | Remove the unsupported option/mode and review the reference; preload/unsafe web preferences intentionally reject |
+| `ERR_FIREFLY_UNSUPPORTED_API` | Remove the unsupported option/mode and review the reference; ES module preloads/unsafe web preferences intentionally reject |
 | `ERR_FIREFLY_OBJECT_DESTROYED` | Stop using the window/webContents after destruction |
 | `ERR_ABORTED` during loading | Check overlapping navigation, window closure or forced exit |
 | `ERR_TIMED_OUT` during loading | Loading has a bounded deadline; check URL/resources/network and the load error |

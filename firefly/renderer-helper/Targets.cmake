@@ -36,3 +36,27 @@ add_custom_target(check-firefly-renderer-helper
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_renderer_helper.py"
         --probe "$<TARGET_FILE:firefly-preload-probe>" --control "$<TARGET_FILE:firefly-renderer-probe>"
     DEPENDS firefly-preload-probe firefly-renderer-probe USES_TERMINAL VERBATIM)
+
+if(FIREFLY_BUILD_RUNTIME)
+    set(runtime_bundle "${CMAKE_BINARY_DIR}/FireflyRuntimeHelper.app/Contents")
+    add_executable(FireflyRuntimeWebContent "${CMAKE_CURRENT_LIST_DIR}/Main.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/SessionAdapter.cpp" "${CMAKE_CURRENT_LIST_DIR}/ProductSession.cpp"
+        "${LADYBIRD_SOURCE_DIR}/Services/RendererSandboxMacOS.cpp")
+    add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
+    target_link_libraries(FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox LibURL)
+    set_target_properties(FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY "${runtime_bundle}/MacOS")
+    ladybird_sign_helper_process(FireflyRuntimeWebContent)
+    ladybird_check_skia_confinement(FireflyRuntimeWebContent)
+    add_custom_target(stage-firefly-runtime-helper
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${runtime_bundle}/MacOS"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
+            --source "$<TARGET_FILE_DIR:ladybird>/../Resources" --destination "${runtime_bundle}/Resources"
+        DEPENDS FireflyRuntimeWebContent ladybird ${ladybird_helper_processes} VERBATIM)
+    foreach(helper IN LISTS ladybird_helper_processes)
+        if(NOT helper STREQUAL "WebContent")
+            add_custom_command(TARGET stage-firefly-runtime-helper POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>" "${runtime_bundle}/MacOS/${helper}" VERBATIM)
+        endif()
+    endforeach()
+    add_dependencies(firefly stage-firefly-runtime-helper)
+endif()

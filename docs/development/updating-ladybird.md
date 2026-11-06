@@ -251,3 +251,13 @@ Ladybird candidate was evaluated as part of adding this workflow. Native
 Windows/Linux upgrade validation, CI automation and full renderer upgrade
 validation remain outstanding. ADR 0057 addresses standalone Rust duplicate symbols
 locally; native Windows/Linux and the separate renderer graph remain independent gates.
+
+Public preloads also use the owned Qt preparation adapter (ADR 0068).
+Run tooling/prepare_view_preload_hook.py --output build/view-hook-check.cpp and
+review both WebContentView.cpp/header hashes and the exact preparation seam.
+The generated source retains upstream bytes/notices with one include and one call;
+no vendor patch is allowed. Revalidate newly hosting page configuration before the
+first author script, especially file-to-HTTP process replacement and independent
+windows. Both diagnostic FireflyWebContent and production FireflyRuntimeWebContent
+must build; only the latter ships. Run tooling/test_public_preload.py against the
+build and packaged executable, preserving explicit failure and source budgets.

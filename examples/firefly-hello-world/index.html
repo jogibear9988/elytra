@@ -7,8 +7,10 @@ body {margin:48px} h1 {color:#8fe4b0} button {font:inherit;padding:12px 20px}
 </style>
 <h1>Hello from Firefly</h1>
 <p>Mite runs the main process. Ladybird renders this page in WebContent.</p>
+<p id="preload"></p>
 <button>Clicked 0 times</button>
 <script>
+document.querySelector('#preload').textContent=desktop.greeting+' — 20 + 22 = '+desktop.add(20,22);
 let count=0;
 document.querySelector('button').onclick=e=>e.target.textContent=`Clicked ${++count} times`;
 </script>

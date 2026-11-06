@@ -45,10 +45,10 @@ belong to the renderer; filesystem/OS services belong to the main process. See
 
 ## Public bridge status
 
-Preload, contextBridge, ipcMain and ipcRenderer are currently unsupported. Internal
-realm, callback, snapshot and revocation tests exist, but are not application-facing
-bridge APIs. Do not treat a shared DOM or the Designer sample's test-only report
-route as a privileged IPC contract.
+[CommonJS preload/contextBridge](../api/context-bridge.md) provides bounded isolated
+renderer API publication. ipcMain/ipcRenderer remain unsupported: a preload does
+not gain main-process filesystem/network privileges. Do not treat a shared DOM
+or the Designer sample's test-only report route as a privileged IPC contract.
 
 Electron's [process-model guide](https://www.electronjs.org/docs/latest/tutorial/process-model)
 is a useful conceptual baseline for main/renderer responsibilities. Its Node/Chromium

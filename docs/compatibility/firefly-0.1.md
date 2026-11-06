@@ -1,9 +1,12 @@
 # Firefly 0.1 development compatibility
 
+Historical internal-boundary notes below retain the status at their implementation
+time; the table and current API reference describe public availability.
+
 The first Mite-driven native macOS ARM64 Firefly slice is implemented. Shared
 Electron 45.2.3 migration fixtures pass in both runtimes with the module name
 selected at import time. This does not establish general Electron compatibility.
-Windows/Linux, preload/IPC isolation and distribution remain outstanding.
+Windows/Linux desktop, complete preload/IPC isolation and distribution remain outstanding.
 
 | Surface | Status | Evidence / remaining acceptance gate |
 | --- | --- | --- |
@@ -13,7 +16,7 @@ Windows/Linux, preload/IPC isolation and distribution remain outstanding.
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer capability defaults | partial | No process/require/Buffer/Mite globals, node:fs import denied in shared HTML fixture; this is not a full sandbox/IPC security audit |
 | `ipcMain`, `ipcRenderer` | unsupported | Validated, bounded transport and malicious-input tests |
-| preload, `contextBridge` | unsupported | Isolated preload realm and constrained main/renderer bridge; preload is explicitly rejected |
+| preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); main-process IPC remains unsupported |
 | dialog, Menu, MenuItem, Tray | unsupported | Native services and observable Electron fixture behavior |
 | clipboard, shell, screen, nativeImage, session | unsupported | Native services and migration fixtures |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
@@ -21,11 +24,12 @@ Windows/Linux, preload/IPC isolation and distribution remain outstanding.
 
 Use `require('firefly')` or ESM imports from `firefly` in the main process. There
 is no `electron` alias. Standalone Mite does not register or depend on Firefly.
-Only width, height, title, show, frame and the secure default webPreferences settings are
-accepted initially. Unknown options, preload, nodeIntegration=true,
+Only width, height, title, show, frame, absolute CommonJS preload and the secure
+default webPreferences settings are accepted. Unknown options, nodeIntegration=true,
 contextIsolation=false or sandbox=false fail explicitly. Dimensions are restricted
 to integer values in 1..16384. Extra load options are not implemented. The
-contextIsolation setting does not imply an implemented preload isolated world.
+contextIsolation setting requires the implemented isolated preload world; it cannot
+be disabled. ES module preloads and main-process IPC remain unsupported.
 
 Named ESM exports are fixed snapshots of app and BrowserWindow; CJS and ESM share
 the same objects. Relative loadFile paths use the application entry directory.
@@ -183,3 +187,8 @@ revokes exported functions/pending promises on source detach. SDK and actual
 sandboxed helper tests cover principal reentry and removed-frame lifecycle. This
 is an internal integration step: public preload selection, production helper
 staging, navigation policy and main/renderer IPC still need implementation.
+
+Public CommonJS preload selection and a separate production renderer helper now
+compose those boundaries (ADR 0068). Application and packaged tests cover native
+window identity, first-script installation, navigation/process replacement, restricted
+require and fail-closed evaluation. IPC and general callback/DOM parity remain open.
