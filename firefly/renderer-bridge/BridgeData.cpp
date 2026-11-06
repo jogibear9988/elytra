@@ -108,7 +108,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
     return result;
 }
 
-JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination, MaterializeFunction functions) const
+JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination, MaterializeFunction functions, Materialization integrity) const
 {
     GC::Root destination_realm { destination };
     if (m_nodes.is_empty())
@@ -145,7 +145,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(JS::Realm& destination,
         }
     }
     for (auto value : values) {
-        if (value.is_object() && !TRY(value.as_object().set_integrity_level(JS::Object::IntegrityLevel::Frozen)))
+        if (integrity == Materialization::Frozen && value.is_object() && !TRY(value.as_object().set_integrity_level(JS::Object::IntegrityLevel::Frozen)))
             return destination.vm().throw_completion<JS::TypeError>("Cannot freeze bridge data"sv);
     }
     return values[0];

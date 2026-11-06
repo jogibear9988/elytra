@@ -19,7 +19,7 @@ Windows/Linux releases remain unfinished.
 | Priority | Deliverable | Evidence needed before declaring it usable |
 | --- | --- | --- |
 | Now | Native Windows bring-up and requested Designer release | Actual native compiler/runtime results, Firefly window/process/sandbox tests, Designer acceptance, relocatable Windows package and successful required release jobs |
-| Now | Secure public preload/bridge/IPC | Build on partial CommonJS preload/contextBridge publication; complete remaining realm/callback boundaries, validated IPC transport, sender/frame identity and malicious renderer fixtures |
+| Now | Secure public preload/bridge/IPC | Build on partial CommonJS preload/contextBridge and [bounded wire graphs](architecture/0070-bounded-ipc-wire-data.md); integrate validated IPC routing, sender/frame/document identity, pending-work/revocation and malicious renderer fixtures |
 | Next | Required Node services for practical apps | Missing globals/built-ins and options, including network clients/TLS/fetch, child processes and crypto services, verified against Node |
 | Next | Practical Electron migration services | Native dialog/menu/tray/clipboard/shell/screen/image/session slices with Electron migration fixtures |
 | Next | Native Linux and platform-complete CI | Native builds/tests, renderer and process/security evidence, packages and launch acceptance on every required OS |

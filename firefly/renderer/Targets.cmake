@@ -29,6 +29,7 @@ endif()
 
 add_library(firefly-isolated-world STATIC "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/IsolatedWorld.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/BridgeData.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/BridgeWire.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/FunctionBridge.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/ContextBridge.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/WorldJobGuard.cpp")
@@ -49,8 +50,15 @@ add_executable(firefly-isolation-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/isol
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp")
 target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world LibMain)
 ladybird_check_skia_confinement(firefly-isolation-probe)
+add_executable(firefly-wire-process-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/WireProcess.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BridgeWireTest.cpp")
+target_link_libraries(firefly-wire-process-probe PRIVATE firefly-isolated-world LibMain)
+ladybird_check_skia_confinement(firefly-wire-process-probe)
+add_custom_target(check-firefly-wire
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/test_wire_process.py" --probe "$<TARGET_FILE:firefly-wire-process-probe>"
+    DEPENDS firefly-wire-process-probe USES_TERMINAL VERBATIM)
 add_custom_target(check-firefly-isolation COMMAND "$<TARGET_FILE:firefly-isolation-probe>"
-    DEPENDS firefly-isolation-probe USES_TERMINAL VERBATIM)
+    DEPENDS firefly-isolation-probe check-firefly-wire USES_TERMINAL VERBATIM)
 
 if(APPLE)
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")

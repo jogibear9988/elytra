@@ -237,3 +237,18 @@ its published desktop API has no main-process IPC privileges. See the
 [contract](../api/context-bridge.md) and [ADR 0068](../architecture/0068-public-commonjs-preload.md)
 for limits, failure behavior and the pinned Qt preparation hook. Native
 Windows/Linux renderer/package acceptance and broader callback parity remain open.
+
+## Internal IPC wire-data gate
+
+check-firefly-isolation now also runs check-firefly-wire. Its native producer and
+consumer execute in separate processes: the producer VM is destroyed before the
+consumer constructs its own JS objects. SDK tests additionally cover malformed
+wire graphs, exact bounds and frozen/mutable reconstruction. Run it alone with:
+
+```sh
+cmake --build build/renderer --target check-firefly-wire --parallel 3
+```
+
+This is data serialization evidence, not public IPC. Request routing, sender/frame/
+document authentication, pending-work budgets and navigation/crash revocation still
+need integration. See [ADR 0070](../architecture/0070-bounded-ipc-wire-data.md).

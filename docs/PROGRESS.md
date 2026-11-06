@@ -2904,6 +2904,62 @@ publish_alpha=false. GitHub accepts the dispatch (HTTP 204) and reports it pendi
 behind the confirmed running macOS package job. Default modes remain unchanged;
 this queued experiment is not hosted acceptance. No alpha tag/release created.
 
+## Bounded data-only IPC wire foundation (2026-11-06)
+
+Extend BridgeData with versioned data-only encode_wire/decode_wire, keeping existing
+context publication tokens private and rejected from wire data. Use flat node-index
+arrays to retain cycles/aliases/undefined/holes and own enumerability/null prototypes.
+UTF-16 unit arrays preserve unpaired surrogates/NUL in values and keys. Fixed 16-digit
+IEEE-754 bit strings preserve finite precision/extremes/subnormals/-0/infinities;
+normalize NaN and reject noncanonical NaN bits before LibJS value materialization.
+No Node/V8, dependency or Ladybird change. Frozen reconstruction remains the default
+for all existing bridges; explicitly selected mutable reconstruction supports future
+IPC clone arguments/results without mutating or sharing the source graph.
+
+Bound input to 1 MiB and lexical JSON array depth 8 before parsing. Reject objects,
+unknown tags/version/arity/types, fractional/out-of-range indices/units, duplicate
+keys, orphan nodes, invalid sparse indices/length and internal function tokens.
+Enforce default hard node/property/string/depth/per-array limits in both directions,
+including implicit array length metadata, plus aggregate sparse length 16384.
+Callers cannot raise those limits. No JS object is created until full validation.
+This does not authenticate sender/window/frame/document or expose public IPC.
+
+Native checks cover independent handwritten remote graphs, frozen/mutable ownership,
+GC, precision/cycles/prototype safety, byte mutations, malformed-input recovery and
+exact node/UTF-16/sparse/1-MiB boundaries. An attempted second VM in the browser SDK
+hits upstream's one-VM-per-process guard; preserve that invariant. Use a separate
+native producer that exits before a fresh process/VM decodes, materializes, checks
+its own intrinsics/identities after GC and re-encodes identical canonical bytes.
+Malformed remote processes must exit 1 with no output; no native abort/timeout is
+accepted. This uses actual LibJS, not Node or a JS serialization substitute.
+
+Initially running the heavy wire checks inside the browser SDK makes its existing
+weak-filter GC fixture fail intermittently. Diagnostics identify a conservative
+StackPointer -> RawNativeFunction -> Realm root, not a wire edge or owned metadata
+path. Ten predetermined diagnostic runs fail at run 4; do not call it a runtime
+fix or retry into green. Move the NEW allocation-heavy wire checks into their own
+native process/realm host. Existing browser SDK and NodeFilter assertions stay
+unchanged. All ten predetermined browser SDK runs then pass, alongside dedicated
+wire checks (ipc-wire-clean-sdk-stress.log). No GC/runtime/ownership guard relaxed.
+check-firefly-isolation depends on the new check-firefly-wire process gate, so the
+existing release driver runs both. All four final native Firefly/renderer/isolation/
+helper gates pass (ipc-wire-final-all-gates.log). Pin/Python/actionlint/diff/site
+checks pass. Standalone Mite is unchanged; no new package-size/release claim.
+ADR 0070 and renderer/roadmap notes record scope. Transport selection, native sender/
+document generation validation, pending-work/teardown policy and actual public
+ipcMain.handle/ipcRenderer.invoke plus Electron fixtures remain the next work.
+
+User steering: keep CommonJS supported, convert all authored samples to modern ESM;
+CJS compatibility fixtures remain required. The hello-world preload needs an ESM
+source/build path because native sandbox preloads currently accept CommonJS only.
+Release status revalidated: no GitHub releases exist; macOS 745c7af
+run42155631670/job127698599246 is confirmed live in Compile/Test/Package, started
+03:49:12 UTC. At 04:37:43 UTC that step has run about 49 minutes. Optimized fd2124e
+run42161235765 is still pending with no allocated job. No canceled/restarted running
+build, no alpha yet. Finish the modern sample/build/package integration next, then
+push the coherent commits and keep the requested optimized CI candidate current.
+The full product goal remains active, including all native desktop/release targets.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
