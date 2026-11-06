@@ -6,7 +6,7 @@ today. Node integration in renderers is unavailable. [Compatibility matrix](../c
 and [renderer build guide](../development/renderer-build.md) record the acceptance gates.
 
 Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
-[webContents](web-contents.md), [IPC](ipc.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+[webContents](web-contents.md), [IPC](ipc.md), [screen](screen.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).
 
 ## Application entry
@@ -143,7 +143,7 @@ ERR_INVALID_ARG_TYPE, ERR_INVALID_ARG_VALUE, ERR_INVALID_URL, ERR_ABORTED,
 ERR_TIMED_OUT and ERR_FAILED. Messages, stack traces and detailed network error
 fields are not generally Electron-compatible.
 
-Dialogs, Menu/MenuItem, Tray, clipboard, shell, screen, nativeImage, session,
+Dialogs, Menu/MenuItem, Tray, clipboard, shell, nativeImage, session,
 auto-updates and production signed/notarized packages remain unimplemented.
 Experimental macOS bundles and a gated build workflow are described in the
 [release guide](../development/releases.md). Native Windows

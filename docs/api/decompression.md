@@ -1,7 +1,8 @@
 # DecompressionStream and compressed Fetch
 
 Status: partial, tested locally on macOS against Node 24.15.0 and independent
-Python zlib/HTTP fixtures. Fresh native Linux/Windows acceptance is pending.
+Python zlib/HTTP fixtures. Native Linux x64 and Windows x64 Release gates at
+84c3b2b pass all 58 suites including compression; broader platform coverage remains open.
 Mite uses pinned zlib 1.3.2#2, matching the existing renderer dependency, without
 LibWeb, Node or V8. Ladybird and zlib sources remain unmodified.
 

@@ -4,6 +4,7 @@
  */
 
 #include "Bridge.h"
+#include "../screen/ScreenHost.h"
 #include "AppRegions.h"
 #include "ChromeWindow.h"
 #include "PreloadHooks.h"
@@ -98,6 +99,7 @@ struct Bridge::Impl {
         , exit_code(exit_code)
     {
         set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
+        watch_screen_changes(*context, [this] { enqueue(0, "screen-changed"); });
         set_native_ipc_handler([this](auto& page, auto navigable, auto params) {
             receive_ipc(page, navigable, move(params));
         });
@@ -546,6 +548,7 @@ struct Bridge::Impl {
     {
         auto host = JS::Object::create(realm, nullptr);
         api = host;
+        install_screen_host(realm, *host);
         host->define_native_function(
             realm, "setHandler"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

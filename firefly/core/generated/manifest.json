@@ -1,12 +1,13 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "6105f9958eaba619c12899afd075da2d6921106970986b91f7fdf56b26c02f2f",
+    "api.js": "95c4019b07a4648582b97b74529172b2230df74066e79209899eedf8a1c672bd",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
-    "firefly/core/api.mjs": "7dbf5874ff8032491a9f042d95419b8a110941ccc3c316d3eb85bdbd3d9f4719",
+    "firefly/core/api.mjs": "b8b6ed759c0b97d36d936c9b518ec28858989b43b89f9006c742d64d0f791433",
     "firefly/core/ipc-main.mjs": "1ac8913051da151f1d781e71f6195dda0cd9b3885b99089652dcae2b328f43c8",
+    "firefly/core/screen/index.mjs": "8520b379fe29fc484f1960108fa2bed3f0f0cbd609f2f19dba57e42dfd0cf342",
     "firefly/native/qt/app-regions.mjs": "1983284fb314ae1ff323fb2e03dbead8e96ec1adc4e272f2f1a7cb8755fa6d23",
     "tooling/runtime-js/build-firefly.mjs": "a2e6f477e548000460fbe12a7cb5afcdbdc1819269e11e0c4fcb6d7589a72edb",
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",

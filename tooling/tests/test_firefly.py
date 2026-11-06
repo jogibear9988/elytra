@@ -110,6 +110,12 @@ def main():
     electron = args.electron.resolve()
     if not firefly.is_file() or not electron.is_file():
         parser.error("Build Firefly and install the pinned Electron reference first")
+    screen = ROOT / "firefly/tests/migration/screen.mjs"
+    actual_screen = success(execute(firefly, screen))
+    reference_screen = success(execute(electron, screen, "electron"))
+    assert actual_screen == reference_screen, (actual_screen, reference_screen)
+    assert actual_screen["screen"] is True and actual_screen["displays"] > 0, actual_screen
+    print("PASS actual Electron/Firefly screen exports, native geometry and cursor without windows")
     fixture = ROOT / "firefly/tests/migration/lifecycle.cjs"
     expected = {
         "trace": [

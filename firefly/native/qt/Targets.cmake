@@ -116,6 +116,11 @@ target_link_libraries(firefly-chrome-probe PRIVATE Qt::Widgets)
 
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/Targets.cmake")
 
+add_executable(firefly-screen-probe "${CMAKE_CURRENT_LIST_DIR}/../screen/Probe.cpp"
+                                    "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenMac.mm")
+target_link_libraries(firefly-screen-probe PRIVATE Qt::Core "-framework AppKit"
+                                                   "-framework CoreGraphics")
+
 if(FIREFLY_BUILD_RUNTIME)
     add_custom_target(
         check-firefly-js
@@ -147,7 +152,10 @@ if(FIREFLY_BUILD_RUNTIME)
                    "${CMAKE_BINARY_DIR}/firefly-generated/AppRegions.h" @ONLY)
     add_executable(
         firefly
-        "${CMAKE_CURRENT_LIST_DIR}/Application.cpp" "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenHost.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenMac.mm"
         "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
         "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp")
     target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
@@ -167,6 +175,7 @@ if(FIREFLY_BUILD_RUNTIME)
     add_custom_target(
         check-firefly
         COMMAND "$<TARGET_FILE:firefly-chrome-probe>"
+        COMMAND "$<TARGET_FILE:firefly-screen-probe>"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_preload.py"
@@ -176,6 +185,6 @@ if(FIREFLY_BUILD_RUNTIME)
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_ipc.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
-        DEPENDS firefly firefly-chrome-probe
+        DEPENDS firefly firefly-chrome-probe firefly-screen-probe
         USES_TERMINAL VERBATIM)
 endif()

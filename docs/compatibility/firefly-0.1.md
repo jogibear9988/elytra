@@ -19,7 +19,8 @@ Windows/Linux desktop, complete preload/IPC isolation and distribution remain ou
 | `ipcMain`, `ipcRenderer` | partial | Native invoke/handle/handleOnce/removeHandler, early preload requests, mutable plain-data graphs, sender ownership, adversarial input, pending limits and navigation/closure tests pass; one-way/sync/port/subframe IPC and full clone types remain unsupported. [Contract](../api/ipc.md) |
 | preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); fixed invoke actions can call main-process handlers |
 | dialog, Menu, MenuItem, Tray | unsupported | Native services and observable Electron fixture behavior |
-| clipboard, shell, screen, nativeImage, session | unsupported | Native services and migration fixtures |
+| `screen` | partial | Native macOS display/work-area/scale/rotation/label/cursor snapshots pass a windowless OS probe; real API geometry/readiness/event policy passes in Node/Mite. Queued native notifications implemented; public desktop fixture and physical hotplug/mixed-DPI acceptance pending. Conversions and further Display fields unsupported. [Contract](../api/screen.md) |
+| clipboard, shell, nativeImage, session | unsupported | Native services and migration fixtures |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
 | Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). Full hosted releases, Windows/Linux, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
 

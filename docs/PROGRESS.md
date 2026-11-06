@@ -4304,6 +4304,51 @@ IPC/services, native Windows/Linux backend/distribution/security requirements.
 Overall specification remains incomplete and goal active. Keep local GUI
 acceptance infrequent/batched.
 
+## 2026-11-06: Native macOS screen snapshots and windowless policy acceptance
+
+- Add an owned, commented ESM screen policy module and separate native screen
+  folder. Public Firefly ESM/CommonJS exports include the screen EventEmitter;
+  standalone Mite remains independent of Firefly/Qt/LibWeb. Ladybird remains
+  unmodified at 97ad425b5125f20c516e1a8d3b5bb02f391fc975.
+- AppKit/CoreGraphics provide actual display identity, bounds/work area in
+  primary-top-left DIP, backing scale, rotation, internal/label/frequency and
+  cursor position. No fabricated color/HDR metadata; unknown hardware capability
+  fields stay unknown. Unsupported pixel conversions fail explicitly.
+- Implement readiness, cloned snapshots, nearest/largest-intersection policies,
+  explicit no-display failures and queued display-added/removed/metrics events.
+  Qt notifications share the Bridge context/VM queue and teardown ownership.
+  Snapshot baselines commit before callbacks; unchanged observations coalesce.
+- A QCoreApplication-only probe validates actual provider records against
+  independent CoreGraphics primary/bounds data and verifies work areas/scales.
+  It creates no QApplication, window, renderer or cursor change. Actual Node and
+  Mite API-factory tests pass with this OS data and synthetic negative-origin
+  layouts, intersections/ties, validation, mutation, event reentry and empty
+  desktop fixtures. New CTest runs policy comparisons without GUI on all hosts.
+- Firefly and screen probe compile successfully (screen-build.log); existing
+  local OpenSSL deployment-target warnings persist. All 59 standalone CTests
+  pass in 19.51 seconds with three parallel workers (screen-ctest.log).
+  No local GUI application or desktop suite was launched for this slice.
+- Add a modern ESM display example, detailed screen API reference and ADR 0086.
+  Add a shared actual Electron/Firefly export/cursor/geometry fixture to the
+  existing batched desktop suite and native probe to check-firefly. These public
+  desktop checks are pending hosted execution; compilation and factory/provider
+  acceptance alone do not establish public desktop parity or hotplug behavior.
+- Source style passes 113 Python, 523 JS/web/config, 139 native and 14 CMake
+  sources plus Rust; both generators, runtime/Firefly/upstream integrity and
+  actionlint pass. Site validation passes 169 pages / 10957 links before this
+  entry; regenerate/check after final progress update before commit.
+- Previous compression 84c3b2b is now hosted green: Linux x64 run 42236253791,
+  job 127954519545 (all 58 suites, 72.49 seconds); Windows x64 run 42236253891,
+  job 127954604439 (all 58 suites, 78.85 seconds). Update scoped API baseline.
+  Optimized macOS 42226301275 on 5c5d64c remains authoritatively in progress;
+  preserve it. No new alpha publication is claimed.
+
+Limits: actual mixed-DPI/mirroring/rotation, physical hotplug and full notification
+coverage need native hardware acceptance. Further Display fields/conversions and
+Windows/Linux desktop integration remain open. Continue broader runtime/npm,
+desktop services/IPC, distribution/security and specification work. Goal remains
+active. Keep local UI acceptance occasional and batched, per user clarification.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

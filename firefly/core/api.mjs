@@ -1,5 +1,6 @@
 /** Main-process desktop API and native-window lifecycle policy. */
 import createMainIpc from './ipc-main.mjs';
+import createScreen from './screen/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -89,6 +90,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const {
     ipcMain,
     cancel: cancelIpc,
@@ -397,8 +399,13 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   native.setHandler((id, type, data) => {
     if (type === 'ready') {
       ready = true;
+      screens.ready();
       app.emit('ready');
       resolveReady();
+      return;
+    }
+    if (type === 'screen-changed') {
+      screens.changed();
       return;
     }
     const win = windows.get(id);
@@ -465,5 +472,5 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   });
 
-  return { app, BrowserWindow, ipcMain };
+  return { app, BrowserWindow, ipcMain, screen: screens.screen };
 }
