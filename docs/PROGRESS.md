@@ -4739,6 +4739,32 @@ Limits: fresh hosted Windows/Linux/macOS shutdown acceptance remains pending.
 The optimized macOS IPC sender-URL/history-ordering failure still needs its own
 fix and native acceptance before packaging/publication. Goal active.
 
+## 2026-11-06: Order native IPC sender URL behind canonical history updates
+
+- Inspect the recorded optimized macOS sender-URL failure and actual upstream
+  history queue. A history message can be received before an IPC envelope while
+  its native canonical URL update is still queued. Preserve native page/document/
+  realm/request authentication and reserve existing bounded pending slots first;
+  append URL sampling to the actual canonical session-history queue.
+- Revalidate ownership at that position, sample canonical native URL, and deliver
+  through existing VM-busy/revocation checks. A Qt lifetime guard prevents stale
+  host dereferences. Complete the history step before application handler work;
+  no renderer-supplied URL, guessed event-loop delay, sleep or retry is used.
+- Expand the real security fixture to 24 immediate ping requests across three
+  fresh documents and alternating same-document updates. Failure diagnostics now
+  include ping index, expected suffix and actual native URL. Native macOS hidden-
+  window fixture passes with no stderr, retaining serialization/trap/capability,
+  request-budget, navigation revocation and window-destruction assertions.
+  Default baseline also passed locally; the original failure is authoritative
+  hosted optimized evidence, not a claimed deterministic local reproduction.
+- Firefly compiles (ipc-history-build.log); targeted actual fixture evidence is
+  ipc-history-acceptance.log. No general desktop suite is launched. Add detailed
+  API behavior and ADR 0092; maintain upstream integrity and fresh hosted status.
+
+Limits: optimized hosted release acceptance is still pending, as are exhaustive
+history/redirect/subframe and hostile platform-policy cases. Continue Linux real
+renderer build/runtime and Windows desktop/platform distribution work. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

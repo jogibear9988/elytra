@@ -42,6 +42,12 @@ URL and `isDestroyed()`. `webContents.mainFrame` returns that same limited snaps
 after the first handled invocation, and `null` before one or after invalidation.
 This is not the full Electron WebFrameMain API. A document/realm replacement
 invalidates the snapshot; same-document requests refresh its URL from native state.
+The native bridge admits the bounded request immediately, then orders sender-URL
+sampling behind already queued canonical session-history steps. An immediate
+invoke after history.replaceState therefore observes the updated native URL.
+The queue step revalidates document/realm/window ownership and completes before
+application handlers run; navigation or host teardown cannot keep a stale
+queued callback alive. No caller-supplied URL is used as authority.
 Validate each request's sender and URL; never trust a caller-provided window ID.
 
 ## Isolated preload

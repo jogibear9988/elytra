@@ -19,6 +19,7 @@
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
 #include <LibCore/EventLoop.h>
+#include <LibCore/Promise.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
@@ -36,6 +37,7 @@
 #include <QCloseEvent>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QResizeEvent>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -265,11 +267,28 @@ struct Bridge::Impl {
 
             window.ipc_pending.insert(*request);
             ++ipc_pending_count;
-            params.as_object().set("url"sv, canonical->active_document_url().serialize());
-            auto encoded = params.serialized().to_byte_string();
-            QTimer::singleShot(0, context.get(),
-                [this, id, document = actual_key, realm_id = caller, data = move(encoded)] {
-                    dispatch_ipc(id, document, realm_id, data);
+            // History API updates are enqueued natively before the IPC envelope
+            // arrives, but their canonical URL need not have been applied yet.
+            // Sample metadata after those history steps, never from page data or
+            // by guessing how many Qt event-loop turns will be sufficient.
+            page.traversable().append_history_queue_steps(
+                [this, lifetime = QPointer<QObject>(context.get()), id, document = actual_key,
+                    realm_id = caller,
+                    params = move(params)](NonnullRefPtr<Core::Promise<Empty>> completion) mutable {
+                    if (lifetime && !stopping && ipc_current(id, document, realm_id)) {
+                        auto& window = windows.at(id);
+                        params.as_object().set("url"sv,
+                            window.view->page().traversable().active_document_url().serialize());
+                        auto encoded = params.serialized().to_byte_string();
+                        QTimer::singleShot(0, context.get(),
+                            [this, id, document = move(document), realm_id = move(realm_id),
+                                data = move(encoded)] {
+                                dispatch_ipc(id, document, realm_id, data);
+                            });
+                    }
+                    // Releasing the queue must not wait for application JS or a
+                    // handler reply, including after navigation/host destruction.
+                    completion->resolve({});
                 });
             return;
         }

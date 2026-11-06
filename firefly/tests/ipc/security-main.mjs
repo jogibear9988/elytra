@@ -10,7 +10,9 @@ let pings = 0;
 ipcMain.handle('ping', (event) => {
   const suffix = pings % 2 === 0 ? '/fresh.html' : '/fresh.html#same-document';
   if (!event.senderFrame.url.endsWith(suffix)) {
-    throw Error('Native sender URL did not refresh');
+    throw Error(
+      `Native sender URL did not refresh: ping=${pings}, expected=${suffix}, actual=${event.senderFrame.url}`
+    );
   }
   pings++;
   return 'PONG';
@@ -45,7 +47,7 @@ try {
   for (let cycle = 0; cycle < 3; cycle++) {
     await window.loadFile('security.html');
     await title(window, 'SECURITY_READY');
-    if (waiting.length !== 16 || pings !== cycle * 2) {
+    if (waiting.length !== 16 || pings !== cycle * 8) {
       throw Error('Invalid inputs reached handlers, or pending budget was lost');
     }
     const old = waiting.splice(0);
