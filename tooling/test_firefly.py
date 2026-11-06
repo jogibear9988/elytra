@@ -13,7 +13,7 @@ import time
 from test_renderer import ROOT, environment, stop
 
 
-def execute(binary, script, module='firefly', extra_env=None):
+def execute(binary, script, module='firefly', extra_env=None, extra_args=()):
     with tempfile.TemporaryDirectory(prefix='firefly-app-env-') as directory:
         env=environment(directory)
         env['FIREFLY_API_MODULE']=module
@@ -22,6 +22,7 @@ def execute(binary, script, module='firefly', extra_env=None):
         command=[str(binary)]
         if module=='electron':command.append(f'--user-data-dir={directory}')
         command.append(str(script))
+        command.extend(map(str,extra_args))
         process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env=env,start_new_session=True)
         try:
             stdout,stderr=process.communicate(timeout=40)

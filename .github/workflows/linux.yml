@@ -75,9 +75,9 @@ jobs:
         run: ctest --test-dir build/linux --output-on-failure --output-junit linux-ctest.xml
       - name: Run CLI examples and record linkage
         run: |
-          build/linux/bin/mite examples/mite-cli/hello.js world
+          build/linux/bin/mite examples/mite-cli/hello.mjs world
           build/linux/bin/mite examples/mite-cli/modules.mjs world
-          build/linux/bin/mite examples/mite-cli/commonjs.cjs
+          build/linux/bin/mite examples/mite-cli/hash.mjs
           ldd build/linux/bin/mite | tee build/linux/native-linkage.txt
       - name: Record upstream integrity after native build
         if: always()

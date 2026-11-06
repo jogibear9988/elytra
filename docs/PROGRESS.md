@@ -2960,6 +2960,65 @@ build, no alpha yet. Finish the modern sample/build/package integration next, th
 push the coherent commits and keep the requested optimized CI candidate current.
 The full product goal remains active, including all native desktop/release targets.
 
+## Modern ESM sample sources and first published alpha (2026-11-06)
+
+User requests CommonJS compatibility but modern ESM for every authored sample.
+Keep all CommonJS compatibility fixtures and implementation; convert CLI hello to
+hello.mjs with imports/top-level await and remove the CJS-only example in favor of
+the existing ESM JSON/hash examples. Update docs/README/Linux example commands.
+All authored examples are now free of .cjs source files. Targeted native commonjs,
+module and package suites pass (3/3, 2.11s); hello/modules/hash run with native Mite.
+
+Convert Firefly hello-world main and preload sources to .mjs and page script to a
+module. Add pinned esbuild preload bundling and build_hello.py: main stays ESM,
+preload source ESM becomes the generated CommonJS payload required by both sandbox
+implementations. Node/npm are build tools only; no Node/V8 engine is shipped.
+Direct native .mjs preload selection remains unsupported, documented explicitly.
+Build provenance records source hashes, formats and the bundler lock. Package the
+built hello directly instead of synthesizing an ESM wrapper around a CJS main.
+
+The first top-level await app.whenReady sample works in Firefly but hangs in the
+pinned Electron reference; keep the reference timeout strict. Use the shared
+whenReady().then(async createWindow) pattern, retaining native ESM main and async/
+await inside initialization. Real Electron and Firefly now both boot the same
+main/page/preload sources, changing only the desktop import in reference fixtures
+(hello-esm-ready-test.log). The shared test helper accepts explicit extra script args.
+Release gates run the modern sample comparison and native packaged Launcher smoke.
+Actual existing Firefly/Electron regression tests also pass after that helper change.
+
+Fresh packages relocate to build/modern samples relocated é文. The modern hello
+passes against Electron/Firefly and through its actual Launcher. Actual packaged
+Designer edit/Monaco/HTML/native controls pass too; all 7191 hashes and both strict
+app signatures verify (modern-samples-relocation.log). No new comparative size claim.
+Update sample README, first-app/API/bundling/build/release docs. Pin/Python/actionlint/
+diff checks pass; site validates 115 generated pages / 6269 local links/resources.
+Ladybird unchanged.
+
+The user then correctly notes the hosted macOS build succeeded without an alpha.
+Revalidate run42155631670/job127698599246: every full Release/native/package step
+succeeds; alpha job127719422082 is skipped solely because publish_alpha=false.
+No releases exist at that observation. Download artifact13478498209 using the
+GitHub connector, verify its exact SHA-256
+94a8f8c368f9b13c53ee190a879d703f86abf73174c41ebd78dd65a2eb047249,
+all archive checksums and all three clean-source BUILD manifests at
+745c7afb0ff7d065d055b0f6a1678c67717594a6, Release/Release, M1 baseline ON/ON.
+Its real sizes are framework 215.27 MiB / Designer 249.38 MiB; this is the baseline
+hosted build, not the smaller local provider experiment.
+
+Create annotated v0.1.0-alpha.1 exactly at that verified source, push the tag (alpha
+excluded from all-platform build trigger), create a draft prerelease, upload all
+five unchanged assets, verify server asset sizes/digests, then publish prerelease
+without marking it latest stable. Release436117231 is live at
+https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1 . Remote GET confirms
+published/non-draft, prerelease and five uploaded assets. Preserve original dev.34
+filenames/BUILD versions and explicitly explain immutable promotion provenance.
+No local/dirty package substituted and no rebuild needed. Notes explicitly state
+macOS ARM64/ad-hoc/not notarized, source745 limits, no new preload/ESM/provider work,
+and no Windows/Linux desktop binary claim. Update current release/download docs.
+The requested first alpha is now delivered. Optimized fd2124e run42161235765 has
+started; do not cancel it. The modern ESM source/build integration still needs its
+own hosted package acceptance. Full native cross-platform/API/IPC goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

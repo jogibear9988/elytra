@@ -77,7 +77,8 @@ limits and the still-required Mite/Firefly API integration.
 
 ```sh
 python3 tooling/build_renderer.py --target firefly --jobs 4
-build/renderer/bin/firefly examples/firefly-hello-world/main.cjs
+python3 tooling/build_hello.py
+build/renderer/bin/firefly build/firefly-hello-world/main.mjs
 
 # Install the exact Electron behavioral reference into ignored build/:
 python3 tooling/bootstrap_electron.py

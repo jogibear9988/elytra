@@ -2,7 +2,9 @@
 
 Current output is experimental macOS ARM64 packaging. Native Windows/Linux desktop
 and package acceptance remain unfinished. No complete cross-platform release has
-been established; required release jobs fail until their native gates pass.
+been established; required release jobs fail until their native gates pass. The
+[first macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
+contains the verified 745c7af snapshot; newer master features require a newer build.
 
 ## Development tree versus package
 

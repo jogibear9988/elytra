@@ -1,4 +1,4 @@
-const { contextBridge } = require('firefly');
+import {contextBridge} from 'firefly';
 
 contextBridge.exposeInMainWorld('desktop', {
   greeting: 'Published from an isolated preload',

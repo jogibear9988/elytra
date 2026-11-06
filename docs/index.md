@@ -11,6 +11,11 @@ x64 Mite runtime gates. Windows/Linux desktop releases remain unfinished.
 support; public main/renderer IPC remains unavailable. See [compatibility](compatibility/mite-0.1.md)
 and [implementation progress](PROGRESS.md) for the actual limits.
 
+The first [macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
+ships the verified 745c7af snapshot. Current documentation describes newer master
+features as well; check the release's pinned source/metadata before assuming that
+its binaries include them.
+
 ## Start here
 
 - [Build from source and run your first example](getting-started.md)

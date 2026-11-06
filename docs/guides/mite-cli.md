@@ -7,9 +7,9 @@ use the executable path from your build directory.
 ## Run a script with arguments
 
 ```sh
-build/dev/bin/mite examples/mite-cli/hello.js world
+build/dev/bin/mite examples/mite-cli/hello.mjs world
 build/dev/bin/mite examples/mite-cli/modules.mjs world
-build/dev/bin/mite examples/mite-cli/commonjs.cjs
+build/dev/bin/mite examples/mite-cli/hash.mjs
 ```
 
 Arguments after the entry file are script arguments. Use .mjs for explicit ESM,

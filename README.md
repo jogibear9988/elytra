@@ -9,10 +9,11 @@ Electron-compatible desktop framework. The implementation requirements are in
 [mite-firefly-agent-instructions.md](mite-firefly-agent-instructions.md).
 
 Mite runs a tested subset of Node-style CLI, module, timer, Buffer and filesystem behavior on macOS
-ARM64, with a [native Linux x64 baseline](docs/development/linux-build.md) also passing its runtime suites.
+ARM64, with [native Linux](docs/development/linux-build.md) and
+[Windows x64](docs/development/windows-build.md) also passing the documented runtime suites.
 Firefly now runs a first native macOS app/BrowserWindow slice on Mite,
 with a shared Electron lifecycle fixture. General compatibility and native
-Windows runtime and Windows/Linux desktop validation remain work in progress. See the
+Windows/Linux desktop validation remain work in progress. See the
 [Firefly development build](docs/development/renderer-build.md) and
 [compatibility matrix](docs/compatibility/firefly-0.1.md).
 See [implementation progress](docs/PROGRESS.md) and the
@@ -31,6 +32,11 @@ time; our adapters carry integration changes. See the
 [upstream update workflow](docs/development/updating-ladybird.md) for reviewing
 new revisions without maintaining a fork.
 
+The first [macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
+includes native Mite, Firefly and the Designer app. It is an ad-hoc signed,
+not-notarized snapshot at 745c7af; current master contains newer work. Windows/Linux
+desktop packages remain in progress. See the release notes for its exact scope.
+
 ## Development build
 
 Requires Git, Python 3.9+, Ninja, CMake 3.30+, Rust 1.98.0 (rustup), a C++23 compiler
@@ -47,9 +53,9 @@ cmake --preset dev
 cmake --build --preset dev --parallel 4
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
 ctest --preset dev
-build/dev/bin/mite examples/mite-cli/hello.js world
+build/dev/bin/mite examples/mite-cli/hello.mjs world
 build/dev/bin/mite examples/mite-cli/modules.mjs world
-build/dev/bin/mite examples/mite-cli/commonjs.cjs
+build/dev/bin/mite examples/mite-cli/hash.mjs
 ```
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and

@@ -7,12 +7,14 @@ production distribution are not yet available.
 ## Open the existing app
 
 ```sh
-build/renderer/bin/firefly examples/firefly-hello-world/main.cjs
+python3 tooling/build_hello.py
+build/renderer/bin/firefly build/firefly-hello-world/main.mjs
 ```
 
 This runs Mite for the main entry and opens the local HTML in a separate Ladybird
-renderer. Closing the last window requests app quit. The example logs the observed
-renderer PID; it does not rely on a browser-host Node global.
+renderer. Closing the last window requests app quit. The sample sources use ESM for main, preload and page scripts. The build bundles
+preload.mjs into the CommonJS payload required by the current sandbox; no Node
+runtime is packaged. The example logs the observed renderer PID; it does not rely on a browser-host Node global.
 
 ## Main entry
 

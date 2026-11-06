@@ -8,9 +8,8 @@ behavior before packaging. There is no Node/V8/Electron runtime fallback.
 **Current limitation:** native Windows Firefly window/process/sandbox adapters and
 packaging are not implemented. The required Windows job will fail explicitly, so
 the workflow cannot yet publish a complete macOS + Windows release. There are no
-skip/continue-on-error success paths for a required native platform. Workflow syntax
-is checked locally, but hosted release builds are not yet validated. This is release
-infrastructure in progress, not a claim of available cross-platform binaries.
+skip/continue-on-error success paths for a required native platform. Hosted macOS package builds now pass; the full cross-platform release workflow
+remains incomplete. This is not a claim of available Windows/Linux desktop binaries.
 
 ## Measured macOS development packages
 
@@ -30,7 +29,15 @@ This explicitly limited alpha does not satisfy the requested Windows/macOS relea
 Alpha tags are excluded from the all-platform tag trigger and use the explicitly
 scoped manual macOS path. The all-platform Native release workflow below retains
 its required Windows gate for other version tags.
-No hosted alpha is available until an actual successful build/publication is recorded.
+The first [macOS ARM64 alpha, v0.1.0-alpha.1](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
+is published from successful [run 42155631670](https://github.com/jogibear9988/elytra/actions/runs/42155631670),
+source 745c7af. The initial alpha job was skipped because publish_alpha was false;
+the verified artifacts were subsequently promoted without rebuilding or changing
+their bytes. Filenames and BUILD.json retain snapshot version 0.1.0-dev.34, with
+that provenance stated in the release notes. All five uploaded asset digests match
+the downloaded CI artifacts. This snapshot predates newer public preloads, ESM
+sample sources and size-profile/shared-OpenSSL changes; it is not current master.
+The smaller optimized candidate remains a separate running build.
 
 Manual macOS dispatch also offers optimize_size, default false. It forwards the
 explicit C++ size profile to the same release driver; compilation, all native
@@ -101,7 +108,9 @@ build/release-assets directories; the scripts reject existing output instead of
 silently mixing versions. The driver checks the tag and tracked source state,
 bootstraps pinned dependencies, configures a Release Mite build, runs CTest, builds
 Firefly and its renderer/isolation/helper gates, compiles the demo, tests it, packages
-and tests the relocated app, then creates archives/checksum manifests. Renderer build
+and tests the relocated app, then creates archives/checksum manifests. The hello-world
+is authored in ESM; packaging builds its sandbox preload with pinned esbuild and
+checks the actual ESM main/page against Electron/Firefly plus the native app launcher. Renderer build
 is already Release. It stops at the first failed required command. A supported macOS
 build may take substantial time/disk space; no complete hosted run is claimed yet.
 

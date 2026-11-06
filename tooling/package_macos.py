@@ -157,8 +157,8 @@ def main():
     (stage/'bin').mkdir();shutil.copy2(mite/'bin/mite',stage/'bin/mite')
     if args.symbols=='stripped':run('xcrun','strip','-S','-x',stage/'bin/mite',stderr=subprocess.DEVNULL)
     run('codesign','--force','--sign','-',stage/'bin/mite',stderr=subprocess.DEVNULL)
-    hello=stage/'hello-source';hello.mkdir();shutil.copy2(ROOT/'examples/firefly-hello-world/main.cjs',hello/'main.cjs');shutil.copy2(ROOT/'examples/firefly-hello-world/index.html',hello/'index.html');shutil.copy2(ROOT/'examples/firefly-hello-world/preload.cjs',hello/'preload.cjs')
-    (hello/'main.mjs').write_text("import './main.cjs';\n")
+    hello=stage/'hello-source'
+    run(sys.executable,ROOT/'tooling/build_hello.py','--output',hello)
     apps=[('Firefly',hello,'org.elytra.Firefly'),('Web Component Designer',designer,'org.elytra.WebComponentDesigner')]
     counts={}
     for name,app,identifier in apps:

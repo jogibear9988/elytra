@@ -68,6 +68,8 @@ def main():
     run('cargo','fetch','--locked','--manifest-path',ROOT/'vendor/ladybird/Cargo.toml')
     run(sys.executable,'tooling/package_macos.py','--mite-build',build,'--output',stage,'--version',version_tag[1:],'--dependencies','production','--symbols','stripped')
     run(sys.executable,'tooling/test_public_preload.py','--firefly',stage/'Firefly.app/Contents/MacOS/firefly','--electron',ROOT/'build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron')
+    run(sys.executable,'tooling/test_hello.py','--firefly',stage/'Firefly.app/Contents/MacOS/firefly','--electron',ROOT/'build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron','--app',stage/'Firefly.app/Contents/Resources/app')
+    run(stage/'Firefly.app/Contents/MacOS/Launcher','--smoke',timeout=40)
     packaged=stage/'Web Component Designer.app/Contents'
     run(sys.executable,'tooling/test_designer.py','--mite',stage/'bin/mite','--app',packaged/'Resources/app','--launcher',packaged/'MacOS/Launcher')
     # Separate runtime/framework/sample archives; all include relevant notices.

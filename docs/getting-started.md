@@ -25,7 +25,7 @@ git submodule update --init --recursive
 python3 tooling/bootstrap.py
 cmake --preset dev
 cmake --build --preset dev --parallel 4
-build/dev/bin/mite examples/mite-cli/hello.js world
+build/dev/bin/mite examples/mite-cli/hello.mjs world
 ```
 
 For an existing clone, update the branch and initialize its submodules together.
@@ -66,7 +66,8 @@ media, Qt and browser dependencies. On the tested macOS host:
 
 ```sh
 python3 tooling/build_renderer.py --target firefly --jobs 4
-build/renderer/bin/firefly examples/firefly-hello-world/main.cjs
+python3 tooling/build_hello.py
+build/renderer/bin/firefly build/firefly-hello-world/main.mjs
 ```
 
 Use an unlocked graphical session for visible-window tests. The development layout

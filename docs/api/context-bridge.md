@@ -3,30 +3,44 @@
 Availability: partial native macOS ARM64 Firefly implementation. This API publishes
 an isolated renderer API to a document. Main-process IPC is still unsupported.
 
-## Select a CommonJS preload
+## Author an ESM preload
 
-```js
-// main.cjs
-const {app, BrowserWindow} = require('firefly');
-const path = require('node:path');
-app.whenReady().then(async () => {
-  const window = new BrowserWindow({
-    webPreferences: {preload: path.join(__dirname, 'preload.cjs')}
-  });
-  await window.loadFile('index.html');
-});
-app.on('window-all-closed', () => app.quit());
+Application examples use ESM sources. The current sandbox executes a bundled
+CommonJS payload, following the same bundling pattern described in
+[Electron's sandboxed-preload ESM guidance](https://www.electronjs.org/docs/latest/tutorial/esm#sandboxed-preload-scripts-cant-use-esm-imports).
+Build it from modern preload source before launching:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
+node tooling/bundle_preload.mjs path/to/preload.mjs path/to/preload.cjs
 ```
 
 ```js
-// preload.cjs
-const {contextBridge} = require('firefly');
+// main.mjs
+import {app, BrowserWindow} from 'firefly';
+import {fileURLToPath} from 'node:url';
+app.on('window-all-closed', () => app.quit());
+app.whenReady().then(async () => {
+  const window = new BrowserWindow({
+    webPreferences: {preload: fileURLToPath(new URL('./preload.cjs', import.meta.url))}
+  });
+  await window.loadFile('index.html');
+}).catch(error => {console.error(error); app.exit(1);});
+```
+
+```js
+// preload.mjs (authored source)
+import {contextBridge} from 'firefly';
 contextBridge.exposeInMainWorld('desktop', {
   label: 'My app',
   add: (left, right) => left + right,
   answer: async () => ({value: 42})
 });
 ```
+
+The [hello-world source](../../examples/firefly-hello-world/main.mjs) and
+`python3 tooling/build_hello.py` demonstrate that build/launch path. CommonJS is
+still supported for existing apps; no CommonJS source is required in the sample.
 
 ```js
 // ordinary document script
@@ -54,7 +68,7 @@ Only `require('firefly')`, exporting contextBridge, is implemented. Other module
 including node:fs, relative modules and electron, throw ERR_FIREFLY_UNSUPPORTED_API.
 There is no Mite/Node process, Buffer or filesystem loader. The CommonJS wrapper
 provides module, exports, __filename and __dirname; this is not a full Node module
-implementation. ES module preloads (.mjs) explicitly reject. Bundle dependencies
+implementation. Direct ES module preload paths (.mjs) explicitly reject; bundle authored ESM first. Bundle dependencies
 into a single CommonJS preload when they do not require unsupported capabilities.
 Browser APIs depend on the implemented isolated-world boundary; timer, observer
 and DOM callback parity remains incomplete.
