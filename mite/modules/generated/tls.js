@@ -29,7 +29,28 @@ function createTlsModule(host) {
       "secureProtocol",
       "requestCert",
       "enableTrace",
-      "handshakeTimeout"
+      "handshakeTimeout",
+      "secureOptions",
+      "sigalgs",
+      "ecdhCurve",
+      "requestOCSP",
+      "minDHSize",
+      "honorCipherOrder",
+      "allowPartialTrustChain",
+      "clientCertEngine",
+      "privateKeyIdentifier",
+      "privateKeyEngine",
+      "ticketKeys",
+      "sessionIdContext",
+      "dhparam",
+      "SNICallback",
+      "ALPNCallback",
+      "localAddress",
+      "localPort",
+      "fd",
+      "path",
+      "onread",
+      "blockList"
     ]) {
       if (options[key] !== void 0) {
         unsupported(`TLS option ${key}`);
@@ -184,7 +205,11 @@ function createTlsModule(host) {
         config.maximum,
         config.alpn
       );
-      const transport = new Socket({ noDelay: options.noDelay ?? true });
+      const transport = new Socket({
+        noDelay: options.noDelay ?? true,
+        keepAlive: options.keepAlive,
+        keepAliveInitialDelay: options.keepAliveInitialDelay
+      });
       const state = {
         engine,
         transport,

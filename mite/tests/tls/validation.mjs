@@ -17,6 +17,13 @@ const cases = [
     [{ servername: '127.0.0.1' }, 'ERR_INVALID_ARG_VALUE'],
     [{ timeout: '1' }, 'ERR_INVALID_ARG_TYPE'],
     [{ cert: '' }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ secureOptions: 0 }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ sigalgs: 'rsa_pss_rsae_sha256' }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ ecdhCurve: 'X25519' }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ requestOCSP: true }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ allowPartialTrustChain: false }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ localAddress: '127.0.0.1' }, 'ERR_MITE_UNSUPPORTED_API'],
+    [{ path: '/tmp/tls-socket' }, 'ERR_MITE_UNSUPPORTED_API'],
     [{ handshakeTimeout: 1 }, 'ERR_MITE_UNSUPPORTED_API']
   ].map(([options, code]) => [() => tls.connect({ host: '127.0.0.1', port: 9, ...options }), code])
 ];

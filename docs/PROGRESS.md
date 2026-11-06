@@ -3854,6 +3854,24 @@ process/filesystem/general stream cancellation, desktop IPC/services and native
 Windows/Linux distribution/security work. The overall goal stays active; local
 GUI acceptance remains infrequent, targeted and batched.
 
+## 2026-11-06 — Reject unavailable TLS provider policies explicitly
+
+The final TLS API audit found provider/security and unsupported TCP options could
+otherwise be ignored by the new facade. Reject secureOptions, sigalgs, ecdhCurve,
+OCSP/partial-chain/client-key settings and unsupported binding/descriptor/IPC
+fields before allocating/connecting. Keep defaults explicit; do not pretend a
+requested provider policy was applied. Forward supported keepAlive/initial-delay
+options to the existing TCP implementation and exercise them in shared TLS cases.
+
+Validation: all 52 CTests pass in 38.04 seconds (tls-policy-tests.log). The native
+TLS suite now checks 23 explicit option/mode rejection cases plus the unchanged
+34 encrypted workflow comparisons, forced GC and independent stalled-handshake
+closure. Generated adapters reproduce current sources; Firefly compile-only succeeds
+(tls-policy-firefly-build.log). Integrity/upstream/actionlint and style checks
+pass; site validates 155 pages / 9733 links. No GUI is launched.
+Native platform acceptance of this source remains pending. Overall goal active;
+HTTPS/fetch and the broader specification remain unfinished.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

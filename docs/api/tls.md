@@ -35,7 +35,7 @@ subscribes once to secureConnect. ESM and CommonJS share the builtin instance.
 | signal | Realm-local AbortSignal; abort closes the actual pending/established transport with AbortError/ABORT_ERR and original reason cause |
 | timeout | Socket inactivity notification; does not itself abort; use a signal for a deadline |
 | family / lookup / hints / autoSelectFamily / autoSelectFamilyAttemptTimeout | Forwarded to the supported TCP connector |
-| allowHalfOpen / highWaterMark / noDelay | Selected Duplex/TCP controls |
+| allowHalfOpen / highWaterMark / noDelay / keepAlive / keepAliveInitialDelay | Selected Duplex/TCP controls |
 
 Certificate verification happens before secureConnect or application data. DNS/IP
 SANs are checked; partial-label wildcards and common-name fallback are disabled.
@@ -92,7 +92,9 @@ forced GC checks native record ownership in the non-GUI host.
 Direct TLSSocket construction/wrapping, TLS servers, reusable SecureContext,
 client certificates/key/PFX, custom ciphers, custom checkServerIdentity, sessions,
 PSK callbacks, renegotiation, tracing, handshakeTimeout and key material export
-remain unsupported. Use AbortSignal.timeout for a handshake deadline. createServer,
+remain unsupported. Unavailable provider policies (secureOptions, sigalgs,
+ecdhCurve, OCSP, partial-chain settings and client-key engines) and TCP local
+binding/descriptor/IPC options reject explicitly. Use AbortSignal.timeout for a handshake deadline. createServer,
 createSecureContext and the exposed unsupported methods throw ERR_MITE_UNSUPPORTED_API.
 Peer-certificate/cipher inspection is not yet implemented. Full Node TLS option,
 metadata, half-close/error and native platform parity remain unfinished.

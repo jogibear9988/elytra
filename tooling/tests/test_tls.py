@@ -23,7 +23,7 @@ def main():
     policy = subprocess.run(
         [args.mite, str(root / "validation.mjs")], capture_output=True, text=True, timeout=10
     )
-    assert policy.returncode == 0 and not policy.stderr and policy.stdout == "TLS policy 16\n", (
+    assert policy.returncode == 0 and not policy.stderr and policy.stdout == "TLS policy 23\n", (
         policy
     )
     print("PASS explicit TLS option/mode policy", flush=True)

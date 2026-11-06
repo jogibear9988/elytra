@@ -7,6 +7,8 @@ const controller = new AbortController();
 const ca = readFileSync(directory + '/ca.pem');
 const config = {
   host: '127.0.0.1',
+  keepAlive: true,
+  keepAliveInitialDelay: 1000,
   port: Number(port),
   servername:
     mode === 'wildcard'
