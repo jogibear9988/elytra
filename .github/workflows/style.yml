@@ -12,6 +12,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      # Hosted images can contain partially installed components for this exact
+      # version. Keep the job's pinned formatter toolchain separate from that state.
+      - name: Isolate authoring toolchain
+        run: printf 'RUSTUP_HOME=%s/elytra-style-rustup\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.15.0'
@@ -28,7 +32,9 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
           python3 -m venv build/code-style-venv
           build/code-style-venv/bin/pip install -r tooling/code-style/requirements.txt
-          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          rustup default 1.98.0
+          rustup run 1.98.0 rustfmt --version
       - name: Check maintained sources
         run: python3 tooling/code_style.py --check
       - name: Reproduce Mite and Firefly embedding adapters

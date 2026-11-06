@@ -5041,6 +5041,24 @@ positive native acceptance. Existing independent service/macOS candidates remain
 live and are not restarted on observation timeouts. Public Linux Wayland/desktop
 and Windows desktop/distribution work remain unfinished. Goal active.
 
+## 2026-11-06: Isolate the pinned CI formatter toolchain from runner installation state
+
+- Source-style 4b3a83d run 42303495798/job 128186935858 fails before source checks:
+  rustup reports a clippy-preview conflict at bin/cargo-clippy while preparing the
+  already-present 1.98.0 toolchain. This is recorded tool-installation evidence;
+  do not mark formatting/generated checks successful when they were skipped.
+- Give only the authoring-tools job a fresh runner-temporary RUSTUP_HOME. Keep
+  Cargo home/registry locations and other running jobs unchanged. Install/select
+  exact Rust 1.98.0 with both rustfmt/clippy matching rust-toolchain.toml, and log
+  the actual selected formatter version before checking sources.
+- Actionlint, maintained source style, whitespace and upstream checks pass locally.
+  Hosted clean-home tool installation/source reproduction needs its next run;
+  no local toolchain installation or GUI test is performed.
+
+Limits: the separate native Linux service and optimized macOS package jobs remain
+live. Continue their actual acceptance; no new alpha or platform result is inferred
+from this tool-bootstrap correction. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
