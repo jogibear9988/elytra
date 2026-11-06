@@ -85,6 +85,15 @@ link closure alone does not prove optional runtime loads are unnecessary.
 - Continue browser-asset graph checks as optional Designer features gain coverage.
   Keep --no-bundle for investigating dynamic module paths outside measured workflows.
 
+The explicit --optimize-size experiment now selects a checked C++ -Oz (/O1 on
+MSVC-compatible drivers) profile independently of LTO. Rust and prebuilt
+dependencies are unchanged. With the null-deallocation adapter in
+[ADR 0058](../architecture/0058-null-safe-execution-context-deallocation.md), the
+local CLI passes 38 tests and measures 50,793,784 unstripped bytes, versus the
+51,286,136-byte non-LTO baseline. The complete framework/sample result is still
+pending; defaults stay off. See
+[ADR 0059](../architecture/0059-explicit-cpp-size-profile.md) for scope and guards.
+
 Unicode data cannot simply be removed while retaining the same Intl/text behavior.
 Compressing downloads helps transfer size but does not reduce the installed app.
 Every experiment must record build configuration, exact bytes, passed tests and

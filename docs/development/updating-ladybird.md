@@ -40,6 +40,12 @@ candidate commits from the official repository in .gitmodules / the manifest.
    `cmake --build build/upstream-review --target mite --parallel 4`.
    Adapt our CMake graph and host code to API changes. LibJS/LibWeb integration
    APIs are not a stable ABI; an update may require such work.
+   Review the owned ExecutionContextAdapter.cpp against the upstream deallocation
+   body and Rust destroy contract (ADR 0058). Its exact-call/TU guards require
+   review if upstream changes or fixes null handling. Retain the null/moved-owner
+   native regression and remove the adapter when upstream makes it unnecessary;
+   never alter upstream to satisfy our hook guard. For size builds, verify the
+   generated-command guard still finds the selected optimization flag last.
 5. Install the locked npm fixtures as documented in README, then run
    `ctest --test-dir build/upstream-review --output-on-failure` and the CLI
    examples. Inspect compiler/linker warnings, runtime library dependencies,

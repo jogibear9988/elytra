@@ -65,6 +65,8 @@ endforeach()
 
 include(mite/cmake/RustAggregate.cmake)
 mite_aggregate_rust()
+include(mite/cmake/ExecutionContextAdapter.cmake)
+mite_adapt_execution_context("${CMAKE_SOURCE_DIR}")
 
 include(mite/cmake/Runtime.cmake)
 mite_add_runtime(mite-runtime "${CMAKE_SOURCE_DIR}" LibJSStandalone)
@@ -72,6 +74,10 @@ add_executable(mite mite/runtime/main.cpp)
 target_link_libraries(mite PRIVATE mite-runtime)
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(mite-execution-context-probe mite/tests/embedding/ExecutionContext.cpp)
+    target_link_libraries(mite-execution-context-probe PRIVATE LibJSStandalone)
+    add_dependencies(mite mite-execution-context-probe)
+    add_test(NAME mite-execution-context COMMAND "$<TARGET_FILE:mite-execution-context-probe>")
     add_test(NAME mite-rust-lock COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
     add_test(NAME mite-rust-lock-guard COMMAND "${Python3_EXECUTABLE}"
@@ -155,4 +161,6 @@ if(BUILD_TESTING)
     add_test(NAME mite-npm COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_npm.py" --mite "$<TARGET_FILE:mite>")
 endif()
+include(mite/cmake/SizeOptimization.cmake)
+elytra_enable_size_optimization()
 install(TARGETS mite RUNTIME DESTINATION bin)

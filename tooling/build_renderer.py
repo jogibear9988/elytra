@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
     parser.add_argument('--lto',action='store_true',help='Enable C++ Release LTO; fail if the compiler/linker cannot provide it')
+    parser.add_argument('--optimize-size',action='store_true',help='Optimize project C++ Release objects for size; Rust and prebuilt dependencies keep their profiles')
     parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe','firefly'],default='firefly-renderer-probe')
     args=parser.parse_args()
     if args.target in ['firefly-window-probe','firefly'] and sys.platform!='darwin':
@@ -43,8 +44,11 @@ def main():
         command.extend([f'-DVCPKG_MANIFEST_DIR={manifest}', '-DFIREFLY_BUILD_RUNTIME=ON'])
     else:
         command.extend([f'-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird', '-DFIREFLY_BUILD_RUNTIME=OFF'])
+    command.append(f'-DELYTRA_OPTIMIZE_SIZE={"ON" if args.optimize_size else "OFF"}')
     environment={**os.environ,'VCPKG_MAX_CONCURRENCY':str(args.jobs)}
     subprocess.run(command,cwd=ROOT,env=environment,check=True)
+    if args.optimize_size:
+        subprocess.run([sys.executable,str(ROOT/'tooling/check_size_optimization.py'),'--build',str(build)],cwd=ROOT,check=True)
     if not args.configure_only:
         subprocess.run(['cmake','--build',str(build),'--target',args.target,'--parallel',str(args.jobs)],cwd=ROOT,check=True)
     check(ROOT)

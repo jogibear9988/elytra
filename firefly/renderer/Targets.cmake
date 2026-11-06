@@ -1,5 +1,7 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never
 # added to the standalone Mite build or linked into the Mite executable.
+include("${FIREFLY_SOURCE_DIR}/mite/cmake/ExecutionContextAdapter.cmake")
+mite_adapt_execution_context("${FIREFLY_SOURCE_DIR}")
 if(ENABLE_LTO_FOR_RELEASE AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     message(FATAL_ERROR "Requested Release LTO is unsupported by this compiler/linker")
 endif()
@@ -51,3 +53,6 @@ add_custom_target(check-firefly-isolation COMMAND "$<TARGET_FILE:firefly-isolati
 if(APPLE)
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
+
+include("${FIREFLY_SOURCE_DIR}/mite/cmake/SizeOptimization.cmake")
+elytra_enable_size_optimization()

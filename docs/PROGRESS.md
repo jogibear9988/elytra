@@ -1970,6 +1970,38 @@ the new fault reporter; it was explicitly cancelled to let queued diagnostic run
 42130072857 remains recorded. macOS package 42125911196 and Linux 42130905759 remain
 live. No alpha is created before hosted native package acceptance.
 
+## Checked size profile and null-safe SDK deallocation (2026-11-06)
+
+Add optional --optimize-size to renderer/release drivers and owned Release CMake:
+-Oz (/O1 on MSVC-compatible drivers) follows upstream options on C++/Objective-C++
+targets. Rust/vcpkg profiles and feature/resource/helper inventories are unchanged.
+A generated-command guard confirms the final flag is selected, not overridden
+by upstream -O3; it checks 277 standalone / 2894 renderer commands locally.
+Package metadata records each project's enabled setting and chosen flag.
+
+The first local -Oz CLI aborts in Rust execution_context_from_abi. Disassembly
+of initialize_host_defined_realm proves unconditional deallocation of moved-from
+owners. C++ permits calling class-specific deallocation for null delete operands,
+but upstream's SDK operator forwards null to the Rust non-null destroy contract.
+The owned ExecutionContextAdapter.cpp includes the unchanged original TU and
+routes only that destroy call through a null guard. Configure/build exact-body /
+call-count and exactly-one-TU checks require review on upstream drift. The pinned
+Ladybird checkout remains untouched. ADRs 0058/0059 record contract and scope.
+
+A native SDK regression directly exercises null deletion, real VM/realm ownership
+movement and cleanup. All 38 local Mite tests pass with the adapter under -Oz
+(26.26s, build/size-mite-adapter-{build,test}.log); without it the startup panic is
+retained in build/size-mite-*-trace.log and size-realm-disassembly.log. The LLDB
+launch produced no observation and its owned debugger processes were terminated;
+no debugger result is claimed. Unstripped CLI is 50,793,784 bytes. Framework savings
+remain unproven. Initial renderer size build session 93969 remains live; after it
+finishes, reconfigure/rebuild to include the new adapter before native acceptance.
+Do not treat its original in-flight graph as already adapted. Defaults remain off.
+Exact-seam drift and an actual generated-command -O3 override are rejected in
+negative controls. Site validation passes 101 pages / 5231 local links/resources/
+fragments. Native Windows and Linux acceptance of this new adapter/profile remain
+pending; the separate pre-adapter Linux baseline result is recorded next.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

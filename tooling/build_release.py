@@ -22,6 +22,7 @@ def main():
     identity.add_argument('--snapshot',help='Version label for a non-release CI package, e.g. 0.1.0-dev.123')
     parser.add_argument('--jobs',type=int,default=3)
     parser.add_argument('--lto',action='store_true',help='Enable C++ LTO for Mite and Firefly; run all normal release gates')
+    parser.add_argument('--optimize-size',action='store_true',help='Use the C++ size optimization profile for both projects; keep all release gates')
     args=parser.parse_args()
     version_tag=args.tag or ('v'+args.snapshot)
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',version_tag):parser.error('Tag must be a version such as v0.1.0-dev.1')
@@ -38,14 +39,17 @@ def main():
     command=['cmake','-S',ROOT,'-B',build,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DBUILD_TESTING=ON',f'-DCMAKE_TOOLCHAIN_FILE={ROOT}/build/vcpkg/scripts/buildsystems/vcpkg.cmake']
     if os.name=='nt':command.extend(['-DCMAKE_C_COMPILER=clang-cl','-DCMAKE_CXX_COMPILER=clang-cl'])
     command.append(f'-DENABLE_LTO_FOR_RELEASE={"ON" if args.lto else "OFF"}')
+    command.append(f'-DELYTRA_OPTIMIZE_SIZE={"ON" if args.optimize_size else "OFF"}')
     run(*command)
+    if args.optimize_size:run(sys.executable,'tooling/check_size_optimization.py','--build',build)
     run('cmake','--build',build,'--target','mite','--parallel',args.jobs)
     npm=shutil.which('npm.cmd' if os.name=='nt' else 'npm')
     run(npm,'ci','--ignore-scripts','--no-audit','--no-fund','--prefix','tooling/npm-fixtures')
     run('ctest','--test-dir',build,'--output-on-failure')
     # This deliberately fails on unsupported native desktop platforms. A Mite
     # binary alone must never be relabeled as a successful complete release.
-    run(sys.executable,'tooling/build_renderer.py','--target','firefly','--jobs',args.jobs,*(['--lto'] if args.lto else []))
+    renderer_options = (['--lto'] if args.lto else []) + (['--optimize-size'] if args.optimize_size else [])
+    run(sys.executable,'tooling/build_renderer.py','--target','firefly','--jobs',args.jobs,*renderer_options)
     run(sys.executable,'tooling/bootstrap_electron.py')
     run('cmake','--build','build/renderer','--target','check-firefly','check-firefly-renderer','check-firefly-isolation','check-firefly-renderer-helper','--parallel',args.jobs)
     designer=ROOT/'build/designer-app'

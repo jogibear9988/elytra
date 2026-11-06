@@ -20,8 +20,15 @@ Release without LTO or JS JIT by default. Pass --lto to enable C++ link-time
 optimization explicitly; a compiler/linker without IPO support fails configuration
 instead of silently producing an unoptimized comparison. This does not enable Rust
 cross-language LTO or the JS JIT. Changing this option rebuilds the affected native
-objects; use the same native test gates and compare stripped packages. Its helpers
-and resources currently come from the companion Ladybird build/bundle; this is a
+objects; use the same native test gates and compare stripped packages.
+
+The separate --optimize-size option selects the checked C++ size profile (-Oz or
+/O1); Rust and prebuilt dependency profiles stay unchanged. The driver verifies
+the final optimization flag in generated C++ commands, since upstream also adds
+-O3. Defaults remain off pending full framework/sample acceptance. The owned
+null-deallocation adapter in [ADR 0058](../architecture/0058-null-safe-execution-context-deallocation.md)
+keeps moved-from execution-context cleanup safe under this compilation mode.
+Helpers and resources currently come from the companion Ladybird build/bundle; this is a
 source-tree development layout. The separate experimental
 [release packager](releases.md) stages physical helpers/resources and internal
 libraries into relocatable macOS bundles; native Windows/Linux and production

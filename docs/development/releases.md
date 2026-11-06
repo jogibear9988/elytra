@@ -70,6 +70,14 @@ macOS package BUILD.json records each project's cppLTO setting; package sizes mu
 be compared with identical dependency/symbol modes. A standalone manual CMake build
 uses -DENABLE_LTO_FOR_RELEASE=ON. Unsupported compiler/linker IPO fails explicitly.
 
+The separate --optimize-size experiment applies a checked C++ size flag after
+upstream Release optimization options. Rust/dependency profiles are unchanged;
+cppSizeOptimization records each project's enabled setting/flag in BUILD.json.
+The generated-command guard must confirm the size flag actually takes precedence.
+Full framework/sample acceptance is pending, so this also defaults off. Combining
+--lto and --optimize-size requires its own native validation; no size/performance
+claim follows merely from selecting either flag.
+
 Use fresh build/release-stage, build/designer-app, build/archive-* and
 build/release-assets directories; the scripts reject existing output instead of
 silently mixing versions. The driver checks the tag and tracked source state,
