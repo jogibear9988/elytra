@@ -1,7 +1,14 @@
 // Native bring-up diagnostics only; the shipping CLI has no crash interception.
 #include "Runtime.h"
 #include <AK/Windows.h>
+// AK deliberately removes the legacy Windows IN annotation. DbgHelp still
+// requires it in some SDK declarations; restore it only while parsing that SDK.
+#pragma push_macro("IN")
+#ifndef IN
+#    define IN
+#endif
 #include <DbgHelp.h>
+#pragma pop_macro("IN")
 #include <cstdio>
 #include <cstring>
 

@@ -2002,6 +2002,17 @@ negative controls. Site validation passes 101 pages / 5231 local links/resources
 fragments. Native Windows and Linux acceptance of this new adapter/profile remain
 pending; the separate pre-adapter Linux baseline result is recorded next.
 
+## Windows diagnostic SDK annotation (2026-11-06)
+
+Diagnostic run 42132246241 (a377d04, job 127612697222) is terminal compile failure
+in our new probe, before runtime diagnostics: AK/Windows.h intentionally undefines
+legacy IN, but DbgHelp.h still uses it. Save/restore that macro around the SDK
+include only; no Windows SDK or Ladybird edits and no change to shipping runtime
+behavior. The actual compiler output identifies the missing annotation. This fixes
+the observed include seam; native probe compilation/stack reporting and the original
+VM access violation remain unverified until the next job. Python/actionlint checks
+pass; no native Windows success is claimed from the local source inspection.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
