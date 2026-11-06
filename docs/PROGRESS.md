@@ -2102,6 +2102,27 @@ must run/pass. actionlint/Python checks cover orchestration; the new Windows-onl
 unwind path awaits native compilation and actual trace evidence. Local tested
 size-profile app and default Linux acceptance remain separate completed evidence.
 
+## Windows startup cause: libuv before process queries (2026-11-06)
+
+Run 42136659095 at 9752348 (job 127626480547) fails honestly at the early startup
+gate; broad suites are skipped after that failure, not treated as successful.
+Its native access record is execute/address zero. The recovered caller is
+uv_os_getppid+0x29, followed by Mite::create_process at Process.cpp:101 and run at
+Runtime.cpp:142. This corroborates an indirect call in the pinned libuv 1.52.1
+Windows source: pNtQueryInformationProcess is loaded by uv_loop_init's one-time
+initialization, but uv_os_getppid does not initialize it itself. Our EventLoop was
+constructed only after create_process had already queried ppid.
+
+Move the existing owned-loop construction before process queries, retaining realm
+roots and normal shutdown. No private libuv function, throwaway loop, guessed PID,
+vendor patch or runtime fallback is introduced. A fresh child-process regression
+compares ppid to the actual Python launcher under both Node and Mite, before timers
+or I/O could mask startup order. All 38 local Release/size-profile CTest suites pass
+(18.05s, build/libuv-startup-{build,test}.log), including both fresh-parent checks.
+check-firefly also passes its native/lifecycle/ESM/HTTP/control gates in
+build/libuv-startup-firefly-test.log. Actual Windows acceptance remains pending the
+next job; the local checks are not relabeled as Windows runtime evidence.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

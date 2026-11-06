@@ -138,6 +138,9 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         +[](JS::VM& vm) { return print(vm, stderr); }, 0, JS::default_attributes);
     global.define_direct_property("global"_utf16, &global, JS::default_attributes);
 
+    // Initialize the owned libuv loop before process queries: Windows libuv's
+    // uv_os_getppid uses WinAPI pointers initialized by uv_loop_init.
+    Mite::EventLoop event_loop(*vm, report_exception);
     auto process_result = Mite::create_process(*vm, realm);
     if (process_result.is_error()) {
         report_exception(process_result.error_value());
@@ -156,7 +159,6 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         args.append(JS::PrimitiveString::create(*vm, Utf16String::from_utf8_with_replacement_character(StringView(argv[i], strlen(argv[i])))));
     process->define_direct_property("argv"_utf16, JS::Array::create_from(realm, args), JS::default_attributes);
 
-    Mite::EventLoop event_loop(*vm, report_exception);
     auto installed = event_loop.install(realm);
     if (installed.is_error()) {
         report_exception(installed.error_value());

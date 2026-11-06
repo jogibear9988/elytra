@@ -122,3 +122,18 @@ The startup probe now runs immediately after compilation. A failed real evaluati
 fails the job before spending time on npm installation and broad suites; those
 suites must all run/pass once the startup gate succeeds. Diagnostic/integrity
 artifacts remain unconditional. No skipped suite is treated as successful acceptance.
+
+## libuv process-query startup order
+
+Run 42136659095 at 9752348 resolves the null-PC candidate to uv_os_getppid,
+called from create_process when defining process.ppid. The native source pin is
+libuv 1.52.1: its Windows getter calls pNtQueryInformationProcess without running
+the one-time initialization itself. uv_loop_init initializes those WinAPI function
+pointers. Mite previously constructed its owned EventLoop after create_process.
+
+Construct the same owned loop before process queries, keeping realm roots alive
+through teardown. Do not call libuv private initialization functions or create a
+throwaway default loop. This changes our ordering, not libuv/Ladybird source or
+process.ppid semantics. A fresh-process behavioral control compares ppid against
+the actual Python launcher PID under both Node and Mite. Native Windows acceptance
+still requires the next startup/runtime job; local checks alone cannot certify it.

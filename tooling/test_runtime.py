@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run shared fixtures in real Node and Mite; no engine substitution or output filtering."""
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -44,6 +45,15 @@ def main():
         ("syntax-error.js", [], 1, ""),
     ]
     failures = []
+    # Each direct child must report this actual launcher as its parent, before
+    # timers or async I/O could accidentally initialize platform services for it.
+    for executable in [args.node, args.mite]:
+        result = run(executable, '-e', 'console.log(process.ppid)')
+        passed = result.returncode == 0 and result.stdout == f'{os.getpid()}\n' and not result.stderr
+        print(f"{'PASS' if passed else 'FAIL'} fresh process.ppid startup")
+        if not passed:
+            failures.append('fresh process.ppid startup')
+            print(result, file=sys.stderr)
     for name, extra, status, output in cases:
         node = run(args.node, fixtures / name, *extra)
         mite = run(args.mite, fixtures / name, *extra)
