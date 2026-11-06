@@ -82,7 +82,9 @@ console.log(posix === posixDefault, win32 === winDefault, posix.win32 === win32,
 console.log(join === path.join, resolve === posix.resolve);
 const old = process.cwd();
 process.chdir('..');
-console.log(posix.resolve('child') === posix.join(process.cwd().replaceAll('\\\\', '/'), 'child'));
+const current=process.cwd().replaceAll('\\\\', '/');
+const posixCurrent=process.platform==='win32'?current.replace(/^[a-zA-Z]:/, ''):current;
+console.log(posix.resolve('child') === posix.join(posixCurrent, 'child'));
 process.chdir(old);
 ''')
         results = [subprocess.run([exe, str(identity)], capture_output=True, text=True, timeout=15) for exe in [args.node, args.mite]]

@@ -64,7 +64,8 @@
     function tmpdir(){
         let directory;
         if(windows){
-            directory=native.getenv('TEMP') || native.getenv('TMP') || `${native.getenv('SystemRoot') || native.getenv('windir')}\\temp`;
+            const env=host.process.env;
+            directory=env.TEMP || env.TMP || `${env.SystemRoot || env.windir}\\temp`;
             if(directory.length>1 && directory.endsWith('\\') && directory.at(-2)!==':')directory=directory.slice(0,-1);
         }else{
             directory=native.getenv('TMPDIR') || native.getenv('TMP') || native.getenv('TEMP') || '/tmp';

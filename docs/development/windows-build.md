@@ -1,6 +1,6 @@
 # Native Windows bring-up
 
-Windows support remains unverified. Native Windows development Actions builds Mite
+Full Windows support remains unverified. Native Windows development Actions builds Mite
 on Windows Server 2025 with Visual Studio clang-cl x64, the pinned Rust toolchain
 and pinned vcpkg source/dependencies. No WSL, MinGW compiler or alternate JS engine
 is used as a runtime/build fallback. Node is only the differential test reference.
@@ -60,7 +60,7 @@ invalid component found; no upstream file is renamed or excluded.
 
 ## Still required
 
-A successful native compile and complete measured runtime suite, native filesystem/
+The complete measured runtime suite, remaining native filesystem/
 network/process behavior, Firefly window/render-process/sandbox adapters, native
 Designer acceptance, dependency deployment and Windows packaging remain required.
 The release workflow must fail until all its native requirements pass. Never replace
@@ -188,3 +188,26 @@ files, including escaped #/% URL components, and compares body/metadata/identity
 with Node. These checks pass locally; native Windows runtime/path acceptance is
 still pending. Native filesystem API differences remain independent of this loader
 fix and are not normalized away.
+
+## Wide-entry runtime result and remaining contract fixes
+
+Run [42141915944](https://github.com/jogibear9988/elytra/actions/runs/42141915944)
+at 1df78c8 passes native compilation/startup and 32/40 suites in 62.18s. The runtime
+behavior suite verifies Unicode eval/quoted arguments and malformed UTF-16
+rejection. The randomInt and HTTP-client suites also pass. This is useful native
+runtime evidence within a failed platform job, not full Windows acceptance.
+
+The eight failures include older module/package, filesystem and drain fixtures,
+for which subsequent commits provide candidate corrections. Additional output
+identifies pathToFileURL trailing-separator differences at drive roots and foreign
+path styles, and Windows tmpdir ignoring a replaced process.env object. Match the
+reference's native path separator check and Windows JS environment branch while
+retaining POSIX native environment lookup. Those new Windows branches still need
+their next actual job.
+
+Two harness failures were platform assumptions: the known Node hash assertion
+returns 134 on Windows instead of POSIX signal status -6, and both runtimes correctly
+strip a Windows drive prefix when resolving POSIX paths. The tests now check the
+observed platform-specific abort status with its exact assertion marker and compute
+the live POSIX cwd without a drive prefix. Mite must still produce the safe result;
+no arbitrary reference crash or runtime mismatch is accepted.

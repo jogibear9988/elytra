@@ -2379,6 +2379,36 @@ The live 1df78c8 Windows run 42141915944 has successfully compiled the wide CLI 
 passed startup, and now executes broad suites. It predates later path/offset/test
 fixes, so neither compilation nor this status implies full Windows acceptance.
 
+## Windows 32-suite result and remaining URL/environment contracts (2026-11-06)
+
+Run 42141915944 at 1df78c8 (job 127644811641) is terminal failure with 32/40
+suites passing in 62.18s. Its behavior suite now accepts native wide CLI eval,
+Unicode/quote/backslash argument preservation and explicit malformed-surrogate
+rejection. Native randomInt and HTTP-client suites pass too. Full Windows remains
+incomplete. The run predates ec9e33c module paths, 4cba391 namespaces, 673b130
+write offsets and 4994a92 drain correction; those fixes still need their own job.
+
+The remaining output identifies two further actual contract differences. Preserve
+pathToFileURL trailing separators using the native path.sep check before Windows
+slash conversion, matching Node at drive roots and explicit foreign-style options.
+Windows os.tmpdir now observes the current process.env object, including replacement
+and missing SystemRoot/windir fallback, while POSIX still uses native environment
+lookup. Update the OS design and CLI/platform evidence docs accordingly.
+
+Correct two reference-harness assumptions without weakening Mite checks: the known
+Node hash IsUint32/IsSharedArrayBuffer assertions must have the platform abort
+status (observed Windows 134, POSIX -6) and matching assertion text; Mite must still
+return its safe result. The live cwd fixture now removes a Windows drive prefix
+before testing POSIX resolve. Both runtimes had returned false with the old incorrect
+oracle, so this is not a runtime path patch or output normalization.
+
+All 41 local Release/size-profile CTests pass in 18.14s
+(build/windows-contracts-full-test.log); focused URL/OS tests pass separately
+(build/windows-url-env-{build,test}.log). Python syntax, site, actionlint, diff and
+upstream checks pass. New Windows branch/reference checks await the next native
+job; the active 4994a92 job 42143633063 remains live in compilation. macOS release
+42125911196 remains live; no release or complete platform support is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

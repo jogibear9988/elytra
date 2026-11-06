@@ -173,7 +173,7 @@
         let resolved = (windows ? host.path.win32 : host.path.posix).resolve(path);
         if (windows && resolved.startsWith("\\\\")) return unc(resolved.replaceAll("\\", '/'));
         const trailing = path.endsWith('/') || (windows && path.endsWith("\\"));
-        if (trailing && !resolved.endsWith('/')) resolved += '/';
+        if (trailing && !resolved.endsWith(host.path.sep)) resolved += '/';
         if (windows) resolved = resolved.replaceAll("\\", '/');
         return new URL('file://' + (resolved.startsWith('/') ? '' : '/') + encode(resolved));
     }

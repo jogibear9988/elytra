@@ -21,8 +21,10 @@ when an export property is replaced. EOL/devNull are enumerable, nonwritable and
 configurable. arch/platform read the process global as in the reference module.
 
 Temporary-directory precedence and removal of one trailing separator follow the
-reference's platform branches. Read the actual native environment each time,
-independently of a replacement process.env JS object. POSIX homedir uses a PATH_MAX
+reference's platform branches. POSIX tmpdir reads the actual native environment,
+independently of a replacement process.env JS object. Windows tmpdir instead reads
+the current process.env object, matching Node's platform-specific JS path; replacing
+that object changes its observations. POSIX homedir uses a PATH_MAX
 buffer, matching the observed Node ENOBUFS boundary rather than silently expanding
 it. Environment reads for tmpdir grow their native buffers. Native failures throw
 SystemError/ERR_SYSTEM_ERROR with uv error information; exact accessor descriptors,

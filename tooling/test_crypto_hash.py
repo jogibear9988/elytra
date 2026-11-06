@@ -2,6 +2,7 @@
 """Exercise native hash state, byte encodings, copies and Transform workflows against Node."""
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -105,12 +106,13 @@ def main():
         # isolated; Mite accepts numeric zero without inheriting the crash.
         fixture.write_text("console.log(JSON.stringify(require('crypto').createHash('shake128',{outputLength:-0}).digest('hex')))")
         node=subprocess.run([args.node,str(fixture)],capture_output=True,text=True,timeout=10)
-        assert (node.returncode==0 and node.stdout.strip()=='""') or (node.returncode==-6 and 'IsUint32' in node.stderr),node
+        abort_status=134 if os.name=='nt' else -6
+        assert (node.returncode==0 and node.stdout.strip()=='""') or (node.returncode==abort_status and 'IsUint32' in node.stderr),node
         mite=subprocess.run([args.mite,str(fixture)],capture_output=True,text=True,timeout=10)
         assert mite.returncode==0 and not mite.stderr and mite.stdout.strip()=='""',mite
         fixture.write_text("const h=require('crypto').createHash('sha256',{objectMode:true});h.on('error',e=>console.log(e.name+':'+e.code));h.end({invalid:true});")
         node=subprocess.run([args.node,str(fixture)],capture_output=True,text=True,timeout=10)
-        assert (node.returncode==0 and node.stdout.strip()=='TypeError:ERR_INVALID_ARG_TYPE') or (node.returncode==-6 and 'IsSharedArrayBuffer' in node.stderr),node
+        assert (node.returncode==0 and node.stdout.strip()=='TypeError:ERR_INVALID_ARG_TYPE') or (node.returncode==abort_status and 'IsSharedArrayBuffer' in node.stderr),node
         mite=subprocess.run([args.mite,str(fixture)],capture_output=True,text=True,timeout=10)
         assert mite.returncode==0 and not mite.stderr and mite.stdout.strip()=='TypeError:ERR_INVALID_ARG_TYPE',mite
     print('INTENTIONAL DIFFERENCE: safe negative-zero SHAKE length and invalid object-mode JS error instead of Node 24.15 native assertions')
