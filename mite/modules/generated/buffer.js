@@ -396,6 +396,22 @@ function createBufferModule() {
   Buffer.prototype.toJSON = function toJSON() {
     return { type: "Buffer", data: Array.from(this) };
   };
+  const stringify = Buffer.prototype.toString;
+  for (const [name, codec] of Object.entries({
+    utf8Slice: "utf8",
+    latin1Slice: "latin1",
+    ucs2Slice: "utf16le",
+    base64Slice: "base64"
+  })) {
+    Buffer.prototype[name] = function(start = 0, end = this.length) {
+      start = Math.trunc(+start) || 0;
+      end = Math.trunc(+end) || 0;
+      if (start < 0 || start > this.length || end < 0 || end > this.length) {
+        fail("ERR_OUT_OF_RANGE", "Codec slice bounds are outside the buffer", RangeError);
+      }
+      return stringify.call(this, codec, start, end);
+    };
+  }
   Buffer.prototype.slice = function slice(start, end) {
     return this.subarray(start, end);
   };

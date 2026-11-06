@@ -37,6 +37,8 @@ The [Node/Web stream bridge reference](stream.md) describes conversion, endpoint
 ownership, errors and native HTTP integration.
 The [Fetch reference](fetch.md) covers Headers, Request, Response, incremental
 HTTP/HTTPS bodies, redirects, cancellation and unsupported web-platform modes.
+The [Blob/File/FormData reference](blob-formdata.md) covers immutable bytes, file
+metadata, multipart uploads and body consumers.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 

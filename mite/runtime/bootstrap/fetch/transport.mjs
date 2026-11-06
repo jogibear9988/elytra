@@ -326,7 +326,7 @@ export default function createTransport(host, headers, bodies, objects) {
         if (entry.body.source === null) {
           throw networkError(new Error('Cannot replay streamed request body'));
         }
-        body = bodies.fromBytes(entry.body.source.slice(), entry.body.type);
+        body = bodies.replay(entry.body);
       } else {
         body = bodies.extract(null);
       }

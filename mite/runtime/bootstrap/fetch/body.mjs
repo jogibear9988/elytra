@@ -49,6 +49,12 @@ export default function createBodies(host) {
     if (input === null || input === undefined) {
       return { stream: null, source: null, length: 0, type: null, used: false };
     }
+    if (host.data.isBlob(input)) {
+      return fromBlob(input);
+    }
+    if (host.data.isFormData(input)) {
+      return fromBlob(host.data.formDataToBlob(input));
+    }
     if (isStream(input)) {
       const body = { stream: input, source: null, length: null, type: null, used: false };
       if (unusable(body)) {
@@ -74,10 +80,26 @@ export default function createBodies(host) {
       (typeof input.stream === 'function' ||
         Object.prototype.toString.call(input) === '[object FormData]')
     ) {
-      throw host.unsupported('Blob/File/FormData bodies');
+      throw host.unsupported('Foreign Blob/File/FormData bodies');
     }
     // TextEncoder performs the required scalar-value replacement of lone surrogates.
     return fromBytes(encoder.encode(String(input)), 'text/plain;charset=UTF-8');
+  }
+
+  function fromBlob(blob) {
+    return {
+      stream: host.data.stream(blob),
+      source: blob,
+      length: host.data.size(blob),
+      type: host.data.type(blob) || null,
+      used: false
+    };
+  }
+
+  function replay(body) {
+    return host.data.isBlob(body.source)
+      ? fromBlob(body.source)
+      : fromBytes(body.source.slice(), body.type);
   }
 
   function clone(body) {
@@ -199,12 +221,16 @@ export default function createBodies(host) {
         writable: true,
 
         value: async function () {
-          state(this);
-          throw host.unsupported(`Body.${name}`);
+          const entry = state(this);
+          const type = entry.headers.get('content-type');
+          const value = await bytes(entry.body);
+          return name === 'blob'
+            ? new host.data.Blob([value], { type: host.data.mimeType(type) })
+            : host.data.parseFormData(type, value);
         }
       });
     }
   }
 
-  return { extract, clone, transfer, used, unusable, fromBytes, isStream, install };
+  return { extract, clone, transfer, used, unusable, fromBytes, isStream, install, replay };
 }

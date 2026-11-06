@@ -313,7 +313,7 @@ def main():
     assert (
         result.returncode == 0
         and not result.stderr
-        and result.stdout == "PASS Fetch explicit policies 11 and URL guards 3\n"
+        and result.stdout == "PASS Fetch explicit policies 7 and URL guards 3\n"
     ), result
     print(result.stdout, end="")
 

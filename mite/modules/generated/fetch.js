@@ -212,6 +212,12 @@ function createBodies(host) {
     if (input === null || input === void 0) {
       return { stream: null, source: null, length: 0, type: null, used: false };
     }
+    if (host.data.isBlob(input)) {
+      return fromBlob(input);
+    }
+    if (host.data.isFormData(input)) {
+      return fromBlob(host.data.formDataToBlob(input));
+    }
     if (isStream(input)) {
       const body = { stream: input, source: null, length: null, type: null, used: false };
       if (unusable(body)) {
@@ -232,9 +238,21 @@ function createBodies(host) {
       );
     }
     if (input && typeof input === "object" && (typeof input.stream === "function" || Object.prototype.toString.call(input) === "[object FormData]")) {
-      throw host.unsupported("Blob/File/FormData bodies");
+      throw host.unsupported("Foreign Blob/File/FormData bodies");
     }
     return fromBytes(encoder.encode(String(input)), "text/plain;charset=UTF-8");
+  }
+  function fromBlob(blob) {
+    return {
+      stream: host.data.stream(blob),
+      source: blob,
+      length: host.data.size(blob),
+      type: host.data.type(blob) || null,
+      used: false
+    };
+  }
+  function replay(body) {
+    return host.data.isBlob(body.source) ? fromBlob(body.source) : fromBytes(body.source.slice(), body.type);
   }
   function clone(body) {
     if (unusable(body)) {
@@ -344,13 +362,15 @@ function createBodies(host) {
         configurable: true,
         writable: true,
         value: async function() {
-          state(this);
-          throw host.unsupported(`Body.${name}`);
+          const entry = state(this);
+          const type = entry.headers.get("content-type");
+          const value = await bytes(entry.body);
+          return name === "blob" ? new host.data.Blob([value], { type: host.data.mimeType(type) }) : host.data.parseFormData(type, value);
         }
       });
     }
   }
-  return { extract, clone, transfer, used, unusable, fromBytes, isStream, install };
+  return { extract, clone, transfer, used, unusable, fromBytes, isStream, install, replay };
 }
 
 // mite/runtime/bootstrap/fetch/objects.mjs
@@ -992,7 +1012,7 @@ function createTransport(host, headers, bodies, objects) {
         if (entry.body.source === null) {
           throw networkError(new Error("Cannot replay streamed request body"));
         }
-        body = bodies.fromBytes(entry.body.source.slice(), entry.body.type);
+        body = bodies.replay(entry.body);
       } else {
         body = bodies.extract(null);
       }

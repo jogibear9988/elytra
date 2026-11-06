@@ -14,8 +14,14 @@ const check = process.argv.includes('--check');
 
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
-const external = ['node:buffer', 'node:events', 'node:process', 'node:string_decoder'];
-const alias = { buffer: 'node:buffer', events: 'node:events' };
+const external = [
+  'node:buffer',
+  'node:events',
+  'node:process',
+  'node:string_decoder',
+  'node:stream'
+];
+const alias = { buffer: 'node:buffer', events: 'node:events', stream: 'node:stream' };
 
 function relative(file) {
   return path.relative(root, file).split(path.sep).join('/');
@@ -46,12 +52,14 @@ function metadata(file) {
   }
   const notices = licenses.map((name) => ({
     path: relative(path.join(directory, name)),
-    text: fs.readFileSync(path.join(directory, name), 'utf8')
+    // Keep license wording intact while making generated artifacts reproduce
+    // after Git's required LF checkout, including providers that ship CRLF.
+    text: fs.readFileSync(path.join(directory, name), 'utf8').replace(/\r\n?/g, '\n')
   }));
   return {
     name: pkg.name,
     version: pkg.version,
-    license: pkg.license,
+    license: pkg.license ?? pkg.licenses?.map((entry) => entry.type).join(' OR '),
     integrity: pin.integrity,
     notices
   };
@@ -101,7 +109,7 @@ function save(name, text, manifest) {
       manifest.sources[input] = digest(fs.readFileSync(path.join(repository, input)));
     }
   }
-  for (const name of ['string-decoder', 'stream', 'web-globals']) {
+  for (const name of ['string-decoder', 'stream', 'web-globals', 'fetch-data']) {
     const result = await esbuild.build({
       absWorkingDir: root,
       entryPoints: [`${name}-entry.mjs`],
@@ -116,12 +124,26 @@ function save(name, text, manifest) {
       charset: 'utf8',
       external,
       alias,
+      inject: name === 'fetch-data' ? [path.join(root, 'fetch-data-globals.mjs')] : [],
       logLevel: 'silent',
       plugins: [
         {
           name: 'mite-builtins',
 
           setup(build) {
+            if (name === 'fetch-data') {
+              build.onResolve({ filter: /streams\.cjs$/ }, (args) => {
+                if (args.importer.replaceAll('\\', '/').endsWith('/fetch-blob/index.js')) {
+                  return {
+                    path: path.join(
+                      repository,
+                      'mite/runtime/bootstrap/fetch/data/provider-streams.mjs'
+                    )
+                  };
+                }
+              });
+            }
+
             build.onResolve({ filter: new RegExp('^(process|string_decoder)/$') }, (args) => ({
               path: 'node:' + args.path.slice(0, -1),
               external: true

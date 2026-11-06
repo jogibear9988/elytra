@@ -4,10 +4,13 @@
   "version": "0.1.0",
   "description": "Pinned sources and build-only tooling for embedded portable runtime libraries",
   "dependencies": {
+    "busboy": "1.6.0",
     "event-target-shim": "6.0.2",
+    "fetch-blob": "3.2.0",
     "readable-stream": "4.7.0",
     "string_decoder": "1.3.0",
-    "web-streams-polyfill": "4.5.1"
+    "web-streams-polyfill": "4.5.1",
+    "whatwg-mimetype": "4.0.0"
   },
   "devDependencies": {
     "esbuild": "0.25.12"

@@ -40,7 +40,7 @@ authority and HTTPS SNI/verification derive from the URL.
 | --- | --- |
 | `method` | Defaults GET; common methods normalize to uppercase; invalid tokens and CONNECT/TRACE/TRACK reject |
 | `headers` | Headers, iterable name/value pairs or a record |
-| `body` | String/scalar-convertible value, ArrayBuffer/view, URLSearchParams or unlocked unused ReadableStream of Uint8Array chunks; GET/HEAD cannot have a body |
+| `body` | String/scalar-convertible value, ArrayBuffer/view, URLSearchParams, Blob/File/FormData or unlocked unused ReadableStream of Uint8Array chunks; GET/HEAD cannot have a body |
 | `duplex` | Must be `half`; required for a directly supplied stream body |
 | `signal` | AbortSignal or null; live/pre-aborted cancellation preserves the reason |
 | `redirect` | `follow` (default), `manual` or `error` |
@@ -62,7 +62,7 @@ streams also accept strings. A failed upload destroys the request.
 
 Follow handles 301/302/303/307/308 with a 20-redirect limit. POST changes to GET on
 301/302; 303 changes methods other than GET/HEAD to GET. Rewrites remove body
-headers. Preserved methods replay snapshotted string/byte/URLSearchParams bodies;
+headers. Preserved methods replay snapshotted string/byte/URLSearchParams and immutable Blob/multipart bodies;
 an arbitrary stream cannot be replayed and rejects. Cross-origin redirects remove
 Authorization, Proxy-Authorization and Cookie. Each discarded response/old request
 is disposed. Manual returns the redirect response with visible Location, as in the
@@ -109,7 +109,8 @@ changes; exact WebIDL/prototype/error-text parity is not claimed.
 ## Bodies and consumption
 
 Request and Response expose `body` (ReadableStream or null) and `bodyUsed`.
-String/view/ArrayBuffer/URLSearchParams inputs are snapshotted. Text encodes UTF-8
+String/view/ArrayBuffer/URLSearchParams inputs are snapshotted. Blob/File and
+FormData have a separate [immutable multipart/data contract](blob-formdata.md). Text encodes UTF-8
 with lone-surrogate replacement; views respect byte offset/length. Default content
 types are `text/plain;charset=UTF-8` for text and
 `application/x-www-form-urlencoded;charset=UTF-8` for URLSearchParams. Bytes and
@@ -123,8 +124,8 @@ input buffer transfers. EOF settles an outstanding zero-byte BYOB read.
 `text()`, `json()`, `arrayBuffer()` and `bytes()` consume the complete body once.
 The byte results have independent storage. Text/JSON decode UTF-8 with replacement
 and BOM handling; invalid JSON rejects SyntaxError. These convenience methods
-collect bytes in memory; use streaming for large bodies. Blob/File/FormData support
-and `blob()`/`formData()` consumers reject ERR_MITE_UNSUPPORTED_API.
+collect bytes in memory; use streaming for large bodies. `blob()` and `formData()` consume supported binary/URL-encoded/multipart bodies;
+see the [data reference](blob-formdata.md) for their parser and memory limits.
 
 `bodyUsed` becomes true on consumption, direct reader reads or cancellation.
 Acquiring a reader alone locks but does not disturb the body. Consuming or cloning
@@ -170,12 +171,12 @@ Local differential tests cover 12 object workflows and 13 network workflows,
 including independent response barriers, one-MiB BYOB reads, 256-KiB chunked upload,
 clone/ownership, all redirect modes, credentials, truncation, cancellation and
 peer-observed early connection closure. Separate policies retain compression,
-public-event suppression and early-upload differences; 11 unavailable APIs/options
+public-event suppression and early-upload differences; seven unavailable options
 and three URL guards reject explicitly. An independent TLS peer observes ClientHello
 and zero HTTP data on refused self-signed trust. A manual macOS default-trust probe
 to https://example.com returns 200; it is not a repeatable hosted-platform gate.
 
-Still open: decompression, Blob/File/FormData, integrity/referrer/cache policy,
+Still open: decompression, complete data/WebIDL/WPT coverage, integrity/referrer/cache policy,
 complete cookie/browser security behavior, connection pools/proxies/custom trust
 configuration, exhaustive abort/redirect/GC races, and full WHATWG/Web Platform
 Tests coverage. Fresh hosted bridge/fetch acceptance and native desktop distribution

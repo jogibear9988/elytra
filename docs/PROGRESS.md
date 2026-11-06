@@ -4165,6 +4165,77 @@ run 42226301275 / job 127927667217 is authoritatively in progress in Release
 compile/test/package; preserve it. Fresh hosted Windows acceptance is still
 required after this harness correction. No local GUI tests are launched.
 
+## Immutable Blob/File and multipart FormData (2026-11-06)
+
+Add Blob/File/FormData globals and original Blob/File aliases in node:buffer for
+CJS/ESM. Reuse pinned fetch-blob 3.2.0 immutable bytes with authored ESM adapters
+for MIME/scalar normalization, native endings, File metadata, modern bytes and
+bounded captured byte streams. Internal provider slices use that same BYOB/EOF/
+cancel adapter. Object APIs retain original stream/codec behavior after global
+replacement. FormData owns ordered scalar-string/File entries and validated
+filename overloads; it requires no DOM or filesystem privileges.
+
+Fetch extracts Blob/File or snapshots FormData into immutable multipart Blob parts.
+Native crypto provides boundaries; encode names/filenames safely, normalize text
+line breaks, compute exact byte lengths and replay the same body/boundary without
+whole-file concatenation. Request/Response blob/formData consumers now work;
+unsupported Fetch-policy count drops from 11 to seven. Foreign provider bodies
+still reject explicitly. Lazy pinned busboy 1.6.0 / streamsearch 1.1.0 / WHATWG MIME
+4.0.0 supply multipart/MIME decoding with preserved order/UTF-8 paths, base64 Files,
+URL-encoded semantics, no silent field/file truncation and explicit parse failures.
+Four strict Buffer codec slice helpers satisfy real parser dependencies.
+
+Preserve package sources and complete MIT wording/integrities. The owned bundle
+resolver replaces fetch-blob's optional old Node-stream shim rather than patching
+the package. Assert only four intended packages ship: no second stream polyfill or
+node-domexception fallback. A first complete run exposed CRLF license bytes that
+Git's LF checkout changed; canonicalize license line endings at generation while
+retaining all wording, regenerate/stage and rerun the full source/runtime gates.
+This introduces no Node/V8/LibWeb runtime, native dependency or Ladybird edit.
+
+Validation:
+- All 57 CTests pass in 51.78 seconds (fetch-data-all-tests.log), including native
+  TLS/HTTPS/Fetch, GC/embedding, Buffer/fs/process/stream, reproduced checkouts and
+  notice distribution/tamper gates. The prior failed run's sole failure was the
+  newly detected license line-ending mismatch, now fixed and verified with zero
+  CR bytes in generated data code/notices.
+- New actual Node 24.15/Mite suite covers 13 object workflows: global/node:buffer
+  identities/public getters, byte/view snapshots and owned outputs, BOM/scalars/
+  native endings, slices, repeatable BYOB/EOF/cancel streams, File metadata,
+  ordered FormData/filename overloads, body clone/Blob MIME, URL form decoding,
+  multipart snapshots/File order/base64/malformed errors and captured constructors.
+- Forty-eight additional actual Node comparisons cover parser Buffer codec slices
+  and coercion/fractional/NaN/default/out-of-range bounds.
+- Five independent HTTP/MIME workflows inspect exact Blob/File/empty lengths,
+  262145-byte file/hash and field snapshots, Blob replay, 1.1-million-byte fields
+  without truncation, base64/UTF-8-path Files, incoming Blob/URL forms and the modern
+  multipart sample. Python's independent MIME parser validates the wire.
+- Separate 307 diagnostic preserves a measured Node reference defect: it changes
+  multipart body boundary while keeping the original header. The independent peer
+  rejects that body; Mite replays parseable byte-identical body/header and the same
+  decoded entries. Do not normalize this into claimed Node parity.
+- Modern ESM examples/mite-fetch/multipart.mjs executes under both runtimes against
+  the same independent MIME peer. Update detailed Fetch/data references, API/
+  compatibility/example links and ADR 0084; no complete File/WebIDL/WPT claim.
+- Final Firefly compile passes (fetch-data-firefly-build.log); existing local
+  OpenSSL deployment-target warnings persist. No local GUI apps/tests are launched.
+- Both generators reproduce; runtime/Firefly/upstream integrity and actionlint
+  pass. Final source style passes 111 Python, 510 JS/web/config, 133 native and
+  14 CMake sources plus Rust. Site validates 165 pages / 10539 links before this
+  entry; final site validation is run before committing.
+- Fetch 5c5d64c Linux/style/Pages pass; Windows's sole failure was the executable-name
+  harness bug fixed and pushed separately as 5ae0839 above. That corrective run's
+  native Linux/Windows are still in progress, with style/Pages green. This newer
+  data slice still needs fresh hosted acceptance. Optimized macOS 42226301275 is
+  in progress on 5c5d64c; preserve it. No new alpha publication in this step.
+
+Remaining: decompression, native trust/proxy/pooling configuration, complete data
+coercion/charset/disposition/transfer-encoding/GC and File/WebIDL/WPT coverage,
+filesystem-backed files, Blob URL registry/IPC transfer, further Fetch policies
+and broader runtime/npm APIs. Continue the remaining desktop IPC/services and
+native Windows/Linux backend/distribution/security work as well. Overall goal
+remains active; keep local GUI acceptance infrequent and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

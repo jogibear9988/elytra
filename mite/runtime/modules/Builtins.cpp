@@ -50,7 +50,7 @@ static constexpr std::string_view process_exports[]
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
-static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer" };
+static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer", "Blob", "File" };
 static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", "closeSync", "read",
     "readSync", "write", "writeSync", "fstat", "fstatSync", "ftruncate", "ftruncateSync", "fsync",
     "fsyncSync", "fdatasync", "fdatasyncSync", "constants", "Stats", "Dirent", "promises",
@@ -469,12 +469,37 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
             auto name = TRY(vm.argument(0).to_utf16_string(vm));
             auto bytes = MUST(name.utf16_view().to_byte_string());
             auto module = string(bytes);
-            if (module != "node:http" && module != "node:https" && module != "node:stream")
+            if (module != "node:http" && module != "node:https" && module != "node:stream"
+                && module != "node:crypto")
                 return error(
                     "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
             return TRY(builtin(module.substr(5)));
         },
         1, JS::default_attributes);
+    fetch_host->define_direct_property("platform"_utf16,
+        JS::PrimitiveString::create(
+            m_vm, Utf16String::from_utf8(StringView(native_platform(), strlen(native_platform())))),
+        JS::default_attributes);
+    auto parsed_data = JS::Script::parse(Utf16String::from_utf8(StringView(MITE_FETCH_DATA_SOURCE,
+                                             sizeof(MITE_FETCH_DATA_SOURCE) - 1)),
+        m_realm, "mite:fetch-data"sv);
+    VERIFY(!parsed_data.is_error());
+    GC::Root data_script { parsed_data.release_value() };
+    auto data_initializer = TRY(m_vm.run(*data_script));
+    VERIFY(data_initializer.is_function());
+    GC::Root data_factory { data_initializer.as_function() };
+    auto data_value = TRY(JS::call(m_vm, *data_factory, JS::js_undefined(), fetch_host.ptr()));
+    VERIFY(data_value.is_object());
+    GC::Root data { data_value.as_object() };
+    fetch_host->define_direct_property("data"_utf16, data.ptr(), JS::default_attributes);
+    for (auto name : { "Blob"_utf16, "File"_utf16, "FormData"_utf16 }) {
+        auto value = TRY(data->get(name));
+        m_realm.global_object().define_direct_property(
+            name, value, JS::Attribute::Writable | JS::Attribute::Configurable);
+        if (name != "FormData"_utf16)
+            buffer->define_direct_property(name, value, JS::default_attributes);
+    }
+
     auto fetch_globals = TRY(JS::call(m_vm, *fetch_factory, JS::js_undefined(), fetch_host.ptr()));
     VERIFY(fetch_globals.is_object());
     GC::Root fetch_exports { fetch_globals.as_object() };

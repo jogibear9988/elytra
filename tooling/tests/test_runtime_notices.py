@@ -25,6 +25,22 @@ def main():
         }
         assert "event-target-shim 6.0.2" in (destination / "web-globals.LICENSE.txt").read_text()
         assert "web-streams-polyfill 4.5.1" in (destination / "web-globals.LICENSE.txt").read_text()
+        notices = (destination / "fetch-data.LICENSE.txt").read_text()
+        for package in [
+            "fetch-blob 3.2.0",
+            "busboy 1.6.0",
+            "streamsearch 1.1.0",
+            "whatwg-mimetype 4.0.0",
+        ]:
+            assert package in notices, package
+        packages = manifest["bundles"]["fetch-data"]["packages"]
+        assert {package["name"] for package in packages} == {
+            "fetch-blob",
+            "busboy",
+            "streamsearch",
+            "whatwg-mimetype",
+        }
+        assert all(package["license"] == "MIT" for package in packages)
         (source / "web-globals.LICENSE.txt").write_text("Removed copyright")
         try:
             copy_runtime_notices(root / "tampered", source)

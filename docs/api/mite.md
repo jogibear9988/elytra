@@ -37,7 +37,8 @@ exports; ESM has fixed named exports. `syncBuiltinESMExports` is absent.
 Available globals include global/globalThis, console, process, Buffer, URL,
 URLSearchParams, TextEncoder, TextDecoder, queueMicrotask, setTimeout/setInterval and
 clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
-[native Fetch contract](fetch.md); global Web Crypto remains absent.
+[native Fetch contract](fetch.md), including [Blob/File/FormData](blob-formdata.md)
+body support; global Web Crypto remains absent.
 
 - `console.log(...values)` / `console.error(...values)` convert values to strings
   and join with spaces; Node inspection and format substitutions are not implemented.

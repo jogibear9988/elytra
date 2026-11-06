@@ -26,12 +26,7 @@ for (const init of [
 }
 await unsupported(() => fetch(base, { dispatcher: {} }));
 await unsupported(() => fetch(base, { agent: {} }));
-for (const Type of [Request, Response]) {
-  const value = Type === Request ? new Request(base) : new Response('body');
-  await unsupported(() => value.blob());
-  await unsupported(() => value.formData());
-}
-if (count !== 11) {
+if (count !== 7) {
   throw new Error('incomplete policy coverage');
 }
 for (const input of ['ftp://example.com', 'http://user:password@example.com', base]) {
@@ -45,4 +40,4 @@ for (const input of ['ftp://example.com', 'http://user:password@example.com', ba
     throw new Error('invalid URL policy succeeded');
   }
 }
-console.log('PASS Fetch explicit policies 11 and URL guards 3');
+console.log('PASS Fetch explicit policies 7 and URL guards 3');

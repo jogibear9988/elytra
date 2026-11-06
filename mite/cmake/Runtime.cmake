@@ -50,12 +50,15 @@ function(mite_add_runtime target root js_target)
             PROPERTY CMAKE_CONFIGURE_DEPENDS "${root}/mite/modules/generated/${module}.js")
     endforeach()
     file(READ "${root}/mite/modules/generated/web-globals.js" MITE_WEB_GLOBALS_SOURCE)
+    file(READ "${root}/mite/modules/generated/fetch-data.js" MITE_FETCH_DATA_SOURCE)
     file(READ "${root}/mite/modules/generated/stream.js" MITE_STREAM_SOURCE)
     file(READ "${root}/mite/modules/generated/string-decoder.js" MITE_STRING_DECODER_SOURCE)
     set_property(
         DIRECTORY
         APPEND
-        PROPERTY CMAKE_CONFIGURE_DEPENDS "${root}/mite/modules/generated/web-globals.js"
+        PROPERTY CMAKE_CONFIGURE_DEPENDS
+                 "${root}/mite/modules/generated/web-globals.js"
+                 "${root}/mite/modules/generated/fetch-data.js"
                  "${root}/mite/modules/generated/stream.js"
                  "${root}/mite/modules/generated/string-decoder.js")
     configure_file("${root}/mite/runtime/modules/BuiltinSources.h.in"
