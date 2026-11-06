@@ -2160,6 +2160,37 @@ acceptance. macOS run 42125911196 remains authoritatively in progress at the ful
 Release step; it is not cancelled/restarted due to its duration. Hosted package
 acceptance and alpha publication remain pending.
 
+## Native bounded random integers (2026-11-06)
+
+Implement node:crypto.randomInt([min,] max[, callback]) in the existing owned
+facade using native OS/libuv entropy, with CJS/ESM named exports. Validate safe
+integer endpoints and a positive range below 2**48; use six-byte rejection sampling
+to avoid modulo bias. Async retries reuse the existing rooted native-worker path,
+preserve entropy errors and keep pending work alive. There is no new dependency,
+renderer privilege or Ladybird change. No integer cache is introduced: callback
+timing can differ from Node's warm-cache nextTick path, explicitly documented in
+the API reference, compatibility matrix and ADR 0060.
+
+The new mite-crypto-random-int suite compares 48 validation cases with Node
+24.15.0, checks 448 native bounded samples (negative/48-bit/safe-integer endpoints),
+48 concurrent callbacks, CJS/ESM identity, return/receiver/error shapes and fatal
+callback handling. An isolated Node VM evaluates the facade with controlled
+entropy for both rejection boundaries, delayed retry, single completion and error
+identity; no shipping entropy override is added. The random CLI example now uses
+the API and runs under both Node and Mite. All 39 local Release/size-profile CTest
+suites pass in 16.34s (build/random-int-{build,test}.log).
+
+check-firefly passes native controls, lifecycle, ESM/TLA/OS/HTTP, isolation,
+crash/error and shutdown gates (build/random-int-firefly-test.log); its ESM fixture
+now checks sync and async randomInt in the actual main process. Site validation
+passes 102 pages / 5305 links; actionlint, Python syntax and diff checks pass.
+New API hosted Linux/Windows acceptance remains pending, and the earlier tested
+202.72 MiB package is not relabeled as containing this change.
+
+Windows run 42139627506 at 07ff79a passes the formerly failing prerequisite step
+and is live in compilation; no full runtime acceptance is claimed yet. macOS run
+42125911196 remains live in the Release step, so alpha publication is still pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

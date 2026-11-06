@@ -70,7 +70,8 @@ currently covers macOS ARM64; see the
 [Mite compatibility matrix](docs/compatibility/mite-0.1.md).
 
 `node:crypto` currently provides OS-backed `randomBytes()` and UUIDv4
-`randomUUID()`. The [random CLI example](examples/mite-cli/random.mjs) uses both;
+`randomUUID()`, plus sync/callback `randomInt()` with unbiased bounded selection.
+The [random CLI example](examples/mite-cli/random.mjs) uses all three;
 incremental `createHash()`/`Hash` also support independent copies and Transform
 streams. The [hash CLI example](examples/mite-cli/hash.mjs) hashes text or a file.
 HMAC, ciphers, key services and Web Crypto remain unimplemented. Hash/provider and

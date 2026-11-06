@@ -7,12 +7,12 @@ compiler/SDK-profile acceptance remain pending.
 Ladybird renderers do not receive this module or a privileged global crypto object.
 
 ```js
-import {randomBytes, randomUUID, createHash, Hash} from 'node:crypto';
+import {randomBytes, randomUUID, randomInt, createHash, Hash} from 'node:crypto';
 ```
 
 CommonJS require('crypto') and require('node:crypto') return the same module.
 ESM named exports refer to the same functions, and its default export is that
-module. These four exports are the current public surface. The
+module. These five exports are the current public surface. The
 [Node 24.15 crypto reference](https://nodejs.org/download/release/v24.15.0/docs/api/crypto.html)
 is the compatibility baseline; it also contains many APIs Mite does not implement.
 
@@ -52,6 +52,27 @@ ERR_INVALID_ARG_TYPE. Getter exceptions propagate unchanged.
 Mite uses fresh entropy for either value of disableEntropyCache: it has no UUID
 entropy cache. This is a documented policy difference. Native entropy failures
 throw with the libuv error metadata described above.
+
+## randomInt([min,] max[, callback])
+
+Return a cryptographically random safe integer in [min, max), with min defaulting
+to zero. Both endpoints must be safe integers, max must exceed min, and max - min
+must be less than 2**48. There is no numeric coercion. Invalid endpoints throw
+TypeError / ERR_INVALID_ARG_TYPE; reversed, empty or excessive ranges throw
+RangeError / ERR_OUT_OF_RANGE. A supplied callback must be a function; validation
+is synchronous in either form.
+
+Without a callback, return the integer synchronously. With a callback, return
+undefined and later call callback(undefined, integer), or callback(error) on
+native entropy failure. The strict callback receiver is undefined. Pending entropy
+work keeps the runtime alive; callback exceptions follow the uncaught-error path.
+Rejection sampling avoids modulo bias, including near the 48-bit range limit.
+
+Mite requests six fresh OS entropy bytes for every attempt and does not cache
+integers. Consequently callback timing relative to nextTick/Promise callbacks can
+differ from Node's warm entropy-cache path. This is an explicit timing/performance
+difference; callers must not depend on that cache. Native behavior is tested locally
+on macOS ARM64; hosted Linux/Windows acceptance of this new export is pending.
 
 ## createHash(algorithm[, options])
 
@@ -107,7 +128,7 @@ not certified.
 ## Run an example
 
 The [random example](../../examples/mite-cli/random.mjs) demonstrates native random
-bytes and UUIDs. The [hash example](../../examples/mite-cli/hash.mjs) demonstrates
+bytes, UUIDs and bounded integers. The [hash example](../../examples/mite-cli/hash.mjs) demonstrates
 SHA-256 and independent hash copies, with an optional input file:
 
 ```sh
@@ -121,13 +142,13 @@ differ between executions. See [modules](../concepts/modules-and-packages.md) an
 
 ## Unsupported APIs and verification
 
-HMAC, randomInt/randomFill, ciphers, keys/signatures, KDFs, getHashes, timingSafeEqual
+HMAC, randomFill, ciphers, keys/signatures, KDFs, getHashes, timingSafeEqual
 and Web Crypto are absent. Calling an absent property fails as an ordinary JS
 TypeError; importing an absent named export fails during module loading. There is
 no fallback to Node/V8. Do not treat incremental hashing as encryption or password
 storage support.
 
-The mite-crypto-random and mite-crypto-hash CTest suites compare supported contracts
+The mite-crypto-random, mite-crypto-random-int and mite-crypto-hash CTest suites compare supported contracts
 against Node, including validation, byte views, copy independence, callback ordering,
 Transform/pipeline, CJS/ESM identity and error paths. The Firefly main-process gate
 also imports these APIs. Mite safely handles negative-zero SHAKE lengths and invalid

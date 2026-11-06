@@ -66,7 +66,7 @@ static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDe
 static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "constants", "EOL", "devNull" };
-static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "createHash", "Hash" };
+static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash" };
 static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },

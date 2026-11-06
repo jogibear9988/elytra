@@ -1,6 +1,6 @@
 import {app,BrowserWindow} from 'firefly';
 import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
-import {randomBytes,randomUUID,createHash} from 'node:crypto';
+import {randomBytes,randomUUID,randomInt,createHash} from 'node:crypto';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
@@ -14,6 +14,7 @@ if(!Number.isInteger(originalPriority) || getPriority(process.pid)!==originalPri
 if(Object.getPrototypeOf(osConstants)!==null || !Object.isFrozen(osConstants.signals) || osConstants.priority.PRIORITY_NORMAL!==0 || osConstants.errno.EINVAL<=0)throw Error('Native main-process OS constants');
 if(createHash('sha256').update('abc').digest('hex')!=='ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')throw Error('Native main-process hash');
 const nonce=await new Promise((resolve,reject)=>randomBytes(32,(error,value)=>error?reject(error):resolve(value)));
+if(randomInt(-1,0)!==-1 || await new Promise((resolve,reject)=>randomInt(1,(error,value)=>error?reject(error):resolve(value)))!==0)throw Error('Native main-process integer entropy');
 if(nonce.length!==32 || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(randomUUID()))throw Error('Native main-process random APIs');
 await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));

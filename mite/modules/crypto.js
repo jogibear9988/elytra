@@ -19,6 +19,33 @@
         // This implementation asks the OS for fresh entropy on every call.
         return native.uuid();
     }
+    function randomInt(min,max,callback){
+        if(max===undefined || typeof max==='function'){callback=max;max=min;min=0;}
+        if(callback!==undefined && typeof callback!=='function')fail('callback',TypeError,'ERR_INVALID_ARG_TYPE');
+        if(!Number.isSafeInteger(min))fail('min',TypeError,'ERR_INVALID_ARG_TYPE');
+        if(!Number.isSafeInteger(max))fail('max',TypeError,'ERR_INVALID_ARG_TYPE');
+        const range=max-min,space=281474976710656; // Exactly 2**48.
+        if(max<=min || range>=space)fail('max - min',RangeError,'ERR_OUT_OF_RANGE');
+        const limit=space-space%range;
+        function select(bytes){
+            let value=0;
+            for(let i=0;i<6;i++)value=value*256+bytes[i];
+            return value<limit?min+value%range:undefined;
+        }
+        if(callback===undefined){
+            for(;;){const result=select(native.random(6));if(result!==undefined)return result;}
+        }
+        function attempt(){
+            native.random(6,(error,bytes)=>{
+                if(error){callback(error);return;}
+                const result=select(bytes);
+                if(result===undefined){attempt();return;}
+                callback(undefined,result);
+            });
+        }
+        // Fresh native worker entropy per attempt, without an integer cache.
+        attempt();
+    }
     const hashes=new WeakMap();
     const Transform=host.stream.Transform;
     function stateFor(hash){const state=hashes.get(hash);if(!state)throw new TypeError('Invalid Hash receiver');return state;}
@@ -81,5 +108,5 @@
         this.push(value);callback();
     };
     function createHash(algorithm,options){return new Hash(algorithm,options);}
-    return {randomBytes,randomUUID,createHash,Hash};
+    return {randomBytes,randomUUID,randomInt,createHash,Hash};
 })
