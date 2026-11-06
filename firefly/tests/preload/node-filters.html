@@ -1,31 +1,66 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_NODE_FILTERS</p>
-<script>
-const root=document.createElement('div');root.innerHTML='<b></b>';
-let pageCalls=0;
-const filter={acceptNode(node){pageCalls++;return NodeFilter.FILTER_ACCEPT}};
-const walker=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,filter);
-const pageControl=walker.filter===filter && walker.nextNode().localName==='b' && pageCalls===1;
-const pageError={page:true};
-const throwing=document.createTreeWalker(root,NodeFilter.SHOW_ELEMENT,{get acceptNode(){throw pageError}});
-let pageErrorControl=false;
-try{throwing.nextNode()}catch(error){pageErrorControl=error===pageError}
-__fireflyFunctionProbe({mode:'node-filters'});
-const initial=pageControl && pageErrorControl && document.documentElement.getAttribute('data-filter-native')==='true';
-const frame=document.createElement('iframe');
-frame.onload=()=>{
- if(frame.contentWindow.location.href!=='about:srcdoc')return;
- const child=frame.contentDocument;const childWindow=frame.contentWindow;const ChildTypeError=childWindow.TypeError;
- const argument=new childWindow.Object();argument.mode='remove-self-filter';
- let denied=false;
- try{childWindow.__fireflyFunctionProbe(argument)}catch(error){denied=error instanceof ChildTypeError}
- setTimeout(()=>{
-  const ok=initial && denied && !frame.isConnected && child.documentElement.getAttribute('data-filter-after-remove')==='kept' &&
-   child.documentElement.getAttribute('data-filter-source-finish')==='safe' && child.documentElement.getAttribute('data-filter-late-job')===null;
-  document.querySelector('#status').textContent=ok?'NODE_FILTER_WORLD_OK':'NODE_FILTER_WORLD_MISSING';
-  if(ok)setTimeout(()=>window.close(),100);
- },100);
-};
-frame.srcdoc='<!doctype html><p>filter child</p>';document.body.append(frame);
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_NODE_FILTERS</p>
+  <script>
+    const root = document.createElement('div');
+    root.innerHTML = '<b></b>';
+    let pageCalls = 0;
+    const filter = {
+      acceptNode(node) {
+        pageCalls++;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    };
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, filter);
+    const pageControl =
+      walker.filter === filter && walker.nextNode().localName === 'b' && pageCalls === 1;
+    const pageError = { page: true };
+    const throwing = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+      get acceptNode() {
+        throw pageError;
+      }
+    });
+    let pageErrorControl = false;
+    try {
+      throwing.nextNode();
+    } catch (error) {
+      pageErrorControl = error === pageError;
+    }
+    __fireflyFunctionProbe({ mode: 'node-filters' });
+    const initial =
+      pageControl &&
+      pageErrorControl &&
+      document.documentElement.getAttribute('data-filter-native') === 'true';
+    const frame = document.createElement('iframe');
+    frame.onload = () => {
+      if (frame.contentWindow.location.href !== 'about:srcdoc') return;
+      const child = frame.contentDocument;
+      const childWindow = frame.contentWindow;
+      const ChildTypeError = childWindow.TypeError;
+      const argument = new childWindow.Object();
+      argument.mode = 'remove-self-filter';
+      let denied = false;
+      try {
+        childWindow.__fireflyFunctionProbe(argument);
+      } catch (error) {
+        denied = error instanceof ChildTypeError;
+      }
+      setTimeout(() => {
+        const ok =
+          initial &&
+          denied &&
+          !frame.isConnected &&
+          child.documentElement.getAttribute('data-filter-after-remove') === 'kept' &&
+          child.documentElement.getAttribute('data-filter-source-finish') === 'safe' &&
+          child.documentElement.getAttribute('data-filter-late-job') === null;
+        document.querySelector('#status').textContent = ok
+          ? 'NODE_FILTER_WORLD_OK'
+          : 'NODE_FILTER_WORLD_MISSING';
+        if (ok) setTimeout(() => window.close(), 100);
+      }, 100);
+    };
+    frame.srcdoc = '<!doctype html><p>filter child</p>';
+    document.body.append(frame);
+  </script>
+</body>

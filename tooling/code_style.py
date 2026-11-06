@@ -43,16 +43,43 @@ def format_native(files, check):
     changed = []
     for name in files:
         file = ROOT / name
-        before = file.read_text()
-        formatted = subprocess.check_output([str(executable), str(file)], text=True)
+        before = file.read_text(encoding="utf-8")
+        formatted = subprocess.check_output(
+            [str(executable), str(file)], text=True, encoding="utf-8"
+        )
         after = native.definition_spacing(formatted, file.suffix == ".h")
         if before != after:
             changed.append(name)
             if not check:
-                file.write_text(after)
+                with file.open("w", encoding="utf-8", newline="\n") as output:
+                    output.write(after)
     if check and changed:
         print("Native files need formatting:", ", ".join(changed[:10]), file=sys.stderr)
     print(f"Native: {len(files)} checked, {len(changed)} {'need changes' if check else 'updated'}")
+    return not (check and changed)
+
+
+def format_cmake(files, check):
+    """Keep native build descriptions readable without modifying generated build trees."""
+    executable = TOOLS / "cmake-format"
+    version = subprocess.check_output([str(executable), "--version"], text=True).strip()
+    if version != "0.6.13":
+        raise RuntimeError("Install pinned tooling/code-style/requirements.txt")
+    changed = []
+    for name in files:
+        file = ROOT / name
+        original = file.read_text(encoding="utf-8")
+        formatted = subprocess.check_output(
+            [str(executable), str(file)], text=True, encoding="utf-8"
+        )
+        if original != formatted:
+            changed.append(name)
+            if not check:
+                with file.open("w", encoding="utf-8", newline="\n") as output:
+                    output.write(formatted)
+    if check and changed:
+        print("CMake files need formatting:", ", ".join(changed[:10]), file=sys.stderr)
+    print(f"CMake: {len(files)} checked, {len(changed)} {'need changes' if check else 'updated'}")
     return not (check and changed)
 
 
@@ -71,6 +98,15 @@ def main():
         selected = [name for name in files if Path(name).suffix in [".cpp", ".h", ".c"]]
         if selected:
             passed = format_native(selected, args.check) and passed
+        selected = [
+            name for name in files if name.endswith(".cmake") or Path(name).name == "CMakeLists.txt"
+        ]
+        if selected:
+            passed = format_cmake(selected, args.check) and passed
+        selected = [name for name in files if name.endswith(".rs")]
+        if selected:
+            command = ["rustfmt", *(["--check"] if args.check else []), *selected]
+            passed = subprocess.run(command, cwd=ROOT).returncode == 0 and passed
     if not (args.native_only or args.js_only):
         selected = [name for name in files if name.endswith(".py")]
         if selected:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Prepare the pinned native dependency manager; no global packages are installed."""
+
 from pathlib import Path
 import os
 import subprocess
@@ -19,10 +20,10 @@ def main():
     vcpkg = ROOT / "build/vcpkg"
     vcpkg.parent.mkdir(exist_ok=True)
     if not vcpkg.exists():
-        run("git", "clone", "--no-checkout",
-            "https://github.com/microsoft/vcpkg.git", vcpkg)
+        run("git", "clone", "--no-checkout", "https://github.com/microsoft/vcpkg.git", vcpkg)
     shallow = subprocess.check_output(
-        ["git", "rev-parse", "--is-shallow-repository"], cwd=vcpkg, text=True).strip()
+        ["git", "rev-parse", "--is-shallow-repository"], cwd=vcpkg, text=True
+    ).strip()
     if shallow == "true":
         run("git", "fetch", "--unshallow", "origin", cwd=vcpkg)
     run("git", "fetch", "origin", VCPKG_REVISION, cwd=vcpkg)

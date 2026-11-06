@@ -1,3 +1,7 @@
+/**
+ * Dark mode main-process reference. Firefly lacks nativeTheme and public IPC. CSS-only
+ * theming does not establish native theme compatibility.
+ */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {
@@ -10,6 +14,7 @@ await runExample(import.meta.url, {
       api.nativeTheme.themeSource = api.nativeTheme.shouldUseDarkColors ? 'light' : 'dark';
       return api.nativeTheme.shouldUseDarkColors;
     },
+
     system: ({ api }) => {
       api.nativeTheme.themeSource = 'system';
       return api.nativeTheme.shouldUseDarkColors;

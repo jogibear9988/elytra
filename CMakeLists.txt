@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.30)
-project(mite VERSION 0.1.0 LANGUAGES C CXX)
+project(
+    mite
+    VERSION 0.1.0
+    LANGUAGES C CXX)
 
 # Reuse upstream library targets without configuring the browser dependency graph.
 set(LADYBIRD_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/ladybird")
@@ -7,19 +10,30 @@ if(NOT EXISTS "${LADYBIRD_SOURCE_DIR}/Libraries/LibJS/CMakeLists.txt")
     message(FATAL_ERROR "Initialize Ladybird: git submodule update --init --recursive")
 endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py"
-    RESULT_VARIABLE upstream_check_result OUTPUT_VARIABLE upstream_check_output ERROR_VARIABLE upstream_check_error)
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py"
+    RESULT_VARIABLE upstream_check_result
+    OUTPUT_VARIABLE upstream_check_output
+    ERROR_VARIABLE upstream_check_error)
 if(NOT upstream_check_result EQUAL 0)
     message(FATAL_ERROR "${upstream_check_output}${upstream_check_error}")
 endif()
-add_custom_target(check-ladybird
-    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py" VERBATIM)
+add_custom_target(
+    check-ladybird
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py"
+    VERBATIM)
 list(APPEND CMAKE_MODULE_PATH "${LADYBIRD_SOURCE_DIR}/Meta/CMake")
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared upstream libraries")
+set(BUILD_SHARED_LIBS
+    OFF
+    CACHE BOOL "Build shared upstream libraries")
 set(ENABLE_GUI_TARGETS OFF)
 set(ENABLE_INSTALL_HEADERS OFF)
-set(ENABLE_JS_JIT OFF CACHE BOOL "Enable upstream LibJS JIT")
-set(ENABLE_LTO_FOR_RELEASE OFF CACHE BOOL "Enable C++ link-time optimization in Release builds")
+set(ENABLE_JS_JIT
+    OFF
+    CACHE BOOL "Enable upstream LibJS JIT")
+set(ENABLE_LTO_FOR_RELEASE
+    OFF
+    CACHE BOOL "Enable C++ link-time optimization in Release builds")
 option(ENABLE_CI_BASELINE_CPU "Use upstream's common CPU baseline for distribution builds" OFF)
 set(ENABLE_LAGOM_CCACHE OFF)
 set(LADYBIRD_VERSION "")
@@ -29,7 +43,9 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 include(compile_options)
-if(ENABLE_LTO_FOR_RELEASE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+if(ENABLE_LTO_FOR_RELEASE
+   AND CMAKE_BUILD_TYPE STREQUAL "Release"
+   AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     message(FATAL_ERROR "Requested Release LTO is unsupported by this compiler/linker")
 endif()
 include(lagom_install_options)
@@ -58,9 +74,20 @@ if(WIN32)
     find_package(mman REQUIRED)
 endif()
 include_directories("${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries"
-    "${CMAKE_BINARY_DIR}" "${CMAKE_BINARY_DIR}/Libraries")
+                    "${CMAKE_BINARY_DIR}" "${CMAKE_BINARY_DIR}/Libraries")
 add_subdirectory("${LADYBIRD_SOURCE_DIR}/AK" AK)
-foreach(library LibCore LibCrypto LibGC LibJS LibRegex LibSyntax LibTextCodec LibThreading LibUnicode LibURL)
+foreach(
+    library
+    LibCore
+    LibCrypto
+    LibGC
+    LibJS
+    LibRegex
+    LibSyntax
+    LibTextCodec
+    LibThreading
+    LibUnicode
+    LibURL)
     add_subdirectory("${LADYBIRD_SOURCE_DIR}/Libraries/${library}" "Libraries/${library}")
 endforeach()
 
@@ -80,9 +107,10 @@ if(BUILD_TESTING)
     add_dependencies(mite mite-execution-context-probe)
     add_test(NAME mite-execution-context COMMAND "$<TARGET_FILE:mite-execution-context-probe>")
     add_test(NAME mite-rust-lock COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
-    add_test(NAME mite-rust-lock-guard COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_mite_rust_lock.py")
+                                         "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
+    add_test(NAME mite-rust-lock-guard
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_mite_rust_lock.py")
     add_executable(mite-embedded-host mite/tests/embedding/Host.cpp)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
@@ -92,87 +120,143 @@ if(BUILD_TESTING)
         target_link_libraries(mite-startup-probe PRIVATE mite-runtime Dbghelp)
         add_dependencies(mite mite-startup-probe)
     endif()
-    add_test(NAME mite-host-modules COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_host_modules.py" --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-embedding COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_embedding.py" --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")
-    add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
-    add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/test_upstream.py")
-    add_test(NAME mite-behavior COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_runtime.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-modules COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_modules.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-module-paths COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_module_paths.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-commonjs COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_commonjs.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-child-process COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_child_process.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-exec-file COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_exec_file.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-packages COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_packages.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-builtins COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_builtins.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-ticks COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_ticks.py" --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-host-modules
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_host_modules.py"
+                --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-embedding
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_embedding.py"
+                     --host "$<TARGET_FILE:mite-embedded-host>" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-runtime-js COMMAND "${Python3_EXECUTABLE}"
+                                          "${CMAKE_SOURCE_DIR}/tooling/check_runtime_js.py")
+    add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
+                                        "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
+    add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"
+                                              "${CMAKE_SOURCE_DIR}/tooling/tests/test_upstream.py")
+    add_test(NAME mite-behavior
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_runtime.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-modules
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_modules.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-module-paths
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_paths.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-commonjs
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_commonjs.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-child-process
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_child_process.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-exec-file
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-packages
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_packages.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-builtins
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_builtins.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-ticks
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_ticks.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_executable(mite-os-netmask-probe mite/tests/os/netmask.cpp)
     target_include_directories(mite-os-netmask-probe PRIVATE "${CMAKE_SOURCE_DIR}/mite/runtime")
     add_dependencies(mite mite-os-netmask-probe)
     add_test(NAME mite-os-netmask COMMAND "$<TARGET_FILE:mite-os-netmask-probe>")
-    add_test(NAME mite-crypto-hmac COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_crypto_hmac.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-crypto-hash COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_crypto_hash.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-crypto-random COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_crypto_random.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-crypto-random-int COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_crypto_random_int.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-http-client COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_http_client.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-os-constants COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_os_constants.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-os-priority COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_os_priority.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-os-network COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_os_network.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-os-data COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_os_data.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-os COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_os.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-http COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_http.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-http-external COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_http_external.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-http-headers COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_http_headers.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-dns COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_dns.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-dns-validation COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_dns_validation.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-net COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_net.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-net-addresses COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_net_addresses.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-streams COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_streams.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-string-decoder COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_string_decoder.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-encoding COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_encoding.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-url COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_url.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-url-paths COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_url_paths.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-filesystem COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_fs.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-buffer COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_buffer.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-path COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_path.py" --mite "$<TARGET_FILE:mite>")
-    add_test(NAME mite-npm COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_SOURCE_DIR}/tooling/test_npm.py" --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-crypto-hmac
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_hmac.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-crypto-hash
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_hash.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-crypto-random
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_random.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-crypto-random-int
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_random_int.py"
+            --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-http-client
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_client.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-os-constants
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_constants.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-os-priority
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_priority.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-os-network
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_network.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-os-data
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_data.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-os
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os.py" --mite
+                     "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-http-external
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_external.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-http-headers
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_headers.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-dns
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dns.py" --mite
+                     "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-dns-validation
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dns_validation.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-net
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net.py" --mite
+                     "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-net-addresses
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net_addresses.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-streams
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_streams.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-string-decoder
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_string_decoder.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-encoding
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_encoding.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-url
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_url.py" --mite
+                     "$<TARGET_FILE:mite>")
+    add_test(NAME mite-url-paths
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_url_paths.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-filesystem
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fs.py" --mite
+                     "$<TARGET_FILE:mite>")
+    add_test(NAME mite-buffer
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_buffer.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-path
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_path.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-npm
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_npm.py" --mite
+                     "$<TARGET_FILE:mite>")
 endif()
 include(mite/cmake/SizeOptimization.cmake)
 elytra_enable_size_optimization()

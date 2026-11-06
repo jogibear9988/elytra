@@ -1,25 +1,96 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_PRINCIPAL_CALLBACKS</p>
-<script>
-let leaks=0,jobs=0,calls=0,errors=0,ticks=0,interval,valid=true;
-function note(){calls++;if(new Error().stack.includes('firefly:isolated-world'))leaks++}
-window.addEventListener('boundary-function',function(event){note();valid=valid && this===window && event.target===window;Promise.resolve().then(()=>jobs++);queueMicrotask(()=>jobs++);interval=setInterval(()=>ticks++,0)});
-const object={get handleEvent(){note();Promise.resolve().then(()=>jobs++);return function(event){note();valid=valid && this===object && event.currentTarget===window;Promise.resolve().then(()=>jobs++)}}};
-window.addEventListener('boundary-object',object);
-window.addEventListener('boundary-proxy',new Proxy({},{get(){note();return function(){note();Promise.resolve().then(()=>jobs++)}}}));
-window.addEventListener('boundary-throw',()=>{note();Promise.resolve().then(()=>jobs++);throw new Error('boundary-page-error')});
-window.onauxclick=function(event){note();valid=valid && this.document===document && event.target===window;Promise.resolve().then(()=>jobs++);return false};
-window.onerror=function(message,url,line,column,error){note();errors++;valid=valid && error instanceof Error && error.message==='boundary-page-error';Promise.resolve().then(()=>jobs++);return true};
-let revoked=false;
-try{__fireflyFunctionProbe({mode:'principal-callbacks'})}catch(error){revoked=error instanceof TypeError}
-setTimeout(()=>{
- const ok=revoked && valid && leaks===0 && jobs===8 && calls===8 && errors===1 && ticks>0 &&
-  document.documentElement.getAttribute('data-boundary-source-timer')===null &&
-  document.documentElement.getAttribute('data-boundary-source-job')===null &&
-  document.documentElement.getAttribute('data-boundary-source-finish')==='safe';
- clearInterval(interval);window.onauxclick=null;window.onerror=null;
- document.querySelector('#status').textContent=ok?'PRINCIPAL_CALLBACK_WORLD_OK':'PRINCIPAL_CALLBACK_WORLD_MISSING';
- if(ok)setTimeout(()=>window.close(),100);
-},200);
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_PRINCIPAL_CALLBACKS</p>
+  <script>
+    let leaks = 0,
+      jobs = 0,
+      calls = 0,
+      errors = 0,
+      ticks = 0,
+      interval,
+      valid = true;
+    function note() {
+      calls++;
+      if (new Error().stack.includes('firefly:isolated-world')) leaks++;
+    }
+    window.addEventListener('boundary-function', function (event) {
+      note();
+      valid = valid && this === window && event.target === window;
+      Promise.resolve().then(() => jobs++);
+      queueMicrotask(() => jobs++);
+      interval = setInterval(() => ticks++, 0);
+    });
+    const object = {
+      get handleEvent() {
+        note();
+        Promise.resolve().then(() => jobs++);
+        return function (event) {
+          note();
+          valid = valid && this === object && event.currentTarget === window;
+          Promise.resolve().then(() => jobs++);
+        };
+      }
+    };
+    window.addEventListener('boundary-object', object);
+    window.addEventListener(
+      'boundary-proxy',
+      new Proxy(
+        {},
+        {
+          get() {
+            note();
+            return function () {
+              note();
+              Promise.resolve().then(() => jobs++);
+            };
+          }
+        }
+      )
+    );
+    window.addEventListener('boundary-throw', () => {
+      note();
+      Promise.resolve().then(() => jobs++);
+      throw new Error('boundary-page-error');
+    });
+    window.onauxclick = function (event) {
+      note();
+      valid = valid && this.document === document && event.target === window;
+      Promise.resolve().then(() => jobs++);
+      return false;
+    };
+    window.onerror = function (message, url, line, column, error) {
+      note();
+      errors++;
+      valid = valid && error instanceof Error && error.message === 'boundary-page-error';
+      Promise.resolve().then(() => jobs++);
+      return true;
+    };
+    let revoked = false;
+    try {
+      __fireflyFunctionProbe({ mode: 'principal-callbacks' });
+    } catch (error) {
+      revoked = error instanceof TypeError;
+    }
+    setTimeout(() => {
+      const ok =
+        revoked &&
+        valid &&
+        leaks === 0 &&
+        jobs === 8 &&
+        calls === 8 &&
+        errors === 1 &&
+        ticks > 0 &&
+        document.documentElement.getAttribute('data-boundary-source-timer') === null &&
+        document.documentElement.getAttribute('data-boundary-source-job') === null &&
+        document.documentElement.getAttribute('data-boundary-source-finish') === 'safe';
+      clearInterval(interval);
+      window.onauxclick = null;
+      window.onerror = null;
+      document.querySelector('#status').textContent = ok
+        ? 'PRINCIPAL_CALLBACK_WORLD_OK'
+        : 'PRINCIPAL_CALLBACK_WORLD_MISSING';
+      if (ok) setTimeout(() => window.close(), 100);
+    }, 200);
+  </script>
+</body>

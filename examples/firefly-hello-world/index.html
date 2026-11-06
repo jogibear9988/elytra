@@ -1,18 +1,34 @@
 <!doctype html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>Firefly loading</title>
 <style>
-html {background:#14202d;color:#f1f5f9;font:20px sans-serif}
-body {margin:48px} h1 {color:#8fe4b0} button {font:inherit;padding:12px 20px}
+  html {
+    background: #14202d;
+    color: #f1f5f9;
+    font: 20px sans-serif;
+  }
+  body {
+    margin: 48px;
+  }
+  h1 {
+    color: #8fe4b0;
+  }
+  button {
+    font: inherit;
+    padding: 12px 20px;
+  }
 </style>
 <h1>Hello from Firefly</h1>
 <p>Mite runs the main process. Ladybird renders this page in WebContent.</p>
 <p id="preload"></p>
 <button>Clicked 0 times</button>
 <script type="module">
-document.querySelector('#preload').textContent=desktop.greeting+' — 20 + 22 = '+desktop.add(20,22);
-if (typeof desktop.greeting !== 'string' || desktop.add(20,22) !== 42) throw Error('Preload API failed');
-document.title='Firefly';
-let count=0;
-document.querySelector('button').onclick=e=>e.target.textContent=`Clicked ${++count} times`;
+  document.querySelector('#preload').textContent =
+    desktop.greeting + ' — 20 + 22 = ' + desktop.add(20, 22);
+  if (typeof desktop.greeting !== 'string' || desktop.add(20, 22) !== 42)
+    throw Error('Preload API failed');
+  document.title = 'Firefly';
+  let count = 0;
+  document.querySelector('button').onclick = (e) =>
+    (e.target.textContent = `Clicked ${++count} times`);
 </script>

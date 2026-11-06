@@ -43,7 +43,7 @@ Reproduce from the repository root:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
-python3 tooling/test_npm.py --mite build/dev/bin/mite
+python3 tooling/tests/test_npm.py --mite build/dev/bin/mite
 ```
 
 Actual development verification used `build/debug/bin/mite` with the same build

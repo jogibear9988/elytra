@@ -62,3 +62,10 @@ The manifest covers all authored source/helper/catalog hashes, generated files,
 compiler/lockfile provenance and existing dependency notices. Normal C++ builds
 verify this state with Python and fail on stale ESM edits; regeneration needs the
 pinned Node build tools. Git attributes retain these exact bytes on Windows.
+
+## Firefly adapters
+
+`build-firefly.mjs` uses the same factory compiler for the desktop API and DOM
+app-region installer. It writes `firefly/core/generated` with an independent
+manifest; standalone Mite remains independent of Firefly source and validation.
+See [Firefly authoring](../../firefly/core/README.md) for regeneration commands.

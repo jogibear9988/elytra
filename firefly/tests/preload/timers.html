@@ -1,26 +1,40 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_TIMERS</p>
-<script>
-let pageTicks=0;
-const pageInterval=setInterval(()=>pageTicks++,0);
-const observer=new MutationObserver(()=>{
- observer.disconnect();
- const sourceTicks=document.documentElement.getAttribute('data-source-interval');
- const pageBefore=pageTicks;
- let denied=false;
- try{__fireflyFunctionProbe({mode:'detach-world'})}catch(e){denied=e instanceof TypeError}
- // The source world is detached while the document and its existing page
- // interval remain live. Native timer cancellation must not clear the page map.
- setTimeout(()=>{
-  const ok=denied && Number(sourceTicks)>=1 &&
-   document.documentElement.getAttribute('data-source-interval')===sourceTicks &&
-   document.documentElement.getAttribute('data-source-timeout')===null && pageTicks>pageBefore;
-  clearInterval(pageInterval);
-  document.querySelector('#status').textContent=ok?'TIMER_WORLD_OK':'TIMER_WORLD_MISSING';
-  if(ok)setTimeout(()=>window.close(),100);
- },200);
-});
-observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-source-interval']});
-__fireflyFunctionProbe({mode:'start-timers'});
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_TIMERS</p>
+  <script>
+    let pageTicks = 0;
+    const pageInterval = setInterval(() => pageTicks++, 0);
+    const observer = new MutationObserver(() => {
+      observer.disconnect();
+      const sourceTicks = document.documentElement.getAttribute('data-source-interval');
+      const pageBefore = pageTicks;
+      let denied = false;
+      try {
+        __fireflyFunctionProbe({ mode: 'detach-world' });
+      } catch (e) {
+        denied = e instanceof TypeError;
+      }
+      // The source world is detached while the document and its existing page
+      // interval remain live. Native timer cancellation must not clear the page map.
+      setTimeout(() => {
+        const ok =
+          denied &&
+          Number(sourceTicks) >= 1 &&
+          document.documentElement.getAttribute('data-source-interval') === sourceTicks &&
+          document.documentElement.getAttribute('data-source-timeout') === null &&
+          pageTicks > pageBefore;
+        clearInterval(pageInterval);
+        document.querySelector('#status').textContent = ok
+          ? 'TIMER_WORLD_OK'
+          : 'TIMER_WORLD_MISSING';
+        if (ok) setTimeout(() => window.close(), 100);
+      }, 200);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-source-interval']
+    });
+    __fireflyFunctionProbe({ mode: 'start-timers' });
+  </script>
+</body>

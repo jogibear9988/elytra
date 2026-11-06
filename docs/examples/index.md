@@ -56,14 +56,14 @@ Use a fresh output directory when rebuilding. The shared launcher serves only al
 ## Test commands
 
 ```sh
-python3 tooling/test_electron_examples.py --firefly build/renderer/bin/firefly --electron build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --firefly-apps build/desktop-examples --electron-apps build/desktop-examples-reference
+python3 tooling/tests/test_electron_examples.py --firefly build/renderer/bin/firefly --electron build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --firefly-apps build/desktop-examples --electron-apps build/desktop-examples-reference
 ```
 
 The release driver runs the same catalog checks. The separate asset-boundary check
 uses an independent Python HTTP peer against both Node and Mite:
 
 ```sh
-python3 tooling/test_example_assets.py --mite build/release-mite/bin/mite
+python3 tooling/tests/test_example_assets.py --mite build/release-mite/bin/mite
 ```
 
 It checks allowed HTML/CSS/module routes, HEAD, MIME, Host validation, rejected POST

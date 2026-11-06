@@ -177,7 +177,7 @@ WebContents event/method surface are absent. The public isolated
 ipcMain/ipcRenderer messaging remains unsupported. Read [security](../guides/security.md)
 and [Electron migration](../migration/from-electron.md).
 
-Implementation: [firefly.js](../../firefly/core/firefly.js).
-Validation: [Firefly runner](../../tooling/test_firefly.py), file/HTTP loading,
+Implementation: [firefly.js](../../firefly/core/api.mjs).
+Validation: [Firefly runner](../../tooling/tests/test_firefly.py), file/HTTP loading,
 failures, PID, lifecycle and unsupported-mode fixtures; see the
 [native gates](../development/renderer-build.md) and [matrix](../compatibility/firefly-0.1.md).

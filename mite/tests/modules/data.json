@@ -1,1 +1,6 @@
-{"name":"JSON module","count":1,"__proto__":{"poisoned":true},"nested":[true,null,"Grüße"]}
+{
+  "name": "JSON module",
+  "count": 1,
+  "__proto__": { "poisoned": true },
+  "nested": [true, null, "Grüße"]
+}

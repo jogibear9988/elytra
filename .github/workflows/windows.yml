@@ -2,9 +2,33 @@ name: Native Windows development
 on:
   push:
     branches: [master]
-    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_checkout_paths.py', 'tooling/test_*.py']
+    paths:
+      [
+        '.github/workflows/windows.yml',
+        '.github/actions/windows-environment/**',
+        'CMakeLists.txt',
+        'vcpkg.json',
+        'vendor/ladybird',
+        'vendor/ladybird.json',
+        'mite/**',
+        'tooling/bootstrap.py',
+        'tooling/check_checkout_paths.py',
+        'tooling/tests/**'
+      ]
   pull_request:
-    paths: ['.github/workflows/windows.yml', '.github/actions/windows-environment/**', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_checkout_paths.py', 'tooling/test_*.py']
+    paths:
+      [
+        '.github/workflows/windows.yml',
+        '.github/actions/windows-environment/**',
+        'CMakeLists.txt',
+        'vcpkg.json',
+        'vendor/ladybird',
+        'vendor/ladybird.json',
+        'mite/**',
+        'tooling/bootstrap.py',
+        'tooling/check_checkout_paths.py',
+        'tooling/tests/**'
+      ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,7 +45,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: python tooling/check_checkout_paths.py
-      - run: python tooling/test_checkout_paths.py
+      - run: python tooling/tests/test_checkout_paths.py
   mite:
     needs: checkout-paths
     name: Mite / native clang-cl x64

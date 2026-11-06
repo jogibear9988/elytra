@@ -1,15 +1,32 @@
-import {createServer,connect} from 'node:net';
-import {once} from 'node:events';
-let accepted;const server=createServer(socket=>{accepted=socket;});
-server.listen(0,'127.0.0.1');await once(server,'listening');
-const incoming=once(server,'connection');
-const client=connect(server.address().port,'127.0.0.1');await once(client,'connect');await incoming;
-await new Promise(resolve=>server.getConnections((error,n)=>{console.log('count',error,n);resolve();}));
-let closed=false;
-server.close(()=>{closed=true;console.log('server closed');});
-console.log('closing',server.listening,server.address());
-await new Promise(resolve=>setTimeout(resolve,5));
-console.log('waiting',closed);
-client.destroy();accepted.resume();
-await once(server,'close');
-console.log('done',closed);
+import { createServer, connect } from 'node:net';
+import { once } from 'node:events';
+let accepted;
+const server = createServer((socket) => {
+  accepted = socket;
+});
+server.listen(0, '127.0.0.1');
+await once(server, 'listening');
+const incoming = once(server, 'connection');
+const client = connect(server.address().port, '127.0.0.1');
+await once(client, 'connect');
+await incoming;
+await new Promise((resolve) =>
+  server.getConnections((error, n) => {
+    console.log('count', error, n);
+    resolve();
+  })
+);
+let closed = false;
+
+server.close(() => {
+  closed = true;
+  console.log('server closed');
+});
+
+console.log('closing', server.listening, server.address());
+await new Promise((resolve) => setTimeout(resolve, 5));
+console.log('waiting', closed);
+client.destroy();
+accepted.resume();
+await once(server, 'close');
+console.log('done', closed);

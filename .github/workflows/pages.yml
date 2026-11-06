@@ -2,9 +2,25 @@ name: Project website
 on:
   push:
     branches: [master]
-    paths: ['site/**', 'docs/**', 'README.md', 'tooling/site/**', 'tooling/check_site.py', '.github/workflows/pages.yml']
+    paths:
+      [
+        'site/**',
+        'docs/**',
+        'README.md',
+        'tooling/site/**',
+        'tooling/check_site.py',
+        '.github/workflows/pages.yml'
+      ]
   pull_request:
-    paths: ['site/**', 'docs/**', 'README.md', 'tooling/site/**', 'tooling/check_site.py', '.github/workflows/pages.yml']
+    paths:
+      [
+        'site/**',
+        'docs/**',
+        'README.md',
+        'tooling/site/**',
+        'tooling/check_site.py',
+        '.github/workflows/pages.yml'
+      ]
   workflow_dispatch:
 permissions:
   contents: read

@@ -12,6 +12,8 @@
       }
     }
   ],
-  "buildPresets": [{"name": "dev", "configurePreset": "dev", "targets": ["mite"]}],
-  "testPresets": [{"name": "dev", "configurePreset": "dev", "output": {"outputOnFailure": true}}]
+  "buildPresets": [{ "name": "dev", "configurePreset": "dev", "targets": ["mite"] }],
+  "testPresets": [
+    { "name": "dev", "configurePreset": "dev", "output": { "outputOnFailure": true } }
+  ]
 }

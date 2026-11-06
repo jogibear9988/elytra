@@ -1,3 +1,7 @@
+/**
+ * Keyboard shortcuts main-process reference. Native menu/global shortcut registration is
+ * manual and scoped to this process. Native Firefly shortcut APIs are absent.
+ */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {
@@ -5,6 +9,7 @@ await runExample(import.meta.url, {
   requires: ['Menu.buildFromTemplate', 'globalShortcut.register'],
   earlyRequires: [],
   smoke: false,
+
   setup: async ({ api, window, directory, smoke, pageURL }) => {
     const items = [
       {
@@ -13,6 +18,7 @@ await runExample(import.meta.url, {
           {
             label: 'Report shortcut',
             accelerator: 'CmdOrCtrl+Shift+Y',
+
             click: () => console.log('LOCAL_SHORTCUT')
           },
           { role: 'quit' }
@@ -22,8 +28,10 @@ await runExample(import.meta.url, {
     api.Menu.setApplicationMenu(api.Menu.buildFromTemplate(items));
     if (
       !api.globalShortcut.register('CommandOrControl+Shift+Y', () => console.log('GLOBAL_SHORTCUT'))
-    )
+    ) {
       throw Error('Shortcut unavailable');
+    }
+
     api.app.on('will-quit', () => api.globalShortcut.unregisterAll());
   }
 });

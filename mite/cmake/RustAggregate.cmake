@@ -1,16 +1,21 @@
-# Standalone Mite needs one Cargo feature graph. Independently linked staticlibs
-# each carry shared dependencies (and potentially different Unicode features).
-# Keep upstream's FFI generation and initializers, but link one owned archive.
+# Standalone Mite needs one Cargo feature graph. Independently linked staticlibs each carry shared
+# dependencies (and potentially different Unicode features). Keep upstream's FFI generation and
+# initializers, but link one owned archive.
 function(mite_aggregate_rust)
-    execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py"
-        RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py"
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE output
+        ERROR_VARIABLE error)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "${output}${error}")
     endif()
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${CMAKE_SOURCE_DIR}/mite/rust/Cargo.lock"
-        "${CMAKE_SOURCE_DIR}/vendor/ladybird/Cargo.lock"
-        "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/mite/rust/Cargo.lock"
+                 "${CMAKE_SOURCE_DIR}/vendor/ladybird/Cargo.lock"
+                 "${CMAKE_SOURCE_DIR}/tooling/check_mite_rust_lock.py")
     _rust_crate_common_setup(MANIFEST_PATH mite/rust/Cargo.toml CRATE_NAME mite_runtime_rust)
     set(cargo_feature_flags --locked)
     foreach(feature IN LISTS LIBJS_RUST_FEATURES)

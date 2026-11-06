@@ -6,10 +6,20 @@ const timer = setTimeout(() => console.log('kept'), 1);
 clearTimeout(Number(timer) + 0.5);
 clearTimeout('0' + Number(timer));
 clearTimeout(null);
-clearTimeout({ valueOf() { throw new Error('must not coerce'); } });
+clearTimeout({
+  valueOf() {
+    throw new Error('must not coerce');
+  }
+});
 let count = 0;
-const interval = setInterval(function (increment) {
+const interval = setInterval(
+  function (increment) {
     count += increment;
     console.log(count, this === interval);
-    if (count === 3) clearTimeout(interval);
-}, 1, 1);
+    if (count === 3) {
+      clearTimeout(interval);
+    }
+  },
+  1,
+  1
+);

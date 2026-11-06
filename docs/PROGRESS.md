@@ -261,7 +261,7 @@ The adapter skips development install rules, directly links its IPC/URL symbols,
 and passes the companion executable's directory for helper/resource lookup.
 These fixes are all outside the submodule.
 
-`tooling/test_renderer.py` passes all three real runtime checks: LibWeb text with
+`tooling/tests/test_renderer.py` passes all three real runtime checks: LibWeb text with
 LibJS DOM mutation, absent process/require/Buffer/Mite hooks and rejected node:fs;
 a 640x400 compositor PNG; and distinct WebContent/RequestServer/Compositor OS
 children, including the navigated renderer PID. The image was visually reviewed:
@@ -2208,7 +2208,7 @@ unsupported work. No Node/V8/LibWeb runtime dependency or Ladybird patch is adde
 ADR 0061 and the new HTTP API reference document the partial surface and limits;
 the client example runs alongside the existing loopback server example.
 
-tooling/test_http_client.py compares actual Node/Mite traffic with an independent
+tooling/tests/test_http_client.py compares actual Node/Mite traffic with an independent
 Python TCP peer: GET/POST/PUT, URL/options, streamed/chunked uploads, fragmented
 headers/bodies/trailers, duplicates, HEAD/204/EOF/interim responses, paused 2 MiB
 payload digest, malformed/oversized/ambiguous framing, truncated-body errors,
@@ -2433,7 +2433,7 @@ the existing upstream handle monitor. Ladybird source remains unmodified; standa
 Mite does not link the Firefly adapter. ADR 0062/update guide record the ownership
 boundary, bounded polling cost and future removal/review requirement.
 
-tooling/test_child_process.py compares real Node/Mite processes with independent
+tooling/tests/test_child_process.py compares real Node/Mite processes with independent
 Python children: Unicode args/cwd/env, URL/string cwd and missing cwd, 1MiB echo,
 forced stdin pressure and paused output, separate stderr, nonzero exit, ENOENT,
 ignore/inherit, argv0/coercion metadata, kill/timeout, eight concurrent children,
@@ -3083,7 +3083,7 @@ timeout/crash limits and PID lifetime. Correct stale preload wording: public
 contextBridge is partial, public main/renderer IPC remains unsupported. Update the
 documentation baseline to reflect these references and the 23-app catalog.
 
-Validate against owned firefly/core/firefly.js and existing native/reference tests;
+Validate against owned firefly/core/api.mjs and existing native/reference tests;
 no runtime/upstream edits in this documentation step. Site/link/fragment validation
 passes after these changes; the six real catalog assertions and forced-exit trace
 passed in the preceding step. Windows/Linux desktop, missing APIs, broader native
@@ -3231,6 +3231,57 @@ formatting, source-purpose comments and organization; convert remaining maintain
 Firefly script factories to ESM authoring; use explicit syntax-fixture exceptions,
 wire a whole-repository style gate and finish full native/application/site checks.
 This is a coherent intermediate commit, not completion of the user's refactor.
+
+## 2026-11-06 — Repository readability refactor completed
+
+Complete the user's current priority before resuming API implementation. Firefly's
+renderer bridge is grouped into worlds, serialization, context publication and
+callback families (events/timers/observers/traversal). Renderer helper filenames
+now distinguish entry, production preloads, diagnostics and upstream adaptation.
+Subsystem READMEs and source comments describe responsibilities, ownership,
+revocation, native integration and the generated-source boundary. Qualify includes
+by subsystem; supply owned adapter include paths in our CMake integration only.
+Ladybird remains unmodified at the existing manifest/gitlink pin.
+
+Author the desktop API and DOM app-region installer as ESM and generate committed
+synchronous native adapters with their own reproducible source/output manifest.
+Native builds verify it without Node. Mite's generator and standalone integrity
+remain independent of Firefly. The website and Designer browser scripts now use
+module loading too. Keep actual CommonJS compatibility fixtures and third-party
+bundles in their intended formats; generated embedding expressions are internal ABI.
+
+Separate the 60 Python regression CLIs into tooling/tests, update CMake/CI/docs
+commands, and retain their standalone helper imports and fixture roots. Apply the
+pinned formatter policy across native, Python, JS/web/config, CMake and Rust files:
+normal indentation, expanded dense statements and blank lines between definitions.
+Four intentionally malformed parser inputs have named exceptions. Add a source
+style workflow that also reproduces both generators. Comments explain contracts
+and non-obvious behavior; getters do not acquire repetitive boilerplate.
+
+Validation on macOS ARM64:
+- Standalone Mite and production Firefly rebuild successfully from the new paths.
+- All 44 runtime CTests pass (29.36 s; refactor-final-mite-tests.log), including
+  CommonJS/ESM identity, npm packages, integrity and Windows-style checkout bytes.
+- All four native desktop/renderer/isolation/helper gates pass unchanged security,
+  GC, process and callback assertions (refactor-final-native-gates.log).
+- Fresh gallery staging passes six shared native Firefly/Electron startup cases
+  plus app.exit(7); the other 17 entries still reject unsupported APIs explicitly
+  (refactor-final-gallery.log). No additional desktop API support is claimed.
+- Fresh production-bundled Designer passes assets/server checks and actual LibWeb
+  boot, document editing/round-trip, Monaco and HTML window controls
+  (refactor-final-designer-tests.log). Asset boundary and fixed window-capability
+  checks also pass independently under Mite and the Node reference.
+- Style checks cover 95 Python, 358 JS/web/config, 119 native and 12 CMake sources
+  plus the Rust source. Both generators reproduce exactly; integrity, actionlint
+  and unchanged-upstream checks pass. Site validation passes 141 pages and 8125
+  local links/resources/fragments. Logs use build/refactor-final-* (not committed).
+
+The readability priority is complete locally. Hosted runs are a separate platform
+acceptance step; these results add no unverified Windows/Linux desktop claim or
+new release. The overall product goal is still incomplete. Next resume the parked
+native invoke/handle transport from stash d8e6a1c728c50b419894dd09ba81a41b42e08af4,
+porting it to the new ESM and subsystem paths before native/security validation.
+Public IPC remains unsupported until that later implementation is tested.
 
 ## Resume
 

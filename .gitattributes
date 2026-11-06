@@ -5,3 +5,6 @@
 # Authored ESM sources also participate in the bootstrap integrity manifest.
 /mite/modules/** text eol=lf
 /mite/runtime/bootstrap/** text eol=lf
+
+/firefly/core/** text eol=lf
+/firefly/native/qt/app-regions.mjs text eol=lf

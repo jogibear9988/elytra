@@ -1,5 +1,5 @@
 #include "ContextBridgeTest.h"
-#include "ContextBridge.h"
+#include "context/ContextBridge.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16StringBuilder.h>
 #include <LibGC/Heap.h>
@@ -16,18 +16,26 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     auto owner = TRY(Firefly::ContextBridge::create(*source, document));
     auto& target = document.window()->principal_realm();
     GC::Root exports { owner->exports() };
-    source->realm()->global_object().define_direct_property("contextBridge"_utf16, exports, JS::default_attributes);
-    ScopeGuard cleanup([&] { owner->revoke(); source->detach(); });
+    source->realm()->global_object().define_direct_property(
+        "contextBridge"_utf16, exports, JS::default_attributes);
+    ScopeGuard cleanup([&] {
+        owner->revoke();
+        source->detach();
+    });
     size_t stage = 0;
     auto check = [&](Utf16View code, bool isolated = false) -> ErrorOr<void> {
         ++stage;
         Utf16StringBuilder wrapped;
-        wrapped.append(u"{"sv); wrapped.append(code); wrapped.append(u"}"sv);
+        wrapped.append(u"{"sv);
+        wrapped.append(code);
+        wrapped.append(u"}"sv);
         auto text = wrapped.to_string();
         auto result = [&]() -> JS::ThrowCompletionOr<JS::Value> {
-            if (isolated) return source->evaluate(text);
+            if (isolated)
+                return source->evaluate(text);
             auto parsed = JS::Script::parse(text, target);
-            if (parsed.is_error()) return JS::js_undefined();
+            if (parsed.is_error())
+                return JS::js_undefined();
             GC::Root script { parsed.release_value() };
             return vm.run(*script);
         }();
@@ -35,8 +43,10 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
             warnln("Context bridge assertion failed at stage {}", stage);
             return Error::from_string_literal("Context bridge assertion failed");
         }
+
         return {};
     };
+
     TRY(check(uR"JS(
         globalThis.apiSecret=41;
         const fn=value=>({n:apiSecret+value});
@@ -47,7 +57,8 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         api.version=99;
         contextBridge.exposeInMainWorld('__ffContextScalar',42);
         Object.isFrozen(contextBridge) && contextBridge.exposeInMainWorld.length===2;
-    )JS"sv, true));
+    )JS"sv,
+        true));
     vm.heap().collect_garbage();
     TRY(check(uR"JS(
         const api=__ffContextApi,descriptor=Object.getOwnPropertyDescriptor(globalThis,'__ffContextApi');
@@ -60,7 +71,8 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         typeof apiSecret==='undefined' && typeof contextBridge==='undefined';
     )JS"sv));
     auto count = owner->function_count();
-    if (count != 3) return Error::from_string_literal("Duplicate API functions were not shared");
+    if (count != 3)
+        return Error::from_string_literal("Duplicate API functions were not shared");
     TRY(check(uR"JS(
         globalThis.apiTraps=0;
         const failures=[
@@ -74,15 +86,18 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         for(const api of failures){let rejected=false;try{contextBridge.exposeInMainWorld('__ffFailedApi',api)}catch(e){rejected=e instanceof TypeError}if(!rejected)throw Error('Unsafe API accepted');}
         let duplicate=false;try{contextBridge.exposeInMainWorld('__ffContextApi',{n:1})}catch(e){duplicate=e instanceof TypeError}
         apiTraps===0 && duplicate;
-    )JS"sv, true));
+    )JS"sv,
+        true));
     TRY(check(uR"JS(
         for(const key of [undefined,null,1,Symbol(),'', 'x'.repeat(257)]){
             let rejected=false;try{contextBridge.exposeInMainWorld(key,1)}catch(e){rejected=e instanceof TypeError}
             if(!rejected)throw Error('Invalid namespace accepted');
         }
         true;
-    )JS"sv, true));
-    if (owner->function_count() != count) return Error::from_string_literal("Failed publication leaked function endpoints");
+    )JS"sv,
+        true));
+    if (owner->function_count() != count)
+        return Error::from_string_literal("Failed publication leaked function endpoints");
     TRY(check(u"!Object.hasOwn(globalThis,'__ffFailedApi') && __ffContextApi.version===1"sv));
     TRY(check(uR"JS(
         globalThis.pageApiTraps=0;
@@ -91,23 +106,29 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         true;
     )JS"sv));
     ScopeGuard restore([&] {
-        (void)check(u"delete globalThis.__ffOccupiedApi; delete Object.prototype.__ffInheritedApi; true"sv);
+        (void)check(
+            u"delete globalThis.__ffOccupiedApi; delete Object.prototype.__ffInheritedApi; true"sv);
     });
     TRY(check(uR"JS(
         let rejected=false;try{contextBridge.exposeInMainWorld('__ffOccupiedApi',{n:1})}catch(e){rejected=e instanceof TypeError}
         contextBridge.exposeInMainWorld('__ffInheritedApi',{n:42});
         rejected;
-    )JS"sv, true));
-    TRY(check(u"pageApiTraps===0 && Object.hasOwn(globalThis,'__ffInheritedApi') && __ffInheritedApi.n===42"sv));
+    )JS"sv,
+        true));
+    TRY(check(
+        u"pageApiTraps===0 && Object.hasOwn(globalThis,'__ffInheritedApi') && __ffInheritedApi.n===42"sv));
     // Even a deliberately leaked publisher cannot enter a live source owner
     // from the page: native function realm metadata alone is not authority.
     auto publisher = exports->get_without_side_effects("exposeInMainWorld"_utf16);
     JS::Value arguments[] { JS::PrimitiveString::create(vm, "__ffForeignApi"_utf16), JS::Value(1) };
     if (!JS::call(vm, publisher, exports, ReadonlySpan<JS::Value> { arguments }).is_error())
-        return Error::from_string_literal("Publisher accepted a call outside its source execution scope");
+        return Error::from_string_literal(
+            "Publisher accepted a call outside its source execution scope");
     TRY(check(u"!Object.hasOwn(globalThis,'__ffForeignApi')"sv));
-    target.global_object().define_direct_property("__ffLeakedPublisher"_utf16, publisher, JS::default_attributes);
-    source->realm()->global_object().define_native_function(*source->realm(), "principalPublicationProbe"_utf16,
+    target.global_object().define_direct_property(
+        "__ffLeakedPublisher"_utf16, publisher, JS::default_attributes);
+    source->realm()->global_object().define_native_function(
+        *source->realm(), "principalPublicationProbe"_utf16,
         [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
             auto parsed = JS::Script::parse(uR"JS(
                 (()=>{let rejected=0;
@@ -118,18 +139,25 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
                     }
                     return rejected===3 && !Object.hasOwn(globalThis,'__ffBadReentry');
                 })()
-            )JS"_utf16, target);
-            if (parsed.is_error()) return JS::js_undefined();
+            )JS"_utf16,
+                target);
+            if (parsed.is_error())
+                return JS::js_undefined();
             GC::Root script { parsed.release_value() };
             return vm.run(*script);
-        }, 0, JS::default_attributes);
+        },
+        0, JS::default_attributes);
     TRY(check(u"principalPublicationProbe()"sv, true));
-    source->realm()->global_object().define_direct_property("principalPublicationProbe"_utf16, JS::js_undefined(), JS::default_attributes);
+    source->realm()->global_object().define_direct_property(
+        "principalPublicationProbe"_utf16, JS::js_undefined(), JS::default_attributes);
     TRY(check(u"delete globalThis.__ffLeakedPublisher;true"sv));
-    TRY(check(u"globalThis.contextRevoked=false;__ffContextApi.pending().catch(e=>contextRevoked=e instanceof TypeError);true"sv));
+    TRY(check(
+        u"globalThis.contextRevoked=false;__ffContextApi.pending().catch(e=>contextRevoked=e instanceof TypeError);true"sv));
     source->detach(); // native detach hook must revoke the whole publication owner.
-    owner->revoke(); owner->revoke();
-    if (owner->function_count()) return Error::from_string_literal("Detached publication retained endpoint roots");
+    owner->revoke();
+    owner->revoke();
+    if (owner->function_count())
+        return Error::from_string_literal("Detached publication retained endpoint roots");
     vm.save_execution_context_stack();
     Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
     vm.restore_execution_context_stack();
@@ -138,6 +166,7 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         let denied=false;try{__ffContextApi.nested.fn(1)}catch(e){denied=e instanceof TypeError && !e.stack.includes('private-source-error')}
         denied && contextRevoked && __ffContextApi.version===1;
     )JS"sv));
-    outln("PASS atomic nested context APIs: frozen copies/cycles/function aliases, traps/rollback/budgets and detach revocation");
+    outln("PASS atomic nested context APIs: frozen copies/cycles/function aliases, "
+          "traps/rollback/budgets and detach revocation");
     return {};
 }

@@ -1,5 +1,5 @@
 #include "PromiseBridgeTest.h"
-#include "FunctionBridge.h"
+#include "context/FunctionBridge.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/VM.h>
@@ -12,20 +12,23 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
 {
     auto source = TRY(Firefly::IsolatedWorld::create(*document.window()));
     auto& target = document.window()->principal_realm();
-    size_t stage=0;
+    size_t stage = 0;
     auto check = [&](Utf16View text) -> ErrorOr<void> {
         ++stage;
-        auto parsed=JS::Script::parse(Utf16String::from_utf16(text),target);
-        if(parsed.is_error())return Error::from_string_literal("Invalid promise fixture");
-        GC::Root script {parsed.release_value()};
-        auto answer=vm.run(*script);
-        if(answer.is_error() || !answer.value().is_boolean() || !answer.value().as_bool()) {
-            warnln("Promise bridge stage {} failed",stage);
+        auto parsed = JS::Script::parse(Utf16String::from_utf16(text), target);
+        if (parsed.is_error())
+            return Error::from_string_literal("Invalid promise fixture");
+        GC::Root script { parsed.release_value() };
+        auto answer = vm.run(*script);
+        if (answer.is_error() || !answer.value().is_boolean() || !answer.value().as_bool()) {
+            warnln("Promise bridge stage {} failed", stage);
             return Error::from_string_literal("Promise bridge assertion failed");
         }
+
         return {};
     };
-    auto function=source->evaluate(uR"JS(
+
+    auto function = source->evaluate(uR"JS(
         globalThis.promiseCalls=0; globalThis.promiseTraps=0; globalThis.resolvers=[];
         (function(mode){
             promiseCalls++;
@@ -40,11 +43,17 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
             return p;
         })
     )JS"sv);
-    if(function.is_error())return Error::from_string_literal("Cannot create promise endpoint");
-    auto endpoint=TRY(Firefly::FunctionBridge::create(*source,function.release_value().as_function(),document));
-    ScopeGuard cleanup([&]{endpoint.owner->revoke();source->detach();});
-    target.global_object().define_direct_property("promiseCall"_utf16,endpoint.function,JS::default_attributes);
-    auto depth=vm.execution_context_stack().size();
+    if (function.is_error())
+        return Error::from_string_literal("Cannot create promise endpoint");
+    auto endpoint = TRY(
+        Firefly::FunctionBridge::create(*source, function.release_value().as_function(), document));
+    ScopeGuard cleanup([&] {
+        endpoint.owner->revoke();
+        source->detach();
+    });
+    target.global_object().define_direct_property(
+        "promiseCall"_utf16, endpoint.function, JS::default_attributes);
+    auto depth = vm.execution_context_stack().size();
     auto checkpoint = [&] {
         // Only the SDK harness's initial context is active here, no JS frame.
         // The actual renderer performs checkpoints naturally between tasks.
@@ -52,6 +61,7 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
         ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
         Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
     };
+
     TRY(check(uR"JS(
         globalThis.promiseOrder=[]; globalThis.promiseResult=null; globalThis.promiseErrors=[];
         const p=promiseCall('ready');
@@ -69,12 +79,15 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
         promiseErrors.length===3 && promiseErrors.every(e=>e instanceof TypeError &&
             e.message==='Firefly bridge promise rejected' && !e.stack.includes('firefly:isolated-world'));
     )JS"sv));
-    auto traps=source->evaluate(u"promiseTraps===0"sv);
-    if(traps.is_error() || !traps.value().as_bool() || endpoint.owner->pending_count()!=0)
-        return Error::from_string_literal("Promise observer invoked getters or leaked pending entries");
-    TRY(check(u"(()=>{try{promiseCall('thenable')}catch(e){return e instanceof TypeError}return false})()"sv));
-    traps=source->evaluate(u"promiseTraps===0"sv);
-    if(traps.is_error() || !traps.value().as_bool())return Error::from_string_literal("Thenable result getter ran");
+    auto traps = source->evaluate(u"promiseTraps===0"sv);
+    if (traps.is_error() || !traps.value().as_bool() || endpoint.owner->pending_count() != 0)
+        return Error::from_string_literal(
+            "Promise observer invoked getters or leaked pending entries");
+    TRY(check(
+        u"(()=>{try{promiseCall('thenable')}catch(e){return e instanceof TypeError}return false})()"sv));
+    traps = source->evaluate(u"promiseTraps===0"sv);
+    if (traps.is_error() || !traps.value().as_bool())
+        return Error::from_string_literal("Thenable result getter ran");
     TRY(check(uR"JS(
         globalThis.targetThenTraps=0;globalThis.poisonRejected=false;
         Object.defineProperty(Object.prototype,'then',{get(){targetThenTraps++;throw 1},configurable:true});
@@ -83,7 +96,8 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     checkpoint();
     TRY(check(u"delete Object.prototype.then; poisonRejected && targetThenTraps===0"sv));
-    outln("PASS promise results copy/freeze data asynchronously and bypass source and target then traps");
+    outln("PASS promise results copy/freeze data asynchronously and bypass source and target then "
+          "traps");
 
     TRY(check(uR"JS(
         globalThis.lateFulfilled=0;globalThis.lateRejected=0;
@@ -93,36 +107,53 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
         let denied=false;try{promiseCall('pending')}catch(e){denied=e instanceof TypeError}
         denied;
     )JS"sv));
-    if(endpoint.owner->pending_count()!=64)return Error::from_string_literal("Missing pending promise budget");
-    auto budget=source->evaluate(u"resolvers.length===64"sv);
-    if(budget.is_error() || !budget.value().as_bool())return Error::from_string_literal("Over-budget call reached source");
+    if (endpoint.owner->pending_count() != 64)
+        return Error::from_string_literal("Missing pending promise budget");
+    auto budget = source->evaluate(u"resolvers.length===64"sv);
+    if (budget.is_error() || !budget.value().as_bool())
+        return Error::from_string_literal("Over-budget call reached source");
     vm.heap().collect_garbage();
-    endpoint.owner->revoke();endpoint.owner->revoke();
-    if(endpoint.owner->pending_count()!=0)return Error::from_string_literal("Revoke did not release pending records");
+    endpoint.owner->revoke();
+    endpoint.owner->revoke();
+    if (endpoint.owner->pending_count() != 0)
+        return Error::from_string_literal("Revoke did not release pending records");
     checkpoint();
     TRY(check(u"lateRejected===64 && lateFulfilled===0"sv));
     // Settling the source after revocation must neither resurrect roots nor
     // forward data. The realm is still live here to exercise queued reactions.
-    auto late=source->evaluate(u"for(const resolve of resolvers)resolve({secret:'late'}); true"sv);
-    if(late.is_error())return Error::from_string_literal("Late source fixture failed");
+    auto late
+        = source->evaluate(u"for(const resolve of resolvers)resolve({secret:'late'}); true"sv);
+    if (late.is_error())
+        return Error::from_string_literal("Late source fixture failed");
     vm.heap().collect_garbage();
     checkpoint();
     TRY(check(u"lateRejected===64 && lateFulfilled===0"sv));
-    if(endpoint.owner->pending_count()!=0 || vm.execution_context_stack().size()!=depth)
+    if (endpoint.owner->pending_count() != 0 || vm.execution_context_stack().size() != depth)
         return Error::from_string_literal("Late promise reaction changed state/context");
     outln("PASS pending promise budget, GC, revoke rejection and ignored late fulfillment");
     GC::Root source_realm { *source->realm() };
     RefPtr<Firefly::FunctionBridge> revoking;
-    source_realm->global_object().define_native_function(*source_realm,"revokePromiseInside"_utf16,
+    source_realm->global_object().define_native_function(
+        *source_realm, "revokePromiseInside"_utf16,
         [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            revoking->revoke(); source->detach(); return JS::js_undefined();
-        },0,JS::default_attributes);
-    ScopeGuard clear_native([&] {source_realm->global_object().define_direct_property("revokePromiseInside"_utf16,JS::js_undefined(),JS::default_attributes);});
-    auto revoker=source->evaluate(u"(mode=>{if(mode==='pending')return new Promise(()=>{});revokePromiseInside();return 7})"sv);
-    if(revoker.is_error())return Error::from_string_literal("Invalid promise revoker fixture");
-    auto second=TRY(Firefly::FunctionBridge::create(*source,revoker.release_value().as_function(),document));
-    revoking=second.owner;
-    target.global_object().define_direct_property("revokingPromiseCall"_utf16,second.function,JS::default_attributes);
+            revoking->revoke();
+            source->detach();
+            return JS::js_undefined();
+        },
+        0, JS::default_attributes);
+    ScopeGuard clear_native([&] {
+        source_realm->global_object().define_direct_property(
+            "revokePromiseInside"_utf16, JS::js_undefined(), JS::default_attributes);
+    });
+    auto revoker = source->evaluate(
+        u"(mode=>{if(mode==='pending')return new Promise(()=>{});revokePromiseInside();return 7})"sv);
+    if (revoker.is_error())
+        return Error::from_string_literal("Invalid promise revoker fixture");
+    auto second = TRY(
+        Firefly::FunctionBridge::create(*source, revoker.release_value().as_function(), document));
+    revoking = second.owner;
+    target.global_object().define_direct_property(
+        "revokingPromiseCall"_utf16, second.function, JS::default_attributes);
     TRY(check(uR"JS(
         globalThis.inFlightPromiseRejected=false;
         revokingPromiseCall('pending').catch(e=>{
@@ -136,7 +167,8 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     checkpoint();
     TRY(check(u"inFlightPromiseRejected"sv));
-    if(!source->is_detached() || !revoking->is_revoked() || revoking->pending_count()!=0 || vm.execution_context_stack().size()!=depth)
+    if (!source->is_detached() || !revoking->is_revoked() || revoking->pending_count() != 0
+        || vm.execution_context_stack().size() != depth)
         return Error::from_string_literal("In-flight promise revocation leaked state/context");
     outln("PASS in-source revoke/detach rejects pending promises without source stack frames");
     return {};

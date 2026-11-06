@@ -70,6 +70,6 @@ not embedded in the runtime.
 ## Evidence and related material
 
 Implementation: [Runtime.cpp](../../mite/runtime/core/Runtime.cpp).
-Behavioral checks: [runtime runner](../../tooling/test_runtime.py) and its CLI
+Behavioral checks: [runtime runner](../../tooling/tests/test_runtime.py) and its CLI
 fixtures. [Build a CLI tool](../guides/mite-cli.md) provides an executable file-hash
 recipe. The [support policy](../reference/support-policy.md) explains snapshot status.

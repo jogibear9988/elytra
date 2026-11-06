@@ -1,3 +1,8 @@
+/**
+ * Device access main-process reference. Manual HID selection with a cancel-first native
+ * chooser, scoped loopback-origin permissions and explicit user gesture. Bluetooth/serial/USB
+ * need separate scoped permissions; none is claimed for Firefly.
+ */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {
@@ -9,20 +14,25 @@ await runExample(import.meta.url, {
   ],
   earlyRequires: [],
   smoke: false,
+
   setup: async ({ api, window, directory, smoke, pageURL }) => {
     const session = window.webContents.session;
+
     session.setPermissionCheckHandler(
       (contents, permission, origin) =>
         contents === window.webContents &&
         permission === 'hid' &&
         origin === new URL(pageURL).origin
     );
+
     session.setDevicePermissionHandler(
       (details) => details.deviceType === 'hid' && details.origin === new URL(pageURL).origin
     );
+
     session.on('select-hid-device', (event, details, callback) => {
       event.preventDefault();
       const devices = details.deviceList;
+
       api.dialog
         .showMessageBox(window, {
           message: 'Choose a HID device',

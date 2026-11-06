@@ -11,7 +11,7 @@ LibWeb, Qt, or Firefly to the standalone Mite graph.
 ```sh
 python3 tooling/bootstrap.py
 python3 tooling/build_renderer.py --jobs 4
-python3 tooling/test_renderer.py --probe build/renderer/bin/firefly-renderer-probe
+python3 tooling/tests/test_renderer.py --probe build/renderer/bin/firefly-renderer-probe
 # Or build and exercise the renderer together:
 cmake --build build/renderer --target check-firefly-renderer --parallel 4
 ```
@@ -59,7 +59,7 @@ macOS versions without further native tests.
 python3 tooling/build_renderer.py --target firefly-window-probe
 cmake --build build/renderer --target check-firefly-window --parallel 4
 # Or exercise an already built executable:
-python3 tooling/test_window.py --probe build/renderer/bin/firefly-window-probe
+python3 tooling/tests/test_window.py --probe build/renderer/bin/firefly-window-probe
 # Open a document manually (30-second probe deadline):
 build/renderer/bin/firefly-window-probe file:///absolute/path/to/index.html
 ```
@@ -89,7 +89,7 @@ Firefly runs the real Mite entry module. Both CJS and ESM can import app and
 BrowserWindow from firefly. The reference is Electron 45.2.3, with npm dependencies
 locked under tooling/electron-reference; it is never a Firefly runtime dependency.
 The generated browser+Mite manifest stays outside the upstream checkout. Direct
-test invocation accepts --firefly and --electron paths via tooling/test_firefly.py;
+test invocation accepts --firefly and --electron paths via tooling/tests/test_firefly.py;
 a missing executable fails. FIREFLY_ELECTRON_REFERENCE is the corresponding CMake
 cache override. The combined graph also retains check-firefly-renderer and
 check-firefly-window. Configure with target firefly before invoking these targets;
@@ -231,7 +231,7 @@ resources. It shares the narrow bootstrap/session adapters, but runs ProductSess
 instead of the compiled diagnostic probes. Development helper siblings can be
 symlinks; the packager copies physical executables and preserves helper entitlements.
 
-check-firefly now runs tooling/test_public_preload.py against the actual app and
+check-firefly now runs tooling/tests/test_public_preload.py against the actual app and
 pinned Electron. The release driver repeats that suite against the packaged
 Firefly executable before archiving. The hello-world app has a CommonJS preload;
 its published desktop API has no main-process IPC privileges. See the

@@ -268,8 +268,8 @@ Only constructor options listed above are accepted. Public IPC remains unsupport
 [preload/contextBridge](context-bridge.md) has a bounded partial implementation.
 See [security](../guides/security.md).
 
-Implementation: [firefly.js](../../firefly/core/firefly.js) and owned native adapter.
-Validation: [Firefly runner](../../tooling/test_firefly.py), including controls,
+Implementation: [firefly.js](../../firefly/core/api.mjs) and owned native adapter.
+Validation: [Firefly runner](../../tooling/tests/test_firefly.py), including controls,
 registry, cancellation/destruction and unsupported options against the pinned
 Electron reference. Native Windows/Linux remain unverified. See the
 [compatibility matrix](../compatibility/firefly-0.1.md) for measured limits.

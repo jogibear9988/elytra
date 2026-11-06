@@ -4,7 +4,7 @@ Install the exact locked dependency tree with the existing npm package manager:
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
-python3 tooling/test_npm.py --mite build/dev/bin/mite
+python3 tooling/tests/test_npm.py --mite build/dev/bin/mite
 ```
 
 The test runner invokes each case with Node and Mite against the same node_modules

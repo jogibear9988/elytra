@@ -1,3 +1,4 @@
+/* Shared browser styling for the documented desktop examples, including bounded drag regions. */
 :root {
   color-scheme: light dark;
   font: 17px/1.6 system-ui;

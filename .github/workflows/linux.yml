@@ -2,9 +2,31 @@ name: Native Linux development
 on:
   push:
     branches: [master]
-    paths: ['.github/workflows/linux.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_*.py', 'tooling/test_*.py']
+    paths:
+      [
+        '.github/workflows/linux.yml',
+        'CMakeLists.txt',
+        'vcpkg.json',
+        'vendor/ladybird',
+        'vendor/ladybird.json',
+        'mite/**',
+        'tooling/bootstrap.py',
+        'tooling/check_*.py',
+        'tooling/tests/**'
+      ]
   pull_request:
-    paths: ['.github/workflows/linux.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'tooling/bootstrap.py', 'tooling/check_*.py', 'tooling/test_*.py']
+    paths:
+      [
+        '.github/workflows/linux.yml',
+        'CMakeLists.txt',
+        'vcpkg.json',
+        'vendor/ladybird',
+        'vendor/ladybird.json',
+        'mite/**',
+        'tooling/bootstrap.py',
+        'tooling/check_*.py',
+        'tooling/tests/**'
+      ]
   workflow_dispatch:
 permissions:
   contents: read

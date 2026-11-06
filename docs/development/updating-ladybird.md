@@ -219,7 +219,7 @@ candidate commits from the official repository in .gitmodules / the manifest.
    The existing pinned OpenSSL target is linked explicitly by our runtime graph.
    Provider failures, full stream/error parity and Windows/Linux remain unverified.
    Revalidate the pinned Designer app and release bundle after engine/helper changes.
-   tooling/test_designer.py must exercise the real app's document edit and Monaco,
+   tooling/tests/test_designer.py must exercise the real app's document edit and Monaco,
    not merely compilation or loadURL. Keep packaged helpers/resources physical,
    loader paths relative, helper entitlements/sandbox intact and exact dependency
    notices/pins in release manifests. Re-run relocated native app gates; do not
@@ -259,7 +259,7 @@ The generated source retains upstream bytes/notices with one include and one cal
 no vendor patch is allowed. Revalidate newly hosting page configuration before the
 first author script, especially file-to-HTTP process replacement and independent
 windows. Both diagnostic FireflyWebContent and production FireflyRuntimeWebContent
-must build; only the latter ships. Run tooling/test_public_preload.py against the
+must build; only the latter ships. Run tooling/tests/test_public_preload.py against the
 build and packaged executable, preserving explicit failure and source budgets.
 
 The optional shared OpenSSL graph (ADR 0069) redirects named and exact-path archive

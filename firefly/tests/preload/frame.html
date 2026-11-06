@@ -1,32 +1,53 @@
 <!doctype html>
 <script>
-window.rootProof = window.name === 'FIREFLY_WORLD_READY:' + location.href &&
- typeof __fireflyIsolatedMarker === 'undefined' && !({}).__fireflyWorldOnly &&
- typeof __fireflyCopySource==='undefined' && typeof __fireflyDataProbe==='object' &&
- __fireflyDataProbe.answer===42 && __fireflyDataProbe.nested[0]===true &&
- Object.getPrototypeOf(__fireflyDataProbe)===Object.prototype &&
- Object.getPrototypeOf(__fireflyDataProbe.nested)===Array.prototype &&
- Object.isFrozen(__fireflyDataProbe) && Object.isFrozen(__fireflyDataProbe.nested) &&
- (()=>{const r=__fireflyFunctionProbe({n:41});return r.answer===42 && r.ownThis &&
- r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
- __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})();
+  window.rootProof =
+    window.name === 'FIREFLY_WORLD_READY:' + location.href &&
+    typeof __fireflyIsolatedMarker === 'undefined' &&
+    !{}.__fireflyWorldOnly &&
+    typeof __fireflyCopySource === 'undefined' &&
+    typeof __fireflyDataProbe === 'object' &&
+    __fireflyDataProbe.answer === 42 &&
+    __fireflyDataProbe.nested[0] === true &&
+    Object.getPrototypeOf(__fireflyDataProbe) === Object.prototype &&
+    Object.getPrototypeOf(__fireflyDataProbe.nested) === Array.prototype &&
+    Object.isFrozen(__fireflyDataProbe) &&
+    Object.isFrozen(__fireflyDataProbe.nested) &&
+    (() => {
+      const r = __fireflyFunctionProbe({ n: 41 });
+      return (
+        r.answer === 42 &&
+        r.ownThis &&
+        r.ownPrototype &&
+        r.frozen &&
+        Object.isFrozen(r) &&
+        Object.getPrototypeOf(r) === Object.prototype &&
+        __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')() ===
+          'undefined'
+      );
+    })();
 </script>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_FRAME</p><iframe id="frame"></iframe>
-<script>
-const frame=document.querySelector('#frame');
-frame.onload=()=>{
- if(frame.contentWindow.location.href!=='about:srcdoc')return;
- let ok=rootProof && frame.contentWindow.frameProof;
- const stale=frame.contentWindow.__fireflyFunctionProbe;
- frame.remove();
- let denied=false;
- try { stale({n:1}); } catch(e) { denied=e.message==='Firefly bridge call rejected'; }
- ok=ok && denied;
- document.querySelector('#status').textContent=ok?'FRAME_WORLD_OK':'FRAME_WORLD_MISSING';
- if(ok)setTimeout(()=>window.close(),500);
-};
-frame.srcdoc=`<!doctype html><script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_FRAME</p>
+  <iframe id="frame"></iframe>
+  <script>
+    const frame = document.querySelector('#frame');
+    frame.onload = () => {
+      if (frame.contentWindow.location.href !== 'about:srcdoc') return;
+      let ok = rootProof && frame.contentWindow.frameProof;
+      const stale = frame.contentWindow.__fireflyFunctionProbe;
+      frame.remove();
+      let denied = false;
+      try {
+        stale({ n: 1 });
+      } catch (e) {
+        denied = e.message === 'Firefly bridge call rejected';
+      }
+      ok = ok && denied;
+      document.querySelector('#status').textContent = ok ? 'FRAME_WORLD_OK' : 'FRAME_WORLD_MISSING';
+      if (ok) setTimeout(() => window.close(), 500);
+    };
+    frame.srcdoc = `<!doctype html><script>
 window.frameProof=window.name==='FIREFLY_WORLD_READY:'+location.href &&
  typeof __fireflyIsolatedMarker==='undefined' && !({}).__fireflyWorldOnly &&
  typeof __fireflyCopySource==='undefined' && typeof __fireflyDataProbe==='object' &&
@@ -38,4 +59,5 @@ window.frameProof=window.name==='FIREFLY_WORLD_READY:'+location.href &&
  r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
  __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})();
 <\/script>`;
-</script>
+  </script>
+</body>

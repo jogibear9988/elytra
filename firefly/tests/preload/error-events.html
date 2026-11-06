@@ -1,40 +1,103 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_ERROR_EVENTS</p>
-<script>
-let cached,eventReference,deliveries=0,valid=true,denied=false,pageTraps=0,nativeError=false,readerError=false;
-window.addEventListener('error',event=>{
- if(event.message==='source-data'){
-  if(!eventReference)eventReference=event;
-  const value=event.error;
-  if(!cached)cached=value;
-  valid=valid && value===cached && value.self===value && value.n===42 && Object.isFrozen(value) && Object.getPrototypeOf(value)===Object.prototype;
- }
- if(event.message==='source-function'){
-  try{event.error}catch(error){denied=error instanceof TypeError && !error.stack.includes('firefly:isolated-world')}
- }
-});
-const pageReason={n:8};
-window.onerror=function(message,url,line,column,error){
- if(message==='source-data'){
-  deliveries++;
-  valid=valid && arguments.length===5 && url==='unit:source' && line===7 && column===9 && error===cached;
- }else if(message==='page-data')valid=valid && error===pageReason && !Object.isFrozen(error);
- else if(message.includes('page-native-control'))nativeError=error instanceof Error && error.message==='page-native-control';
- else if(error instanceof TypeError)readerError=!error.stack.includes('firefly:isolated-world');
- return true;
-};
-window.addEventListener('native-page-control',()=>{throw new Error('page-native-control')},{once:true});
-const own=__fireflyFunctionProbe({mode:'error-events'});
-window.dispatchEvent(new ErrorEvent('error',{message:'page-data',error:pageReason,cancelable:true}));
-window.dispatchEvent(new ErrorEvent('error',{message:'page-bad',error:Object.defineProperty({},'secret',{get(){pageTraps++;throw 1}}),cancelable:true}));
-let revoked=false;
-try{__fireflyFunctionProbe({mode:'detach-world'})}catch(error){revoked=error instanceof TypeError}
-setTimeout(()=>{
- const ok=own && revoked && valid && denied && deliveries===2 && nativeError && readerError && pageTraps===0 &&
-  eventReference.error===cached && document.documentElement.getAttribute('data-error-own')==='true' &&
-  document.documentElement.getAttribute('data-error-input')==='true' && document.documentElement.getAttribute('data-error-input-denied')==='true';
- document.querySelector('#status').textContent=ok?'ERROR_EVENT_WORLD_OK':'ERROR_EVENT_WORLD_MISSING';
- if(ok)setTimeout(()=>window.close(),100);
-},100);
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_ERROR_EVENTS</p>
+  <script>
+    let cached,
+      eventReference,
+      deliveries = 0,
+      valid = true,
+      denied = false,
+      pageTraps = 0,
+      nativeError = false,
+      readerError = false;
+    window.addEventListener('error', (event) => {
+      if (event.message === 'source-data') {
+        if (!eventReference) eventReference = event;
+        const value = event.error;
+        if (!cached) cached = value;
+        valid =
+          valid &&
+          value === cached &&
+          value.self === value &&
+          value.n === 42 &&
+          Object.isFrozen(value) &&
+          Object.getPrototypeOf(value) === Object.prototype;
+      }
+      if (event.message === 'source-function') {
+        try {
+          event.error;
+        } catch (error) {
+          denied = error instanceof TypeError && !error.stack.includes('firefly:isolated-world');
+        }
+      }
+    });
+    const pageReason = { n: 8 };
+    window.onerror = function (message, url, line, column, error) {
+      if (message === 'source-data') {
+        deliveries++;
+        valid =
+          valid &&
+          arguments.length === 5 &&
+          url === 'unit:source' &&
+          line === 7 &&
+          column === 9 &&
+          error === cached;
+      } else if (message === 'page-data')
+        valid = valid && error === pageReason && !Object.isFrozen(error);
+      else if (message.includes('page-native-control'))
+        nativeError = error instanceof Error && error.message === 'page-native-control';
+      else if (error instanceof TypeError)
+        readerError = !error.stack.includes('firefly:isolated-world');
+      return true;
+    };
+    window.addEventListener(
+      'native-page-control',
+      () => {
+        throw new Error('page-native-control');
+      },
+      { once: true }
+    );
+    const own = __fireflyFunctionProbe({ mode: 'error-events' });
+    window.dispatchEvent(
+      new ErrorEvent('error', { message: 'page-data', error: pageReason, cancelable: true })
+    );
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: 'page-bad',
+        error: Object.defineProperty({}, 'secret', {
+          get() {
+            pageTraps++;
+            throw 1;
+          }
+        }),
+        cancelable: true
+      })
+    );
+    let revoked = false;
+    try {
+      __fireflyFunctionProbe({ mode: 'detach-world' });
+    } catch (error) {
+      revoked = error instanceof TypeError;
+    }
+    setTimeout(() => {
+      const ok =
+        own &&
+        revoked &&
+        valid &&
+        denied &&
+        deliveries === 2 &&
+        nativeError &&
+        readerError &&
+        pageTraps === 0 &&
+        eventReference.error === cached &&
+        document.documentElement.getAttribute('data-error-own') === 'true' &&
+        document.documentElement.getAttribute('data-error-input') === 'true' &&
+        document.documentElement.getAttribute('data-error-input-denied') === 'true';
+      document.querySelector('#status').textContent = ok
+        ? 'ERROR_EVENT_WORLD_OK'
+        : 'ERROR_EVENT_WORLD_MISSING';
+      if (ok) setTimeout(() => window.close(), 100);
+    }, 100);
+  </script>
+</body>

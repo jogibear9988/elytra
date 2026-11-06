@@ -1,37 +1,53 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_ASYNC_FRAMES</p>
-<script>
-const kinds=['reaction','await','generator','microtask'];
-let completed=0;
-function next(){
- const frame=document.createElement('iframe');
- frame.onload=()=>{
-  if(frame.contentWindow.location.href!=='about:srcdoc')return;
-  const childDocument=frame.contentDocument;
-  const ChildTypeError=frame.contentWindow.TypeError;
-  const argument=new frame.contentWindow.Object();
-  argument.mode='remove-self-job';argument.kind=kinds[completed];
-  let rejected=false,fulfilled=false;
-  frame.contentWindow.__fireflyFunctionProbe(argument).then(()=>{fulfilled=true},e=>{
-   rejected=e instanceof ChildTypeError && e.message==='Firefly bridge promise rejected';
-  });
-  // A source job removes its own frame; this live parent still must receive the
-  // sanitized rejection, while the source's current DOM frame unwinds safely.
-  setTimeout(()=>{
-   const ok=rejected && !fulfilled && !frame.isConnected &&
-    childDocument.documentElement.getAttribute('data-after-remove')==='safe' &&
-    childDocument.documentElement.getAttribute('data-next-job')===null;
-   if(!ok){document.querySelector('#status').textContent='ASYNC_FRAME_MISSING';return}
-   completed++;
-   if(completed===kinds.length){
-    document.querySelector('#status').textContent='ASYNC_FRAME_OK';
-    setTimeout(()=>window.close(),100);
-   }else next();
-  },100);
- };
- frame.srcdoc='<!doctype html><p>in-flight child</p>';
- document.body.append(frame);
-}
-next();
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_ASYNC_FRAMES</p>
+  <script>
+    const kinds = ['reaction', 'await', 'generator', 'microtask'];
+    let completed = 0;
+    function next() {
+      const frame = document.createElement('iframe');
+      frame.onload = () => {
+        if (frame.contentWindow.location.href !== 'about:srcdoc') return;
+        const childDocument = frame.contentDocument;
+        const ChildTypeError = frame.contentWindow.TypeError;
+        const argument = new frame.contentWindow.Object();
+        argument.mode = 'remove-self-job';
+        argument.kind = kinds[completed];
+        let rejected = false,
+          fulfilled = false;
+        frame.contentWindow.__fireflyFunctionProbe(argument).then(
+          () => {
+            fulfilled = true;
+          },
+          (e) => {
+            rejected =
+              e instanceof ChildTypeError && e.message === 'Firefly bridge promise rejected';
+          }
+        );
+        // A source job removes its own frame; this live parent still must receive the
+        // sanitized rejection, while the source's current DOM frame unwinds safely.
+        setTimeout(() => {
+          const ok =
+            rejected &&
+            !fulfilled &&
+            !frame.isConnected &&
+            childDocument.documentElement.getAttribute('data-after-remove') === 'safe' &&
+            childDocument.documentElement.getAttribute('data-next-job') === null;
+          if (!ok) {
+            document.querySelector('#status').textContent = 'ASYNC_FRAME_MISSING';
+            return;
+          }
+          completed++;
+          if (completed === kinds.length) {
+            document.querySelector('#status').textContent = 'ASYNC_FRAME_OK';
+            setTimeout(() => window.close(), 100);
+          } else next();
+        }, 100);
+      };
+      frame.srcdoc = '<!doctype html><p>in-flight child</p>';
+      document.body.append(frame);
+    }
+    next();
+  </script>
+</body>

@@ -1,57 +1,389 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Mite, a LibJS-powered JavaScript runtime. Firefly, a Ladybird-powered desktop framework. Familiar APIs on an independent engine stack.">
-<meta name="theme-color" content="#f8f5eb"><title>Mite & Firefly — JavaScript, a different species.</title>
-<link rel="icon" href="mark.svg" type="image/svg+xml"><link rel="preload" href="fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="styles.css"><script src="site.js" defer></script>
-</head>
-<body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="nav wrap"><a class="brand" href="./"><img src="mark.svg" width="27" height="31" alt=""><span>elytra<span class="brand-note">/ an independent JS stack</span></span></a><nav aria-label="Main"><a class="hide-small" href="docs/getting-started.html">Get started</a><a href="docs/index.html">Docs</a><a class="hide-small" href="#in-the-wild">In the wild</a><a class="github-link" href="https://github.com/jogibear9988/elytra">GitHub <span aria-hidden="true">↗</span></a></nav></header>
-<main id="main">
-<section class="hero wrap" aria-labelledby="hero-title">
-<div class="edition"><span>LIBJS × LIBWEB</span><a href="docs/PROGRESS.html"><span class="dot"></span> Early development <span aria-hidden="true">↗</span></a><span>OPEN SOURCE / MIT</span></div>
-<div class="specimens" aria-hidden="true"><img class="mite-drawing" src="art/mite.svg" width="270" height="230" alt=""><img class="firefly-drawing" src="art/firefly.svg" width="290" height="240" alt=""><span class="specimen-note note-mite">small by name.</span><span class="specimen-note note-firefly">bright by nature.</span></div>
-<h1 id="hero-title"><span class="mite-word">mite</span><span class="ampersand">&amp;</span><span class="firefly-word">firefly<span class="word-spark" aria-hidden="true">✳</span></span></h1>
-<div class="species"><span>A JavaScript runtime</span><span>A desktop framework</span></div>
-<p class="hero-intro">JavaScript, a different species.</p>
-<p class="hero-description">Familiar Node and Electron patterns. Independent Ladybird engines. <br>From your next script to your next desktop app.</p>
-<div class="hero-actions"><a class="button mite-button" href="docs/getting-started.html">Build with Mite <span aria-hidden="true">↗</span></a><a class="button firefly-button" href="docs/api/firefly.html">Meet Firefly <span aria-hidden="true">↗</span></a></div>
-<p class="build-note">Build from source · Tested on macOS ARM64 · More platforms in progress</p>
-</section>
-<section class="workbench wrap" aria-labelledby="workbench-title">
-<div class="section-rule"><h2 id="workbench-title">Same JavaScript. New engine room.</h2><span class="folio">01 / THE WORKBENCH</span></div>
-<div class="example-tabs" role="tablist" aria-label="JavaScript examples"><button id="server-tab" role="tab" aria-controls="server-code" aria-selected="true" tabindex="0"><span class="tab-product">MITE</span> Serve a request</button><button id="hash-tab" role="tab" aria-controls="hash-code" aria-selected="false" tabindex="-1"><span class="tab-product">MITE</span> Hash a file</button><button id="window-tab" role="tab" aria-controls="window-code" aria-selected="false" tabindex="-1"><span class="tab-product">FIREFLY</span> Open a window</button></div>
-<div class="example-sheet">
-<div class="example-panel" id="server-code" role="tabpanel" aria-labelledby="server-tab"><div class="code-heading"><span>server.mjs</span><button data-copy="server-source" aria-label="Copy HTTP server example">Copy code <span aria-hidden="true">⧉</span></button></div><div class="example-body"><pre><code id="server-source"><span class="kw">import</span> {createServer} <span class="kw">from</span> <span class="str">'node:http'</span>;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Mite, a LibJS-powered JavaScript runtime. Firefly, a Ladybird-powered desktop framework. Familiar APIs on an independent engine stack."
+    />
+    <meta name="theme-color" content="#f8f5eb" />
+    <title>Mite & Firefly — JavaScript, a different species.</title>
+    <link rel="icon" href="mark.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/bricolage.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="site.mjs"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="nav wrap">
+      <a class="brand" href="./"
+        ><img src="mark.svg" width="27" height="31" alt="" /><span
+          >elytra<span class="brand-note">/ an independent JS stack</span></span
+        ></a
+      >
+      <nav aria-label="Main">
+        <a class="hide-small" href="docs/getting-started.html">Get started</a
+        ><a href="docs/index.html">Docs</a><a class="hide-small" href="#in-the-wild">In the wild</a
+        ><a class="github-link" href="https://github.com/jogibear9988/elytra"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="edition">
+          <span>LIBJS × LIBWEB</span
+          ><a href="docs/PROGRESS.html"
+            ><span class="dot"></span> Early development <span aria-hidden="true">↗</span></a
+          ><span>OPEN SOURCE / MIT</span>
+        </div>
+        <div class="specimens" aria-hidden="true">
+          <img class="mite-drawing" src="art/mite.svg" width="270" height="230" alt="" /><img
+            class="firefly-drawing"
+            src="art/firefly.svg"
+            width="290"
+            height="240"
+            alt=""
+          /><span class="specimen-note note-mite">small by name.</span
+          ><span class="specimen-note note-firefly">bright by nature.</span>
+        </div>
+        <h1 id="hero-title">
+          <span class="mite-word">mite</span><span class="ampersand">&amp;</span
+          ><span class="firefly-word"
+            >firefly<span class="word-spark" aria-hidden="true">✳</span></span
+          >
+        </h1>
+        <div class="species"><span>A JavaScript runtime</span><span>A desktop framework</span></div>
+        <p class="hero-intro">JavaScript, a different species.</p>
+        <p class="hero-description">
+          Familiar Node and Electron patterns. Independent Ladybird engines. <br />From your next
+          script to your next desktop app.
+        </p>
+        <div class="hero-actions">
+          <a class="button mite-button" href="docs/getting-started.html"
+            >Build with Mite <span aria-hidden="true">↗</span></a
+          ><a class="button firefly-button" href="docs/api/firefly.html"
+            >Meet Firefly <span aria-hidden="true">↗</span></a
+          >
+        </div>
+        <p class="build-note">
+          Build from source · Tested on macOS ARM64 · More platforms in progress
+        </p>
+      </section>
+      <section class="workbench wrap" aria-labelledby="workbench-title">
+        <div class="section-rule">
+          <h2 id="workbench-title">Same JavaScript. New engine room.</h2>
+          <span class="folio">01 / THE WORKBENCH</span>
+        </div>
+        <div class="example-tabs" role="tablist" aria-label="JavaScript examples">
+          <button
+            id="server-tab"
+            role="tab"
+            aria-controls="server-code"
+            aria-selected="true"
+            tabindex="0"
+          >
+            <span class="tab-product">MITE</span> Serve a request</button
+          ><button
+            id="hash-tab"
+            role="tab"
+            aria-controls="hash-code"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span class="tab-product">MITE</span> Hash a file</button
+          ><button
+            id="window-tab"
+            role="tab"
+            aria-controls="window-code"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span class="tab-product">FIREFLY</span> Open a window
+          </button>
+        </div>
+        <div class="example-sheet">
+          <div class="example-panel" id="server-code" role="tabpanel" aria-labelledby="server-tab">
+            <div class="code-heading">
+              <span>server.mjs</span
+              ><button data-copy="server-source" aria-label="Copy HTTP server example">
+                Copy code <span aria-hidden="true">⧉</span>
+              </button>
+            </div>
+            <div class="example-body">
+              <pre><code id="server-source"><span class="kw">import</span> {createServer} <span class="kw">from</span> <span class="str">'node:http'</span>;
 
 <span class="fn">createServer</span>((request, response) =&gt; {
   response.<span class="fn">setHeader</span>(<span class="str">'Content-Type'</span>, <span class="str">'text/plain'</span>);
   response.<span class="fn">end</span>(<span class="str">'Hello, little world.\n'</span>);
-}).<span class="fn">listen</span>(<span class="num">3000</span>, <span class="str">'127.0.0.1'</span>);</code></pre><aside class="example-aside"><span class="engine-label">UNDER THE HOOD</span><p>LibJS runs the code.<br>Native I/O does the rest.</p><a href="docs/api/mite.html#tcp-dns-and-http">HTTP API ↗</a><img src="art/mite.svg" width="125" height="106" alt=""></aside></div><div class="run-line"><span class="prompt">$</span><code>mite server.mjs</code><span class="run-note">Node-style modules. LibJS inside.</span></div></div>
-<div class="example-panel" id="hash-code" role="tabpanel" aria-labelledby="hash-tab" hidden><div class="code-heading"><span>hash.mjs</span><button data-copy="hash-source" aria-label="Copy file hashing example">Copy code <span aria-hidden="true">⧉</span></button></div><div class="example-body"><pre><code id="hash-source"><span class="kw">import</span> {readFile} <span class="kw">from</span> <span class="str">'node:fs/promises'</span>;
+}).<span class="fn">listen</span>(<span class="num">3000</span>, <span class="str">'127.0.0.1'</span>);</code></pre>
+              <aside class="example-aside">
+                <span class="engine-label">UNDER THE HOOD</span>
+                <p>LibJS runs the code.<br />Native I/O does the rest.</p>
+                <a href="docs/api/mite.html#tcp-dns-and-http">HTTP API ↗</a
+                ><img src="art/mite.svg" width="125" height="106" alt="" />
+              </aside>
+            </div>
+            <div class="run-line">
+              <span class="prompt">$</span><code>mite server.mjs</code
+              ><span class="run-note">Node-style modules. LibJS inside.</span>
+            </div>
+          </div>
+          <div
+            class="example-panel"
+            id="hash-code"
+            role="tabpanel"
+            aria-labelledby="hash-tab"
+            hidden
+          >
+            <div class="code-heading">
+              <span>hash.mjs</span
+              ><button data-copy="hash-source" aria-label="Copy file hashing example">
+                Copy code <span aria-hidden="true">⧉</span>
+              </button>
+            </div>
+            <div class="example-body">
+              <pre><code id="hash-source"><span class="kw">import</span> {readFile} <span class="kw">from</span> <span class="str">'node:fs/promises'</span>;
 <span class="kw">import</span> {createHash} <span class="kw">from</span> <span class="str">'node:crypto'</span>;
 
 <span class="kw">const</span> bytes = <span class="kw">await</span> <span class="fn">readFile</span>(<span class="str">'package.json'</span>);
 <span class="kw">const</span> hash = <span class="fn">createHash</span>(<span class="str">'sha256'</span>);
 hash.<span class="fn">update</span>(bytes);
-console.<span class="fn">log</span>(hash.<span class="fn">digest</span>(<span class="str">'hex'</span>));</code></pre><aside class="example-aside"><span class="engine-label">UNDER THE HOOD</span><p>Native files.<br>Checked OpenSSL hashes.</p><a href="docs/api/mite.html#nodecrypto">Crypto API ↗</a><img src="art/mite.svg" width="125" height="106" alt=""></aside></div><div class="run-line"><span class="prompt">$</span><code>mite hash.mjs</code><span class="run-note">Promises, Buffers and incremental hashes.</span></div></div>
-<div class="example-panel" id="window-code" role="tabpanel" aria-labelledby="window-tab" hidden><div class="code-heading"><span>main.mjs</span><button data-copy="window-source" aria-label="Copy desktop window example">Copy code <span aria-hidden="true">⧉</span></button></div><div class="example-body"><pre><code id="window-source"><span class="kw">import</span> {app, BrowserWindow} <span class="kw">from</span> <span class="str">'firefly'</span>;
+console.<span class="fn">log</span>(hash.<span class="fn">digest</span>(<span class="str">'hex'</span>));</code></pre>
+              <aside class="example-aside">
+                <span class="engine-label">UNDER THE HOOD</span>
+                <p>Native files.<br />Checked OpenSSL hashes.</p>
+                <a href="docs/api/mite.html#nodecrypto">Crypto API ↗</a
+                ><img src="art/mite.svg" width="125" height="106" alt="" />
+              </aside>
+            </div>
+            <div class="run-line">
+              <span class="prompt">$</span><code>mite hash.mjs</code
+              ><span class="run-note">Promises, Buffers and incremental hashes.</span>
+            </div>
+          </div>
+          <div
+            class="example-panel"
+            id="window-code"
+            role="tabpanel"
+            aria-labelledby="window-tab"
+            hidden
+          >
+            <div class="code-heading">
+              <span>main.mjs</span
+              ><button data-copy="window-source" aria-label="Copy desktop window example">
+                Copy code <span aria-hidden="true">⧉</span>
+              </button>
+            </div>
+            <div class="example-body">
+              <pre><code id="window-source"><span class="kw">import</span> {app, BrowserWindow} <span class="kw">from</span> <span class="str">'firefly'</span>;
 
 <span class="kw">await</span> app.<span class="fn">whenReady</span>();
 <span class="kw">const</span> window = <span class="kw">new</span> <span class="fn">BrowserWindow</span>({
   width: <span class="num">1200</span>, height: <span class="num">800</span>
 });
 <span class="kw">await</span> window.<span class="fn">loadFile</span>(<span class="str">'index.html'</span>);
-app.<span class="fn">on</span>(<span class="str">'window-all-closed'</span>, () =&gt; app.<span class="fn">quit</span>());</code></pre><aside class="example-aside"><span class="engine-label">UNDER THE HOOD</span><p>Mite in the main process.<br>Ladybird in the window.</p><a href="docs/api/firefly.html">Desktop API ↗</a><img src="art/firefly.svg" width="135" height="112" alt=""></aside></div><div class="run-line"><span class="prompt">$</span><code>firefly main.mjs</code><span class="run-note">HTML + CSS + JavaScript, on the desktop.</span></div></div>
-</div><div class="workbench-foot"><span>Real examples from the implemented API subset.</span><a href="docs/compatibility/mite-0.1.html">Check compatibility before migrating ↗</a></div>
-</section>
-<section class="projects wrap" id="projects" aria-labelledby="projects-title"><div class="section-rule"><h2 id="projects-title">Meet the inhabitants.</h2><span class="folio">02 / FIELD NOTES</span></div><div class="project-row"><div class="project-identity"><span class="species-number">I.</span><h3>Mite</h3><span class="project-tag green-tag">THE RUNTIME</span></div><div class="project-description"><p>Scripts, servers, and the bits in between.</p><p>Mite brings a growing set of Node-compatible APIs to Ladybird’s <strong>LibJS</strong>. It runs on its own, without Firefly, a browser, Node, or V8.</p><a class="arrow-link" href="docs/api/mite.html">Read the Mite reference <span>↗</span></a></div><div class="project-details"><span class="micro-heading">IN THE TOOLBOX</span><p>ESM &amp; CommonJS<br>Files &amp; streams<br>TCP, DNS &amp; HTTP servers<br>Timers, OS &amp; crypto foundations</p></div></div><div class="project-row"><div class="project-identity"><span class="species-number">II.</span><h3>Firefly</h3><span class="project-tag yellow-tag">THE FRAMEWORK</span></div><div class="project-description"><p>A window for what you’re building.</p><p>Electron-style application patterns, with Mite in the main process and <strong>LibWeb</strong> rendering your interface in separate Ladybird processes.</p><a class="arrow-link" href="docs/api/firefly.html">Read the Firefly reference <span>↗</span></a></div><div class="project-details"><span class="micro-heading">TAKING SHAPE</span><p>app &amp; BrowserWindow<br>Native macOS windows<br>Local files &amp; URL loading<br>Restricted renderer defaults</p></div></div></section>
-<section class="wild" id="in-the-wild" aria-labelledby="wild-title"><div class="wrap"><div class="wild-heading"><div><span class="folio">03 / IN THE WILD</span><h2 id="wild-title">Web Component Designer.<br><em>A real app, running on Firefly.</em></h2></div><p>The real Web Component Designer demo, running in Firefly. Mite serves the app. Ladybird draws the interface.</p></div><figure class="designer-figure"><div class="figure-label"><span><span class="dot"></span> WEB COMPONENT DESIGNER / FIREFLY</span><a href="https://github.com/node-projects/web-component-designer-demo">Upstream project ↗</a></div><img src="art/designer.png" width="1200" height="800" loading="lazy" alt="Actual Ladybird render of Web Component Designer, showing its palette, document canvas, docking panels and Monaco editor."><figcaption><span>Actual LibWeb compositor capture · macOS ARM64</span><a href="https://github.com/jogibear9988/elytra/tree/master/examples/web-component-designer">Build this example ↗</a></figcaption></figure><p class="wild-footnote">Tested: app boot, a document edit and Monaco. Broader designer features and native Windows support are still in progress.</p></div></section>
-<section class="status wrap" aria-labelledby="status-title"><div class="status-intro"><span class="folio">04 / A WORK IN PROGRESS</span><h2 id="status-title">Little steps.<br>Open notebooks.</h2><p>This is an early, independent stack. Here’s what you can use today, and what’s still taking shape.</p><a class="arrow-link" href="docs/PROGRESS.html">Follow the implementation <span>↗</span></a></div><div class="status-ledger"><div><span class="ledger-state state-working">WORKING</span><p>Mite on macOS ARM64 <small>Selected Node APIs, real npm packages, differential tests.</small></p></div><div><span class="ledger-state state-working">WORKING SLICE</span><p>Firefly + the Designer sample <small>Native windows, loading, lifecycle and experimental macOS bundles.</small></p></div><div><span class="ledger-state">IN PROGRESS</span><p>Public preload, bridge &amp; IPC <small>Internal isolation tests exist; these public APIs remain unsupported.</small></p></div><div><span class="ledger-state">AHEAD</span><p>Native Windows &amp; Linux releases <small>Platform adapters, packaging and native validation remain open.</small></p></div></div></section>
-<section class="underneath wrap"><div class="section-rule"><h2>An independent family tree.</h2><span class="folio">05 / UNDERNEATH IT ALL</span></div><div class="family"><span>Your JavaScript</span><span aria-hidden="true">→</span><span><strong>Mite</strong><small>LibJS runtime</small></span><span aria-hidden="true">+</span><span><strong>Firefly</strong><small>Native desktop APIs</small></span><span aria-hidden="true">→</span><span><strong>Ladybird</strong><small>LibWeb + LibJS renderers</small></span></div><p>Ladybird stays unmodified. Our adapters handle integration, so we can keep following upstream.</p><a class="arrow-link" href="docs/development/updating-ladybird.html">How upstream updates work <span>↗</span></a></section>
-<section class="closing wrap"><img src="art/firefly.svg" width="140" height="116" alt=""><div><span class="folio">ROOM FOR MORE HANDS.</span><h2>Come build the small things.</h2><div class="closing-links"><a href="docs/getting-started.html">Start with the source ↗</a><a href="docs/api/index.html">Browse the API ↗</a><a href="https://github.com/jogibear9988/elytra">Find us on GitHub ↗</a></div></div></section>
-</main><footer class="footer wrap"><span>Mite &amp; Firefly <span class="footer-separator">/</span> elytra</span><span>Independent engines. Open source.</span><a href="https://github.com/jogibear9988/elytra/blob/master/LICENSE">MIT license ↗</a></footer>
-<div class="sr-only" aria-live="polite" id="copy-status"></div>
-</body></html>
+app.<span class="fn">on</span>(<span class="str">'window-all-closed'</span>, () =&gt; app.<span class="fn">quit</span>());</code></pre>
+              <aside class="example-aside">
+                <span class="engine-label">UNDER THE HOOD</span>
+                <p>Mite in the main process.<br />Ladybird in the window.</p>
+                <a href="docs/api/firefly.html">Desktop API ↗</a
+                ><img src="art/firefly.svg" width="135" height="112" alt="" />
+              </aside>
+            </div>
+            <div class="run-line">
+              <span class="prompt">$</span><code>firefly main.mjs</code
+              ><span class="run-note">HTML + CSS + JavaScript, on the desktop.</span>
+            </div>
+          </div>
+        </div>
+        <div class="workbench-foot">
+          <span>Real examples from the implemented API subset.</span
+          ><a href="docs/compatibility/mite-0.1.html">Check compatibility before migrating ↗</a>
+        </div>
+      </section>
+      <section class="projects wrap" id="projects" aria-labelledby="projects-title">
+        <div class="section-rule">
+          <h2 id="projects-title">Meet the inhabitants.</h2>
+          <span class="folio">02 / FIELD NOTES</span>
+        </div>
+        <div class="project-row">
+          <div class="project-identity">
+            <span class="species-number">I.</span>
+            <h3>Mite</h3>
+            <span class="project-tag green-tag">THE RUNTIME</span>
+          </div>
+          <div class="project-description">
+            <p>Scripts, servers, and the bits in between.</p>
+            <p>
+              Mite brings a growing set of Node-compatible APIs to Ladybird’s
+              <strong>LibJS</strong>. It runs on its own, without Firefly, a browser, Node, or V8.
+            </p>
+            <a class="arrow-link" href="docs/api/mite.html"
+              >Read the Mite reference <span>↗</span></a
+            >
+          </div>
+          <div class="project-details">
+            <span class="micro-heading">IN THE TOOLBOX</span>
+            <p>
+              ESM &amp; CommonJS<br />Files &amp; streams<br />TCP, DNS &amp; HTTP servers<br />Timers,
+              OS &amp; crypto foundations
+            </p>
+          </div>
+        </div>
+        <div class="project-row">
+          <div class="project-identity">
+            <span class="species-number">II.</span>
+            <h3>Firefly</h3>
+            <span class="project-tag yellow-tag">THE FRAMEWORK</span>
+          </div>
+          <div class="project-description">
+            <p>A window for what you’re building.</p>
+            <p>
+              Electron-style application patterns, with Mite in the main process and
+              <strong>LibWeb</strong> rendering your interface in separate Ladybird processes.
+            </p>
+            <a class="arrow-link" href="docs/api/firefly.html"
+              >Read the Firefly reference <span>↗</span></a
+            >
+          </div>
+          <div class="project-details">
+            <span class="micro-heading">TAKING SHAPE</span>
+            <p>
+              app &amp; BrowserWindow<br />Native macOS windows<br />Local files &amp; URL
+              loading<br />Restricted renderer defaults
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="wild" id="in-the-wild" aria-labelledby="wild-title">
+        <div class="wrap">
+          <div class="wild-heading">
+            <div>
+              <span class="folio">03 / IN THE WILD</span>
+              <h2 id="wild-title">
+                Web Component Designer.<br /><em>A real app, running on Firefly.</em>
+              </h2>
+            </div>
+            <p>
+              The real Web Component Designer demo, running in Firefly. Mite serves the app.
+              Ladybird draws the interface.
+            </p>
+          </div>
+          <figure class="designer-figure">
+            <div class="figure-label">
+              <span><span class="dot"></span> WEB COMPONENT DESIGNER / FIREFLY</span
+              ><a href="https://github.com/node-projects/web-component-designer-demo"
+                >Upstream project ↗</a
+              >
+            </div>
+            <img
+              src="art/designer.png"
+              width="1200"
+              height="800"
+              loading="lazy"
+              alt="Actual Ladybird render of Web Component Designer, showing its palette, document canvas, docking panels and Monaco editor."
+            />
+            <figcaption>
+              <span>Actual LibWeb compositor capture · macOS ARM64</span
+              ><a
+                href="https://github.com/jogibear9988/elytra/tree/master/examples/web-component-designer"
+                >Build this example ↗</a
+              >
+            </figcaption>
+          </figure>
+          <p class="wild-footnote">
+            Tested: app boot, a document edit and Monaco. Broader designer features and native
+            Windows support are still in progress.
+          </p>
+        </div>
+      </section>
+      <section class="status wrap" aria-labelledby="status-title">
+        <div class="status-intro">
+          <span class="folio">04 / A WORK IN PROGRESS</span>
+          <h2 id="status-title">Little steps.<br />Open notebooks.</h2>
+          <p>
+            This is an early, independent stack. Here’s what you can use today, and what’s still
+            taking shape.
+          </p>
+          <a class="arrow-link" href="docs/PROGRESS.html"
+            >Follow the implementation <span>↗</span></a
+          >
+        </div>
+        <div class="status-ledger">
+          <div>
+            <span class="ledger-state state-working">WORKING</span>
+            <p>
+              Mite on macOS ARM64
+              <small>Selected Node APIs, real npm packages, differential tests.</small>
+            </p>
+          </div>
+          <div>
+            <span class="ledger-state state-working">WORKING SLICE</span>
+            <p>
+              Firefly + the Designer sample
+              <small>Native windows, loading, lifecycle and experimental macOS bundles.</small>
+            </p>
+          </div>
+          <div>
+            <span class="ledger-state">IN PROGRESS</span>
+            <p>
+              Public preload, bridge &amp; IPC
+              <small
+                >Isolated preloads and bounded API publication work. Public IPC is still in
+                progress.</small
+              >
+            </p>
+          </div>
+          <div>
+            <span class="ledger-state">AHEAD</span>
+            <p>
+              Native Windows &amp; Linux releases
+              <small>Platform adapters, packaging and native validation remain open.</small>
+            </p>
+          </div>
+        </div>
+      </section>
+      <section class="underneath wrap">
+        <div class="section-rule">
+          <h2>An independent family tree.</h2>
+          <span class="folio">05 / UNDERNEATH IT ALL</span>
+        </div>
+        <div class="family">
+          <span>Your JavaScript</span><span aria-hidden="true">→</span
+          ><span><strong>Mite</strong><small>LibJS runtime</small></span
+          ><span aria-hidden="true">+</span
+          ><span><strong>Firefly</strong><small>Native desktop APIs</small></span
+          ><span aria-hidden="true">→</span
+          ><span><strong>Ladybird</strong><small>LibWeb + LibJS renderers</small></span>
+        </div>
+        <p>
+          Ladybird stays unmodified. Our adapters handle integration, so we can keep following
+          upstream.
+        </p>
+        <a class="arrow-link" href="docs/development/updating-ladybird.html"
+          >How upstream updates work <span>↗</span></a
+        >
+      </section>
+      <section class="closing wrap">
+        <img src="art/firefly.svg" width="140" height="116" alt="" />
+        <div>
+          <span class="folio">ROOM FOR MORE HANDS.</span>
+          <h2>Come build the small things.</h2>
+          <div class="closing-links">
+            <a href="docs/getting-started.html">Start with the source ↗</a
+            ><a href="docs/api/index.html">Browse the API ↗</a
+            ><a href="https://github.com/jogibear9988/elytra">Find us on GitHub ↗</a>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer wrap">
+      <span>Mite &amp; Firefly <span class="footer-separator">/</span> elytra</span
+      ><span>Independent engines. Open source.</span
+      ><a href="https://github.com/jogibear9988/elytra/blob/master/LICENSE">MIT license ↗</a>
+    </footer>
+    <div class="sr-only" aria-live="polite" id="copy-status"></div>
+  </body>
+</html>

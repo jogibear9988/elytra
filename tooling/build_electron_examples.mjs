@@ -1,17 +1,23 @@
+/**
+ * Stage authored ESM examples and bundle their isolated preloads for an explicit runtime.
+ */
 import { readFile, writeFile, mkdir, cp, access } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 const [destination, runtime = 'firefly'] = process.argv.slice(2);
-if (!destination || !['firefly', 'electron'].includes(runtime))
+if (!destination || !['firefly', 'electron'].includes(runtime)) {
   throw Error('Usage: node tooling/build_electron_examples.mjs fresh-output [firefly|electron]');
+}
 const source = fileURLToPath(new URL('../examples/electron/', import.meta.url));
 const output = path.resolve(destination);
 try {
   await access(output);
   throw Error('Output exists; choose a fresh build directory');
 } catch (error) {
-  if (error.code !== 'ENOENT') throw error;
+  if (error.code !== 'ENOENT') {
+    throw error;
+  }
 }
 const manifest = JSON.parse(
   await readFile(new URL('./runtime-js/package.json', import.meta.url), 'utf8')
@@ -19,8 +25,9 @@ const manifest = JSON.parse(
 const { build, version } = createRequire(new URL('./runtime-js/package.json', import.meta.url))(
   'esbuild'
 );
-if (version !== manifest.devDependencies.esbuild)
+if (version !== manifest.devDependencies.esbuild) {
   throw Error('Install the pinned tooling/runtime-js lockfile');
+}
 await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true });
 const catalog = JSON.parse(await readFile(path.join(source, 'catalog.json'), 'utf8'));
@@ -30,7 +37,9 @@ for (const entry of catalog.examples) {
     const main = await readFile(file, 'utf8');
     await writeFile(file, main.replaceAll("from 'firefly'", "from 'electron'"));
   }
-  if (!entry.preload) continue;
+  if (!entry.preload) {
+    continue;
+  }
   await build({
     entryPoints: [path.join(source, 'shared/preload.mjs')],
     outfile: path.join(output, entry.id, 'preload.cjs'),

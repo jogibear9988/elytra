@@ -7,7 +7,7 @@ names. Implement them in the owned Qt window adapter. Keep titleBarStyle:hidden
 unsupported: removing the whole frame is not the macOS traffic-light variant.
 
 LibWeb at the current pin does not implement Electron's app-region property. The
-owned AppRegions.js adapter maps app-region/-webkit-app-region declarations to a
+owned app-regions.mjs adapter maps app-region/-webkit-app-region declarations to a
 private CSS property in companion style elements, then lets LibWeb resolve selectors,
 cascade, media queries and layout. The host obtains bounded JSON rectangles using
 existing upstream view evaluation plumbing. No native function, filesystem access,

@@ -1,49 +1,163 @@
-import {app,BrowserWindow} from 'firefly';
-import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
-import {randomBytes,randomUUID,randomInt,createHash,createHmac,timingSafeEqual} from 'node:crypto';
-import {createServer,get} from 'node:http';
-import {spawn,execFile} from 'node:child_process';
-import {readFile} from 'node:fs/promises';
-import {fileURLToPath} from 'node:url';
+import { app, BrowserWindow } from 'firefly';
+import {
+  arch,
+  platform,
+  hostname,
+  homedir,
+  availableParallelism,
+  cpus,
+  userInfo,
+  networkInterfaces,
+  getPriority,
+  setPriority,
+  constants as osConstants
+} from 'node:os';
+import {
+  randomBytes,
+  randomUUID,
+  randomInt,
+  createHash,
+  createHmac,
+  timingSafeEqual
+} from 'node:crypto';
+import { createServer, get } from 'node:http';
+import { spawn, execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import tildeRaw from './tilde~.mjs';
 import tildeEscaped from './tilde%7E.mjs';
-if(tildeRaw!==tildeEscaped)throw Error('Main-process canonical module identity');
-if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
-const nativeCpus=cpus(),nativeAccount=userInfo();
-if(!Array.isArray(nativeCpus) || !nativeCpus.length || !Number.isFinite(nativeCpus[0].times.user) || Object.getPrototypeOf(nativeAccount)!==null || typeof nativeAccount.username!=='string')throw Error('Native main-process CPU/account queries');
-const nativeInterfaces=networkInterfaces();
-if(Object.getPrototypeOf(nativeInterfaces)!==Object.prototype || !Object.values(nativeInterfaces).flat().some(entry=>entry.internal && entry.family==='IPv4'))throw Error('Native main-process interface query');
-const originalPriority=getPriority();
-if(!Number.isInteger(originalPriority) || getPriority(process.pid)!==originalPriority || setPriority(process.pid,originalPriority)!==undefined)throw Error('Native main-process priority query/set');
-if(Object.getPrototypeOf(osConstants)!==null || !Object.isFrozen(osConstants.signals) || osConstants.priority.PRIORITY_NORMAL!==0 || osConstants.errno.EINVAL<=0)throw Error('Native main-process OS constants');
-if(createHash('sha256').update('abc').digest('hex')!=='ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')throw Error('Native main-process hash');
-const mac=createHmac('sha256','key').update('abc').digest();
-if(mac.toString('hex')!=='9c196e32dc0175f86f4b1cb89289d6619de6bee699e4c378e68309ed97a1a6ab' || !timingSafeEqual(mac,Buffer.from(mac)) || timingSafeEqual(mac,Buffer.alloc(mac.length)))throw Error('Native main-process HMAC');
-const nonce=await new Promise((resolve,reject)=>randomBytes(32,(error,value)=>error?reject(error):resolve(value)));
-if(randomInt(-1,0)!==-1 || await new Promise((resolve,reject)=>randomInt(1,(error,value)=>error?reject(error):resolve(value)))!==0)throw Error('Native main-process integer entropy');
-if(nonce.length!==32 || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(randomUUID()))throw Error('Native main-process random APIs');
+if (tildeRaw !== tildeEscaped) {
+  throw Error('Main-process canonical module identity');
+}
+if (
+  arch() !== process.arch ||
+  platform() !== process.platform ||
+  typeof hostname() !== 'string' ||
+  !homedir() ||
+  !Number.isInteger(availableParallelism()) ||
+  availableParallelism() < 1
+) {
+  throw Error('Native main-process OS queries');
+}
+const nativeCpus = cpus();
+const nativeAccount = userInfo();
+if (
+  !Array.isArray(nativeCpus) ||
+  !nativeCpus.length ||
+  !Number.isFinite(nativeCpus[0].times.user) ||
+  Object.getPrototypeOf(nativeAccount) !== null ||
+  typeof nativeAccount.username !== 'string'
+) {
+  throw Error('Native main-process CPU/account queries');
+}
+const nativeInterfaces = networkInterfaces();
+if (
+  Object.getPrototypeOf(nativeInterfaces) !== Object.prototype ||
+  !Object.values(nativeInterfaces)
+    .flat()
+    .some((entry) => entry.internal && entry.family === 'IPv4')
+) {
+  throw Error('Native main-process interface query');
+}
+const originalPriority = getPriority();
+if (
+  !Number.isInteger(originalPriority) ||
+  getPriority(process.pid) !== originalPriority ||
+  setPriority(process.pid, originalPriority) !== undefined
+) {
+  throw Error('Native main-process priority query/set');
+}
+if (
+  Object.getPrototypeOf(osConstants) !== null ||
+  !Object.isFrozen(osConstants.signals) ||
+  osConstants.priority.PRIORITY_NORMAL !== 0 ||
+  osConstants.errno.EINVAL <= 0
+) {
+  throw Error('Native main-process OS constants');
+}
+if (
+  createHash('sha256').update('abc').digest('hex') !==
+  'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+) {
+  throw Error('Native main-process hash');
+}
+const mac = createHmac('sha256', 'key').update('abc').digest();
+if (
+  mac.toString('hex') !== '9c196e32dc0175f86f4b1cb89289d6619de6bee699e4c378e68309ed97a1a6ab' ||
+  !timingSafeEqual(mac, Buffer.from(mac)) ||
+  timingSafeEqual(mac, Buffer.alloc(mac.length))
+) {
+  throw Error('Native main-process HMAC');
+}
+const nonce = await new Promise((resolve, reject) =>
+  randomBytes(32, (error, value) => (error ? reject(error) : resolve(value)))
+);
+if (
+  randomInt(-1, 0) !== -1 ||
+  (await new Promise((resolve, reject) =>
+    randomInt(1, (error, value) => (error ? reject(error) : resolve(value)))
+  )) !== 0
+) {
+  throw Error('Native main-process integer entropy');
+}
+if (
+  nonce.length !== 32 ||
+  !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(randomUUID())
+) {
+  throw Error('Native main-process random APIs');
+}
 await app.whenReady();
-const childOutput=await new Promise((resolve,reject)=>{
-    const child=spawn('/usr/bin/printf',['%s','firefly-native-child']);let text='';
-    child.on('error',reject);child.stdout.setEncoding('utf8');child.stdout.on('data',chunk=>text+=chunk);child.stdout.on('error',reject);
-    child.on('close',code=>code===0?resolve(text):reject(Error('Native child exit')));
+const childOutput = await new Promise((resolve, reject) => {
+  const child = spawn('/usr/bin/printf', ['%s', 'firefly-native-child']);
+  let text = '';
+  child.on('error', reject);
+  child.stdout.setEncoding('utf8');
+
+  child.stdout.on('data', (chunk) => (text += chunk));
+
+  child.stdout.on('error', reject);
+
+  child.on('close', (code) => (code === 0 ? resolve(text) : reject(Error('Native child exit'))));
 });
-if(childOutput!=='firefly-native-child')throw Error('Native main-process child pipe');
-const capturedChild=await new Promise((resolve,reject)=>execFile('/usr/bin/printf',['%s','firefly-exec-file'],(error,stdout,stderr)=>error?reject(error):resolve([stdout,stderr])));
-if(capturedChild[0]!=='firefly-exec-file'||capturedChild[1]!=='')throw Error('Native main-process buffered child');
-const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
-const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
-await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const fetched=await new Promise((resolve,reject)=>{
-    get(`http://127.0.0.1:${server.address().port}/`,{agent:false},response=>{
-        response.on('error',reject);response.setEncoding('utf8');let text='';
-        response.on('data',chunk=>text+=chunk);response.on('end',()=>resolve(text));
-    }).on('error',reject);
+if (childOutput !== 'firefly-native-child') {
+  throw Error('Native main-process child pipe');
+}
+const capturedChild = await new Promise((resolve, reject) =>
+  execFile('/usr/bin/printf', ['%s', 'firefly-exec-file'], (error, stdout, stderr) =>
+    error ? reject(error) : resolve([stdout, stderr])
+  )
+);
+if (capturedChild[0] !== 'firefly-exec-file' || capturedChild[1] !== '') {
+  throw Error('Native main-process buffered child');
+}
+const body = await readFile(fileURLToPath(new URL('./page.html', import.meta.url)));
+const server = createServer((_request, response) => {
+  response.setHeader('Content-Type', 'text/html');
+  response.end(body);
 });
-if(fetched!==body.toString())throw Error('Native main-process HTTP client/server');
-const win=new BrowserWindow({width:640,height:400});
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+const fetched = await new Promise((resolve, reject) => {
+  get(`http://127.0.0.1:${server.address().port}/`, { agent: false }, (response) => {
+    response.on('error', reject);
+    response.setEncoding('utf8');
+    let text = '';
+
+    response.on('data', (chunk) => (text += chunk));
+
+    response.on('end', () => resolve(text));
+  }).on('error', reject);
+});
+if (fetched !== body.toString()) {
+  throw Error('Native main-process HTTP client/server');
+}
+const win = new BrowserWindow({ width: 640, height: 400 });
 await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
-if(win.webContents.getTitle()!=='RENDERER_ISOLATED') throw Error('ESM/HTTP renderer isolation');
-await new Promise(resolve=>server.close(resolve));
-console.log(JSON.stringify({esm:true,http:true,os:true,rendererIsolated:true}));
-win.on('closed',()=>app.quit());win.destroy();
+if (win.webContents.getTitle() !== 'RENDERER_ISOLATED') {
+  throw Error('ESM/HTTP renderer isolation');
+}
+await new Promise((resolve) => server.close(resolve));
+console.log(JSON.stringify({ esm: true, http: true, os: true, rendererIsolated: true }));
+
+win.on('closed', () => app.quit());
+
+win.destroy();

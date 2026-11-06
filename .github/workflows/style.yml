@@ -1,0 +1,39 @@
+name: Source style and generated adapters
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-style:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: |
+            tooling/code-style/package-lock.json
+            tooling/runtime-js/package-lock.json
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Pinned authoring tools
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code-style
+          npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
+          python3 -m venv build/code-style-venv
+          build/code-style-venv/bin/pip install -r tooling/code-style/requirements.txt
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+      - name: Check maintained sources
+        run: python3 tooling/code_style.py --check
+      - name: Reproduce Mite and Firefly embedding adapters
+        run: |
+          node tooling/runtime-js/build.mjs --check
+          node tooling/runtime-js/build-firefly.mjs --check
+          python3 tooling/check_runtime_js.py
+          python3 tooling/check_firefly_js.py

@@ -9,9 +9,7 @@
     "llvm-libc",
     {
       "name": "mimalloc",
-      "features": [
-        "secure"
-      ]
+      "features": ["secure"]
     },
     "openssl",
     "simdutf",

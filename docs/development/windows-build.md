@@ -46,7 +46,7 @@ dependency builds during bring-up. There are no continue-on-error success paths.
 
 ```sh
 python3 tooling/check_checkout_paths.py
-python3 tooling/test_checkout_paths.py
+python3 tooling/tests/test_checkout_paths.py
 ```
 
 The guard reads Git's tracked index rather than walking the worktree. It rejects

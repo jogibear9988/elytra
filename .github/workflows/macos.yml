@@ -2,7 +2,18 @@ name: macOS Release packages
 on:
   push:
     branches: [master]
-    paths: ['.github/workflows/macos.yml', 'CMakeLists.txt', 'vcpkg.json', 'vendor/ladybird', 'vendor/ladybird.json', 'mite/**', 'firefly/**', 'examples/**', 'tooling/**']
+    paths:
+      [
+        '.github/workflows/macos.yml',
+        'CMakeLists.txt',
+        'vcpkg.json',
+        'vendor/ladybird',
+        'vendor/ladybird.json',
+        'mite/**',
+        'firefly/**',
+        'examples/**',
+        'tooling/**'
+      ]
   workflow_dispatch:
     inputs:
       tag:

@@ -1,14 +1,23 @@
+/**
+ * Local AI handler browser interaction. Native setup stays in main; this script uses
+ * document/browser APIs only.
+ */
 const result = document.querySelector('#result');
+
 const ready = () => {
   document.title = 'EXAMPLE_READY';
 };
+
 const fail = (error) => {
   result.textContent = error.message;
   document.title = 'EXAMPLE_ERROR: ' + error.message;
 };
+
 document.querySelector('#ask').onclick = async () => {
   try {
-    if (typeof LanguageModel === 'undefined') throw Error('Prompt API unavailable');
+    if (typeof LanguageModel === 'undefined') {
+      throw Error('Prompt API unavailable');
+    }
     const model = await LanguageModel.create();
     try {
       result.textContent = await model.prompt(document.querySelector('#prompt').value);

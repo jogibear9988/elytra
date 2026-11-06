@@ -1,0 +1,6 @@
+{
+  "mite/tests/commonjs/bad-syntax.js": "Intentionally malformed CommonJS parser-error fixture.",
+  "mite/tests/fixtures/syntax-error.js": "Intentionally malformed CLI syntax-error fixture.",
+  "mite/tests/modules/syntax-error.mjs": "Intentionally malformed ESM parse-error fixture.",
+  "mite/tests/modules/broken.json": "Intentionally malformed JSON import fixture; parser rejection is the test."
+}

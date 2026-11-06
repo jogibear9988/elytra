@@ -5,7 +5,7 @@
 // requires it in some SDK declarations; restore it only while parsing that SDK.
 #pragma push_macro("IN")
 #ifndef IN
-#    define IN
+#define IN
 #endif
 #include <DbgHelp.h>
 #pragma pop_macro("IN")
@@ -13,7 +13,7 @@
 #include <cstring>
 
 #if !defined(_M_X64)
-#    error This diagnostic probe currently requires native Windows x64
+#error This diagnostic probe currently requires native Windows x64
 #endif
 
 namespace {
@@ -28,15 +28,17 @@ LONG WINAPI report_exception(EXCEPTION_POINTERS* exception)
             static_cast<unsigned long long>(exception->ExceptionRecord->ExceptionInformation[0]),
             static_cast<unsigned long long>(exception->ExceptionRecord->ExceptionInformation[1]));
     }
+
     if (!context.Rip) {
         // An indirect call to zero leaves a return address at RSP. A tail jump
         // need not, so label this as a candidate until the call site is reviewed.
         // Read safely and require a loaded module; never dereference fault memory.
         DWORD64 candidate = 0;
         SIZE_T bytes_read = 0;
-        if (ReadProcessMemory(process, reinterpret_cast<void const*>(context.Rsp),
-                &candidate, sizeof(candidate), &bytes_read)
-            && bytes_read == sizeof(candidate) && candidate && SymGetModuleBase64(process, candidate)) {
+        if (ReadProcessMemory(process, reinterpret_cast<void const*>(context.Rsp), &candidate,
+                sizeof(candidate), &bytes_read)
+            && bytes_read == sizeof(candidate) && candidate
+            && SymGetModuleBase64(process, candidate)) {
             fprintf(stderr, "MITE_NATIVE_NULL_PC_CALLER_CANDIDATE 0x%llx\n",
                 static_cast<unsigned long long>(candidate));
             // Only this local unwind copy changes; execution is never resumed.
@@ -44,6 +46,7 @@ LONG WINAPI report_exception(EXCEPTION_POINTERS* exception)
             context.Rsp += sizeof(candidate);
         }
     }
+
     STACKFRAME64 frame {};
     frame.AddrPC = { context.Rip, 0, AddrModeFlat };
     frame.AddrFrame = { context.Rbp, 0, AddrModeFlat };
@@ -56,17 +59,18 @@ LONG WINAPI report_exception(EXCEPTION_POINTERS* exception)
         DWORD64 displacement = 0;
         auto resolved = SymFromAddr(process, frame.AddrPC.Offset, &displacement, symbol);
         fprintf(stderr, "MITE_NATIVE_FRAME %u 0x%llx %s+0x%llx\n", i,
-            static_cast<unsigned long long>(frame.AddrPC.Offset), resolved ? symbol->Name : "unresolved",
-            static_cast<unsigned long long>(displacement));
+            static_cast<unsigned long long>(frame.AddrPC.Offset),
+            resolved ? symbol->Name : "unresolved", static_cast<unsigned long long>(displacement));
         IMAGEHLP_LINE64 line {};
         line.SizeOfStruct = sizeof(line);
         DWORD line_displacement = 0;
         if (SymGetLineFromAddr64(process, frame.AddrPC.Offset, &line_displacement, &line))
             fprintf(stderr, "MITE_NATIVE_SOURCE %s:%lu\n", line.FileName, line.LineNumber);
-        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, GetCurrentThread(), &frame,
-                &context, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr))
+        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, GetCurrentThread(), &frame, &context,
+                nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr))
             break;
     }
+
     fflush(stderr);
     // Keep the actual failing exception status; this is diagnostic output, not recovery.
     return EXCEPTION_EXECUTE_HANDLER;
@@ -81,6 +85,7 @@ int main(int argc, char** argv)
         fprintf(stderr, "Native symbol initialization failed: %lu\n", GetLastError());
         return 2;
     }
+
     SetUnhandledExceptionFilter(report_exception);
     if (argc == 2 && strcmp(argv[1], "--diagnostic-crash") == 0)
         RaiseException(EXCEPTION_ACCESS_VIOLATION, EXCEPTION_NONCONTINUABLE, 0, nullptr);

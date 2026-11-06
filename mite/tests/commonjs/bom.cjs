@@ -1,1 +1,1 @@
-﻿console.log("BOM");
+﻿console.log('BOM');

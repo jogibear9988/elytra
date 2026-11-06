@@ -1,3 +1,8 @@
+/**
+ * Native file drag and drop main-process reference. Manual native drag interaction. The drag
+ * file is fixed in main; renderer input is not a filesystem path. Firefly
+ * nativeImage/startDrag/IPC are absent.
+ */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {

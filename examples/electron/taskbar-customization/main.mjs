@@ -1,3 +1,8 @@
+/**
+ * Taskbar customization main-process reference. Windows-only native taskbar UI. Firefly
+ * Windows desktop and these methods are not implemented; macOS/Linux checks are explicit
+ * platform errors.
+ */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {
@@ -10,6 +15,7 @@ await runExample(import.meta.url, {
   earlyRequires: [],
   smoke: false,
   platforms: ['win32'],
+
   setup: async ({ api, window, directory, smoke, pageURL }) => {
     const { join } = await import('node:path');
     const icon = api.nativeImage.createFromPath(join(directory, 'icon.png'));
@@ -18,7 +24,8 @@ await runExample(import.meta.url, {
       !window.setThumbarButtons([
         { tooltip: 'Report title', icon, click: () => console.log(window.webContents.getTitle()) }
       ])
-    )
+    ) {
       throw Error('Thumbnail toolbar unavailable');
+    }
   }
 });

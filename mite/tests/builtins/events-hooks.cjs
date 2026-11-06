@@ -1,10 +1,23 @@
 const E = require('events');
 const emitter = new E();
 const output = [];
-emitter.on('newListener', (type, listener) => { if (type === 'x') output.push('new:' + listener.name); });
-emitter.on('removeListener', (type, listener) => { if (type === 'x') output.push('removed:' + listener.name); });
+
+emitter.on('newListener', (type, listener) => {
+  if (type === 'x') {
+    output.push('new:' + listener.name);
+  }
+});
+
+emitter.on('removeListener', (type, listener) => {
+  if (type === 'x') {
+    output.push('removed:' + listener.name);
+  }
+});
+
 emitter.once('x', function one() {});
+
 emitter.on('x', function two() {});
+
 emitter.removeAllListeners('x');
 emitter.removeAllListeners();
 console.log(output.join(','));

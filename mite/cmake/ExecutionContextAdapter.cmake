@@ -1,19 +1,23 @@
 function(mite_adapt_execution_context root)
-    execute_process(COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_execution_context_adapter.py"
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_execution_context_adapter.py"
         RESULT_VARIABLE result)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "Review the owned execution-context deallocation adapter")
     endif()
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-        "${root}/tooling/check_execution_context_adapter.py"
-        "${root}/vendor/ladybird/Libraries/LibJS/Runtime/ExecutionContext.cpp")
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY CMAKE_CONFIGURE_DEPENDS "${root}/tooling/check_execution_context_adapter.py"
+                 "${root}/vendor/ladybird/Libraries/LibJS/Runtime/ExecutionContext.cpp")
     get_target_property(sources LibJSObjects SOURCES)
     get_target_property(source_dir LibJSObjects SOURCE_DIR)
     get_target_property(binary_dir LibJSObjects BINARY_DIR)
     set(adapted)
     set(count 0)
     foreach(source IN LISTS sources)
-        if(source STREQUAL "Runtime/ExecutionContext.cpp" OR source STREQUAL "${source_dir}/Runtime/ExecutionContext.cpp")
+        if(source STREQUAL "Runtime/ExecutionContext.cpp"
+           OR source STREQUAL "${source_dir}/Runtime/ExecutionContext.cpp")
             list(APPEND adapted "${root}/mite/runtime/adapters/ExecutionContextAdapter.cpp")
             math(EXPR count "${count}+1")
         elseif(IS_ABSOLUTE "${source}" OR source MATCHES "^\\$<")
@@ -28,7 +32,9 @@ function(mite_adapt_execution_context root)
         message(FATAL_ERROR "Expected exactly one upstream execution-context translation unit")
     endif()
     set_property(TARGET LibJSObjects PROPERTY SOURCES "${adapted}")
-    add_custom_target(check-execution-context-adapter
-        COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_execution_context_adapter.py" VERBATIM)
+    add_custom_target(
+        check-execution-context-adapter
+        COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_execution_context_adapter.py"
+        VERBATIM)
     add_dependencies(LibJSObjects check-execution-context-adapter)
 endfunction()

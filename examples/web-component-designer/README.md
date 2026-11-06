@@ -95,7 +95,7 @@ explains the remaining platform/release gates.
 ## Native acceptance
 
 ```sh
-python3 tooling/test_designer.py --mite build/debug/bin/mite \
+python3 tooling/tests/test_designer.py --mite build/debug/bin/mite \
   --app build/designer-app --firefly build/renderer/bin/firefly
 ```
 

@@ -1,43 +1,107 @@
 <!doctype html>
-<meta charset="utf-8">
-<body><p id="status">WAITING_FOR_MESSAGE_EVENTS</p>
-<script>
-let cached,eventReference,synthetic=0,valid=true,denied=false,traps=0,posted=false,replied=false,published=false,revoked=false,started=false;
-window.addEventListener('message',event=>{
- let value;
- try{value=event.data}catch(error){denied=error instanceof TypeError && !error.stack.includes('firefly:isolated-world');return}
- if(value?.kind==='source-input'){
-  if(!cached){cached=value;eventReference=event}
-  synthetic++;
-  valid=valid && value===cached && value.n===42 && value.self===value && !(1 in value.items) &&
-   Object.isFrozen(value) && Object.isFrozen(value.items) && Object.getPrototypeOf(value)===Object.prototype &&
-   !event.isTrusted && event.origin==='spoofed' && event.source===window && event.ports.length===0 &&
-   event.source.constructor.constructor('return typeof __sourceMessageSecret')()==='undefined';
- }
- if(value?.kind==='source-post')posted=event.isTrusted && value.n===7 && !Object.isFrozen(value) && value===event.data && event.source===window;
- if(value?.kind==='source-reply')replied=event.isTrusted && value.valid===true;
- if(value?.kind==='published-after-detach')published=event.isTrusted && value.n===12;
- maybeDetach();
-});
-function maybeDetach(){
- if(!started || revoked || !posted || !replied)return;
- try{__fireflyFunctionProbe({mode:'published-message'})}catch(error){revoked=error instanceof TypeError}
- setTimeout(()=>{
-  const ok=valid && denied && synthetic===2 && posted && replied && published && revoked && traps===0 &&
-   eventReference.data===cached && document.documentElement.getAttribute('data-message-input')==='true' &&
-   document.documentElement.getAttribute('data-message-post-input')==='true' &&
-   document.documentElement.getAttribute('data-message-input-denied')==='true' &&
-   document.documentElement.getAttribute('data-message-serialize-denied')==='true' &&
-   document.documentElement.getAttribute('data-message-after-detach')===null;
-  document.querySelector('#status').textContent=ok?'MESSAGE_EVENT_WORLD_OK':'MESSAGE_EVENT_WORLD_MISSING';
-  if(ok)setTimeout(()=>window.close(),100);
- },200);
-}
-const own=__fireflyFunctionProbe({mode:'message-events'});
-valid=valid && own;
-const pageData={kind:'page-input',n:8};const pageEvent=new MessageEvent('message',{data:pageData,source:window});
-window.dispatchEvent(pageEvent);valid=valid && pageEvent.data===pageData && !Object.isFrozen(pageData);
-window.dispatchEvent(new MessageEvent('message',{data:Object.defineProperty({},'secret',{get(){traps++;throw 1}})}));
-window.postMessage({kind:'page-post',n:9},'*');
-started=true;maybeDetach();
-</script>
+<meta charset="utf-8" />
+<body>
+  <p id="status">WAITING_FOR_MESSAGE_EVENTS</p>
+  <script>
+    let cached,
+      eventReference,
+      synthetic = 0,
+      valid = true,
+      denied = false,
+      traps = 0,
+      posted = false,
+      replied = false,
+      published = false,
+      revoked = false,
+      started = false;
+    window.addEventListener('message', (event) => {
+      let value;
+      try {
+        value = event.data;
+      } catch (error) {
+        denied = error instanceof TypeError && !error.stack.includes('firefly:isolated-world');
+        return;
+      }
+      if (value?.kind === 'source-input') {
+        if (!cached) {
+          cached = value;
+          eventReference = event;
+        }
+        synthetic++;
+        valid =
+          valid &&
+          value === cached &&
+          value.n === 42 &&
+          value.self === value &&
+          !(1 in value.items) &&
+          Object.isFrozen(value) &&
+          Object.isFrozen(value.items) &&
+          Object.getPrototypeOf(value) === Object.prototype &&
+          !event.isTrusted &&
+          event.origin === 'spoofed' &&
+          event.source === window &&
+          event.ports.length === 0 &&
+          event.source.constructor.constructor('return typeof __sourceMessageSecret')() ===
+            'undefined';
+      }
+      if (value?.kind === 'source-post')
+        posted =
+          event.isTrusted &&
+          value.n === 7 &&
+          !Object.isFrozen(value) &&
+          value === event.data &&
+          event.source === window;
+      if (value?.kind === 'source-reply') replied = event.isTrusted && value.valid === true;
+      if (value?.kind === 'published-after-detach') published = event.isTrusted && value.n === 12;
+      maybeDetach();
+    });
+    function maybeDetach() {
+      if (!started || revoked || !posted || !replied) return;
+      try {
+        __fireflyFunctionProbe({ mode: 'published-message' });
+      } catch (error) {
+        revoked = error instanceof TypeError;
+      }
+      setTimeout(() => {
+        const ok =
+          valid &&
+          denied &&
+          synthetic === 2 &&
+          posted &&
+          replied &&
+          published &&
+          revoked &&
+          traps === 0 &&
+          eventReference.data === cached &&
+          document.documentElement.getAttribute('data-message-input') === 'true' &&
+          document.documentElement.getAttribute('data-message-post-input') === 'true' &&
+          document.documentElement.getAttribute('data-message-input-denied') === 'true' &&
+          document.documentElement.getAttribute('data-message-serialize-denied') === 'true' &&
+          document.documentElement.getAttribute('data-message-after-detach') === null;
+        document.querySelector('#status').textContent = ok
+          ? 'MESSAGE_EVENT_WORLD_OK'
+          : 'MESSAGE_EVENT_WORLD_MISSING';
+        if (ok) setTimeout(() => window.close(), 100);
+      }, 200);
+    }
+    const own = __fireflyFunctionProbe({ mode: 'message-events' });
+    valid = valid && own;
+    const pageData = { kind: 'page-input', n: 8 };
+    const pageEvent = new MessageEvent('message', { data: pageData, source: window });
+    window.dispatchEvent(pageEvent);
+    valid = valid && pageEvent.data === pageData && !Object.isFrozen(pageData);
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: Object.defineProperty({}, 'secret', {
+          get() {
+            traps++;
+            throw 1;
+          }
+        })
+      })
+    );
+    window.postMessage({ kind: 'page-post', n: 9 }, '*');
+    started = true;
+    maybeDetach();
+  </script>
+</body>

@@ -2,6 +2,10 @@
   "name": "elytra-site-build",
   "private": true,
   "type": "module",
-  "scripts": {"build": "node build.mjs"},
-  "dependencies": {"markdown-it": "15.0.3"}
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.3"
+  }
 }

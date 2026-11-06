@@ -120,7 +120,7 @@ exhaustion also terminates it. Diagnostics omit application exception contents.
 
 ## Evidence and remaining work
 
-[Public preload tests](../../tooling/test_public_preload.py) run real Electron and
+[Public preload tests](../../tooling/tests/test_public_preload.py) run real Electron and
 Firefly windows for first-script installation, frozen nested APIs, asynchronous
 results, three windows, no child-frame installation, navigation and file-to-HTTP
 process replacement. Firefly-specific tests cover invalid paths/files, exact 64 KiB

@@ -1,3 +1,7 @@
+/**
+ * Publish only the sample-specific fixed actions; renderer code cannot choose a native
+ * channel.
+ */
 import { contextBridge, ipcRenderer } from 'firefly';
 
 // Constants come from the reviewed sample configuration at build time. Each
@@ -10,6 +14,8 @@ const methods = Object.fromEntries(
 );
 contextBridge.exposeInMainWorld('desktop', {
   sample: __EXAMPLE_ID__,
+
   add: (left, right) => left + right,
+
   ...methods
 });

@@ -16,13 +16,21 @@ const files = requested.length
       .toString()
       .split('\0')
       .filter(Boolean);
-const ignored =
-  /^(?:vendor|build)\/|\/node_modules\/|\/generated\/|^mite\/tests\/|^firefly\/tests\/|package-lock\.json$/;
+const ignored = /^(?:vendor|build)\/|\/node_modules\/|\/generated\/|package-lock\.json$/;
+if (ignored.test('mite/modules/network/dns.mjs')) {
+  throw Error('Style exclusion swallowed maintained source');
+}
 const extensions = new Set(['.js', '.mjs', '.cjs', '.html', '.css', '.json', '.yml', '.yaml']);
+const exceptions = JSON.parse(
+  await readFile(path.join(root, 'tooling/code-style/exceptions.json'), 'utf8')
+);
 const config = JSON.parse(await readFile(path.join(root, '.prettierrc.json'), 'utf8'));
 
 function syntax(source, file) {
   const common = { ecmaVersion: 'latest', locations: true, allowHashBang: true };
+  if (file.endsWith('.cjs')) {
+    return parse(source, { ...common, sourceType: 'script', allowReturnOutsideFunction: true });
+  }
   if (file.endsWith('.mjs')) {
     return parse(source, { ...common, sourceType: 'module' });
   }
@@ -199,7 +207,7 @@ let checked = 0;
 let changed = 0;
 for (const file of [...new Set(files)].sort()) {
   const extension = path.extname(file);
-  if (ignored.test(file) || !extensions.has(extension)) {
+  if (ignored.test(file) || Object.hasOwn(exceptions, file) || !extensions.has(extension)) {
     continue;
   }
   const absolute = path.join(root, file);

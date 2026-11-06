@@ -4,3 +4,4 @@ target-version = "py39"
 
 [tool.ruff.format]
 quote-style = "double"
+line-ending = "lf"

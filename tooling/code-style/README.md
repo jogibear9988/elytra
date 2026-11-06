@@ -20,8 +20,11 @@ The JS formatter uses pinned Prettier followed by Acorn-based definition spacing
 Native formatting uses the pinned clang-format profile; native.py supplies blank
 lines around completed definitions/declarations while preserving literal contents.
 Python uses Ruff's formatter, which provides normal method/function separation.
+CMake uses pinned cmake-format and Rust uses the repository's pinned Rust toolchain.
+The source-style workflow checks formatting and reproduces both embedding generators.
 
 Generated runtime bundles have their own reproducible generator and integrity
-manifest. Vendor code and deliberately authored parser/module fixtures are outside
-automatic rewriting: their source bytes or module format can be the subject of a
-test. Explain an exception next to the fixture or in the corresponding suite.
+manifest. Vendor/generated code keeps its own provenance. Ordinary test fixtures are formatted
+while preserving their deliberate module type, including CommonJS. The four malformed
+parser inputs are named individually in exceptions.json with their test purpose.
+Review an exception explicitly instead of excluding entire test directories.

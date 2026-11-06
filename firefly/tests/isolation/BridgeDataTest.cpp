@@ -1,5 +1,5 @@
 #include "BridgeDataTest.h"
-#include "BridgeData.h"
+#include "serialization/BridgeData.h"
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Error.h>
@@ -10,7 +10,8 @@
 static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16View text)
 {
     auto parsed = JS::Script::parse(Utf16String::from_utf16(text), realm);
-    if (parsed.is_error()) return vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
+    if (parsed.is_error())
+        return vm.throw_completion<JS::SyntaxError>(parsed.error().first().to_utf16_string());
     GC::Root script { parsed.release_value() };
     return vm.run(*script);
 }
@@ -23,11 +24,15 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
             return Error::from_string_literal("Bridge data JS assertion failed");
         return {};
     };
-    auto capture = [&](Utf16View code, Firefly::BridgeData::Limits limits = {}) -> ErrorOr<Firefly::BridgeData> {
+
+    auto capture = [&](Utf16View code,
+                       Firefly::BridgeData::Limits limits = {}) -> ErrorOr<Firefly::BridgeData> {
         auto value = run(vm, source, code);
-        if (value.is_error()) return Error::from_string_literal("Bridge source fixture threw");
+        if (value.is_error())
+            return Error::from_string_literal("Bridge source fixture threw");
         return Firefly::BridgeData::capture(value.value(), source, limits);
     };
+
     auto snapshot = TRY(capture(uR"JS(
         (() => {
             const shared={n:42};
@@ -46,8 +51,10 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
     TRY(check(u"sourceData.a.n=99; delete globalThis.sourceData; true"sv, source));
     vm.heap().collect_garbage(); // snapshot must contain no source GC pointers.
     auto copied = snapshot.materialize(target);
-    if (copied.is_error()) return Error::from_string_literal("Bridge materialization failed");
-    target.global_object().define_direct_property("copied"_utf16, copied.value(), JS::default_attributes);
+    if (copied.is_error())
+        return Error::from_string_literal("Bridge materialization failed");
+    target.global_object().define_direct_property(
+        "copied"_utf16, copied.value(), JS::default_attributes);
     TRY(check(uR"JS(
         copied.a.n===42 && copied.a===copied.b && copied.self===copied &&
         copied.array.length===4 && !(1 in copied.array) && (2 in copied.array) &&
@@ -62,61 +69,98 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
         copied.hidden==='kept' && !Object.keys(copied).includes('hidden') &&
         [copied,copied.a,copied.array,copied.empty,copied.__proto__].every(Object.isFrozen) &&
         !({}).pagePoison && typeof sourceData==='undefined';
-    )JS"sv, target));
+    )JS"sv,
+        target));
     // A second reconstruction must not share mutable object identity with the
     // first. Also exercise the reverse direction into a poisoned page realm.
     auto again = snapshot.materialize(target);
     if (again.is_error() || &again.value().as_object() == &copied.value().as_object())
         return Error::from_string_literal("Bridge reconstruction reused object identity");
-    TRY(check(u"globalThis.destinationSetterCalls=0; Object.defineProperty(Object.prototype,'answer',{set(){destinationSetterCalls++; throw 1},configurable:true}); true"sv, source));
+    TRY(check(
+        u"globalThis.destinationSetterCalls=0; Object.defineProperty(Object.prototype,'answer',{set(){destinationSetterCalls++; throw 1},configurable:true}); true"sv,
+        source));
     auto reverse = run(vm, target, u"({answer:7,nested:[true]})"sv);
-    if (reverse.is_error()) return Error::from_string_literal("Reverse source failed");
+    if (reverse.is_error())
+        return Error::from_string_literal("Reverse source failed");
     if (!Firefly::BridgeData::capture(reverse.value(), source, {}).is_error())
         return Error::from_string_literal("Bridge accepted a foreign-realm container");
     auto reverse_data = TRY(Firefly::BridgeData::capture(reverse.value(), target, {}));
     auto reverse_copy = reverse_data.materialize(source);
-    if (reverse_copy.is_error()) return Error::from_string_literal("Reverse copy failed");
-    source.global_object().define_direct_property("reverseCopy"_utf16, reverse_copy.value(), JS::default_attributes);
-    TRY(check(u"destinationSetterCalls===0 && Object.hasOwn(reverseCopy,'answer') && reverseCopy.answer===7 && reverseCopy.nested[0] && Object.isFrozen(reverseCopy.nested) && Object.getPrototypeOf(reverseCopy)===Object.prototype"sv, source));
-    outln("PASS bridge graph copies preserve cycles/aliases/holes/numbers/UTF-16 and freeze target-realm containers");
+    if (reverse_copy.is_error())
+        return Error::from_string_literal("Reverse copy failed");
+    source.global_object().define_direct_property(
+        "reverseCopy"_utf16, reverse_copy.value(), JS::default_attributes);
+    TRY(check(
+        u"destinationSetterCalls===0 && Object.hasOwn(reverseCopy,'answer') && reverseCopy.answer===7 && reverseCopy.nested[0] && Object.isFrozen(reverseCopy.nested) && Object.getPrototypeOf(reverseCopy)===Object.prototype"sv,
+        source));
+    outln("PASS bridge graph copies preserve cycles/aliases/holes/numbers/UTF-16 and freeze "
+          "target-realm containers");
 
     TRY(check(u"globalThis.traps=0; true"sv, source));
-    for (auto text : {
-        u"new Proxy({}, {ownKeys(){traps++;throw 1},getPrototypeOf(){traps++;throw 1},get(){traps++;throw 1}})"sv,
-        u"Object.defineProperty({},'secret',{get(){traps++;throw 1}})"sv,
-        u"({nested:Object.defineProperty({},'x',{set(v){traps++}})})"sv,
-        u"({[Symbol('x')]:1})"sv, u"Symbol('x')"sv, u"1n"sv,
-        u"(()=>42)"sv, u"Promise.resolve(1)"sv, u"document"sv,
-        u"new Date()"sv, u"new Map()"sv, u"new Uint8Array(2)"sv,
-        u"Object.create({privileged:true})"sv, u"new (class X {})"sv,
-        u"Object.setPrototypeOf([],null)"sv,
-        u"Object.assign([],{[Symbol('x')]:1})"sv,
-        u"({ok:{},bad:window})"sv,
-    }) {
-        if (!capture(text).is_error()) return Error::from_string_literal("Bridge accepted unsupported or active value");
+    for (auto text :
+        {
+            u"new Proxy({}, {ownKeys(){traps++;throw 1},getPrototypeOf(){traps++;throw 1},get(){traps++;throw 1}})"sv,
+            u"Object.defineProperty({},'secret',{get(){traps++;throw 1}})"sv,
+            u"({nested:Object.defineProperty({},'x',{set(v){traps++}})})"sv,
+            u"({[Symbol('x')]:1})"sv,
+            u"Symbol('x')"sv,
+            u"1n"sv,
+            u"(()=>42)"sv,
+            u"Promise.resolve(1)"sv,
+            u"document"sv,
+            u"new Date()"sv,
+            u"new Map()"sv,
+            u"new Uint8Array(2)"sv,
+            u"Object.create({privileged:true})"sv,
+            u"new (class X {})"sv,
+            u"Object.setPrototypeOf([],null)"sv,
+            u"Object.assign([],{[Symbol('x')]:1})"sv,
+            u"({ok:{},bad:window})"sv,
+        }) {
+        if (!capture(text).is_error())
+            return Error::from_string_literal("Bridge accepted unsupported or active value");
     }
+
     TRY(check(u"traps===0"sv, source));
-    outln("PASS bridge rejects proxies/accessors/symbols/functions/promises/host objects without executing traps");
+    outln("PASS bridge rejects proxies/accessors/symbols/functions/promises/host objects without "
+          "executing traps");
 
     auto limits = Firefly::BridgeData::Limits {};
-    limits.depth=1;
-    if (!capture(u"({a:{b:{}}})"sv, limits).is_error()) return Error::from_string_literal("Missing depth budget");
-    limits={}; limits.values=2;
-    if (!capture(u"[1,2]"sv, limits).is_error()) return Error::from_string_literal("Missing value budget");
-    limits={}; limits.properties=1;
-    if (!capture(u"({a:1,b:2})"sv, limits).is_error()) return Error::from_string_literal("Missing property budget");
-    limits={}; limits.string_code_units=3;
+    limits.depth = 1;
+    if (!capture(u"({a:{b:{}}})"sv, limits).is_error())
+        return Error::from_string_literal("Missing depth budget");
+    limits = {};
+    limits.values = 2;
+    if (!capture(u"[1,2]"sv, limits).is_error())
+        return Error::from_string_literal("Missing value budget");
+    limits = {};
+    limits.properties = 1;
+    if (!capture(u"({a:1,b:2})"sv, limits).is_error())
+        return Error::from_string_literal("Missing property budget");
+    limits = {};
+    limits.string_code_units = 3;
     if (!capture(u"'abcd'"sv, limits).is_error() || !capture(u"({ab:'cd'})"sv, limits).is_error())
         return Error::from_string_literal("Missing cumulative string budget");
-    limits={}; limits.array_length=2;
-    if (!capture(u"new Array(3)"sv, limits).is_error()) return Error::from_string_literal("Missing sparse array budget");
-    limits={}; limits.values=0;
-    if (!capture(u"null"sv, limits).is_error()) return Error::from_string_literal("Missing zero budget rejection");
-    limits={}; limits.properties=1;
-    if (!capture(u"({a:{b:1}})"sv, limits).is_error()) return Error::from_string_literal("Missing cumulative property budget");
-    limits={}; limits.values=1; limits.properties=1; limits.depth=1; limits.string_code_units=4;
+    limits = {};
+    limits.array_length = 2;
+    if (!capture(u"new Array(3)"sv, limits).is_error())
+        return Error::from_string_literal("Missing sparse array budget");
+    limits = {};
+    limits.values = 0;
+    if (!capture(u"null"sv, limits).is_error())
+        return Error::from_string_literal("Missing zero budget rejection");
+    limits = {};
+    limits.properties = 1;
+    if (!capture(u"({a:{b:1}})"sv, limits).is_error())
+        return Error::from_string_literal("Missing cumulative property budget");
+    limits = {};
+    limits.values = 1;
+    limits.properties = 1;
+    limits.depth = 1;
+    limits.string_code_units = 4;
     (void)TRY(capture(u"(()=>{const a={};a.self=a;return a})()"sv, limits));
-    limits={}; limits.array_length=2;
+    limits = {};
+    limits.array_length = 2;
     (void)TRY(capture(u"new Array(2)"sv, limits));
     // Previous rejections must not poison later successful captures.
     (void)TRY(capture(u"({ok:true})"sv));

@@ -1,43 +1,62 @@
 #!/usr/bin/env python3
 """Adapt ErrorEvent error provenance/tracing/getter, preserving other source bytes."""
+
 import argparse
 import json
 from pathlib import Path
-from adapt_custom_event import BINDING_EDIT,CONSTRUCTOR_EDIT
+from adapt_custom_event import BINDING_EDIT, CONSTRUCTOR_EDIT
 
-NATIVE_EDITS=(
-    ('    , m_error(event_init.error.value_or(JS::js_undefined()))\n{', '    , m_error(event_init.error.value_or(JS::js_undefined()))\n{\n    Firefly::EventValues::changed(*this, nullptr);'),
-    ('    visitor.visit(m_error);', '    visitor.visit(m_error);\n    Firefly::EventValues::visit(*this, visitor);'),
+NATIVE_EDITS = (
+    (
+        "    , m_error(event_init.error.value_or(JS::js_undefined()))\n{",
+        "    , m_error(event_init.error.value_or(JS::js_undefined()))\n{\n    Firefly::EventValues::changed(*this, nullptr);",
+    ),
+    (
+        "    visitor.visit(m_error);",
+        "    visitor.visit(m_error);\n    Firefly::EventValues::visit(*this, visitor);",
+    ),
 )
 
 
-def adapt(text,kind):
-    if kind=='native':edits=NATIVE_EDITS
+def adapt(text, kind):
+    if kind == "native":
+        edits = NATIVE_EDITS
     else:
-        before,after=CONSTRUCTOR_EDIT
-        if text.count(before)!=1:raise ValueError('Review generated ErrorEvent constructor')
-        text=text.replace(before,after)
-        marker='JS_DEFINE_NATIVE_FUNCTION(ErrorEventPrototype::error_getter)\n'
-        if text.count(marker)!=1:raise ValueError('Review generated ErrorEvent getter')
-        start=text.index(marker)
-        end=text.index('\n}\n',start)+3
-        prefix,text,suffix=text[:start],text[start:end],text[end:]
-        edits=(BINDING_EDIT,)
-    for before,after in edits:
-        if text.count(before)!=1:raise ValueError('Review ErrorEvent seam: '+before)
-        text=text.replace(before,after)
-    return text if kind=='native' else prefix+text+suffix
+        before, after = CONSTRUCTOR_EDIT
+        if text.count(before) != 1:
+            raise ValueError("Review generated ErrorEvent constructor")
+        text = text.replace(before, after)
+        marker = "JS_DEFINE_NATIVE_FUNCTION(ErrorEventPrototype::error_getter)\n"
+        if text.count(marker) != 1:
+            raise ValueError("Review generated ErrorEvent getter")
+        start = text.index(marker)
+        end = text.index("\n}\n", start) + 3
+        prefix, text, suffix = text[:start], text[start:end], text[end:]
+        edits = (BINDING_EDIT,)
+    for before, after in edits:
+        if text.count(before) != 1:
+            raise ValueError("Review ErrorEvent seam: " + before)
+        text = text.replace(before, after)
+    return text if kind == "native" else prefix + text + suffix
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source',required=True,type=Path)
-    parser.add_argument('--output',required=True,type=Path)
-    parser.add_argument('--kind',required=True,choices=['native','binding'])
-    args=parser.parse_args();source=args.source.resolve()
-    original=source.read_bytes().decode('utf-8')
-    result='// Generated ErrorEvent value adapter; do not edit.\n#line 1 '+json.dumps(str(source),ensure_ascii=False)+'\n'+adapt(original,args.kind)
-    args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_bytes(result.encode('utf-8'))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--kind", required=True, choices=["native", "binding"])
+    args = parser.parse_args()
+    source = args.source.resolve()
+    original = source.read_bytes().decode("utf-8")
+    result = (
+        "// Generated ErrorEvent value adapter; do not edit.\n#line 1 "
+        + json.dumps(str(source), ensure_ascii=False)
+        + "\n"
+        + adapt(original, args.kind)
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_bytes(result.encode("utf-8"))
 
 
-if __name__=='__main__':main()
+if __name__ == "__main__":
+    main()

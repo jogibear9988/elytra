@@ -1,20 +1,39 @@
 <!doctype html>
 <script>
-window.firstScriptOK = window.name === 'FIREFLY_WORLD_READY:' + location.href &&
-  typeof __fireflyIsolatedMarker === 'undefined' && !({}).__fireflyWorldOnly &&
- typeof __fireflyCopySource==='undefined' && typeof __fireflyDataProbe==='object' &&
- __fireflyDataProbe.answer===42 && __fireflyDataProbe.nested[0]===true &&
- Object.getPrototypeOf(__fireflyDataProbe)===Object.prototype &&
- Object.getPrototypeOf(__fireflyDataProbe.nested)===Array.prototype &&
- Object.isFrozen(__fireflyDataProbe) && Object.isFrozen(__fireflyDataProbe.nested) &&
- (()=>{const r=__fireflyFunctionProbe({n:41});return r.answer===42 && r.ownThis &&
- r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
- __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})() &&
-  ['process','require','Buffer'].every(k=>!(k in globalThis));
+  window.firstScriptOK =
+    window.name === 'FIREFLY_WORLD_READY:' + location.href &&
+    typeof __fireflyIsolatedMarker === 'undefined' &&
+    !{}.__fireflyWorldOnly &&
+    typeof __fireflyCopySource === 'undefined' &&
+    typeof __fireflyDataProbe === 'object' &&
+    __fireflyDataProbe.answer === 42 &&
+    __fireflyDataProbe.nested[0] === true &&
+    Object.getPrototypeOf(__fireflyDataProbe) === Object.prototype &&
+    Object.getPrototypeOf(__fireflyDataProbe.nested) === Array.prototype &&
+    Object.isFrozen(__fireflyDataProbe) &&
+    Object.isFrozen(__fireflyDataProbe.nested) &&
+    (() => {
+      const r = __fireflyFunctionProbe({ n: 41 });
+      return (
+        r.answer === 42 &&
+        r.ownThis &&
+        r.ownPrototype &&
+        r.frozen &&
+        Object.isFrozen(r) &&
+        Object.getPrototypeOf(r) === Object.prototype &&
+        __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')() ===
+          'undefined'
+      );
+    })() &&
+    ['process', 'require', 'Buffer'].every((k) => !(k in globalThis));
 </script>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>Renderer early-world proof</title>
-<body><p id="status"></p>
-<script>
-document.querySelector('#status').textContent = firstScriptOK ? 'BEFORE_SCRIPT_OK' : 'BEFORE_SCRIPT_MISSING';
-</script>
+<body>
+  <p id="status"></p>
+  <script>
+    document.querySelector('#status').textContent = firstScriptOK
+      ? 'BEFORE_SCRIPT_OK'
+      : 'BEFORE_SCRIPT_MISSING';
+  </script>
+</body>
