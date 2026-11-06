@@ -37,3 +37,14 @@ Next: resolve actual native build/runtime failures, then integrate Linux native
 windows, screen/clipboard/theme services, preload/IPC and distributable packaging.
 Windows native renderer/window/sandbox and delivery remain separate required work.
 The overall project specification is not complete.
+
+## Native window-probe extension
+
+Keep the public desktop runtime macOS-only while enabling the curated Qt view
+on Linux. Separate Mac/AppKit probe/runtime wiring from Linux presentation and
+accessibility sources. Reuse upstream Vulkan shader-generation outputs rather
+than duplicate custom commands or modify upstream files. An X11-only CI gate
+runs real native executables under Xvfb/Openbox, checks page colors in the native
+capture as well as input/resize/navigation, and kills the actual renderer child
+to verify crash failure. Native Linux acceptance is still pending. This does not
+establish a Firefly BrowserWindow API or Wayland/physical-GPU compatibility.

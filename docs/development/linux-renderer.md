@@ -3,6 +3,7 @@
 Status: **experimental build/acceptance path; hosted native acceptance pending**.
 This adds the owned renderer helper to Linux builds. It does not provide Firefly
 Linux BrowserWindow, desktop APIs, application packaging or a Linux release.
+The native Qt X11 window-probe path is also experimental until its hosted gate passes.
 Do not infer desktop support from the standalone [Mite Linux gate](linux-build.md).
 
 ## Native graph
@@ -19,6 +20,7 @@ The Linux development layout is:
 build/linux-renderer/
   bin/firefly-renderer-probe       upstream helper control
   bin/firefly-preload-probe        owned helper frontend
+  bin/firefly-window-probe         native Qt view (not the Firefly desktop API)
   firefly-helper/
     bin/WebContent                actual owned ELF executable
     bin/RequestServer, ...         development symlinks to real upstream helpers
@@ -62,7 +64,10 @@ actual Linux executables, then requires:
   PNG and separate WebContent/RequestServer/Compositor process identities;
 - native realm isolation and cross-process serialized-data tests;
 - the owned helper's first-script preload, lifetime/callback/revocation tests;
-- kernel sandbox observations for both the upstream control and owned helper.
+- kernel sandbox observations for both the upstream control and owned helper;
+- an actual Qt X11 window under Xvfb/Openbox: mouse/key delivery into LibWeb,
+  viewport resize, navigation/close, painted screenshot colors and reported
+  failure when the observed WebContent process is killed.
 
 The process harness records the actual renderer PID and verifies its parent.
 Linux acceptance reads /proc/PID/status while that process is alive: NoNewPrivs
@@ -83,3 +88,26 @@ Firefly compilation. CMake/manifest adapter tests do not prove Linux compilation
 or execution. Linux source/backend failures remain visible until the dedicated
 hosted gates actually pass. Windows helper layouts and all non-macOS Firefly
 desktop runtime targets still refuse explicitly.
+
+## Native X11 window probe
+
+```sh
+python3 tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-window-probe --jobs 3
+QT_QPA_PLATFORM=xcb python3 tooling/tests/test_window.py --probe build/linux-renderer/bin/firefly-window-probe
+```
+
+Run this on a Linux X11 desktop or under the workflow's Xvfb/Openbox session.
+The gate requires the actual xcb Qt platform; offscreen/minimal backends cannot
+pass. Xvfb is an X server on the native Linux runner, not a replacement runtime.
+The test injects toolkit events, not physical keyboard/mouse input. Page-owned
+pink/teal swatches are checked in the native window image using brightness and
+contrasting channel differences. This tolerates display-profile transforms while
+rejecting blank/neutral/monochrome captures; a PNG header alone cannot pass.
+
+The owned Qt target uses upstream accessibility, X11 window hints and native
+window-container sources. With upstream Vulkan DMA-BUF support enabled, it uses
+the actual WebContentViewLinux implementation and depends on upstream's shader
+generator outputs. It does not copy shaders, link the tabbed browser application,
+or advertise Wayland/GPU-driver/physical-display acceptance. macOS AppKit probes,
+presentation sources and the full desktop-runtime wiring live in separate CMake
+modules. Linux desktop OS services and application packaging still need work.

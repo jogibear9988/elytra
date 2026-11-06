@@ -27,9 +27,25 @@
     top: 200px;
     color: #8fe4b0;
   }
+  .swatch {
+    position: absolute;
+    top: 320px;
+    width: 60px;
+    height: 60px;
+  }
+  #pink {
+    left: 400px;
+    background: #e61d55;
+  }
+  #teal {
+    left: 500px;
+    background: #16a49a;
+  }
 </style>
 <button>Click me</button><input aria-label="Type here" />
 <div id="status">Waiting for native input</div>
+<div id="pink" class="swatch"></div>
+<div id="teal" class="swatch"></div>
 <script>
   let clicked = false;
   const field = document.querySelector('input');

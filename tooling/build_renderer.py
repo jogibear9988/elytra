@@ -58,8 +58,10 @@ def main():
         parser.error("--shared-openssl currently requires native macOS ARM64 --target firefly")
     if args.baseline_cpu and (sys.platform != "darwin" or platform.machine() != "arm64"):
         parser.error("--baseline-cpu is currently verified only for macOS ARM64")
-    if args.target in ["firefly-window-probe", "firefly"] and sys.platform != "darwin":
-        parser.error("The native window adapter is currently implemented only for macOS")
+    if args.target == "firefly" and sys.platform != "darwin":
+        parser.error("The full desktop runtime is currently implemented only for macOS")
+    if args.target == "firefly-window-probe" and sys.platform not in ["darwin", "linux"]:
+        parser.error("The native window probe is available only for macOS/Linux")
     if args.target == "firefly-preload-probe" and sys.platform not in ["darwin", "linux"]:
         parser.error("The owned sandboxed helper is available only for macOS/Linux probes")
     if args.jobs < 1:

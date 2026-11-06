@@ -27,6 +27,7 @@ runs:
       run: |
         # Qt itself comes from the upstream vcpkg version pin, not Ubuntu's older Qt.
         sudo apt-get install -y bison flex fonts-liberation2 glslang-tools libdrm-dev libegl1-mesa-dev libfontconfig1-dev libgl1-mesa-dev libglib2.0-dev libglu1-mesa-dev libncurses-dev libpulse-dev libwayland-dev libx11-xcb-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrender-dev '^libxcb.*-dev' mesa-vulkan-drivers nasm
+        sudo apt-get install -y openbox xauth xvfb
     - name: Pinned Rust toolchain
       shell: bash
       run: |

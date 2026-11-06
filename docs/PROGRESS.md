@@ -4647,6 +4647,49 @@ Linux renderer support claim. Native Linux/Windows desktop integration, hostile
 sandbox policy acceptance, broader API compatibility and updated release
 publication remain open. Goal active; local UI tests stay occasional and targeted.
 
+## 2026-11-06: Native Linux Qt window build path and painted-capture gate
+
+- Separate curated Qt presentation sources, macOS AppKit probes and full desktop
+  runtime wiring into commented CMake modules. Add Linux X11/accessibility/native
+  window-container sources; reuse upstream Vulkan view/shader outputs when its
+  DMA-BUF path is enabled. Keep the upstream tree untouched. Full non-macOS
+  Firefly desktop runtime still refuses explicitly.
+- Enable the native Linux window-probe target and add an Xvfb/Openbox CI gate
+  using actual xcb Qt windows, LibWeb input/resize/navigation, native capture and
+  observed WebContent child termination. This is toolkit-event acceptance, not
+  physical-input, Wayland, GPU-driver or public Linux BrowserWindow acceptance.
+- Add two page-owned color swatches and inspect channel contrast/brightness in
+  the native window image. Exact RGB comparison initially failed on this display's
+  color transformation; contrasting bounded signatures reject blank/neutral/
+  monochrome captures while tolerating that transformation. Capture PNG alone is
+  insufficient. Document the actual scope and remaining platform work.
+- The extra platform diagnostic exposed a buffered TextIOWrapper/select race in
+  the crash harness. Read descriptor bytes and split buffered lines explicitly;
+  multiple lines in a single read no longer hide the actual renderer PID.
+- Actual macOS window gate passes input, resize, navigation, close, painted
+  screenshot and reported renderer crash. Local Firefly, preload and window
+  targets compile after the CMake split (linux-window-adapter-macos-build.log).
+  Local UI runs were limited to this targeted gate and its observed fixes; no
+  general desktop suite was launched. All 64 Release CLI CTests pass in 19.04
+  seconds. Source style (119 Python, 544 JS/web/config, 158 native, 19 CMake),
+  actual manifest/CMake layout tests, actionlint, upstream integrity and whitespace
+  checks pass. Site validates 178 pages and 12260 links/resources/fragments.
+- Hosted 74bce40 Mite Windows/Linux runs 42254474474/42254474551 are successful.
+  Native Linux renderer run 42254474478/job 128017893815 reached real compilation
+  but failed linking liblagom-mediacodecs: static FFmpeg assembly PC32 relocations
+  reference preemptible ff_tx_tab_* data. Linux execution remains unverified;
+  fix this in owned build adapters, never by modifying Ladybird or masking errors.
+- Both macOS package runs are terminal failures, not live: optimized 02ed03f run
+  42251097845/job 128010696465 reached desktop IPC but failed fresh-document sender
+  URL validation. Default 74bce40 run 42254474684/job 128036394217 failed the CLI
+  child-process suite on shutdown ENOTCONN. Preserve these diagnostics and fix the
+  actual races before release; no new alpha/package result is claimed.
+
+Limits: Linux compilation/runtime acceptance is still blocked by the recorded
+native link failure. Next resolve this plus both release failures, then continue
+Linux desktop services/IPC/packaging and required Windows desktop integration.
+Goal active; keep local UI tests infrequent and targeted/batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

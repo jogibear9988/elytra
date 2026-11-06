@@ -33,6 +33,7 @@ public:
         if (browser_options().raw_urls.size() != 1 || browser_options().headless_mode.has_value())
             return Error::from_string_literal(
                 "Native window probe requires one URL and no headless mode");
+        outln("Native Qt platform: {}", QApplication::platformName().toUtf8().constData());
         QWidget window;
         window.setWindowTitle("Firefly native window probe");
         window.resize(browser_options().window_width, browser_options().window_height);
@@ -92,6 +93,35 @@ public:
                                         m_loop->quit(1);
                                         return;
                                     }
+
+                                    // A valid PNG can still be an empty/native background. These
+                                    // page-owned swatches prove actual compositor presentation.
+                                    auto image = snapshot.toImage();
+                                    auto sample = [&](QPoint point) {
+                                        auto pixel = point * snapshot.devicePixelRatio();
+                                        return image.rect().contains(pixel)
+                                            ? image.pixelColor(pixel)
+                                            : QColor();
+                                    };
+
+                                    auto pink = sample({ 430, 350 });
+                                    auto teal = sample({ 530, 350 });
+                                    // Native display profiles can transform exact RGB values.
+                                    // Require both deliberately contrasting channel signatures;
+                                    // neutral background/blank/monochrome captures cannot pass.
+                                    if (!pink.isValid() || !teal.isValid() || pink.red() < 128
+                                        || teal.green() < 112 || teal.blue() < 112
+                                        || pink.red() - pink.green() < 64
+                                        || pink.red() - pink.blue() < 48
+                                        || teal.green() - teal.red() < 48
+                                        || teal.blue() - teal.red() < 48) {
+                                        warnln("Native window capture lacks rendered page colors");
+                                        m_loop->quit(1);
+                                        return;
+                                    }
+
+                                    outln(
+                                        "PASS native window capture contains rendered page colors");
                                 }
 
                                 outln("PASS native Qt mouse/key input and viewport resize");

@@ -58,7 +58,7 @@ build/renderer-artifacts/page.png. See docs/PROGRESS.md for the tested host and
 limits. Dependency deployment-target warnings preclude claiming support for older
 macOS versions without further native tests.
 
-## Native window gate (macOS only)
+## Native window gate (macOS; experimental Linux X11)
 
 ```sh
 python3 tooling/build_renderer.py --target firefly-window-probe
@@ -69,13 +69,15 @@ python3 tooling/tests/test_window.py --probe build/renderer/bin/firefly-window-p
 build/renderer/bin/firefly-window-probe file:///absolute/path/to/index.html
 ```
 
-The test opens real windows briefly. It injects Qt mouse/key events, verifies DOM
+The test opens real windows briefly. The Linux X11 build/CI path is experimental;
+see [its native acceptance scope](linux-renderer.md#native-x11-window-probe). It injects Qt mouse/key events, verifies DOM
 results after resize and navigation, closes the window, then kills an observed
 WebContent child to check crash handling. It writes the native-window capture to
-build/renderer-artifacts/window.png. Visually review that image; PNG metadata
-alone cannot establish correct native presentation. The adapter reuses upstream's
-actual native WebContentView, not the headless view. Windows/Linux window targets
-are not yet implemented. See ADR 0021 for the curated source list, context-menu
+build/renderer-artifacts/window.png. It checks two page-owned colors in the
+actual window capture so a blank PNG cannot pass. Visual review and physical
+display/driver coverage remain useful beyond these bounded swatches. The adapter reuses upstream's
+actual native WebContentView, not the headless view. The Windows window target
+is not implemented; Linux native execution remains pending its hosted gate. See ADR 0021 for the curated source list, context-menu
 limits and the still-required Mite/Firefly API integration.
 
 ## Actual Mite-driven Firefly application (macOS development build)
