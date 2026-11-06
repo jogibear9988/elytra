@@ -71,6 +71,15 @@ On a native host, with a clean checkout at an existing version tag:
 python3 tooling/build_release.py --tag v0.1.0-dev.1 --jobs 3
 ```
 
+On macOS ARM64, the release driver enables upstream's fixed Apple M1 CPU baseline
+for both Mite and Firefly. It verifies generated C++/Cargo commands, retaining fatal
+Rust warnings, and records cpuBaseline for both projects in BUILD.json. Reproduce
+the renderer configuration with --baseline-cpu; a standalone Mite CMake build uses
+-DENABLE_CI_BASELINE_CPU=ON followed by tooling/check_macos_cpu.py --build BUILD_DIR.
+This addresses the ring ARM capability assertion failure in the previous hosted
+build; full hosted acceptance remains pending. See
+[ADR 0063](../architecture/0063-macos-release-cpu-baseline.md).
+
 Add --lto for an explicit C++ LTO experiment in both projects. The default remains
 off while framework-size and native sample validation are in progress. This option
 does not skip any release gate or enable the JS JIT/Rust cross-language LTO. The

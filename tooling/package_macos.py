@@ -160,6 +160,7 @@ def main():
     shutil.rmtree(hello)
     manifest={'dependencies':args.dependencies,'symbols':args.symbols,'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
     manifest['cppLTO']={name:cache_value(build,'ENABLE_LTO_FOR_RELEASE') for name,build in [('mite',mite),('firefly',renderer)]}
+    manifest['cpuBaseline']={name:cache_value(build,'ENABLE_CI_BASELINE_CPU') for name,build in [('mite',mite),('firefly',renderer)]}
     manifest['cppSizeOptimization']={name:{'enabled':cache_value(build,'ELYTRA_OPTIMIZE_SIZE'),'flag':cache_value(build,'ELYTRA_CPP_SIZE_FLAG')} for name,build in [('mite',mite),('firefly',renderer)]}
     (stage/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (stage/'SIZE.json').write_text(json.dumps({name:bundle_size(stage/(name+'.app')) for name,_,_ in apps},indent=2)+'\n')

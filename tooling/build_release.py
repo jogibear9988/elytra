@@ -40,7 +40,10 @@ def main():
     if os.name=='nt':command.extend(['-DCMAKE_C_COMPILER=clang-cl','-DCMAKE_CXX_COMPILER=clang-cl'])
     command.append(f'-DENABLE_LTO_FOR_RELEASE={"ON" if args.lto else "OFF"}')
     command.append(f'-DELYTRA_OPTIMIZE_SIZE={"ON" if args.optimize_size else "OFF"}')
+    baseline_cpu = sys.platform=='darwin' and platform.machine()=='arm64'
+    command.append(f'-DENABLE_CI_BASELINE_CPU={"ON" if baseline_cpu else "OFF"}')
     run(*command)
+    if baseline_cpu:run(sys.executable,'tooling/check_macos_cpu.py','--build',build)
     if args.optimize_size:run(sys.executable,'tooling/check_size_optimization.py','--build',build)
     run('cmake','--build',build,'--target','mite','--parallel',args.jobs)
     npm=shutil.which('npm.cmd' if os.name=='nt' else 'npm')
@@ -49,6 +52,7 @@ def main():
     # This deliberately fails on unsupported native desktop platforms. A Mite
     # binary alone must never be relabeled as a successful complete release.
     renderer_options = (['--lto'] if args.lto else []) + (['--optimize-size'] if args.optimize_size else [])
+    if baseline_cpu:renderer_options.append('--baseline-cpu')
     run(sys.executable,'tooling/build_renderer.py','--target','firefly','--jobs',args.jobs,*renderer_options)
     run(sys.executable,'tooling/bootstrap_electron.py')
     run('cmake','--build','build/renderer','--target','check-firefly','check-firefly-renderer','check-firefly-isolation','check-firefly-renderer-helper','--parallel',args.jobs)

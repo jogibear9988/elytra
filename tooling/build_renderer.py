@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import os
 import json
+import platform
 import sys
 
 from check_upstream import check
@@ -18,10 +19,13 @@ def main():
     parser.add_argument('--build-dir',type=Path,default=ROOT/'build/renderer')
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
+    parser.add_argument('--baseline-cpu',action='store_true',help='Use and verify the upstream Apple M1 baseline for macOS ARM64 distribution builds')
     parser.add_argument('--lto',action='store_true',help='Enable C++ Release LTO; fail if the compiler/linker cannot provide it')
     parser.add_argument('--optimize-size',action='store_true',help='Optimize project C++ Release objects for size; Rust and prebuilt dependencies keep their profiles')
     parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe','firefly'],default='firefly-renderer-probe')
     args=parser.parse_args()
+    if args.baseline_cpu and (sys.platform!='darwin' or platform.machine()!='arm64'):
+        parser.error('--baseline-cpu is currently verified only for macOS ARM64')
     if args.target in ['firefly-window-probe','firefly'] and sys.platform!='darwin':
         parser.error('The native window adapter is currently implemented only for macOS')
     if args.jobs<1:parser.error('--jobs must be positive')
@@ -45,8 +49,11 @@ def main():
     else:
         command.extend([f'-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird', '-DFIREFLY_BUILD_RUNTIME=OFF'])
     command.append(f'-DELYTRA_OPTIMIZE_SIZE={"ON" if args.optimize_size else "OFF"}')
+    command.append(f'-DENABLE_CI_BASELINE_CPU={"ON" if args.baseline_cpu else "OFF"}')
     environment={**os.environ,'VCPKG_MAX_CONCURRENCY':str(args.jobs)}
     subprocess.run(command,cwd=ROOT,env=environment,check=True)
+    if args.baseline_cpu:
+        subprocess.run([sys.executable,str(ROOT/'tooling/check_macos_cpu.py'),'--build',str(build)],cwd=ROOT,check=True)
     if args.optimize_size:
         subprocess.run([sys.executable,str(ROOT/'tooling/check_size_optimization.py'),'--build',str(build)],cwd=ROOT,check=True)
     if not args.configure_only:

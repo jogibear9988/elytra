@@ -98,11 +98,11 @@ jobs:
               data=json.loads(files[0].read_text())
               with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
                   metadata=json.loads(pathlib.Path('build/release-stage/BUILD.json').read_text())
-                  out.write('## Build profile\n\n| Project | C++ LTO | C++ size flag |\n| --- | --- | --- |\n')
+                  out.write('## Build profile\n\n| Project | CPU baseline | C++ LTO | C++ size flag |\n| --- | --- | --- | --- |\n')
                   for name in ['mite','firefly']:
                       profile=metadata.get('cppSizeOptimization',{}).get(name,{})
                       flag=profile.get('flag','not recorded') if profile.get('enabled')=='ON' else profile.get('enabled','not recorded')
-                      out.write(f"| {name} | {metadata.get('cppLTO',{}).get(name,'not recorded')} | {flag} |\n")
+                      out.write(f"| {name} | {metadata.get('cpuBaseline',{}).get(name,'not recorded')} | {metadata.get('cppLTO',{}).get(name,'not recorded')} | {flag} |\n")
                   out.write('\n')
                   out.write('## Release package sizes\n\nProduction npm dependencies; stripped local/debug native symbols. Actual dynamic exports and notices retained.\n\n| Bundle | Uncompressed file bytes |\n| --- | ---: |\n')
                   for name in ['Firefly','Web Component Designer']:

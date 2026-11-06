@@ -2466,6 +2466,39 @@ libwebrtcclient_service. This is a CPU-feature build failure, not a successful h
 package. Its original log is job 127590007748. Alpha publication remains pending;
 investigate the owned Rust target/CPU build configuration without editing vendors.
 
+## macOS ARM64 release CPU baseline (2026-11-06)
+
+Fix the owned release build configuration after the confirmed ring 0.17.14 ARM
+feature assertion failure in macOS 42125911196. Its Cargo command used native CPU
+detection. Use upstream's existing ENABLE_CI_BASELINE_CPU option, selecting Apple
+M1 for both project C++ and Rust on macOS ARM64; change no Ladybird/crate sources,
+versions, warnings or assertions. The runner's exact missing features are not
+established. New alpha/package acceptance remains pending.
+
+Release orchestration enables the baseline for both Mite and Firefly. The renderer
+driver exposes --baseline-cpu and rejects currently unverified platforms. Verify
+actual generated commands before compilation with tooling/check_macos_cpu.py,
+including preservation of -Dwarnings. BUILD.json and the workflow summary record
+each project's cpuBaseline. Local development retains native defaults. ADR 0063
+and release/size documentation explain scope, reproduction and comparison limits.
+
+Validation: real generated standalone graph checks 275 project C++ / 7 Cargo
+commands; renderer graph checks 2861 C++ / 19 Cargo commands. Mutating those real
+inputs proves rejection of disabled baseline, native C++, native Rust and missing
+Cargo commands. A locked/offline Rust 1.98 ring 0.17.14 probe reproduces both const
+assertion errors with generic ARM64 and passes the SHA-256 abc known-answer check
+with apple-m1 (build/cpu-baseline-ring{,-negative}.log). This is not proof of the
+hosted runner's exact native feature set. The complete standalone Release/size
+profile rebuild passes all 42 CTest suites in 22.11s, including child processes,
+crypto, HTTP and npm (build/cpu-baseline-mite-{configure,build,test}.log).
+Existing duplicate-archive linker warnings remain; no new symbol suppression.
+Renderer configuration/size guard passes; renderer binaries and Designer packages
+have not yet been rebuilt for the new CPU baseline, so old sizes are not relabeled.
+Pin, Python syntax, actionlint and diff checks pass; site checks 107 pages / 5799
+local links. Hosted ef61124 Linux/Windows compilation and f3f08b9 macOS release
+compilation were confirmed live during this step; no jobs canceled or alpha
+published. Windows 8.3 module metadata and full hosted package gates remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

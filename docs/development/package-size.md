@@ -191,6 +191,12 @@ The tested 202.72 / 236.85 MiB apps remain unchanged.
 
 ## Repeat a measurement
 
+New macOS ARM64 release builds use a fixed Apple M1 CPU baseline for both projects
+([ADR 0063](../architecture/0063-macos-release-cpu-baseline.md)). The older local
+measurements above used native CPU compilation. Do not relabel those packages or
+attribute a size difference to optimization alone when the CPU baseline also
+changes; record cpuBaseline from BUILD.json alongside the size/LTO profiles.
+
 ```sh
 python3 - <<'PY'
 import sys
