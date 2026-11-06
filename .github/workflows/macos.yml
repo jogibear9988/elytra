@@ -12,6 +12,10 @@ on:
         description: Publish a macOS-only alpha after every native/package test passes (requires an alpha tag)
         type: boolean
         default: false
+      shared_openssl:
+        description: Experimental shared OpenSSL provider; run all native and package tests
+        type: boolean
+        default: false
       optimize_size:
         description: Experimental C++ size profile; run all native and package tests
         type: boolean
@@ -78,11 +82,13 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           SNAPSHOT_NUMBER: ${{ github.run_number }}
           OPTIMIZE_SIZE: ${{ inputs.optimize_size || false }}
+          SHARED_OPENSSL: ${{ inputs.shared_openssl || false }}
         shell: bash
         run: |
           mkdir -p build
           options=()
           if [ "$OPTIMIZE_SIZE" = true ]; then options+=(--optimize-size); fi
+          if [ "$SHARED_OPENSSL" = true ]; then options+=(--shared-openssl); fi
           if [ -n "$RELEASE_TAG" ]; then
             python3 tooling/build_release.py --tag "$RELEASE_TAG" --jobs 3 "${options[@]}" 2>&1 | tee build/macos-release.log
           else

@@ -99,7 +99,11 @@ def stage_bundle(build,application,destination,name,identifier,version,licenses,
     if not (runtime_helpers/'WebContent').is_file():raise RuntimeError('Build the production Firefly renderer helper before packaging')
     for helper in HELPERS:shutil.copy2(runtime_helpers/helper,mac/helper)
     libraries=contents/'lib';libraries.mkdir()
+    shared_openssl=cache_value(build,'FIREFLY_SHARED_OPENSSL','OFF') in ['ON','TRUE','1']
+    if shared_openssl and not (build/'lib/libfirefly-openssl.dylib').is_file():
+        raise RuntimeError('Build the configured shared OpenSSL provider before packaging')
     for file in (build/'lib').glob('*.dylib'):
+        if file.name=='libfirefly-openssl.dylib' and not shared_openssl:continue
         target=libraries/file.name
         if file.is_symlink():target.symlink_to(file.resolve().name)
         else:shutil.copy2(file,target)
@@ -163,6 +167,10 @@ def main():
     manifest={'dependencies':args.dependencies,'symbols':args.symbols,'version':args.version,'trackedSourceDirty':subprocess.run(['git','diff','--quiet','HEAD'],cwd=ROOT).returncode!=0,'buildTypes':{'mite':cache_value(mite,'CMAKE_BUILD_TYPE'),'firefly':cache_value(renderer,'CMAKE_BUILD_TYPE')},'commit':output('git','-C',ROOT,'rev-parse','HEAD').strip(),'ladybird':json.loads((ROOT/'vendor/ladybird.json').read_text()),'designer':json.loads((designer/'upstream.json').read_text()),'platform':'macos','architecture':output('uname','-m').strip(),'buildHostOS':output('sw_vers','-productVersion').strip(),'signing':'ad-hoc; not notarized','nativeBinaries':counts,'rustNoticePackages':license_count}
     manifest['cppLTO']={name:cache_value(build,'ENABLE_LTO_FOR_RELEASE') for name,build in [('mite',mite),('firefly',renderer)]}
     manifest['cpuBaseline']={name:cache_value(build,'ENABLE_CI_BASELINE_CPU') for name,build in [('mite',mite),('firefly',renderer)]}
+    manifest['sharedOpenSSL']=cache_value(renderer,'FIREFLY_SHARED_OPENSSL','OFF')
+    if manifest['sharedOpenSSL'] in ['ON','TRUE','1']:
+        for name,_,_ in apps:
+            run(sys.executable,ROOT/'tooling/audit_openssl.py','--app',stage/(name+'.app'),'--renderer-build',renderer,'--require-shared','--output',stage/('OPENSSL-'+name+'.json'))
     manifest['rendererHelper']='firefly-runtime; isolated top-level CommonJS preload support'
     manifest['cppSizeOptimization']={name:{'enabled':cache_value(build,'ELYTRA_OPTIMIZE_SIZE'),'flag':cache_value(build,'ELYTRA_CPP_SIZE_FLAG')} for name,build in [('mite',mite),('firefly',renderer)]}
     (stage/'BUILD.json').write_text(json.dumps(manifest,indent=2)+'\n')

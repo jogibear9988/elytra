@@ -58,3 +58,5 @@ endif()
 
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/SizeOptimization.cmake")
 elytra_enable_size_optimization()
+
+include("${FIREFLY_SOURCE_DIR}/firefly/native/SharedOpenSSL.cmake")

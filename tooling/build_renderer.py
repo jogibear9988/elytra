@@ -20,10 +20,13 @@ def main():
     parser.add_argument('--jobs',type=int,default=4)
     parser.add_argument('--configure-only',action='store_true')
     parser.add_argument('--baseline-cpu',action='store_true',help='Use and verify the upstream Apple M1 baseline for macOS ARM64 distribution builds')
+    parser.add_argument('--shared-openssl',action='store_true',help='Experimental macOS renderer graph with one pinned shared OpenSSL provider')
     parser.add_argument('--lto',action='store_true',help='Enable C++ Release LTO; fail if the compiler/linker cannot provide it')
     parser.add_argument('--optimize-size',action='store_true',help='Optimize project C++ Release objects for size; Rust and prebuilt dependencies keep their profiles')
     parser.add_argument('--target',choices=['firefly-renderer-probe','firefly-window-probe','firefly'],default='firefly-renderer-probe')
     args=parser.parse_args()
+    if args.shared_openssl and (sys.platform!='darwin' or platform.machine()!='arm64' or args.target!='firefly'):
+        parser.error('--shared-openssl currently requires native macOS ARM64 --target firefly')
     if args.baseline_cpu and (sys.platform!='darwin' or platform.machine()!='arm64'):
         parser.error('--baseline-cpu is currently verified only for macOS ARM64')
     if args.target in ['firefly-window-probe','firefly'] and sys.platform!='darwin':
@@ -48,6 +51,7 @@ def main():
         command.extend([f'-DVCPKG_MANIFEST_DIR={manifest}', '-DFIREFLY_BUILD_RUNTIME=ON'])
     else:
         command.extend([f'-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird', '-DFIREFLY_BUILD_RUNTIME=OFF'])
+    command.append(f'-DFIREFLY_SHARED_OPENSSL={"ON" if args.shared_openssl else "OFF"}')
     command.append(f'-DELYTRA_OPTIMIZE_SIZE={"ON" if args.optimize_size else "OFF"}')
     command.append(f'-DENABLE_CI_BASELINE_CPU={"ON" if args.baseline_cpu else "OFF"}')
     environment={**os.environ,'VCPKG_MAX_CONCURRENCY':str(args.jobs)}

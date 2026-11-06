@@ -2833,6 +2833,70 @@ its final package result remains pending. No alpha published. Native Windows/Lin
 Firefly, privileged IPC, TLS/fetch, desktop services and complete release scope
 remain unfinished; the full goal stays active.
 
+## Explicit shared OpenSSL size reduction (2026-11-06)
+
+Audit the entire current native package against its actual pinned OpenSSL 3.6.5
+SSL/Crypto archives. The earlier 903-symbol sample understated the full graph:
+Firefly/WebWorker, LibCrypto and LibTLS contain 3946 repeated external names / 7890
+redundant definitions. The standalone Mite CLI is still absent from the app;
+engine duplication is not the cause. Exclude Mach-O private externals consistently
+from the API inventory; they correctly become local when linked into a dylib.
+
+Add opt-in FIREFLY_SHARED_OPENSSL / --shared-openssl for the macOS ARM64 shared
+Firefly graph. Build one owned dylib by whole-archiving the same pinned SSL/Crypto
+inputs; redirect all consumer link/interface references and exact archive paths
+without changing original imported targets, upstream sources or dependency versions.
+Preserve SYSTEM header semantics and compile requirements; reject unsupported
+platform/ABI/archive/graph configurations. Independent Mite stays unchanged/static.
+A first compile exposed missing private include propagation; fix the owned target
+rather than engine headers. The final configured graph has archive links only in
+the provider, and all four native Firefly/renderer/SDK/helper groups pass
+(build/shared-openssl-gates-final.log).
+
+Add a native SHA-256 known-answer + trusted/hostname-verified TLS 1.2/1.3 in-memory
+binary round-trip probe with a wrong-hostname rejection control; it passes
+(shared-openssl-provider-test-final.log). This validates provider linkage, not a
+new Mite HTTPS/TLS API. Packaging records sharedOpenSSL and automatically audits
+both apps before hashing: require the complete pinned 10927-name external input
+inventory in exactly one physical provider, explicit main/engine consumers and no
+residual copies. Record archive hashes, 16 direct consumers and the 5905408-byte
+stripped provider; distribute the relevant OPENSSL.json in each app release archive.
+The original package fails the required-provider audit as a negative control.
+
+Rebuild/repackage the same Release C++ -Oz / LTO-OFF profile in enabled and disabled
+modes. Baseline renderer CPU remains native/OFF, Mite baseline M1/ON. Default mode
+explicitly excludes a stale provider in the reused build/lib directory; both app
+inventories prove the original link graph and no packaged provider. All four gates
+pass again disabled (shared-openssl-disabled-gates.log), as do its packaged public
+preloads. Enable/configure/provider-test/disable again passes, leaving the local
+development graph at its original default mode (shared-openssl-toggle.log).
+
+Same-source/profile packaged comparison: framework 212779511 -> 205956349 bytes
+(202.92 -> 196.42 MiB), Designer 248575406 -> 241752244 (237.06 -> 230.55 MiB).
+Both save exactly 6823162 bytes / 6.51 MiB, including the provider and signatures.
+Executables shrink 7357200, libraries grow 533888, signature metadata grows 150.
+App, resource and notice byte counts are unchanged. The 19 fallback source archives
+have identical decompressed contents but different gzip metadata; rebuilt Assets.car
+also differs in bytes. Do not claim bit-for-bit reproducibility or attribute those
+same-size differences to the native saving.
+
+The final automatic-audit packages are moved to build/shared-openssl final relocated
+é文. Public Electron/Firefly preloads and actual Designer launcher/edit/Monaco/HTML/
+native window controls pass there; 7195 hashes and both strict app signatures verify
+(shared-openssl-final-relocation.log). These are dirty-source local experiments,
+not a published release, hosted CPU-baseline result or runtime/memory benchmark.
+ADR 0069, package-size/release/update docs, opt-in release flag and macOS manual
+workflow input record the scope. Defaults remain OFF until hosted acceptance.
+Pin/Python/actionlint/diff and website checks (114 pages / 6212 local links) pass;
+no Ladybird patch added.
+
+New authoritative c517096 CI also passes Windows run 42159392317/job127701205588
+(all 43 in 50.92s) and Linux run42159392285/job127701167108 (all 43 in 26.45s).
+macOS 745c7af run42155631670/job127698599246 remains confirmed live in the full
+Release/package step. No running job canceled/restarted and no alpha published.
+Public IPC, broad runtime/desktop compatibility and native Windows/Linux Firefly
+packages remain open; the full implementation goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

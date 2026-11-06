@@ -22,8 +22,10 @@ def main():
     identity.add_argument('--snapshot',help='Version label for a non-release CI package, e.g. 0.1.0-dev.123')
     parser.add_argument('--jobs',type=int,default=3)
     parser.add_argument('--lto',action='store_true',help='Enable C++ LTO for Mite and Firefly; run all normal release gates')
+    parser.add_argument('--shared-openssl',action='store_true',help='Experimental macOS shared OpenSSL provider; run all native/package gates')
     parser.add_argument('--optimize-size',action='store_true',help='Use the C++ size optimization profile for both projects; keep all release gates')
     args=parser.parse_args()
+    if args.shared_openssl and (sys.platform!='darwin' or platform.machine()!='arm64'):parser.error('--shared-openssl currently requires native macOS ARM64')
     version_tag=args.tag or ('v'+args.snapshot)
     if not re.fullmatch(r'v\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?',version_tag):parser.error('Tag must be a version such as v0.1.0-dev.1')
     if args.jobs<1:parser.error('jobs must be positive')
@@ -52,6 +54,7 @@ def main():
     # This deliberately fails on unsupported native desktop platforms. A Mite
     # binary alone must never be relabeled as a successful complete release.
     renderer_options = (['--lto'] if args.lto else []) + (['--optimize-size'] if args.optimize_size else [])
+    if args.shared_openssl:renderer_options.append('--shared-openssl')
     if baseline_cpu:renderer_options.append('--baseline-cpu')
     run(sys.executable,'tooling/build_renderer.py','--target','firefly','--jobs',args.jobs,*renderer_options)
     run(sys.executable,'tooling/bootstrap_electron.py')
@@ -77,6 +80,8 @@ def main():
         else:shutil.copy2(item,directory/item.name)
         shutil.copytree(stage/'licenses',directory/'licenses')
         shutil.copy2(stage/'BUILD.json',directory/'BUILD.json')
+        provider_report=stage/('OPENSSL-'+item.stem+'.json')
+        if provider_report.is_file():shutil.copy2(provider_report,directory/'OPENSSL.json')
         base=destination/f'{name}-{version_tag}-{suffix}'
         if sys.platform=='darwin':
             run('ditto','-c','-k','--sequesterRsrc','--keepParent',directory,str(base)+'.zip')

@@ -261,3 +261,10 @@ first author script, especially file-to-HTTP process replacement and independent
 windows. Both diagnostic FireflyWebContent and production FireflyRuntimeWebContent
 must build; only the latter ships. Run tooling/test_public_preload.py against the
 build and packaged executable, preserving explicit failure and source budgets.
+
+The optional shared OpenSSL graph (ADR 0069) redirects named and exact-path archive
+links without changing upstream targets' source. Revalidate whole-archive provider
+creation, inherited header requirements, TLS 1.2/1.3/hostname and hash tests, package
+symbol inventory and relocated full-app gates if OpenSSL/CMake linkage changes.
+Do not keep an accidental engine export as a substitute for the explicit provider.
+Unknown archive ABI/platform changes reject; static standalone Mite stays independent.

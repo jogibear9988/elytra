@@ -209,3 +209,61 @@ PY
 Use otool -L for the actual native dependency graph and nm -gU for defined public
 symbols on macOS. Symbol counts alone are not code size. See the
 [packaging guide](../guides/packaging.md) and [release workflow](releases.md).
+
+## One explicit OpenSSL provider (local macOS ARM64 experiment)
+
+The current preload-capable size-profile baseline contains repeated OpenSSL
+implementation code in Firefly, WebWorker, LibCrypto and LibTLS. An audit of all
+physical app binaries finds 3,946 repeated externally visible OpenSSL symbol names
+(7,890 redundant definitions), using the actual pinned static SSL/Crypto archives
+as its symbol inventory. These are symbol counts, not byte estimates. The earlier
+903-symbol observation above was a narrower baseline/sample.
+
+The optional --shared-openssl renderer/release mode creates libfirefly-openssl.dylib
+from those same pinned OpenSSL 3.6.5 archives. The owned build integration redirects
+all graph consumers to that explicit provider; it preserves the full archive API
+instead of relying on incidental LibCrypto exports. Standalone Mite keeps its
+independent link graph. No Ladybird source or dependency version changes.
+
+The locally tested comparison uses Release, -Oz ON, LTO OFF and the same application
+assets/native CPU settings as the c517096 preload package. Renderer CPU baseline is
+native/OFF; standalone Mite uses its recorded M1 baseline. This is a local experiment,
+not the hosted M1 package result or a performance/memory benchmark.
+
+| Recorded local configuration | Framework bytes | Framework MiB | Designer bytes | Designer MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Preload size profile, static OpenSSL copies | 212,779,511 | 202.92 | 248,575,406 | 237.06 |
+| Same profile, shared OpenSSL provider | 205,956,349 | **196.42** | 241,752,244 | **230.55** |
+
+The app saves **6,823,162 bytes (6.51 MiB)**: executables shrink 7,357,200 bytes,
+shared libraries grow 533,888 bytes including the new 5,905,408-byte provider, and
+signature metadata grows 150 bytes. Application, resources and notice byte counts
+are unchanged. The 19 license source archives have identical decompressed content
+but different gzip metadata; the Apple asset catalog is rebuilt and also differs
+in bytes. This is not a bit-for-bit reproducibility claim, and those same-size
+resource/notice changes do not account for the measured saving.
+The full-provider audit finds 10,927 pinned external definitions, all in one physical
+library, zero duplicated names and 16 direct native consumers. Mach-O private
+externals are excluded on both sides; the linker can correctly localize those.
+
+Native validation covers all four Firefly/renderer/SDK/helper groups, production
+preloads, actual Designer edit/Monaco/window controls and relocated app launch.
+A separate native provider test verifies a SHA-256 known answer, trusted/hostname-
+verified TLS 1.2 and 1.3 encrypted binary round trips, and wrong-hostname rejection.
+This tests the linked provider; it does not implement Mite HTTPS/TLS APIs.
+The packaged audit fails if definitions remain elsewhere, the physical provider is
+missing, its input API is incomplete or main/engine consumers do not link it.
+
+```sh
+python3 tooling/build_renderer.py --target firefly --optimize-size --shared-openssl
+cmake --build build/renderer --target check-firefly check-firefly-renderer check-firefly-isolation check-firefly-renderer-helper --parallel 3
+python3 tooling/audit_openssl.py \
+  --app 'build/shared-openssl final relocated é文/Web Component Designer.app' \
+  --require-shared --output build/openssl-shared-audit.json
+```
+
+Release builds accept the same --shared-openssl flag; the macOS workflow exposes
+it as an opt-in input. BUILD.json records the selection and packaging runs the
+required shared-provider audit for both apps. Defaults remain OFF pending hosted
+acceptance. Native Windows/Linux and macOS x64 profiles are not enabled. See
+[ADR 0069](../architecture/0069-shared-openssl-provider.md).

@@ -155,3 +155,12 @@ written after compression. The sample's `--smoke` gate tests document boot/editi
 Monaco and absent Node globals; it is not complete app/worker/collaboration coverage.
 An unlocked visible-desktop review and native signing/notarization acceptance remain
 open. Windows/Linux packages and installer formats remain implementation work.
+
+For the opt-in macOS ARM64 shared crypto experiment, pass --shared-openssl to the
+release driver or select shared_openssl in the macOS workflow. It keeps the same
+native/Designer/package gates and adds complete provider-inventory checks to both
+apps. BUILD.json records sharedOpenSSL and OPENSSL-*.json records input archive
+hashes and physical consumers. Defaults remain off pending hosted acceptance;
+this flag does not add a system OpenSSL dependency or change standalone Mite.
+See the [measured size report](package-size.md) and
+[ADR 0069](../architecture/0069-shared-openssl-provider.md).
