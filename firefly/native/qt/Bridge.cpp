@@ -4,6 +4,7 @@
  */
 
 #include "Bridge.h"
+#include "../clipboard/ClipboardHost.h"
 #include "../screen/ScreenHost.h"
 #include "AppRegions.h"
 #include "ChromeWindow.h"
@@ -549,6 +550,7 @@ struct Bridge::Impl {
         auto host = JS::Object::create(realm, nullptr);
         api = host;
         install_screen_host(realm, *host);
+        install_clipboard_host(realm, *host);
         host->define_native_function(
             realm, "setHandler"_utf16,
             [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

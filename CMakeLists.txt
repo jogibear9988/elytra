@@ -168,6 +168,9 @@ if(BUILD_TESTING)
     add_test(NAME firefly-screen-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_screen.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME firefly-clipboard-policy
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_clipboard.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(
         NAME mite-web-streams
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_streams.py"

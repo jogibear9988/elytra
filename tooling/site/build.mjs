@@ -154,6 +154,7 @@ const groups = [
       ['docs/api/firefly', 'Firefly overview'],
       ['docs/api/app', 'app'],
       ['docs/api/screen', 'screen'],
+      ['docs/api/clipboard', 'clipboard / ClipboardItem'],
       ['docs/api/browser-window', 'BrowserWindow'],
       ['docs/api/web-contents', 'webContents'],
       ['docs/api/context-bridge', 'contextBridge'],

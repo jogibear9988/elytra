@@ -116,6 +116,22 @@ def main():
     assert actual_screen == reference_screen, (actual_screen, reference_screen)
     assert actual_screen["screen"] is True and actual_screen["displays"] > 0, actual_screen
     print("PASS actual Electron/Firefly screen exports, native geometry and cursor without windows")
+    if os.environ.get("CI") == "true":
+        # Never modify the developer's general clipboard in the local desktop suite.
+        fixture = ROOT / "firefly/tests/migration/clipboard.mjs"
+        opt_in = {"FIREFLY_ALLOW_CLIPBOARD_TEST": "1"}
+        actual_clipboard = success(execute(firefly, fixture, extra_env=opt_in))
+        reference_clipboard = success(execute(electron, fixture, "electron", extra_env=opt_in))
+        expected_clipboard = {"clipboard": True, "unicode": True, "representations": 3}
+        assert actual_clipboard == reference_clipboard == expected_clipboard, (
+            actual_clipboard,
+            reference_clipboard,
+        )
+        print("PASS actual Electron/Firefly async clipboard text and multi-format items on CI")
+    else:
+        print(
+            "NOT RUN: public clipboard mutation fixture is restricted to CI; use the private probe locally"
+        )
     fixture = ROOT / "firefly/tests/migration/lifecycle.cjs"
     expected = {
         "trace": [

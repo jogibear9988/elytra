@@ -4349,6 +4349,55 @@ Windows/Linux desktop integration remain open. Continue broader runtime/npm,
 desktop services/IPC, distribution/security and specification work. Goal remains
 active. Keep local UI acceptance occasional and batched, per user clarification.
 
+## 2026-11-06: Native asynchronous clipboard and ClipboardItem text slice
+
+- Add commented ESM clipboard/ClipboardItem policy and isolated Objective-C++
+  native clipboard folder. Follow the pinned Electron 45.2.3 async MIME-item API,
+  verified against its versioned public documentation rather than implementing
+  the older synchronous writeHTML/readRTF/write-object API as current behavior.
+- Public Firefly ESM/CommonJS exports include clipboard and ClipboardItem;
+  standalone Mite remains independent of GUI/Firefly/LibWeb. Async readText,
+  writeText, read, write and has support text/plain, text/html and text/rtf.
+  Clear remains synchronous. Snapshot item keys/bytes, resolve string/Blob/promise
+  data before publication, retain rejection reasons and reject unsupported
+  formats, multi-item writes and combined data beyond eight MiB explicitly.
+- AppKit stores actual native bytes. Normalize/deduplicate its automatically
+  generated external UTF-16 plain-text alias; accept external UTF-16-only writers.
+  Multi-format reads check generation changes. Complete preparation precedes
+  ownership change; native publication errors report failure without a rollback
+  promise. OS provider work remains on the application thread.
+- QCoreApplication-only probe uses a unique private pasteboard and releases it;
+  never accesses the developer's general clipboard or creates a GUI application.
+  Native acceptance covers independent AppKit reads of Unicode/NUL, HTML/RTF
+  bytes, MIME metadata, external UTF-16, unsupported/duplicate/malformed/oversized
+  writes without ownership changes, unknown-format read rejection and clear.
+- Actual Node/Mite API factory tests pass for async operations, item identity,
+  MIME/Blob bytes, snapshots, deferred/rejected payloads, complete preparation,
+  validation/budgets, native failure propagation and empty/clear behavior.
+  Both Firefly and native probe compile (clipboard-build.log). All 60 CTests pass
+  in 19.08 seconds with three workers (clipboard-ctest.log).
+- Add a shared public Electron/Firefly fixture to batched desktop CI. It modifies
+  the general clipboard only with explicit CI opt-in; local suites report that
+  fixture as not run. Public desktop parity is pending hosted execution. No local
+  GUI/desktop suite was launched. Add modern example, detailed clipboard API and
+  ADR 0087, compatibility row and website navigation.
+- Source style passes 114 Python, 527 JS/web/config, 143 native and 14 CMake
+  sources plus Rust; manually run the same pinned native formatter on new .mm
+  files (the selector currently omits that suffix). Both generators, runtime/
+  Firefly/upstream integrity, actionlint and 171-page/11256-link site gate pass
+  before this entry; regenerate/check final progress links before commit.
+- Release observation changed authoritatively: older optimized macOS 42226301275
+  (5c5d64c) job 127927667217 completed with failure at 15:05:03 UTC. Compilation,
+  existing lifecycle/preload/module checks passed, but public IPC security-main
+  failed with FAIL:Firefly bridge promise rejected. Package/upload was not reached.
+  Inspect/fix that exact failure next; no new alpha or successful package claimed.
+
+Limits: images/files/custom/native formats, bookmarks/find, multi-item writes,
+Windows/Linux desktop, full class/coercion/provider/race behavior and broader
+cross-app acceptance remain unfinished. Preserve unmodified Ladybird pin and
+Mite independence. Continue release blocker plus broader specification work;
+goal active, local UI acceptance occasional and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

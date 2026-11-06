@@ -78,8 +78,8 @@ public:
                 JS::Value(urls.ptr())));
             if (!api.is_object())
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
-            TRY(modules.register_host_module(
-                "firefly", api.as_object(), { "app", "BrowserWindow", "ipcMain", "screen" }));
+            TRY(modules.register_host_module("firefly", api.as_object(),
+                { "app", "BrowserWindow", "ipcMain", "screen", "clipboard", "ClipboardItem" }));
             return {};
         };
 
