@@ -143,8 +143,8 @@ Transform, PassThrough, pipeline, finished, compose and selected state helpers.
 all option modes are supported; AbortSignal integration is limited by the host.
 Web-standard ReadableStream, WritableStream and TransformStream are available as
 globals and through `node:stream/web`; see [Web Streams](web-streams.md) for the
-tested byte/pressure/cancellation contract. Node-stream `toWeb`/`fromWeb` bridges
-remain unsupported.
+tested byte/pressure/cancellation contract. Readable/Writable/Duplex `toWeb` and
+`fromWeb` convert incrementally; see [Node/Web stream bridges](stream.md).
 
 ```js
 import {Readable, Transform, Writable} from 'node:stream';

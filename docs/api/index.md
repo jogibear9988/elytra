@@ -32,6 +32,8 @@ The [timers reference](timers.md) covers native timeout/immediate callbacks,
 checkpoints and handle lifetime.
 The [Web Streams reference](web-streams.md) covers readable/writable/transform
 streams, byte ownership, piping, pressure and current interoperability limits.
+The [Node/Web stream bridge reference](stream.md) describes conversion, endpoint
+ownership, errors and native HTTP integration.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 

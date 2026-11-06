@@ -4010,6 +4010,63 @@ verified HTTP/HTTPS clients, then remaining networking/cancellation and desktop
 services/platform/distribution work. Keep local GUI acceptance infrequent/batched.
 Overall goal remains active.
 
+## Owned Node/Web stream bridges (2026-11-06)
+
+Replace the portable stream package's empty Web-adapter entry points with authored,
+commented ESM in runtime/bootstrap/streams. Readable/Writable/Duplex fromWeb/toWeb
+now bridge incremental chunks, pressure/drain, completion/errors and resource
+cancellation. The native module loader supplies original Web constructors and
+private AbortSignal hooks; stopped public abort propagation does not suppress
+fromWeb cancellation. No upstream or dependency patches/dependencies are added.
+
+Readable conversion honors byte/object mode and incremental decoding. Web-facing
+Buffer chunks are independent Uint8Array snapshots. fromWeb holds exclusive reader/
+writer locks after completion, as Node does. Duplex reuses the same endpoint state
+machine. Web cancel/abort destroys native resources; Node destroy observes both
+Web endpoint shutdowns. Remove data/drain listeners at termination, with a late
+legacy-error guard. Validate constructor options before acquiring Web locks.
+
+Validation:
+- All 55 standalone CTests pass in 47.07 seconds (web-adapters-all-tests.log),
+  including prior runtime, GC/embedding, TLS/HTTPS, source/checkout and license gates.
+- New actual Node 24.15.0/Mite comparisons cover 17 bridge workflows: byte/text/
+  object identity, pipeline, demand/pressure, Web errors before consumption, writer
+  ordering/close/abort, accepted-write vs callback timing, drain, live/pre-aborted
+  signals (with stopped public propagation), native errors/premature close, closed
+  destinations, Duplex transformations/roundtrips and validation/atomic pair locks.
+- Explicit separate policy fixtures preserve measured Node vs Mite differences:
+  invalid highWaterMark strands Node's reader lock but not Mite's; Node retains one
+  data/drain listener, Mite removes its own. Do not claim internal cleanup parity.
+- Independent Python HTTP peers prove first-block delivery before allowing the
+  remainder of a one-MiB body; validate all 256 KiB uploaded via
+  Writable.toWeb(ClientRequest); and require peer-observed connection failure on
+  cancellation before even eight MiB of the advertised 64-MiB remainder can pass.
+  A final targeted CTest passes 1/1 in 0.52 seconds after tightening the peer bound
+  and adding the runnable modern ESM example (web-adapters-final-tests.log).
+- Example examples/mite-stream/web-bridge.mjs runs under actual Node/Mite with
+  identical output. Add detailed stream API, compatibility/tutorial links and ADR
+  0082; distinguish codecs, mixed Web pipelines, fetch and other unfinished work.
+- Firefly compiles (web-adapters-firefly-build.log); existing local OpenSSL object
+  deployment-target warnings persist, so older macOS deployment is not established.
+  No local GUI apps/tests are launched.
+- Both generators reproduce and runtime/Firefly/upstream integrity plus actionlint
+  pass. Final source style passes 109 Python, 488 JS/web/config, 133 native and
+  14 CMake sources plus Rust. Site validates 161 pages / 10268 links before final
+  example/progress links; final site validation is run before committing.
+- Previous primitive commit a5441d9 is now hosted Linux green: run 42220126710,
+  job 127899789104 passes all 54 suites in 67.78 seconds, including mite-web-streams.
+  Its style/Pages also pass; Windows is running and optimized macOS 42220159829
+  remains pending. Preserve running jobs. This bridge commit needs fresh hosted
+  acceptance; it is not a new alpha publication.
+
+Limits: native shutdown Promise timing is not identical to Node (Mite awaits
+terminal closure); forever-blocked custom writes/destroy callbacks can hold it
+pending. Arbitrary legacy/mixed consumers, full Web pipeline/finished helpers,
+all TLS bridge/half-close/GC races, filesystem streams and transferable streams
+need further work. Fetch/Request/Response/Headers remain absent. Keep the larger
+specification active; proceed with incremental body/fetch objects on these
+verified transport boundaries and remaining native desktop/platform services.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

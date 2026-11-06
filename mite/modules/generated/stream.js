@@ -6206,8 +6206,316 @@ __export(stream_entry_exports, {
 });
 module.exports = __toCommonJS(stream_entry_exports);
 var import_stream = __toESM(require_stream(), 1);
+
+// ../../mite/runtime/bootstrap/streams/web-adapters.mjs
+function installWebAdapters(stream2, host) {
+  const { ReadableStream, WritableStream } = host.webStreams;
+  const { Readable, Writable, Duplex, finished } = stream2;
+  const tick = host.process.nextTick;
+  const abort = host.abort;
+  const Buffer2 = host.require("node:buffer").Buffer;
+  const readableLocked = Object.getOwnPropertyDescriptor(ReadableStream.prototype, "locked").get;
+  const writableLocked = Object.getOwnPropertyDescriptor(WritableStream.prototype, "locked").get;
+  function failure(Type, code, message) {
+    return Object.assign(new Type(message), { code });
+  }
+  function abortFailure(cause) {
+    return Object.assign(failure(Error, "ABORT_ERR", "The operation was aborted"), {
+      name: "AbortError",
+      cause
+    });
+  }
+  function webEndpoint(value, getter, name) {
+    let locked;
+    try {
+      locked = getter.call(value);
+    } catch {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", `${name} must be a Web Stream`);
+    }
+    if (locked) {
+      throw failure(TypeError, "ERR_INVALID_STATE", `${name} is locked`);
+    }
+  }
+  function options(value) {
+    if (value === void 0) {
+      return {};
+    }
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "options must be an object");
+    }
+    if (value.signal !== void 0 && !abort.isSignal(value.signal)) {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "signal must be an AbortSignal");
+    }
+    return value;
+  }
+  function fromWeb(readable, writable, value, Type) {
+    const opts = options(value);
+    if (readable) {
+      webEndpoint(readable, readableLocked, "readableStream");
+    }
+    if (writable) {
+      webEndpoint(writable, writableLocked, "writableStream");
+    }
+    let reader;
+    let writer;
+    let reading = false;
+    let readDone = !readable;
+    let writeDone = !writable;
+    let unsubscribe = () => {
+    };
+    const node = new Type({
+      objectMode: opts.objectMode,
+      highWaterMark: opts.highWaterMark,
+      encoding: opts.encoding,
+      decodeStrings: opts.decodeStrings,
+      ...Type === Duplex ? { allowHalfOpen: opts.allowHalfOpen ?? false } : {},
+      read() {
+        if (reading || readDone || this.destroyed) {
+          return;
+        }
+        reading = true;
+        reader.read().then(({ value: value2, done }) => {
+          reading = false;
+          if (this.destroyed) {
+            return;
+          }
+          if (done) {
+            readDone = true;
+          }
+          this.push(done ? null : value2);
+        }).catch((error) => {
+          reading = false;
+          this.destroy(error);
+        });
+      },
+      write(chunk, encoding, callback) {
+        writer.write(chunk).then(() => callback(), callback);
+      },
+      final(callback) {
+        writer.close().then(() => {
+          writeDone = true;
+          callback();
+        }, callback);
+      },
+      destroy(error, callback) {
+        unsubscribe();
+        const pending = [];
+        if (reader && !readDone) {
+          pending.push(reader.cancel(error));
+        }
+        if (writer && !writeDone) {
+          pending.push(writer.abort(error));
+        }
+        Promise.allSettled(pending).then((results) => {
+          const rejected = results.find((result) => result.status === "rejected");
+          callback(error ?? rejected?.reason);
+        });
+      }
+    });
+    try {
+      if (readable) {
+        reader = readable.getReader();
+      }
+      if (writable) {
+        writer = writable.getWriter();
+      }
+    } catch (error) {
+      reader?.releaseLock();
+      throw error;
+    }
+    reader?.closed.catch((error) => node.destroy(error));
+    writer?.closed.catch((error) => node.destroy(error));
+    if (opts.signal !== void 0) {
+      unsubscribe = abort.subscribe(opts.signal, () => {
+        tick(() => node.destroy(abortFailure(abort.reason(opts.signal))));
+      });
+    }
+    return node;
+  }
+  function nodeEndpoint(node, side) {
+    const method = side === "readable" ? "read" : "write";
+    if (!node || typeof node[method] !== "function" || typeof node.on !== "function" || typeof node.destroy !== "function" || (side === "readable" ? !node._readableState : typeof node.end !== "function")) {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", `Expected a Node ${side} stream`);
+    }
+  }
+  function terminalError(error) {
+    return error?.code === "ERR_STREAM_PREMATURE_CLOSE" ? abortFailure(error) : error;
+  }
+  function toReadable(node, value) {
+    nodeEndpoint(node, "readable");
+    const opts = options(value);
+    const strategy = opts.strategy ?? { highWaterMark: node.readableHighWaterMark };
+    let controller;
+    let cancelled = false;
+    let terminal = false;
+    let settle;
+    const settled = new Promise((resolve) => {
+      settle = resolve;
+    });
+    let cleanup = () => {
+    };
+    function data(chunk) {
+      if (!node.readableObjectMode && Buffer2.isBuffer(chunk)) {
+        chunk = new Uint8Array(chunk);
+      }
+      try {
+        controller.enqueue(chunk);
+        if (controller.desiredSize <= 0) {
+          node.pause();
+        }
+      } catch (error) {
+        node.destroy(error);
+      }
+    }
+    return new ReadableStream(
+      {
+        start(value2) {
+          controller = value2;
+          if (node.destroyed || !node.readable) {
+            terminal = true;
+            controller.close();
+            settle();
+            return;
+          }
+          node.pause();
+          node.on("data", data);
+          cleanup = finished(node, { readable: true, writable: false }, (error) => {
+            terminal = true;
+            cleanup();
+            node.removeListener("data", data);
+            node.on("error", () => {
+            });
+            if (!cancelled) {
+              if (error) {
+                controller.error(terminalError(error));
+              } else {
+                controller.close();
+              }
+            }
+            settle();
+          });
+        },
+        pull() {
+          if (!terminal) {
+            node.resume();
+          }
+        },
+        cancel(reason) {
+          cancelled = true;
+          if (!terminal) {
+            node.destroy(reason);
+          }
+          return settled;
+        }
+      },
+      strategy
+    );
+  }
+  function toWritable(node) {
+    nodeEndpoint(node, "writable");
+    if (node.destroyed || !node.writable) {
+      const closed = new WritableStream();
+      closed.close();
+      return closed;
+    }
+    let controller;
+    let terminal = false;
+    let error;
+    let aborted = false;
+    let drainage;
+    let settle;
+    const settled = new Promise((resolve) => {
+      settle = resolve;
+    });
+    let cleanup = () => {
+    };
+    function drain() {
+      drainage?.resolve();
+      drainage = void 0;
+    }
+    return new WritableStream(
+      {
+        start(value) {
+          controller = value;
+          node.on("drain", drain);
+          cleanup = finished(node, { readable: false, writable: true }, (cause) => {
+            terminal = true;
+            error = terminalError(cause);
+            cleanup();
+            node.removeListener("drain", drain);
+            node.on("error", () => {
+            });
+            if (error) {
+              drainage?.reject(error);
+            } else {
+              drainage?.resolve();
+            }
+            drainage = void 0;
+            if (error && !aborted) {
+              controller.error(error);
+            }
+            settle();
+          });
+        },
+        write(chunk) {
+          if (terminal) {
+            throw error ?? failure(Error, "ERR_STREAM_DESTROYED", "Destination is closed");
+          }
+          if (!node.write(chunk)) {
+            return new Promise((resolve, reject) => {
+              drainage = { resolve, reject };
+            });
+          }
+        },
+        close() {
+          node.end();
+          return settled.then(() => {
+            if (error) {
+              throw error;
+            }
+          });
+        },
+        abort(reason) {
+          aborted = true;
+          if (!terminal) {
+            node.destroy(reason);
+          }
+          return settled;
+        }
+      },
+      { highWaterMark: node.writableHighWaterMark }
+    );
+  }
+  Readable.fromWeb = (readable, opts) => {
+    webEndpoint(readable, readableLocked, "readableStream");
+    return fromWeb(readable, null, opts, Readable);
+  };
+  Readable.toWeb = toReadable;
+  Writable.fromWeb = (writable, opts) => {
+    webEndpoint(writable, writableLocked, "writableStream");
+    return fromWeb(null, writable, opts, Writable);
+  };
+  Writable.toWeb = toWritable;
+  Duplex.fromWeb = (pair, opts) => {
+    if (!pair || typeof pair !== "object") {
+      throw failure(TypeError, "ERR_INVALID_ARG_TYPE", "pair must contain readable and writable");
+    }
+    const { readable, writable } = pair;
+    webEndpoint(readable, readableLocked, "pair.readable");
+    webEndpoint(writable, writableLocked, "pair.writable");
+    return fromWeb(readable, writable, opts, Duplex);
+  };
+  Duplex.toWeb = (node) => {
+    nodeEndpoint(node, "readable");
+    nodeEndpoint(node, "writable");
+    return { readable: toReadable(node), writable: toWritable(node) };
+  };
+}
+
+// stream-entry.mjs
 function createStreamModule(host) {
   import_stream.default.setDefaultHighWaterMark(false, host.platform === "win32" ? 16384 : 65536);
+  installWebAdapters(import_stream.default, host);
   return import_stream.default;
 }
 

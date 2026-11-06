@@ -225,6 +225,12 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             TRY(constants.as_object().get("signals"_utf16)), JS::default_attributes);
     }
 
+    if (name == "stream") {
+        host->define_direct_property(
+            "webStreams"_utf16, m_web_streams.ptr(), JS::default_attributes);
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+    }
+
     if (name == "stream" || name == "string_decoder") {
         host->define_native_function(
             m_realm, "require"_utf16,
