@@ -2123,6 +2123,25 @@ check-firefly also passes its native/lifecycle/ESM/HTTP/control gates in
 build/libuv-startup-firefly-test.log. Actual Windows acceptance remains pending the
 next job; the local checks are not relabeled as Windows runtime evidence.
 
+## Read-only Rust notice inventory audit (2026-11-06)
+
+Add tooling/audit_rust_notices.py, which compares the actual package's pinned Rust
+inventory with offline/locked default/all-feature Cargo metadata, unfiltered and
+target-filtered. Traverse all workspace roots and dependency kinds (including
+build/dev), keep package IDs opaque, reject incomplete graphs/feature expansion,
+and require the baseline Ladybird pin. The emitted report is explicitly analysis
+only, never changes package notices and reports no net saving.
+
+Actual ARM64 macOS audit of build/designer-size-experiment finds 350 baseline,
+402 unfiltered-union and 316 platform-union external packages. There are 51
+excluded candidates occupying 7,680,055 bytes (7.32 MiB gross), but also 17 added
+feature candidates. Large excluded candidates include Windows import-library
+source archives; actual build target/host/flags/roots/features and generated inputs
+still need matching before a distribution mode can safely narrow inventory.
+The current tested app sizes and default packager are unchanged. Three focused
+graph tests cover cyclic/renamed/build/dev retention, missing nodes and incomplete
+all-feature expansion; the actual audit report is build/rust-notice-audit.json.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

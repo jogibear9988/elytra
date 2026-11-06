@@ -162,6 +162,33 @@ Use --optimize-size for the explicit local/manual hosted experiment; defaults re
 off until native hosted profile acceptance. Windows profile/runtime and desktop
 Linux/Windows packaging remain separate work.
 
+## Rust notice inventory audit
+
+The current packager deliberately collects a broad workspace inventory. A read-only
+audit can compare it with Cargo's target-filtered default/all-feature union:
+
+```sh
+python3 tooling/audit_rust_notices.py \
+  --notices build/designer-size-experiment/licenses \
+  --target aarch64-apple-darwin --output build/rust-notice-audit.json
+```
+
+The audit keeps all workspace roots and all dependency kinds, including build/dev
+tools. It checks full workspace feature expansion and treats Cargo package IDs as
+opaque. The baseline must match the current Ladybird pin. Commands are offline and
+locked; the report records the exact metadata commands and changes no notices.
+See [Cargo's metadata contract](https://doc.rust-lang.org/cargo/commands/cargo-metadata.html).
+
+On the recorded 350-package candidate, the unfiltered feature union contains 402
+external packages and the ARM64 macOS union contains 316. Comparing that union with
+the actual candidate identifies 51 excluded candidates (7,680,055 notice/archive
+bytes, 7.32 MiB gross), including large Windows import-library source archives,
+and 17 additional feature candidates. These counts are not a verified distribution
+inventory or net saving. Actual target/host, build flags, selected roots/features
+and generated-code inputs still need matching before changing packaging. The report
+therefore records analysisOnly, noticesRemoved=false and netSavingBytes=null.
+The tested 202.72 / 236.85 MiB apps remain unchanged.
+
 ## Repeat a measurement
 
 ```sh
