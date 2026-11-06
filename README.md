@@ -107,8 +107,9 @@ curl http://127.0.0.1:3000/hello
 curl --data-binary 'hello' http://127.0.0.1:3000/echo
 ```
 
-HTTP server support is partial. HTTP clients, HTTPS/fetch and desktop rendering
-remain open; see the compatibility matrix and ADR 0019 for measured limits.
+HTTP support is partial. The [client example](examples/mite-http/client.mjs) uses
+native request/get streams; see the [HTTP reference](docs/api/http.md) for options
+and errors. Client pooling and HTTPS/fetch remain open.
 
 ## Web Component Designer sample
 

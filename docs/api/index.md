@@ -17,6 +17,8 @@ built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,
 parameters, errors, resource lifetime and Node differences.
+The [node:http reference](http.md) covers client streams, options, errors and the
+current connection policy alongside the existing server API.
 
 ```js
 import {createHash} from 'node:crypto';

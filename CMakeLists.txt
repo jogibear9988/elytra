@@ -120,6 +120,8 @@ if(BUILD_TESTING)
         "${CMAKE_SOURCE_DIR}/tooling/test_crypto_random.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-crypto-random-int COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_crypto_random_int.py" --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http-client COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_SOURCE_DIR}/tooling/test_http_client.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-os-constants COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_SOURCE_DIR}/tooling/test_os_constants.py" --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-os-priority COMMAND "${Python3_EXECUTABLE}"

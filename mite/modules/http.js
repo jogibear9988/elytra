@@ -1,8 +1,8 @@
 (function(host) {
     'use strict';
-    const {Readable,Writable}=host.stream,{Server:TCPServer}=host.net,Buffer=host.Buffer;
+    const {Readable,Writable}=host.stream,{Server:TCPServer}=host.net,Buffer=host.Buffer,URL=host.URL;
     const tick=host.process.nextTick,native=host.native;
-    const incoming=new WeakMap(),outgoing=new WeakMap(),servers=new WeakMap();
+    const incoming=new WeakMap(),outgoing=new WeakMap(),servers=new WeakMap(),clients=new WeakMap();
     const token=/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
     const singleton=new Set(['age','authorization','content-length','content-type','etag','expires','from','host','if-modified-since','if-unmodified-since','last-modified','location','max-forwards','proxy-authorization','referer','retry-after','server','user-agent']);
     const STATUS_CODES={"100":"Continue","101":"Switching Protocols","102":"Processing","103":"Early Hints","200":"OK","201":"Created","202":"Accepted","203":"Non-Authoritative Information","204":"No Content","205":"Reset Content","206":"Partial Content","207":"Multi-Status","208":"Already Reported","226":"IM Used","300":"Multiple Choices","301":"Moved Permanently","302":"Found","303":"See Other","304":"Not Modified","305":"Use Proxy","307":"Temporary Redirect","308":"Permanent Redirect","400":"Bad Request","401":"Unauthorized","402":"Payment Required","403":"Forbidden","404":"Not Found","405":"Method Not Allowed","406":"Not Acceptable","407":"Proxy Authentication Required","408":"Request Timeout","409":"Conflict","410":"Gone","411":"Length Required","412":"Precondition Failed","413":"Payload Too Large","414":"URI Too Long","415":"Unsupported Media Type","416":"Range Not Satisfiable","417":"Expectation Failed","418":"I'm a Teapot","421":"Misdirected Request","422":"Unprocessable Entity","423":"Locked","424":"Failed Dependency","425":"Too Early","426":"Upgrade Required","428":"Precondition Required","429":"Too Many Requests","431":"Request Header Fields Too Large","451":"Unavailable For Legal Reasons","500":"Internal Server Error","501":"Not Implemented","502":"Bad Gateway","503":"Service Unavailable","504":"Gateway Timeout","505":"HTTP Version Not Supported","506":"Variant Also Negotiates","507":"Insufficient Storage","508":"Loop Detected","509":"Bandwidth Limit Exceeded","510":"Not Extended","511":"Network Authentication Required"};
@@ -56,8 +56,8 @@
         return text;
     }
     class OutgoingMessage extends Writable {
-        constructor() {
-            super({autoDestroy:false,decodeStrings:true});
+        constructor(options={}) {
+            super({autoDestroy:false,decodeStrings:true,...options});
             outgoing.set(this,{headers:new Map(),prepared:false,written:false,block:'',active:false,waiting:[],chunked:false,noBody:false,bytes:0,endLength:null,trailers:new Map(),connection:null});
             this.sendDate=true;this.statusCode=200;this.statusMessage=undefined;this.shouldKeepAlive=true;this.strictContentLength=false;
         }
@@ -155,6 +155,149 @@
             this._prepare();return this;
         }
     }
+    function clientOptions(input,options,callback){
+        if(typeof options==='function'){callback=options;options=undefined;}
+        let base={};
+        if(typeof input==='string' || input instanceof URL){
+            const url=input instanceof URL?input:new URL(input);
+            base={protocol:url.protocol,hostname:url.hostname,port:url.port||undefined,path:url.pathname+url.search};
+            if(url.username||url.password)base.auth=decodeURIComponent(url.username)+':'+decodeURIComponent(url.password);
+        }else if(input!==undefined && input!==null){
+            base={...input};
+        }
+        const opts={...base,...options};
+        if(callback!==undefined && typeof callback!=='function')throw error(TypeError,'ERR_INVALID_ARG_TYPE','callback must be a function');
+        if(opts.protocol!==undefined && opts.protocol!=='http:')throw error(TypeError,'ERR_INVALID_PROTOCOL','Only http: is supported by node:http');
+        if(opts.agent!==undefined && opts.agent!==false)unsupported('HTTP agents and connection pooling');
+        for(const key of ['createConnection','socketPath','signal','localAddress','localPort','uniqueHeaders','IncomingMessage','defaultPort'])if(opts[key]!==undefined)unsupported(`HTTP client option ${key}`);
+        if(opts.insecureHTTPParser)unsupported('insecureHTTPParser');
+        if(opts.setDefaultHeaders===false)unsupported('setDefaultHeaders:false');
+        let hostname=opts.hostname??opts.host??'localhost';
+        if(typeof hostname!=='string')throw error(TypeError,'ERR_INVALID_ARG_TYPE','hostname must be a string');
+        if(hostname.startsWith('[')&&hostname.endsWith(']'))hostname=hostname.slice(1,-1);
+        const port=opts.port??80,number=Number(port);
+        if(!['number','string'].includes(typeof port)||typeof port==='string'&&!port.trim()||!Number.isInteger(number)||number<0||number>65535)throw error(RangeError,'ERR_SOCKET_BAD_PORT','Invalid HTTP port');
+        let method=opts.method??'GET';
+        if(typeof method!=='string')throw error(TypeError,'ERR_INVALID_ARG_TYPE','method must be a string');
+        if(!token.test(method))throw error(TypeError,'ERR_INVALID_HTTP_TOKEN','Invalid HTTP method');
+        method=method.toUpperCase();if(method==='CONNECT')unsupported('HTTP CONNECT');
+        const path=opts.path??'/';
+        if(typeof path!=='string')throw error(TypeError,'ERR_INVALID_ARG_TYPE','path must be a string');
+        if(/[^\x21-\xff]/.test(path))throw error(TypeError,'ERR_UNESCAPED_CHARACTERS','Request path contains unescaped characters');
+        const maximum=opts.maxHeaderSize===undefined?16384:integer(opts.maxHeaderSize,'maxHeaderSize')||16384;
+        if(opts.timeout!==undefined)integer(opts.timeout,'timeout');
+        return {opts,hostname,port:number,method,path,maximum,callback};
+    }
+    function clientFailure(req,err){
+        const c=clients.get(req);if(c.failed)return;c.failed=true;
+        if(c.current&&!c.current.complete){c.current.aborted=true;c.current.emit('aborted');c.current.destroy(error(Error,'ECONNRESET','aborted'));}
+        if(!req.destroyed)req.destroy(err);
+    }
+    function clientEvents(req,result,raw){
+        const c=clients.get(req);
+        for(const event of result.events){
+            if(c.failed||c.socket.destroyed)break;
+            if(event.type===0){
+                if(event.upgrade){clientFailure(req,error(Error,'ERR_MITE_UNSUPPORTED_API','HTTP upgrades are not implemented'));break;}
+                const values=merged(event.headers,c.options.joinDuplicateHeaders);
+                if(event.statusCode<200){
+                    if(event.statusCode===100)req.emit('continue');
+                    req.emit('information',{statusCode:event.statusCode,statusMessage:event.statusMessage,httpVersion:`${event.major}.${event.minor}`,httpVersionMajor:event.major,httpVersionMinor:event.minor,headers:values.headers,rawHeaders:event.headers});
+                    continue;
+                }
+                if(c.complete||c.current){clientFailure(req,error(Error,'HPE_UNEXPECTED_CONTENT_LENGTH','Unexpected extra HTTP response'));break;}
+                const res=new IncomingMessage(c.socket);res.req=req;req.res=res;
+                res.statusCode=event.statusCode;res.statusMessage=event.statusMessage;res.httpVersionMajor=event.major;res.httpVersionMinor=event.minor;res.httpVersion=`${event.major}.${event.minor}`;
+                const count=req.maxHeadersCount==null?2000:req.maxHeadersCount>0?2*req.maxHeadersCount:Infinity;
+                res.rawHeaders=event.headers.slice(0,count);
+                const headers=merged(res.rawHeaders,c.options.joinDuplicateHeaders);res.headers=headers.headers;res.headersDistinct=headers.distinct;
+                incoming.get(res).connection=c;c.current=res;
+                if(!req.emit('response',res))res.resume();
+            }else if(event.type===1){
+                if(c.current&&!c.current.push(Buffer.from(event.data.buffer,event.data.byteOffset,event.data.byteLength))){c.pausedBy=c.current;c.socket.pause();}
+            }else if(event.type===2){
+                if(c.current){const res=c.current,values=merged(event.headers,c.options.joinDuplicateHeaders);res.rawTrailers=event.headers;res.trailers=values.headers;res.trailersDistinct=values.distinct;}
+            }else if(event.type===3 && c.current){
+                c.complete=true;c.current.complete=true;c.current.push(null);
+                c.socket.destroySoon();
+            }
+        }
+        if(result.error&&!c.failed&&!c.complete){const e=error(Error,result.error.code,`Parse Error: ${result.error.reason}`);e.bytesParsed=result.error.bytesParsed;e.reason=result.error.reason;if(raw)e.rawPacket=raw;clientFailure(req,e);}
+    }
+    class ClientRequest extends OutgoingMessage {
+        constructor(input,options,callback){
+            const config=clientOptions(input,options,callback);
+            super({emitClose:false,highWaterMark:config.opts.highWaterMark});
+            this.method=config.method;this.path=config.path;this.host=config.hostname;this.protocol='http:';this.socket=null;this.res=null;
+            this.sendDate=false;this.shouldKeepAlive=false;this.reusedSocket=false;this.aborted=false;this.maxHeadersCount=null;
+            const opts=config.opts;
+            for(const [name,value] of Array.isArray(opts.headers)?pairs(opts.headers):Object.entries(opts.headers??{}))this.appendHeader(name,value);
+            if(!this.hasHeader('host')&&opts.setHost!==false)this.setHeader('Host',(config.hostname.includes(':')?'['+config.hostname+']':config.hostname)+(config.port===80?'':':'+config.port));
+            if(opts.auth!==undefined&&!this.hasHeader('authorization')){
+                if(typeof opts.auth!=='string')throw error(TypeError,'ERR_INVALID_ARG_TYPE','auth must be a string');
+                this.setHeader('Authorization','Basic '+Buffer.from(opts.auth).toString('base64'));
+            }
+            if(this.hasHeader('upgrade'))unsupported('HTTP upgrades');
+            if(this.hasHeader('connection')&&String(this.getHeader('connection')).toLowerCase()!=='close')unsupported('Persistent HTTP client connections');
+            if(config.callback)this.once('response',config.callback);
+            const parser=native.createParser(config.maximum,true,this.method==='HEAD');
+            const socket=new host.net.Socket({noDelay:opts.noDelay??true,keepAlive:opts.keepAlive,keepAliveInitialDelay:opts.keepAliveInitialDelay});
+            const c={socket,parser,options:opts,current:null,complete:false,failed:false,closed:false,pausedBy:null};clients.set(this,c);
+            socket.on('data',bytes=>{if(!c.failed)clientEvents(this,parser(bytes),bytes);});
+            socket.on('end',()=>{
+                if(!c.failed&&!c.complete){
+                    const result=parser();
+                    // A premature EOF after response headers belongs to the
+                    // response stream, not a second request parser error.
+                    if(result.error&&c.current){c.failed=true;c.current.aborted=true;c.current.emit('aborted');c.current.destroy(error(Error,'ECONNRESET','aborted'));socket.destroy();}
+                    else clientEvents(this,result);
+                }
+                if(!c.failed&&!c.complete){if(c.current){c.failed=true;c.current.aborted=true;c.current.emit('aborted');c.current.destroy(error(Error,'ECONNRESET','aborted'));socket.destroy();}else clientFailure(this,error(Error,'ECONNRESET','socket hang up'));}
+            });
+            socket.on('error',err=>{if(!this.destroyed)clientFailure(this,err);});
+            socket.on('close',()=>{
+                if(!c.complete&&!c.failed&&!this.destroyed)clientFailure(this,error(Error,'ECONNRESET','socket hang up'));
+                if(!c.closed){c.closed=true;if(!this.destroyed)this.destroy();this.emit('close');}
+            });
+            socket.on('timeout',()=>{this.emit('timeout');if(c.current)c.current.emit('timeout');});
+            socket.setEncoding=()=>{throw error(Error,'ERR_HTTP_SOCKET_ENCODING','HTTP sockets require byte data');};
+            socket.once('connect',()=>{if(!this.destroyed)this._activate();});
+            if(opts.timeout)socket.setTimeout(opts.timeout);
+            tick(()=>{
+                if(this.destroyed)return;
+                this.socket=socket;this.emit('socket',socket);
+                if(this.destroyed)return;
+                try{socket.connect({port:config.port,host:config.hostname,family:opts.family,lookup:opts.lookup,hints:opts.hints,autoSelectFamily:opts.autoSelectFamily,autoSelectFamilyAttemptTimeout:opts.autoSelectFamilyAttemptTimeout});}
+                catch(err){this.destroy(err);}
+            });
+        }
+        _prepare(){
+            const s=outgoing.get(this);if(s.prepared)return;
+            if(typeof this.method!=='string'||!token.test(this.method))throw error(TypeError,'ERR_INVALID_HTTP_TOKEN','Invalid HTTP method');
+            if(typeof this.path!=='string'||/[^\x21-\xff]/.test(this.path))throw error(TypeError,'ERR_UNESCAPED_CHARACTERS','Invalid request path');
+            const headers=new Map(s.headers),has=name=>headers.has(name);
+            if(has('upgrade'))unsupported('HTTP upgrades');
+            if(has('connection')&&String(headers.get('connection').value).toLowerCase()!=='close')unsupported('Persistent HTTP client connections');
+            if(has('content-length')&&has('transfer-encoding'))throw error(Error,'ERR_HTTP_INVALID_HEADER_VALUE','Content-Length and Transfer-Encoding cannot both be sent');
+            if(has('transfer-encoding')&&String(headers.get('transfer-encoding').value).toLowerCase()!=='chunked')unsupported('Request transfer encoding other than chunked');
+            if(!has('content-length')&&!has('transfer-encoding')){
+                if(s.endLength!==null){if(s.endLength||!['GET','HEAD'].includes(this.method))headers.set('content-length',{name:'Content-Length',value:s.endLength});}
+                else headers.set('transfer-encoding',{name:'Transfer-Encoding',value:'chunked'});
+            }
+            s.chunked=headers.has('transfer-encoding');
+            if(!has('connection'))headers.set('connection',{name:'Connection',value:'close'});
+            s.block=`${this.method} ${this.path} HTTP/1.1\r\n${headerLines(headers)}\r\n`;s.prepared=true;
+        }
+        _destroy(err,callback){const c=clients.get(this);if(c){c.failed=true;if(c.current&&!c.current.complete&&!c.current.destroyed){c.current.aborted=true;c.current.emit('aborted');c.current.destroy(error(Error,'ECONNRESET','aborted'));}if(!c.socket.destroyed)c.socket.destroy();}callback(err);}
+        abort(){if(this.aborted)return;this.aborted=true;tick(()=>this.emit('abort'));this.destroy();}
+        setTimeout(value,callback){if(callback)this.once('timeout',callback);clients.get(this).socket.setTimeout(value);return this;}
+        setNoDelay(value=true){clients.get(this).socket.setNoDelay(value);return this;}
+        setSocketKeepAlive(enable=false,initialDelay=0){clients.get(this).socket.setKeepAlive(enable,initialDelay);return this;}
+        writeContinue(){unsupported('ClientRequest.writeContinue');}
+        writeProcessing(){unsupported('ClientRequest.writeProcessing');}
+    }
+    function request(input,options,callback){return new ClientRequest(input,options,callback);}
+    function get(input,options,callback){const req=request(input,options,callback);req.end();return req;}
     function clearTimer(c){if(c.timer)clearTimeout(c.timer);c.timer=null;}
     function arm(c,value,fn){clearTimer(c);if(value>0)c.timer=setTimeout(()=>{c.timer=null;fn();},value).unref();}
     function fail(c,err,raw){
@@ -264,5 +407,5 @@
         set maxRequestsPerSocket(value){if(value!==0)unsupported('maxRequestsPerSocket');}
     }
     function createServer(...args){return new Server(...args);}
-    return {Server,ServerResponse,OutgoingMessage,IncomingMessage,createServer,METHODS,STATUS_CODES,validateHeaderName,validateHeaderValue,maxHeaderSize:16384};
+    return {Server,ServerResponse,OutgoingMessage,IncomingMessage,ClientRequest,request,get,createServer,METHODS,STATUS_CODES,validateHeaderName,validateHeaderValue,maxHeaderSize:16384};
 })

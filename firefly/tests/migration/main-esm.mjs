@@ -1,7 +1,7 @@
 import {app,BrowserWindow} from 'firefly';
 import {arch,platform,hostname,homedir,availableParallelism,cpus,userInfo,networkInterfaces,getPriority,setPriority,constants as osConstants} from 'node:os';
 import {randomBytes,randomUUID,randomInt,createHash} from 'node:crypto';
-import {createServer} from 'node:http';
+import {createServer,get} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 if(arch()!==process.arch || platform()!==process.platform || typeof hostname()!=='string' || !homedir() || !Number.isInteger(availableParallelism()) || availableParallelism()<1)throw Error('Native main-process OS queries');
@@ -20,6 +20,13 @@ await app.whenReady();
 const body=await readFile(fileURLToPath(new URL('./page.html',import.meta.url)));
 const server=createServer((_request,response)=>{response.setHeader('Content-Type','text/html');response.end(body);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const fetched=await new Promise((resolve,reject)=>{
+    get(`http://127.0.0.1:${server.address().port}/`,{agent:false},response=>{
+        response.on('error',reject);response.setEncoding('utf8');let text='';
+        response.on('data',chunk=>text+=chunk);response.on('end',()=>resolve(text));
+    }).on('error',reject);
+});
+if(fetched!==body.toString())throw Error('Native main-process HTTP client/server');
 const win=new BrowserWindow({width:640,height:400});
 await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 if(win.webContents.getTitle()!=='RENDERER_ISOLATED') throw Error('ESM/HTTP renderer isolation');

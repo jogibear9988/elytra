@@ -146,7 +146,9 @@ await pipeline(
 - `node:http`: createServer, Server, IncomingMessage, ServerResponse, OutgoingMessage,
   METHODS, STATUS_CODES, validateHeaderName, validateHeaderValue and maxHeaderSize.
   Request/response streams, headers, keep-alive and selected timeouts are implemented
-  in part. Client APIs, upgrades, HTTPS and fetch are absent.
+  in part. ClientRequest, request and get now provide partial native HTTP/1 client
+  streams; see the [HTTP reference](http.md). Agents, upgrades, HTTPS and fetch
+  remain absent.
 
 ```js
 import {createServer} from 'node:http';

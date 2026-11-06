@@ -21,9 +21,9 @@ namespace {
 struct Event {
     enum Type { Headers, Body, Trailers, Complete, Begin } type;
     explicit Event(Type kind) : type(kind) { }
-    std::string method, url, body;
+    std::string method, url, body, status_message;
     std::vector<std::string> headers;
-    int major {}, minor {};
+    int major {}, minor {}, status {};
     bool keep_alive {}, upgrade {};
 };
 static JS::Value latin1(JS::VM& vm, std::string const& value)
@@ -37,13 +37,14 @@ class HTTPParser final : public GC::Cell {
     GC_CELL(HTTPParser, GC::Cell);
     GC_DECLARE_ALLOCATOR(HTTPParser);
 public:
-    explicit HTTPParser(size_t maximum) : m_maximum(maximum)
+    explicit HTTPParser(size_t maximum, bool response, bool head) : m_maximum(maximum), m_response(response), m_head(head)
     {
         llhttp_settings_init(&m_settings);
         m_settings.on_message_begin = [](llhttp_t* p) {
-            auto& s = self(p); s.m_size = 0; s.m_url.clear(); s.m_field.clear(); s.m_value.clear(); s.m_headers.clear(); s.m_events.push_back(Event { Event::Begin }); return 0;
+            auto& s = self(p); s.m_size = 0; s.m_url.clear(); s.m_status.clear(); s.m_field.clear(); s.m_value.clear(); s.m_headers.clear(); s.m_events.push_back(Event { Event::Begin }); return 0;
         };
         m_settings.on_url = [](llhttp_t* p, char const* data, size_t length) -> int { auto& s = self(p); if (s.account(length)) return HPE_USER; s.m_url.append(data, length); return 0; };
+        m_settings.on_status = [](llhttp_t* p, char const* data, size_t length) -> int { auto& s = self(p); if (s.account(length)) return HPE_USER; s.m_status.append(data, length); return 0; };
         m_settings.on_header_field = [](llhttp_t* p, char const* data, size_t length) -> int { auto& s = self(p); if (s.account(length)) return HPE_USER; s.m_field.append(data, length); return 0; };
         m_settings.on_header_value = [](llhttp_t* p, char const* data, size_t length) -> int { auto& s = self(p); if (s.account(length)) return HPE_USER; s.m_value.append(data, length); return 0; };
         m_settings.on_header_value_complete = [](llhttp_t* p) {
@@ -52,11 +53,12 @@ public:
         m_settings.on_headers_complete = [](llhttp_t* p) {
             auto& s = self(p);
             Event event { Event::Headers };
-            event.method = llhttp_method_name(static_cast<llhttp_method_t>(p->method));
+            if (!s.m_response) event.method = llhttp_method_name(static_cast<llhttp_method_t>(p->method));
+            event.status = p->status_code; event.status_message = std::move(s.m_status);
             event.url = std::move(s.m_url); event.headers = std::move(s.m_headers);
             event.major = p->http_major; event.minor = p->http_minor;
             event.keep_alive = llhttp_should_keep_alive(p); event.upgrade = p->upgrade;
-            s.m_events.push_back(std::move(event)); s.m_headers.clear(); return 0;
+            s.m_events.push_back(std::move(event)); s.m_headers.clear(); return s.m_head ? 1 : 0;
         };
         m_settings.on_body = [](llhttp_t* p, char const* data, size_t length) {
             auto& s = self(p); Event event { Event::Body }; event.body.assign(data, length); s.m_events.push_back(std::move(event)); return 0;
@@ -66,7 +68,7 @@ public:
             if (!s.m_headers.empty()) { Event event { Event::Trailers }; event.headers = std::move(s.m_headers); s.m_events.push_back(std::move(event)); s.m_headers.clear(); }
             s.m_events.push_back(Event { Event::Complete }); return 0;
         };
-        llhttp_init(&m_parser, HTTP_REQUEST, &m_settings);
+        llhttp_init(&m_parser, response ? HTTP_RESPONSE : HTTP_REQUEST, &m_settings);
         m_parser.data = this;
     }
     JS::ThrowCompletionOr<JS::Value> execute(JS::VM& vm)
@@ -111,6 +113,8 @@ public:
             if (event.type == Event::Headers) {
                 value->define_direct_property("method"_utf16, latin1(vm, event.method), JS::default_attributes);
                 value->define_direct_property("url"_utf16, latin1(vm, event.url), JS::default_attributes);
+                value->define_direct_property("statusCode"_utf16, JS::Value(event.status), JS::default_attributes);
+                value->define_direct_property("statusMessage"_utf16, latin1(vm, event.status_message), JS::default_attributes);
                 value->define_direct_property("major"_utf16, JS::Value(event.major), JS::default_attributes);
                 value->define_direct_property("minor"_utf16, JS::Value(event.minor), JS::default_attributes);
                 value->define_direct_property("keepAlive"_utf16, JS::Value(event.keep_alive), JS::default_attributes);
@@ -136,8 +140,8 @@ private:
     llhttp_t m_parser {};
     llhttp_settings_t m_settings {};
     size_t m_maximum, m_size {};
-    bool m_overflow {};
-    std::string m_url, m_field, m_value;
+    bool m_overflow {}, m_response {}, m_head {};
+    std::string m_url, m_status, m_field, m_value;
     std::vector<std::string> m_headers;
     std::vector<Event> m_events;
 };
@@ -151,7 +155,7 @@ GC::Ref<JS::Object> create_http_host(JS::Realm& realm)
         if (!maximum.is_number() || !std::isfinite(maximum.as_double()) || std::trunc(maximum.as_double()) != maximum.as_double()
             || maximum.as_double() < 1 || maximum.as_double() > 2147483647)
             return vm.throw_completion<JS::TypeError>("Invalid HTTP header limit"_utf16);
-        auto parser = vm.heap().allocate<HTTPParser>(static_cast<size_t>(maximum.as_double()));
+        auto parser = vm.heap().allocate<HTTPParser>(static_cast<size_t>(maximum.as_double()), vm.argument(1).to_boolean(), vm.argument(2).to_boolean());
         return JS::NativeFunction::create(realm, [parser](JS::VM& vm) { return parser->execute(vm); }, 1, "parseHTTP"_utf16);
     }, 1, JS::default_attributes);
     auto methods = MUST(JS::Array::create(realm, 0));

@@ -1,0 +1,110 @@
+# node:http
+
+Partial HTTP/1 client/server support in Mite and the Firefly main process. The new
+client is locally tested on macOS ARM64; hosted Linux/Windows acceptance remains
+pending. No renderer Node API is exposed. See the
+[compatibility matrix](../compatibility/mite-0.1.md) for existing server/platform scope.
+
+```js
+import {request, get, ClientRequest, IncomingMessage} from 'node:http';
+```
+
+CommonJS require('http') and require('node:http') return the same module. The
+default ESM export is that object; named exports preserve function/class identity.
+The [Node 24.15 HTTP reference](https://nodejs.org/download/release/v24.15.0/docs/api/http.html)
+is the public API baseline, not a claim that its entire surface is implemented.
+
+## request(input[, options][, callback]) and get
+
+input can be an HTTP URL string, URL object or options object. An additional
+options object overrides URL-derived fields. request returns a writable
+ClientRequest; call end() to finish sending it. get uses the same arguments and
+calls end() automatically. callback receives one IncomingMessage on the response
+event. It is optional; an unobserved response is drained automatically.
+
+```js
+import {get} from 'node:http';
+const response = await new Promise((resolve, reject) => {
+  get('http://127.0.0.1:3000/hello', {agent: false}, resolve)
+    .on('error', reject);
+});
+response.setEncoding('utf8');
+for await (const text of response) console.log(text);
+```
+
+Run the existing [server](../../examples/mite-http/server.mjs), then the
+[client example](../../examples/mite-http/client.mjs), under Mite or Node.
+
+| Option | Current behavior |
+| --- | --- |
+| protocol | http: only; other protocols throw ERR_INVALID_PROTOCOL |
+| hostname / host | hostname takes precedence; default localhost; bracketed IPv6 URLs normalized |
+| port | Default 80; integer or numeric string from 0 through 65535 |
+| method / path | Default GET and /; URL path includes query; token and unescaped-character validation |
+| headers | Object or flat name/value array; common header accessors from OutgoingMessage |
+| auth | Basic authentication string; explicit Authorization header takes precedence |
+| setHost | false suppresses the generated Host header |
+| agent | false or omitted; one connection per request, no pool |
+| maxHeaderSize | Default 16384; zero selects that default; strict parser, bounded status/header fields |
+| joinDuplicateHeaders | Enable joining singleton response headers; set-cookie stays an array |
+| timeout | Socket inactivity timeout; emits timeout without automatically aborting |
+| family / lookup / hints / autoSelectFamily / autoSelectFamilyAttemptTimeout | Forwarded to implemented native net.Socket connection logic |
+| noDelay / keepAlive / keepAliveInitialDelay | Native TCP options; noDelay defaults to true |
+| highWaterMark | Writable stream buffering option |
+
+Unsupported agents, custom createConnection, socketPath, signal, local binding,
+uniqueHeaders, custom IncomingMessage, defaultPort and insecure parser mode throw
+ERR_MITE_UNSUPPORTED_API. Protocol upgrades and CONNECT are rejected explicitly.
+Non-close Connection headers are rejected; there is no silent pooling emulation.
+
+## ClientRequest and streams
+
+The request extends OutgoingMessage/Writable. Supported workflows include end(data),
+write/end with chunked framing, and piping a Readable into the request. Explicit
+Content-Length and chunked transfer encoding are supported independently; combining
+them is rejected. Header names/values and request-line bytes are validated before
+transmission, including mutable header-array values. flushHeaders is available.
+
+Selected methods: setHeader, appendHeader, getHeader(s), getHeaderNames,
+getRawHeaderNames, hasHeader, removeHeader, addTrailers, setTimeout, setNoDelay,
+setSocketKeepAlive, destroy and abort. abort marks aborted and schedules the abort
+event. destroy(error) reports the error and closes the owned socket.
+Inspect method, path, host, protocol, socket, res, finished, writableEnded,
+writableFinished, destroyed and reusedSocket (always false).
+
+Events covered by tests include socket, finish, response, information, continue,
+timeout, error and close. HTTP 100 emits continue and information; other interim
+responses emit information. Response streams expose statusCode/statusMessage,
+HTTP version, raw/merged/distinct headers, trailers, complete, aborted and req.
+HEAD, 204, chunked and connection-delimited bodies are supported. Pausing a body
+propagates read pressure to the TCP socket. Parsed bytes from the current TCP chunk
+can already be buffered before that pause; no aggregate application payload cap is
+imposed. Consumers must bound payloads and consume, resume or destroy responses.
+
+Parser failures retain llhttp error codes and metadata. A truncated body emits
+aborted and ECONNRESET on the response with complete=false. Timeouts only notify;
+call destroy to enforce an application deadline. Handle errors on both request and
+response. Callback exceptions are fatal through the normal runtime error path.
+
+## Differences and remaining work
+
+Default connections close after each response, unlike Node's reusable default
+agent. Agent/globalAgent, HTTPS/TLS, fetch, redirects, tunneling, upgrades and
+AbortSignal integration remain absent. Error text, all event timing/option/header
+parity and every stream edge case are not certified. The client uses the existing
+strict llhttp parser and native TCP service, with no Node/V8 or LibWeb dependency.
+
+The mite-http-client suite uses an independent Python TCP peer, comparing Node
+and Mite for uploads, fragmented replies, duplicate headers/trailers, HEAD/204,
+EOF/information, 2 MiB paused data, parser/overflow/ambiguous framing, truncation,
+lookup failure, timeout, abort, lifecycle and argument validation. Separate cases
+exercise explicit upgrade/options rejection and fatal callbacks. Existing server
+suites remain required. See [ADR 0061](../architecture/0061-http-client.md).
+
+## Server API
+
+createServer, Server, ServerResponse, IncomingMessage, OutgoingMessage, METHODS,
+STATUS_CODES, validateHeaderName/Value and maxHeaderSize remain available. The
+[server guide](../guides/http-server.md),
+[runtime reference](mite.md#tcp-dns-and-http) and
+[server design](../architecture/0019-http-server.md) describe that partial surface.

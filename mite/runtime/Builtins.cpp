@@ -64,7 +64,7 @@ static constexpr std::string_view string_decoder_exports[] = { "StringDecoder" }
 static constexpr std::string_view net_exports[] = { "Socket", "Server", "createServer", "connect", "createConnection", "isIP", "isIPv4", "isIPv6" };
 static constexpr std::string_view dns_exports[] = { "lookup", "promises", "setDefaultResultOrder", "getDefaultResultOrder", "ADDRCONFIG", "V4MAPPED", "ALL" };
 static constexpr std::string_view dns_promises_exports[] = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
-static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
+static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage", "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES", "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness", "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem", "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority", "setPriority", "constants", "EOL", "devNull" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash" };
 static constexpr BuiltinDefinition definitions[] = {
@@ -160,6 +160,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
     }
     if (name == "http") {
+        auto url = TRY(builtin("url"));
+        host->define_direct_property("URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
         host->define_direct_property("native"_utf16, create_http_host(m_realm), JS::default_attributes);
         host->define_direct_property("net"_utf16, TRY(builtin("net")), JS::default_attributes);
         host->define_direct_property("stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
@@ -251,9 +253,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::builtin_module(std::str
     source.appendff("import get from 'mite:internal/builtin'; const value = get({}); export {{ value as default }};", quoted);
     auto const* definition = definition_for(name);
     VERIFY(definition);
+    size_t index = 0;
     for (auto export_name : definition->exports) {
         StringView exported { export_name.data(), export_name.size() };
-        source.appendff("export const {} = value.{};", exported, exported);
+        source.appendff("const e{} = value.{}; export {{ e{} as {} }};", index, exported, index, exported);
+        ++index;
     }
     GC::Root metadata { m_vm.heap().allocate<ModuleSource>(identity) };
     auto parsed = JS::SourceTextModule::parse(Utf16String::from_utf8(source.string_view()), m_realm, view(identity), {}, metadata.ptr());

@@ -2191,6 +2191,47 @@ Windows run 42139627506 at 07ff79a passes the formerly failing prerequisite step
 and is live in compilation; no full runtime acceptance is claimed yet. macOS run
 42125911196 remains live in the Release step, so alpha publication is still pending.
 
+## Native HTTP client vertical slice (2026-11-06)
+
+Add ClientRequest/request/get to node:http, reusing native TCP, OutgoingMessage,
+IncomingMessage and the pinned llhttp parser. The owned parser now has explicit
+response/HEAD modes, bounded status text and status metadata; its request default
+preserves the server path. Support URL/options overloads, fixed/chunked streamed
+uploads, interim/HEAD/204/EOF responses, headers/trailers, read pressure, socket
+timeouts, abort/destroy and error cleanup. Generate builtin ESM export aliases
+through private local names so public get cannot collide with the loader binding.
+Capture URL through the builtin host, without a mutable-global dependency.
+
+Each client request owns one closing connection. Agent/pooling, HTTPS/TLS/fetch,
+upgrades/CONNECT, custom transports, AbortSignal and local binding remain explicit
+unsupported work. No Node/V8/LibWeb runtime dependency or Ladybird patch is added.
+ADR 0061 and the new HTTP API reference document the partial surface and limits;
+the client example runs alongside the existing loopback server example.
+
+tooling/test_http_client.py compares actual Node/Mite traffic with an independent
+Python TCP peer: GET/POST/PUT, URL/options, streamed/chunked uploads, fragmented
+headers/bodies/trailers, duplicates, HEAD/204/EOF/interim responses, paused 2 MiB
+payload digest, malformed/oversized/ambiguous framing, truncated-body errors,
+lookup failure, timeout, abort and close state. Sixteen argument cases preserve
+observed Node error/legacy option-spread behavior. Separate policy checks reject
+unsupported options/upgrades and mutated path/header injection; fatal callbacks
+retain failure status. The final targeted suite passes in
+build/http-client-differential.log. All 40 local Release/size-profile CTests pass
+in 18.53s (build/http-client-{build,test}.log), retaining all prior server suites.
+check-firefly passes with an actual main-process client/server exchange in the ESM
+migration fixture before the separate native renderer load
+(build/http-client-firefly-test.log). Site validation: 104 pages / 5518 links;
+actionlint, Python syntax, diff checks and upstream integrity pass. Hosted client
+acceptance is pending; earlier package sizes do not include this new source.
+
+Linux 42140140126 at 6ed8a21 (job 127638194072) passes 39/39 suites in 21.08s,
+including native randomInt. Windows 42139627506 at 07ff79a (job 127636462060)
+now passes real native startup and 25/38 suites: the libuv order fix works.
+Thirteen suites still fail, several before/during Python text I/O with the Windows
+locale codec; other path/filesystem differences and a Node-reference network
+timeout remain to diagnose. This is not full Windows acceptance. macOS release
+42125911196 remains live; no alpha release is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
