@@ -24,6 +24,8 @@ The [node:tls reference](tls.md) covers native client records, trust, verificati
 stream ownership and unfinished server/context modes.
 The [node:http reference](http.md) covers client streams, options, errors and the
 current connection policy alongside the existing server API.
+The [node:https reference](https.md) describes verified native HTTPS clients using
+those same HTTP request/response classes.
 The [cancellation reference](abort.md) covers EventTarget/AbortController/AbortSignal
 and native Promise timer consumers.
 The [timers reference](timers.md) covers native timeout/immediate callbacks,

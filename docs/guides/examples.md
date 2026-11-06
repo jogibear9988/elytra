@@ -49,3 +49,6 @@ Run it with `mite examples/mite-http/cancellation.mjs`.
 The [TLS client](../../examples/mite-tls/client.mjs) connects to a TLS echo peer.
 Pass host, port, optional CA-file path and optional DNS servername. It verifies
 peers by default; TLS server support in Mite remains unfinished.
+
+The [HTTPS client](../../examples/mite-https/client.mjs) requests a URL through native
+verified TLS. Pass an optional local CA file and servername for test endpoints.

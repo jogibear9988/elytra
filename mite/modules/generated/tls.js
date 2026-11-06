@@ -14,6 +14,17 @@ function createTlsModule(host) {
   function unsupported(name) {
     throw failure("ERR_MITE_UNSUPPORTED_API", `${name} is not implemented`);
   }
+  function noncanonicalIP(name) {
+    if (host.net.isIP(name)) {
+      return false;
+    }
+    try {
+      const canonical = new host.URL(`https://${name}/`).hostname;
+      return !!host.net.isIP(canonical);
+    } catch {
+      return false;
+    }
+  }
   function configuration(options) {
     for (const key of [
       "socket",
@@ -67,6 +78,13 @@ function createTlsModule(host) {
     const servername = options.servername ?? "";
     if (typeof hostname !== "string" || !hostname || hostname.includes("\0") || typeof servername !== "string" || servername.includes("\0")) {
       throw failure("ERR_INVALID_ARG_VALUE", "Invalid TLS host/servername", TypeError);
+    }
+    if (noncanonicalIP(hostname) || servername && noncanonicalIP(servername)) {
+      throw failure(
+        "ERR_INVALID_ARG_VALUE",
+        "TLS requires canonical IP address spelling",
+        TypeError
+      );
     }
     const identity = servername || hostname;
     if (servername && host.net.isIP(servername)) {
@@ -442,6 +460,9 @@ function createTlsModule(host) {
       throw error;
     }
   }
+  Object.defineProperty(host.clientHooks, "createSocket", {
+    value: (options) => new TLSSocket(token, options)
+  });
   return {
     connect,
     TLSSocket,

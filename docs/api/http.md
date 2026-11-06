@@ -135,8 +135,9 @@ See the [cancellation example](../../examples/mite-http/cancellation.mjs),
 ## Differences and remaining work
 
 Default connections close after each response, unlike Node's reusable default
-agent. Agent/globalAgent, HTTPS/TLS, fetch, redirects, tunneling and upgrades
-remain absent. Error text, all event timing/option/header
+agent. Agent/globalAgent, fetch, redirects, tunneling and upgrades remain absent.
+[node:https](https.md) now provides the shared client over verified native TLS;
+node:http continues to reject https: inputs rather than changing transports. Error text, all event timing/option/header
 parity and every stream edge case are not certified. The client uses the existing
 strict llhttp parser and native TCP service, with no Node/V8 or LibWeb dependency.
 

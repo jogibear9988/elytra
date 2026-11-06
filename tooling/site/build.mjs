@@ -147,6 +147,7 @@ const groups = [
       ['docs/api/net', 'node:net'],
       ['docs/api/tls', 'node:tls'],
       ['docs/api/http', 'node:http'],
+      ['docs/api/https', 'node:https'],
       ['docs/api/child-process', 'node:child_process'],
       ['docs/api/timers', 'node:timers'],
       ['docs/api/abort', 'Cancellation'],

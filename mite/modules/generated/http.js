@@ -14,6 +14,19 @@ function createHttpModule(host) {
   const outgoing = /* @__PURE__ */ new WeakMap();
   const servers = /* @__PURE__ */ new WeakMap();
   const clients = /* @__PURE__ */ new WeakMap();
+  const clientToken = {};
+  const plainTransport = Object.freeze({
+    protocol: "http:",
+    defaultPort: 80,
+    readyEvent: "connect",
+    createSocket(config) {
+      return new host.net.Socket({
+        noDelay: config.opts.noDelay ?? true,
+        keepAlive: config.opts.keepAlive,
+        keepAliveInitialDelay: config.opts.keepAliveInitialDelay
+      });
+    }
+  });
   const token = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
   const singleton = /* @__PURE__ */ new Set([
     "age",
@@ -540,7 +553,7 @@ ${headerLines(headers)}\r
       return this;
     }
   }
-  function clientOptions(input, options, callback) {
+  function clientOptions(input, options, callback, transport) {
     if (typeof options === "function") {
       callback = options;
       options = void 0;
@@ -564,8 +577,8 @@ ${headerLines(headers)}\r
     if (callback !== void 0 && typeof callback !== "function") {
       throw error(TypeError, "ERR_INVALID_ARG_TYPE", "callback must be a function");
     }
-    if (opts.protocol !== void 0 && opts.protocol !== "http:") {
-      throw error(TypeError, "ERR_INVALID_PROTOCOL", "Only http: is supported by node:http");
+    if (opts.protocol !== void 0 && opts.protocol !== transport.protocol) {
+      throw error(TypeError, "ERR_INVALID_PROTOCOL", `Expected ${transport.protocol} protocol`);
     }
     if (opts.agent !== void 0 && opts.agent !== false) {
       unsupported("HTTP agents and connection pooling");
@@ -599,7 +612,7 @@ ${headerLines(headers)}\r
     if (hostname.startsWith("[") && hostname.endsWith("]")) {
       hostname = hostname.slice(1, -1);
     }
-    const port = opts.port ?? 80;
+    const port = opts.port ?? transport.defaultPort;
     const number = Number(port);
     if (!["number", "string"].includes(typeof port) || typeof port === "string" && !port.trim() || !Number.isInteger(number) || number < 0 || number > 65535) {
       throw error(RangeError, "ERR_SOCKET_BAD_PORT", "Invalid HTTP port");
@@ -730,13 +743,14 @@ ${headerLines(headers)}\r
     }
   }
   class ClientRequest extends OutgoingMessage {
-    constructor(input, options, callback) {
-      const config = clientOptions(input, options, callback);
+    constructor(input, options, callback, privateToken = void 0, privateTransport = void 0) {
+      const transport = privateToken === clientToken ? privateTransport : plainTransport;
+      const config = clientOptions(input, options, callback, transport);
       super({ emitClose: false, highWaterMark: config.opts.highWaterMark });
       this.method = config.method;
       this.path = config.path;
       this.host = config.hostname;
-      this.protocol = "http:";
+      this.protocol = transport.protocol;
       this.socket = null;
       this.res = null;
       this.sendDate = false;
@@ -751,7 +765,7 @@ ${headerLines(headers)}\r
       if (!this.hasHeader("host") && opts.setHost !== false) {
         this.setHeader(
           "Host",
-          (config.hostname.includes(":") ? "[" + config.hostname + "]" : config.hostname) + (config.port === 80 ? "" : ":" + config.port)
+          (config.hostname.includes(":") ? "[" + config.hostname + "]" : config.hostname) + (config.port === transport.defaultPort ? "" : ":" + config.port)
         );
       }
       if (opts.auth !== void 0 && !this.hasHeader("authorization")) {
@@ -770,11 +784,7 @@ ${headerLines(headers)}\r
         this.once("response", config.callback);
       }
       const parser = native.createParser(config.maximum, true, this.method === "HEAD");
-      const socket = new host.net.Socket({
-        noDelay: opts.noDelay ?? true,
-        keepAlive: opts.keepAlive,
-        keepAliveInitialDelay: opts.keepAliveInitialDelay
-      });
+      const socket = transport.createSocket(config, this);
       const c = {
         socket,
         parser,
@@ -784,7 +794,8 @@ ${headerLines(headers)}\r
         failed: false,
         closed: false,
         pausedBy: null,
-        unsubscribe: null
+        unsubscribe: null,
+        errorPending: false
       };
       clients.set(this, c);
       socket.on("data", (bytes) => {
@@ -823,7 +834,6 @@ ${headerLines(headers)}\r
         }
       });
       socket.on("close", () => {
-        const failedHere = !c.complete && !c.failed && !this.destroyed;
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, "ECONNRESET", "socket hang up"));
         }
@@ -832,15 +842,18 @@ ${headerLines(headers)}\r
           if (!this.destroyed) {
             this.destroy();
           }
-          if (c.current && !c.current.complete && !c.current.destroyed) {
-            c.current.aborted = true;
-            c.current.emit("aborted");
-            c.current.destroy(error(Error, "ECONNRESET", "aborted"));
-          }
-          if (failedHere) {
-            tick(() => this.emit("close"));
-          } else {
+          const finish = () => {
+            if (c.current && !c.current.complete && !c.current.destroyed) {
+              c.current.aborted = true;
+              c.current.emit("aborted");
+              c.current.destroy(error(Error, "ECONNRESET", "aborted"));
+            }
             this.emit("close");
+          };
+          if (c.errorPending) {
+            tick(finish);
+          } else {
+            finish();
           }
         }
       });
@@ -853,7 +866,7 @@ ${headerLines(headers)}\r
       socket.setEncoding = () => {
         throw error(Error, "ERR_HTTP_SOCKET_ENCODING", "HTTP sockets require byte data");
       };
-      socket.once("connect", () => {
+      socket.once(transport.readyEvent, () => {
         if (!this.destroyed) {
           this._activate();
         }
@@ -952,8 +965,14 @@ ${headerLines(headers)}\r
         c.failed = true;
         c.unsubscribe?.();
         c.unsubscribe = null;
+        c.errorPending = !!err;
       }
       callback(err);
+      if (c?.errorPending) {
+        tick(() => {
+          c.errorPending = false;
+        });
+      }
       if (c && !c.socket.destroyed) {
         c.socket.destroy();
       }
@@ -1375,6 +1394,9 @@ Connection: close\r
   function createServer(...args) {
     return new Server(...args);
   }
+  Object.defineProperty(host.clientHooks, "request", {
+    value: (transport, input, options, callback) => new ClientRequest(input, options, callback, clientToken, transport)
+  });
   return {
     Server,
     ServerResponse,

@@ -35,6 +35,7 @@ function(mite_add_runtime target root js_target)
         net
         dns
         http
+        https
         tls
         os
         crypto

@@ -17,6 +17,20 @@ export default function createHttpModule(host) {
   const outgoing = new WeakMap();
   const servers = new WeakMap();
   const clients = new WeakMap();
+  const clientToken = {};
+  const plainTransport = Object.freeze({
+    protocol: 'http:',
+    defaultPort: 80,
+    readyEvent: 'connect',
+
+    createSocket(config) {
+      return new host.net.Socket({
+        noDelay: config.opts.noDelay ?? true,
+        keepAlive: config.opts.keepAlive,
+        keepAliveInitialDelay: config.opts.keepAliveInitialDelay
+      });
+    }
+  });
   const token = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
   const singleton = new Set([
     'age',
@@ -627,7 +641,7 @@ export default function createHttpModule(host) {
   }
 
   /** Resolve URL/options overloads before opening a connection or publishing callbacks. */
-  function clientOptions(input, options, callback) {
+  function clientOptions(input, options, callback, transport) {
     if (typeof options === 'function') {
       callback = options;
       options = undefined;
@@ -651,8 +665,8 @@ export default function createHttpModule(host) {
     if (callback !== undefined && typeof callback !== 'function') {
       throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'callback must be a function');
     }
-    if (opts.protocol !== undefined && opts.protocol !== 'http:') {
-      throw error(TypeError, 'ERR_INVALID_PROTOCOL', 'Only http: is supported by node:http');
+    if (opts.protocol !== undefined && opts.protocol !== transport.protocol) {
+      throw error(TypeError, 'ERR_INVALID_PROTOCOL', `Expected ${transport.protocol} protocol`);
     }
     if (opts.agent !== undefined && opts.agent !== false) {
       unsupported('HTTP agents and connection pooling');
@@ -687,7 +701,7 @@ export default function createHttpModule(host) {
     if (hostname.startsWith('[') && hostname.endsWith(']')) {
       hostname = hostname.slice(1, -1);
     }
-    const port = opts.port ?? 80;
+    const port = opts.port ?? transport.defaultPort;
     const number = Number(port);
     if (
       !['number', 'string'].includes(typeof port) ||
@@ -837,15 +851,17 @@ export default function createHttpModule(host) {
     }
   }
 
-  /** Own one request connection and response lifecycle; unsupported Agent/TLS modes fail explicitly. */
+  /** Own one request connection and response lifecycle; unsupported Agent/transport modes fail explicitly. */
   class ClientRequest extends OutgoingMessage {
-    constructor(input, options, callback) {
-      const config = clientOptions(input, options, callback);
+    constructor(input, options, callback, privateToken = undefined, privateTransport = undefined) {
+      // Extra public constructor arguments cannot select an unvalidated transport.
+      const transport = privateToken === clientToken ? privateTransport : plainTransport;
+      const config = clientOptions(input, options, callback, transport);
       super({ emitClose: false, highWaterMark: config.opts.highWaterMark });
       this.method = config.method;
       this.path = config.path;
       this.host = config.hostname;
-      this.protocol = 'http:';
+      this.protocol = transport.protocol;
       this.socket = null;
       this.res = null;
       this.sendDate = false;
@@ -863,7 +879,7 @@ export default function createHttpModule(host) {
         this.setHeader(
           'Host',
           (config.hostname.includes(':') ? '[' + config.hostname + ']' : config.hostname) +
-            (config.port === 80 ? '' : ':' + config.port)
+            (config.port === transport.defaultPort ? '' : ':' + config.port)
         );
       }
       if (opts.auth !== undefined && !this.hasHeader('authorization')) {
@@ -885,11 +901,7 @@ export default function createHttpModule(host) {
         this.once('response', config.callback);
       }
       const parser = native.createParser(config.maximum, true, this.method === 'HEAD');
-      const socket = new host.net.Socket({
-        noDelay: opts.noDelay ?? true,
-        keepAlive: opts.keepAlive,
-        keepAliveInitialDelay: opts.keepAliveInitialDelay
-      });
+      const socket = transport.createSocket(config, this);
       const c = {
         socket,
         parser,
@@ -899,7 +911,8 @@ export default function createHttpModule(host) {
         failed: false,
         closed: false,
         pausedBy: null,
-        unsubscribe: null
+        unsubscribe: null,
+        errorPending: false
       };
       clients.set(this, c);
 
@@ -946,7 +959,6 @@ export default function createHttpModule(host) {
       socket.on('close', () => {
         // Request errors precede response abortion/close. Native teardown owns
         // the incomplete response; queued response errors follow request close.
-        const failedHere = !c.complete && !c.failed && !this.destroyed;
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, 'ECONNRESET', 'socket hang up'));
         }
@@ -955,15 +967,20 @@ export default function createHttpModule(host) {
           if (!this.destroyed) {
             this.destroy();
           }
-          if (c.current && !c.current.complete && !c.current.destroyed) {
-            c.current.aborted = true;
-            c.current.emit('aborted');
-            c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
-          }
-          if (failedHere) {
-            tick(() => this.emit('close'));
-          } else {
+
+          const finish = () => {
+            if (c.current && !c.current.complete && !c.current.destroyed) {
+              c.current.aborted = true;
+              c.current.emit('aborted');
+              c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
+            }
             this.emit('close');
+          };
+
+          if (c.errorPending) {
+            tick(finish);
+          } else {
+            finish();
           }
         }
       });
@@ -979,7 +996,7 @@ export default function createHttpModule(host) {
         throw error(Error, 'ERR_HTTP_SOCKET_ENCODING', 'HTTP sockets require byte data');
       };
 
-      socket.once('connect', () => {
+      socket.once(transport.readyEvent, () => {
         if (!this.destroyed) {
           this._activate();
         }
@@ -1091,10 +1108,18 @@ export default function createHttpModule(host) {
         c.failed = true;
         c.unsubscribe?.();
         c.unsubscribe = null;
+        c.errorPending = !!err;
       }
       // Queue the request error before an unconnected socket queues its close.
       // No application JS runs until this frame has also initiated native close.
       callback(err);
+      if (c?.errorPending) {
+        // A transport can emit error and close in one tick. Its close must wait
+        // behind the request error that Writable.destroy just enqueued.
+        tick(() => {
+          c.errorPending = false;
+        });
+      }
       if (c && !c.socket.destroyed) {
         c.socket.destroy();
       }
@@ -1589,6 +1614,11 @@ export default function createHttpModule(host) {
   function createServer(...args) {
     return new Server(...args);
   }
+
+  Object.defineProperty(host.clientHooks, 'request', {
+    value: (transport, input, options, callback) =>
+      new ClientRequest(input, options, callback, clientToken, transport)
+  });
 
   return {
     Server,

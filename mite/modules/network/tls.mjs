@@ -14,6 +14,20 @@ export default function createTlsModule(host) {
     throw failure('ERR_MITE_UNSUPPORTED_API', `${name} is not implemented`);
   }
 
+  function noncanonicalIP(name) {
+    if (host.net.isIP(name)) {
+      return false;
+    }
+    try {
+      // WHATWG URL recognizes legacy numeric IPv4 spellings that getaddrinfo
+      // may route as IPs. Never authenticate those routes against a DNS SAN.
+      const canonical = new host.URL(`https://${name}/`).hostname;
+      return !!host.net.isIP(canonical);
+    } catch {
+      return false;
+    }
+  }
+
   function configuration(options) {
     for (const key of [
       'socket',
@@ -78,6 +92,13 @@ export default function createTlsModule(host) {
       servername.includes('\0')
     ) {
       throw failure('ERR_INVALID_ARG_VALUE', 'Invalid TLS host/servername', TypeError);
+    }
+    if (noncanonicalIP(hostname) || (servername && noncanonicalIP(servername))) {
+      throw failure(
+        'ERR_INVALID_ARG_VALUE',
+        'TLS requires canonical IP address spelling',
+        TypeError
+      );
     }
     const identity = servername || hostname;
     if (servername && host.net.isIP(servername)) {
@@ -500,6 +521,12 @@ export default function createTlsModule(host) {
       throw error;
     }
   }
+
+  // HTTPS must publish a socket before connecting it, and owns request-level
+  // cancellation. Keep this constructor seam off the public TLS namespace.
+  Object.defineProperty(host.clientHooks, 'createSocket', {
+    value: (options) => new TLSSocket(token, options)
+  });
 
   return {
     connect,

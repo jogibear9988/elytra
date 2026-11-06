@@ -3892,6 +3892,75 @@ Validation: native-only TLS acceptance passes locally against independent peers
 (https-turn-tls-native.log), with formatting and actionlint. New Windows diagnostic
 and complete platform acceptance remain pending. No GUI tests are launched.
 
+## 2026-11-06 — Verified HTTPS clients over shared HTTP classes
+
+Previous goal turn: progress (native TLS/policy commits pushed). Native Linux and
+Windows 3981a56 now both succeed, including the 52-suite TLS baseline; the earlier
+Windows Node 0xC0000409 failure did not recur in that run. Keep the explicit
+independent native diagnostic introduced by 77d2e67 so a future reference crash
+cannot hide Mite evidence. Comparison failures still fail the gate. Optimized
+macOS 8698725 run 42209659578 remains confirmed running; preserve it. Current-source
+HTTPS/guard acceptance on native platforms remains pending; no new alpha is claimed.
+
+Add node:https request/get using the authoritative http.ClientRequest and
+IncomingMessage classes. A private rooted HTTP transport plan selects https:/443,
+unconnected TLSSocket creation and secureConnect activation. TLS and HTTP expose
+constructor hooks only to trusted module factories; public ClientRequest extra
+arguments cannot inject plans. node:http still rejects https: and never chooses a
+plaintext fallback. Derive SNI from Host/hostname with IP suppression and explicit
+override; allow HTTP/1.1 ALPN or no ALPN, reject HTTP/2. Forward TLS provider fields
+for explicit validation, while HTTP owns path/framing/signal/timeout.
+
+A bad-certificate HTTPS test exposed error/close in one transport tick arriving
+before the queued request error. Track pending error delivery without installing
+a listener that would swallow fatal errors; defer close/response abortion behind
+that delivery. Keep one-shot lifetime guards and paused complete body delivery.
+Requests remain abortable across upload/response; failed certificate/hostname
+validation reaches no HTTP handler on the peer.
+
+Reject ambiguous numeric IP spellings before TLS hostname/SAN selection using the
+existing WHATWG URL normalizer. Direct and Host/SNI-derived aliases cannot turn an
+IP route into DNS-SAN authentication. Five TLS and three HTTPS authority policies
+check strict rejection; this is intentional input hardening, not Node 24 parity.
+No Ladybird changes or new third-party dependencies are introduced.
+
+Validation:
+- Standalone rebuild and all 53 CTests pass in 46.17 seconds
+  (https-client-all-tests.log), including existing HTTP/TCP/TLS/stream/process,
+  GC, source/checkout and license gates. New HTTPS comparisons cover 22 encrypted
+  workflows: GET/POST/auth/URL, DNS/IPv4/IPv6, Host/SNI/no-ALPN, both TLS versions,
+  HEAD/204/trailers, one MiB paused data, signals at startup/socket/live/settled
+  phases, GC and failed trust/hostname/expiry. Peer counters prove zero HTTP
+  requests for failed verification and early abort.
+- Independent Python peers inspect ClientHello before TLS wrapping, test decrypted
+  chunked/truncated framing and reject a plaintext HTTP responder. Preserve actual
+  Node EPROTO vs Mite ERR_SSL_WRONG_VERSION_NUMBER values separately. Shared class,
+  default port/protocol and public-constructor plan rejection are checked. Unhandled
+  certificate errors remain fatal, suppress later close callbacks and expose no HTTP.
+- Fifteen HTTPS API/provider/authority policies reject explicitly. The three final
+  authority checks are verified by a subsequent targeted HTTPS CTest (1/1,
+  6.83 seconds, https-authority-tests.log). TLS policy coverage now totals 28.
+- Native-only HTTPS diagnostics also pass locally (https-native-only-tests.log).
+  Windows preserves independent TLS and HTTPS logs even when its reference step
+  fails; new hosted acceptance remains required.
+- Source style passes 107 Python, 482 JS/web/config, 133 native and 14 CMake sources
+  plus Rust; final policy/test edits pass targeted formatting. Both generators
+  reproduce, and runtime/Firefly/upstream integrity plus actionlint pass.
+- Firefly compiles with updated hooks/runtime (https-client-firefly-build.log).
+  No local GUI/desktop tests are launched. Changed-source desktop acceptance stays
+  with hosted CI rather than repeatedly occupying the user's desktop.
+- New modern ESM HTTPS example executes against the same independent TLS server
+  under actual Node and Mite with identical trusted status/body output. Add API,
+  compatibility/example updates and ADR 0080. Site validates 157 pages / 10018
+  links including this progress entry.
+
+Next: implement fetch/body/web-stream primitives on the verified HTTP/HTTPS stack,
+continue TLS/HTTPS server/Agent/option coverage as justified, and remaining runtime
+I/O, filesystem/process/stream cancellation, desktop IPC/services and native
+Windows/Linux desktop/distribution maturity. Complete OS trust policy, all provider
+error/closure cases and full Node/Electron parity remain unfinished. Overall goal
+active; local GUI acceptance stays infrequent and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

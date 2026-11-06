@@ -92,6 +92,8 @@ static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterva
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
 static constexpr std::string_view tls_exports[]
     = { "connect", "TLSSocket", "createServer", "createSecureContext" };
+static constexpr std::string_view https_exports[]
+    = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
@@ -101,6 +103,7 @@ static constexpr BuiltinDefinition definitions[] = {
         child_process_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "tls", { MITE_TLS_SOURCE, sizeof(MITE_TLS_SOURCE) - 1 }, tls_exports },
+    { "https", { MITE_HTTPS_SOURCE, sizeof(MITE_HTTPS_SOURCE) - 1 }, https_exports },
     { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
     { "dns/promises", {}, dns_promises_exports },
@@ -257,6 +260,9 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     }
 
     if (name == "http") {
+        m_http_client_hooks = JS::Object::create(m_realm, nullptr);
+        host->define_direct_property(
+            "clientHooks"_utf16, m_http_client_hooks.ptr(), JS::default_attributes);
         host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
         auto url = TRY(builtin("url"));
         host->define_direct_property(
@@ -279,11 +285,29 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             "domainToASCII"_utf16, TRY(url->get("domainToASCII"_utf16)), JS::default_attributes);
     }
 
+    if (name == "https") {
+        // Load the authoritative classes first. Only trusted factories receive
+        // constructor hooks; no private transport policy is exported publicly.
+        TRY(builtin("http"));
+        TRY(builtin("tls"));
+        host->define_direct_property(
+            "httpHooks"_utf16, m_http_client_hooks.ptr(), JS::default_attributes);
+        host->define_direct_property(
+            "tlsHooks"_utf16, m_tls_client_hooks.ptr(), JS::default_attributes);
+        host->define_direct_property("net"_utf16, TRY(builtin("net")), JS::default_attributes);
+    }
+
     if (name == "tls") {
+        m_tls_client_hooks = JS::Object::create(m_realm, nullptr);
+        host->define_direct_property(
+            "clientHooks"_utf16, m_tls_client_hooks.ptr(), JS::default_attributes);
         host->define_direct_property("net"_utf16, TRY(builtin("net")), JS::default_attributes);
         host->define_direct_property(
             "native"_utf16, create_tls_host(m_realm), JS::default_attributes);
         host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+        auto url = TRY(builtin("url"));
+        host->define_direct_property(
+            "URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
         auto buffer = TRY(builtin("buffer"));
         host->define_direct_property(
             "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);

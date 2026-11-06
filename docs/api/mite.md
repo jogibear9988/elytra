@@ -166,15 +166,17 @@ await pipeline(
   Unix sockets and complete retry parity remain open.
 - `node:tls`: partial native TLS 1.2/1.3 client streams with certificate/hostname
   validation, custom/default anchors, ALPN and cancellation; see [TLS](tls.md).
-  TLS servers, HTTPS/fetch and full option parity remain open.
+  TLS servers, fetch and full option parity remain open.
 - `node:dns` / `node:dns/promises`: lookup, getDefaultResultOrder and
   setDefaultResultOrder, plus ADDRCONFIG/V4MAPPED/ALL flags. Record query APIs are absent.
 - `node:http`: createServer, Server, IncomingMessage, ServerResponse, OutgoingMessage,
   METHODS, STATUS_CODES, validateHeaderName, validateHeaderValue and maxHeaderSize.
   Request/response streams, headers, keep-alive and selected timeouts are implemented
   in part. ClientRequest, request and get now provide partial native HTTP/1 client
-  streams; see the [HTTP reference](http.md). Agents, upgrades, HTTPS and fetch
-  remain absent.
+  streams; see the [HTTP reference](http.md). Agents, upgrades and fetch remain absent.
+- `node:https`: partial HTTP/1 clients over verified native TLS, sharing HTTP
+  request/response classes; see the [HTTPS reference](https.md). Servers and Agents
+  remain unavailable.
 
 ```js
 import {createServer} from 'node:http';

@@ -1,15 +1,18 @@
 # node:tls
 
-Status: partial native client TLS, locally verified on macOS ARM64. TLS servers,
-HTTPS and fetch are separate unfinished APIs. Native Windows/Linux compilation and
-behavior of this new slice remain subject to their hosted gates. Mite uses OpenSSL
-and its existing TCP loop; no Node/V8 or LibWeb runtime is embedded.
+Status: partial native client TLS. Native Linux/Windows CLI baseline 3981a56
+passes the TLS suite as well as local macOS ARM64 acceptance.
+[HTTPS clients](https.md) use this transport; TLS servers and fetch remain unfinished.
+The newer HTTPS-hook and canonical-address changes require fresh Windows/Linux
+acceptance. Mite uses OpenSSL and its existing TCP loop; no Node/V8 or LibWeb
+runtime is embedded.
 
 ```js
 import { connect } from 'node:tls';
+import { readFileSync } from 'node:fs';
 const socket = connect({
   host: 'localhost', port: 8443, servername: 'localhost',
-  ca: myTrustedPem, signal: AbortSignal.timeout(5000)
+  ca: readFileSync('ca.pem'), signal: AbortSignal.timeout(5000)
 }, () => {
   console.log(socket.authorized, socket.getProtocol());
   socket.end('Hello through TLS');
@@ -39,7 +42,9 @@ subscribes once to secureConnect. ESM and CommonJS share the builtin instance.
 
 Certificate verification happens before secureConnect or application data. DNS/IP
 SANs are checked; partial-label wildcards and common-name fallback are disabled.
-An IP host is verified against IP SANs. Explicit IP-valued servername is rejected;
+An IP host is verified against IP SANs. Legacy numeric IPv4 spellings such as
+127.1, octal/hex components and a single decimal integer reject explicitly before
+connection; they cannot select DNS-SAN verification for an IP route. Explicit IP-valued servername is rejected;
 use the IP host and omit SNI. Internationalized names and all normalization edge
 cases are not certified; use ASCII/IDNA DNS names for this slice.
 
