@@ -65,6 +65,8 @@ jobs:
             linux-noble-clang22-
       - name: Bootstrap pinned native dependencies
         run: python tooling/bootstrap.py
+      - name: Native ELF private-codec relocation and export regression
+        run: python tooling/tests/test_linux_ffmpeg_link.py
       - name: Configure and compile native renderer and owned helper
         run: |
           set -o pipefail

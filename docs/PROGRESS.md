@@ -4690,6 +4690,27 @@ native link failure. Next resolve this plus both release failures, then continue
 Linux desktop services/IPC/packaging and required Windows desktop integration.
 Goal active; keep local UI tests infrequent and targeted/batched.
 
+## 2026-11-06: Bind bundled FFmpeg archive internals in the Linux media component
+
+- Address the actual 74bce40 Linux x64 ELF link failure in an owned CMake adapter:
+  --exclude-libs hides only the three bundled static FFmpeg codec/util/resample
+  archives from LibMediaCodecs exports, allowing its direct PC32 internal-table
+  references to bind locally. Keep the public component ABI and separately
+  dlopened system provider; do not edit pinned Ladybird/FFmpeg, remove assembly,
+  disable media, or suppress linker errors.
+- Add a native Linux x64 ELF regression ahead of the large CI build. It requires
+  an actual failing unadapted PC32 control, successful adapted shared-library
+  link, executed public function returning the table value and readelf evidence
+  that private archive symbols are not dynamic exports. This is a link-boundary
+  fixture, not an FFmpeg decoder or native Linux renderer acceptance claim.
+- Source style, actionlint, whitespace and upstream integrity pass. Existing
+  macOS target configuration/build checks the Linux-only adapter remains inert.
+  Native ELF fixture and complete Linux graph still require the next hosted run.
+
+Limits: preserve failing Linux CI evidence until the real graph passes. Resolve
+macOS child-pipe shutdown and IPC sender-URL failures before optimized release
+publication. Goal active; no additional local desktop suite is run in this slice.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

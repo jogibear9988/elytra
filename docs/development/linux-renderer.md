@@ -111,3 +111,20 @@ generator outputs. It does not copy shaders, link the tabbed browser application
 or advertise Wayland/GPU-driver/physical-display acceptance. macOS AppKit probes,
 presentation sources and the full desktop-runtime wiring live in separate CMake
 modules. Linux desktop OS services and application packaging still need work.
+
+## Static FFmpeg ELF link adapter
+
+The first native x64 build reached LibMediaCodecs but failed on FFmpeg assembly
+R_X86_64_PC32 references to preemptible ff_tx_tab_* data. The owned
+firefly/renderer/LinuxFFmpeg.cmake module hides only the bundled static
+libavcodec-ladybird, libavutil-ladybird and libswresample-ladybird archive symbols
+from that component's ELF exports. Public LibMediaCodecs symbols remain exported;
+upstream's separate dlopen/dlsym system-FFmpeg provider remains unchanged.
+This avoids changing Ladybird/FFmpeg source or disabling media/assembly features.
+
+Before the large graph, the Linux x64 workflow runs an actual ELF regression:
+the unadapted PC-relative archive link must fail, the adapted shared-library link
+must succeed, its public API must execute and readelf must confirm that private
+archive symbols are absent from dynamic exports. This fixture is not FFmpeg
+media-decoding acceptance. Full native renderer linkage/execution remains pending
+until the real dependency graph passes the subsequent gates.

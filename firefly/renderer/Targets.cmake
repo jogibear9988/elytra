@@ -2,6 +2,8 @@
 # standalone Mite build or linked into the Mite executable.
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/ExecutionContextAdapter.cmake")
 mite_adapt_execution_context("${FIREFLY_SOURCE_DIR}")
+include("${CMAKE_CURRENT_LIST_DIR}/LinuxFFmpeg.cmake")
+firefly_hide_bundled_ffmpeg(LibMediaCodecs)
 if(ENABLE_LTO_FOR_RELEASE AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     message(FATAL_ERROR "Requested Release LTO is unsupported by this compiler/linker")
 endif()
