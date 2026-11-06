@@ -2032,6 +2032,23 @@ must independently accept them. No prior success is used to certify new flags.
 Site validation passes 101 generated pages / 5243 local links/resources/fragments
 (build/linux-baseline-site.log).
 
+## Manual hosted size-profile selection (2026-11-06)
+
+The macOS workflow exposes optional optimize_size (false by default) and forwards
+it as a fixed CLI flag to the same release driver. Native/runtime/renderer/security/
+Designer/relocation gates are unchanged. The summary reports actual recorded C++
+LTO/size settings alongside package bytes; older metadata is explicitly "not
+recorded". Push defaults do not change and no profile is promoted to a successful
+release by selecting a flag. actionlint and site validation cover this orchestration
+change; an actual hosted size-profile build remains pending.
+
+Local size renderer build completes and is reconfigured/relinked with the owned
+execution-context adapter. Full renderer/Firefly/isolation/helper tests are live
+in session 86887 / build/size-firefly-test.log before Designer/package measurement.
+The obsolete f1a90a9 Windows run 42134116438 was cancelled because it predates the
+confirmed DbgHelp annotation fix and would repeat the same known compile failure;
+the corrected 5b612ed run 42134241990 is now live. The prior failure remains recorded.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -32,6 +32,14 @@ scoped manual macOS path. The all-platform Native release workflow below retains
 its required Windows gate for other version tags.
 No hosted alpha is available until an actual successful build/publication is recorded.
 
+Manual macOS dispatch also offers optimize_size, default false. It forwards the
+explicit C++ size profile to the same release driver; compilation, all native
+tests, Designer editing and relocated-package checks remain required. The job
+summary reports the recorded C++ size flag and LTO setting with actual package
+bytes. This is an experimental build selection, not a claim of a smaller or
+validated hosted binary before that particular job passes. Push builds retain
+the default optimization profile.
+
 See [package size analysis](package-size.md) for the measured baseline and what is
 already stripped/shared versus remaining optimization candidates.
 
