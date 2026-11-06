@@ -45,3 +45,7 @@ It also composes an unreferenced deadline; run it with `mite examples/mite-tcp/c
 The [HTTP cancellation example](../../examples/mite-http/cancellation.mjs) aborts an
 incomplete response, handles both request/body errors, and closes its local server.
 Run it with `mite examples/mite-http/cancellation.mjs`.
+
+The [TLS client](../../examples/mite-tls/client.mjs) connects to a TLS echo peer.
+Pass host, port, optional CA-file path and optional DNS servername. It verifies
+peers by default; TLS server support in Mite remains unfinished.

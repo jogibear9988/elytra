@@ -15,6 +15,7 @@
 #include "platform/network/DNS.h"
 #include "platform/network/HTTP.h"
 #include "platform/network/Network.h"
+#include "platform/network/tls/Client.h"
 #include "platform/process/ChildProcess.h"
 #include "platform/process/ProcessHost.h"
 #include "platform/system/OS.h"
@@ -89,6 +90,8 @@ static constexpr std::string_view child_process_exports[] = { "spawn", "execFile
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
+static constexpr std::string_view tls_exports[]
+    = { "connect", "TLSSocket", "createServer", "createSecureContext" };
 static constexpr BuiltinDefinition definitions[] = {
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
@@ -97,6 +100,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
+    { "tls", { MITE_TLS_SOURCE, sizeof(MITE_TLS_SOURCE) - 1 }, tls_exports },
     { "http", { MITE_HTTP_SOURCE, sizeof(MITE_HTTP_SOURCE) - 1 }, http_exports },
     { "dns", { MITE_DNS_SOURCE, sizeof(MITE_DNS_SOURCE) - 1 }, dns_exports },
     { "dns/promises", {}, dns_promises_exports },
@@ -273,6 +277,16 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         auto url = TRY(builtin("url"));
         host->define_direct_property(
             "domainToASCII"_utf16, TRY(url->get("domainToASCII"_utf16)), JS::default_attributes);
+    }
+
+    if (name == "tls") {
+        host->define_direct_property("net"_utf16, TRY(builtin("net")), JS::default_attributes);
+        host->define_direct_property(
+            "native"_utf16, create_tls_host(m_realm), JS::default_attributes);
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property(
+            "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
 
     if (name == "net") {

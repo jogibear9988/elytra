@@ -3788,6 +3788,72 @@ turn's verification; new hosted acceptance remains required. No GUI is launched.
 Optimized macOS 8698725 run 42209659578 is now running, so preserve it rather than
 restart it. Native Windows/Linux desktop and new alpha acceptance remain pending.
 
+## 2026-11-06 — Native TLS client records and verified stream transport
+
+Previous goal turn: progress (HTTP cancellation committed/pushed). Hosted 8698725
+Linux and Windows pass HTTP cancellation but reveal a Node late-connect race in
+the pre-aborted TCP reference: retain Mite's strict zero-connect requirement and
+assert observed reference variants separately. Windows also encounters a locked
+process-test source at directory teardown. Commit 0cad92a isolates these harness
+corrections without weakening functional deadlines; new hosted verification is
+pending. Optimized macOS 8698725 run 42209659578 is confirmed running; preserve it.
+
+Add a real node:tls client over existing libuv TCP. Native OpenSSL memory BIOs own
+handshake/records/certificate verification and return copied byte snapshots. Use
+SSL in the existing pinned OpenSSL build; keep Mite independent of LibWeb/Firefly
+and Ladybird unmodified. Separate native provider/OS trust files under network/tls
+from the authored ESM Socket/Duplex adapter; reproduce the synchronous embedding
+factory and checked manifest. Shared Firefly provider integration continues using
+the existing SSL/Crypto targets rather than adding another engine or dependency.
+
+Support TLS 1.2/1.3, DNS/IP SAN verification, full-label wildcards, explicit/default
+anchors, ALPN/SNI, queued writes, one MiB transfer/read pressure, close_notify and
+AbortSignal teardown. Client streams are Socket/TLSSocket instances. Serialize
+application records in 16 KiB operations and bound native snapshots/pending bytes.
+No provider retains JS pointers. Private signal cancellation disposes subscription
+and native transport/provider state, including pending handshakes. System anchors
+use macOS Security, OpenSSL Windows ROOT provider and Linux distribution/default
+locations; complete OS trust-policy/revocation and deployed default trust remain
+unverified. Custom ca replaces defaults; explicit permissive mode records failure.
+CN fallback/partial wildcards and implicit environment verification bypass are not
+supported. TLS servers/reusable contexts/wrapping/client certs/ciphers/sessions/
+inspection and HTTPS/fetch remain explicit unfinished requirements.
+
+Validation:
+- Actual Node 24.15.0/Mite clients pass 34 version/case comparisons against separate
+  Node/OpenSSL peers: both versions, custom CA/arrays, SNI/ALPN/no-ALPN, IP/wildcard,
+  expired/self-signed/untrusted/hostname failures, permissive chain/host modes,
+  early writes, one MiB pressure, GC and abort. The non-GUI embedded host forces
+  GC before handshake and after verification. Default-store rejection is checked;
+  no claim covers every public/enterprise certificate policy.
+- Sixteen malformed/unsupported API policies reject explicitly, including bad
+  versions/prototype names, CA types/UTF-16, ALPN bounds, signals and unavailable
+  server/context modes. An independent raw OS peer observes ClientHello then EOF
+  when each runtime cancels a stalled handshake, without exposing application data.
+- A TLSv1.3 example runs in actual Node/Mite with identical trusted echo output.
+  It exposed a missing-ALPN null StringView crash before commit: handle absent
+  selection as an empty value and add no-ALPN cases for both versions.
+- Final standalone rebuild and all 52 CTests pass in 40.19 seconds
+  (tls-final-tests.log), including existing HTTP/TCP/streams/crypto/process and
+  integrity/checkout suites. Earlier full TLS runs also pass, but the final run
+  includes the no-ALPN regression and bounded plaintext-read correction.
+  A subsequent targeted TLS run also passes after adding positional-connect
+  overload coverage to the existing CA-array case (tls-positional-tests.log).
+- Firefly builds with the same SSL-linked runtime (tls-final-firefly-build.log).
+  No local GUI/desktop tests are launched. otool shows platform libraries only,
+  no Node/V8/Qt/LibWeb dependency in standalone Mite; Security/CoreFoundation are
+  system trust dependencies. Hosted native/desktop acceptance remains pending.
+- Style passes 106 Python, 474 JS/web/config, 133 native and 14 CMake sources plus
+  Rust. Both generators reproduce; runtime/Firefly/upstream integrity and actionlint
+  pass. Add TLS API reference, compatibility status, ESM example and ADR 0079.
+  Site validates 155 pages / 9732 links including this entry.
+
+Next: build HTTPS/fetch on the verified client transport, extend TLS options/trust/
+metadata/closure coverage as needed, and continue remaining runtime I/O/services,
+process/filesystem/general stream cancellation, desktop IPC/services and native
+Windows/Linux distribution/security work. The overall goal stays active; local
+GUI acceptance remains infrequent, targeted and batched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

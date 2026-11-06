@@ -35,6 +35,7 @@ function(mite_add_runtime target root js_target)
         net
         dns
         http
+        tls
         os
         crypto
         child_process
@@ -78,6 +79,8 @@ function(mite_add_runtime target root js_target)
         platform/network/Network
         platform/network/DNS
         platform/network/HTTP
+        platform/network/tls/Client
+        platform/network/tls/TrustStore
         # platform/text
         platform/text/URL
         platform/text/Encoding
@@ -108,7 +111,11 @@ function(mite_add_runtime target root js_target)
                ICU::uc
                $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>
                llhttp::llhttp_static
-               OpenSSL::Crypto)
+               OpenSSL::Crypto
+               OpenSSL::SSL)
+    if(APPLE)
+        target_link_libraries(${target} PUBLIC "-framework Security" "-framework CoreFoundation")
+    endif()
     add_custom_target(
         ${target}-integrity
         COMMAND "${Python3_EXECUTABLE}" "${root}/tooling/check_upstream.py"

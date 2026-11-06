@@ -245,6 +245,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-http-abort
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_abort.py"
                      --mite $<TARGET_FILE:mite>)
+    add_test(NAME mite-tls
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_tls.py" --mite
+                     $<TARGET_FILE:mite> --host $<TARGET_FILE:mite-embedded-host>)
     add_test(NAME mite-net
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net.py" --mite
                      "$<TARGET_FILE:mite>")

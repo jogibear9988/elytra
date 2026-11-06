@@ -163,8 +163,10 @@ await pipeline(
   ref/unref, addresses and selected options. OS hostname lookup/custom lookup and
   partial family retry are available. Socket construction/createConnection and
   Server.listen accept AbortSignal; see the [TCP reference](net.md).
-  Unix sockets, complete retry parity and TLS
-  remain open.
+  Unix sockets and complete retry parity remain open.
+- `node:tls`: partial native TLS 1.2/1.3 client streams with certificate/hostname
+  validation, custom/default anchors, ALPN and cancellation; see [TLS](tls.md).
+  TLS servers, HTTPS/fetch and full option parity remain open.
 - `node:dns` / `node:dns/promises`: lookup, getDefaultResultOrder and
   setDefaultResultOrder, plus ADDRCONFIG/V4MAPPED/ALL flags. Record query APIs are absent.
 - `node:http`: createServer, Server, IncomingMessage, ServerResponse, OutgoingMessage,
