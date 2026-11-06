@@ -4527,7 +4527,7 @@ distribution/security requirements. Goal remains active.
   coordinates against the actual reference, not a synthetic work-area midpoint.
 - Final shared actual Firefly/Electron fixture passes with empty stderr:
   decorated construction/outer bounds, content margins/size, partial outer/full
-  content setters, negative-origin policy, native positions, content-sized and
+  content setters, native positions, content-sized and
   frameless construction, queued move and matching center [564,150] relative to
   the tested work area. Windows remain hidden; load test documents before closing
   so helper startup is complete. Compare rectangle values independently of JSON
