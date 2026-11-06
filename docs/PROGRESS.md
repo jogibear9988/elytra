@@ -3019,6 +3019,15 @@ The requested first alpha is now delivered. Optimized fd2124e run42161235765 has
 started; do not cancel it. The modern ESM source/build integration still needs its
 own hosted package acceptance. Full native cross-platform/API/IPC goal stays active.
 
+After pushing wire98a8788 and modern-samples bf8c65d to master, dispatch the
+updated optimized macOS candidate at bf8c65d: run42166516264 is pending with
+optimize_size=true, shared_openssl=true and publish_alpha=false (HTTP 204).
+GitHub replaces the superseded pending default bf8c65d run42166450753; the already
+running fd2124e experiment42161235765 remains untouched. This updates the requested
+smaller-build candidate to include ESM-authored samples and wire gates. No second
+alpha is claimed before its own complete hosted artifact validation. The published
+first alpha remains the immutable 745c7af snapshot described above.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
