@@ -3691,6 +3691,21 @@ Windows/Linux distribution work. Native DNS request interruption, complete TCP
 phase/descriptor/reconnect parity and arbitrary event/GC cases remain open.
 Overall goal remains active; keep local GUI acceptance infrequent and batched.
 
+## 2026-11-06 — Bound pre-aborted TCP reference peer lifetime
+
+Linux run 42207827651 compiled 4b6f5f9 successfully but timed out in Node
+24.15.0's pre-connecting TCP fixture, before Mite was run for that case. The fixture
+waited for server.close while an accepted reference peer remained open during
+pre-aborted Socket startup. Explicitly destroy accepted test peers. Preserve the
+same zero-connect, one-AbortError and cause assertions; established cancellation
+and independent OS-peer gates separately prove native closure. Do not turn a
+reference timeout into a supported-platform success claim.
+
+Validation: all thirteen actual Node/Mite TCP cancellation cases pass locally
+(http-abort-reference-cleanup-tests.log). New hosted Linux/Windows verification is
+pending. Native Windows b5cadad now succeeds. Source style/Pages 4b6f5f9 succeed;
+its native Windows run remains pending observation. No GUI tests are launched.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -2,7 +2,11 @@
 import { createConnection, createServer } from 'node:net';
 const controller = new AbortController();
 controller.abort('before connect');
-const server = createServer((peer) => peer.resume());
+// A pre-aborted reference Socket can still reach accept on Linux. This fixture
+// asserts connect/error delivery, not peer EOF: release accepted test peers so
+// server.close cannot wait indefinitely on Node's startup race. Established
+// cancellation and independent-peer suites separately verify native closure.
+const server = createServer((peer) => peer.destroy());
 let connects = 0;
 let errors = 0;
 let correct = false;
