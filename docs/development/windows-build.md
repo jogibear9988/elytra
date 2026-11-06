@@ -204,6 +204,17 @@ entry spelling. Python samefile verifies filesystem identity; no output is
 normalized to mask differences. Local POSIX regression checks pass; native Windows
 acceptance of this candidate remains pending.
 
+The later native 6ba8af1 run passes initial CJS path metadata but exposes a separate
+ESM URL difference: Node encodes the short-name tilde as %7E; the loader left it
+literal, while Mite's public pathToFileURL already encoded it. A punctuation audit
+also found raw square brackets instead of %5B/%5D. The loader now uses matching
+escapes. A real tilde/bracket-containing directory reproduces the old
+failure on POSIX too. The native metadata suite checks filename-to-URL equality
+and shared module identity through raw/escaped tilde and bracket imports; Firefly's main ESM
+workflow also imports a real tilde-named dependency both ways. New Windows
+acceptance, including the previously unreached junction/short-alias checks, remains
+pending. File-path spelling itself is preserved, and general URL parsing is unchanged.
+
 ## CLI console byte output
 
 Native ef61124 run 42147228418 exposes an output-byte difference in the child

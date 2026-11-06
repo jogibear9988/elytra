@@ -28,6 +28,9 @@ to native filesystem paths. Unicode entry/dependency/package paths are compared
 with Node locally; native Windows acceptance of these fixes remains pending.
 UNC file-module URLs are still unsupported on Windows and fail explicitly with
 ERR_MITE_UNSUPPORTED_API. On POSIX, a nonlocal file-URL host remains invalid.
+Canonical module file URLs encode literal filename tildes/brackets as %7E/%5B/%5D, matching
+pathToFileURL(import.meta.filename). Raw and escaped tilde/bracket imports share the same
+module instance; native file metadata retains the actual ~ character.
 Windows module realpaths now use an owned link-aware path walk to preserve normal
 component spelling, including 8.3 aliases, while resolving symlinks/junctions.
 Exact Node metadata and shared linked-module caches are tested; the new Windows

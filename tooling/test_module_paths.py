@@ -17,7 +17,7 @@ def main():
     if not args.node:
         parser.error('Node is required')
     with tempfile.TemporaryDirectory(prefix='mite-native-paths-') as directory:
-        root = Path(directory) / 'project é文🪲 #%'
+        root = Path(directory) / 'project é文🪲 ~[]#%'
         root.mkdir()
 
         def write(name, text):
@@ -39,8 +39,9 @@ console.log(JSON.stringify({dep,pkg,filename:__filename,dirname:__dirname,entry:
 import {message} from './依存%23.mjs';
 import dep from './依存%23.cjs';
 import pkg from 'demo-pkg';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 if(fileURLToPath(import.meta.url)!==import.meta.filename)throw Error('Native import.meta path');
+if(pathToFileURL(import.meta.filename).href!==import.meta.url)throw Error('Canonical module file URL');
 console.log(JSON.stringify({message,dep,pkg,filename:import.meta.filename,dirname:import.meta.dirname,entry:process.argv[1],url:import.meta.url,main:import.meta.main}));
 ''')
         def compare(fixture):
@@ -70,17 +71,23 @@ console.log(JSON.stringify({message,dep,pkg,filename:import.meta.filename,dirnam
             compare(alias / esm.name)
             write('identity.cjs', 'module.exports={};')
             write('identity.mjs', 'export default {};')
+            write('tilde~.mjs', 'export default {};')
+            write('bracket[].mjs', 'export default {};')
             identity = write('link-cache.mjs', r'''
 import a from './identity.mjs';
 import b from '../linked%20project/identity.mjs';
 import c from './identity.cjs';
 import d from '../linked%20project/identity.cjs';
-console.log(JSON.stringify({esm:a===b,cjs:c===d}));
+import raw from './tilde~.mjs';
+import escaped from './tilde%7E.mjs';
+import bracket from './bracket[].mjs';
+import bracketEscaped from './bracket%5B%5D.mjs';
+console.log(JSON.stringify({esm:a===b,cjs:c===d,tilde:raw===escaped,brackets:bracket===bracketEscaped}));
 ''')
             for exe in [args.node, args.mite]:
                 result = subprocess.run([exe, str(identity)], capture_output=True, text=True, encoding='utf-8', timeout=20)
                 assert result.returncode == 0 and not result.stderr, result
-                assert json.loads(result.stdout) == {'esm': True, 'cjs': True}, result
+                assert json.loads(result.stdout) == {'esm': True, 'cjs': True, 'tilde': True, 'brackets': True}, result
             print('PASS linked entry metadata and shared ESM/CJS cache through directory link/junction')
         finally:
             if os.name == 'nt':

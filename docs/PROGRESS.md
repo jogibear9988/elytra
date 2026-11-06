@@ -2702,6 +2702,30 @@ the Node reference with native status 3221226505 while Mite completes; keep that
 comparison failed pending diagnosis. New API hosted acceptance/full hosted M1
 packages remain pending. No alpha or new package-size claim.
 
+## Canonical module file-URL escaping (2026-11-06)
+
+Fix the ESM URL discrepancy from native Windows 6ba8af1: filesystem metadata now
+preserves RUNNER~1, but ModuleLoader::path_to_url serialized literal ~ while Node
+and Mite's public pathToFileURL use %7E. Reproduce it locally with a real tilde
+directory before changing the encoder (build/module-tilde-before.log). A separate
+ASCII punctuation audit also finds raw square brackets instead of %5B/%5D; encode
+those alongside tilde in the owned loader. General URL parsing and native path
+spelling remain unchanged; Ladybird remains unmodified.
+
+Extend the existing Unicode/native metadata fixture with ~[] in its real directory,
+require import.meta.url===pathToFileURL(import.meta.filename).href, and require
+raw/escaped tilde AND bracket specifiers to share module instances. Preserve exact
+Node output comparison and all CJS/package/alias/junction checks. Add a real
+tilde-named Firefly ESM dependency, imported raw and escaped, whose own metadata
+must match pathToFileURL too. The targeted path suite and all 43 local native
+Release/size-profile CTests pass in 20.55s (build/module-tilde-{test,full-test}-final.log).
+Rebuilt actual Firefly migration/lifecycle/native controls/HTTP/child/renderer-crash
+workflow passes with that dependency (build/module-tilde-firefly-test-final.log).
+Pin/Python/site/diff checks pass. New Windows acceptance, including the formerly
+unreached junction/short-alias checks, remains pending. The detached-child pipe
+capture and Node-reference DNS fail-fast are independent open issues; no timeout
+or output normalization was relaxed and no alpha/package size is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

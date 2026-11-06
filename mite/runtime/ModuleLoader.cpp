@@ -26,11 +26,12 @@ using namespace ModulePaths;
 URL::URL ModuleLoader::path_to_url(fs::path const& path)
 {
     // Protect path characters which URL parsing would otherwise interpret as
-    // delimiters, escapes, backslashes or stripped whitespace.
+    // delimiters, escapes, backslashes or stripped whitespace. Node's canonical
+    // file URLs also encode tilde/brackets, unlike general URL path serialization.
     std::string encoded;
     auto utf8 = path.generic_u8string();
     for (unsigned char ch : utf8) {
-        if (ch == '%' || ch == '#' || ch == '?' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
+        if (ch == '%' || ch == '#' || ch == '?' || ch == '~' || ch == '[' || ch == ']' || ch == '\\' || ch <= 0x20 || ch == 0x7f) {
             static constexpr char hex[] = "0123456789ABCDEF";
             encoded += '%';
             encoded += hex[ch >> 4];
