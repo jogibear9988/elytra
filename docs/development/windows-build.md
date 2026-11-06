@@ -28,7 +28,9 @@ ctest --test-dir build/windows --output-on-failure
 
 Use a native Visual Studio x64 developer environment; the shared workflow action
 exports only its required toolchain variables. pkg-config is a native prerequisite
-as documented by upstream (the CI installs pkgconfiglite 0.28). Configure/build logs,
+as documented by upstream (the CI installs pkgconfiglite 0.28, with up to three
+attempts and 15/30-second backoff for feed outages). Installation still fails the
+job if all attempts fail; the installed executable must also run. Configure/build logs,
 vcpkg buildtree logs and test output are retained as diagnostic artifacts.
 Runs on the same ref are serialized so an in-flight native dependency build is not
 interrupted by another bring-up commit. Completed
@@ -137,3 +139,9 @@ throwaway default loop. This changes our ordering, not libuv/Ladybird source or
 process.ppid semantics. A fresh-process behavioral control compares ppid against
 the actual Python launcher PID under both Node and Mite. Native Windows acceptance
 still requires the next startup/runtime job; local checks alone cannot certify it.
+
+Runs 42138308876 (d9b1ec0) and 42138486271 (db0b611) could not test that fix:
+the Chocolatey prerequisite feed returned HTTP 504 and 503 respectively, before
+configuration/compilation. They are infrastructure failures, not new runtime traces.
+The shared setup action now retries the same pinned install at most three times.
+Actual startup and all runtime suites still require a successful native job.

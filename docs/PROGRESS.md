@@ -2142,6 +2142,24 @@ The current tested app sizes and default packager are unchanged. Three focused
 graph tests cover cyclic/renamed/build/dev retention, missing nodes and incomplete
 all-feature expansion; the actual audit report is build/rust-notice-audit.json.
 
+## Bounded Windows prerequisite retry and Linux startup acceptance (2026-11-06)
+
+Windows runs 42138308876/d9b1ec0 (job 127632017561) and 42138486271/db0b611
+(job 127633175751) are terminal failures before compilation: the Chocolatey
+pkgconfiglite feed returns HTTP 504 and 503 respectively. Neither exercises the
+libuv startup fix. Retry the same pinned 0.28 install at most three times with
+15/30-second backoff, preserving installation/executable failure as a failed job.
+No version fallback, skipped prerequisite or runtime-test relaxation is introduced.
+actionlint, diff whitespace and upstream pin checks pass locally; PowerShell and
+the actual retry/startup behavior still require native Windows CI.
+
+Linux run 42138308785 at d9b1ec0 (job 127631969080) passes all 38 suites in
+21.16s, CLI/linkage and upstream integrity after the libuv construction-order fix.
+This is default native Linux Release acceptance, not desktop or size-profile
+acceptance. macOS run 42125911196 remains authoritatively in progress at the full
+Release step; it is not cancelled/restarted due to its duration. Hosted package
+acceptance and alpha publication remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

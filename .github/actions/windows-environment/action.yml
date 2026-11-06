@@ -8,7 +8,17 @@ runs:
     - name: Native pkg-config prerequisite
       shell: pwsh
       run: |
-        choco install pkgconfiglite --version=0.28 --yes --no-progress
-        if ($LASTEXITCODE) { throw 'pkg-config installation failed' }
+        # The community feed can return transient 503/504 responses. Keep the
+        # pinned prerequisite and fail after a bounded number of attempts.
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+          choco install pkgconfiglite --version=0.28 --yes --no-progress
+          $installExitCode = $LASTEXITCODE
+          if ($installExitCode -eq 0) { break }
+          if ($attempt -eq 3) {
+            throw "pkg-config installation failed after $attempt attempts (exit $installExitCode)"
+          }
+          Write-Warning "pkg-config installation attempt $attempt failed (exit $installExitCode); retrying"
+          Start-Sleep -Seconds (15 * $attempt)
+        }
         & pkg-config --version
         if ($LASTEXITCODE) { throw 'Native pkg-config could not run' }
