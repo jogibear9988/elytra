@@ -86,6 +86,14 @@ missing/mixed/tampered artifact or mismatched compressed-size record is rejected
 The source CI remains responsible for actual runtime/renderer/sample/package
 acceptance. Verifier policy tests alone never certify native software.
 
+The hosted [promotion dry-run 42300365797](https://github.com/jogibear9988/elytra/actions/runs/42300365797)
+passes the actual cross-run download and verifier against alpha.1's original CI
+archives (source 745c7af, snapshot 0.1.0-dev.34). Its publication job is explicitly
+skipped with publish=false, so it does not change the existing release or tags.
+This proves hosted verification/transfer, not remote publication of a newer
+candidate. Upload/draft/digest publication remains separately gated.
+
+
 With publish enabled, a separate write-permission job reverifies the transferred
 bytes, creates an annotated tag at the **verified source commit**, and uploads to
 a draft. Existing tags cannot move and published releases cannot be overwritten.

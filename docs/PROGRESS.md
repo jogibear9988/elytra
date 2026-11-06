@@ -4945,6 +4945,26 @@ Linux services/renderer and macOS candidate gates remain separate/live; do not
 publish older easy-to-pass source as a substitute for the requested current
 candidate. Goal active; Windows/Linux desktop packages remain incomplete.
 
+## 2026-11-06: Hosted alpha promotion dry-run acceptance
+
+- Manual dry-run 42300365797 at d4bf7b0 completes verification job 128176254101
+  successfully. It actually downloads source run 42155631670's original native
+  macOS artifact and validates all five assets against source 745c7af/snapshot
+  0.1.0-dev.34. The reviewable eight-file verification bundle uploads successfully
+  as artifact 13543247981 (252533973 bytes), preserving the five original assets
+  plus authoritative run metadata, verification report and generated notes.
+- Publication job 128176345340 is explicitly skipped because publish=false.
+  No tag, draft, published release or existing asset is changed. This is actual
+  hosted cross-run download/verification/transfer acceptance, not a claim of a
+  tested real remote-upload publication path or a newly accepted native source.
+- Document the exact hosted evidence. Current Linux service dependency build
+  42299888412/job 128174620346 and full renderer/macOS candidates remain live;
+  preserve their handles and wait for actual outcomes before publication.
+
+Limits: only a successful current native/package source can qualify for the next
+alpha. Real draft upload/server-digest/publication acceptance and native Windows/
+Linux desktop delivery remain open. Goal active; no local GUI test is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
