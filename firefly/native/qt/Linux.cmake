@@ -1,5 +1,7 @@
 # Reuse the pinned Linux view, X11 chrome and accessibility implementation. This presents a real
 # window; it does not implement the Firefly desktop OS services.
+include("${CMAKE_CURRENT_LIST_DIR}/Requirements.cmake")
+firefly_require_wayland_native_interfaces()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FIREFLY_XCB_ICCCM REQUIRED IMPORTED_TARGET xcb-icccm)
 target_sources(

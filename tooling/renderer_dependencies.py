@@ -33,6 +33,7 @@ def manifest_data(root: Path, services=False):
             "png",
             "thread",
             "vulkan",
+            "wayland",
             "widgets",
             "xcb",
             "xcb-xlib",

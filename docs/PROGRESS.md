@@ -5014,6 +5014,33 @@ pending. Existing Linux services/renderer and macOS package candidates are live;
 continue their actual results and full required platform/distribution work.
 Goal active.
 
+## 2026-11-06: Match pinned Linux Qt Wayland interface requirements
+
+- Full native Linux renderer bd1a39b run 42293973172/job 128154307621 is terminal
+  compile failure in upstream ExternalURLActivationToken.cpp: QWaylandApplication
+  and private QWaylandWindow are absent from the selected Qt headers. Inspect
+  pinned Qt/vcpkg sources: both declarations are gated on QT_CONFIG(wayland),
+  while our Linux feature list enabled X11 but omitted that Qtbase feature.
+- Enable wayland in the owned Qtbase feature record and include native Wayland
+  protocol prerequisites. Keep the exact upstream Qt version/baseline/overrides
+  and unmodified Ladybird source. Do not omit the companion browser/resource
+  target or patch the activation source to bypass this real SDK contract.
+- Add a small SDK requirement module shared by Linux frontend and standalone
+  native services: inspect the actual imported Qt GUI enabled features and fail
+  configuration when Wayland interfaces cannot be enabled in this pinned SDK.
+  This checks the SDK contract, not runtime Wayland support; current gates remain
+  X11. Guard reads fresh imported metadata, without a stale cached probe result.
+- Actual local Qt SDK with Wayland disabled is rejected during configuration
+  with the owned diagnostic (linux-qt-requirement-negative.log). Native macOS
+  service configuration/build and both non-GUI protocol/guard tests still pass.
+  All 65 Release CLI CTests pass in 21.06 seconds, including updated manifest
+  invariants. Source style, actionlint, upstream and whitespace gates pass.
+
+Limits: rebuilding the pinned Linux Qt provider and real graph must establish
+positive native acceptance. Existing independent service/macOS candidates remain
+live and are not restarted on observation timeouts. Public Linux Wayland/desktop
+and Windows desktop/distribution work remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

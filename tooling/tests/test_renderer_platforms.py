@@ -37,7 +37,7 @@ def main():
         assert all(
             item["platform"] == "linux" and item["default-features"] is False for item in added
         )
-        assert {"gui", "widgets", "xcb", "fontconfig"} <= set(added[0]["features"])
+        assert {"gui", "widgets", "xcb", "wayland", "fontconfig"} <= set(added[0]["features"])
         services = prepare(ROOT, temporary / "services", services=True)
         check(ROOT, services, services=True)
         isolated = json.loads((services / "vcpkg.json").read_text())

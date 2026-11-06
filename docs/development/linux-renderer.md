@@ -45,6 +45,20 @@ licenses, resolves overlay paths absolutely and refuses stale generated data.
 It does not add Mite's I/O dependencies to the standalone renderer graph. Qt is
 built through pinned vcpkg; the adapter does not rely on an older distribution Qt.
 
+The pinned Linux Qt UI also requires Qtbase's wayland feature: its external-URL
+activation source uses QWaylandApplication and private QWaylandWindow interfaces
+while compiling the companion browser/resource target, even for X11/headless
+acceptance. Include this feature with the existing X11 features and install the
+native Wayland development/protocol prerequisites. Do not patch the upstream
+activation code or omit its native compile gate to hide a mismatched Qt SDK.
+
+Both the full frontend adapter and independent service project inspect the actual
+imported Qt GUI SDK's enabled public features at configuration. A provider without
+wayland fails before the large native compilation. This is an SDK feature-contract
+check, not proof of native Wayland presentation/activation behavior; those tests
+remain separate and unverified. Current native window/clipboard gates use xcb.
+
+
 On a prepared native Linux machine:
 
 ```sh
