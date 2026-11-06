@@ -29,11 +29,15 @@ ERR_FIREFLY_NOT_READY; after app exit it throws ERR_FIREFLY_APP_EXITED.
 
 ```js
 import {app, BrowserWindow} from 'firefly';
-await app.whenReady();
-const window = new BrowserWindow({width: 1000, height: 700, show: false});
-window.on('ready-to-show', () => window.show());
-await window.loadFile('index.html');
 app.on('window-all-closed', () => app.quit());
+app.whenReady().then(async () => {
+  const window = new BrowserWindow({width: 1000, height: 700, show: false});
+  window.once('ready-to-show', () => window.show());
+  await window.loadFile('index.html');
+}).catch(error => {
+  console.error(error.message);
+  app.exit(1);
+});
 ```
 
 ready-to-show is an observed native paint event; exact Electron presentation timing
@@ -63,6 +67,127 @@ calling destroy makes isDestroyed true before the native closed notification.
 A pending load rejects when the window is closed. Loading has its own
 [validation and Promise contract](web-contents.md).
 
+## Instance properties
+
+### window.id
+
+Numeric native window identifier, assigned at construction. Use it with
+BrowserWindow.fromId(id). It identifies a window, not a renderer process. Treat it
+as application read-only: the current JavaScript field does not enforce immutability.
+Do not reuse a saved id after closure.
+
+### window.webContents
+
+The window's associated [webContents](web-contents.md) instance, created with the
+window. Its lifetime follows its owner. Treat this field as read-only; replacing
+it does not replace the native renderer. There is no constructor for public
+standalone WebContents instances.
+
+## Instance method details
+
+Unless stated otherwise, methods take no arguments and return undefined. Calls
+are synchronous requests to the native adapter; they do not return a Promise for
+animation, focus acquisition or presentation. After destruction, controls and
+queries except isDestroyed/destroy throw ERR_FIREFLY_OBJECT_DESTROYED. While native
+closure is pending, do not continue issuing controls: adapter errors during that
+interval do not have a stable public error classification.
+
+### window.show() / window.hide() / window.isVisible()
+
+show requests native visibility; hide requests native hiding without destroying
+the window or removing it from the registry. isVisible returns a boolean from the
+native window. Hidden windows still need explicit closure. Visibility does not
+prove that content has painted or that another application has not covered it.
+
+### window.focus()
+
+Raises and requests activation/focus for the native window. Operating-system
+focus policy can refuse activation. It provides neither a success boolean nor a
+focus-completion event contract.
+
+### window.setSize(width, height[, animate = false])
+
+- width: integer, 1 through 16384.
+- height: integer, 1 through 16384.
+- animate: default false; a truthy value throws ERR_FIREFLY_UNSUPPORTED_API.
+
+Invalid dimensions throw ERR_INVALID_ARG_VALUE; there is no string coercion.
+Returns undefined. This resizes the native window, not a specified content-area
+rectangle. Animation and device-pixel conversion parity are not established.
+
+### window.getSize()
+
+Returns a fresh two-element array [width, height] from the native window's current
+size. Values are numbers. Native layout/window-manager constraints can affect the
+observed size; use the query rather than assuming a request was applied exactly.
+
+### window.minimize() / window.maximize() / window.unmaximize()
+
+Request the corresponding native state. unmaximize requests the normal state.
+These operations emit observed state events asynchronously; no completion Promise
+is returned. Native desktop policy and presentation are platform dependent.
+
+### window.restore()
+
+Clears the native minimized state and shows the window. A previously maximized
+window can remain maximized. To explicitly request normal size use unmaximize.
+
+### window.isMinimized() / window.isMaximized()
+
+Return native state booleans. They are observations, not requests. Minimized and
+maximized state must not be inferred solely from isVisible or from window size.
+
+### window.setTitle(title) / window.getTitle()
+
+setTitle takes a string, including the empty string, and returns undefined.
+Other types throw ERR_INVALID_ARG_TYPE. getTitle returns the current native
+window title. Later page-title-updated notifications can overwrite a manually set
+title unless the listener prevents that automatic assignment. The document title
+is separately available from webContents.getTitle().
+
+```js
+window.on('page-title-updated', event => event.preventDefault());
+window.setTitle('My application');
+```
+
+### window.loadFile(filePath[, options]) / window.loadURL(url[, options])
+
+Delegate to the associated webContents, returning its Promise<void>. Arguments,
+validation, pending-load replacement and errors are documented in the
+[loading reference](web-contents.md#loadfilefilepath-options). These methods do not
+create another window. An invalid request can throw before a Promise is returned;
+wrap the call itself in try/catch, not only a later .catch callback.
+
+### window.close()
+
+Requests normal closure and returns undefined, including when cancelled. The
+close event is synchronous; call event.preventDefault() in that listener to cancel.
+Once accepted, native closure follows and eventually emits closed. Do not use the
+return value to determine whether the user cancelled. A close request already in
+progress is not sent twice. It does not run renderer beforeunload.
+
+```js
+let hasUnsavedChanges = true;
+window.on('close', event => {
+  if (hasUnsavedChanges) event.preventDefault();
+});
+// After saving: hasUnsavedChanges = false; window.close();
+```
+
+### window.destroy()
+
+Requests native destruction without emitting the cancellable close event. Returns
+undefined. Repeated calls during closing or after destruction do nothing. The
+closed notification still records destruction; a pending load then rejects
+ERR_ABORTED. isDestroyed need not become true during this call. This differs from
+[app.exit](app.md#appexitexitcode), which synchronously marks registered windows
+destroyed as part of forced application shutdown.
+
+### window.isDestroyed()
+
+Returns the recorded destruction boolean. Safe after closure. A false result
+while closing is not permission to issue additional native operations.
+
 ## Window registry
 
 | Static method | Return |
@@ -70,6 +195,13 @@ A pending load rejects when the window is closed. Loading has its own
 | BrowserWindow.getAllWindows() | New array of currently registered windows |
 | BrowserWindow.fromId(id) | Registered window or null |
 | BrowserWindow.fromWebContents(contents) | Owning registered window or null |
+
+getAllWindows takes no arguments and returns a new array; mutating that array does
+not mutate the registry. Closing windows remain registered until their native
+closed notification. fromId compares the provided key without coercion, so a
+numeric id and its string representation do not match. fromWebContents compares
+object identity. Unknown ids/unrelated objects return null rather than constructing
+a new window.
 
 Windows leave the registry on closure. Holding a JS reference does not keep a native
 closed window usable. Keep application ownership explicit and stop background work
@@ -120,6 +252,13 @@ Minimize/maximize/restore states match the pinned Electron fixture on this host.
 Firefly state events pass; Electron maximize-event delivery could not be established
 in the locked desktop session, so full reference event timing/presentation remains
 unverified. See [ADR 0055](../architecture/0055-custom-window-chrome.md).
+
+## Examples
+
+[Quick start](../examples/quick-start.md), [custom window chrome](../examples/window-customization.md)
+and [lifecycle](../examples/lifecycle.md) have real shared native startup assertions.
+The [complete desktop catalog](../examples/index.md) also supplies reference code
+for native features still missing from Firefly; each page states its exact status.
 
 ## Missing surface and evidence
 

@@ -3065,6 +3065,30 @@ new gate remains pending. Documentation navigation includes the catalog and each
 topic's setup/limits. Ladybird unchanged; desktop platform/API implementation
 remains incomplete. The published alpha.1 predates these examples.
 
+## 2026-11-06 — Detailed desktop API references
+
+Replace the short app summary with a member-indexed reference for the implemented
+singleton: parameter/default/return/error tables, shared readiness Promise behavior,
+normal quit sequence, synchronous cancellation/retry and partial window rollback,
+forced exit/status validation, all five emitted events and exact argument shapes.
+Describe differences from Electron's last-window defaults and missing OS/native
+members explicitly; registering an arbitrary EventEmitter name is not support.
+Link actual ESM lifecycle sources, native/reference fixtures and alpha provenance.
+
+Expand BrowserWindow with per-method control/query/close/destruction contracts,
+properties, registry identity and option validation. Distinguish restore from
+unmaximize and native title from page title. Expand webContents member entries and
+loading/event details, validation versus rejected Promises, superseded loads,
+timeout/crash limits and PID lifetime. Correct stale preload wording: public
+contextBridge is partial, public main/renderer IPC remains unsupported. Update the
+documentation baseline to reflect these references and the 23-app catalog.
+
+Validate against owned firefly/core/firefly.js and existing native/reference tests;
+no runtime/upstream edits in this documentation step. Site/link/fragment validation
+passes after these changes; the six real catalog assertions and forced-exit trace
+passed in the preceding step. Windows/Linux desktop, missing APIs, broader native
+integration and newer hosted artifact acceptance remain work in progress.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

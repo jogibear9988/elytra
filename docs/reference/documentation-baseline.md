@@ -1,6 +1,6 @@
 # Documentation baseline: Node.js and Electron
 
-Reviewed 2026-11-05. Behavioral references remain **Node 24.15.0** and **Electron
+Reviewed 2026-11-06. Behavioral references remain **Node 24.15.0** and **Electron
 45.2.3**, matching the repository's test references. Documentation coverage follows
 our product specification and measured implementation; a reference chapter does not
 make its corresponding API available here.
@@ -25,8 +25,8 @@ Firefly should approach as its implementations grow.
 | Introduction and installation | Source-build quickstart; renderer and Windows development notes | Separate first-use paths for runtime and desktop; requirements, expected output, supported host and upgrade procedure |
 | Learning path | Runnable CLI/server/desktop examples | Explain modules, async/resource lifetime and process boundaries before advanced recipes |
 | Runtime reference | One Mite overview and measured compatibility tables | Dedicated CLI/module/class entries with parameter types/defaults, return values, errors, async behavior and examples |
-| Desktop reference | One Firefly overview for app/window/webContents | Separate entries for those objects and their events; process availability, destruction and unsupported options explicit |
-| Examples | CLI, FS, TCP, streams, HTTP, native window and pinned Designer | An examples index with exact commands, observed scope, prerequisites and links to source/tests |
+| Desktop reference | Detailed [app](../api/app.md), [BrowserWindow](../api/browser-window.md), [webContents](../api/web-contents.md) and [contextBridge](../api/context-bridge.md) entries | Keep method signatures, errors, cancellation and lifetime synchronized with each implemented change; add native services as they become available |
+| Examples | Runtime/Designer examples and [23 desktop topic apps](../examples/index.md), six native shared slices and 17 explicit Firefly blocks | Preserve per-topic source/API links, manual prerequisites and measured scope; reference-only code does not establish feature support |
 | Migration | Compatibility matrices | Practical Node and Electron audits, import changes, package/feature checks and known blockers |
 | Security | Detailed internal isolation ADRs and test gates | Application-author guidance describing actual controls and remaining gaps, plus the future public IPC contract |
 | Distribution | Experimental macOS packager and gated release driver | App-author guide, complete native platform acceptance, dependency notices, signing/notarization and installation/update lifecycle |
@@ -69,7 +69,7 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 
 | Family | Current Firefly scope | Next acceptance/reference needs |
 | --- | --- | --- |
-| app / BrowserWindow / webContents | Partial main-process API | Complete documented signatures, options, events, resource lifetime, failures and OS behavior |
+| app / BrowserWindow / webContents | Partial main-process API with detailed per-member references | Broader API and native OS acceptance remain; document each new implementation with behavior and differential evidence |
 | Preload / contextBridge / ipcMain / ipcRenderer | [Bounded CommonJS preload/publication reference](../api/context-bridge.md); IPC unsupported | Validated main/renderer transport, sender/frame policy and broader callback/value compatibility remain |
 | dialog / Menu / MenuItem / Tray | Unsupported | Native implementations and practical application examples |
 | clipboard / shell / screen / nativeImage / session | Unsupported | Native services, permission policies, platform differences and migration fixtures |
