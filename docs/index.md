@@ -4,8 +4,9 @@ Mite runs JavaScript on LibJS. Firefly uses Mite for its main process and Ladybi
 for desktop rendering. Start with a working example, then check the supported API
 subset before migrating an application.
 
-**Current native evidence:** macOS ARM64. Native Windows bring-up is running;
-Windows/Linux runtime and desktop releases remain unverified. Public preload,
+**Current native evidence:** macOS ARM64, plus the scoped
+[Linux x64 Mite baseline](development/linux-build.md). Native Windows runtime
+bring-up and Windows/Linux desktop releases remain unfinished. Public preload,
 contextBridge and IPC are not available yet. See [compatibility](compatibility/mite-0.1.md)
 and [implementation progress](PROGRESS.md) for the actual limits.
 

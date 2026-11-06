@@ -1,6 +1,8 @@
 # Mite runtime API
 
-Status: partial Node-style runtime; tested on macOS ARM64 against Node 24.15.0.
+Status: partial Node-style runtime; tested on macOS ARM64 against Node 24.15.0,
+with the scoped [Linux x64 baseline](../development/linux-build.md) also passing
+the enabled runtime suites. Later profiles/SDK changes require their own acceptance.
 See the [compatibility matrix](../compatibility/mite-0.1.md) for differences and
 [getting started](../getting-started.md) for builds. This is the supported subset,
 not a promise that every Node option or overload works.
@@ -164,7 +166,8 @@ CPU/account/interface data are native snapshots. userInfo supports encoding opti
 getPriority defaults to the current process. `setPriority(priority)` targets the
 current process; `setPriority(pid, priority)` uses the explicit PID. Privileges and
 platform rules apply. Constants derive from native SDK/libuv headers. Native
-Windows/Linux values and behavior still need validation.
+Windows values and behavior still need native validation. The Linux baseline
+passes the documented OS tests; unusual environments/failure modes remain open.
 
 ## node:crypto
 

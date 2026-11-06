@@ -2013,6 +2013,25 @@ the observed include seam; native probe compilation/stack reporting and the orig
 VM access violation remain unverified until the next job. Python/actionlint checks
 pass; no native Windows success is claimed from the local source inspection.
 
+## Native Linux baseline accepted (2026-11-06)
+
+Run 42130905759 at ff51eab (job 127606954442) is terminal success on Ubuntu 24.04
+x64 with Clang 22 / Rust 1.98.0. All 37 enabled Mite suites pass in 14.77s, including
+host embedding, modules/packages, event ordering, FS/network/DNS/HTTP, OS, random/
+hash and real npm fixtures against Node 24.15.0. CLI hello/ESM/CommonJS examples
+also run successfully. ldd lists libatomic, libm, libstdc++, libgcc_s, libc and the
+normal loader; no LibWeb, Qt, Node or V8 runtime dependency is present. Upstream
+integrity passes after the build. This establishes the documented subset on that
+native host/source, not broad distribution or full Node compatibility.
+
+Update central support/build/API/compatibility documentation to record this exact
+baseline rather than continue saying Linux was never run. Firefly Linux/windows,
+desktop sandbox/helpers and packages remain unimplemented/unverified. The baseline
+predates the new execution-context adapter and size profile; their next Linux job
+must independently accept them. No prior success is used to certify new flags.
+Site validation passes 101 generated pages / 5243 local links/resources/fragments
+(build/linux-baseline-site.log).
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

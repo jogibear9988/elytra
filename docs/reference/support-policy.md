@@ -21,7 +21,9 @@ Export presence alone does not establish that every mode is supported.
 
 Native macOS ARM64 has working builds and the recorded runtime/renderer tests.
 Windows bring-up is ongoing; a successful checkout/compiler setup is not successful
-runtime, renderer, sandbox or package validation. Linux remains unverified here.
+runtime, renderer, sandbox or package validation. The [Linux Mite baseline](../development/linux-build.md)
+at ff51eab passes all 37 runtime suites and CLI/linkage checks on Ubuntu 24.04 x64;
+it does not validate Firefly, other distributions or later compiler/SDK profiles.
 Lexical Windows path tests on macOS do not establish native Windows I/O behavior.
 
 Experimental macOS packages are ad-hoc signed and not notarized. Their minimum OS

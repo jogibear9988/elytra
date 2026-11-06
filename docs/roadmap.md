@@ -7,7 +7,8 @@ A documented plan is not an implemented or tested API. No release dates are prom
 ## Current measured foundation
 
 Mite has a real LibJS CLI and selected Node-style modules, native I/O, timers,
-streams/networking and crypto foundations on tested macOS ARM64. Firefly has a native
+streams/networking and crypto foundations on tested macOS ARM64 and a scoped
+[Linux x64 runtime baseline](development/linux-build.md). Firefly has a native
 macOS window/lifecycle/loading slice, isolated renderer defaults and a runnable pinned
 Designer sample. Experimental relocated macOS bundles pass focused tests. The public
 preload/contextBridge/IPC APIs, broad Node/Electron parity and complete native

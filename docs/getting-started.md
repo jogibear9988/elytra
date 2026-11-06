@@ -4,8 +4,9 @@ Mite is a standalone JavaScript runtime using LibJS. Firefly adds native desktop
 windows and Ladybird rendering, with Mite in the main process. Neither embeds Node
 or V8. Both projects are in early development; build from source for now.
 
-The tested native host is macOS ARM64. Windows/Linux builds, native desktop adapters,
-signing and distributable packages are still being implemented. No WSL or alternate
+Native tests cover macOS ARM64 and a scoped [Linux x64 Mite baseline](development/linux-build.md).
+Windows runtime acceptance, Windows/Linux desktop adapters, signing and distributable
+packages are still being implemented. No WSL or alternate
 browser engine is used as a fallback.
 
 ## Build Mite

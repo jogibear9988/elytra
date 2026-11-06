@@ -1,12 +1,14 @@
 # npm package measurements for Mite 0.1
 
 Verified on macOS ARM64 with the native Debug Mite executable and Node v24.15.0.
+The [Linux x64 baseline](../development/linux-build.md) also passes the enabled
+real-package/runtime suites in Release at ff51eab; later profiles need their own gate.
 Dependencies come from `tooling/npm-fixtures/package-lock.json`; npm ci verifies
 its locked integrity values, and package installation scripts are disabled.
 The ten focused application fixtures pass with identical stdout, stderr and exit
 status in Mite and Node. They execute the published package source through the
 normal CJS/ESM loader and node_modules layout. Full upstream package test suites
-and Windows/Linux execution have not been run.
+and native Windows execution remain unverified; Linux evidence is limited to the baseline above.
 
 | Package | Version | Status | Measured behavior | License |
 | --- | --- | --- | --- | --- |
@@ -30,7 +32,7 @@ chunks are tested; WHATWG/Node stream objects are not yet supported by Mite.
 
 The filesystem package cases create isolated file/directory/symlink fixtures; they
 do not mock the native filesystem. Symlink creation requires host privileges,
-and native Windows/Linux execution remains unverified. No package source is edited.
+and native Windows execution remains unverified; Linux baseline scope is recorded above. No package source is edited.
 
 License notices remain in the installed package directories. The runner verifies
 that the installed versions match the lock and that their upstream license files

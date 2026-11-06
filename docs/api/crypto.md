@@ -1,7 +1,9 @@
 # node:crypto
 
 Availability: Mite CLI/server applications and the Firefly main process. Partial
-implementation tested on macOS ARM64; native Windows/Linux acceptance is pending.
+implementation tested on macOS ARM64 and in the scoped
+[Linux Mite baseline](../development/linux-build.md). Windows and subsequent
+compiler/SDK-profile acceptance remain pending.
 Ladybird renderers do not receive this module or a privileged global crypto object.
 
 ```js

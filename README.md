@@ -9,9 +9,10 @@ Electron-compatible desktop framework. The implementation requirements are in
 [mite-firefly-agent-instructions.md](mite-firefly-agent-instructions.md).
 
 Mite runs a tested subset of Node-style CLI, module, timer, Buffer and filesystem behavior on macOS
-ARM64. Firefly now runs a first native macOS app/BrowserWindow slice on Mite,
+ARM64, with a [native Linux x64 baseline](docs/development/linux-build.md) also passing its runtime suites.
+Firefly now runs a first native macOS app/BrowserWindow slice on Mite,
 with a shared Electron lifecycle fixture. General compatibility and native
-Windows/Linux validation remain work in progress. See the
+Windows runtime and Windows/Linux desktop validation remain work in progress. See the
 [Firefly development build](docs/development/renderer-build.md) and
 [compatibility matrix](docs/compatibility/firefly-0.1.md).
 See [implementation progress](docs/PROGRESS.md) and the
@@ -53,10 +54,10 @@ build/dev/bin/mite examples/mite-cli/commonjs.cjs
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
 Ninja; set `CC=clang-cl` and `CXX=clang-cl` in that terminal before configuring.
-Windows and Linux are not yet verified. The [native Windows bring-up guide](docs/development/windows-build.md)
+Windows runtime acceptance remains pending. The [native Windows bring-up guide](docs/development/windows-build.md)
 records the CI path, actual setup evidence and remaining gates. This project does not use WSL as a runtime
 or build fallback. The [native Linux bring-up guide](docs/development/linux-build.md)
-records the separate Ubuntu/Clang runtime gate; its initial hosted validation is pending.
+records the passing Ubuntu/Clang baseline and the scope still requiring validation.
 Firefly and npm compatibility are still under development; see
 [Mite coverage](docs/compatibility/mite-0.1.md) and
 [Firefly coverage](docs/compatibility/firefly-0.1.md).

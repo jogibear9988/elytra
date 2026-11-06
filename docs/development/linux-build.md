@@ -6,9 +6,17 @@ It runs the same enabled CTest suites and locked npm fixtures as the other nativ
 runtime jobs, then the CLI examples and ldd. Tests are not skipped or replaced
 with a Node execution. Node is only the differential reference/build tool.
 
-**Status: workflow implemented; first native build and behavior results pending.**
-This is not a Linux support announcement or a Firefly desktop/package gate.
+**Measured baseline:** [run 42130905759](https://github.com/jogibear9988/elytra/actions/runs/42130905759)
+at ff51eab passes native compilation, all 37 enabled runtime suites (14.77s),
+the three CLI examples and linkage inspection. Node 24.15.0 is the differential
+reference. The ELF links only normal Linux system/runtime libraries, with no
+LibWeb, Qt, Node or V8 dependency. This validates the documented Mite subset on
+Ubuntu 24.04 x64, not arbitrary Linux distributions or a Firefly desktop/package gate.
 There is no Linux GUI dependency in the standalone Mite source graph.
+
+That baseline predates the new null-deallocation adapter and explicit size-profile
+experiment. Those changes need their own native Linux acceptance; a prior green
+job does not certify an untested compiler profile or subsequent SDK integration.
 
 ## Compiler and prerequisites
 
@@ -44,8 +52,9 @@ initial platform gate.
 The workflow retains CMake, Cargo, vcpkg and CTest logs even after failures.
 Dependency caches use individual ABI keys and unique saves so partial build
 downloads can accumulate; a restored cache never substitutes for compilation or
-tests. An actual hosted result must establish compilation, filesystem/network/OS
-behavior, linkage and CLI operation. Investigate failures against native Node
+tests. The initial result establishes the measured compilation, filesystem/network/OS
+contracts, linkage and CLI examples; each subsequent revision/profile still needs
+its own gate. Investigate failures against native Node
 observations without weakening tests to advertise unsupported behavior.
 
 Firefly Linux windows, renderer helper/sandbox integration and distributable
