@@ -2897,6 +2897,13 @@ Release/package step. No running job canceled/restarted and no alpha published.
 Public IPC, broad runtime/desktop compatibility and native Windows/Linux Firefly
 packages remain open; the full implementation goal stays active.
 
+After pushing fd2124e, dispatch macOS experiment run
+[42161235765](https://github.com/jogibear9988/elytra/actions/runs/42161235765)
+at that exact source with optimize_size=true, shared_openssl=true and
+publish_alpha=false. GitHub accepts the dispatch (HTTP 204) and reports it pending
+behind the confirmed running macOS package job. Default modes remain unchanged;
+this queued experiment is not hosted acceptance. No alpha tag/release created.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
