@@ -27,8 +27,12 @@ ctest --test-dir build/windows --output-on-failure
 ```
 
 Use a native Visual Studio x64 developer environment; the shared workflow action
-exports only its required toolchain variables. pkg-config is a native prerequisite
-as documented by upstream (the CI installs pkgconfiglite 0.28, with up to three
+exports its required toolchain variables. It also enables
+[Python UTF-8 mode](https://docs.python.org/3.12/using/cmdline.html#envvar-PYTHONUTF8)
+for fixture files and captured runtime text, independent of the runner's ANSI
+locale. This does not change the native CLI's argument conversion or filesystem
+behavior. pkg-config is a native prerequisite as documented by upstream
+(the CI installs pkgconfiglite 0.28, with up to three
 attempts and 15/30-second backoff for feed outages). Installation still fails the
 job if all attempts fail; the installed executable must also run. Configure/build logs,
 vcpkg buildtree logs and test output are retained as diagnostic artifacts.

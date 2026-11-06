@@ -1,5 +1,7 @@
 $ErrorActionPreference = 'Stop'
 if (!$IsWindows) { throw 'This action requires native Windows' }
+# Fixtures and runtime pipes use UTF-8, independently of the runner's ANSI locale.
+"PYTHONUTF8=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 $install = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if (!$install) { throw 'Visual Studio C++ tools are required' }

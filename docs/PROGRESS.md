@@ -2232,6 +2232,20 @@ locale codec; other path/filesystem differences and a Node-reference network
 timeout remain to diagnose. This is not full Windows acceptance. macOS release
 42125911196 remains live; no alpha release is claimed.
 
+## Windows harness text encoding (2026-11-06)
+
+The first post-startup Windows suite result (42139627506, 25/38 passed) exposes
+fixture writes and captured UTF-8 runtime output going through Python 3.12's
+locale ANSI codec. Hash/OS/path fixtures fail to encode Unicode source, and
+OS/encoding/buffer/URL readers fail to decode UTF-8 bytes. Enable PYTHONUTF8=1
+through the shared native Windows action's GITHUB_ENV for subsequent Python
+processes, including child test launchers. This changes the harness text contract,
+not Mite/Node argument conversion or filesystem results. No failed suite is skipped
+or normalized away. actionlint, diff and documentation-site checks pass locally;
+actual Windows text I/O and remaining native failures await the next job.
+The CLI Unicode argument, module/package path and filesystem differences plus the
+Node-reference backpressure timeout remain separate unresolved evidence.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
