@@ -6463,6 +6463,44 @@ site 191 pages / 13,489 local links/resources/fragments passes. No local GUI.
 Native Linux/Windows acceptance of this new view slice remains pending. Full goal
 active; Code-OSS does not run yet.
 
+## 2026-11-07: Implement a private native byte channel and real child-process gate
+
+- Previous turn made progress: native typed/DataView snapshots at 3c86eed pass real
+  graph/process tests. Continue the Code-OSS critical path with actual byte delivery,
+  preserving the full original platform/security/Designer objective.
+- Add an owned LibIPC/LibCore/AK-only channel over the pinned native transport, with
+  FFBC fixed header/raw payload, 128-KiB packet maximum, sixteen send/receive slots,
+  payload-byte accounting and delivery ACK credit. Return capacity errors explicitly;
+  reject replay/unknown ACK/header/length/attachment violations and revoke on EOF.
+- Keep native received bytes/mapping alive during borrowed callbacks; no additional
+  receive payload copy or text encoding. Dispatch on the Core owner thread, preserve
+  FIFO through nested pumping and count active batches/empty frames against limits.
+  Retain callback ownership when callbacks close/release their channel. Request
+  fail-instead-of-block native pipe behavior on Windows; no unsandboxed fallback.
+- Add actual kernel-transport tests for packet maxima/source mutation, sequence/
+  credit reuse, zero-byte receive flood, reentry, unexpected descriptor and peer
+  loss. Independent Python validates/constructs exact packet bytes and malformed
+  cases. Windows fixture stdio uses binary mode for arbitrary-byte protocol tests.
+- Spawn a real native peer: macOS admits the one owned PID once via Mach bootstrap;
+  Unix/Windows branches inherit only the child's channel/broker endpoints and
+  restore fixture environment. Protect partial launch cleanup, terminate/reap
+  failed owned children and bound child bootstrap by a test-only watchdog. Require
+  child-reported actual OS PID and all 65,536 bytes, plus an empty message/ACK.
+- Add check-firefly-byte-channel to existing wire/isolation CI gates. Document
+  exact component scope in ADR 0100 and Code-OSS/file guides. Raw channel handoff
+  to actual WebContent, document/realm/epoch authorization/control-plane ordering,
+  VM-safe payload routing and public bridge/port support remain required. Upstream
+  transport allocations are outside these application-layer queue bounds; this
+  is neither a full containment nor zero-copy/performance proof.
+
+Validation: local macOS native component target compiles/links and its complete
+Python gate passes, including real parent/child PID/data/ACK and native negative
+cases. Link/native dependency inspection has no JS/Web/WebView/Mite/QtWidgets
+inputs. Full pinned formatting, syntax/diff and unmodified-upstream checks pass;
+site 192 pages / 13,559 local links/resources/fragments pass. No local GUI. New
+Linux/Windows paths remain natively unaccepted; public IPC stays plain-data and
+Code-OSS still does not run. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

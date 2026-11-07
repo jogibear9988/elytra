@@ -20,6 +20,12 @@ IPC/Buffer workflows, frozen contextBridge publication, streaming or shared stor
 Full backing storage is visible in a cloned view; use a dedicated range when
 limiting exposed bytes. No throughput/latency or zero-copy claim follows from this.
 
+A [private native byte-channel component](../architecture/0100-native-byte-channel.md)
+now passes local macOS transport and separate-child tests with raw bytes,
+acknowledgement credit and explicit queue limits. Its actual main/WebContent
+handoff, canonical document authorization and public bridge integration are still
+missing; existing public IPC support remains unchanged.
+
 ## What Electron and Code-OSS actually establish
 
 Electron [IPC](https://www.electronjs.org/docs/latest/api/ipc-renderer) uses structured

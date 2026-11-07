@@ -57,6 +57,10 @@ DataView offsets, repeated-view identity and shared backing with raw attachments
 The public binary IPC/Uint8Array/port path required by Code-OSS is still missing;
 actual Mite Buffer/main-process integration and Linux/Windows execution need gates.
 
+The [native byte channel](../architecture/0100-native-byte-channel.md) also passes
+its local macOS component/owned-child gate. This supplies a real byte transport,
+not yet a document-bound Code-OSS or public Firefly IPC path.
+
 ## Implementation order
 
 Choose general compatibility work against this application path first. Keep
