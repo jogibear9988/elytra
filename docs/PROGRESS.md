@@ -6146,6 +6146,30 @@ without native Windows calls or GUI. Fresh native observer acceptance is require
 Original Windows/Windows-renderer and Linux native builds remain under their own
 gates. Goal active.
 
+## 2026-11-07: Prove the native Windows observer and isolate CI formatter state
+
+- Corrected native component run 42353208189/job 128345576075 at 2498e71 succeeds
+  on Windows x64: real current/owned child image, parent PID, creation/liveness,
+  primary-token integrity/AppContainer/restriction/job queries, invalid PID and
+  already-exited child refusal. The class-21 decoder requires its actual one-byte
+  payload; this is native evidence, not the local unsupported-host guard.
+- Keep scope precise: the native Python child proves observer mechanics, not the
+  separate LibWeb renderer process stage, Windows containment or desktop support.
+  Record scoped component acceptance in ADR 0096; original long native jobs remain
+  under their own gates.
+- Style run 42353208155/job 128345575814 fails before checking sources: pinned
+  Rust installation reports a partially installed toolchain and cargo-clippy file
+  conflict, despite the existing fixed per-job RUSTUP_HOME path. Allocate a unique
+  empty mktemp directory under RUNNER_TEMP instead of reusing that fixed location.
+  Retain pinned Rust 1.98.0, rustfmt/clippy and every actual source/adapter check.
+  Do not remove components or convert installation failure into success.
+
+Validation: full formatting/actionlint/diff checks pass locally without GUI;
+generated site: 186 pages and 13,114 links/resources/fragments pass. Native
+observer component passes; refreshed style bootstrap and Windows/Linux renderer,
+screen/archives/Designer integration still require their actual hosted results.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

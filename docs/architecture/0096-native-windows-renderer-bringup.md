@@ -84,5 +84,8 @@ The [Microsoft maintainer clarification](https://github.com/microsoft/win32metad
 specifies a BOOLEAN at a DWORD-aligned address. Decode this class separately:
 provide aligned four-byte storage, require a successful one-byte result and consume
 only that byte. Other scalar token classes still require DWORD-sized records.
-The corrected decoder needs fresh native component acceptance; the initial failure
-did not establish token facts or renderer support.
+Corrected source 2498e71 passes the actual native Windows observer component in
+[run 42353208189](https://github.com/jogibear9988/elytra/actions/runs/42353208189),
+job 128345576075: image/parent/creation/primary-token/job queries and invalid/exited
+PID refusal succeed. The initial failure established no complete observation;
+this later component result still does not establish renderer or sandbox support.

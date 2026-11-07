@@ -15,7 +15,9 @@ jobs:
       # Hosted images can contain partially installed components for this exact
       # version. Keep the job's pinned formatter toolchain separate from that state.
       - name: Isolate authoring toolchain
-        run: printf 'RUSTUP_HOME=%s/elytra-style-rustup\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+        run: |
+          toolchain_directory=$(mktemp -d "$RUNNER_TEMP/elytra-style-rustup.XXXXXX")
+          printf 'RUSTUP_HOME=%s\n' "$toolchain_directory" >> "$GITHUB_ENV"
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24.15.0'
