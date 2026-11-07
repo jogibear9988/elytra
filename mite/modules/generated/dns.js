@@ -1,6 +1,11 @@
 /* Generated from mite/modules/network/dns.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// mite/modules/core/promisify-results.mjs
+function namedPromisify(original, names, state) {
+  Object.defineProperty(original, state.argumentNames, { value: names });
+}
+
 // mite/modules/network/dns.mjs
 function createDnsModule(host) {
   const native = host.native;
@@ -143,6 +148,7 @@ function createDnsModule(host) {
     setDefaultResultOrder,
     getDefaultResultOrder
   };
+  namedPromisify(lookup, ["address", "family"], host.promisifyState);
   return {
     lookup,
     promises,

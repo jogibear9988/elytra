@@ -75,3 +75,9 @@ are recorded separately in PROGRESS.
 References: [Node timers](https://nodejs.org/docs/latest-v24.x/api/timers.html),
 [libuv check](https://docs.libuv.org/en/v1.x/check.html) and
 [idle](https://docs.libuv.org/en/v1.x/idle.html) semantics.
+
+
+[util.promisify](util.md) returns the existing timers/promises.setTimeout or
+setImmediate implementation for the corresponding callback timer. Value, options,
+AbortSignal and ref behavior therefore use those same native handles/subscriptions.
+Local Node/Mite tests verify identity, returned values and cancellation.

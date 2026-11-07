@@ -1,6 +1,11 @@
 /* Generated from mite/modules/filesystem/fs.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// mite/modules/core/promisify-results.mjs
+function namedPromisify(original, names, state) {
+  Object.defineProperty(original, state.argumentNames, { value: names });
+}
+
 // mite/modules/filesystem/fs.mjs
 function createFileSystemModule(host) {
   const native = host.native;
@@ -717,6 +722,8 @@ function createFileSystemModule(host) {
   promises.open = async function(path2, flag, fileMode) {
     return new FileHandle(handleToken, await call("open", path2, flag, fileMode));
   };
+  namedPromisify(fs.read, ["bytesRead", "buffer"], host.promisifyState);
+  namedPromisify(fs.write, ["bytesWritten", "buffer"], host.promisifyState);
   fs.promises = promises;
   return fs;
 }

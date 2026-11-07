@@ -166,6 +166,7 @@ private:
     GC::Root<JS::Object> m_http_client_hooks;
     GC::Root<JS::Object> m_tls_client_hooks;
     GC::Root<JS::Object> m_resolve_hook_dispatcher;
+    GC::Root<JS::Object> m_promisify_state;
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;

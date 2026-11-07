@@ -69,7 +69,7 @@ static constexpr std::string_view fs_promises_exports[]
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL",
           "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
-static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
+static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder", "promisify" };
 static constexpr std::string_view module_exports[]
     = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };
@@ -220,6 +220,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    // This private realm-local symbol state preserves named callback results and
+    // stays separate from the mutable public util/fs/dns facades.
+    if (name == "util" || name == "fs" || name == "dns")
+        host->define_direct_property(
+            "promisifyState"_utf16, m_promisify_state.ptr(), JS::default_attributes);
     if (name == "perf_hooks")
         install_performance_timing(m_realm, *host);
     if (name == "module") {
@@ -398,9 +403,15 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
 
-    if (name == "util")
+    if (name == "util") {
         host->define_direct_property(
             "native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
+        host->define_direct_property(
+            "timers"_utf16, TRY(builtin("timers")), JS::default_attributes);
+        host->define_direct_property(
+            "timerPromises"_utf16, TRY(builtin("timers/promises")), JS::default_attributes);
+    }
+
     if (name == "url") {
         host->define_direct_property(
             "native"_utf16, create_url_host(m_realm), JS::default_attributes);

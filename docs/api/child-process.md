@@ -152,3 +152,13 @@ Unicode byte limits, 1 MiB stdin, timeout, callback overloads/absence/count/orde
 29 validation cases and fatal callback behavior against Node using independent
 Python peers. The Firefly main fixture executes and captures a real printf child.
 See [ADR 0066](../architecture/0066-buffered-native-exec-file.md).
+
+
+## Promisified execFile
+
+[util.promisify](util.md) recognizes execFile's custom implementation. Its Promise
+has an immediate .child property and resolves with {stdout, stderr}. Rejection
+errors retain both output fields. The same callback implementation still owns
+spawning, bounded collection, cancellation and completion; options/platform limits
+above still apply. Local macOS Node/Mite tests execute real children and verify
+both successful and nonzero output paths; new native platform gates are pending.

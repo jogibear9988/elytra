@@ -76,6 +76,7 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
           realm.global_object().get_without_side_effects("Promise"_utf16).as_object())
     , m_process(realm.global_object().get_without_side_effects("process"_utf16).as_object())
     , m_commonjs_cache(JS::Object::create(realm, nullptr))
+    , m_promisify_state(JS::Object::create(realm, nullptr))
 {
     m_vm.host_load_imported_module = [this](JS::ImportedModuleReferrer referrer,
                                          JS::ModuleRequest const& request, GC::Ptr<GC::Cell>,

@@ -1,3 +1,5 @@
+import createPromisify from './promisify.mjs';
+
 /**
  * TextEncoder and stateful TextDecoder facades. Native conversion owns codec state and byte-
  * view handling; this layer validates public options.
@@ -7,6 +9,7 @@
  */
 export default function createEncodingModule(host) {
   const native = host.native;
+  const promisify = createPromisify(host.promisifyState);
   const encoders = new WeakSet();
   const decoders = new WeakMap();
 
@@ -116,5 +119,13 @@ export default function createEncodingModule(host) {
       }
     }
   }
-  return { TextEncoder, TextDecoder };
+  // The existing Promise timer implementation owns cancellation/ref/unref semantics.
+  for (const name of ['setTimeout', 'setImmediate']) {
+    Object.defineProperty(host.timers[name], promisify.custom, {
+      get: () => host.timerPromises[name],
+
+      enumerable: true
+    });
+  }
+  return { TextEncoder, TextDecoder, promisify };
 }

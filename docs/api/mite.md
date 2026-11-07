@@ -148,7 +148,7 @@ use existing native codecs plus owned adapters; exact Node error formatting diff
   differences. Opt-in `captureRejections: true` routes rejected listener results
   through the rejection hook/error event. EventTarget sources and async event
   iterators remain unsupported.
-- `node:util` currently provides only TextEncoder/TextDecoder, not the general util API.
+- `node:util` provides TextEncoder/TextDecoder and [promisify](util.md); most other utilities remain absent.
 
 ## Streams
 

@@ -1,3 +1,5 @@
+import namedPromisify from '../core/promisify-results.mjs';
+
 /**
  * DNS overloads and Node-compatible lookup ordering. The native resolver supplies address
  * snapshots; this layer validates options and schedules callback/Promise delivery.
@@ -174,6 +176,7 @@ export default function createDnsModule(host) {
     setDefaultResultOrder,
     getDefaultResultOrder
   };
+  namedPromisify(lookup, ['address', 'family'], host.promisifyState);
   return {
     lookup,
     promises,

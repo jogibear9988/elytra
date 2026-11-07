@@ -2,8 +2,8 @@
 
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
-macOS ARM64 and scoped native Mite gates: Linux passes 72 suites at 790235c;
-Windows passes 70 at 2bf956d. Firefly has tested macOS subsets and an experimental X11 app;
+macOS ARM64 and scoped native Mite gates: Linux passes 75 suites at adc00d0;
+Windows passes 74 at adc00d0. Firefly has tested macOS subsets and an experimental X11 app;
 Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
 archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
 wider Linux distribution support and release publication remain unfinished.
@@ -21,6 +21,7 @@ depth still required alongside the implementation.
 [Mite runtime API](mite.md) covers entry points, modules, globals and Node-style
 built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
+The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
 The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and the
@@ -55,11 +56,12 @@ The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-76 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
+77 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
 the application-only cache policy, pure startup/launcher checks, real CLI parser
-and synchronous resolve chains with actual host GC.
-At 5735b91 native Linux passes all 74 suites and Windows all 73; the new dependency
-gate passes Linux at adc00d0; native resolve-hook acceptance remains pending.
+synchronous resolve chains and promisify/native callback services with actual host GC.
+At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-hook
+acceptance remains pending after a Linux inline-definition link fix; the new
+promisify slice also requires its own native gates.
 Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js

@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 76
+Mite is a working native LibJS runtime; the current macOS Release build has 77
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -7090,6 +7090,47 @@ Validation: local native object/runtime rebuild and targeted actual resolver tes
 pass after the include. Existing macOS full regression passed; this small include
 fix still needs a fresh native Linux job before hook acceptance. No local GUI or
 upstream changes. Full goal active; util.promisify work remains a separate slice.
+
+## 2026-11-07: Implement util.promisify and actual builtin callback result contracts
+
+- Add maintained ESM promisify to the existing util facade and named ESM exports.
+  Forward this/arguments, append an error-first callback, preserve exact error
+  values and synchronous exceptions, settle once and adopt success thenables.
+  Preserve prototype/name/length/accessor/symbol descriptors without reading
+  unrelated getters; match custom accessor order and falsy custom values.
+- Implement the shared public promisify.custom symbol, exact custom-function
+  identity/self marker and conversion-time validation. Ordinary conversion creates
+  a new wrapper; no original-function cache. DEP0174 warning emission remains a
+  documented difference, not complete util API support.
+- Share a private named-argument symbol through GC-rooted per-loader native host
+  state. fs.read/write and dns.lookup retain named results without a public custom
+  override or changing repeated wrapper identity. Existing filesystem/DNS APIs,
+  resource ownership and raw-FS facade separation remain unchanged.
+- Add genuine execFile custom Promise adaptation with immediate .child, stdout/
+  stderr success results and rejection output. Reuse existing Promise timer
+  functions through timeout/immediate custom getters, preserving abort/ref behavior.
+- Compare Node/Mite behavior and force actual host GC with pending callbacks and
+  native timer-rooted receivers. Execute real file/descriptor operations, numeric
+  DNS, timer cancellation and native child success/nonzero output paths. No mocks
+  or GUI suites substitute for native service behavior.
+- Build actual Firefly; one windowless full-source Code-OSS probe passes promisify
+  and reaches missing Electron protocol (exit 1). Generic utility acceptance does
+  not prove Code-OSS's later filesystem workflows or workbench startup. Next work
+  is real required protocol behavior, not an empty exported object.
+- Record adc00d0 acceptance: Windows 42389926814/job 128455206247 all 74 suites in
+  128.09s; Linux renderer/default archive/Designer 42389926764/job 128455167530
+  passes and retains artifact 13581920595 (122684408-byte ZIP). Those snapshots
+  predate hooks/promisify. Linux 98866c3 fails linking before CTest; separate
+  6c613ec inline-header correction is pushed and needs fresh native acceptance.
+
+Validation: local macOS Release all 77 CTests pass (23.35s) after final private
+metadata/identity correction; new util gate covers actual Node/Mite/host GC and
+native services. Firefly integration build and later explicit-inline object rebuild
+pass, with existing SDK deployment-target warnings. Formatting, generated integrity,
+site (208 pages / 14,711 local links/resources/fragments) and diff checks pass. One windowless diagnostic, no repeated
+local desktop suites, no Ladybird changes. ADR 0110 and detailed util reference
+record semantics and limits. Full goal active; protocol/startup, public binary/event/
+port IPC, workbench/native service integration and native Windows remain required.
 
 ## Resume
 

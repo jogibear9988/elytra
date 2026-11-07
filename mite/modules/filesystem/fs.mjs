@@ -1,3 +1,5 @@
+import namedPromisify from '../core/promisify-results.mjs';
+
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
  * return snapshots; promise/callback adapters normalize errors and close ordering.
@@ -830,6 +832,8 @@ export default function createFileSystemModule(host) {
     return new FileHandle(handleToken, await call('open', path, flag, fileMode));
   };
 
+  namedPromisify(fs.read, ['bytesRead', 'buffer'], host.promisifyState);
+  namedPromisify(fs.write, ['bytesWritten', 'buffer'], host.promisifyState);
   fs.promises = promises;
   return fs;
 }

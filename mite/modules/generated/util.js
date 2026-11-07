@@ -1,9 +1,62 @@
 /* Generated from mite/modules/core/util.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// mite/modules/core/promisify.mjs
+function createPromisify(state) {
+  const customSymbol = Symbol.for("nodejs.util.promisify.custom");
+  const argumentNamesSymbol = state.argumentNames = Symbol("customPromisifyArgs");
+  function promisify(original) {
+    if (typeof original !== "function") {
+      throw invalid("original must be a function");
+    }
+    if (original[customSymbol]) {
+      const custom = original[customSymbol];
+      if (typeof custom !== "function") {
+        throw invalid("promisify.custom must be a function");
+      }
+      Object.defineProperty(custom, customSymbol, {
+        value: custom,
+        configurable: true,
+        enumerable: false,
+        writable: false
+      });
+      return custom;
+    }
+    const names = original[argumentNamesSymbol];
+    function wrapped(...args) {
+      return new Promise((resolve, reject) => {
+        args.push((error, ...values) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(
+              names && values.length > 1 ? Object.fromEntries(names.map((name, index) => [name, values[index]])) : values[0]
+            );
+          }
+        });
+        Reflect.apply(original, this, args);
+      });
+    }
+    Object.setPrototypeOf(wrapped, Object.getPrototypeOf(original));
+    Object.defineProperty(wrapped, customSymbol, {
+      value: wrapped,
+      configurable: true,
+      enumerable: false,
+      writable: false
+    });
+    return Object.defineProperties(wrapped, Object.getOwnPropertyDescriptors(original));
+  }
+  function invalid(message) {
+    return Object.assign(new TypeError(message), { code: "ERR_INVALID_ARG_TYPE" });
+  }
+  promisify.custom = customSymbol;
+  return promisify;
+}
+
 // mite/modules/core/util.mjs
 function createEncodingModule(host) {
   const native = host.native;
+  const promisify = createPromisify(host.promisifyState);
   const encoders = /* @__PURE__ */ new WeakSet();
   const decoders = /* @__PURE__ */ new WeakMap();
   function fail(code, message, Type = TypeError) {
@@ -100,7 +153,13 @@ function createEncodingModule(host) {
       }
     }
   }
-  return { TextEncoder, TextDecoder };
+  for (const name of ["setTimeout", "setImmediate"]) {
+    Object.defineProperty(host.timers[name], promisify.custom, {
+      get: () => host.timerPromises[name],
+      enumerable: true
+    });
+  }
+  return { TextEncoder, TextDecoder, promisify };
 }
 return createEncodingModule;
 })()

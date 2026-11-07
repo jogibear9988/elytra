@@ -639,5 +639,24 @@ export default function createChildProcessModule(host) {
     return child;
   }
 
+  Object.defineProperty(execFile, Symbol.for('nodejs.util.promisify.custom'), {
+    value: function (...args) {
+      let child;
+      const promise = new Promise((resolve, reject) => {
+        child = execFile(...args, (error, stdout, stderr) => {
+          if (error) {
+            error.stdout = stdout;
+            error.stderr = stderr;
+            reject(error);
+          } else {
+            resolve({ stdout, stderr });
+          }
+        });
+      });
+      // The child remains available immediately for kill/events while output is collected.
+      promise.child = child;
+      return promise;
+    }
+  });
   return { spawn, execFile, ChildProcess };
 }

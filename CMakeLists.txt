@@ -162,6 +162,9 @@ if(BUILD_TESTING)
         NAME mite-module-paths
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_paths.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-util-promisify
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_promisify.py"
+                     --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
         NAME mite-module-hooks
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_hooks.py"

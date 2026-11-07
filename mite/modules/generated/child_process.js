@@ -569,6 +569,24 @@ ${values[1]}`);
     }
     return child;
   }
+  Object.defineProperty(execFile, Symbol.for("nodejs.util.promisify.custom"), {
+    value: function(...args) {
+      let child;
+      const promise = new Promise((resolve, reject) => {
+        child = execFile(...args, (error, stdout, stderr) => {
+          if (error) {
+            error.stdout = stdout;
+            error.stderr = stderr;
+            reject(error);
+          } else {
+            resolve({ stdout, stderr });
+          }
+        });
+      });
+      promise.child = child;
+      return promise;
+    }
+  });
   return { spawn, execFile, ChildProcess };
 }
 return createChildProcessModule;
