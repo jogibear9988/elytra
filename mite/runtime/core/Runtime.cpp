@@ -200,7 +200,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     auto entry_path
         = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
-    auto globals = modules.install_globals();
+    auto globals = modules.install_globals(hooks.allow_process_signals);
     if (globals.is_error()) {
         report_exception(globals.error_value());
         vm->pop_execution_context();

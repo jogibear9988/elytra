@@ -56,6 +56,7 @@ public:
     {
         std::unique_ptr<Bridge> bridge;
         Mite::HostHooks hooks;
+        hooks.allow_process_signals = true;
         hooks.terminate_pending_work_on_stop = true;
         hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                                Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {

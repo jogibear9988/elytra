@@ -5,6 +5,7 @@
   "files": {
     "events.js": "ff0c002c9ae7345cb19af4f714e301d1972674d44cd93cce82695d0ecf38c63f",
     "process.js": "89a473f81ab8561bfe90aae24f03a72bc22d6949fa6d90d480a13ead6f174c07",
+    "process_events.js": "cfcb60a0ffe6e9999a36919ea961314e086896997ef69f263744a15f1d487d73",
     "path.js": "f3409717cd94953e17c63f08a1bef2b52d5d8697cc806ec5716bfe37f26eabd2",
     "module.js": "5f127e802a7ffee49a470228e1ffbd497131ea93d385169d2c8bb0f38e633761",
     "perf_hooks.js": "53ae58b9ad0e5b55f78bab5fefe7d3dbbb7d5aa64152df6427b337c6456e2538",
@@ -390,11 +391,12 @@
   },
   "sources": {
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",
-    "tooling/runtime-js/modules.json": "7ba4806c40a8401fd9685d623c9164b454e949875b7e7d5446facbbd515e6e72",
+    "tooling/runtime-js/modules.json": "c92ce02db69872ff353b3de6595fa5618afc6eb7499baaff1feda0fc07db27f4",
     "mite/modules/core/event-rejections.mjs": "9997d62c7d332c6a62d5c2aaf41536b5a89b44192a1962b7aeddb99e5467b51a",
     "mite/modules/core/events.mjs": "6968186cb8255b3c3f70e9baf05eccd8f79dec44d1600a395b88433296b2e0be",
     "mite/modules/core/process-timing.mjs": "d94aa72c72cd7112c57a9615eb300eb0df60b058477e2d9978a496ab4a1e1054",
     "mite/modules/core/process.mjs": "d600bca38949e60823e3fe8f6f6744fa141b67640a0a126668e7d4dee025fa0d",
+    "mite/modules/core/process-events.mjs": "8c29d6e89ac6d7b2064be260dbec4ec2e427690231b972825ab7cb2619e96793",
     "mite/modules/core/path.mjs": "9f5a527f113a86d14ceaeeb065392853fee9deb3d536c909ce95d0471a53d6dd",
     "mite/modules/core/module.mjs": "a86512a148f4752fd6f472f0b9e15b9eb655878f079c96d3266b6ce085c52183",
     "mite/modules/core/perf-hooks.mjs": "1fc3d29abac11bf5db967ee388ab5ad5f0c02849ef2a84217e8bf19d61acc3e9",

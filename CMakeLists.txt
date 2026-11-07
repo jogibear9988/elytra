@@ -187,6 +187,10 @@ if(BUILD_TESTING)
     add_test(NAME mite-perf-hooks
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_perf_hooks.py"
                      --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
+        NAME mite-process-events
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_events.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME firefly-screen-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_screen.py"
                      --mite "$<TARGET_FILE:mite>")

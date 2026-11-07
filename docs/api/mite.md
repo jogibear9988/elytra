@@ -52,8 +52,9 @@ body support; global Web Crypto remains absent.
   `exit(code)` and `exitCode` provide basic process services.
 - Identity reports Mite and the pinned LibJS/libuv versions; `versions.node` is absent.
 - Native `hrtime`, `hrtime.bigint()`, `uptime()` and `cpuUsage()` have a detailed
-  [process measurement contract](process.md). Process events, stdio streams and
-  signals remain unfinished; [child_process](child-process.md) has its own partial API.
+  [process contract](process.md), also covering custom events and a restricted
+  native signal subset. Lifecycle/rejection events and stdio streams remain
+  unfinished; [child_process](child-process.md) has its own partial API.
 - `queueMicrotask(callback)` and Promise jobs share a FIFO; nextTick uses its own
   priority queue. Complete Node event-loop phases are not claimed.
 - Timer handles support `ref()`, `unref()`, `hasRef()`, `close()`, numeric conversion

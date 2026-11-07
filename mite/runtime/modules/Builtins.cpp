@@ -19,6 +19,7 @@
 #include "platform/network/tls/Client.h"
 #include "platform/process/ChildProcess.h"
 #include "platform/process/ProcessHost.h"
+#include "platform/process/Signals.h"
 #include "platform/process/Timing.h"
 #include "platform/system/OS.h"
 #include "platform/text/Encoding.h"
@@ -459,7 +460,7 @@ JS::ThrowCompletionOr<void> ModuleLoader::register_host_filesystem(std::string c
     return register_host_module(name, *exports, std::move(names));
 }
 
-JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
+JS::ThrowCompletionOr<void> ModuleLoader::install_globals(bool allow_process_signals)
 {
     // Portable EventTarget plus authored cancellation state; no LibWeb/Node host.
     auto parsed_globals = JS::Script::parse(
@@ -509,6 +510,27 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
     auto perf_hooks = TRY(builtin("perf_hooks"));
     m_realm.global_object().define_direct_property(
         "performance"_utf16, TRY(perf_hooks->get("performance"_utf16)), JS::default_attributes);
+    GC::Root native_signals { create_signal_host(m_realm, m_event_loop, allow_process_signals) };
+    GC::Root signal_host { JS::Object::create(m_realm, nullptr) };
+    auto events = TRY(builtin("events"));
+    signal_host->define_direct_property(
+        "EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
+    GC::Root constants { TRY(create_os_constants(m_realm)) };
+    signal_host->define_direct_property(
+        "signals"_utf16, TRY(constants->get("signals"_utf16)), JS::default_attributes);
+    signal_host->define_direct_property(
+        "native"_utf16, native_signals.ptr(), JS::default_attributes);
+    auto events_source = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_PROCESS_EVENTS_SOURCE, sizeof(MITE_PROCESS_EVENTS_SOURCE) - 1)),
+        m_realm, "mite:process-events"sv);
+    if (events_source.is_error())
+        return m_vm.throw_completion<JS::SyntaxError>(
+            events_source.error().first().to_utf16_string());
+    GC::Root events_script { events_source.release_value() };
+    auto events_factory = TRY(m_vm.run(*events_script));
+    GC::Root events_factory_root { events_factory.as_object() };
+    TRY(JS::call(m_vm, events_factory, JS::js_undefined(), signal_host.ptr(), m_process.ptr()));
     auto parsed_fetch = JS::Script::parse(
         Utf16String::from_utf8(StringView(MITE_FETCH_SOURCE, sizeof(MITE_FETCH_SOURCE) - 1)),
         m_realm, "mite:fetch"sv);

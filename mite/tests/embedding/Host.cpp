@@ -8,19 +8,43 @@
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/Object.h>
 #include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <string>
 #include <thread>
 
+#ifndef _WIN32
+static volatile std::sig_atomic_t protected_signal_seen;
+
+static void protected_signal_handler(int)
+{
+    protected_signal_seen = 1;
+}
+#endif
+
 static int run_host(int argc, char** argv)
 {
+#ifndef _WIN32
+    auto* protection = std::getenv("MITE_TEST_PROTECT_SIGNAL");
+    bool protect = protection != nullptr;
+    bool ignore = protection && std::string(protection) == "ignore";
+    struct sigaction previous_signal {};
+    if (protect) {
+        struct sigaction action {};
+        action.sa_handler = ignore ? SIG_IGN : protected_signal_handler;
+        sigemptyset(&action.sa_mask);
+        if (sigaction(SIGUSR2, &action, &previous_signal) != 0)
+            return 98;
+    }
+#endif
     GC::Root<JS::FunctionObject> pulse;
     JS::VM* owner_vm = nullptr;
     bool initialized = false;
     size_t pump_count = 0;
     Mite::HostHooks hooks;
+    hooks.allow_process_signals = std::getenv("MITE_TEST_ALLOW_SIGNALS") != nullptr;
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
         initialized = true;
@@ -166,6 +190,18 @@ static int run_host(int argc, char** argv)
     };
 
     auto status = Mite::run(argc, argv, hooks);
+#ifndef _WIN32
+    if (protect) {
+        struct sigaction current {};
+        if (sigaction(SIGUSR2, nullptr, &current) != 0
+            || current.sa_handler != (ignore ? SIG_IGN : protected_signal_handler))
+            return 98;
+        std::raise(SIGUSR2);
+        if ((!ignore && !protected_signal_seen) || (ignore && protected_signal_seen)
+            || sigaction(SIGUSR2, &previous_signal, nullptr) != 0)
+            return 98;
+    }
+#endif
     if (initialized && owner_vm)
         return 99; // Host cleanup must precede VM destruction.
     return status;

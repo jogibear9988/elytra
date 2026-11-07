@@ -7,6 +7,13 @@
 #include "platform/process/SignalPolicy.h"
 #include <cstdio>
 
+static int run_cli(int argc, char** argv)
+{
+    Mite::HostHooks hooks;
+    hooks.allow_process_signals = true;
+    return Mite::run(argc, argv, hooks);
+}
+
 #ifdef _WIN32
 // Keep upstream's Windows include boundary local to this platform entry point.
 #include "platform/process/WindowsArguments.h"
@@ -40,7 +47,7 @@ int wmain(int argc, wchar_t** wide_argv)
         return 9;
     }
 
-    return Mite::run(argc, arguments.data());
+    return run_cli(argc, arguments.data());
 }
 #else
 int main(int argc, char** argv)
@@ -50,6 +57,6 @@ int main(int argc, char** argv)
         return 9;
     }
 
-    return Mite::run(argc, argv);
+    return run_cli(argc, argv);
 }
 #endif

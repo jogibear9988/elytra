@@ -33,6 +33,7 @@ console.log(hrtime.bigint() - start, cpuUsage(before));
 | `hrtime([previous])`, `hrtime.bigint()` | Monotonic native elapsed-time samples |
 | `uptime()` | Fractional seconds since runtime load/bootstrap |
 | `cpuUsage([previous])` | Process-wide user/system CPU microseconds |
+| EventEmitter methods | Custom events, listener order/removal/once and explicit native signal subset below |
 
 Timing methods are shared between global process, CommonJS and named ESM exports.
 Runtime/process identity is not an OS sandbox: main-process code is privileged.
@@ -96,9 +97,60 @@ buffer. Full invalid-getter/proxy/reentrant and error-message behavior is not a
 general Node compatibility guarantee. Native OS failures throw with code, errno
 and syscall uv_getrusage; provider failure injection is not native-acceptance-tested.
 
+## Events and native signals
+
+`process` inherits from the same [EventEmitter](events.md) exported by node:events.
+Use `on`/`addListener`, `once`, `prependListener`, `prependOnceListener`,
+`off`/`removeListener`, `removeAllListeners`, `emit` and listener inspection for
+custom string or Symbol events. Listener methods return process; ordinary listeners
+receive process as their receiver. These inherited methods are not named ESM
+exports from node:process. Import the default object or use global process.
+
+```js
+process.on('SIGPIPE', (name, number) => {
+  console.error(`Received ${name} (${number})`);
+});
+```
+
+Native subscriptions are limited to SIGINT, SIGTERM, and SIGPIPE/SIGHUP where the
+host SDK defines them, plus SIGUSR2 on POSIX. The callback receives the signal name
+and actual native number. Multiple listeners share one unreferenced libuv watch;
+a watch alone does not keep the application alive. Removing the final listener,
+including automatic once removal, closes the watch. Signal callback exceptions
+follow the existing runtime failure path; no uncaughtException recovery is supplied.
+
+Native POSIX two-delivery/once/microtask/cleanup tests pass locally on macOS for
+all five signals, against Node 24.15.0. A collecting embedded host also passes
+SIGUSR2 delivery, foreign-handler refusal and restoration of an initially ignored
+disposition after removal and runtime shutdown. Linux/Windows acceptance of this
+new slice is pending. Windows registration does not establish POSIX-style signal
+delivery: libuv can accept watches for signals that Windows never delivers.
+
+Embedding hosts default to refusing native subscriptions with
+ERR_MITE_SIGNAL_HOST_POLICY. A host may set HostHooks.allow_process_signals only
+when it coordinates ownership of process-global signal handlers. The CLI and
+Firefly executable explicitly opt in. An existing custom POSIX handler or another
+Mite owner causes ERR_MITE_SIGNAL_OWNED; it is not overwritten. Previously ignored
+dispositions are restored on teardown. This requires coordinated ownership; it
+does not make concurrent, uncoordinated host changes atomic.
+
+Known OS signals outside this subset throw ERR_MITE_UNSUPPORTED_SIGNAL; fault,
+child-management and uncatchable signals are deliberately excluded. No more than
+32 active or asynchronously closing native handles may be retained per runtime;
+exceeding that bound throws ERR_MITE_SIGNAL_LIMIT until closes complete. A name
+absent from the host signal constants remains an ordinary custom event.
+
+Registering `beforeExit`, `exit`, `uncaughtException`, `uncaughtExceptionMonitor`,
+`unhandledRejection`, `rejectionHandled`, `warning`, `message`, `disconnect`,
+`multipleResolves`, `worker` or `workerMessage` throws
+ERR_MITE_UNSUPPORTED_PROCESS_EVENT. These require real lifecycle/rejection/IPC
+integration and are not simulated by an otherwise working emitter. process.kill
+and arbitrary signal support remain absent. See
+[ADR 0104](../architecture/0104-process-events-signals.md).
+
 ## Limits, example and validation
 
-Process lifecycle/rejection events, stdio streams, signals, per-thread CPU usage,
+Process lifecycle/rejection events, stdio streams, broader signals, per-thread CPU usage,
 memory/resource reports and broader performance profiling remain unfinished.
 [node:perf_hooks](perf-hooks.md) now supplies native now/timeOrigin only. Absent members
 produce ordinary API/import errors; they do not return fabricated measurements.

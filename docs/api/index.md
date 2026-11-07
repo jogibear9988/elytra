@@ -50,8 +50,9 @@ The [decompression reference](decompression.md) describes native Web Stream gzip
 deflate decoding, automatic Fetch content handling, pressure and integrity limits.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
-The [process reference](process.md) covers identity/environment, monotonic
-tuple/BigInt clocks, fractional uptime and process CPU microseconds.
+The [process reference](process.md) covers identity/environment, clocks, CPU usage,
+custom events and the explicitly owned native signal subset. Local macOS passes
+69 suites including process events; that new slice awaits Linux/Windows acceptance.
 
 ```js
 import {createHash} from 'node:crypto';

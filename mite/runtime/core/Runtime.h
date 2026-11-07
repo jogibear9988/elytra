@@ -29,6 +29,8 @@ struct HostHooks {
     std::function<int(EventLoop&)> drive;
     std::function<void()> shutdown;
     bool terminate_pending_work_on_stop { false };
+    // Process-global OS handlers require explicit, coordinated host ownership.
+    bool allow_process_signals { false };
     // An explicit host status wins over process.exitCode and pending entry TLA.
     std::optional<int> exit_code;
 };

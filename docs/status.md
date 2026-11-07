@@ -6,6 +6,12 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
+Local macOS Release now passes **69** Mite suites, adding custom process events
+and restricted native signal subscriptions with real owned-child delivery and
+embedded-host ownership/GC checks. This new slice awaits native Linux/Windows
+acceptance; see the [process contract](api/process.md). Code-OSS desktop still
+does not run.
+
 Native Linux and Windows x64 at **678c85e** pass all **68** Mite suites:
 [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084)
 (Linux, 83.24 seconds) and

@@ -47,7 +47,7 @@ documentation status. Current module-level detail is in the [Mite matrix](../com
 
 | Family | Current Mite scope | What remains to document/implement |
 | --- | --- | --- |
-| CLI, globals, process, console, timers | Partial | Full parameter/error reference; stdio, process events, signals, immediates, lifecycle and diagnostics |
+| CLI, globals, process, console, timers | Partial | Full parameter/error reference; stdio, broader signal support, lifecycle/rejection events and diagnostics. Custom events and restricted signal ownership have a detailed process contract |
 | ESM, CommonJS, packages | Partial loader | Per-condition resolution/reference, named CJS exports, require(ESM), module tooling and unsupported loader modes |
 | Buffer, text, URL, path, OS | Partial | Per-method contracts and native platform differences; general util and legacy URL gaps |
 | Events and streams | Partial | Backpressure/lifetime recipes, state/error contracts and unsupported cancellation/Web Streams modes |

@@ -29,6 +29,7 @@ function(mite_add_runtime target root js_target)
         perf_hooks
         events
         process
+        process_events
         path
         module
         buffer
@@ -83,6 +84,7 @@ function(mite_add_runtime target root js_target)
         # platform/process
         platform/process/Process
         platform/process/Timing
+        platform/process/Signals
         platform/process/ChildProcess
         # platform/filesystem
         platform/filesystem/FileSystem

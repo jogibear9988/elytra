@@ -28,7 +28,7 @@ class ModuleLoader {
 public:
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
 
-    JS::ThrowCompletionOr<void> install_globals();
+    JS::ThrowCompletionOr<void> install_globals(bool allow_process_signals = false);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin_exports(std::string const& name)
     {

@@ -6762,6 +6762,37 @@ Renewed native component and full Linux archive/Designer acceptance remain pendi
 Process event/signal implementation is independent ongoing work, not yet accepted
 or included in this commit. No local GUI. Full goal active.
 
+## 2026-11-07: Prioritize Code-OSS SIGPIPE bootstrap with real process events
+
+- Add an authored ESM process EventEmitter layer and a C++/libuv native signal
+  adapter, without Node/V8, LibWeb or upstream modifications. Match custom event
+  order, receiver, once, removal, errorMonitor and process/default identity.
+- Native watch subset: SIGINT/SIGTERM, SDK SIGPIPE/SIGHUP and POSIX SIGUSR2.
+  Roots survive GC, native delivery uses owner-loop dispatch/checkpoints, watches
+  are unreferenced and shutdown closes them before VM destruction. Bound active
+  plus deferred-close handles to 32, with explicit refusal/recovery tests.
+- Require explicit embedded-host opt-in, exclusive Mite signal ownership and
+  foreign POSIX handler refusal. Verify previous ignored disposition survives
+  final-listener removal and shutdown. Lifecycle/rejection/IPC events remain
+  explicitly unsupported; no process.kill, broad signal or Code-OSS launch claim.
+- Add non-GUI Node differential, actual two-delivery POSIX child-PID controls,
+  collecting-host delivery, protected native handler, ignored-disposition restore,
+  throwing newListener cleanup and handle-credit gates. CLI/Firefly opt in; normal
+  embedders do not. Document ADR 0104, API and current matrix/status.
+- Native Linux package-component run 42379262086 at 197cd2a passes, including
+  the real dependency-free DSO and static executable refusal. Full renderer run
+  42379262065 remains live at configure/compile as checked through job 128423224720;
+  full archive/Designer and Windows Firefly desktop remain unaccepted.
+
+Validation: local macOS Release all 69 CTests pass (21.06 seconds), including new
+process events (0.72 seconds). New native Linux/Windows API acceptance is pending.
+Non-GUI Firefly integration build passes; existing dependency deployment-target
+linker warnings remain, so no older macOS acceptance is claimed. Site verification
+passes 199 pages / 14,066 local links/resources/fragments; source formatting,
+generated integrity and diff checks pass. No local GUI tests. Full goal active; next prioritize an actual
+pinned Code-OSS bootstrap gate, then truthful cache/V8 adaptation and public
+binary/event/port transport prerequisites.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
