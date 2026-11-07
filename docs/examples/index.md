@@ -2,7 +2,12 @@
 
 ESM sources for all **21 topics** in the current [Electron examples overview](https://www.electronjs.org/docs/latest/tutorial/examples), plus quick-start and application lifecycle: **23 example apps**. These are original Elytra examples using familiar API names, not a vendored copy of Electron’s guide prose.
 
-The source catalog was reviewed on 2026-11-06. Runtime reference: pinned Electron 45.2.3. All Firefly GUI evidence here is native macOS ARM64. [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) includes the catalog snapshot at `19ad113`; Alpha 1 predates it. Later master examples need their own build.
+The source catalog was reviewed on 2026-11-07. Runtime reference: pinned Electron 45.2.3. All Firefly GUI evidence here is native macOS ARM64. [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) includes the catalog snapshot at `19ad113`; Alpha 1 predates it. Later master examples need their own build.
+
+Confirmed again in completed [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824)
+at 85557be: **6 shared smoke slices, 1 manual/partial example, 16 blocked topics**.
+These are scoped original Elytra examples, not a claim that every Electron Fiddle
+runs unchanged. See [current support](../status.md) for platform/API/release status.
 
 ## Build and run
 

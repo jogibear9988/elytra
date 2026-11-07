@@ -10,9 +10,14 @@ Mite has a real LibJS CLI and selected Node-style modules, native I/O, timers,
 streams/networking and crypto foundations on tested macOS ARM64 and a scoped
 [Linux x64 runtime baseline](development/linux-build.md). Firefly has a native
 macOS window/lifecycle/loading slice, isolated renderer defaults and a runnable pinned
-Designer sample. Experimental relocated macOS bundles pass focused tests. The public
-One-way/synchronous/port IPC, full preload/contextBridge compatibility, broad Node/Electron parity and complete native
+Designer sample. Experimental relocated macOS bundles pass focused tests. One-way/synchronous/port IPC, full preload/contextBridge compatibility, broad Node/Electron parity and complete native
 Windows/Linux releases remain unfinished.
+
+The [current support page](status.md) records exact tested sources and examples.
+Native Linux/Windows Mite now pass 65 suites. Firefly has scoped X11 app/clipboard
+acceptance; new screen wiring, portable builds and archive/Designer gates remain
+pending. The published macOS Alpha 2 and later optimized Actions artifact are
+separate deliverables. A Windows desktop/package remains the largest platform gap.
 
 ## Implementation sequence
 

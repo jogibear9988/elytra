@@ -1,8 +1,9 @@
 # Mite runtime API
 
 Status: partial Node-style runtime; tested on macOS ARM64 against Node 24.15.0,
-with the scoped [Linux x64 baseline](../development/linux-build.md) also passing
-the enabled runtime suites. Later profiles/SDK changes require their own acceptance.
+with native Linux x64 and Windows x64 passing all 65 enabled runtime suites at
+da5e3e8. [Current support](../status.md) records the runs and scope; later
+profiles/SDK changes require their own acceptance.
 See the [compatibility matrix](../compatibility/mite-0.1.md) for differences and
 [getting started](../getting-started.md) for builds. This is the supported subset,
 not a promise that every Node option or overload works.

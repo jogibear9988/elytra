@@ -1,8 +1,8 @@
 # Fetch, Headers, Request and Response
 
 Status: partial native-runtime implementation on LibJS. Tested locally on macOS
-against Node 24.15.0 with independent HTTP/TLS peers. Fresh Linux/Windows acceptance
-is pending. These globals run in standalone Mite and Firefly's main process;
+against Node 24.15.0 with independent HTTP/TLS peers. The native Linux/Windows
+CLI Fetch suites pass in the 65-suite baseline at da5e3e8; see [platform evidence](../status.md). These globals run in standalone Mite and Firefly's main process;
 Ladybird renderer globals remain separate. No Node, V8 or LibWeb is embedded in Mite.
 
 ```js

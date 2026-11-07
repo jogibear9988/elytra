@@ -6037,6 +6037,37 @@ syntax-checks without GUI. Upstream pin unchanged. Native Linux provider/public
 app/archives remain pending; baseline checker fix is separately committed 108a32f.
 Goal active.
 
+## 2026-11-07: Refresh user-facing example, API and platform documentation from actual evidence
+
+- User asks whether every Electron example works and whether API docs are current.
+  Inspect the actual catalog/runner/API implementation and today's upstream examples
+  overview: 21 topics plus quick-start/lifecycle = 23 original Elytra apps, not all
+  Electron Fiddles. Completed macOS run 42345882824/job 128323403936 at 85557be
+  confirms six shared native smoke paths, one explicit manual dark-mode gate and
+  16 blocked topics. Preserve that limited scope, not full feature acceptance.
+- Fetch actual completed native Mite logs at da5e3e8: Windows run 42349719866/job
+  128335237044 passes all 65 suites (91.95s); Linux run 42349719739/job 128335066258
+  passes all 65 (60.19s). Root CTest inventory includes Fetch/body/TLS/HTTPS/HMAC
+  and the documented I/O/event suites. These default Release runs do not prove
+  the newer portable-CPU build, Linux archive/Designer or new screen integration.
+- Add a prominently linked current-support page and docs navigation: exact platform
+  evidence, six/one/16 example breakdown, implemented API families, missing services,
+  published Alpha 2 versus newer optimized Actions artifacts and pending master gates.
+- Correct stale unavailable claims for HTTP/HTTPS/TLS clients, Fetch, spawn/execFile
+  and clipboard in migration/baseline guides; update outdated 64-suite/platform-
+  pending API summaries and matrices. Preserve specific unsupported options,
+  hardware/provider/permission gaps and historical ADR/progress evidence.
+- Refresh README, getting-started, API/runtime/desktop overviews, example catalog,
+  roadmap and detailed client/crypto/body/process references. Do not advance the
+  unaccepted Linux screen/package or absent Windows desktop to tested status.
+  Newly pushed fa5aef5 wires public X11 screen with its own pending native gates.
+
+Validation: no GUI runs. Full source formatting, actionlint/diff, unchanged-upstream
+and reproducible runtime/Firefly adapter checks pass. Catalog has exactly six
+partial smoke entries, one manual partial and 16 unsupported entries. Generated
+site: 185 pages and 13,039 links/resources/fragments pass. Native latest profile/
+archive/screen acceptance remains pending; original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

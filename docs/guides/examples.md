@@ -2,7 +2,9 @@
 
 Commands run from the repository root after a successful source build. Replace
 build/dev/bin/mite with your actual executable location. Current native evidence is
-macOS ARM64. Authored examples use modern ESM; CommonJS remains supported and
+macOS ARM64 for the desktop catalog and native macOS/Linux/Windows for the scoped
+Mite runtime suites. [Current support](../status.md) lists exact evidence; it does
+not claim all examples work on every host. Authored examples use modern ESM; CommonJS remains supported and
 covered by dedicated compatibility fixtures. A runnable example does not establish full module/platform compatibility.
 
 | Example | Command / prerequisite | What it demonstrates |

@@ -13,12 +13,14 @@ ARM64, with [native Linux](docs/development/linux-build.md) and
 [Windows x64](docs/development/windows-build.md) also passing the documented runtime suites.
 Firefly now runs a first native macOS app/BrowserWindow slice on Mite,
 with a shared Electron lifecycle fixture. General compatibility and native
-Windows/Linux desktop validation remain work in progress. See the
+Windows desktop and complete Linux distribution remain work in progress. See the
 [Firefly development build](docs/development/renderer-build.md) and
 [compatibility matrix](docs/compatibility/firefly-0.1.md).
 An [experimental native Linux app build/gate](docs/development/linux-renderer.md#experimental-mite-driven-x11-application)
-now connects the Mite main process to the X11 adapters; actual end-to-end native
-acceptance and Linux distribution remain pending.
+connects Mite to the X11 adapters and has scoped app/preload/IPC/clipboard acceptance
+at 8dc5830. New screen, CPU-profile and archive/Designer gates remain pending.
+See [current support and tested examples](docs/status.md) for exact sources,
+platforms, API limits and the six tested desktop example slices.
 See [implementation progress](docs/PROGRESS.md) and the
 [upstream integration decision](docs/architecture/0001-upstream-and-boundaries.md).
 
@@ -64,7 +66,8 @@ build/dev/bin/mite examples/mite-cli/hash.mjs
 
 On native Windows, use an x64 Visual Studio developer terminal with clang-cl and
 Ninja; set `CC=clang-cl` and `CXX=clang-cl` in that terminal before configuring.
-Windows runtime acceptance remains pending. The [native Windows bring-up guide](docs/development/windows-build.md)
+Native Windows and Linux x64 CLI gates at da5e3e8 pass all 65 enabled suites;
+this is runtime acceptance, not a Windows desktop/package. The [native Windows bring-up guide](docs/development/windows-build.md)
 records the CI path, actual setup evidence and remaining gates. This project does not use WSL as a runtime
 or build fallback. The [native Linux bring-up guide](docs/development/linux-build.md)
 records the passing Ubuntu/Clang baseline and the scope still requiring validation.
@@ -76,7 +79,8 @@ Mite also provides native `node:os` system observations, including hostname,
 platform/machine, home/temp directories, memory, uptime, parallelism, CPU snapshots
 and user information, plus IPv4/IPv6 network-interface snapshots. Native process
 priority queries/setters and OS constant groups are also available. Native validation
-currently covers macOS ARM64; see the
+covers the scoped macOS/Linux/Windows CLI suites; privileged/hardware and full
+platform edge parity remain open. See the
 [Mite compatibility matrix](docs/compatibility/mite-0.1.md).
 
 `node:crypto` currently provides OS-backed `randomBytes()` and UUIDv4

@@ -2,8 +2,8 @@
 
 Status: partial native HTTPS/1 client, locally verified on macOS ARM64. Uses the
 same ClientRequest/IncomingMessage implementation as node:http over verified native
-TLS; there is no separate JavaScript engine or plaintext fallback. Changed-source
-Windows/Linux acceptance remains pending. HTTPS servers and Agents are unsupported.
+TLS; there is no separate JavaScript engine or plaintext fallback. Native Linux/Windows CLI HTTPS suites pass at da5e3e8; [current evidence](../status.md)
+records that baseline, with wider platform/option parity still open. HTTPS servers and Agents are unsupported.
 
 ```js
 import { get } from 'node:https';

@@ -177,6 +177,7 @@ const groups = [
   [
     'Status and compatibility',
     [
+      ['docs/status', 'Current support and tested examples'],
       ['docs/reference/support-policy', 'Support policy'],
       ['docs/compatibility/mite-0.1', 'Mite compatibility'],
       ['docs/compatibility/firefly-0.1', 'Firefly compatibility'],

@@ -6,7 +6,9 @@ time; the table and current API reference describe public availability.
 The first Mite-driven native macOS ARM64 Firefly slice is implemented. Shared
 Electron 45.2.3 migration fixtures pass in both runtimes with the module name
 selected at import time. This does not establish general Electron compatibility.
-Complete preload/IPC isolation, Windows desktop and Linux distribution remain outstanding.
+Broader preload/contextBridge/IPC compatibility, Windows desktop and complete
+Linux distribution remain outstanding. [Current support](../status.md) records
+exact native source/run scope, example results and unaccepted new integrations.
 
 The experimental [Linux renderer/helper path](../development/linux-renderer.md)
 passes its native renderer/helper/window and relocated public application gates
@@ -31,7 +33,7 @@ it does not establish complete containment, screen/theme services or packaging.
 | shell, nativeImage, session | unsupported | Native services and migration fixtures |
 | `nativeTheme` | partial | Actual macOS dark/accessibility snapshots, application source selection and queued updates; native notification teardown and Node/Mite policy pass. Targeted Firefly/Electron CSS queries pass for existing/new hidden windows. Physical changes, visible native chrome, hidden media-event timing and Windows/Linux need acceptance. [Contract](../api/native-theme.md) |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
-| Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). The full hosted macOS package gate passes at 19ad113. Windows/Linux packages, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
+| Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). The full hosted macOS package gate passes at 19ad113. Linux archive/Designer candidates are implemented with native acceptance pending; Windows packages, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
 
 Use `require('firefly')` or ESM imports from `firefly` in the main process. There
 is no `electron` alias. Standalone Mite does not register or depend on Firefly.

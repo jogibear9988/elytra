@@ -2,8 +2,8 @@
 
 Partial HTTP/1 client/server support in Mite and the Firefly main process. The new
 client is tested on macOS ARM64 and the native
-[Linux baseline at d1c9513](../development/linux-build.md); Windows acceptance
-remains pending. No renderer Node API is exposed. See the
+Linux/Windows CLI HTTP suites at da5e3e8; [current evidence](../status.md) records
+that baseline. Full option/error parity remains open. No renderer Node API is exposed. See the
 [compatibility matrix](../compatibility/mite-0.1.md) for existing server/platform scope.
 
 ```js
@@ -88,7 +88,8 @@ writes do not add a native completion when the socket has no queued bytes; publi
 write callbacks remain asynchronous. Completed-request finish/state observations
 are compared with Node, including repeated immediate replies. A server can also
 reply before an upload finishes: an early 413 response is tested without marking
-the unsent request finished. New native Windows acceptance remains pending. See
+the unsent request finished. Native Linux/Windows HTTP suites at da5e3e8 pass
+these tested cases; broader error/option parity remains open. See
 [ADR 0065](../architecture/0065-immediate-tcp-write-completion.md).
 
 Parser failures retain llhttp error codes and metadata. A truncated body emits

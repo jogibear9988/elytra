@@ -15,7 +15,10 @@ to work. Read [process boundaries](../concepts/runtime-and-processes.md).
 Bounded isolated preloads/contextBridge and invoke/handle IPC have native acceptance
 for the documented subset. Check [IPC limits and sender authorization](../api/ipc.md)
 before migrating; event/synchronous/port/subframe IPC remains blocked. Menu, Tray,
-dialogs, session, shell, clipboard and auto-updates are also unavailable. Do not
+dialogs, session, shell and auto-updates are also unavailable. Clipboard,
+screen and nativeTheme have partial macOS contracts; Linux has scoped X11 clipboard
+acceptance and newly implemented screen wiring awaiting its own native gate.
+See [current support](../status.md) and each service reference for limits. Do not
 remove security boundaries to force such an application to launch.
 
 ## Start with the supported window slice

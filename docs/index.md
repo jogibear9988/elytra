@@ -4,6 +4,10 @@ Mite runs JavaScript on LibJS. Firefly uses Mite for its main process and Ladybi
 for desktop rendering. Start with a working example, then check the supported API
 subset before migrating an application.
 
+Start with [current support and tested examples](status.md) for platform evidence,
+which Electron examples run, API coverage and the distinction between published
+releases and newer master changes.
+
 **Current native evidence:** macOS ARM64, plus the scoped
 [Linux](development/linux-build.md) and [Windows](development/windows-build.md)
 x64 Mite runtime gates. Windows/Linux desktop releases remain unfinished.

@@ -13,8 +13,11 @@ exports mean a text search alone is insufficient: execute the actual paths.
 
 Classify each requirement against the matrix. Files, Buffer, events, streams,
 TCP/DNS, HTTP servers, OS information and hashing have partial implementations.
-HTTP clients, HTTPS/TLS, fetch, child processes, worker threads, general util,
-Node's built-in test runner and V8/native-addon integration are unavailable.
+HTTP/HTTPS clients, TLS clients, Fetch and spawn/execFile child processes now have
+partial native implementations; audit their [contracts](../api/index.md), options
+and [platform evidence](../status.md) rather than treating them as absent.
+TLS/HTTPS servers, Agents, worker_threads, general util, Node's built-in test runner
+and V8/native-addon integration remain unavailable.
 Unsupported options on an otherwise implemented API can still block migration.
 
 ## Keep the ordinary module structure

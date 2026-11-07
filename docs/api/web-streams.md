@@ -2,7 +2,8 @@
 
 Status: partial, tested locally with standalone Mite on macOS against Node 24.15.0.
 The primitive/bridge baseline dc3308b also passes all 55 hosted suites on Linux
-x64 and Windows x64. Fresh Fetch acceptance remains pending. This supplies stream primitives;
+x64 and Windows x64. The later 65-suite CLI baseline at da5e3e8 also passes the
+Fetch suites; see [current evidence](../status.md). This supplies stream primitives;
 global [Fetch, Request, Response and Headers](fetch.md) now have a partial
 transport/body implementation.
 

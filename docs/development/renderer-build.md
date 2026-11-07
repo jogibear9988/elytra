@@ -108,7 +108,8 @@ build/renderer-artifacts/window.png. It checks two page-owned colors in the
 actual window capture so a blank PNG cannot pass. Visual review and physical
 display/driver coverage remain useful beyond these bounded swatches. The adapter reuses upstream's
 actual native WebContentView, not the headless view. The Windows window target
-is not implemented; Linux native execution remains pending its hosted gate. See ADR 0021 for the curated source list, context-menu
+is not implemented; scoped native Linux renderer/window/app execution passes at 8dc5830; see the
+[Linux guide](linux-renderer.md) and [current support](../status.md) for later gates. See ADR 0021 for the curated source list, context-menu
 limits and the still-required Mite/Firefly API integration.
 
 ## Actual Mite-driven Firefly application (macOS development build)

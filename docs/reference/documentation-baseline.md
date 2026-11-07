@@ -1,9 +1,13 @@
 # Documentation baseline: Node.js and Electron
 
-Reviewed 2026-11-06. Behavioral references remain **Node 24.15.0** and **Electron
+Reference inventory reviewed 2026-11-07. Behavioral references remain **Node 24.15.0** and **Electron
 45.2.3**, matching the repository's test references. Documentation coverage follows
 our product specification and measured implementation; a reference chapter does not
 make its corresponding API available here.
+
+Reviewed against current code/native evidence on **2026-11-07**. See
+[current support](../status.md) for exact platform/example/API status. Historical
+requirements below remain a completion checklist, not a claim that all entries work.
 
 ## What the reference projects provide
 
@@ -48,11 +52,11 @@ documentation status. Current module-level detail is in the [Mite matrix](../com
 | Buffer, text, URL, path, OS | Partial | Per-method contracts and native platform differences; general util and legacy URL gaps |
 | Events and streams | Partial | Backpressure/lifetime recipes, state/error contracts and unsupported cancellation/Web Streams modes |
 | Filesystem | Partial sync/callback/Promise/FileHandle APIs | Per-overload reference; streams/watch, permissions, metadata and remaining options |
-| TCP, DNS, HTTP | Partial | HTTP clients, HTTPS/TLS, fetch, upgrades and wider protocol/timeout coverage |
+| TCP, DNS, HTTP/TLS/Fetch | Partial client/server subsets with detailed references | TLS/HTTPS servers, Agents, upgrades and wider protocol/timeout/platform parity |
 | Crypto | Random, incremental Hash/HMAC and byte equality; [detailed current-subset reference](../api/crypto.md) | Ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, Web Crypto and complete provider/error contracts |
-| Child processes and concurrency | Unsupported | child_process, workers and necessary native lifetime/IPC behavior before documenting runnable examples |
+| Child processes and concurrency | Native spawn/execFile, pipes and lifetime have a [partial reference](../api/child-process.md) and cross-platform CLI tests | Shell exec/fork/sync APIs, workers, IPC and broader option/error parity |
 | Testing/assertion and diagnostics | Unsupported built-ins | Decide practical assert/test, inspector, performance, tracing/reporting and async-context priorities |
-| UDP, HTTP/2, compression, readline/TTY | Unsupported | Demand-led implementation and migration guidance |
+| UDP, HTTP/2, compression, readline/TTY | Native DecompressionStream/Fetch decoding is partial; other listed facilities absent | Compression encoders, remaining modules and demand-led migration coverage |
 | Other Node facilities | Unsupported | Explicit decisions for SQLite, WASI, REPL, single-executable packaging and the remaining standard modules |
 | V8 internals / native addons | Outside initial required scope | Preserve explicit limitations; no engine-specific success substitutes |
 
@@ -72,10 +76,11 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 | app / BrowserWindow / webContents | Partial main-process API with detailed per-member references | Broader API and native OS acceptance remain; document each new implementation with behavior and differential evidence |
 | Preload / contextBridge / ipcMain / ipcRenderer | [Preload/publication](../api/context-bridge.md) and [bounded request/reply IPC](../api/ipc.md) references | One-way/sync/port/subframe IPC, full clone types and broader callback/value compatibility remain |
 | dialog / Menu / MenuItem / Tray | Unsupported | Native implementations and practical application examples |
-| clipboard / shell / screen / nativeImage / session | Unsupported | Native services, permission policies, platform differences and migration fixtures |
+| clipboard / screen / nativeTheme | Partial macOS services; scoped X11 clipboard, new Linux screen wiring pending native acceptance | Physical/event/platform coverage and detailed references; [current status](../status.md) |
+| shell / nativeImage / session | Unsupported | Native services, permissions and migration fixtures |
 | Navigation / frames / protocol / web preferences | Narrow loading/defaults only | Frame/navigation policy, session/network controls and structured option reference |
-| System integration | Unsupported | Prioritize notifications, shortcuts, themes, power/storage and utility services by application demand |
-| Distribution / updates / crash diagnostics | Experimental macOS bundles only | Native Windows/Linux, signed distributions, installer/update behavior and supported diagnostics |
+| System integration | Partial macOS appearance; most services absent | Native notifications, shortcuts, Linux/Windows themes, power/storage and utility services |
+| Distribution / updates / crash diagnostics | Published macOS Alpha 2; later optimized Actions artifact; Linux archive/Designer gates pending | Native Windows/Linux acceptance, signed distributions, installer/update behavior and diagnostics |
 | Chromium-specific or deprecated facilities | Outside initial promise | Record deliberate differences; do not copy deprecated surfaces merely to fill an inventory |
 
 ## Reference-entry requirements

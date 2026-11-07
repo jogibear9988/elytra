@@ -25,7 +25,9 @@ url/filename/dirname/main are implemented in measured cases. Public filename,
 dirname and CommonJS module.paths values use native filesystem separators; URLs
 use URL separators and escaping. UTF-8 entry arguments are converted explicitly
 to native filesystem paths. Unicode entry/dependency/package paths are compared
-with Node locally; native Windows acceptance of these fixes remains pending.
+with Node locally and covered by the native Windows/Linux module suites at
+da5e3e8; see [current evidence](../status.md). This does not establish every
+UNC/drive/long-path or platform-specific resolution edge case.
 UNC file-module URLs are still unsupported on Windows and fail explicitly with
 ERR_MITE_UNSUPPORTED_API. On POSIX, a nonlocal file-URL host remains invalid.
 Canonical module file URLs encode literal filename tildes/brackets as %7E/%5B/%5D, matching

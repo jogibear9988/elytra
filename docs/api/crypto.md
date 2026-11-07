@@ -2,8 +2,8 @@
 
 Availability: Mite CLI/server applications and the Firefly main process. Partial
 implementation tested on macOS ARM64 and in the scoped
-[Linux Mite baseline](../development/linux-build.md). Windows and subsequent
-compiler/SDK-profile acceptance remain pending.
+Linux/Windows CLI suites at da5e3e8, including HMAC. See [current evidence](../status.md);
+subsequent compiler/CPU/SDK profiles and broader provider/failure cases remain open.
 Ladybird renderers do not receive this module or a privileged global crypto object.
 
 ```js
@@ -72,8 +72,8 @@ Mite requests six fresh OS entropy bytes for every attempt and does not cache
 integers. Consequently callback timing relative to nextTick/Promise callbacks can
 differ from Node's warm entropy-cache path. This is an explicit timing/performance
 difference; callers must not depend on that cache. Native behavior is tested on
-macOS ARM64 and in the [Linux baseline](../development/linux-build.md); Windows
-acceptance remains pending.
+macOS ARM64 and native Linux/Windows CLI crypto suites at da5e3e8;
+see [current evidence](../status.md).
 
 ## createHash(algorithm[, options])
 
