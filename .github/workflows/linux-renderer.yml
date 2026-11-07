@@ -15,6 +15,7 @@ on:
       - 'tooling/check_*.py'
       - 'tooling/stage_renderer_resources.py'
       - 'tooling/tests/**'
+      - 'tooling/native_package/**'
       - 'vendor/ladybird'
       - 'vendor/ladybird.json'
   workflow_dispatch:
@@ -52,6 +53,11 @@ jobs:
       - uses: ./.github/actions/linux-environment
         with:
           renderer: 'true'
+      - name: Native ELF dependency closure and relocation fixture
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --version
+          python tooling/tests/test_elf_package.py
       - name: Prepare dependency cache
         run: |
           mkdir -p build/vcpkg-cache build/renderer-cache

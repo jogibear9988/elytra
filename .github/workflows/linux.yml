@@ -13,7 +13,8 @@ on:
         'mite/**',
         'tooling/bootstrap.py',
         'tooling/check_*.py',
-        'tooling/tests/**'
+        'tooling/tests/**',
+        'tooling/native_package/**'
       ]
   pull_request:
     paths:
@@ -27,7 +28,8 @@ on:
         'mite/**',
         'tooling/bootstrap.py',
         'tooling/check_*.py',
-        'tooling/tests/**'
+        'tooling/tests/**',
+        'tooling/native_package/**'
       ]
   workflow_dispatch:
 permissions:
@@ -36,6 +38,23 @@ concurrency:
   group: linux-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  elf-package:
+    name: ELF package closure / native Linux x64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CC: clang-22
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: ./.github/actions/linux-environment
+      - name: Native ELF dependency closure and relocation fixture
+        run: |
+          sudo apt-get install -y patchelf
+          patchelf --version
+          python tooling/tests/test_elf_package.py
   mite:
     name: Mite / native Linux x64
     runs-on: ubuntu-24.04

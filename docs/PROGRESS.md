@@ -5741,6 +5741,48 @@ clearer; maintainability work does not complete native Windows desktop, Linux
 packages/OS services or the remaining Node/Electron/platform requirements.
 Goal active.
 
+## 2026-11-07: Implement native Linux ELF dependency-closure staging
+
+- Previous turn 870f66c is concrete progress: TCP ownership/validation/attempts
+  are separated, generated artifacts reproduce and all 65 runtime suites pass.
+  Source organization/ESM/comments are established across current production
+  roots. Continue toward required native distributables without introducing
+  undocumented or empty public API placeholders.
+- Add a private native_package ELF component for the unfinished Linux packager.
+  Accept explicit staged-destination/original-source mappings. Discover native
+  dependencies at originals, since existing $ORIGIN build RUNPATHs cannot
+  resolve in an incomplete staged tree. Require physically separate staged
+  copies with matching source hashes before any patching; reject hardlinks.
+- Keep the explicit glibc/loader ABI on the host. Copy remaining transitive ELF
+  dependencies once into lib/, deduplicate identical payload aliases and reject
+  same-name/different-content collisions before mutation. Patch only staged
+  objects with relative $ORIGIN RUNPATHs and recheck actual loader resolution
+  inside the package. Record original/packaged hashes, tool versions, binary
+  provenance, host ABI requirements and physical library count.
+- Refuse non-native-Linux-x64 hosts, non-ELF/wrong-architecture inputs, unresolved
+  or malformed loader entries, external/symlinked destinations, mismatched
+  copies, hardlinks and existing lib/ staging output. Clear LD_* overrides for
+  loader inspection so a developer shell cannot hide missing package paths.
+- Add an actual native C/DSO fixture: two main/helper layouts share a transitive
+  library chain; copy/patch/deduplicate, move the package, remove original build
+  locations and run both programs. Also check source preservation, deletion of
+  a required library, conflicting DSOs, hardlinks/tampering and staging refusal.
+  Add this required gate in an independent Linux CI job and before the large
+  renderer build, using the native system patchelf tool and recording its
+  version. Preserve existing gates; component acceptance need not wait for Mite.
+- Locally run only non-native platform/parser/refusal checks and Python syntax;
+  pass with no loader/patcher/GUI invoked. The native compiled fixture still
+  needs hosted Linux execution. Do not substitute parser checks for ELF proof.
+
+Validation: Python syntax, formatting, actionlint, unchanged upstream and
+non-native refusal/parser checks pass; 181 site pages and 12,514 local links/
+resources/fragments pass. Native ELF execution remains pending hosted CI.
+This component does not yet package Firefly/Designer: resource/plugin closure,
+licenses, launchers/archives and real packaged-app acceptance remain necessary.
+Native Windows desktop and remaining Node/Electron/OS services are still open.
+The optimized older macOS and Linux renderer candidates remain confirmed live;
+no timeout-based restart or additional release claim. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

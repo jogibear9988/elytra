@@ -371,3 +371,22 @@ compile commands and requires an actual cache-hit/invalidation executable gate
 before the real graph. Cache statistics are evidence of reuse, not evidence of
 Linux renderer behavior: all existing native DOM/compositor/process/sandbox/
 preload/window tests remain required. Hosted speedups are not claimed in advance.
+
+
+## ELF package closure component
+
+[Native package helpers](../../tooling/native_package/README.md) now contain a
+Linux x64 ELF closure stager. It resolves dependencies at original binary paths,
+checks separate staged copies, deduplicates common libraries, sets relative
+RUNPATHs and verifies loader resolution inside the staged lib/ tree. Host glibc
+and its loader remain external requirements, recorded in the returned inventory.
+No source build ELF is patched. Missing libraries, content collisions and
+hardlinked/tampered staging inputs are refused.
+
+The native CI fixture compiles real transitive shared libraries and two binary
+layouts, moves the staged package and removes the original source locations
+before executing them. It is a packaging component gate, not a substituted
+Firefly/Designer acceptance. Its first native result is pending. A complete
+Linux packager still must supply application/resources, explicit dlopen plugins,
+licenses/notices, launcher/archive formats and native packaged-application gates.
+No Linux release artifact is advertised from this component alone.
