@@ -5622,6 +5622,49 @@ specification remains active: native Windows desktop, Linux distributables and
 broader OS services, remaining Node/Electron coverage, physical desktop/platform
 acceptance and further roadmap milestones are unfinished.
 
+## 2026-11-07: Separate native Qt bridge responsibilities without changing method bodies
+
+- The previous goal turn made concrete progress: HTTP ESM subsystem moves,
+  corrected draft release verification, actual Alpha 2 publication and the
+  IPC crash receipt/diagnostic correction are committed and pushed. Continue
+  the user's main source-readability priority before expanding the API surface.
+- Replace the 865-line native Bridge.cpp implementation with a 23-line public
+  facade and private bridge/{Lifecycle,Windows,Preload,Ipc,Host}.cpp units.
+  The largest unit is now 275 lines. A private Impl header records the shared
+  owner/window state and method contracts; Value.h holds internal text conversion.
+- Preserve one owner, registry, QObject callback context and rooted JS handler/API.
+  Document the VM/Qt owner thread, lifetime requirements, navigation/crash sender
+  invalidation, pending slot ownership and teardown ordering. Keep the public
+  facade and all native/public APIs unchanged. Mite stays independent of Qt,
+  LibWeb and Firefly; no upstream source or platform provider changes.
+- Move every original method body intact. A one-off lexical C++ comparison of
+  all 18 methods verifies identical token streams including string literals,
+  excluding comments/formatting and out-of-class signature qualification only.
+  It is move-review evidence, not proof of complete runtime/security behavior.
+- Compile/link the actual Firefly target after the move. Separate compilation
+  exposed dependencies previously supplied indirectly by the monolith: add
+  explicit VM definitions to the binding/preload/window units. SDK deployment
+  warnings remain as before; do not infer older-macOS compatibility.
+- Keep optimized/shared-provider candidate 42345882824 at 85557be alive under
+  its existing native/security/package gates. Linux renderer 42345846818 is
+  also confirmed live compiling the actual graph. Neither is restarted because
+  polling shows a long step. These sources predate this native-only refactor.
+
+Validation: the actual current Firefly target compiles/links; --help exits before
+GUI initialization. All 65 standalone Release CTests pass in one run (21.25
+seconds). The 18-method token comparison, formatting, actionlint, unchanged
+upstream/generated manifests and 181 site pages/12,510 local links pass. No local
+GUI is launched. Fresh hosted macOS/Linux desktop gates
+must accept this source move. The overall specification remains incomplete:
+native Windows desktop, Linux distributable closure/OS services, optional-profile
+release acceptance and further Node/Electron/platform milestones remain open.
+An additional tracked-source audit finds role/license headers throughout the
+maintained runtime/module/core/native/renderer sources, except the two Qt UI
+probes; add accurate role headers to those probes. Large coherent files remain
+for subsequent review, especially WorldJobGuard.cpp (1,382 lines) and net.mjs
+(1,000 lines); this step does not declare the whole readability priority finished.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

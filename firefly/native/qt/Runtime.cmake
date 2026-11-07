@@ -55,6 +55,11 @@ add_executable(
     firefly
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"

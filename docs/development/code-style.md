@@ -10,7 +10,7 @@ The [native runtime map](../../mite/runtime/README.md) separates core VM/event-l
 ownership, module loading, native service families and the CLI. Include headers
 through their subsystem paths so dependencies are visible at the use site.
 
-Maintain equivalent boundaries in Firefly: desktop API, native window integration,
+Maintain equivalent boundaries in Firefly: desktop API, [native main-process bridge](../../firefly/native/qt/bridge/README.md), native window integration,
 renderer worlds/serialization, callback adapters, helper-process entry and packaging.
 Build/test scripts and application examples should be easy to locate by purpose.
 Do not mix generated bundles or third-party implementation into authored sources.

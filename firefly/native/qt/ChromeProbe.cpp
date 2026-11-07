@@ -1,3 +1,4 @@
+/** Exercise native window chrome hit-testing and tooltip behavior; this probe opens UI. */
 #include "ChromeWindow.h"
 #include "ToolTip.h"
 #include <QApplication>

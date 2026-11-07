@@ -1,3 +1,5 @@
+/** Drive a real Ladybird Qt view for native input, painting, navigation and renderer-loss
+ * acceptance. */
 #include <LibCore/ArgsParser.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Promise.h>

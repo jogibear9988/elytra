@@ -23,14 +23,18 @@ class EventLoop;
 }
 
 namespace Firefly {
+// Construct, call and destroy on the VM/Qt owner thread. VM, realm and both event
+// loops outlive the bridge; the private implementation disconnects its hooks first.
 class Bridge {
 public:
     Bridge(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&);
 
     ~Bridge();
 
+    // Install/root the trusted main-process host; it is never a renderer capability.
     GC::Ref<JS::Object> exports();
 
+    // Queue lifecycle delivery after the main entry has installed its JS handler.
     void ready();
 
 private:
