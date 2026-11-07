@@ -1,32 +1,8 @@
 /* Generated from mite/modules/network/http.mjs; edit the ESM source. */
 (function () {
 'use strict';
-// mite/modules/network/http.mjs
-function createHttpModule(host) {
-  const { Readable, Writable } = host.stream;
-  const { Server: TCPServer } = host.net;
-  const Buffer = host.Buffer;
-  const URL = host.URL;
-  const tick = host.process.nextTick;
-  const native = host.native;
-  const abort = host.abort;
-  const incoming = /* @__PURE__ */ new WeakMap();
-  const outgoing = /* @__PURE__ */ new WeakMap();
-  const servers = /* @__PURE__ */ new WeakMap();
-  const clients = /* @__PURE__ */ new WeakMap();
-  const clientToken = {};
-  const plainTransport = Object.freeze({
-    protocol: "http:",
-    defaultPort: 80,
-    readyEvent: "connect",
-    createSocket(config) {
-      return new host.net.Socket({
-        noDelay: config.opts.noDelay ?? true,
-        keepAlive: config.opts.keepAlive,
-        keepAliveInitialDelay: config.opts.keepAliveInitialDelay
-      });
-    }
-  });
+// mite/modules/network/http/protocol.mjs
+function createHttpProtocol(native) {
   const token = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
   const singleton = /* @__PURE__ */ new Set([
     "age",
@@ -174,6 +150,68 @@ function createHttpModule(host) {
     }
     return { headers, distinct };
   }
+  function headerLines(headers) {
+    let text = "";
+    for (const { name, value } of headers.values()) {
+      const values = Array.isArray(value) ? name.toLowerCase() === "cookie" ? [value.join("; ")] : value : [value];
+      for (const item of values) {
+        const field = String(item);
+        validateHeaderValue(name, field);
+        text += `${name}: ${field}\r
+`;
+      }
+    }
+    return text;
+  }
+  function pairs(raw) {
+    if (raw.length % 2) {
+      throw error(TypeError, "ERR_INVALID_ARG_VALUE", "Header array must have pairs");
+    }
+    const result = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      result.push([raw[i], raw[i + 1]]);
+    }
+    return result;
+  }
+  function integer(value, name) {
+    if (typeof value !== "number") {
+      throw error(TypeError, "ERR_INVALID_ARG_TYPE", `${name} must be a number`);
+    }
+    if (!Number.isInteger(value) || value < 0 || value > 2147483647) {
+      throw error(RangeError, "ERR_OUT_OF_RANGE", `Invalid ${name}`);
+    }
+    return value;
+  }
+  return {
+    METHODS,
+    STATUS_CODES,
+    token,
+    error,
+    unsupported,
+    validateHeaderName,
+    validateHeaderValue,
+    merged,
+    headerLines,
+    pairs,
+    integer
+  };
+}
+
+// mite/modules/network/http/messages.mjs
+function createHttpMessages(host, protocol) {
+  const { Readable, Writable } = host.stream;
+  const Buffer = host.Buffer;
+  const {
+    error,
+    unsupported,
+    validateHeaderName,
+    validateHeaderValue,
+    STATUS_CODES,
+    headerLines,
+    pairs
+  } = protocol;
+  const incoming = /* @__PURE__ */ new WeakMap();
+  const outgoing = /* @__PURE__ */ new WeakMap();
   class IncomingMessage extends Readable {
     constructor(socket) {
       super({ autoDestroy: true });
@@ -222,19 +260,6 @@ function createHttpModule(host) {
       throw error(Error, "ERR_HTTP_HEADERS_SENT", "Cannot change headers after they are sent");
     }
     return outgoing.get(response);
-  }
-  function headerLines(headers) {
-    let text = "";
-    for (const { name, value } of headers.values()) {
-      const values = Array.isArray(value) ? name.toLowerCase() === "cookie" ? [value.join("; ")] : value : [value];
-      for (const item of values) {
-        const field = String(item);
-        validateHeaderValue(name, field);
-        text += `${name}: ${field}\r
-`;
-      }
-    }
-    return text;
   }
   class OutgoingMessage extends Writable {
     constructor(options = {}) {
@@ -319,7 +344,7 @@ function createHttpModule(host) {
       }
       const headers = new Map(s.headers);
       const has = (name) => headers.has(name);
-      const get2 = (name) => headers.get(name)?.value;
+      const get = (name) => headers.get(name)?.value;
       const code = Number(this.statusCode);
       if (!Number.isInteger(code) || code < 100 || code > 999) {
         throw error(
@@ -364,11 +389,11 @@ function createHttpModule(host) {
           "Content-Length and Transfer-Encoding cannot both be sent"
         );
       }
-      if (has("transfer-encoding") && String(get2("transfer-encoding")).toLowerCase() !== "chunked") {
+      if (has("transfer-encoding") && String(get("transfer-encoding")).toLowerCase() !== "chunked") {
         unsupported("Response transfer encoding other than chunked");
       }
       s.chunked = !s.noBody && has("transfer-encoding");
-      if (String(get2("connection") ?? "").toLowerCase().split(/\s*,\s*/).includes("close")) {
+      if (String(get("connection") ?? "").toLowerCase().split(/\s*,\s*/).includes("close")) {
         this.shouldKeepAlive = false;
       }
       if (s.connection?.closing && s.connection.queue.at(-1) === this) {
@@ -517,16 +542,6 @@ ${headerLines(headers)}\r
       unsupported("writeEarlyHints");
     }
   }
-  function pairs(raw) {
-    if (raw.length % 2) {
-      throw error(TypeError, "ERR_INVALID_ARG_VALUE", "Header array must have pairs");
-    }
-    const result = [];
-    for (let i = 0; i < raw.length; i += 2) {
-      result.push([raw[i], raw[i + 1]]);
-    }
-    return result;
-  }
   class ServerResponse extends OutgoingMessage {
     constructor(req) {
       super();
@@ -553,6 +568,32 @@ ${headerLines(headers)}\r
       return this;
     }
   }
+  return { IncomingMessage, OutgoingMessage, ServerResponse, incoming, outgoing };
+}
+
+// mite/modules/network/http/client.mjs
+function createHttpClient(host, protocol, messages) {
+  const Buffer = host.Buffer;
+  const URL = host.URL;
+  const tick = host.process.nextTick;
+  const native = host.native;
+  const abort = host.abort;
+  const { token, error, unsupported, merged, integer, headerLines, pairs } = protocol;
+  const { IncomingMessage, OutgoingMessage, incoming, outgoing } = messages;
+  const clients = /* @__PURE__ */ new WeakMap();
+  const clientToken = {};
+  const plainTransport = Object.freeze({
+    protocol: "http:",
+    defaultPort: 80,
+    readyEvent: "connect",
+    createSocket(config) {
+      return new host.net.Socket({
+        noDelay: config.opts.noDelay ?? true,
+        keepAlive: config.opts.keepAlive,
+        keepAliveInitialDelay: config.opts.keepAliveInitialDelay
+      });
+    }
+  });
   function clientOptions(input, options, callback, transport) {
     if (typeof options === "function") {
       callback = options;
@@ -1015,6 +1056,21 @@ ${headerLines(headers)}\r
     req.end();
     return req;
   }
+  function requestWithTransport(transport, input, options, callback) {
+    return new ClientRequest(input, options, callback, clientToken, transport);
+  }
+  return { ClientRequest, request, get, requestWithTransport };
+}
+
+// mite/modules/network/http/server.mjs
+function createHttpServer(host, protocol, messages) {
+  const { Server: TCPServer } = host.net;
+  const Buffer = host.Buffer;
+  const tick = host.process.nextTick;
+  const native = host.native;
+  const { STATUS_CODES, error, unsupported, merged, integer } = protocol;
+  const { IncomingMessage, ServerResponse, incoming, outgoing } = messages;
+  const servers = /* @__PURE__ */ new WeakMap();
   function clearTimer(c) {
     if (c.timer) {
       clearTimeout(c.timer);
@@ -1220,15 +1276,6 @@ Connection: close\r
       fail(c, e, raw);
     }
   }
-  function integer(value, name) {
-    if (typeof value !== "number") {
-      throw error(TypeError, "ERR_INVALID_ARG_TYPE", `${name} must be a number`);
-    }
-    if (!Number.isInteger(value) || value < 0 || value > 2147483647) {
-      throw error(RangeError, "ERR_OUT_OF_RANGE", `Invalid ${name}`);
-    }
-    return value;
-  }
   class Server extends TCPServer {
     constructor(options = {}, listener) {
       if (typeof options === "function") {
@@ -1394,22 +1441,29 @@ Connection: close\r
   function createServer(...args) {
     return new Server(...args);
   }
-  Object.defineProperty(host.clientHooks, "request", {
-    value: (transport, input, options, callback) => new ClientRequest(input, options, callback, clientToken, transport)
-  });
+  return { Server, createServer };
+}
+
+// mite/modules/network/http.mjs
+function createHttpModule(host) {
+  const protocol = createHttpProtocol(host.native);
+  const messages = createHttpMessages(host, protocol);
+  const client = createHttpClient(host, protocol, messages);
+  const server = createHttpServer(host, protocol, messages);
+  Object.defineProperty(host.clientHooks, "request", { value: client.requestWithTransport });
   return {
-    Server,
-    ServerResponse,
-    OutgoingMessage,
-    IncomingMessage,
-    ClientRequest,
-    request,
-    get,
-    createServer,
-    METHODS,
-    STATUS_CODES,
-    validateHeaderName,
-    validateHeaderValue,
+    Server: server.Server,
+    ServerResponse: messages.ServerResponse,
+    OutgoingMessage: messages.OutgoingMessage,
+    IncomingMessage: messages.IncomingMessage,
+    ClientRequest: client.ClientRequest,
+    request: client.request,
+    get: client.get,
+    createServer: server.createServer,
+    METHODS: protocol.METHODS,
+    STATUS_CODES: protocol.STATUS_CODES,
+    validateHeaderName: protocol.validateHeaderName,
+    validateHeaderValue: protocol.validateHeaderValue,
     maxHeaderSize: 16384
   };
 }

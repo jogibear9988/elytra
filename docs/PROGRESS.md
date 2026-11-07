@@ -5475,6 +5475,42 @@ screen/theme/OS services and Windows desktop integration remain required.
 The optimized release candidate still needs all native/security/package gates;
 no alpha publication is claimed. Goal active.
 
+## 2026-11-07: Split HTTP authoring into commented ESM subsystems
+
+- Continue the requested source-readability priority: replace the 1,638-line HTTP
+  authoring file with a small stable builtin facade and private protocol,
+  message, client and server factories (each below 600 lines). Document ownership
+  and the source map. Keep the public module entry and generated embedding ABI.
+- Move existing behavior bodies without rewriting protocol decisions. A temporary
+  Acorn comparison against the committed source verifies all 31 original top-level
+  functions/classes and shared metadata ASTs unchanged. This is move evidence,
+  not a substitute for actual native behavior tests.
+- Keep realm-local metadata, shared message constructor/WeakMap identity, separate
+  client/server connection state and the private HTTPS transport hook. Expose no
+  additional helper state or injectable transport API to applications. Fix a
+  missing private pairs dependency during source review before native testing.
+- Regenerate the committed factory/manifest; all transitive authoring files are
+  hashed, and generation reproduces exactly. Build/link standalone Mite and the
+  real Firefly executable. No local GUI is launched.
+- The full 65-test native Release run passes 62 suites, including HTTP/HTTPS,
+  fetch, abort and forced-GC lifetime gates. The machine hibernates from 01:15:36
+  to 07:02:15 local time (pmset evidence: 20,799 seconds); the three then-active
+  module/CommonJS/npm suites are recorded as timeouts after 20,798 seconds.
+  Preserve that failed log and rerun only those three unchanged suites: all
+  pass in 0.87 seconds. Thus every suite passes on the current binary, without
+  suppressing the interrupted-run failure or changing timeout/assertion policy.
+- Fresh hosted source 19ad113 now has successful Linux renderer/application,
+  Linux native-service, Linux/Windows CLI and macOS package workflows. Inspect
+  their scoped logs and artifacts next; this is new evidence, not a reason to
+  mark the overall cross-platform goal complete. Optimized 12f15f1 passed the
+  corrected IPC security/budget checks but failed its subsequent crash fixture.
+
+Validation: repository formatting, reproducible bundles/source manifests, the
+unmodified upstream pin and 181 site pages/12,505 local links pass. The new
+HTTP source organization still needs fresh hosted acceptance; it adds no API
+coverage. Native Windows desktop, Linux distributable closure, broader OS APIs
+and the remaining specification milestones are unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
