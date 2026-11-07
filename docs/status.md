@@ -47,12 +47,22 @@ production helper tests. Each selected helper receives the exact immutable paren
 policy before its VM starts; no page/preload setter is added. The first helper
 launch seals even an empty policy and late registration rejects.
 
-The first application-facing DOM URL expectation **fails**: Rust's DOM URL class
-bypasses the native C++ origin hook. The strict check-firefly-protocol-dom-origins
-gate remains failing, separately from native configuration acceptance. Public
-protocol, standard parsing, registration timing/worker propagation and resource
-transport remain unfinished. Code-OSS still fails at the protocol import; no new
-Code-OSS desktop launch is claimed.
+The [shared Rust/native origin entry](architecture/0113-shared-rust-origin-policy.md)
+now passes the strict local macOS headless DOM gate for diagnostic and production
+helpers, including IDNA/IPv6, ports, relative origins and default denial. The C++
+URL::origin override is removed. Cargo source selection, explicit freshness and
+actual dependency outputs are checked. Public protocol, standard parsing,
+registration timing/worker propagation and resource transport remain unfinished.
+Code-OSS still fails at the protocol import; no desktop launch is claimed.
+
+The previous **bd83480** snapshot is accepted on native Linux (all **78**, 100.86s,
+[run 42396266883](https://github.com/jogibear9988/elytra/actions/runs/42396266883))
+and Windows (all **77**, 134.45s,
+[run 42396266975](https://github.com/jogibear9988/elytra/actions/runs/42396266975)).
+Its Linux renderer/default archive/Designer and native helper policy delivery pass
+[run 42396266897](https://github.com/jogibear9988/elytra/actions/runs/42396266897).
+That snapshot still reports the DOM origin gap; it does not accept the new Rust
+composition, which requires fresh platform CI.
 
 Native **a56d183** accepts promisify/resolve hooks on Linux (all **77**, 68.73s,
 [run 42391944791](https://github.com/jogibear9988/elytra/actions/runs/42391944791))

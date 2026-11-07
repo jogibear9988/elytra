@@ -11,5 +11,25 @@
   const nativeAbsent = ['process', 'require', 'firefly', 'electron', 'configureOriginPolicy'].every(
     (name) => typeof globalThis[name] === 'undefined'
   );
-  document.body.textContent = `FIRST_SCRIPT origin=${origin} other=${other} NATIVE_ABSENT=${nativeAbsent}`;
+  const sources = [
+    'app://bundle:0/a',
+    'app://bundle:443/a',
+    'app://user:pass@BUNDLE/a',
+    'app://bücher.example/a',
+    'app://[::1]:9000/a',
+    'app:opaque',
+    'unknown://bundle/a',
+    'https://EXAMPLE.com:443/a',
+    'http://example.com:8080/a'
+  ];
+  const origins = sources.map((source) => new URL(source).origin);
+  origins.push(new URL('../b', 'app://BUNDLE/a/path').origin);
+  // Invoke the genuine getter with an invalid receiver; no page-side override.
+  let brand = false;
+  try {
+    Object.getOwnPropertyDescriptor(URL.prototype, 'origin').get.call({});
+  } catch (error) {
+    brand = error instanceof TypeError;
+  }
+  document.body.textContent = `FIRST_SCRIPT origin=${origin} other=${other} NATIVE_ABSENT=${nativeAbsent}\nORIGINS=${JSON.stringify(origins)} BRAND=${brand}`;
 </script>

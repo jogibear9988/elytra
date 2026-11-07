@@ -29,7 +29,7 @@ from a future Code-OSS test.
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | Explicit --libjs-cache application overlay preserves ordinary upstream startup logic while disabling V8 caches and rejecting generation/measurements/waits. Actual cache branches pass locally; real full-source main.ts reaches mainImpl then standalone-Mite original-fs host-boundary failure. No desktop launch; public Node cache/V8 APIs remain absent. [Policy](../architecture/0106-code-oss-libjs-cache-policy.md) |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
 | Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, with the actual frozen root production dependencies, then passes the registerHooks import and fails at the missing Electron protocol named export (exit 1). Implement the required real protocol contract next; protocol/Menu/crashReporter/contentTracing and app methods remain missing or partial. No workbench/startup acceptance |
-| Custom resource origins | mainImpl registers vscode-webview/vscode-file and remote resource schemes; protocolMainService serves authorized files and blocks direct file access | Internal actual LibURL/LibWebCommon custom origin/trust foundation passes local native tests; helpers remain empty by default; native parent/owned-helper configuration before bootstrap now passes local headless tests. Rust DOM URL origin bypasses the native hook and its strict gate remains failing; public protocol stays absent. Consistent standard parsing/origin extraction, registration timing and bounded file/request loading remain required. [ADR 0112](../architecture/0112-native-protocol-configuration.md) |
+| Custom resource origins | mainImpl registers vscode-webview/vscode-file and remote resource schemes; protocolMainService serves authorized files and blocks direct file access | Internal actual LibURL/LibWebCommon custom origin/trust foundation passes local native tests; helpers remain empty by default; native parent/owned-helper configuration before bootstrap now passes local headless tests. Rust/native/DOM origin extraction now shares the canonical native policy, with strict local macOS headless acceptance; public protocol stays absent. Consistent standard parsing/origin extraction, registration timing and bounded file/request loading remain required. [ADR 0113](../architecture/0113-shared-rust-origin-policy.md) |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
 | Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
 | Workspace files | Disk provider channel includes open/read/write/readFile/readFileStream/watch and cancellation | Broaden filesystem/stream/watch APIs and native watcher lifecycle; actual open/edit/save/rename/external-change tests must pass |
@@ -121,6 +121,20 @@ Broader exports/options, workbench startup and other dependency roots remain uni
 Choose general compatibility work against this application path first. Keep
 security and the full native platform specification; deprioritize unrelated
 Electron example breadth and new HTTP protocols.
+
+Immediate execution order (each step needs real native acceptance):
+
+| Priority | Deliverable | Exit criterion |
+| --- | --- | --- |
+| 1 | Custom protocol engine and resource transport | Native/Rust/DOM origins agree; register before helper launch; authorized file responses load through the real renderer |
+| 2 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
+| 3 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |
+| 4 | First usable desktop workspace | Real Code-OSS window opens, edits and saves files; file changes, settings and shutdown work |
+| 5 | Development workflows and platform gates | Extension host/LSP, terminal/PTY and native services pass defined workflows, followed by native packaged acceptance on each OS |
+
+HTTP/2/3, additional example breadth and visual website work remain behind this
+path unless a real Code-OSS trace makes one of them necessary. The sequence below
+retains the larger acceptance milestones; a successful import alone is insufficient.
 
 1. **Reproducible bootstrap and transport slices:** preserve the pinned application
    baseline, executable/source versions and real failing startup trace. Implement

@@ -28,23 +28,28 @@ invalid/opaque forms retain upstream behavior. Secure entries additionally requi
 standard tuple origins. Default HTTP/HTTPS/loopback/file trust remains upstream.
 No CSP, CORS, fetch, ServiceWorker or code-cache capability is supplied here.
 
-The actual DOM URL class uses Rust directly and currently bypasses this C++ origin
-policy: new URL('app://bundle/').origin remains null in the renderer. The pinned
-Rust SchemeType/parser has no custom-standard extension. Treat this as an open
-engine integration blocker, not standard-scheme compatibility. The public protocol
-export remains absent and Code-OSS still fails at that import.
+Native and DOM consumers now share the real Rust Url::origin entry, which consults
+the canonical C++ policy through an existing borrowed FfiOrigin callback ABI.
+The earlier C++ URL::origin override is removed. The DOM getter remains upstream;
+other Rust extraction callers receive the same policy. The pinned Rust parser
+still has no custom-standard extension: complete parsing/mutation behavior remains
+open. Public protocol remains absent and Code-OSS still fails at that import.
 
-Targets.cmake composes three fingerprinted translation units, preserving upstream
-bytes outside owned include/call seams and all notices. Drift or changed target
-ownership fails configure/build. Ladybird stays untouched; standalone Mite does
-not link the policy. Its bounded immutable tables live until process exit.
+Targets.cmake composes two fingerprinted C++ translation units for trust and helper
+launch. The owned Rust build driver selects guarded root/module/origin compositions,
+preserving all other source bytes and license notices, original manifests/lockfiles
+and parser modules. Changed fingerprints invalidate Cargo artifacts; actual archive
+dependency outputs must include the adapter. Drift or changed module/target ownership
+fails closed. Ladybird stays untouched; standalone Mite does not link the policy.
+Its bounded immutable tables live until process exit. See
+[ADR 0113](../../../docs/architecture/0113-shared-rust-origin-policy.md).
 
 ```sh
 # Actual native origins/trust, codec, argv lifetime and launch sealing; no GUI.
 cmake --build build/renderer --target check-firefly-protocol-origins --parallel 3
 # Actual native parent/diagnostic/product helper delivery; no desktop windows.
 cmake --build build/renderer --target check-firefly-protocol-renderer --parallel 3
-# Separate currently failing DOM URL origin acceptance, not a supported API gate.
+# Alias for the required strict renderer policy/origin acceptance.
 cmake --build build/renderer --target check-firefly-protocol-dom-origins --parallel 3
 ```
 
@@ -52,14 +57,16 @@ The native tests verify default denial, real tuple/trust results, scheme/host/po
 separation, IDNA/IPv6, atomic validation, concurrent reads, serialization, strict
 options, temporary-input ownership and late-registration refusal. The headless
 tests verify actual child PID/policy before bootstrap, first-script observation,
-default denial and absent page privileges; they report the DOM URL gap as PENDING.
+default denial, absent page privileges, real getter branding and normalized DOM
+origins for credentials, explicit ports, IDNA, IPv6 and relative URLs. The strict
+origin checks are required by the renderer configuration gate.
 Native macOS passes. Linux/Windows need separate results; the Windows renderer
 has no owned helper delivery or production desktop acceptance yet.
 
 Remaining work before public registration:
 
-1. Consistent Rust DOM/native origin extraction and full custom-standard URL
-   parsing/mutation/serialization, without a private upstream parser fork.
+1. Full custom-standard URL parsing/mutation/serialization, without a private
+   upstream parser fork; shared native/DOM origin extraction is now accepted locally.
 2. Main-process registration lifecycle before helper/spare launch; worker-process
    policy propagation and platform acceptance.
 3. Actual owned request/file-response transport with bounded resources,

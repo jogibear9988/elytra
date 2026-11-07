@@ -294,18 +294,26 @@ IPC fixtures with directly loaded ESM, without the earlier inline workaround.
 
 ## Custom protocol origin seams
 
-The renderer graph composes LibURL URL::origin, LibWebCommon's
-potentially-trustworthy-origin decision and the WebContent launch call through
+The renderer graph composes LibWebCommon's potentially-trustworthy-origin decision
+and the WebContent launch call through
 [prepare_protocol_origin_hooks.py](../../tooling/prepare_protocol_origin_hooks.py).
-Review all three fingerprints, the exact origin/trust/launch seams and CMake source ownership
-on an upstream update. The native-only immutable policy defaults empty; standalone
-Mite does not use it. Run check-firefly-protocol-origins against actual native
-LibURL/LibWebCommon, separately from the standalone source-composition guard.
-Run check-firefly-protocol-renderer for actual owned helper configuration. Its
-separate strict check-firefly-protocol-dom-origins is still failing because Rust
-DOM URL origin bypasses the native hook. Review that Rust binding/parser separately;
-no standard parsing or request/resource transport acceptance follows. See
-[ADR 0111](../architecture/0111-custom-protocol-origins.md).
+Review both fingerprints, exact seams and CMake source ownership on upstream updates.
+LibURL URL.cpp remains upstream: native and DOM consumers instead share Rust
+Url::origin through [the owned Rust composition](../../tooling/rust-origin/prepare.py).
+Review the pinned lib.rs/origin.rs/ffi.rs hashes, module layouts, borrowed-origin
+ABI and synchronous callback ownership; do not just refresh hashes. Original
+parser modules, Cargo manifests/lockfiles and notices must stay unchanged.
+
+The native-only immutable policy defaults empty; standalone Mite does not use it.
+Run check-firefly-protocol-origins against actual native LibURL/LibWebCommon,
+separately from standalone source/driver guards. Run check-firefly-protocol-renderer
+(or check-firefly-protocol-dom-origins) for strict actual owned-helper origin and
+configuration acceptance. Both archive depfiles must include the generated Rust
+root/origin/ffi and owned helper. Verify changed composition inputs invalidate Cargo
+through the explicit cfg fingerprint; wrapper changes alone can leave fresh old
+artifacts. Inspect existing compiler-cache chain order and native driver argument
+transport on each platform. Standard parser/mutation and request/resource transport
+acceptance remain separate. See [ADR 0113](../architecture/0113-shared-rust-origin-policy.md).
 
 The owned helper Entry.cpp consumes the bounded immutable origin policy before
 calling upstream main. Check argv ownership, stripping and error-before-bootstrap

@@ -243,6 +243,10 @@ if(BUILD_TESTING)
         NAME mite-web-streams
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_streams.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-rust-origin-driver
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/rust-origin/test_driver.py"
+                --compiler "${CMAKE_CXX_COMPILER}")
     add_test(NAME firefly-protocol-origin-adapter
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py")

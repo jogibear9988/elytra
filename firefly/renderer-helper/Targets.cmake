@@ -151,16 +151,8 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
         --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper
         "$<TARGET_FILE:FireflyWebContent>" ${protocol_runtime_test_argument}
-    DEPENDS firefly-protocol-renderer-probe
+    DEPENDS firefly-protocol-renderer-probe check-firefly-rust-dom-origin-dependencies
     USES_TERMINAL VERBATIM)
 
-# Separate application-facing acceptance: intentionally remains red until Rust DOM URL origin
-# semantics agree with the native policy. Not a supported API gate.
-add_custom_target(
-    check-firefly-protocol-dom-origins
-    COMMAND
-        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
-        --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper
-        "$<TARGET_FILE:FireflyWebContent>" ${protocol_runtime_test_argument} --require-dom
-    DEPENDS firefly-protocol-renderer-probe
-    USES_TERMINAL VERBATIM)
+# Preserve the explicit origin target name; all renderer policy acceptance is strict now.
+add_custom_target(check-firefly-protocol-dom-origins DEPENDS check-firefly-protocol-renderer)

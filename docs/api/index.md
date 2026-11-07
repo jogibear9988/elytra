@@ -74,8 +74,8 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 Public protocol remains absent. The internal [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
 now includes native owned-helper configuration, but does not provide resource
-handlers or application scheme registration. The Rust DOM URL origin gate remains
-failing; see [ADR 0112](../architecture/0112-native-protocol-configuration.md).
+handlers or application scheme registration. The shared native/Rust DOM origin
+gate now passes locally on macOS; see [ADR 0113](../architecture/0113-shared-rust-origin-policy.md).
 
 The [original-fs reference](original-fs.md) describes raw main-process filesystem
 access, separate facades and the remaining ASAR limitation.

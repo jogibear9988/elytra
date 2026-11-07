@@ -8,12 +8,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "native/protocol/OriginPolicy.h"\n'
 ENTRIES = {
-    "URL.cpp": (
-        "Libraries/LibURL/URL.cpp",
-        "3e233367b17349e9b5e305df0b44ff72c80167d529f392ab5c699195fee4c764",
-        "    // NB: liburl_rust runs the remaining steps.\n",
-        "    if (auto custom = Firefly::Protocols::custom_origin(*this); custom.has_value())\n        return custom.release_value();\n\n",
-    ),
     "HelperProcess.cpp": (
         "Libraries/LibWebView/HelperProcess.cpp",
         "b534514372909dec44a6a31738825e0d92aabea923add1fa2067647f82a1d888",

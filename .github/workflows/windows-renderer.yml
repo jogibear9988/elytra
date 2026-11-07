@@ -10,6 +10,7 @@ on:
       - 'mite/runtime/adapters/**'
       - 'tooling/build_renderer.py'
       - 'tooling/prepare_protocol_origin_hooks.py'
+      - 'tooling/rust-origin/**'
       - 'tooling/bootstrap.py'
       - 'tooling/check_upstream.py'
       - 'tooling/check_checkout_paths.py'

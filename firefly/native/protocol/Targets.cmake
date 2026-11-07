@@ -11,7 +11,6 @@ set_property(
     APPEND
     PROPERTY CMAKE_CONFIGURE_DEPENDS
              "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
-             "${LADYBIRD_SOURCE_DIR}/Libraries/LibURL/URL.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/HelperProcess.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp")
 
@@ -38,12 +37,46 @@ function(firefly_origin_source target original replacement)
         APPEND
         PROPERTY INCLUDE_DIRECTORIES "${FIREFLY_SOURCE_DIR}/firefly")
 endfunction()
-firefly_origin_source(LibURL "Libraries/LibURL/URL.cpp" URL.cpp)
 firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp"
                       SecureContexts.cpp)
 firefly_origin_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp" HelperProcess.cpp)
-target_sources(LibURL PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp"
-                              "${CMAKE_CURRENT_LIST_DIR}/OriginConfig.cpp")
+target_sources(
+    LibURL
+    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp"
+            "${CMAKE_CURRENT_LIST_DIR}/OriginConfig.cpp" "${CMAKE_CURRENT_LIST_DIR}/RustOrigin.cpp")
+add_custom_target(
+    check-firefly-rust-origin
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/prepare.py" --output
+        "${rust_origin_directory}" --driver "${rust_origin_driver}" --chain
+        "${FIREFLY_RUST_CHAIN_WRAPPER}" --check
+    VERBATIM)
+add_dependencies(LibURL check-firefly-rust-origin)
+add_dependencies(liburl_rust-build check-firefly-rust-origin)
+add_dependencies(libweb_bindings_rust-build check-firefly-rust-origin)
+get_target_property(rust_url_archive liburl_rust IMPORTED_LOCATION)
+get_target_property(rust_web_archive libweb_bindings_rust IMPORTED_LOCATION)
+get_filename_component(rust_url_directory "${rust_url_archive}" DIRECTORY)
+get_filename_component(rust_url_name "${rust_url_archive}" NAME_WE)
+get_filename_component(rust_web_directory "${rust_web_archive}" DIRECTORY)
+get_filename_component(rust_web_name "${rust_web_archive}" NAME_WE)
+add_custom_target(
+    check-firefly-rust-origin-dependencies
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/audit.py" --config
+        "${rust_origin_directory}/config.json" --depfile "${rust_url_directory}/${rust_url_name}.d"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/test_driver.py"
+            --compiler "${CMAKE_CXX_COMPILER}"
+    DEPENDS liburl_rust-build
+    VERBATIM)
+# Keep the LibURL-only Windows gate independent of broader LibWeb bindings.
+add_custom_target(
+    check-firefly-rust-dom-origin-dependencies
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/audit.py" --config
+        "${rust_origin_directory}/config.json" --depfile "${rust_web_directory}/${rust_web_name}.d"
+    DEPENDS check-firefly-rust-origin-dependencies libweb_bindings_rust-build
+    VERBATIM)
 add_custom_target(
     check-firefly-protocol-origin-hooks
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
@@ -62,5 +95,5 @@ add_custom_target(
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" configured
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" arguments
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" sealed
-    DEPENDS firefly-protocol-origin-probe
+    DEPENDS firefly-protocol-origin-probe check-firefly-rust-origin-dependencies
     USES_TERMINAL VERBATIM)

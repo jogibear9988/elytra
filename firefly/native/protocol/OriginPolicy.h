@@ -30,4 +30,6 @@ Optional<ByteString> configuration_for_helper_launch();
 Optional<URL::Origin> custom_origin(URL::URL const&);
 
 bool is_secure_origin(URL::Origin const&);
+
+bool is_standard_scheme(StringView);
 }

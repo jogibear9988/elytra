@@ -129,6 +129,12 @@ Optional<URL::Origin> custom_origin(URL::URL const& url)
     return URL::Origin { entry->name, *host, url.port() };
 }
 
+bool is_standard_scheme(StringView name)
+{
+    auto const* entry = find(name);
+    return entry && entry->standard;
+}
+
 bool is_secure_origin(URL::Origin const& origin)
 {
     if (origin.is_opaque() || !origin.scheme().has_value())

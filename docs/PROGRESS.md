@@ -7231,6 +7231,58 @@ and the last full local runtime baseline remains 77 suites. Formatting, site
 Code-OSS launch; Ladybird remains unchanged. ADR 0112 and references record worker,
 parser/DOM, registration-lifecycle and resource-transport gaps. Full goal active.
 
+## 2026-11-07: Unify native and DOM Rust origins on the Code-OSS critical path
+
+- Keep Code-OSS as the first compatibility target. Record explicit execution order:
+  protocols/resources, actual main bootstrap, preload/binary-port workbench bridge,
+  usable file workspace, extension/terminal/native services and per-platform packages.
+  Defer unrelated website/example breadth and HTTP/2/3 behind that path.
+- Resolve the observed strict DOM failure at the actual Rust Url::origin entry,
+  rather than decorating its JavaScript getter. One private Rust helper consults
+  the canonical immutable C++ policy using upstream's existing borrowed FfiOrigin
+  callback ABI. Copy before the callback returns; parsing never recurses into origin.
+  Remove the earlier C++ URL.cpp composition so native/DOM consumers share one path.
+- Keep Ladybird and Cargo manifests/lockfiles/parser modules unchanged. Guard
+  lib.rs/origin.rs/ffi.rs fingerprints, exact source restoration and module layout;
+  generate only root/module-path composition plus the narrow origin call. Preserve
+  notices. Standalone Mite neither uses the wrapper nor links the Firefly policy.
+- Add native build-only no-shell Rust compiler routing. Preserve non-target crate
+  arguments, verify hashes, refuse ambiguous source/self-recursion and chain an
+  existing compiler cache after substitution. Native argv/exit tests cover empty,
+  Unicode, spaces, quotes and backslashes; Windows execution still needs fresh CI.
+- First strict attempt stayed red because Cargo reused fresh pre-adapter artifacts.
+  Add an explicit composition cfg fingerprint through an owned CMake module that
+  includes upstream's unchanged Cargo module. Rebuild with changed Rust flags;
+  inspect real LibURL and LibWeb Cargo depfiles for generated root/origin/ffi/helper.
+  Require those checks and stale-output refusal, not a successful Cargo message.
+- Actual local macOS native tuple/trust/codec/argv/sealing/concurrent-read probes
+  pass with the upstream C++ URL source. Actual first-script headless diagnostic
+  and production helpers now pass normalized DOM origins, credentials, explicit
+  ports, host separation, IDNA, IPv6, relative URLs, default/builtin behavior and
+  genuine getter brand checks. Page/native privileges remain absent. Make the
+  existing required renderer configuration gate strict; the DOM target is an alias.
+- Keep the LibURL-only origin gate independent of the broader LibWeb bindings
+  build for native Windows diagnostics. Require both archive dependency checks
+  for actual helper/DOM acceptance. Add standalone source/driver CTest and CI paths.
+- Record previous bd83480 hosted acceptance: Linux 42396266883/job 128474188943
+  all 78 tests in 100.86s; Windows 42396266975/job 128474224037 all 77 in 134.45s.
+  Linux renderer/default archive/Designer 42396266897/job 128474188739 passes,
+  including both real helper policy deliveries, but still reports its older DOM
+  gap. Those runs do not accept this new Rust composition. Fresh CI remains needed.
+
+Validation: native Release renderer and Firefly product compilation pass. Native
+origins and strict actual headless diagnostic/
+production helper gates pass; actual emitted Rust dependency audits and native
+compiler-driver refusal/argv/exit tests pass. Standalone Mite rebuild passes and
+4 targeted upstream/source/driver CTests pass in 2.59s; unchanged runtime's previous
+full local baseline remains 77 suites. Formatting/diff checks pass. Site validates 211 pages / 14,924 local
+links/resources/fragments. No desktop windows or broad GUI suite; Ladybird remains
+unmodified. ADR 0113, status, API index, compatibility and update guide are current.
+Full custom-standard parser/mutation semantics, worker propagation, registration
+lifecycle, public protocol/resource handlers and real Code-OSS workbench remain
+unfinished. No successful Code-OSS launch or new Linux/Windows acceptance is claimed.
+Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

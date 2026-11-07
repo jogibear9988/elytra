@@ -19,6 +19,7 @@ on:
       - 'examples/web-component-designer/**'
       - 'tooling/build_renderer.py'
       - 'tooling/prepare_protocol_origin_hooks.py'
+      - 'tooling/rust-origin/**'
       - 'tooling/compiler_cache.py'
       - 'tooling/compiler-cache.conf'
       - 'tooling/*dependencies.py'

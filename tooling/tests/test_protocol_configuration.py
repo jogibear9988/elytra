@@ -16,11 +16,6 @@ def main():
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--helper", type=Path, required=True)
     parser.add_argument("--runtime", action="store_true")
-    parser.add_argument(
-        "--require-dom",
-        action="store_true",
-        help="Require the still-open DOM URL origin contract as well",
-    )
     args = parser.parse_args()
     # The owned entry rejects malformed configuration before trying to connect to a parent.
     for options, error in [
@@ -39,7 +34,6 @@ def main():
     if args.runtime:
         cases += [(["--protocol-runtime-helper", "--protocol-policy"], True)]
     pids = set()
-    pending_dom = False
     for options, configured in cases:
         result = run(args.probe.resolve(), *options, "--headless=text", page)
         match = re.search(r"^WebContent PID: (\d+)$", result.stdout, re.MULTILINE)
@@ -55,14 +49,22 @@ def main():
             assert matching == [
                 {"schema": 1, "schemes": [{"scheme": "app", "standard": True, "secure": True}]}
             ], result
-            # This is a separate, still-open API acceptance gate: DOM URL calls
-            # Rust directly and currently bypasses the C++ native origin policy.
-            if "FIRST_SCRIPT origin=null other=null" in result.stdout:
-                pending_dom = True
-            else:
-                assert "FIRST_SCRIPT origin=app://bundle other=app://other" in result.stdout, result
+            assert "FIRST_SCRIPT origin=app://bundle other=app://other" in result.stdout, result
         else:
             assert not native and "FIRST_SCRIPT origin=null other=null" in result.stdout, result
+        origins = re.search(r"ORIGINS=(\[.*\]) BRAND=true", result.stdout)
+        assert origins, result
+        custom = [
+            "app://bundle:0",
+            "app://bundle:443",
+            "app://bundle",
+            "app://xn--bcher-kva.example",
+            "app://[::1]:9000",
+        ]
+        expected = custom if configured else ["null"] * 5
+        expected += ["null", "null", "https://example.com", "http://example.com:8080"]
+        expected += ["app://bundle" if configured else "null"]
+        assert json.loads(origins[1]) == expected, result
         assert "NATIVE_ABSENT=true" in result.stdout, result
         assert "crash" not in result.stderr.lower(), result
     assert len(pids) == len(cases), pids
@@ -70,18 +72,12 @@ def main():
     print(
         "PASS native parent-to-owned-renderer configuration before first script; default denial, exact child policy and absent page privileges"
     )
-    if pending_dom:
-        print(
-            "PENDING DOM URL origin compatibility: Rust binding bypasses native origin policy; no public protocol support"
-        )
+    print(
+        "PASS actual Rust DOM origins: normalized tuples, port/host separation, IDNA, IPv6, relative URLs, builtins and getter brand check"
+    )
     if args.runtime:
         print(
             "PASS actual production preload helper receives the same bounded native configuration"
-        )
-
-    if args.require_dom and pending_dom:
-        raise AssertionError(
-            "DOM URL origin is still opaque with native policy configured; public protocol compatibility is not accepted"
         )
 
 
