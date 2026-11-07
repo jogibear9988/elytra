@@ -21,7 +21,8 @@ app.whenReady().then(async () => {
 ```
 
 CommonJS remains supported: require('firefly').app refers to the same singleton as
-the initial ESM export. The electron module name is not an automatic alias. Use the
+the initial ESM export. The [Firefly CLI](firefly-cli.md) offers an explicit
+--electron-compat alias; it is disabled by default. Use the
 [ESM lifecycle example](../../examples/electron/lifecycle/main.mjs) for a complete
 window/load/quit trace and the [example guide](../examples/lifecycle.md) to run it.
 

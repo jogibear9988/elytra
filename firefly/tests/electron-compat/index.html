@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>WAITING</title>
+<script>
+  const clean =
+    typeof require === 'undefined' &&
+    typeof process === 'undefined' &&
+    typeof Buffer === 'undefined';
+  const restricted =
+    audit.denied === 6 && audit.later() === audit.enabled && (!audit.enabled || audit.shared);
+  document.title = clean && restricted ? `ALIAS_${audit.enabled}` : 'FAIL';
+</script>

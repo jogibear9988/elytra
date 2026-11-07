@@ -60,6 +60,7 @@ def stage(
     dependencies="production",
     strip=True,
     mite_build=None,
+    electron_compat=False,
 ):
     elf.native_tools()
     build = Path(build).resolve(strict=True)
@@ -112,6 +113,10 @@ def stage(
         if not shutil.which(tool):
             raise ValueError("Missing native Linux packaging prerequisite: " + tool)
     subprocess.run(["python3", str(ROOT / "tooling/check_upstream.py")], check=True)
+    if electron_compat:
+        from native_package.runtime_options import verify_electron_compat
+
+        verify_electron_compat(build / "bin/firefly")
     output.mkdir(parents=True)
     payload = copy_application(application, output / "app", dependencies)
     shutil.copytree(source_runtime / "share", output / "firefly-runtime/share", symlinks=False)
@@ -132,6 +137,7 @@ def stage(
                 os.environ.get("CXX", "c++"),
                 "-std=c++20",
                 "-O2",
+                f"-DFIREFLY_ELECTRON_COMPAT={int(electron_compat)}",
                 "-DFIREFLY_ENTRY=" + json.dumps("app/" + entry.as_posix()),
                 str(ROOT / "firefly/packaging/LauncherLinux.cpp"),
                 "-o",
@@ -174,6 +180,7 @@ def stage(
         "platform": "linux",
         "architecture": "x64",
         "entry": entry.as_posix(),
+        "electronCompat": electron_compat,
         "standaloneMiteBundled": False,
         "cpuBaseline": {"firefly": "x86-64-v2", "mite": "x86-64-v2"},
         "dependencies": payload,
@@ -208,6 +215,9 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--name", default="firefly-app")
     parser.add_argument("--entry")
+    parser.add_argument(
+        "--electron-compat", action="store_true", help="Opt in to the limited Electron module alias"
+    )
     parser.add_argument("--dependencies", choices=["production", "all"], default="production")
     parser.add_argument("--symbols", choices=["stripped", "keep"], default="stripped")
     parser.add_argument("--archive", action="store_true")
@@ -225,6 +235,7 @@ def main():
         args.dependencies,
         args.symbols == "stripped",
         args.mite_build,
+        args.electron_compat,
     )
     if args.archive:
         with tarfile.open(archive, "w:gz") as file:

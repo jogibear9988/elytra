@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release CLI has 72
+Mite is a working native LibJS runtime; the current macOS Release build has 74
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -6940,6 +6940,55 @@ public binary/event/port transport remain priorities.
 Validation: pinned workflow formatting and diff checks pass. No local GUI.
 Full goal active; cache slice needs its own native acceptance and actual Code-OSS
 desktop/transport/native Windows work remains required.
+
+## 2026-11-07: Resolve Code-OSS Electron imports through an explicit native host policy
+
+- Add --electron-compat before the Firefly entry: register the same actual API
+  object as electron/firefly for ESM/CommonJS, with only implemented named exports.
+  Default ordinary npm lookup remains; no Node/Electron version metadata is faked.
+  Strip the host option while preserving all later application arguments. Pure
+  native tests cover absent/repeated/unknown flags, help, UTF-8 and borrowed argv.
+- Propagate the immutable bool through trusted preload metadata. Default schema
+  remains filename/dirname; only a typed electronCompat extra key is accepted.
+  Enabled require aliases return the same frozen contextBridge/ipcRenderer facade,
+  retaining world/execution/revocation checks. No main APIs, filesystem or page
+  globals/subpath loader privileges are added. Ladybird and IPC method IDs remain
+  unchanged.
+- Add --electron-compat to native macOS/Linux packagers, compile launchers with
+  the option before the entry and record BUILD.json electronCompat. Refuse old
+  SDKs through their non-GUI option/help path before output mutation. Real compiled
+  launcher fixtures test both modes after relocation, spaces/UTF-8 and exec PID
+  ownership. Whole flagged archives still need separate platform acceptance.
+- Batch actual native macOS default/opt-in tests with hidden windows: host/npm
+  precedence, ESM/CommonJS identity, unchanged app args, real owned WebContent,
+  frozen restricted preload alias, deferred bridge calls and no page privileges
+  all pass. This was one targeted local native batch, not repeated desktop suites.
+- Run actual full-source Code-OSS main.ts in the real Firefly host. Raw FS and
+  electron imports resolve, cache initialization completes, then real dependency
+  lookup fails on minimist. Diagnostic wrapper explicitly exits the real host and
+  retains error result 1. Do not advertise a desktop start or claim the next API
+  failure before preparing the complete pinned runtime dependency graph.
+- Require the native alias gate in macOS check-firefly/release and Linux renderer
+  CI; require fast option/launcher components in the standalone/native package
+  gates. Linux/Windows CLI trigger paths include the new pure startup sources.
+- Native Linux 790235c run 42383406706 / job 128436964155 accepts all 72 suites in
+  80.58s, including the real cache/refusal gate (1.09s). Full Linux 03bd439 run
+  42383368668 / job 128435500318 passes archive/Designer; candidate artifact
+  13579151776 is retained. New alias code is not in those accepted snapshots.
+
+Validation: local macOS all 74 runtime/component CTests pass (21.42 seconds),
+targeted option/launcher checks pass after the empty-argv guard; actual native
+default/opt-in preload/host gate, real SDK non-GUI preflight and Firefly integration
+build pass. Existing dependency deployment-target warnings remain. SDK preflight
+rejects an unverified runtime that only echoes the requested arguments. Native
+Linux 790235c Windows counterpart run 42383406745 / job 128438525424 compiles but
+fails at npm fixture installation before CTests; no cache acceptance follows and
+the silent exit is not diagnosed as a network or runtime failure. Formatting,
+upstream/generated integrity, site (204 pages / 14,425 local links/resources/fragments)
+and diff checks pass. New native Linux alias and
+Windows/current package acceptance remain open. Full goal active; Code-OSS runtime
+dependencies/host startup, public binary/event/port transport and native Windows
+remain required.
 
 ## Resume
 

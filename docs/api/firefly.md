@@ -24,9 +24,10 @@ app.on('window-all-closed', () => app.quit());
 ```
 
 Launch with `firefly main.mjs`; CommonJS `require('firefly')` also works. Mite's
-supported Node-style APIs are available in the main process. There is no public
-`electron` import alias. A simple migration changes the import from electron to
-firefly and checks supported options/events; larger apps need a compatibility review.
+supported Node-style APIs are available in the main process. The explicit
+[--electron-compat CLI option](firefly-cli.md) aliases the implemented main and
+restricted preload modules; default lookup is unchanged. A migration can instead
+change the import to firefly. Check supported options/events in either mode.
 
 The main process also provides [original-fs](original-fs.md), a separate raw native
 filesystem facade. This does not implement Electron's ASAR virtual filesystem.

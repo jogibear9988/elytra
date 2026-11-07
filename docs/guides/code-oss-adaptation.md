@@ -84,3 +84,16 @@ unchanged originals. [ADR 0106](../architecture/0106-code-oss-libjs-cache-policy
 records the policy. Mite's public node:v8/Node cache APIs remain unavailable.
 The workbench, desktop identity/API, transitive bootstrap and public binary/event/
 port transport remain unfinished.
+
+## Probe the actual Firefly host
+
+```sh
+build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/code-oss-diagnostic --firefly
+```
+
+The final --firefly argument requests explicit diagnostic shutdown, preserving a
+nonzero result on failure. This is a real host run with original-fs and the
+implemented Electron alias. The current full-source trace reaches a missing
+minimist package; it is not a successful desktop launch or a complete dependency
+installation. Prepare/inventory the pinned runtime dependencies before claiming
+the next API blocker. See the [CLI contract](../api/firefly-cli.md).

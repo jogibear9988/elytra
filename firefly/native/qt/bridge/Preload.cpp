@@ -91,6 +91,8 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
         JsonObject metadata;
         metadata.set("filename"sv, preload.filename);
         metadata.set("dirname"sv, preload.dirname);
+        if (electron_compat)
+            metadata.set("electronCompat"sv, true);
         state.preload_scripts.append({ "firefly.preload.v1"_string, preload.source, move(metadata),
             Vector<String> { window.view->handle() }, {}, {} });
     }

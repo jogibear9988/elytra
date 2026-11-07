@@ -11,6 +11,9 @@
 #ifndef FIREFLY_ENTRY
 #define FIREFLY_ENTRY "app/main.mjs"
 #endif
+#ifndef FIREFLY_ELECTRON_COMPAT
+#define FIREFLY_ELECTRON_COMPAT 0
+#endif
 
 int main(int argc, char** argv)
 {
@@ -28,7 +31,12 @@ int main(int argc, char** argv)
     // so the runtime can refuse unsupported Wayland rather than silently switch.
     if (setenv("QT_QPA_PLATFORM", "xcb", 0) != 0)
         return 1;
-    std::vector<char*> arguments { runtime.data(), entry.data() };
+    std::vector<char*> arguments { runtime.data() };
+#if FIREFLY_ELECTRON_COMPAT
+    char compatibility[] = "--electron-compat";
+    arguments.push_back(compatibility);
+#endif
+    arguments.push_back(entry.data());
     for (int i = 1; i < argc; ++i)
         arguments.push_back(argv[i]);
     arguments.push_back(nullptr);

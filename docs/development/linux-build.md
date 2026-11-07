@@ -1,9 +1,10 @@
 # Native Linux bring-up
 
-Current standalone evidence: all 71 suites pass at 10f6d70 in
-[run 42381776025](https://github.com/jogibear9988/elytra/actions/runs/42381776025),
-77.23 seconds, including real Code-OSS source-bootstrap and native platform modules.
-The newer LibJS cache-policy slice awaits separate native Linux acceptance.
+Current standalone evidence: all 72 suites pass at 790235c in
+[run 42383406706](https://github.com/jogibear9988/elytra/actions/runs/42383406706),
+80.58 seconds, including real Code-OSS source-bootstrap, native platform and
+explicit LibJS cache-policy modules. New startup/launcher/alias gates need their
+own acceptance; no wider runtime or platform claim follows.
 The separate [renderer/package gate](linux-renderer.md) at 197cd2a now accepts an
 experimental Ubuntu 24.04 x64 X11 stripped archive and extracted bundled Designer.
 Historical CLI baselines below do not supersede this scoped later evidence.

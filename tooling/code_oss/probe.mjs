@@ -21,3 +21,8 @@ try {
   );
   process.exitCode = 1;
 }
+if (process.argv[3] === '--firefly') {
+  // Explicit diagnostic shutdown: no successful desktop launch is inferred.
+  const { app } = await import('firefly');
+  app.exit(Number(process.exitCode ?? 0));
+}

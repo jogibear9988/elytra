@@ -14,12 +14,13 @@ namespace Firefly {
 using BridgeDetail::text;
 
 Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
-    std::optional<int>& exit_code)
+    std::optional<int>& exit_code, bool electron_compat)
     : vm(vm)
     , realm(realm)
     , jobs(jobs)
     , gui(gui)
     , exit_code(exit_code)
+    , electron_compat(electron_compat)
 {
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params) {

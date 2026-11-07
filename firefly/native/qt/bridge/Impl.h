@@ -61,6 +61,7 @@ struct Bridge::Impl {
     Mite::EventLoop& jobs;
     Core::EventLoop& gui;
     std::optional<int>& exit_code;
+    bool electron_compat;
     std::unique_ptr<QObject> context { std::make_unique<QObject>() };
     GC::Root<JS::FunctionObject> handler;
     GC::Root<JS::Object> api;
@@ -69,7 +70,8 @@ struct Bridge::Impl {
     bool stopping { false };
     size_t ipc_pending_count { 0 };
 
-    Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&);
+    Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
+        bool electron_compat);
 
     ~Impl();
 

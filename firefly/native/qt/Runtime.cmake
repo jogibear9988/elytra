@@ -100,6 +100,13 @@ if(APPLE)
         DEPENDS firefly
         USES_TERMINAL VERBATIM)
     add_custom_target(
+        check-firefly-electron-compat
+        COMMAND
+            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_electron_compat.py"
+            --firefly "$<TARGET_FILE:firefly>"
+        DEPENDS firefly
+        USES_TERMINAL VERBATIM)
+    add_custom_target(
         check-firefly
         COMMAND "$<TARGET_FILE:firefly-clipboard-protocol-probe>"
         COMMAND "$<TARGET_FILE:firefly-chrome-probe>"
@@ -107,6 +114,9 @@ if(APPLE)
         COMMAND "$<TARGET_FILE:firefly-clipboard-probe>"
         COMMAND "$<TARGET_FILE:firefly-theme-probe>"
         COMMAND "$<TARGET_FILE:firefly-geometry-probe>"
+        COMMAND
+            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_electron_compat.py"
+            --firefly "$<TARGET_FILE:firefly>"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_original_fs.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly.py"

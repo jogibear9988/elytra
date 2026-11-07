@@ -178,6 +178,13 @@ jobs:
           set -o pipefail
           ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
+      - name: Actual opt-in Electron import alias and isolated preload policy
+        env:
+          QT_QPA_PLATFORM: xcb
+          FIREFLY_TEST_ISOLATED_X11: '1'
+        run: |
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_electron_compat.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-electron-compat.log
       - name: Compile separate standalone Release Mite for package validation
         run: |
           set -o pipefail

@@ -2,7 +2,7 @@
 
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
-macOS ARM64 and scoped native Mite gates: Linux passes 71 suites at 10f6d70;
+macOS ARM64 and scoped native Mite gates: Linux passes 72 suites at 790235c;
 Windows passes 70 at 2bf956d. Firefly has tested macOS subsets and an experimental X11 app;
 Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
 archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
@@ -11,6 +11,8 @@ wider Linux distribution support and release publication remain unfinished.
 references; use the matrices and per-API contracts for individual limits.
 
 For tutorials, concepts and migration, start at the [documentation home](../index.md).
+The [Firefly CLI/import policy](firefly-cli.md) documents --electron-compat,
+restricted preload aliases and recorded native launcher options.
 The [documentation baseline](../reference/documentation-baseline.md) tracks reference
 depth still required alongside the implementation.
 
@@ -53,8 +55,9 @@ The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-72 suites including actual Code-OSS source bootstrap, platform/process and the
-explicit application-only cache policy. Native cache-slice acceptance is pending.
+74 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
+the application-only cache policy and pure startup/launcher checks. Native Linux
+cache acceptance passes at 790235c; Windows cache acceptance is pending.
 Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js

@@ -27,7 +27,8 @@ namespace Firefly {
 // loops outlive the bridge; the private implementation disconnects its hooks first.
 class Bridge {
 public:
-    Bridge(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&);
+    Bridge(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
+        bool electron_compat = false);
 
     ~Bridge();
 

@@ -77,7 +77,12 @@ def stage_bundle(
     licenses,
     dependencies_mode,
     strip_symbols,
+    electron_compat=False,
 ):
+    if electron_compat:
+        from native_package.runtime_options import verify_electron_compat
+
+        verify_electron_compat(build / "bin/firefly")
     contents = destination / "Contents"
     mac = contents / "MacOS"
     mac.mkdir(parents=True)
@@ -142,6 +147,7 @@ def stage_bundle(
         "clang++",
         "-std=c++17",
         "-O2",
+        f"-DFIREFLY_ELECTRON_COMPAT={int(electron_compat)}",
         ROOT / "firefly/packaging/Launcher.cpp",
         "-o",
         mac / "Launcher",
@@ -208,6 +214,9 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "build/release-stage")
     parser.add_argument("--version", default="0.1.0")
     parser.add_argument(
+        "--electron-compat", action="store_true", help="Opt in to the limited Electron module alias"
+    )
+    parser.add_argument(
         "--dependencies",
         choices=["production", "all"],
         default="production",
@@ -221,7 +230,7 @@ def main():
     )
     args = parser.parse_args()
     if sys.platform != "darwin":
-        parser.error("Native macOS packaging only; Windows/Linux packaging is not implemented")
+        parser.error("Native macOS packaging only; use package_linux.py on native Linux")
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?", args.version):
         parser.error("Invalid version")
     stage = args.output.resolve()
@@ -270,11 +279,13 @@ def main():
             stage / "licenses",
             args.dependencies,
             args.symbols == "stripped",
+            args.electron_compat,
         )
     shutil.rmtree(hello)
     manifest = {
         "dependencies": args.dependencies,
         "symbols": args.symbols,
+        "electronCompat": args.electron_compat,
         "version": args.version,
         "trackedSourceDirty": subprocess.run(
             ["git", "diff", "--quiet", "HEAD"], cwd=ROOT

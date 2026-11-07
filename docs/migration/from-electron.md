@@ -40,7 +40,10 @@ main-process import:
 +import {app, BrowserWindow} from 'firefly';
 ```
 
-CommonJS can similarly use require('firefly'). There is no public electron alias.
+CommonJS can similarly use require('firefly'). Alternatively, preserve supported
+Electron imports with the explicit [--electron-compat option](../api/firefly-cli.md).
+The alias supplies the same limited API and isolated preload facade; missing
+Electron exports/options still need implementation. This flag is disabled by default.
 Keep supported node: imports unchanged. Launch with the source-built executable:
 
 ```sh

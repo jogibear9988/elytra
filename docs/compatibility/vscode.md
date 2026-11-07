@@ -28,7 +28,7 @@ from a future Code-OSS test.
 | Native environment identity | common/platform and common/process recognize native execution through versions.node | Explicit pinned source overlay also recognizes truthful versions.mite. Actual upstream modules, locale/env/cwd/timer checks and unadapted negative control pass locally on macOS; desktop/Electron detection remains open. [Adaptation guide](../guides/code-oss-adaptation.md) |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | Explicit --libjs-cache application overlay preserves ordinary upstream startup logic while disabling V8 caches and rejecting generation/measurements/waits. Actual cache branches pass locally; real full-source main.ts reaches mainImpl then standalone-Mite original-fs host-boundary failure. No desktop launch; public Node cache/V8 APIs remain absent. [Policy](../architecture/0106-code-oss-libjs-cache-policy.md) |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
-| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | perf_hooks supplies native now/timeOrigin; original-fs now has a separate raw main-process facade with local macOS acceptance. ASAR and broader performance APIs remain absent, desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
+| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, then fails on missing minimist. No full graph/startup acceptance; protocol/Menu/crashReporter/contentTracing and app methods remain missing or partial. Install/inventory actual pinned dependencies, then implement the real required startup contracts |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
 | Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
 | Workspace files | Disk provider channel includes open/read/write/readFile/readFileStream/watch and cancellation | Broaden filesystem/stream/watch APIs and native watcher lifecycle; actual open/edit/save/rename/external-change tests must pass |
@@ -109,8 +109,11 @@ it does not supply desktop identity/API behavior. The separate
 [LibJS cache policy](../architecture/0106-code-oss-libjs-cache-policy.md) now removes
 the optional cache's static import barrier. Actual full-source main.ts records
 cache initialization and reaches mainImpl under a nonzero standalone-Mite probe.
-The next host gate needs Firefly's raw-FS module, import strategy and real required
-desktop exports/options; no complete workbench startup is established.
+The real Firefly host now supplies raw FS and an explicit import strategy through
+[--electron-compat](../api/firefly-cli.md). Its diagnostic advances to missing
+minimist and preserves exit 1. Install/inventory the actual dependency graph before
+claiming the next API blocker; broader exports/options and workbench startup remain
+unimplemented. No fake Electron objects or mainImpl replacements are used.
 
 Choose general compatibility work against this application path first. Keep
 security and the full native platform specification; deprioritize unrelated

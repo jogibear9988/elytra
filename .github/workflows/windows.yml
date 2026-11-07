@@ -16,6 +16,7 @@ on:
         'tooling/tests/**',
         'tooling/code_oss/**',
         'firefly/compat/code-oss/**',
+        'firefly/native/platform/Startup*',
         'vendor/code-oss-tests/**',
         'tooling/runtime-js/package*.json'
       ]
@@ -35,6 +36,7 @@ on:
         'tooling/code_oss/**',
         'firefly/compat/code-oss/**',
         'vendor/code-oss-tests/**',
+        'firefly/native/platform/Startup*',
         'tooling/runtime-js/package*.json'
       ]
   workflow_dispatch:

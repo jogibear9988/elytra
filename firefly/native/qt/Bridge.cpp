@@ -4,8 +4,8 @@
 
 namespace Firefly {
 Bridge::Bridge(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
-    std::optional<int>& exit_code)
-    : m_impl(std::make_unique<Impl>(vm, realm, jobs, gui, exit_code))
+    std::optional<int>& exit_code, bool electron_compat)
+    : m_impl(std::make_unique<Impl>(vm, realm, jobs, gui, exit_code, electron_compat))
 {
 }
 

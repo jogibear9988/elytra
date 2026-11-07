@@ -9,6 +9,7 @@ on:
       - 'tooling/tests/test_elf_package.py'
       - 'tooling/tests/test_package_payload.py'
       - 'tooling/tests/test_linux_launcher.py'
+      - 'tooling/tests/test_launcher_options.py'
       - 'tooling/package_linux.py'
       - 'firefly/packaging/LauncherLinux.cpp'
       - 'tooling/tests/_support.py'
@@ -39,3 +40,4 @@ jobs:
           python tooling/tests/test_elf_package.py
           python tooling/tests/test_package_payload.py
           python tooling/tests/test_linux_launcher.py
+          python tooling/tests/test_launcher_options.py

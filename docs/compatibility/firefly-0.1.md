@@ -36,8 +36,10 @@ it does not establish complete containment, screen/theme services or packaging.
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
 | Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles and published Alpha 2; later optimized artifact. Ubuntu 24.04 x64 X11 stripped archive/ELF provenance and extracted bundled Designer edit/Monaco/HTML controls pass at 197cd2a ([run](https://github.com/jogibear9988/elytra/actions/runs/42379262065)); Actions candidate uploaded. Windows packages, broader Linux distribution, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
 
-Use `require('firefly')` or ESM imports from `firefly` in the main process. There
-is no `electron` alias. Standalone Mite does not register or depend on Firefly.
+Use `require('firefly')` or ESM imports from `firefly` in the main process. The
+explicit [--electron-compat option](../api/firefly-cli.md) aliases the actual
+main/preload subsets; default resolution and unsupported exports stay unchanged.
+Standalone Mite does not register or depend on Firefly.
 Only width, height, x/y, useContentSize, title, show, frame, absolute CommonJS preload and the secure
 default webPreferences settings are accepted. Unknown options, nodeIntegration=true,
 contextIsolation=false or sandbox=false fail explicitly. Dimensions are restricted

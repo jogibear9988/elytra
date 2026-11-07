@@ -36,6 +36,7 @@ namespace {
         String source;
         String filename;
         String dirname;
+        bool electron_compat { false };
     };
 
     struct World {
@@ -95,16 +96,19 @@ namespace {
         VERIFY(MUST(imports->set_integrity_level(JS::Object::IntegrityLevel::Frozen)));
         GC::Root require { JS::NativeFunction::create(
             realm,
-            [weak = world.make_weak_ptr(), module = GC::Ref { *imports }](
+            [weak = world.make_weak_ptr(), module = GC::Ref { *imports },
+                electron_compat = preload.electron_compat](
                 JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto owner = weak.strong_ref();
                 if (!owner || owner->is_detached() || !owner->is_executing())
                     return vm.throw_completion<JS::TypeError>("Preload require is revoked"sv);
                 if (vm.argument(0).is_string()
-                    && vm.argument(0).as_string().utf16_string_view() == "firefly"_utf16)
+                    && (vm.argument(0).as_string().utf16_string_view() == "firefly"_utf16
+                        || (electron_compat
+                            && vm.argument(0).as_string().utf16_string_view() == "electron"_utf16)))
                     return module;
-                auto error = JS::Error::create(vm.realm(),
-                    "Only require('firefly') is implemented in sandboxed preloads"_utf16);
+                auto error = JS::Error::create(
+                    vm.realm(), "Module is not available in this sandboxed preload"_utf16);
                 error->define_direct_property("code"_utf16,
                     JS::PrimitiveString::create(vm, "ERR_FIREFLY_UNSUPPORTED_API"_utf16),
                     JS::default_attributes);
@@ -230,15 +234,20 @@ void apply(Web::WebDriver::BiDiSessionState state)
         auto const& handle = script.contexts->first();
         auto filename = script.arguments.as_object().get_string("filename"sv),
              dirname = script.arguments.as_object().get_string("dirname"sv);
+        auto electron_compat = script.arguments.as_object().get_bool("electronCompat"sv);
         if (handle.is_empty() || handle.bytes().size() > 1024 || sources.contains(handle)
             || !filename.has_value() || !dirname.has_value() || filename->contains('\0')
             || dirname->contains('\0') || filename->bytes().size() > 4096
-            || dirname->bytes().size() > 4096 || script.arguments.as_object().size() != 2)
+            || dirname->bytes().size() > 4096
+            || (script.arguments.as_object().size() != 2
+                && (script.arguments.as_object().size() != 3 || !electron_compat.has_value())))
             fail("Invalid preload metadata"sv);
         total += script.function_declaration.bytes().size();
         if (total > 1024 * 1024)
             fail("Preload source budget exceeded"sv);
-        sources.set(handle, Preload { script.function_declaration, *filename, *dirname });
+        sources.set(handle,
+            Preload { script.function_declaration, *filename, *dirname,
+                electron_compat.value_or(false) });
     }
 
     session->sources = move(sources);

@@ -5,6 +5,7 @@
 
 #include "../platform/DesktopServices.h"
 #include "../platform/RuntimePaths.h"
+#include "../platform/StartupOptions.h"
 #include "ApiSource.h"
 #include "Bridge.h"
 #include "core/EventLoop.h"
@@ -25,6 +26,7 @@
 #include <UI/Qt/EventLoopImplementationQt.h>
 #include <filesystem>
 #include <memory>
+#include <vector>
 
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
@@ -52,7 +54,7 @@ public:
     {
     }
 
-    int run_script(int argc, char** argv)
+    int run_script(int argc, char** argv, bool electron_compat)
     {
         std::unique_ptr<Bridge> bridge;
         Mite::HostHooks hooks;
@@ -61,7 +63,8 @@ public:
         hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                                Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {
             TRY(modules.register_host_filesystem("original-fs"));
-            bridge = std::make_unique<Bridge>(vm, realm, jobs, *m_loop, hooks.exit_code);
+            bridge = std::make_unique<Bridge>(
+                vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
             std::error_code error;
             auto entry = std::filesystem::absolute(argv[1], error).parent_path().string();
@@ -82,9 +85,11 @@ public:
                 JS::Value(urls.ptr())));
             if (!api.is_object())
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
-            TRY(modules.register_host_module("firefly", api.as_object(),
-                { "app", "BrowserWindow", "ipcMain", "screen", "clipboard", "ClipboardItem",
-                    "nativeTheme" }));
+            std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
+                "clipboard", "ClipboardItem", "nativeTheme" };
+            TRY(modules.register_host_module("firefly", api.as_object(), names));
+            if (electron_compat)
+                TRY(modules.register_host_module("electron", api.as_object(), names));
             return {};
         };
 
@@ -141,13 +146,14 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     if (!Mite::ignore_broken_pipe_signal())
         return Error::from_string_literal("Cannot configure Firefly broken-pipe signal policy");
-    if (arguments.argc < 2 || arguments.strings[1] == "--help"sv) {
-        outln("Usage: firefly <main.js> [arguments...]");
-        return arguments.argc < 2 ? 1 : 0;
+    auto options = Firefly::startup_options(arguments.argc, arguments.argv);
+    if (options.help || !options.error.empty()) {
+        outln("Usage: firefly [--electron-compat] <main.js> [arguments...]");
+        if (!options.error.empty())
+            warnln("{}", options.error.c_str());
+        return options.help ? 0 : 1;
     }
 
-    if (arguments.strings[1].starts_with('-'))
-        return Error::from_string_literal("Unsupported Firefly CLI option");
     TRY(Firefly::verify_desktop_environment());
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     auto format = QSurfaceFormat::defaultFormat();
@@ -159,5 +165,5 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     StringView browser_strings[] { "firefly"sv, "--temporary-profile"sv };
     Main::Arguments browser_args { 2, browser_argv, browser_strings };
     auto app = TRY(Firefly::Application::create(browser_args));
-    return app->run_script(arguments.argc, arguments.argv);
+    return app->run_script(options.argc(), options.arguments.data(), options.electron_compat);
 }
