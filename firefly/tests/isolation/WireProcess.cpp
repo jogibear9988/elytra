@@ -11,12 +11,22 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 ErrorOr<int> ladybird_main(Main::Arguments args)
 {
+#ifdef _WIN32
+    // Binary frames must preserve CR/LF/SUB and arbitrary bytes on native pipes.
+    if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1)
+        return Error::from_string_literal("Cannot set binary wire pipe mode");
+#endif
     if (args.argc != 2
         || (args.strings[1] != "encode"sv && args.strings[1] != "decode"sv
-            && args.strings[1] != "checks"sv))
+            && args.strings[1] != "checks"sv && args.strings[1] != "binary-encode"sv
+            && args.strings[1] != "binary-decode"sv))
         return Error::from_string_literal("Expected checks, encode or decode");
     auto vm = JS::VM::create();
     auto initialized = JS::Realm::initialize_host_defined_realm(*vm, {}, {});
@@ -43,11 +53,47 @@ ErrorOr<int> ladybird_main(Main::Arguments args)
         auto target_context = initialized_target.release_value();
         ScopeGuard pop_target([&] { vm->pop_execution_context(); });
         TRY(check_bridge_wire(*vm, realm, *target_context->realm));
+        TRY(check_binary_wire(*vm, realm, *target_context->realm));
         return 0;
     }
 
     ByteString output;
-    if (args.strings[1] == "encode"sv) {
+    if (args.strings[1] == "binary-encode"sv || args.strings[1] == "binary-decode"sv) {
+        Firefly::BridgeData::Limits policy;
+        policy.binary_bytes = 65536;
+        if (args.strings[1] == "binary-encode"sv) {
+            auto value = TRY(run(uR"JS((()=>{
+                const buffer=new ArrayBuffer(65536),view=new Uint8Array(buffer);
+                for(let i=0;i<view.length;i++)view[i]=(i*37+11)&255;
+                const root={buffer,alias:buffer,empty:new ArrayBuffer(0)};root.self=root;return root;
+            })())JS"sv));
+            output
+                = TRY(TRY(Firefly::BridgeData::capture(value, realm, policy)).encode_wire(policy));
+        } else {
+            std::string bytes(1024 * 1024 + 1, '\0');
+            std::cin.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+            bytes.resize(static_cast<size_t>(std::cin.gcount()));
+            auto data = TRY(
+                Firefly::BridgeData::decode_wire(StringView(bytes.data(), bytes.size()), policy));
+            auto value = data.materialize(realm, {}, Firefly::BridgeData::Materialization::Mutable);
+            if (value.is_error())
+                return Error::from_string_literal("Cannot materialize binary wire process data");
+            GC::Root root
+                = GC::Root<JS::Value>::create(value.release_value(), SourceLocation::current());
+            realm.global_object().define_direct_property(
+                "binaryData"_utf16, root.value(), JS::default_attributes);
+            vm->heap().collect_garbage();
+            auto result = TRY(run(uR"JS(
+                binaryData.self===binaryData&&binaryData.alias===binaryData.buffer&&
+                binaryData.buffer instanceof ArrayBuffer&&binaryData.empty.byteLength===0&&
+                binaryData.buffer.byteLength===65536&&new Uint8Array(binaryData.buffer).every((x,i)=>x===((i*37+11)&255))
+            )JS"sv));
+            if (!result.is_boolean() || !result.as_bool())
+                return Error::from_string_literal("Fresh process binary byte assertions failed");
+            output = TRY(
+                TRY(Firefly::BridgeData::capture(root.value(), realm, policy)).encode_wire(policy));
+        }
+    } else if (args.strings[1] == "encode"sv) {
         auto value = TRY(run(uR"JS(
             (()=>{const child={n:42},a={left:child,right:child,text:'\ud800\u0000\udfff',
                 numbers:[-0,NaN,Infinity,-Infinity,Number.MIN_VALUE,Number.MAX_VALUE,1.2345678901234567],

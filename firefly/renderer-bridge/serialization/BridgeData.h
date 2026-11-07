@@ -1,9 +1,10 @@
 /**
- * Captures bounded plain data without invoking getters or proxy hooks. Materialization
- * creates destination-owned values instead of sharing source VM pointers.
+ * Captures bounded plain data and explicitly opted-in binary storage without invoking getters
+ * or proxy hooks. Materialization owns destination values, never source VM pointers.
  */
 
 #pragma once
+#include <AK/ByteBuffer.h>
 #include <AK/ByteString.h>
 #include <AK/Error.h>
 #include <AK/Function.h>
@@ -24,6 +25,9 @@ public:
         size_t string_code_units { 65536 };
         size_t depth { 64 };
         size_t array_length { 4096 };
+        // Explicit internal opt-in. Public IPC/contextBridge stay data-only
+        // until their transport/publication contracts support raw bytes.
+        size_t binary_bytes { 0 };
     };
 
     using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&)>;
@@ -53,7 +57,8 @@ private:
         String = 4,
         Object = 5,
         Array = 6,
-        Function = 7
+        Function = 7,
+        ArrayBuffer = 8
     };
 
     struct Property {
@@ -66,6 +71,7 @@ private:
         Kind kind { Kind::Undefined };
         double number { 0 };
         Utf16String string;
+        ByteBuffer bytes;
         Vector<Property> properties;
         size_t length { 0 };
         bool null_prototype { false };

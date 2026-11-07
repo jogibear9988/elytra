@@ -18,13 +18,14 @@ namespace {
     static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
     constexpr size_t max_wire_bytes = 1024 * 1024;
     constexpr size_t max_total_array_length = 16384;
+    constexpr size_t binary_header_bytes = 8;
 
     ErrorOr<void> check_limits(BridgeData::Limits limits)
     {
         BridgeData::Limits maximum;
         if (limits.values > maximum.values || limits.properties > maximum.properties
             || limits.string_code_units > maximum.string_code_units || limits.depth > maximum.depth
-            || limits.array_length > maximum.array_length)
+            || limits.array_length > maximum.array_length || limits.binary_bytes > max_wire_bytes)
             return Error::from_string_literal("Wire limits exceed hard maximum");
         return {};
     }
@@ -114,7 +115,7 @@ ErrorOr<void> BridgeData::validate_wire_graph(Limits limits) const
     TRY(check_limits(limits));
     if (m_nodes.is_empty() || m_nodes.size() > limits.values)
         return Error::from_string_literal("Wire node budget exceeded");
-    size_t properties = 0, strings = 0, array_length = 0;
+    size_t properties = 0, strings = 0, array_length = 0, binary_bytes = 0;
     auto charge = [](size_t& used, size_t amount, size_t maximum) -> ErrorOr<void> {
         if (amount > maximum - used)
             return Error::from_string_literal("Wire graph budget exceeded");
@@ -125,6 +126,12 @@ ErrorOr<void> BridgeData::validate_wire_graph(Limits limits) const
     for (auto const& node : m_nodes) {
         if (node.kind == Kind::Function)
             return Error::from_string_literal("Function tokens cannot cross IPC");
+        if (node.kind == Kind::ArrayBuffer) {
+            if (!limits.binary_bytes || !node.properties.is_empty())
+                return Error::from_string_literal("Binary wire requires explicit byte policy");
+            TRY(charge(binary_bytes, node.bytes.size(), limits.binary_bytes));
+        }
+
         TRY(charge(strings, node.string.length_in_code_units(), limits.string_code_units));
         TRY(charge(properties, node.properties.size(), limits.properties));
         if (node.kind == Kind::Array) {
@@ -171,6 +178,8 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
 {
     TRY(validate_wire_graph(limits));
     JsonArray nodes;
+    bool binary = false;
+    size_t binary_bytes = 0;
     for (auto const& node : m_nodes) {
         JsonArray row;
         TRY(row.append(static_cast<u32>(node.kind)));
@@ -199,6 +208,11 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
         case Kind::String:
             TRY(row.append(TRY(units(node.string))));
             break;
+        case Kind::ArrayBuffer:
+            binary = true;
+            binary_bytes += node.bytes.size();
+            TRY(row.append(node.bytes.size()));
+            break;
         case Kind::Object:
         case Kind::Array: {
             if (node.kind == Kind::Array)
@@ -226,32 +240,78 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
     }
 
     JsonArray envelope;
-    TRY(envelope.append(1));
+    TRY(envelope.append(binary ? 2 : 1));
     TRY(envelope.append(move(nodes)));
     auto result = JsonValue(move(envelope)).serialized().to_byte_string();
     TRY(preflight(result));
-    return result;
+    if (!binary)
+        return result;
+    // Only graph metadata is JSON. Payload bytes remain raw, including NUL and
+    // non-UTF-8. This format must never be passed through a JS/UTF-8 string API.
+    if (result.length() > max_wire_bytes - binary_header_bytes
+        || binary_bytes > max_wire_bytes - binary_header_bytes - result.length())
+        return Error::from_string_literal("Binary wire byte budget exceeded");
+    auto output = TRY(
+        ByteBuffer::create_uninitialized(binary_header_bytes + result.length() + binary_bytes));
+    __builtin_memcpy(output.data(), "FFB2", 4);
+    for (size_t i = 0; i < 4; ++i)
+        output[4 + i] = static_cast<u8>(result.length() >> (i * 8));
+    __builtin_memcpy(output.data() + binary_header_bytes, result.characters(), result.length());
+    size_t offset = binary_header_bytes + result.length();
+    for (auto const& node : m_nodes) {
+        if (node.kind == Kind::ArrayBuffer && !node.bytes.is_empty()) {
+            __builtin_memcpy(output.data() + offset, node.bytes.data(), node.bytes.size());
+            offset += node.bytes.size();
+        }
+    }
+
+    return ByteString(StringView(reinterpret_cast<char const*>(output.data()), output.size()));
 }
 
 ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
 {
     TRY(check_limits(limits));
-    TRY(preflight(bytes)); // Bound bytes/JSON recursion before allocating the parser tree.
-    auto parsed = TRY(JsonValue::from_string(bytes));
+    if (bytes.is_empty() || bytes.length() > max_wire_bytes)
+        return Error::from_string_literal("Wire byte budget exceeded");
+    bool binary = bytes.starts_with("FFB2"sv);
+    auto metadata = bytes;
+    ReadonlyBytes payload;
+    if (binary) {
+        if (!limits.binary_bytes || bytes.length() < binary_header_bytes)
+            return Error::from_string_literal("Binary wire requires explicit byte policy/header");
+        u32 length = 0;
+        for (size_t i = 0; i < 4; ++i)
+            length |= static_cast<u32>(static_cast<u8>(bytes[4 + i])) << (i * 8);
+        if (length > bytes.length() - binary_header_bytes)
+            return Error::from_string_literal("Truncated binary wire metadata");
+        metadata = bytes.substring_view(binary_header_bytes, length);
+        payload = bytes.bytes().slice(binary_header_bytes + length);
+        if (payload.size() > limits.binary_bytes)
+            return Error::from_string_literal("Binary wire payload budget exceeded");
+    }
+
+    TRY(preflight(metadata)); // Bound bytes/JSON recursion before allocating the parser tree.
+    auto parsed = TRY(JsonValue::from_string(metadata));
     if (!parsed.is_array() || parsed.as_array().size() != 2
-        || TRY(integer(parsed.as_array()[0], 1)) != 1 || !parsed.as_array()[1].is_array())
+        || TRY(integer(parsed.as_array()[0], 2)) != (binary ? 2 : 1)
+        || !parsed.as_array()[1].is_array())
         return Error::from_string_literal("Invalid wire envelope");
     auto const& rows = parsed.as_array()[1].as_array();
     if (rows.is_empty() || rows.size() > limits.values)
         return Error::from_string_literal("Wire node budget exceeded");
     BridgeData result;
     size_t strings = 0, properties = 0;
+    size_t payload_offset = 0;
+    bool found_binary = false;
     for (auto const& value : rows.values()) {
         if (!value.is_array() || value.as_array().is_empty())
             return Error::from_string_literal("Invalid wire node");
         auto const& row = value.as_array();
         Node node {};
-        node.kind = static_cast<Kind>(TRY(integer(row[0], static_cast<size_t>(Kind::Array))));
+        node.kind = static_cast<Kind>(
+            TRY(integer(row[0], static_cast<size_t>(binary ? Kind::ArrayBuffer : Kind::Array))));
+        if (node.kind == Kind::Function)
+            return Error::from_string_literal("Function tokens cannot cross IPC");
         size_t arity = node.kind == Kind::Undefined || node.kind == Kind::Null ? 1
             : node.kind == Kind::Object || node.kind == Kind::Array            ? 3
                                                                                : 2;
@@ -286,6 +346,14 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
         case Kind::String:
             node.string = TRY(text(row[1], strings, limits.string_code_units));
             break;
+        case Kind::ArrayBuffer: {
+            found_binary = true;
+            auto length = TRY(integer(row[1], payload.size() - payload_offset));
+            node.bytes = TRY(ByteBuffer::copy(payload.slice(payload_offset, length)));
+            payload_offset += length;
+            break;
+        }
+
         case Kind::Object:
         case Kind::Array: {
             if (node.kind == Kind::Array)
@@ -319,6 +387,8 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
         result.m_nodes.append(move(node));
     }
 
+    if (payload_offset != payload.size() || (binary && !found_binary))
+        return Error::from_string_literal("Unclaimed binary wire bytes/frame");
     TRY(result.validate_wire_graph(limits));
     return result;
 }

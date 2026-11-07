@@ -12,6 +12,11 @@ has its own capture/publication restrictions; adding a wire type alone is not
 end-to-end support. Do not encode a large file as JSON, number arrays or base64 to
 work around these limits. No file-transfer performance has been measured yet.
 
+An [internal native ArrayBuffer snapshot/wire slice](../architecture/0099-bounded-native-binary-wire.md)
+now passes local macOS separate-process tests, with raw binary attachments and
+explicit byte budgets. It does not enable public IPC, typed-array/Buffer transfer,
+frozen contextBridge publication, streaming or shared storage.
+
 ## What Electron and Code-OSS actually establish
 
 Electron [IPC](https://www.electronjs.org/docs/latest/api/ipc-renderer) uses structured

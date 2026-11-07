@@ -51,6 +51,11 @@ reports explicit missing built-ins for node:module/node:v8/node:perf_hooks and a
 missing original-fs package. That confirms those import blockers, not a launch of
 Code-OSS or a current-master full runtime validation.
 
+The first [internal binary snapshot/wire slice](../architecture/0099-bounded-native-binary-wire.md)
+passes local macOS native/separate-process tests. This handles explicitly opted-in
+ArrayBuffer storage only; the public binary IPC/Uint8Array/port path required by
+Code-OSS is still missing.
+
 ## Implementation order
 
 Choose general compatibility work against this application path first. Keep

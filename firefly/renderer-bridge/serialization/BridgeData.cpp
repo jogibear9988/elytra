@@ -1,6 +1,6 @@
 /**
- * Captures bounded plain data without invoking getters or proxy hooks. Materialization
- * creates destination-owned values instead of sharing source VM pointers.
+ * Captures bounded plain data and explicitly opted-in binary storage without invoking getters
+ * or proxy hooks. Materialization owns destination values, never source VM pointers.
  */
 
 #include "serialization/BridgeData.h"
@@ -8,6 +8,7 @@
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/Array.h>
+#include <LibJS/Runtime/ArrayBuffer.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Intrinsics.h>
@@ -37,6 +38,7 @@ ErrorOr<BridgeData> BridgeData::capture(
     HashMap<JS::Object const*, size_t> seen;
     size_t properties = 0;
     size_t units = 0;
+    size_t binary_bytes = 0;
     auto charge_string = [&](size_t length) -> ErrorOr<void> {
         if (length > limits.string_code_units - units)
             return Error::from_string_literal("Bridge string budget exceeded");
@@ -78,6 +80,27 @@ ErrorOr<BridgeData> BridgeData::capture(
             node.length = TRY(functions(function));
         } else if (input.is_object()) {
             auto& object = input.as_object();
+            if (object.engine_class_id() == JS_LAYOUT_CLASS_ID_ARRAY_BUFFER) {
+                auto& buffer = static_cast<JS::ArrayBuffer&>(object);
+                if (!limits.binary_bytes || limits.binary_bytes > 1024 * 1024
+                    || &object.vm() != &source.vm() || &object.shape().realm() != &source
+                    || JS::host_class_of(object) || buffer.is_detached()
+                    || buffer.is_shared_array_buffer() || !buffer.is_fixed_length())
+                    return Error::from_string_literal("Unsupported bridge binary buffer");
+                auto size = buffer.byte_length();
+                if (size > limits.binary_bytes - binary_bytes)
+                    return Error::from_string_literal("Bridge binary byte budget exceeded");
+                binary_bytes += size;
+                node.kind = Kind::ArrayBuffer;
+                node.bytes = TRY(buffer.copy_to_byte_buffer());
+                auto index = result.m_nodes.size();
+                result.m_nodes.append(move(node));
+                seen.set(&object, index);
+                // Structured buffer snapshots ignore expando properties. No
+                // user getter, iterator or byte-conversion hook is invoked.
+                return index;
+            }
+
             bool array = object.engine_class_id() == JS_LAYOUT_CLASS_ID_ARRAY;
             if (&object.vm() != &source.vm() || &object.shape().realm() != &source
                 || JS::host_class_of(object)
@@ -153,6 +176,14 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
     GC::Root destination_realm { destination };
     if (m_nodes.is_empty())
         return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"sv);
+    if (integrity == Materialization::Frozen) {
+        for (auto const& node : m_nodes) {
+            if (node.kind == Kind::ArrayBuffer)
+                return destination.vm().throw_completion<JS::TypeError>(
+                    "Binary snapshots require explicit mutable materialization"sv);
+        }
+    }
+
     GC::RootVector<JS::Value> values;
     for (auto const& node : m_nodes) {
         switch (node.kind) {
@@ -168,6 +199,15 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
         case Kind::Number:
             values.append(JS::Value(node.number));
             break;
+        case Kind::ArrayBuffer: {
+            auto bytes = ByteBuffer::copy(node.bytes);
+            if (bytes.is_error())
+                return destination.vm().throw_completion<JS::RangeError>(
+                    "Cannot allocate bridge binary snapshot"sv);
+            values.append(JS::ArrayBuffer::create(destination, bytes.release_value()).ptr());
+            break;
+        }
+
         case Kind::String:
             values.append(JS::PrimitiveString::create(destination.vm(), node.string));
             break;

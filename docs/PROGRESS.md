@@ -6395,6 +6395,39 @@ probes, site build and 190 pages / 13,415 links/resources/fragments pass; diff c
 No Code-OSS launch, complete dependency inventory, percent/time estimate or new
 file-transfer support claimed. No local GUI. Goal active.
 
+## 2026-11-07: Implement bounded native binary snapshots for the Code-OSS path
+
+- Previous turn made progress: prioritized/audited Code-OSS, committed and pushed
+  dffa4c6. Follow that critical path with real binary transport implementation,
+  while retaining the entire native platform/security/Designer objective.
+- Inspect current wire/native IPC routes: existing data goes through JSON/BiDi and
+  main JS text fields, so arbitrary binary cannot safely be enabled by merely
+  permitting another JS type. Add a strictly opt-in binary byte budget (default
+  zero) to the existing native graph; public IPC/contextBridge remain unchanged.
+- Capture exact source-realm fixed/attached/nonshared ArrayBuffer bytes into owned
+  snapshots, preserving graph aliases/cycles while ignoring hostile prototype/
+  expando hooks. Materialize only into explicit mutable destination-owned buffers;
+  reject frozen publication rather than pretending backing bytes become immutable.
+- Encode native FFB2 frames with bounded version-2 JSON graph metadata and exact
+  raw attachments, never base64/JSON byte arrays. Validate lengths/schema/tags,
+  aggregate bytes/reachability/trailing data and explicit policy before admission.
+  Retain version-1 plain graphs, existing graph limits and one-MiB full wire bound.
+- Add actual source/destination realm/GC/mutation/default/frozen/malformed/boundary
+  tests and encoder-exit/fresh-decoder process tests. An independent Python peer
+  checks all 65,536 raw bytes and supplies its own canonical graph/frame. Preserve
+  Windows native binary stdin/stdout mode for new arbitrary-byte fixtures.
+- Add ADR 0099 and update Code-OSS/file guides with exact internal acceptance scope.
+  Typed-array/Buffer/view semantics, public binary IPC, port handoff, streaming and
+  lazy file capabilities still require implementation and actual acceptance.
+
+Validation: native macOS wire target compiles/links and all existing/new wire and
+separate-process tests pass, including independent raw-byte/frame checks. Rebuild
+and run the native non-GUI isolation probe: existing bridge/callback/GC/revocation
+regressions pass. Full pinned formatting, Python syntax, diff/upstream checks pass;
+site 191 pages / 13,488 local links/resources/fragments pass. No local GUI. Native
+Linux/Windows execution of this new slice remains pending; no Code-OSS/public
+binary-transfer/zero-copy support claim. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
