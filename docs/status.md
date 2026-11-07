@@ -55,6 +55,11 @@ actual dependency outputs are checked. Public protocol, standard parsing,
 registration timing/worker propagation and resource transport remain unfinished.
 Code-OSS still fails at the protocol import; no desktop launch is claimed.
 
+The [protocol file-body component](../firefly/native/protocol/files/README.md)
+passes a local macOS real-file/separate-child streaming gate with bounded chunks,
+HEAD, cancellation and explicit mutation/type errors. Renderer request dispatch,
+headers, authorized handler integration and public protocol remain unfinished.
+
 The previous **bd83480** snapshot is accepted on native Linux (all **78**, 100.86s,
 [run 42396266883](https://github.com/jogibear9988/elytra/actions/runs/42396266883))
 and Windows (all **77**, 134.45s,

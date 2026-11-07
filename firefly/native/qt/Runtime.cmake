@@ -130,6 +130,7 @@ if(APPLE)
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly
                 check-firefly-protocol-origins
+                check-firefly-protocol-files
                 check-firefly-protocol-renderer
                 firefly-chrome-probe
                 firefly-screen-probe

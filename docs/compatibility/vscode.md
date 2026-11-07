@@ -122,6 +122,12 @@ Choose general compatibility work against this application path first. Keep
 security and the full native platform specification; deprioritize unrelated
 Electron example breadth and new HTTP protocols.
 
+The next internal [file-body component](../../firefly/native/protocol/files/README.md)
+now passes real local macOS checked-file reads and 4 MiB streaming to a separate
+native child, including HEAD/cancellation and file mutation errors. Renderer request
+admission, response metadata/headers and public handler dispatch remain open; this
+does not yet load Code-OSS resources or resolve its protocol import.
+
 Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |

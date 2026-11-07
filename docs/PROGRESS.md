@@ -7299,6 +7299,49 @@ Validation: targeted generated Linux command-policy test and formatting pass loc
 No GUI, runtime change or Ladybird edit. Fresh hosted Linux renderer acceptance is
 required; full Code-OSS/protocol and cross-platform goals remain unfinished.
 
+## 2026-11-07: Checked native protocol file bodies and real chunked transfer
+
+- Inspect the actual pinned Code-OSS protocolMainService: it registers a file
+  handler on defaultSession, returns authorized paths plus headers and blocks
+  direct file requests. Do not substitute a protocol export without resource IO.
+- Add a native main-side FileBody component using existing LibCore/AK only, with
+  one owned checked regular-file descriptor. Do not accept a renderer URL/path or
+  invent automatic root authorization; the future trusted handler must authorize
+  its returned path before calling this component. No public API is added here.
+- Capture content length at open; support bodyless HEAD, empty files and caller-
+  paced reads up to 64 KiB, with 32,768-byte path and 64-GiB file limits. Reject NUL,
+  relative paths, directories and nonregular handles. POSIX nonblocking admission
+  refuses FIFO/device files without blocking before fstat; Windows checks disk
+  handle and regular-file metadata and still needs actual platform CI.
+- Close on completion/HEAD/cancel/error/destruction. Cancellation is idempotent;
+  further reads reject. A premature EOF fails instead of silently satisfying an
+  advertised content length. Growth cannot extend the original response; retain
+  descriptor identity after pathname replacement. This is live file IO, not a
+  content snapshot or asynchronous filesystem service.
+- Actual native test reads a real 4 MiB + 19 byte file and sends 65 bounded raw-byte
+  chunks through the existing transport to a separate native child. Independently
+  check every byte, cumulative position and kernel child PID; the child never gets
+  the source path. Verify empty transfer, HEAD, invalid chunk sizes, cancellation,
+  missing/relative/NUL paths, directories, growth, replacement and truncation.
+  POSIX additionally checks FIFO/device/oversize refusals. No GUI or JS mock.
+- Require the component gate in macOS release/check-firefly and native Linux/
+  experimental Windows renderer workflows before broader renderer compilation
+  where appropriate. Preserve separate logs and truthful platform acceptance.
+- Completed 614ebf1 Linux standalone run 42398340779/job 128480473977 passes all
+  79 tests in 70.00s, including native compiler-driver argv test in 0.25s. It does
+  not prove renderer Rust-origin or this file-body behavior. Its renderer run
+  failed at CPU command verification, addressed in separate 1d033fe; new hosted
+  renderer results remain pending.
+
+Validation: local actual native checked-file/separate-child gate passes all above
+cases; whole-source formatting, site and upstream/diff checks pass. Site validates
+211 pages / 14,925 local links/resources/fragments. No Mite API or Ladybird source
+changes and no desktop tests. Request/metadata framing, response headers/MIME,
+helper/document admission and revocation, bounded concurrent lifetime, application
+handler/session dispatch and actual renderer fetch/navigation integration remain
+required before Code-OSS resources load. Public protocol and real workbench remain
+unfinished. Full specification/Code-OSS/native Windows goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -123,6 +123,7 @@ def main():
         "check-firefly-renderer",
         "check-firefly-isolation",
         "check-firefly-protocol-origins",
+        "check-firefly-protocol-files",
         "check-firefly-protocol-renderer",
         "check-firefly-renderer-helper",
         "--parallel",

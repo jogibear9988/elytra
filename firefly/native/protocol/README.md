@@ -63,6 +63,10 @@ origin checks are required by the renderer configuration gate.
 Native macOS passes. Linux/Windows need separate results; the Windows renderer
 has no owned helper delivery or production desktop acceptance yet.
 
+The [native file-body component](files/README.md) now reads checked regular files
+in bounded chunks and has a separate-process byte-transfer gate. It is not yet
+connected to renderer requests, application callbacks or response headers.
+
 Remaining work before public registration:
 
 1. Full custom-standard URL parsing/mutation/serialization, without a private

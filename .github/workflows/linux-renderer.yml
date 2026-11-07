@@ -132,6 +132,10 @@ jobs:
         run: |
           set -o pipefail
           python tooling/tests/test_renderer.py --probe build/linux-renderer/bin/firefly-renderer-probe --artifacts-dir build/linux-renderer-artifacts 2>&1 | tee build/linux-renderer-acceptance.log
+      - name: Native bounded protocol file bodies and separate-process streaming
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-protocol-files --parallel 3 2>&1 | tee build/linux-renderer-protocol-files.log
       - name: Native custom protocol origins and trust without a GUI
         run: |
           set -o pipefail

@@ -92,6 +92,11 @@ jobs:
         run: |
           python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-renderer-probe --configure-only --jobs 3 2>&1 | Tee-Object build/windows-renderer-configure.log
           if ($LASTEXITCODE) { throw 'Native renderer configuration failed' }
+      - name: Native bounded protocol file bodies and separate-process streaming
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-protocol-files --parallel 3 2>&1 | Tee-Object build/windows-renderer-protocol-files.log
+          if ($LASTEXITCODE) { throw 'Native protocol file-body acceptance failed' }
       - name: Native custom protocol origins and trust without a GUI
         shell: pwsh
         run: |
