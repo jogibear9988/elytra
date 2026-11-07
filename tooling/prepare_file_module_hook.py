@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose a pinned file-script condition without editing Ladybird's fetch implementation."""
+"""Compose pinned file-script and native protocol fetch conditions without editing Ladybird's fetch implementation."""
 
 import argparse
 import hashlib
@@ -9,13 +9,17 @@ ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = "1dd94814cadf7d93872b5b81f67bcb9b1b16d24ce0fd681328652fbb09dabe85"
 SEAM = "            || is_file_to_file_font_load\n"
 HOOK = "            || Firefly::FileModules::allows(*request)\n"
-PREFIX = '#include "loading/FileModules.h"\n'
+PREFIX = '#include "loading/FileModules.h"\n#include "loading/protocol/Dispatch.h"\n'
+PROTOCOL_SEAM = "    // 3. Switch on request’s current URL’s scheme and run the associated steps:\n"
+PROTOCOL_HOOK = "    if (auto response = Firefly::ProtocolFetch::dispatch(fetch_params))\n        return *response;\n\n"
 
 
 def adapt(source):
-    if source.count(SEAM) != 1:
+    if source.count(SEAM) != 1 or source.count(PROTOCOL_SEAM) != 1:
         raise ValueError("Review the file module fetch condition")
-    return PREFIX + source.replace(SEAM, SEAM + HOOK)
+    return PREFIX + source.replace(SEAM, SEAM + HOOK).replace(
+        PROTOCOL_SEAM, PROTOCOL_HOOK + PROTOCOL_SEAM
+    )
 
 
 def main():
@@ -27,8 +31,19 @@ def main():
         raise SystemExit("Review owned file module adapter before updating Ladybird")
     original = source.read_text()
     output = adapt(original)
-    assert output.removeprefix(PREFIX).replace(SEAM + HOOK, SEAM) == original
-    for invalid in ["", original + SEAM, original.replace(SEAM, "")]:
+    assert (
+        output.removeprefix(PREFIX)
+        .replace(SEAM + HOOK, SEAM)
+        .replace(PROTOCOL_HOOK + PROTOCOL_SEAM, PROTOCOL_SEAM)
+        == original
+    )
+    for invalid in [
+        "",
+        original + SEAM,
+        original.replace(SEAM, ""),
+        original + PROTOCOL_SEAM,
+        original.replace(PROTOCOL_SEAM, ""),
+    ]:
         try:
             adapt(invalid)
         except ValueError:
@@ -39,7 +54,7 @@ def main():
     if not args.output.exists() or args.output.read_text() != output:
         args.output.write_text(output)
     print(
-        "PASS file module fetch seam, source fingerprint, exact byte preservation and drift rejection"
+        "PASS file module/protocol fetch seams, source fingerprint, exact byte preservation and drift rejection"
     )
 
 

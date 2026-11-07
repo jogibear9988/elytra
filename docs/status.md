@@ -67,9 +67,12 @@ remain unfinished.
 
 The [LibWeb protocol response adapter](architecture/0116-libweb-protocol-responses.md)
 passes local actual pending-response/body-stream tests with real checked files,
-GC, credit and controller/reader cancellation. It is not yet wired to scheme fetch
-or an admitted live helper/document. No successful page fetch, navigation,
-Code-OSS launch or new platform support follows from that component gate.
+GC, credit and controller/reader cancellation. The next
+[scheme-fetch seam](architecture/0117-native-scheme-fetch-dispatch.md) also passes
+actual JavaScript fetch/arrayBuffer, HEAD and AbortController against real files
+in the same-process native fixture. Product helpers install no provider yet.
+Live helper/document admission, navigation and public protocol remain open; this
+is not a Code-OSS launch or new platform acceptance.
 
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):

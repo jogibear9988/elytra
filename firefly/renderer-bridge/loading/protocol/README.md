@@ -3,7 +3,11 @@
 Response consumes the bounded native file frames and builds actual LibWeb pending
 responses/body channels. It owns the fetch controller/params until a terminal
 path, uses a weak transport proxy, and forwards native credit/cancel notifications.
-No JavaScript capability, scheme registration or URL handler is installed here.
+Dispatch adds a native-only scoped provider slot to the owned scheme-fetch seam.
+It defaults to empty; product/diagnostic helpers install no provider. Only registered
+standard schemes, same-origin top-level Window requests and GET/HEAD are admitted;
+Range, navigation and worker requests are denied. Upstream fetch policy still runs.
+No JavaScript registration capability or public protocol handler is installed here.
 
 The class compiles inside LibWeb because upstream PendingResponse is intentionally
 not exported. The header declares an owned native API; this is not a new Electron
@@ -20,3 +24,9 @@ far; hosted Linux/Windows evidence must remain separate.
 
 See [ADR 0116](../../../../docs/architecture/0116-libweb-protocol-responses.md) for
 ownership, cancellation, validation and remaining renderer integration.
+
+The gate also invokes actual JavaScript fetch/arrayBuffer and AbortController in
+a principal realm/document with a native same-process file provider. It checks
+forbidden header filtering, scope denial, unchanged data: fetching, revocation and
+registration lifetime. This is not live WebContent IPC or public protocol support.
+See [ADR 0117](../../../../docs/architecture/0117-native-scheme-fetch-dispatch.md).

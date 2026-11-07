@@ -285,8 +285,12 @@ and public routing gates exist. These adapters never write to the vendor tree.
 ## File module seam
 
 Review tooling/prepare_file_module_hook.py and renderer-bridge/loading when changing
-Fetching.cpp. The guard checks the complete pinned fingerprint, one condition and
-byte preservation; do not merely refresh the hash. Verify the native policy default
+Fetching.cpp. The guard checks the complete pinned fingerprint, the file-module
+condition and the scheme-fetch dispatch seam after upstream cancellation checks.
+It requires both seams exactly once and restores all original bytes after removing
+the owned additions; do not merely refresh the hash. Run check-firefly-protocol-fetch
+for actual JavaScript fetch/HEAD/abort and default-denial checks; verify the
+native provider remains absent in product helpers. Verify the native policy default
 is off outside the product helper, then run check-firefly-isolation and check-firefly.
 The latter runs actual external-module/MIME/CSP/file-security comparisons and the
 IPC fixtures with directly loaded ESM, without the earlier inline workaround.

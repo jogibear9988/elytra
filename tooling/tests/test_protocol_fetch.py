@@ -26,10 +26,11 @@ def main():
         assert result.returncode == 0, result
         assert f"{length} bytes, bounded credit and GC" in result.stdout, result
         assert "FetchController abort before/after headers" in result.stdout, result
+        assert "JavaScript fetch/arrayBuffer through native scheme seam" in result.stdout, result
         assert "VERIFICATION FAILED" not in result.stderr, result
         print(result.stdout.strip())
     print(
-        "PASS actual native LibWeb response adaptation; scheme dispatch, document admission and public protocol remain open"
+        "PASS native LibWeb response and JavaScript scheme-fetch component; live helper/document admission and public protocol remain open"
     )
 
 

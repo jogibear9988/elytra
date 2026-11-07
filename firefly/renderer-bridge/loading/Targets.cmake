@@ -31,7 +31,8 @@ set_property(
     SOURCE "${file_module_fetch}" "${CMAKE_CURRENT_LIST_DIR}/FileModules.cpp" TARGET_DIRECTORY
            LibWeb
     APPEND
-    PROPERTY INCLUDE_DIRECTORIES "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+    PROPERTY INCLUDE_DIRECTORIES "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
+             "${FIREFLY_SOURCE_DIR}/firefly")
 add_custom_target(
     check-firefly-file-module-hook
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_file_module_hook.py"

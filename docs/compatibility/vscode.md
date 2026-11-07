@@ -134,9 +134,12 @@ does not yet load Code-OSS resources or resolve its protocol import.
 
 The [LibWeb response adapter](../architecture/0116-libweb-protocol-responses.md)
 now passes a local non-GUI real-file-to-ReadableStream gate with bounded credit,
-GC and actual FetchController/reader cancellation. URL dispatch, live helper/
-document binding and public handler/session APIs are still missing. This does not
-yet load the workbench or establish JavaScript fetch compatibility.
+GC and actual FetchController/reader cancellation. The
+[native scheme-fetch seam](../architecture/0117-native-scheme-fetch-dispatch.md)
+now passes actual JavaScript fetch/arrayBuffer, HEAD and AbortController over
+real files in a same-process native fixture. Live helper/document binding and
+public handler/session APIs are still missing; product helpers install no provider.
+This does not yet load workbench resources or establish general fetch compatibility.
 
 Immediate execution order (each step needs real native acceptance):
 

@@ -7497,6 +7497,42 @@ request/credit transport/multiplexing, navigation/worker policy, lifecycle deadl
 public protocol/session handlers and real renderer security acceptance remain open.
 Code-OSS still has no accepted workbench launch. Full original goal stays active.
 
+## 2026-11-07: Connect native protocol responses to actual JavaScript fetch
+
+- Keep Code-OSS startup as the first execution path: protocol/resource loading,
+  then real bootstrap failures, workbench binary bridge, editing/saving and native
+  extension/terminal/platform acceptance. Website and unrelated example breadth
+  remain behind this path; no successful workbench launch is claimed.
+- Add a second exact, fingerprinted seam to the existing owned Fetching.cpp
+  composition. Preserve upstream cancellation/policy/filtering and all original
+  bytes; reject missing/duplicate seams. Ladybird stays unchanged.
+- Add a native-only scoped provider slot, default empty in product/diagnostic
+  helpers. Admit registered standard schemes only for same-origin top-level Window
+  GET/HEAD. Refuse Range, navigation, worker/worklet and other request scope.
+  Preserve upstream builtin/unknown-scheme handling. Retain the provider across
+  reentrant revocation and stop the returned response when revoked during callback.
+- Extend the non-GUI native gate to invoke actual global JavaScript fetch,
+  arrayBuffer and AbortController in a real principal realm/document. A native
+  same-process fixture sends checked real-file frames through the existing response
+  adapter. Verify all 4 MiB + 19 bytes, HEAD, forbidden-header filtering, early scope
+  refusal, abort releasing the pending file job, absent/revoked/duplicate providers,
+  upstream data: fetch, reentrant cancellation and registration slot destruction.
+- Preserve engine microtask assertions: save/restore the principal test realm's
+  baseline context around final event pumping, as upstream spin_until does. Require
+  the actual JavaScript acceptance marker in the Python gate. Add ADR 0117 and
+  refresh current status, Code-OSS priorities and the upstream-update guide.
+
+Validation: local macOS Release native file/frame/separate-child and actual
+LibWeb/JavaScript fetch gates pass; Firefly product compiles without a GUI launch.
+Formatting, upstream/source preservation and site validation are required before
+commit. Existing e246fbf hosted Linux/Windows CLI and source/site jobs pass; its
+Windows renderer now compiles the file fixture but fails opening the Unicode CLI
+fixture path (job 128498692034), before origin/renderer gates. Diagnose this real
+platform boundary next; do not drop the Unicode test or claim Windows support.
+Live helper/document authorization, request/credit IPC, teardown/deadline wiring,
+public protocol/session APIs and real renderer resource acceptance remain open.
+The provider fixture is same-process only. Full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

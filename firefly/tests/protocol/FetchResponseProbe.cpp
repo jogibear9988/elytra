@@ -5,9 +5,11 @@
  * Read-request recording follows Tests/LibWeb/TestFetchBodyStream.cpp. Exercise
  * actual LibWeb bodies/controllers with our real file jobs, without a desktop.
  */
+#include "FetchDispatchProbe.h"
 #include "loading/protocol/Response.h"
 #include "native/protocol/files/FilePacket.h"
 #include "native/protocol/files/FileRequests.h"
+#include <AK/ScopeGuard.h>
 #include <AK/WeakPtr.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Timer.h>
@@ -388,10 +390,21 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     page.set_top_level_traversable(traversable);
     GC::Root document { *traversable->active_document() };
     auto& realm = document->relevant_settings_object().realm();
-    Web::HTML::TemporaryExecutionContext context { realm,
-        Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
-    TRY(transfer(realm, arguments.strings[1]));
-    TRY(controls(realm));
+    {
+        Web::HTML::TemporaryExecutionContext context { realm,
+            Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+        TRY(transfer(realm, arguments.strings[1]));
+        TRY(controls(realm));
+    }
+
+    TRY(check_fetch_dispatch(realm, *document, arguments.strings[1]));
+    // The principal-realm helper leaves its testing context on the VM stack.
+    // HTML tasks require an empty stack at their microtask checkpoint, as in
+    // EventLoop::spin_until. Keep the saved context rooted until pumping ends.
+    auto& vm = realm.vm();
+    vm.save_execution_context_stack();
+    vm.clear_execution_context_stack();
+    ScopeGuard restore_context = [&] { vm.restore_execution_context_stack(); };
     pump();
     return 0;
 }
