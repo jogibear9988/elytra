@@ -375,7 +375,7 @@ preload/window tests remain required. Hosted speedups are not claimed in advance
 
 ## ELF package closure component
 
-[Native package helpers](../../tooling/native_package/README.md) now contain a
+[Native package helpers](../../tooling/native_package/README.md) ([ADR 0094](../architecture/0094-linux-elf-package-closure.md)) contain a
 Linux x64 ELF closure stager. It resolves dependencies at original binary paths,
 checks separate staged copies, deduplicates common libraries, sets relative
 RUNPATHs and verifies loader resolution inside the staged lib/ tree. Host glibc

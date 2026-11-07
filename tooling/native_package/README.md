@@ -36,7 +36,7 @@ python3 tooling/tests/test_elf_package.py
 The fixture builds real transitive DSOs and two executable layouts, checks shared
 library deduplication/source preservation, moves the package, removes the original
 build paths and executes both programs. Missing libraries, content collisions and
-unsafe staging inputs must fail. This native gate runs in an independent Linux CI job and before the large
+unsafe staging inputs must fail. This native gate runs in an independent Linux package-component workflow and before the large
 renderer build; its first hosted result remains pending.
 
 For host/parser refusal checks only, without loader execution or GUI:

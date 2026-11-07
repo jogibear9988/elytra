@@ -5783,6 +5783,24 @@ Native Windows desktop and remaining Node/Electron/OS services are still open.
 The optimized older macOS and Linux renderer candidates remain confirmed live;
 no timeout-based restart or additional release claim. Goal active.
 
+## 2026-11-07: Isolate native package-component acceptance from long runtime queues
+
+- 8a73b40 is committed/pushed with actual ELF closure staging and a compiled
+  fixture. Its Linux development run 42347920082 is authoritatively pending
+  behind an older workflow in the shared linux-master concurrency group. The
+  component job inside it cannot start independently of that workflow queue.
+- Move that small native gate into its own package-component workflow/concurrency
+  group. Keep the same pinned native compiler setup, patchelf and real DSO fixture,
+  plus the required renderer-side component gate. Do not cancel or restart the
+  existing CLI, renderer or optimized macOS builds merely for observation age.
+- Add ADR 0094 for original-location dependency discovery, separate-copy checks,
+  common-lib deduplication, relative RUNPATHs, host ABI policy, native fixture
+  proof and the remaining whole-application packaging requirements.
+
+Validation: actionlint and diff checks pass; 182 site pages and 12,581 local
+links/resources/fragments pass. Native compiled-component acceptance is pending; local parser/refusal checks are not a
+substitute. No local desktop UI starts. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
