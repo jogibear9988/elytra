@@ -7715,6 +7715,56 @@ new document. Production helpers still install no resource provider/client/servi
 Public protocol/session handlers and a real Code-OSS workbench remain open. Full
 original specification goal remains active.
 
+## 2026-11-07: Load a real custom-origin DOM through the production helper
+
+- Extend the existing guarded WebContentPage composition with a call immediately
+  before async_create_navigation_params. The native UI owns the population request
+  there; its optional handler sends a trusted endpoint before the original message
+  on the same connection. Retain page/loader, weakly track the native navigable and
+  recheck current worker/navigation/loader after callback reentry. Require both exact
+  seams, fingerprint/full restoration and drift rejection, without touching Ladybird.
+- Append a second private NotRouted control message via the pinned upstream IPC
+  generator. Keep all original IDs and the first private byte ID unchanged. Carry
+  page/navigable/native navigation ID/URL/epoch plus an owned transport; preserve a
+  single callback registry in LibIPC without adding a LibWebCommon dependency.
+- Add an owned helper resource session after VM initialization. Validate agent
+  thread, strictly increasing epoch, actual receiving ConnectionFromClient/PageHost,
+  local top-level navigable and current one-shot Navigation scope before activation.
+  Duplicate IDs cannot replace the original; bound 32 live roots, sweep destroyed
+  records, retire completed clients, and expire unused handoffs after five seconds.
+  Preserve last ID per live root and remove all callbacks/provider/clients on shutdown.
+  The provider's document handler stays empty. Use the canonical staged IPC header
+  alongside generated endpoints; source/copy declarations must not both be included.
+- Add a real native UI/HeadlessWebView -> production helper gate. Parent alone knows
+  the Unicode HTML path and authorizes it. Upstream performs actual population,
+  descriptor handoff, document commit and parsing. Executed page script proves real
+  app://bundle origin, secure context and absent Node/Firefly globals, with native
+  source/document PID evidence and exactly one file admission. No origin assignment,
+  direct population call or location getter substitution in this probe.
+- Wrong ID, wrong page and no handoff open no file; duplicate handoff closes only
+  its extra endpoint. Reentrant cancellation loads a replacement data: document
+  with no stale app file admission and preserves the callback's borrowed request.
+  Wait for helper-driven channel retirement, require no pending
+  main jobs/files and query the live document again afterward. Defer that follow-up
+  past the current page-info callback so upstream can clear its single pending slot.
+- Require the new headless gate in check-firefly/macOS Release and experimental
+  Linux runtime CI. Add ADR 0122 and refresh current status, Code-OSS and upstream
+  ABI/update documentation with the boundary between native proof and public API.
+
+Validation: local macOS Release real production-helper custom DOM/capability/refusal/
+retirement gates pass without desktop windows. Existing actual diagnostic byte
+handoff/PID/cookie, diagnostic/production origin policy/DOM, native navigation and
+JavaScript/process fetch/stream/abort tests pass; Firefly compiles. Full source style,
+upstream and site checks pass (220 pages / 15,539 local links/resources/fragments).
+Fresh Linux runtime and shared Windows compilation remain required; no Windows
+production-helper support claimed.
+
+Next bind post-commit resources to the new exact document before scripts/styles
+request them, including selected-process swaps and teardown. The normal main bridge
+still has no public protocol/session authorizer, and the helper grants no document
+resource capability. Implement those real contracts, then resume the pinned Code-OSS
+bootstrap. No workbench launch is accepted. Full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -276,11 +276,22 @@ also fingerprints Meta/CMake/code_generators.cmake, the original Python IPC
 generator and WebContentServer.ipc. Review tooling/prepare_byte_codegen.py and
 tooling/generate_byte_bootstrap.py together; do not only refresh hashes. Confirm
 the targets/hsts_preload wrapper order still selects the owned generator and all
-original message IDs remain unchanged. Build the ordinary and owned helpers and
+original message IDs remain unchanged. The private byte handoff stays at the first
+appended ID; navigation handoff is the second. Build ordinary and owned helpers and
 run check-firefly-byte-renderer: raw delivery must pass, while unregistered/zero
 cookie/duplicate handoffs close safely without breaking the native document
-control connection. Keep the product receiver disabled until its authorization
-and public routing gates exist. These adapters never write to the vendor tree.
+control connection. The owned navigation receiver now validates the receiving
+ConnectionFromClient/PageHost and current exact native navigation; inspect the
+NotRouted stub inheritance and staged LibIPC declaration on updates.
+
+The existing WebContentPage composer also has one guarded call immediately before
+async_create_navigation_params. Review both event/navigation seams and their exact
+restoration; the original request must follow the optional handoff on the same
+connection only while page/navigation/worker/loader remain current. Preserve the
+retained page/loader and weak-navigable check across callback reentry. Run check-firefly-resource-renderer for real production-helper custom
+DOM navigation, wrong-ID/page/missing/duplicate refusal and channel retirement.
+It opens no desktop window. The ordinary main bridge/public document routing remain
+unimplemented. These adapters never write to the vendor tree.
 
 ## File module seam
 

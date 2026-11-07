@@ -2,9 +2,35 @@
  * page JavaScript. */
 #include "TransportHooks.h"
 #include <AK/NeverDestroyed.h>
+#include <AK/RefPtr.h>
 
 namespace Firefly {
 static NeverDestroyed<NativeIpcHandler> handler;
+
+struct NavigationCallback : RefCounted<NavigationCallback> {
+    explicit NavigationCallback(NativeNavigationHandler value)
+        : callback(move(value))
+    {
+    }
+
+    NativeNavigationHandler callback;
+};
+
+static NeverDestroyed<RefPtr<NavigationCallback>> navigation_handler;
+
+void set_native_navigation_handler(NativeNavigationHandler value)
+{
+    navigation_handler.get()
+        = value ? adopt_ref(*new NavigationCallback(move(value))) : RefPtr<NavigationCallback> {};
+}
+
+void prepare_native_navigation(
+    WebView::WebContentPage& page, Web::HTML::NavigationPopulationRequest const& request)
+{
+    auto owner = navigation_handler.get();
+    if (owner)
+        owner->callback(page, request);
+}
 
 void set_native_ipc_handler(NativeIpcHandler value)
 {

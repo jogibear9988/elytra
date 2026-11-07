@@ -184,6 +184,10 @@ jobs:
         run: |
           set -o pipefail
           cmake --build build/linux-renderer --target check-firefly-protocol-renderer --parallel 3 2>&1 | tee build/linux-renderer-protocol-configuration.log
+      - name: Actual native resource navigation in the production helper without a display
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-resource-renderer --parallel 3 2>&1 | tee build/linux-renderer-resource-navigation.log
       - name: Verify real startup guards without a display
         run: |
           build/linux-renderer/bin/firefly-linux-environment-probe

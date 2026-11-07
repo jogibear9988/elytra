@@ -7,6 +7,7 @@
 // setup. Rename only its entry and VM-initialization call inside the composition.
 #include "RendererSession.h"
 #include "native/protocol/OriginConfig.h"
+#include "resources/Session.h"
 #include <LibCore/System.h>
 #include <LibMain/Main.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
@@ -27,6 +28,7 @@ void firefly_initialize_renderer_vm(HTML::AgentType type)
 {
     initialize_main_thread_vm(type);
     Firefly::RendererSession::initialize();
+    Firefly::Resources::initialize();
 }
 }
 
@@ -41,6 +43,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             *configuration);
     auto result = firefly_upstream_renderer_main({ static_cast<int>(filtered.strings.size()),
         filtered.argv.data(), filtered.strings.span() });
+    Firefly::Resources::shutdown();
     Firefly::RendererSession::shutdown();
     return result;
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Append one trusted byte-endpoint handoff using the unchanged pinned IPC generator."""
+"""Append trusted endpoint handoffs using the unchanged pinned IPC generator."""
 
 import hashlib
 from pathlib import Path
@@ -21,16 +21,24 @@ BODY = """    virtual void firefly_connect_byte_channel(IPC::TransportHandle han
         Firefly::Bytes::accept_bootstrap(move(handle), high, low);
     }"""
 
+NAV_METHOD = "\n    [NotRouted] firefly_connect_navigation(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, Utf16String navigation, String url, u64 epoch) =|\n"
+NAV_DECLARATION = "    virtual void firefly_connect_navigation(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, Utf16String navigation, String url, u64 epoch) = 0;"
+NAV_BODY = """    virtual void firefly_connect_navigation(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, Utf16String navigation, String url, u64 epoch)
+    {
+        Firefly::Bytes::accept_navigation(*this, move(handle), page, ns, local, move(navigation), move(url), epoch);
+    }"""
+
 
 def extend(source):
     if (
         source.count("endpoint WebContentServer routed by Web::PageId page_id") != 1
         or not source.endswith("}\n")
         or "firefly_connect_byte_channel" in source
+        or "firefly_connect_navigation" in source
     ):
         raise ValueError("Review pinned control endpoint layout")
-    result = INCLUDE + source[:-2] + METHOD + "}\n"
-    assert result.removeprefix(INCLUDE).replace(METHOD, "") == source
+    result = INCLUDE + source[:-2] + METHOD + NAV_METHOD + "}\n"
+    assert result.removeprefix(INCLUDE).replace(METHOD, "").replace(NAV_METHOD, "") == source
     return result
 
 
@@ -87,14 +95,19 @@ def main():
         before, after = message_ids(original_header.read_text()), message_ids(header)
         if (
             not before
-            or len(after) != len(before) + 1
+            or len(after) != len(before) + 2
             or any(after.get(name) != number for name, number in before.items())
             or after.get("FireflyConnectByteChannel") != max(before.values()) + 1
+            or after.get("FireflyConnectNavigation") != max(before.values()) + 2
         ):
             raise ValueError("Existing control message IDs changed")
-        if header.count(DECLARATION) != 1 or not implementation.is_file():
+        if (
+            header.count(DECLARATION) != 1
+            or header.count(NAV_DECLARATION) != 1
+            or not implementation.is_file()
+        ):
             raise ValueError("Review owned control stub seam")
-        header = header.replace(DECLARATION, BODY)
+        header = header.replace(DECLARATION, BODY).replace(NAV_DECLARATION, NAV_BODY)
         output.write_text(header)
         # A duplicate declaration must fail rather than gain another control route.
         try:

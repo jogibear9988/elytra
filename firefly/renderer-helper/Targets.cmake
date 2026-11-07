@@ -13,13 +13,16 @@ add_custom_target(
 include("${CMAKE_CURRENT_LIST_DIR}/Layout.cmake")
 add_executable(
     FireflyWebContent
-    "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp" "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp" ${firefly_renderer_platform_sources})
+    "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp"
+    ${firefly_renderer_platform_sources})
 add_dependencies(FireflyWebContent check-firefly-upstream check-firefly-renderer-hooks)
 target_include_directories(FireflyWebContent PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(FireflyWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox
-                                                LibURL firefly-byte-channel)
+                                                LibURL firefly-byte-channel firefly-protocol-client)
 set_target_properties(
     FireflyWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                         "${firefly_helper_binary_dir}")
@@ -86,6 +89,7 @@ if(FIREFLY_BUILD_RUNTIME)
     add_executable(
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
@@ -93,8 +97,9 @@ if(FIREFLY_BUILD_RUNTIME)
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
                                                                 "${FIREFLY_SOURCE_DIR}/firefly")
-    target_link_libraries(FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world
-                                                           LibSandbox LibURL)
+    target_link_libraries(
+        FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox LibURL
+                                         firefly-protocol-client)
     set_target_properties(
         FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                                    "${firefly_runtime_binary_dir}")
@@ -156,3 +161,24 @@ add_custom_target(
 
 # Preserve the explicit origin target name; all renderer policy acceptance is strict now.
 add_custom_target(check-firefly-protocol-dom-origins DEPENDS check-firefly-protocol-renderer)
+
+if(FIREFLY_BUILD_RUNTIME)
+    add_executable(firefly-resource-renderer-probe
+                   "${FIREFLY_SOURCE_DIR}/firefly/renderer/ResourceRendererProbe.cpp")
+    target_link_libraries(
+        firefly-resource-renderer-probe PRIVATE LibWebView firefly-protocol-file-server LibURL
+                                                LibGfx LibCore LibMain)
+    target_compile_definitions(
+        firefly-resource-renderer-probe
+        PRIVATE FIREFLY_RESOURCE_HELPER_DIRECTORY="${firefly_runtime_binary_dir}")
+    add_dependencies(firefly-resource-renderer-probe stage-firefly-runtime-helper
+                     check-firefly-upstream)
+    ladybird_check_skia_confinement(firefly-resource-renderer-probe)
+    add_custom_target(
+        check-firefly-resource-renderer
+        COMMAND
+            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_resource_renderer.py"
+            --probe "$<TARGET_FILE:firefly-resource-renderer-probe>"
+        DEPENDS firefly-resource-renderer-probe
+        VERBATIM)
+endif()

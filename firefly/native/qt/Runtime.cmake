@@ -133,6 +133,7 @@ if(APPLE)
                 check-firefly-protocol-files
                 check-firefly-protocol-fetch
                 check-firefly-protocol-renderer
+                check-firefly-resource-renderer
                 firefly-chrome-probe
                 firefly-screen-probe
                 firefly-clipboard-probe

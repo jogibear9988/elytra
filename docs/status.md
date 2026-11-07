@@ -100,9 +100,14 @@ The [native navigation response path](architecture/0121-native-navigation-popula
 now also passes actual upstream top-level navigation population over the native
 resource channel locally. It verifies returned body bytes, target origin and CSP,
 with one-shot URL/navigable/client identity and cancellation/refusal controls.
-Initial navigation buffering is bounded to 16 MiB. Document commit and live helper
-bootstrap still remain separate gates; no app-origin document/workbench is loaded
-by the product yet.
+Initial navigation buffering is bounded to 16 MiB. The next
+[live helper path](architecture/0122-live-helper-resource-navigation.md) now passes
+real native UI/helper document commit locally: the production helper activates an
+app-origin DOM, executes its script and preserves absent page capabilities. Duplicate,
+wrong-ID/page and missing-handoff controls pass, as does document survival after
+channel retirement. This is an internal native probe; the ordinary main bridge has
+no public protocol authorizer or post-commit document-resource handler yet. No
+Code-OSS workbench launch or new platform support follows from this gate.
 
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):

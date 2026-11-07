@@ -159,8 +159,11 @@ The next [one-shot navigation scope](../architecture/0121-native-navigation-popu
 now passes actual upstream population through the native resource channel, with
 returned body/origin/CSP and refusal/cancellation checks. Navigation is still refused
 without its explicit native handler and intent. Initial descriptor buffering is
-limited to 16 MiB. Live helper bootstrap and actual document commit remain open;
-post-commit resource admission alone cannot load that first document.
+limited to 16 MiB. The [native live helper path](../architecture/0122-live-helper-resource-navigation.md)
+now loads and activates a real app-origin DOM through the production helper in a
+local headless probe, with exact endpoint/navigation admission and absent page
+privileges. The normal main bridge still has no public protocol authorizer, and
+post-commit scripts/styles/resources remain unwired. This is not Code-OSS startup.
 
 Immediate execution order (each step needs real native acceptance):
 

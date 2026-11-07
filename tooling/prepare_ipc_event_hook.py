@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare the owned native IPC event hook without changing upstream sources."""
+"""Prepare native IPC event/navigation hooks without changing upstream sources."""
 
 import argparse
 import hashlib
@@ -10,11 +10,25 @@ EXPECTED = "cd63de48c088f7d0127206ea464cd073728a6c645a117539c32326c49cf97930"
 SEAM = "    if (auto* webdriver_bidi = WebDriverBiDi::the())\n        webdriver_bidi->did_receive_event(*this, navigable_id, name, move(params));"
 HOOK = "    if (Firefly::receive_native_ipc(*this, navigable_id, name, params)) return;\n"
 
+NAV_SEAM = "    async_create_navigation_params(ongoing_navigation->loader()->request());\n"
+NAV_HOOK = """    NonnullRefPtr<WebContentPage> firefly_page { *this };
+    auto firefly_navigable = navigable->make_weak_ptr();
+    auto firefly_loader = ongoing_navigation->loader();
+    Firefly::prepare_native_navigation(*this, firefly_loader->request());
+    auto* firefly_current = firefly_navigable.ptr();
+    if (!is_open() || !firefly_current
+        || firefly_current->navigation_with_id(navigation_id) != ongoing_navigation
+        || ongoing_navigation->worker() != this || ongoing_navigation->loader() != firefly_loader)
+        return;
+"""
+
 
 def adapt(source):
-    if source.count(SEAM) != 1:
+    if source.count(SEAM) != 1 or source.count(NAV_SEAM) != 1:
         raise ValueError("Review WebContentPage IPC seam")
-    return '#include "TransportHooks.h"\n' + source.replace(SEAM, HOOK + SEAM)
+    return '#include "TransportHooks.h"\n' + source.replace(SEAM, HOOK + SEAM).replace(
+        NAV_SEAM, NAV_HOOK + NAV_SEAM
+    )
 
 
 def main():
@@ -27,9 +41,18 @@ def main():
     original = path.read_text()
     output = adapt(original)
     assert (
-        output.removeprefix('#include "TransportHooks.h"\n').replace(HOOK + SEAM, SEAM) == original
+        output.removeprefix('#include "TransportHooks.h"\n')
+        .replace(HOOK + SEAM, SEAM)
+        .replace(NAV_HOOK + NAV_SEAM, NAV_SEAM)
+        == original
     )
-    for invalid in ["", original + SEAM]:
+    for invalid in [
+        "",
+        original + SEAM,
+        original.replace(SEAM, ""),
+        original + NAV_SEAM,
+        original.replace(NAV_SEAM, ""),
+    ]:
         try:
             adapt(invalid)
         except ValueError:
