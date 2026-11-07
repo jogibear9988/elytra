@@ -6645,6 +6645,34 @@ links/resources/fragments). Code-OSS still
 does not run: cache/V8 adaptation, process/desktop services and public binary/event/
 port routing remain required. Full goal active.
 
+## 2026-11-07: Correct Windows module oracle and share native UTF-8 entry arguments
+
+- Inspect authoritative Windows evidence instead of inferring new platform success:
+  bc0afb2 run 42372490143 completed successfully; the later 8f617c0 run 42373435149,
+  job 128406101281, compiled but failed module-utilities and HTTP default-errors.
+- The module failure is in Node: its C: temp filename was stripped of the drive
+  while cwd was on D:. Root-relative paths use the current drive. Correct the
+  fixture to test either actual current-drive resolution or MODULE_NOT_FOUND,
+  based on the physical candidate, rather than require another drive's file.
+- Inspect embedded host startup as well: unlike the CLI's wide entry, narrow main
+  relies on the CRT code page; pinned libuv uv_setup_args returns argv unchanged
+  on Windows. Extract the CLI's existing UTF-16/UTF-8 conversion into an owned
+  WindowsArguments helper and reuse it in the test host's wmain. Keep UTF-8 storage
+  alive through run, pointers stable and copy disabled; retain invalid-UTF-16 errors.
+  Do not impose CLI stdio/inheritance policy on embedders or change runtime run().
+- Existing utility and original-fs gates launch the host from Unicode temp paths;
+  they will validate this on native Windows. Record the new acceptance as pending.
+  The separate HTTP failure has Node return 0xC0000409 after its first response;
+  Mite produced both expected responses. Do not weaken or skip that differential
+  test; further Node/native diagnosis remains required.
+
+Validation: local macOS CLI/host build, utility comparison and all 68 standalone
+CTest suites pass (20.34 seconds). These checks establish POSIX regression only;
+the Windows-only entry/drive branches require hosted native execution. Pinned
+formatting, diff and unmodified-upstream checks pass; generated site 197 pages /
+13,922 local links/resources/fragments passes. Full goal active; Code-OSS desktop
+and full platform acceptance remain incomplete.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

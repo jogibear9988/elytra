@@ -1,6 +1,7 @@
 #include "core/EventLoop.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
+#include "platform/process/WindowsArguments.h"
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -13,7 +14,7 @@
 #include <string>
 #include <thread>
 
-int main(int argc, char** argv)
+static int run_host(int argc, char** argv)
 {
     GC::Root<JS::FunctionObject> pulse;
     JS::VM* owner_vm = nullptr;
@@ -169,3 +170,22 @@ int main(int argc, char** argv)
         return 99; // Host cleanup must precede VM destruction.
     return status;
 }
+
+#ifdef _WIN32
+int wmain(int argc, wchar_t** wide_argv)
+{
+    Mite::WindowsArguments arguments;
+    if (!arguments.initialize(argc, wide_argv)) {
+        fprintf(stderr, "host: cannot encode arguments as UTF-8 (Windows error %lu)\n",
+            arguments.error());
+        return 9;
+    }
+
+    return run_host(argc, arguments.data());
+}
+#else
+int main(int argc, char** argv)
+{
+    return run_host(argc, argv);
+}
+#endif

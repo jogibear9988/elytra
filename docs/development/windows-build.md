@@ -1,10 +1,25 @@
 # Native Windows bring-up
 
-The documented Mite runtime subset now passes native Windows CI; full Windows
+The documented Mite runtime baseline passes native Windows CI; full Windows
 Firefly/desktop/package support remains unverified. Native Windows development Actions builds Mite
 on Windows Server 2025 with Visual Studio clang-cl x64, the pinned Rust toolchain
 and pinned vcpkg source/dependencies. No WSL, MinGW compiler or alternate JS engine
 is used as a runtime/build fallback. Node is only the differential test reference.
+
+Later slices need separate acceptance. At 8f617c0,
+[run 42373435149](https://github.com/jogibear9988/elytra/actions/runs/42373435149)
+compiled the native runtime but failed two tests: the new module utility fixture
+incorrectly assumed its C: temp path and D: checkout shared a current drive, and
+the Node reference exited with 0xC0000409 in HTTP default-errors (Mite completed).
+The drive-aware fixture is corrected; the separate Node crash remains to diagnose.
+Do not count that run as full runtime acceptance.
+
+Windows native callers must pass UTF-8 arguments to Mite::run. CLI and embedded
+test host now share WindowsArguments, which owns converted strings/pointers from
+wmain's UTF-16 arguments and rejects invalid UTF-16. The host must not rely on the
+CRT's narrow main argument encoding; libuv's Windows uv_setup_args returns those
+arguments unchanged. CLI-only binary-output and handle-inheritance policies remain
+at its entry point. New native execution of this shared entry adapter is pending.
 
 Historical bring-up: the first job failed before compilation because the DNS NUL-input fixture had the
 reserved basename nul.mjs. It is now null-byte.mjs; its contents and assertions are

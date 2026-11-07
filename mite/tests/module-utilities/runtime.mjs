@@ -64,7 +64,19 @@ console.log('PASS path/URL/directory/virtual contexts and require package condit
 if (process.platform === 'win32') {
   // Exercise Node's rooted-without-drive spelling and native trailing backslash.
   const rooted = filename.slice(2);
-  check(createRequire(rooted)('./choice.cjs') === 'require', 'Windows rooted context');
+  // A root-relative Windows path uses the *current* drive, not the drive of
+  // filename. Hosted CI keeps checkout and temp directories on different drives.
+  const candidate = path.join(path.dirname(path.resolve(rooted)), 'choice.cjs');
+  if (fs.existsSync(candidate)) {
+    check(createRequire(rooted)('./choice.cjs') === 'require', 'Windows rooted context');
+  } else {
+    try {
+      createRequire(rooted)('./choice.cjs');
+      throw new Error('Rooted context unexpectedly used another drive');
+    } catch (error) {
+      check(error.code === 'MODULE_NOT_FOUND', 'Windows rooted context current-drive error');
+    }
+  }
   check(
     createRequire(import.meta.dirname + '\\')('./choice.cjs') === 'require',
     'Windows directory'
