@@ -29,7 +29,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/clipboard/Targets.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/window/Targets.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/platform/RuntimePaths.cmake")
 enable_testing()
+add_test(
+    NAME runtime-paths
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_runtime_paths.py"
+            --probe "$<TARGET_FILE:firefly-runtime-paths-probe>")
+set_tests_properties(runtime-paths PROPERTIES TIMEOUT 15)
 add_test(NAME clipboard-protocol COMMAND firefly-clipboard-protocol-probe)
 add_test(
     NAME clipboard-isolation-guard

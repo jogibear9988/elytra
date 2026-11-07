@@ -4,6 +4,7 @@
  */
 
 #include "../platform/DesktopServices.h"
+#include "../platform/RuntimePaths.h"
 #include "ApiSource.h"
 #include "Bridge.h"
 #include "core/EventLoop.h"
@@ -28,21 +29,19 @@
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
 namespace Firefly {
-// Prefer the packaged macOS helper layout. Linux development bin/ also contains
-// upstream WebContent, so raw Linux builds must use the configured owned runtime
-// directory until native Linux packaging/discovery is implemented.
+// Resolve from the native executable, never argv[0] or the application's working directory.
 static ByteString runtime_directory()
 {
     auto executable = Core::System::current_executable_path();
-    if (!executable.is_error()) {
-        auto directory = std::filesystem::path(executable.value().characters()).parent_path();
-        std::error_code error;
-        if (std::filesystem::is_regular_file(directory / "WebContent", error)
-            && std::filesystem::is_directory(directory.parent_path() / "Resources", error))
-            return ByteString(directory.string().c_str());
-    }
-
-    return ByteString(FIREFLY_LADYBIRD_DIRECTORY);
+#ifdef __APPLE__
+    constexpr auto layout = RuntimeLayout::MacOS;
+#else
+    constexpr auto layout = RuntimeLayout::Linux;
+#endif
+    auto selected = Firefly::runtime_directory(
+        executable.is_error() ? std::filesystem::path {} : executable.value().characters(),
+        FIREFLY_LADYBIRD_DIRECTORY, layout);
+    return ByteString(selected.string().c_str());
 }
 
 class Application final : public WebView::Application {

@@ -8,6 +8,7 @@ on:
       - 'firefly/native/CMakeLists.txt'
       - 'firefly/native/clipboard/**'
       - 'firefly/native/window/**'
+      - 'firefly/native/platform/RuntimePaths*'
       - 'firefly/native/qt/Requirements.cmake'
       - 'tooling/renderer_dependencies.py'
       - 'tooling/firefly_dependencies.py'
@@ -17,6 +18,7 @@ on:
       - 'tooling/tests/test_x11_clipboard.py'
       - 'tooling/tests/test_x11_geometry.py'
       - 'tooling/tests/_x11.py'
+      - 'tooling/tests/test_runtime_paths.py'
       - 'vendor/ladybird'
       - 'vendor/ladybird.json'
   workflow_dispatch:

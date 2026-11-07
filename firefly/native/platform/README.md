@@ -19,3 +19,13 @@ any GUI application. The Linux service library is also compiled on macOS for
 header/link validation, without replacing the macOS provider. Host bindings and
 their capability fields are private main-process implementation details; the
 renderer still receives only the separately validated preload/IPC surface.
+
+RuntimePaths.cpp isolates filesystem discovery from the VM/GUI. macOS selects
+its existing bundle layout; Linux accepts only the dedicated firefly-runtime
+helper/resource tree relative to the actual executable, then uses the configured
+build directory as a development fallback. A sibling upstream bin/WebContent
+cannot satisfy the Linux selector. The standalone native path probe exercises
+relocation and incomplete/decoy layouts without any GUI initialization. The
+Linux app gate additionally requires the observed live renderer to execute from
+the relocated tree; its hosted acceptance and distributable dependency closure
+remain pending.

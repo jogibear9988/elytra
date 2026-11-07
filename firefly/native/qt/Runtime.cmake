@@ -3,6 +3,7 @@ if(NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "No native Firefly desktop runtime for this platform")
 endif()
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -65,7 +66,8 @@ target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/render
 target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
 target_compile_definitions(firefly
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_runtime_binary_dir}")
-target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol)
+target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol
+                                      firefly-runtime-paths)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()

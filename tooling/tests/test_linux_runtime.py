@@ -123,6 +123,7 @@ def main():
                         "renderer": renderer,
                         "main": parent,
                         "executable": str(executable),
+                        "relocatedMain": str(binary),
                     }
                 )
                 self.send_response(200)
@@ -141,6 +142,19 @@ def main():
         temporary = Path(directory)
         app = temporary / "app"
         stage(app)
+        # Exercise discovery after moving the executable and owned helper tree.
+        # Dereference build-time service symlinks so the copied peers are real files.
+        # This checks relocatable helper selection, not dependency-complete packaging.
+        relocated = temporary / "relocated runtime ünicode"
+        relocated_binary = relocated / "bin/firefly"
+        relocated_binary.parent.mkdir(parents=True)
+        shutil.copy2(binary, relocated_binary)
+        shutil.copytree(
+            binary.parent.parent / "firefly-runtime",
+            relocated / "firefly-runtime",
+            symlinks=False,
+        )
+        binary = relocated_binary
         runtime = temporary / "runtime"
         runtime.mkdir(mode=0o700)
         env = {
@@ -185,7 +199,7 @@ def main():
             values = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
             assert values == [observations[0]["app"]], (values, observations)
     print(
-        "PASS native Linux app lifecycle, HTTP/LibWeb/preload/IPC, clipboard and live kernel sandbox"
+        "PASS relocated native Linux app lifecycle, HTTP/LibWeb/preload/IPC, clipboard and live kernel sandbox"
     )
     print("Pending: public screen/theme, broader Electron/platform behavior and Linux packaging")
 

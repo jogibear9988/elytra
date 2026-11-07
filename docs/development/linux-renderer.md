@@ -312,13 +312,23 @@ requirements and exact overrides. The --linux checker rejects the renderer-only,
 service-only and macOS runtime manifests. A shared input reader avoids circular
 imports or changing upstream files. Runtime helpers/resources use
 firefly-runtime/bin and firefly-runtime/share/Lagom; macOS bundle paths are retained.
-Raw Linux builds use that configured owned helper directory. They must not select
-the adjacent upstream bin/WebContent, which lacks the runtime preload session;
-native Linux packaged helper discovery remains unfinished.
+Runtime discovery first checks the dedicated tree relative to the actual native
+executable (`../firefly-runtime/bin` and `../firefly-runtime/share/Lagom`), then
+falls back to the configured development directory. It never chooses adjacent
+upstream bin/WebContent, which lacks the runtime preload session. macOS retains
+its adjacent Contents/MacOS and Contents/Resources layout. The shared production
+path selector has non-GUI native filesystem tests for relocation, spaces/Unicode,
+upstream decoys and missing helpers/resources. This does not establish a
+self-contained Linux distributable or library/plugin closure.
 
 The renderer workflow keeps every existing headless/window/isolation gate and
 only then builds this actual application. Its dedicated Xvfb/Openbox app fixture
-serves a real HTTP document from Mite, loads a bundled ESM-authored preload,
+copies the executable and owned runtime tree to a temporary directory containing
+spaces/Unicode, dereferencing development service symlinks. It runs the relocated
+executable and requires the actual renderer executable to be in that relocated
+tree, so fallback to the original renderer cannot pass. Native relocation
+acceptance is pending; shared-library/plugin packaging is separate work.
+The fixture serves a real HTTP document from Mite, loads a bundled ESM-authored preload,
 requires a frozen document API and absent ambient Node capabilities, exchanges
 validated IPC through the real bridge, checks native clipboard bytes, exercises
 window sizing/centering, and verifies explicit preference/display refusals.

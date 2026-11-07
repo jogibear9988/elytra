@@ -5435,6 +5435,46 @@ source and retain every existing native/security/package gate. Alpha publication
 still requires verified successful artifacts. Linux geometry/app acceptance and
 native Windows desktop support remain unfinished. Goal active.
 
+## 2026-11-07: Discover relocated owned Linux runtime helpers
+
+- The previous goal turn made concrete progress: bef1db4 added independent
+  X11-manager readiness and 12f15f1 synchronized IPC fixture endpoint receipt;
+  both commits are on master. Fresh optimized/shared-provider macOS candidate
+  42316338587 at 12f15f1 is confirmed live, not assumed stopped after polling.
+  Older corrected-GC macOS 42313640608 and isolated Linux services 42316129815
+  remain live under their existing gates. Do not restart them merely for age.
+- Extract runtime path selection from the Qt application into a small native
+  platform component with no Qt/VM dependency. Preserve macOS Contents/MacOS
+  plus Resources discovery and the configured development fallback.
+- Linux first selects the owned firefly-runtime/bin plus share/Lagom tree
+  relative to the actual executable. Never choose neighboring upstream
+  bin/WebContent: it lacks the runtime preload session. This removes the
+  absolute-build-path dependency when a complete owned tree is relocated.
+- Check the exact production selector using real temporary filesystem layouts:
+  fallback, a misleading upstream helper/Resources pair, missing helper or
+  resources, relocation, spaces and Unicode, both macOS/Linux policies, and
+  failed executable discovery. No GUI or engine starts. The test's first local
+  failure exposed macOS /var versus /private/var aliases in the test paths;
+  canonicalize the temporary root, leaving production assertions intact.
+- Strengthen the existing hosted Linux application gate to copy the executable
+  and owned runtime into a relocated temporary tree, dereference development
+  service symlinks and require its actual live /proc renderer executable there.
+  Keep all original preload/IPC/geometry/clipboard/kernel-sandbox assertions.
+  A configured-original-helper fallback cannot satisfy this peer's path check.
+- Compile/link the real current macOS Firefly and native path probe. All five
+  standalone non-GUI service CTests pass (0.73 seconds), including real path
+  policy execution. Existing SDK object deployment-target warnings remain;
+  this does not establish an older macOS support range. No local GUI runs.
+
+Validation: Python syntax, repository formatting, actionlint, the unmodified
+upstream pin, actual platform/dependency generator checks and 181 site pages
+with 12,504 local links pass. The full application --help exits without GUI
+initialization. Native Linux relocation and window acceptance remain pending. This is helper discovery,
+not a self-contained Linux package: dependency/plugin closure, distribution,
+screen/theme/OS services and Windows desktop integration remain required.
+The optimized release candidate still needs all native/security/package gates;
+no alpha publication is claimed. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
