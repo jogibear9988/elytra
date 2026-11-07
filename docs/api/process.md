@@ -99,7 +99,8 @@ and syscall uv_getrusage; provider failure injection is not native-acceptance-te
 ## Limits, example and validation
 
 Process lifecycle/rejection events, stdio streams, signals, per-thread CPU usage,
-memory/resource reports and node:perf_hooks remain unfinished. Absent members
+memory/resource reports and broader performance profiling remain unfinished.
+[node:perf_hooks](perf-hooks.md) now supplies native now/timeOrigin only. Absent members
 produce ordinary API/import errors; they do not return fabricated measurements.
 [Child processes](child-process.md) are a separate implemented subset.
 

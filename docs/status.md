@@ -6,10 +6,15 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-The new [node:module utilities](api/module.md) pass local macOS ARM64 Node
+The [node:module utilities](api/module.md) at 8f617c0 pass local macOS ARM64 Node
 differential/embedded-host GC checks and the full **66-suite** Mite run. This adds
 ESM-owned createRequire, not Code-OSS startup or compile-cache/V8 support. New
 Linux/Windows execution remains pending.
+
+The newer [node:perf_hooks clock](api/perf-hooks.md) passes local native clock/GC
+checks and executes the pinned Code-OSS performance module after type erasure,
+using that module's mark fallback. It supplies now/timeOrigin only; it does not
+establish full performance API, desktop bootstrap or new Linux/Windows acceptance.
 
 Latest completed macOS Release/package verification:
 [run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659)

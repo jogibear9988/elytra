@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/microsoft/vscode",
+  "revision": "6531648f5ace8b77ae799262bdc97bf048461938",
+  "files": {
+    "performance.ts": {
+      "upstream": "src/vs/base/common/performance.ts",
+      "sha256": "6553044d87308e75de33b7e59b8d438211cb35621f308ac9b0e3601038061c01"
+    },
+    "LICENSE.txt": {
+      "upstream": "LICENSE.txt",
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+    }
+  }
+}

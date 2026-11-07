@@ -15,6 +15,9 @@ namespace {
     // Initialized once when the runtime is loaded, not once per VM/realm. Avoid
     // invoking libuv before its platform initialization during static startup.
     auto const process_start = std::chrono::steady_clock::now();
+    // Pair the runtime's initial monotonic sample with one native epoch sample.
+    // Only the origin uses wall time; later clock reads never consult Date or OS wall time.
+    auto const process_epoch = std::chrono::system_clock::now();
 
     JS::Completion cpu_error(JS::VM& vm, int status)
     {
@@ -31,6 +34,22 @@ namespace {
             JS::PrimitiveString::create(vm, "uv_getrusage"_utf16), JS::default_attributes);
         return JS::throw_completion(error);
     }
+}
+
+void install_performance_timing(JS::Realm& realm, JS::Object& host)
+{
+    host.define_direct_property("timeOrigin"_utf16,
+        JS::Value(
+            std::chrono::duration<double, std::milli>(process_epoch.time_since_epoch()).count()),
+        JS::default_attributes);
+    host.define_native_function(
+        realm, "now"_utf16,
+        +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+            return JS::Value(std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - process_start)
+                    .count());
+        },
+        0, JS::default_attributes);
 }
 
 void install_process_timing(JS::Realm& realm, JS::Object& host)

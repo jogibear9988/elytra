@@ -8,3 +8,6 @@
 
 /firefly/core/** text eol=lf
 /firefly/native/qt/app-regions.mjs text eol=lf
+
+# Pinned compatibility source/license checksums must survive native Windows checkout.
+/vendor/code-oss-tests/** text eol=lf

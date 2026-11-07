@@ -6576,6 +6576,40 @@ Python syntax/diff and unmodified-upstream checks pass; generated site 195 pages
 perf_hooks/original-fs, desktop/process services and public port/binary routing
 remain required. Full goal active.
 
+## 2026-11-07: Native performance clock and an actual pinned Code-OSS module gate
+
+- Previous turn made progress: 8f617c0 committed/pushed ESM-owned require contexts
+  with all 66 local Mite suites passing. Continue the full goal along the Code-OSS
+  startup path; do not count component successes as a desktop workbench launch.
+- Inspect mainImpl's performance.timeOrigin use and the actual common/performance.ts
+  module at the audited Code-OSS pin. Add global/node:perf_hooks performance with
+  native steady-clock now and one fixed native epoch timeOrigin. Reuse the process
+  uptime origin; later reads never depend on JS Date or the current OS wall clock.
+- Preserve shared global/ESM/CJS identity, cached exports after global replacement,
+  read-only origin and modern Node receiver errors, including transparent/revoked
+  proxy behavior. No fabricated nodeTiming, timeline entries or profiling results;
+  constructors, marks/measures, observers, utilization and histograms remain absent.
+- Pin Microsoft's exact performance.ts and MIT license as test-only vendor inputs,
+  with revision/paths/SHA-256 manifest. The existing Node reference erases only TS
+  types during testing; both Node and Mite execute that same module. Require actual
+  native-origin startup marks, explicit timestamps, reads, named/all clearing and
+  retained origin using Code-OSS's own fallback. This is not a rewritten fixture,
+  a Node runtime dependency or execution of mainImpl/the complete application.
+- Add the 67th standalone CTest gate with Node/native timer and actual embedded-host
+  GC comparisons. Include pinned fixture bytes in Windows checkout-conversion hash
+  checks. Update the detailed performance contract, API index, matrix and Code-OSS
+  status; preserve honest separate Linux/Windows acceptance and no local GUI.
+
+Validation: local macOS standalone build and all 67 CTest suites pass, including
+the actual pinned Code-OSS module and existing loader/Buffer/runtime regressions.
+Firefly also builds/links with the changed shared runtime; no desktop test was
+launched. Full pinned formatting, runtime-bundle, Python syntax/diff and
+unmodified-upstream checks pass; generated site 196 pages / 13,846 local links /
+resources/fragments passes. New
+Linux/Windows clock/fixture execution remains pending. Full goal remains active:
+Code-OSS desktop, its cache/V8 adaptation, original-fs, missing process/desktop APIs
+and public binary/event/port routing are not complete.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

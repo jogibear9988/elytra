@@ -26,6 +26,7 @@ function(mite_add_runtime target root js_target)
                    @ONLY)
     foreach(
         module
+        perf_hooks
         events
         process
         path

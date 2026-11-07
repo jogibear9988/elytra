@@ -20,6 +20,8 @@ built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
+The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and the
+fixed process runtime timeOrigin; timeline/profiling APIs remain absent.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
 error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,

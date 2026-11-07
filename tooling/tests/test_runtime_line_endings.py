@@ -26,6 +26,14 @@ def main():
             if not source["path"].startswith("node_modules/"):
                 expected["tooling/runtime-js/" + source["path"]] = source["sha256"]
     expected.update(manifest.get("sources", {}))
+    # The Code-OSS compatibility gate consumes exact pinned source/license bytes too.
+    compatibility = json.loads((ROOT / "vendor/code-oss-tests/manifest.json").read_text())
+    expected.update(
+        {
+            "vendor/code-oss-tests/" + name: record["sha256"]
+            for name, record in compatibility["files"].items()
+        }
+    )
     attributes = subprocess.check_output(
         ["git", "check-attr", "eol", "--", *expected], cwd=ROOT, text=True
     )

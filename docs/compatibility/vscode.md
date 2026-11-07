@@ -27,7 +27,7 @@ from a future Code-OSS test.
 | --- | --- | --- |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | node:module now has createRequire utilities, but its compile-cache exports and node:v8 remain absent. Define a truthful LibJS cache/diagnostics adaptation; do not fake a V8 cache or embed V8. First prove the pinned bootstrap progresses with an explicit adaptation report |
 | Shared Node bootstrap | bootstrap-node statically imports createRequire and constructs a require from import.meta.url | The new utility passes local macOS Node/cache/GC tests. Remaining bootstrap branches include process signals and packaged ASAR resolver customization; a successful utility fixture does not prove this complete upstream module runs |
-| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | original-fs alias/semantics and perf_hooks are absent; desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
+| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | perf_hooks now supplies the native now/timeOrigin clock subset; original-fs and broader performance APIs remain absent, desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
 | Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
 | Workspace files | Disk provider channel includes open/read/write/readFile/readFileStream/watch and cancellation | Broaden filesystem/stream/watch APIs and native watcher lifecycle; actual open/edit/save/rename/external-change tests must pass |
@@ -58,6 +58,14 @@ conditions and actual GC acceptance locally on macOS. This targets the pinned
 [bootstrap-node createRequire call](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/bootstrap-node.ts#L7).
 It does not implement the separate compile-cache imports, node:v8 or execute the
 whole Code-OSS bootstrap. Their blockers remain open.
+
+The [performance clock slice](../api/perf-hooks.md) supplies native global/module
+now/timeOrigin. Its gate runs the actual pinned common/performance.ts after
+development-only type erasure in both Node and Mite: origin-backed startup marks,
+explicit timestamps and clearing pass using Code-OSS's own fallback. The unmodified
+source/hash manifest and MIT license live in vendor/code-oss-tests. This is one
+real upstream module, not mainImpl or the desktop bootstrap. Full performance
+timeline/profiling APIs remain open.
 
 The first [internal binary snapshot/wire slice](../architecture/0099-bounded-native-binary-wire.md)
 passes local macOS native/separate-process tests. It now preserves typed-array/

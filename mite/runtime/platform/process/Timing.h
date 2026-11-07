@@ -4,4 +4,6 @@
 
 namespace Mite {
 void install_process_timing(JS::Realm&, JS::Object& host);
+
+void install_performance_timing(JS::Realm&, JS::Object& host);
 }

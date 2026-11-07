@@ -19,6 +19,7 @@
 #include "platform/network/tls/Client.h"
 #include "platform/process/ChildProcess.h"
 #include "platform/process/ProcessHost.h"
+#include "platform/process/Timing.h"
 #include "platform/system/OS.h"
 #include "platform/text/Encoding.h"
 #include "platform/text/URL.h"
@@ -70,6 +71,7 @@ static constexpr std::string_view url_exports[]
 static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
 static constexpr std::string_view module_exports[]
     = { "createRequire", "isBuiltin", "builtinModules" };
+static constexpr std::string_view perf_hooks_exports[] = { "performance" };
 static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Writable", "Duplex",
     "Transform", "PassThrough", "pipeline", "finished", "compose", "destroy", "addAbortSignal",
     "isDestroyed", "isDisturbed", "isErrored", "isReadable", "isWritable",
@@ -107,6 +109,8 @@ static constexpr std::string_view https_exports[]
     = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {
     { "module", { MITE_MODULE_SOURCE, sizeof(MITE_MODULE_SOURCE) - 1 }, module_exports },
+    { "perf_hooks", { MITE_PERF_HOOKS_SOURCE, sizeof(MITE_PERF_HOOKS_SOURCE) - 1 },
+        perf_hooks_exports },
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
     { "timers", {}, timers_exports },
@@ -205,6 +209,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "perf_hooks")
+        install_performance_timing(m_realm, *host);
     if (name == "module") {
         install_module_utilities(*host);
         host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
@@ -480,6 +486,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
         "TextEncoder"_utf16, TRY(util->get("TextEncoder"_utf16)), JS::default_attributes);
     m_realm.global_object().define_direct_property(
         "TextDecoder"_utf16, TRY(util->get("TextDecoder"_utf16)), JS::default_attributes);
+    auto perf_hooks = TRY(builtin("perf_hooks"));
+    m_realm.global_object().define_direct_property(
+        "performance"_utf16, TRY(perf_hooks->get("performance"_utf16)), JS::default_attributes);
     auto parsed_fetch = JS::Script::parse(
         Utf16String::from_utf8(StringView(MITE_FETCH_SOURCE, sizeof(MITE_FETCH_SOURCE) - 1)),
         m_realm, "mite:fetch"sv);
