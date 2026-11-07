@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         "--baseline-cpu",
         action="store_true",
-        help="Use and verify the upstream Apple M1 baseline for macOS ARM64 distribution builds",
+        help="Use and verify the upstream macOS ARM64 or Linux x64 distribution CPU baseline",
     )
     parser.add_argument(
         "--shared-openssl",
@@ -68,8 +68,11 @@ def main():
         sys.platform != "darwin" or platform.machine() != "arm64" or args.target != "firefly"
     ):
         parser.error("--shared-openssl currently requires native macOS ARM64 --target firefly")
-    if args.baseline_cpu and (sys.platform != "darwin" or platform.machine() != "arm64"):
-        parser.error("--baseline-cpu is currently verified only for macOS ARM64")
+    if args.baseline_cpu and (sys.platform, platform.machine()) not in [
+        ("darwin", "arm64"),
+        ("linux", "x86_64"),
+    ]:
+        parser.error("--baseline-cpu currently supports macOS ARM64 and Linux x64 commands")
     if args.target == "firefly" and sys.platform not in ["darwin", "linux"]:
         parser.error(
             "The desktop runtime currently supports macOS and experimental Linux X11 builds"
@@ -132,7 +135,16 @@ def main():
         compiler_cache.check(build, args.target)
     if args.baseline_cpu:
         subprocess.run(
-            [sys.executable, str(ROOT / "tooling/check_macos_cpu.py"), "--build", str(build)],
+            [
+                sys.executable,
+                str(
+                    ROOT
+                    / "tooling"
+                    / ("check_linux_cpu.py" if sys.platform == "linux" else "check_macos_cpu.py")
+                ),
+                "--build",
+                str(build),
+            ],
             cwd=ROOT,
             check=True,
         )

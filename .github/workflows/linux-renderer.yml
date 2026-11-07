@@ -64,9 +64,16 @@ jobs:
           renderer: 'true'
       - name: Native ELF dependency closure and relocation fixture
         run: |
-          sudo apt-get install -y patchelf
+          sudo apt-get install -y patchelf gdb
           patchelf --version
+          python tooling/tests/test_linux_cpu.py
           python tooling/tests/test_elf_package.py
+      - name: Record CPU and enable bounded native crash diagnostics
+        run: |
+          lscpu | tee build-linux-cpu.log
+          mkdir -p build/linux-cores
+          mv build-linux-cpu.log build/linux-renderer-cpu.log
+          sudo sysctl -w "kernel.core_pattern=$GITHUB_WORKSPACE/build/linux-cores/core.%e.%p"
       - name: Prepare dependency cache
         run: |
           mkdir -p build/vcpkg-cache build/renderer-cache
@@ -103,7 +110,7 @@ jobs:
       - name: Configure and compile native renderer and owned helper
         run: |
           set -o pipefail
-          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-preload-probe --configure-only --ccache --jobs 3 2>&1 | tee build/linux-renderer-build.log
+          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly-preload-probe --configure-only --ccache --baseline-cpu --jobs 3 2>&1 | tee build/linux-renderer-build.log
           cmake --build build/linux-renderer --target firefly-clipboard-protocol-probe --parallel 3 2>&1 | tee build/linux-renderer-clipboard-build.log
           build/linux-renderer/bin/firefly-clipboard-protocol-probe 2>&1 | tee build/linux-renderer-clipboard-protocol.log
           cmake --build build/linux-renderer --target firefly-x11-clipboard-probe --parallel 3 2>&1 | tee build/linux-renderer-x11-clipboard-build.log
@@ -150,7 +157,7 @@ jobs:
       - name: Compile experimental Mite-driven native X11 runtime
         run: |
           set -o pipefail
-          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly --configure-only --ccache --jobs 3 2>&1 | tee build/linux-renderer-runtime-configure.log
+          python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly --configure-only --ccache --baseline-cpu --jobs 3 2>&1 | tee build/linux-renderer-runtime-configure.log
           cmake --build build/linux-renderer --target firefly firefly-linux-environment-probe --parallel 3 2>&1 | tee build/linux-renderer-runtime-build.log
           python tooling/firefly_dependencies.py --check build/linux-renderer/firefly-manifest --linux
           ldd build/linux-renderer/bin/firefly
@@ -165,11 +172,13 @@ jobs:
           FIREFLY_TEST_ISOLATED_X11: '1'
         run: |
           set -o pipefail
+          ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
       - name: Compile separate standalone Release Mite for package validation
         run: |
           set -o pipefail
-          cmake -S . -B build/linux-package-mite -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee build/linux-renderer-package-mite-configure.log
+          cmake -S . -B build/linux-package-mite -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_CI_BASELINE_CPU=ON -DBUILD_TESTING=OFF -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee build/linux-renderer-package-mite-configure.log
+          python tooling/check_linux_cpu.py --build build/linux-package-mite
           cmake --build build/linux-package-mite --target mite --parallel 3 2>&1 | tee build/linux-renderer-package-mite-build.log
           ldd build/linux-package-mite/bin/mite | tee build/linux-renderer-package-mite-linkage.log
           env -u DISPLAY -u QT_QPA_PLATFORM build/linux-package-mite/bin/mite examples/mite-cli/hello.mjs world
@@ -179,6 +188,7 @@ jobs:
           FIREFLY_TEST_ISOLATED_X11: '1'
         run: |
           set -o pipefail
+          ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly --package --mite-build build/linux-package-mite --artifacts-dir build/linux-package-artifacts 2>&1 | tee build/linux-renderer-package-acceptance.log
       - name: Compile and bundle the pinned Designer production sample
         run: |
@@ -198,6 +208,23 @@ jobs:
           name: linux-designer-package-candidate
           path: build/linux-designer-packages
           if-no-files-found: error
+      - name: Diagnose native crash instruction and stack without rerunning acceptance
+        if: failure()
+        run: |
+          for core in build/linux-cores/core.*; do
+            [ -f "$core" ] || continue
+            name=$(basename "$core")
+            name=${name#core.}
+            name=${name%.*}
+            case "$name" in
+              firefly) executable=build/linux-renderer/bin/firefly ;;
+              WebContent) executable=build/linux-renderer/firefly-runtime/bin/WebContent ;;
+              *) executable="build/linux-renderer/bin/$name" ;;
+            esac
+            if [ -f "$executable" ]; then
+              timeout 30s gdb --batch -q -iex 'set auto-load off' -ex 'info registers' -ex 'x/12i $pc' -ex 'thread apply all bt' "$executable" -c "$core" >> build/linux-renderer-native-crash.log 2>&1 || true
+            fi
+          done
       - name: Record final upstream integrity
         if: always()
         run: python tooling/check_upstream.py

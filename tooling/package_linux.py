@@ -66,6 +66,8 @@ def stage(
     if mite_build is None:
         raise ValueError("A separately built standalone Mite CLI is required")
     mite_build = Path(mite_build).resolve(strict=True)
+    if any(cache_value(sdk, "ENABLE_CI_BASELINE_CPU") != "ON" for sdk in [build, mite_build]):
+        raise ValueError("Linux app distribution requires the portable CPU baseline in both SDKs")
     application = Path(application).resolve(strict=True)
     output = Path(output).resolve()
     if output.exists() or output.is_symlink():
@@ -166,6 +168,7 @@ def stage(
         "architecture": "x64",
         "entry": entry.as_posix(),
         "standaloneMiteBundled": False,
+        "cpuBaseline": {"firefly": "x86-64-v2", "mite": "x86-64-v2"},
         "dependencies": payload,
         "dynamicQtPlugins": plugins,
         "rustPackages": rust_packages,

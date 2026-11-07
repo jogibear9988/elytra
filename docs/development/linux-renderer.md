@@ -418,3 +418,25 @@ or missing native mappings return an explicit error. The standalone native-servi
 workflow now requires no-GUI refusal and independent xrandr/EWMH/Xlib checks at
 Qt scales 1 and 2. Hosted acceptance is pending; the public Linux screen/nativeTheme
 API remains unsupported until its separate integration/app acceptance is complete.
+
+
+## Portable CPU policy and native crash diagnostics
+
+Linux renderer CI now requests the pinned upstream ENABLE_CI_BASELINE_CPU policy:
+C++ -march=x86-64-v2 and Cargo -Ctarget-cpu=x86-64-v2, with Rust warnings remaining
+fatal. build_renderer.py --baseline-cpu selects and audits the actual generated
+C++/Cargo commands; the separate package-validation Mite SDK uses the same policy.
+The Linux packager refuses SDKs without it. This replaces the renderer's previous
+upstream -march=native default, which is unsuitable as a common distribution CPU
+contract. It does not assert an ISA audit of every third-party instruction or
+prove that CPU selection caused an observed crash.
+
+Run 42349719779/job 128335356488 at da5e3e8 passed engine, isolation/helper and
+native window gates, then its relocated app main process exited with SIGILL (-4)
+before stdout/stderr. Package gates were correctly skipped. The earlier successful
+8dc5830 runtime is retained as scoped evidence; the SIGILL cause is not diagnosed.
+CI now records lscpu, enables bounded 512-MiB cores for actual app acceptance and,
+on failure, reports registers/current-PC instructions/stack with GDB against the
+original binaries. It does not rerun acceptance until green or relax kernel checks.
+The baseline-policy change and new archive/Designer gates need their own native
+result before being described as a verified fix or complete Linux distribution.

@@ -5965,6 +5965,34 @@ site: 184 pages and 12,728 links/resources/fragments pass. No local GUI. Native 
 compilation/acceptance is pending on hosted Linux; no macOS stand-in result is
 claimed. Goal active.
 
+## 2026-11-07: Enforce a portable Linux CPU policy and retain SIGILL diagnostics
+
+- Native run 42349719779/job 128335356488 at da5e3e8 is terminal failure: actual
+  engine/realm/helper/window gates pass, but the relocated main app exits -4
+  (SIGILL) before stdout/stderr/control observation. Required package gates remain
+  skipped. Do not claim archive acceptance or silently retry/weaken the app gate.
+- Inspect the real upstream compile policy and our builder: Linux renderer had
+  ENABLE_CI_BASELINE_CPU=OFF, selecting -march=native and Rust target-cpu=native.
+  Correct this unsuitable distribution contract by enabling the existing pinned
+  x86-64-v2 C++/Rust policy in renderer/package-Mite builds, without upstream edits.
+  This is a concrete portability fix, not proof of the unexplained SIGILL cause.
+- Extend --baseline-cpu to Linux x64 and verify generated C++/Cargo commands;
+  preserve the existing Apple M1 behavior. Add refusal tests for native/missing/
+  conflicting CPU flags, wrong Rust CPU, lost fatal warnings and disabled policy.
+  Make Linux packaging require both SDK policies and record its baseline metadata.
+- Record actual CI CPU features and bounded core files for app acceptance. On
+  failure report registers/current-PC disassembly/stacks with GDB and no rerun.
+  Preserve the original failure; no sandbox, parent-PID or isolation assertion is
+  disabled. New native evidence remains required before claiming this fixes SIGILL.
+- Separately pushed 3936884 adds the native display component; its standalone
+  services run 42350712038/job 128338038590 is live configuring/compiling. Keep that
+  independent gate and the latest renderer run active; no observation-age restart.
+
+Validation: CPU refusal tests (1 multi-case suite), payload tests (3), Python syntax,
+full source formatting/actionlint/diff and unchanged-upstream checks pass. Generated
+site: 184 pages and 12,730 links/resources/fragments pass. No local GUI. Actual
+native baseline/app/archive acceptance remains pending. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
