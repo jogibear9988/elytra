@@ -44,6 +44,7 @@ def guards():
         listing = f"\tlibfixture.so.1 => {first} (0x123)\n"
         assert elf.parse_dependencies(listing) == {"libfixture.so.1": first}
         refused(lambda: elf.parse_dependencies("libmissing.so => not found"), "Unresolved ELF")
+        refused(lambda: elf.parse_dependencies("statically linked"), "Unrecognized ELF")
         refused(lambda: elf.parse_dependencies("../escape => nowhere (0x1)"), "Unrecognized ELF")
         refused(
             lambda: elf.parse_dependencies(listing + f"libfixture.so.1 => {second} (0x456)"),
@@ -79,7 +80,16 @@ def compile_graph(root, value, absolute=False):
     source = root / "leaf.c"
     source.write_text(f"int leaf(void) {{ return {value - 1}; }}\n")
     subprocess.run(
-        [compiler, "-shared", "-fPIC", str(source), "-Wl,-soname," + leaf.name, "-o", str(leaf)],
+        [
+            compiler,
+            "-shared",
+            "-fPIC",
+            "-nostdlib",
+            str(source),
+            "-Wl,-soname," + leaf.name,
+            "-o",
+            str(leaf),
+        ],
         check=True,
     )
     source = root / "middle.c"
@@ -251,6 +261,24 @@ def native():
         provider_policy(root)
         original = root / "original build"
         binary = compile_graph(original, 17)
+        assert elf.dependencies(original / "lib/libleaf-fixture.so.1") == {}, (
+            "real dependency-free DSO"
+        )
+        static_source = root / "static.c"
+        static_source.write_text("void _start(void) { for (;;) {} }\n")
+        static_binary = root / "static-executable"
+        subprocess.run(
+            [
+                os.environ.get("CC", "cc"),
+                "-nostdlib",
+                "-static",
+                str(static_source),
+                "-o",
+                str(static_binary),
+            ],
+            check=True,
+        )
+        refused(lambda: elf.dependencies(static_binary), "Missing ELF dynamic dependency metadata")
         before = {file: elf.digest(file) for file in original.rglob("*") if file.is_file()}
         package = root / "staged ünicode"
         main = copied(package, binary, "bin/app")

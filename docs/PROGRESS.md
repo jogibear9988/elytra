@@ -6744,6 +6744,24 @@ Validation: source-backed documentation update; previously completed native jobs
 above are the evidence. Site 198 pages / 13,995 local links/resources/fragments
 and diff checks pass. Native full archive run remains in progress. No local GUI.
 
+## 2026-11-07: Handle genuine dependency-free ELF shared objects during package verification
+
+- Full Linux cff79fb run 42377484455 / job 128418042162 advances past DBus provider
+  selection and copying, then its closure verifier rejects ldd's "statically linked"
+  listing. Do not assume an object is a valid shared library from this text alone.
+- Inspect DT_NEEDED first. An empty list is accepted only for an actual ET_DYN
+  object with a valid SONAME; keep static executables and ambiguous text refused.
+  Add the object path to parser failures so future native errors identify inputs.
+- Compile a real no-runtime/-nostdlib leaf DSO in the native relocation fixture;
+  require its empty dependency result and later normal loader use after relocation.
+  Compile a static executable separately and require explicit metadata refusal.
+  Original source preservation, provider ABI checks and archive provenance remain.
+
+Validation: local parser/unsupported-host guards and syntax/formatting checks pass.
+Renewed native component and full Linux archive/Designer acceptance remain pending.
+Process event/signal implementation is independent ongoing work, not yet accepted
+or included in this commit. No local GUI. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

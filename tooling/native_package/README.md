@@ -15,6 +15,11 @@ native loader, rejects unresolved libraries or same-name/different-content
 collisions before mutation, and copies dependencies once into lib/. Identical
 payload aliases are local relative symlinks. Original build files are not patched.
 
+Dependency-free shared objects are checked through DT_NEEDED, ET_DYN and a real
+SONAME, rather than accepting ldd's ambiguous "statically linked" label. They still
+receive a checked relative RUNPATH. Static executables remain unsupported; parser
+and metadata errors include the exact inspected object path.
+
 Each staged executable/helper/library receives a relative $ORIGIN RUNPATH.
 verify(root, objects) checks that the loader resolves every non-host-ABI library
 from this package. Environment LD_* overrides are removed for inspection. The

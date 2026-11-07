@@ -109,7 +109,23 @@ def parse_dependencies(output):
 
 def dependencies(path):
     elf_x64(path)
-    return parse_dependencies(command("ldd", path))
+    try:
+        needed = command("patchelf", "--print-needed", path).splitlines()
+    except subprocess.CalledProcessError as error:
+        raise ValueError(f"Missing ELF dynamic dependency metadata: {path}") from error
+    if not needed:
+        # ldd calls dependency-free DSOs "statically linked". Do not infer this
+        # from that ambiguous text: require ET_DYN and an actual shared SONAME.
+        with Path(path).open("rb") as file:
+            header = file.read(20)
+        soname = command("patchelf", "--print-soname", path).strip()
+        if int.from_bytes(header[16:18], "little") != 3 or not re.fullmatch(r"[^\s/\\]+", soname):
+            raise ValueError(f"Dependency-free ELF must be a shared object with SONAME: {path}")
+        return {}
+    try:
+        return parse_dependencies(command("ldd", path))
+    except ValueError as error:
+        raise ValueError(f"{path}: {error}") from error
 
 
 def owned_objects(root, binaries):
