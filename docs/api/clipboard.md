@@ -8,19 +8,21 @@ without a graphical application. Public Electron/Firefly async text/MIME-item
 acceptance passes in hosted macOS
 [run 42296377267](https://github.com/jogibear9988/elytra/actions/runs/42296377267),
 job 128162578490. That overall package run later fails in the manual-example
-harness; it is not release acceptance. Native Windows/Linux desktop
-adapters remain unfinished. This API is not exported by standalone Mite,
+harness; it is not release acceptance. The subsequent full macOS package gate passes at `19ad113`. Native Windows
+clipboard and Wayland remain unfinished. This API is not exported by standalone Mite,
 preloads, contextBridge or document JavaScript.
 
 An [experimental native X11 component](../development/linux-renderer.md#native-x11-clipboard-service)
-now implements the same bounded protocol for isolated Linux CI acceptance. It is
-not yet a verified public Firefly Linux clipboard API. Actual isolated native
+implements the same bounded protocol. Its independent X11 reader/writer gate and
+the public experimental Linux app text integration pass at `19ad113` in
+[run 42316853517](https://github.com/jogibear9988/elytra/actions/runs/42316853517). Actual isolated native
 X11 ownership/reader/writer acceptance passes for f05a24b in
 [run 42299888412](https://github.com/jogibear9988/elytra/actions/runs/42299888412).
 The newer Wayland-enabled Qt 6.11.2 SDK selection also passes native X11
 acceptance for 4b3a83d in
 [run 42303495733](https://github.com/jogibear9988/elytra/actions/runs/42303495733).
-Wayland runtime behavior and full Linux runtime integration remain unfinished.
+Wayland runtime behavior, broader clipboard interop/races and Linux packaging
+remain unfinished.
 
 
 The compatibility target is the pinned

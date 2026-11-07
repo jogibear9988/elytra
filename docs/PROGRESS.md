@@ -36,10 +36,11 @@ Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
 
 Firefly has a partial working macOS desktop runtime and an existing macOS ARM64
-alpha release. Linux renderer/helper and native OS services are under active
-implementation: the isolated native X11 clipboard gate passes, while current
-window geometry/SDK changes still need Linux acceptance. Public Linux/Windows
-desktop runtimes and distributable packages remain required and unfinished.
+alpha release. At 19ad113 the native Linux renderer/helper/window, independent
+X11 geometry/clipboard and relocated public application gates pass. This is an
+experimental Ubuntu 24.04 x64 Xvfb/Openbox slice, not broad Linux desktop/package
+acceptance. Linux screen/theme/distributables and native Windows desktop remain
+required and unfinished.
 The milestone checklist above remains open; scoped component success does not
 complete those cross-platform requirements. See the latest entries for exact
 source revisions, evidence, limits and live candidates.
@@ -5510,6 +5511,49 @@ unmodified upstream pin and 181 site pages/12,505 local links pass. The new
 HTTP source organization still needs fresh hosted acceptance; it adds no API
 coverage. Native Windows desktop, Linux distributable closure, broader OS APIs
 and the remaining specification milestones are unfinished. Goal active.
+
+## 2026-11-07: Accept the native X11 app and repair draft release verification
+
+- Source 19ad113 native renderer run 42316853517/job 128262565703 succeeds:
+  actual DOM/process/isolated-world/helper and Qt window gates; independent
+  clipboard and real frame/content/size/centering checks; then the relocated
+  Firefly/Mite HTTP/LibWeb/preload/IPC app, text clipboard and live /proc sandbox
+  activation/ownership. The independent non-Qt manager control is mapped and
+  decorated. Do not infer physical desktop parity or full sandbox containment.
+- Native-service source 19ad113 run 42316853549/job 128237353747 succeeds;
+  earlier bef1db4 run 42316129815/job 128229047474 passes all six original
+  service tests in 1.23 seconds. This is positive geometry/manager evidence,
+  superseding the earlier unmapped-window failures without hiding their history.
+- Full macOS Release/package source 19ad113 run 42316853522/job 128245244531
+  succeeds: all 65 runtime suites (266.88 seconds), native/public desktop,
+  isolation/helper/IPC security/budget/crash/30-second deadline gates, modern
+  sample boot, actual packaged Designer and verified five-file release artifact
+  13555114170 (246,291,016 bytes). This is default Release: optimize_size=false,
+  shared_openssl=false, not optional-profile acceptance.
+- Update platform/API compatibility to this precise X11/macOS scope. Public
+  Linux screen/theme, Wayland, physical/mixed-DPI displays, dependency-complete
+  Linux distributables and native Windows desktop remain required.
+- The previous optimized 12f15f1 run 42316338587 did pass the corrected security
+  and budget fixtures, then failed the subsequent crash readiness fixture.
+  Diagnose that separately; no optional-profile package is substituted here.
+- Start authorized alpha.2 promotion from successful run 42316853522. Run
+  42345423192 verify job 128322003883 passes actual original ZIP/metadata/hash
+  checks. Publish job 128322097395 creates the exact source tag and draft,
+  uploads all five assets, then stops at the REST by-tag lookup (HTTP 404).
+  The draft is not public. Authoritative authenticated listing finds draft
+  release 437377666 with five assets; its existence is not publication.
+- Correct the workflow to resolve the CLI's draft database ID and read that
+  exact REST release record before the unchanged count/name/size/state/SHA-256
+  checks. Validate positive numeric ID, matching tag and draft state first.
+  Retain all source/tag/no-overwrite guards, and set source_sha explicitly when
+  creating future drafts. Resume the same draft only after corrected code is
+  committed; do not bypass digest verification or move the source tag.
+
+Validation: actionlint, repository formatting, 181 site pages/12,506 local links
+and publication-policy refusal checks pass. An authenticated real CLI lookup
+returns the expected draft ID/tag/state with the corrected field selection.
+Fresh alpha publication still needs successful final server-digest
+checks and observed published state. No local GUI runs. Goal active.
 
 ## Resume
 

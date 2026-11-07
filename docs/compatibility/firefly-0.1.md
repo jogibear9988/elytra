@@ -6,16 +6,19 @@ time; the table and current API reference describe public availability.
 The first Mite-driven native macOS ARM64 Firefly slice is implemented. Shared
 Electron 45.2.3 migration fixtures pass in both runtimes with the module name
 selected at import time. This does not establish general Electron compatibility.
-Windows/Linux desktop, complete preload/IPC isolation and distribution remain outstanding.
+Complete preload/IPC isolation, Windows desktop and Linux distribution remain outstanding.
 
 The experimental [Linux renderer/helper path](../development/linux-renderer.md)
-now selects native sandbox/resources and has a dedicated compilation/process gate.
-It remains pending native acceptance and does not enable Firefly Linux windows.
+passes its native renderer/helper/window and relocated public application gates
+at `19ad113` ([run 42316853517](https://github.com/jogibear9988/elytra/actions/runs/42316853517)).
+This scoped Ubuntu 24.04 x64 Xvfb/Openbox acceptance includes HTTP/LibWeb,
+preload/IPC, window sizing/centering, clipboard text and live sandbox activation;
+it does not establish complete containment, screen/theme services or packaging.
 
 | Surface | Status | Evidence / remaining acceptance gate |
 | --- | --- | --- |
 | `app`, lifecycle | partial | isReady/whenReady, ready, window-all-closed, before-quit, will-quit, quit, cancellation/retry and app.exit signed codes tested; nested quit is coalesced as an intentional difference; OS activation/dock/Cmd-Q and beforeunload remain incomplete |
-| `BrowserWindow` | partial | Native macOS Qt/IOSurface view; width/height/title/show/frame/x/y/useContentSize, native outer/client bounds/size/position, AppKit centering, show/hide/focus, minimize/maximize/restore, registry, cancellable close and destroy; frame/constraint/mixed-DPI parity, most options and beforeunload remain incomplete. [Geometry contract](../api/browser-window.md#outer-and-content-geometry) |
+| `BrowserWindow` | partial | Native macOS Qt/IOSurface view; scoped Linux X11 runtime geometry/app fixture passes at 19ad113; width/height/title/show/frame/x/y/useContentSize, native outer/client bounds/size/position, AppKit centering, show/hide/focus, minimize/maximize/restore, registry, cancellable close and destroy; frame/constraint/mixed-DPI parity, most options and beforeunload remain incomplete. [Geometry contract](../api/browser-window.md#outer-and-content-geometry) |
 | Custom window chrome | partial | frame:false, top-document app-region/-webkit-app-region drag/no-drag CSS adapter; native drag/exclusion/double-click and actual LibWeb style/layout tests pass. Stylesheet/geometry/polling limits in ADR 0055; inline/shadow/frame/CSP/zoom/native resize parity remain incomplete |
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer browser modules | partial | External local static/dynamic ESM, live bindings/cache, Unicode paths, navigation, MIME/CSP and absent native imports tested against actual Electron. HTTP modules have Designer evidence. [Scope and file policy](../guides/renderer-modules.md); workers/full module types remain unverified |
@@ -23,12 +26,12 @@ It remains pending native acceptance and does not enable Firefly Linux windows.
 | `ipcMain`, `ipcRenderer` | partial | Native invoke/handle/handleOnce/removeHandler, early preload requests, mutable plain-data graphs, sender ownership, adversarial input, pending limits and navigation/closure tests pass; one-way/sync/port/subframe IPC and full clone types remain unsupported. [Contract](../api/ipc.md) |
 | preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); fixed invoke actions can call main-process handlers |
 | dialog, Menu, MenuItem, Tray | unsupported | Native services and observable Electron fixture behavior |
-| `screen` | partial | Native macOS display/work-area/scale/rotation/label/cursor snapshots pass a windowless OS probe; real API geometry/readiness/event policy passes in Node/Mite. Queued native notifications implemented; public desktop fixture and physical hotplug/mixed-DPI acceptance pending. Conversions and further Display fields unsupported. [Contract](../api/screen.md) |
-| `clipboard`, `ClipboardItem` | partial | Electron 45 async text/MIME-item API; private native macOS pasteboard probe and actual Node/Mite factory tests pass for text/HTML/RTF, UTF-16 conversion, snapshots, promises and failed preparation. Public desktop fixture pending CI; images/files/custom formats, multiple-item writes, broader interop/races and Windows/Linux remain unsupported. [Contract](../api/clipboard.md) |
+| `screen` | partial | Native macOS display/work-area/scale/rotation/label/cursor snapshots pass a windowless OS probe; real API geometry/readiness/event policy passes in Node/Mite. Queued native notifications and the public Electron/Firefly macOS desktop fixture pass at 19ad113; physical hotplug/mixed-DPI acceptance pending. Conversions and further Display fields unsupported. [Contract](../api/screen.md) |
+| `clipboard`, `ClipboardItem` | partial | Electron 45 async text/MIME-item API; private native macOS pasteboard probe and actual Node/Mite factory tests pass for text/HTML/RTF, UTF-16 conversion, snapshots, promises and failed preparation. Public macOS Electron/Firefly fixture passes at 19ad113; isolated X11 protocol peers and public Linux text integration also pass. Images/files/custom formats, multiple-item writes, broader interop/races, Wayland and Windows remain unfinished. [Contract](../api/clipboard.md) |
 | shell, nativeImage, session | unsupported | Native services and migration fixtures |
 | `nativeTheme` | partial | Actual macOS dark/accessibility snapshots, application source selection and queued updates; native notification teardown and Node/Mite policy pass. Targeted Firefly/Electron CSS queries pass for existing/new hidden windows. Physical changes, visible native chrome, hidden media-event timing and Windows/Linux need acceptance. [Contract](../api/native-theme.md) |
 | Chromium/V8 APIs, Chrome extensions | unsupported | Outside the initial scope |
-| Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). Full hosted releases, Windows/Linux, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
+| Packaging on Windows/macOS/Linux | partial | Experimental macOS ARM64 bundles with native launcher, physical helpers/resources, internal libraries, preserved helper security flags, notices, ad-hoc signatures and relocated framework/Designer smoke tests (ADR 0054). The full hosted macOS package gate passes at 19ad113. Windows/Linux packages, Developer-ID/notarization, installers and older-macOS validation remain outstanding |
 
 Use `require('firefly')` or ESM imports from `firefly` in the main process. There
 is no `electron` alias. Standalone Mite does not register or depend on Firefly.

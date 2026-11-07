@@ -100,7 +100,7 @@ jobs:
           if gh release view "$RELEASE_TAG" --json isDraft > build/alpha-release-state.json 2>/dev/null; then
             python3 -c 'import json; assert json.load(open("build/alpha-release-state.json"))["isDraft"], "Refusing to overwrite a published release"'
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file build/alpha-notes.md
+            gh release create "$RELEASE_TAG" --verify-tag --target "$source_sha" --draft --prerelease --title "Mite + Firefly $RELEASE_TAG (macOS ARM64 alpha)" --notes-file build/alpha-notes.md
           fi
       - name: Upload original assets and verify server-reported digests
         env:
@@ -108,7 +108,11 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           gh release upload "$RELEASE_TAG" build/alpha-assets/* --clobber
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > build/alpha-remote.json
+          # The by-tag REST endpoint resolves published releases, not this draft.
+          # Ask the CLI for its database ID, then read that exact draft over REST.
+          gh release view "$RELEASE_TAG" --json databaseId,isDraft,tagName > build/alpha-release-state.json
+          release_id=$(python3 -c 'import json,os; r=json.load(open("build/alpha-release-state.json")); assert r["isDraft"] and r["tagName"]==os.environ["RELEASE_TAG"]; i=r["databaseId"]; assert type(i) is int and i>0; print(i)')
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > build/alpha-remote.json
           python3 tooling/verify_release_artifacts.py remote --report build/alpha-verified.json --release-info build/alpha-remote.json --tag "$RELEASE_TAG"
           gh release edit "$RELEASE_TAG" --notes-file build/alpha-notes.md --draft=false --prerelease --latest=false
       - name: Preserve promotion evidence

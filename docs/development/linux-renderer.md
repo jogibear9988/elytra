@@ -1,10 +1,15 @@
 # Native Linux renderer bring-up
 
-Status: **experimental build/acceptance path; hosted native acceptance pending**.
-This adds the owned renderer helper to Linux builds. It does not provide Firefly
-Linux BrowserWindow, desktop APIs, application packaging or a Linux release.
-The native Qt X11 window-probe path is also experimental until its hosted gate passes.
-Do not infer desktop support from the standalone [Mite Linux gate](linux-build.md).
+Status: **experimental native X11 application slice accepted at `19ad113`**.
+[Run 42316853517](https://github.com/jogibear9988/elytra/actions/runs/42316853517),
+job 128262565703, passes the actual renderer/helper, isolated-world and Qt window
+gates, independent X11 clipboard/geometry checks, and the relocated Mite-driven
+Firefly app with preload/IPC and live kernel sandbox observations. This is scoped
+to Ubuntu 24.04 x64 under isolated Xvfb/Openbox, not arbitrary Linux desktops.
+The separate native-service [run 42316853549](https://github.com/jogibear9988/elytra/actions/runs/42316853549)
+also passes. Display/theme services, dependency-complete distributables, Wayland,
+physical/mixed-DPI displays and native Windows desktop remain unfinished.
+The sections below retain the implementation history and remaining limits.
 
 ## Native graph
 
@@ -165,8 +170,8 @@ Qt 6.11.2 selection also builds and passes all three native-service tests in
 job 128192217506. The actual imported SDK feature guard passes; this is X11
 execution, not Wayland runtime or full renderer acceptance. The added geometry
 gate still requires its separate native result.
-The experimental Linux application target now links this native backend; its
-public end-to-end runtime acceptance is still pending. The existing macOS
+The experimental Linux application target links this native backend; native X11
+window geometry and the relocated public app fixture pass at `19ad113`. The existing macOS
 runtime keeps its AppKit provider; standalone Mite still has no GUI dependency.
 
 ClipboardX11.cpp implements the shared bounded protocol through QClipboard and
@@ -327,7 +332,7 @@ copies the executable and owned runtime tree to a temporary directory containing
 spaces/Unicode, dereferencing development service symlinks. It runs the relocated
 executable and requires the actual renderer executable to be in that relocated
 tree, so fallback to the original renderer cannot pass. Native relocation
-acceptance is pending; shared-library/plugin packaging is separate work.
+acceptance passes at `19ad113`; shared-library/plugin packaging is separate work.
 The fixture serves a real HTTP document from Mite, loads a bundled ESM-authored preload,
 requires a frozen document API and absent ambient Node capabilities, exchanges
 validated IPC through the real bridge, checks native clipboard bytes, exercises
@@ -352,8 +357,8 @@ python3 tooling/tests/test_linux_runtime.py --stage-only build/linux-runtime-fix
 
 Current local validation compiles the common/macOS application and the actual
 Linux service seam, runs its environment-refusal probe and stages/checks the ESM
-fixture. It opens no local windows. Linux native execution is a separate pending
-result. Public screen/nativeTheme, further OS services, Linux Electron comparison,
+fixture. It opens no local windows. The subsequent hosted run at `19ad113`
+passes the native X11 app gate, including relocated helper discovery. Public screen/nativeTheme, further OS services, Linux Electron comparison,
 distribution/signing, Wayland, physical/mixed-DPI displays and native Windows
 desktop integration remain required work. See [ADR 0093](../architecture/0093-native-linux-app-integration.md).
 

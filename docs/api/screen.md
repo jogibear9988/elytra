@@ -5,8 +5,9 @@ Read the desktop layout and cursor position from the main process.
 **Availability:** partial macOS implementation. The native provider compiles and
 its actual OS snapshots pass a windowless CLI probe on macOS ARM64. Geometry,
 readiness and event policy pass through the real API factory in Node and Mite.
-The public Firefly/Electron desktop fixture is added to hosted acceptance; it has
-not been run locally for this slice. Native Windows/Linux desktop support and
+The public Firefly/Electron desktop fixture also passes in hosted macOS
+[run 42316853522](https://github.com/jogibear9988/elytra/actions/runs/42316853522)
+at `19ad113`. Native Windows/Linux desktop support and
 physical display hotplug/DPI-change acceptance remain open.
 
 ```js
