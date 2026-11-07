@@ -25,7 +25,9 @@ entries, embedded NUL and relative paths. Do not mutate caller inheritance flags
 The caller must also prevent other concurrent unrestricted process launches from
 inheriting these handles; this component's explicit list protects its own launch.
 
-Replace the ambient environment with Windows system paths only. Quote arguments
+Replace the ambient environment with Windows system paths and the native current
+user's LocalAppData known folder required for AppContainer startup. Resolve it via
+SHGetKnownFolderPath rather than copying the caller's environment. Quote arguments
 according to Windows CRT rules and pass the exact executable to CreateProcessW.
 Set SECURITY_CAPABILITIES, HANDLE_LIST and JOB_LIST startup attributes. The job has
 KILL_ON_JOB_CLOSE and a one-process active limit, verified by a kernel query.

@@ -6271,6 +6271,26 @@ Validation: Python syntax/help, full pinned source formatting, actionlint and di
 checks pass locally; generated site 188 pages / 13,261 links/resources/fragments.
 No native Windows result or local GUI pass is claimed. Goal active.
 
+## 2026-11-07: Supply the native AppContainer startup known folder
+
+- First actual Windows component run 42356382899/job 128355278810 at 00d1cb2
+  compiles the static broker/worker successfully, then fails before readiness.
+  Retrieve the preserved raw fixture artifact: CreateProcessW AppContainer fails
+  with 203 (ERROR_ENVVAR_NOT_FOUND). No token/denied-operation acceptance yet.
+- The Windows AppContainer launch guide describes LocalAppData profile setup.
+  Add the current user's native FOLDERID_LocalAppData through SHGetKnownFolderPath
+  to the otherwise fixed environment; free its allocation on success/failure.
+  Do not inherit the whole environment or relax token/handle/job/network policy.
+  A fresh native run must establish whether this resolves the startup failure.
+- Print bounded broker stderr into CI as well as preserving raw artifacts so future
+  pre-readiness failures retain their actual native operation/error directly.
+- Independent process observer run 42356382902/job 128355278917 and full source-style
+  run 42356382934/job 128355278811 pass at 00d1cb2; neither proves AppContainer or
+  full Windows renderer acceptance.
+
+Validation: syntax/formatting/diff pass locally without GUI. Actual AppContainer
+launch and all security negatives remain required. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

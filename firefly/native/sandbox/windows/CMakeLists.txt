@@ -10,6 +10,6 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
 add_library(firefly-windows-sandbox STATIC Sandbox.cpp)
 target_compile_definitions(firefly-windows-sandbox PUBLIC UNICODE _UNICODE _WIN32_WINNT=0x0A00
                                                           NOMINMAX WIN32_LEAN_AND_MEAN)
-target_link_libraries(firefly-windows-sandbox PUBLIC userenv bcrypt advapi32)
+target_link_libraries(firefly-windows-sandbox PUBLIC userenv bcrypt advapi32 shell32 ole32 uuid)
 add_executable(firefly-windows-sandbox-probe Probe.cpp)
 target_link_libraries(firefly-windows-sandbox-probe PRIVATE firefly-windows-sandbox ws2_32)

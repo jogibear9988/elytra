@@ -143,6 +143,8 @@ def exercise(probe, artifacts, mode):
                 final_stdout, final_stderr = process.communicate(timeout=10)
                 (artifacts / f"{mode}-stdout.log").write_bytes(final_stdout)
                 (artifacts / f"{mode}-stderr.log").write_bytes(final_stderr)
+                if final_stderr:
+                    print(final_stderr[:4096].decode("utf-8", errors="replace"), file=sys.stderr)
                 if ready is not None:
                     cleanup(ready["profile"])
 

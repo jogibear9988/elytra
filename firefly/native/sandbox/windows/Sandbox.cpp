@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <iterator>
+#include <shlobj.h>
 #include <userenv.h>
 
 namespace Firefly::WindowsSandbox {
@@ -243,9 +244,22 @@ std::unique_ptr<Child> Child::create(
         fail(error, "GetWindowsDirectory");
         return {};
     }
+    // Windows needs LOCALAPPDATA while constructing the AppContainer environment.
+    // Resolve its native known folder instead of copying ambient configuration.
+    PWSTR local_app_data = nullptr;
+    auto folder_status = SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &local_app_data);
+    if (FAILED(folder_status)) {
+        CoTaskMemFree(local_app_data);
+        fail(error, "SHGetKnownFolderPath LocalAppData", static_cast<DWORD>(folder_status));
+        return {};
+    }
+
+    std::wstring local_directory(local_app_data);
+    CoTaskMemFree(local_app_data);
     // Ambient main-process secrets/configuration never enter the renderer environment.
     std::wstring environment;
-    for (auto const& entry : { std::wstring(L"PATH=") + windows + L"\\System32",
+    for (auto const& entry : { std::wstring(L"LOCALAPPDATA=") + local_directory,
+             std::wstring(L"PATH=") + windows + L"\\System32",
              std::wstring(L"SystemRoot=") + windows, std::wstring(L"WINDIR=") + windows }) {
         environment += entry;
         environment.push_back(L'\0');
