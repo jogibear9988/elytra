@@ -25,13 +25,13 @@ ErrorOr<NonnullRefPtr<FileServer>> FileServer::create(
 }
 
 ErrorOr<NonnullRefPtr<FileServer>> FileServer::create_async(NonnullOwnPtr<IPC::Transport> transport,
-    u64 epoch, AuthorizeAsync authorize, CancelAuthorization cancel)
+    u64 epoch, AuthorizeAsync authorize, CancelAuthorization cancel, AuthorizationFailed failed)
 {
     if (!authorize)
         return Error::from_string_literal("File service requires native authorization");
     auto files = TRY(FileRequests::create(epoch));
-    auto server = adopt_ref(*new FileServer(
-        epoch, move(files), adopt_ref(*new Callbacks(move(authorize), move(cancel)))));
+    auto server = adopt_ref(*new FileServer(epoch, move(files),
+        adopt_ref(*new Callbacks(move(authorize), move(cancel), move(failed)))));
     auto weak = server->make_weak_ptr();
     server->m_channel = TRY(Bytes::Channel::create(move(transport),
         {
@@ -130,7 +130,11 @@ void FileServer::receive(ReadonlyBytes bytes)
             return;
         }
 
-        if (!admitted.is_error()) {
+        if (admitted.is_error()) {
+            auto callbacks = m_callbacks;
+            if (callbacks->failed)
+                callbacks->failed(packet.request);
+        } else {
             auto id = packet.request;
             auto weak = make_weak_ptr();
             auto callbacks = m_callbacks;
@@ -213,7 +217,11 @@ bool FileServer::authorize(u32 request, ErrorOr<AuthorizedFile> result)
         }
     }
 
+    bool refused = job.cancelled;
+    auto callbacks = m_callbacks;
     schedule();
+    if (refused && callbacks->failed)
+        callbacks->failed(request);
     return true;
 }
 

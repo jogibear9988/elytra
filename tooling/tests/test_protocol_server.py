@@ -104,7 +104,7 @@ def main():
             assert "VERIFICATION FAILED" not in result.stderr, result
             print(result.stdout.strip(), flush=True)
     print(
-        "PASS real separate-process resource service; public protocol/session handlers remain open"
+        "PASS real separate-process resource service; broader protocol/session compatibility remains partial"
     )
 
 

@@ -3,6 +3,9 @@
 Status: implemented with local macOS Release headless production-helper acceptance.
 Public protocol/session handlers and a Code-OSS workbench launch remain open.
 
+Subsequent public default-session file integration is recorded in
+[ADR 0126](0126-public-file-protocol-routes.md). The status below describes this step.
+
 ## Decision
 
 Extend the existing guarded WebContentPage composition with a third unique seam,

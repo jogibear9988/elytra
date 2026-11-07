@@ -28,8 +28,8 @@ from a future Code-OSS test.
 | Native environment identity | common/platform and common/process recognize native execution through versions.node | Explicit pinned source overlay also recognizes truthful versions.mite. Actual upstream modules, locale/env/cwd/timer checks and unadapted negative control pass locally on macOS; desktop/Electron detection remains open. [Adaptation guide](../guides/code-oss-adaptation.md) |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | Explicit --libjs-cache application overlay preserves ordinary upstream startup logic while disabling V8 caches and rejecting generation/measurements/waits. Actual cache branches pass locally; real full-source main.ts reaches mainImpl then standalone-Mite original-fs host-boundary failure. No desktop launch; public Node cache/V8 APIs remain absent. [Policy](../architecture/0106-code-oss-libjs-cache-policy.md) |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
-| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, with the actual frozen root production dependencies, then passes the registerHooks import and fails at the missing Electron crashReporter named export (exit 1). Implement the required real protocol contract next; protocol is now partial origin registration; Menu/crashReporter/contentTracing and app methods remain missing or partial. No workbench/startup acceptance |
-| Custom resource origins | mainImpl registers vscode-webview/vscode-file and remote resource schemes; protocolMainService serves authorized files and blocks direct file access | Internal actual LibURL/LibWebCommon custom origin/trust foundation passes local native tests; helpers remain empty by default; native parent/owned-helper configuration before bootstrap now passes local headless tests. Rust/native/DOM origin extraction now shares the canonical native policy, with strict local macOS and 1d033fe hosted Linux headless acceptance. Public [origin registration](../api/protocol.md) now passes local main/LibJS gates, and internal production-helper ESM/CSS/file loading passes. Complete parsing, public resource/session handlers, automatic grants and additional privileges remain required. [ADR 0113](../architecture/0113-shared-rust-origin-policy.md) |
+| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, with the actual frozen root production dependencies, then passes the registerHooks import and fails at the missing Electron crashReporter named export (exit 1). Implement the required real protocol contract next; protocol now supports origin registration and default-session file callbacks; Menu/crashReporter/contentTracing and app methods remain missing or partial. No workbench/startup acceptance |
+| Custom resource origins | mainImpl registers vscode-webview/vscode-file and remote resource schemes; protocolMainService serves authorized files and blocks direct file access | Internal actual LibURL/LibWebCommon custom origin/trust foundation passes local native tests; helpers remain empty by default; native parent/owned-helper configuration before bootstrap now passes local headless tests. Rust/native/DOM origin extraction now shares the canonical native policy, with strict local macOS and 1d033fe hosted Linux headless acceptance. Public [origin registration](../api/protocol.md) now passes local main/LibJS gates, and internal production-helper ESM/CSS/file loading passes. Public default-session file callbacks and automatic grants now load real custom windows/resources locally. Complete parsing, general handlers, partitions and additional privileges remain required. [ADR 0113](../architecture/0113-shared-rust-origin-policy.md) |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
 | Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
 | Workspace files | Disk provider channel includes open/read/write/readFile/readFileStream/watch and cancellation | Broaden filesystem/stream/watch APIs and native watcher lifecycle; actual open/edit/save/rename/external-change tests must pass |
@@ -129,7 +129,7 @@ response metadata now carries validated MIME/length and ordered HTTP headers to
 the native consumer before the body. Native request ownership now adds bounded
 jobs, expiry/cancellation and epoch/ID/offset frames, with real separate-child and
 concurrent-budget tests. Renderer request admission/binding, response application
-and public handler dispatch remain open; this
+and general handler dispatch remain partial; this
 does not yet load Code-OSS resources or resolve its protocol import.
 
 The [LibWeb response adapter](../architecture/0116-libweb-protocol-responses.md)
@@ -138,7 +138,7 @@ GC and actual FetchController/reader cancellation. The
 [native scheme-fetch seam](../architecture/0117-native-scheme-fetch-dispatch.md)
 now passes actual JavaScript fetch/arrayBuffer, HEAD and AbortController over
 real files in a same-process native fixture. Live helper/document binding and
-public handler/session APIs are still missing; product helpers install no provider.
+the later public default-session file callbacks now cover a subset; broader handler/session APIs remain open.
 This does not yet load workbench resources or establish general fetch compatibility.
 
 The [native resource service](../architecture/0118-native-resource-request-service.md)
@@ -150,7 +150,7 @@ connects it to the real LibWeb response owner and global JavaScript fetch in a
 separate native child, with local macOS acceptance. Exact document identity,
 parallel quotas, real abort/reader cancellation and silent-peer expiry are checked.
 The internal live helper/document routing is covered below; the public
-protocol/session contract remains open. Code-OSS resources still do not load through
+broader protocol/session contract remains open. Code-OSS resources still do not load through
 the product.
 
 Inspection of the real navigation path identifies another prerequisite for the
@@ -166,15 +166,17 @@ local headless probe, with exact endpoint/navigation admission and absent page
 privileges. The [exact-document handoff](../architecture/0123-live-document-resource-handoff.md)
 now also loads external ESM, CSS and binary GET/HEAD in the real helper; wrong-ID,
 missing/duplicate grants and revocation on navigation pass locally. The normal main
-bridge now exposes partial [scheme registration](../api/protocol.md), but has no public
-resource/session authorizer or automatic document grants.
+bridge now exposes [default-session public file callbacks](../api/protocol.md) and
+automatic native grants, accepted with actual app HTML/ESM/CSS/binary loading locally.
+General Response handlers and broader session support remain open.
 This is not Code-OSS startup.
 
 The pinned ProtocolMainService uses defaultSession.protocol.registerFileProtocol for
 its authorized workbench files. The [native async authorization service](../architecture/0125-asynchronous-file-authorization.md)
 now accepts delayed/out-of-order completions with quota/deadline/cancel ownership;
-actual helper ESM/CSS/file loading passes with deferred native authorization. Main-VM
-callback delivery, session registration and automatic grants still need integration.
+actual helper ESM/CSS/file loading passes with deferred native authorization. Default-session Main-VM
+callback delivery and automatic grants now pass actual public-window tests. General
+handlers, required privilege flags and the real Code-OSS main services remain open.
 
 Immediate execution order (each step needs real native acceptance):
 

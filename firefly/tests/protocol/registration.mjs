@@ -25,8 +25,10 @@ function fails(action, code) {
 }
 
 let ready = false;
-const protocol = createProtocol(native, () => ready, error, unsupported);
-const input = [{ scheme: 'app', privileges: { standard: true, secure: true } }];
+const { protocol } = createProtocol(native, () => ready, error, unsupported);
+const input = [
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+];
 const mode = process.argv[2];
 if (mode === 'sealed') {
   native.seal();
@@ -76,14 +78,7 @@ if (mode === 'sealed') {
     }
     check(rejected && native.configuration() === null, 'invalid batch published state');
   }
-  for (const key of [
-    'bypassCSP',
-    'allowServiceWorkers',
-    'supportFetchAPI',
-    'corsEnabled',
-    'stream',
-    'codeCache'
-  ]) {
+  for (const key of ['bypassCSP', 'allowServiceWorkers', 'corsEnabled', 'stream', 'codeCache']) {
     fails(
       () =>
         protocol.registerSchemesAsPrivileged([
@@ -99,6 +94,14 @@ if (mode === 'sealed') {
   fails(
     () =>
       protocol.registerSchemesAsPrivileged([{ scheme: 'opaque', privileges: { secure: true } }]),
+    'ERR_FIREFLY_UNSUPPORTED_API'
+  );
+
+  fails(
+    () =>
+      protocol.registerSchemesAsPrivileged([
+        { scheme: 'opaque-fetch', privileges: { supportFetchAPI: true } }
+      ]),
     'ERR_FIREFLY_UNSUPPORTED_API'
   );
   // The native boundary also refuses direct malformed/oversized records independently.
@@ -142,7 +145,10 @@ if (mode === 'sealed') {
   fails(() => protocol.registerSchemesAsPrivileged([]), 'ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED');
   // A second factory cannot bypass the native once-only guard.
   fails(
-    () => createProtocol(native, () => false, error, unsupported).registerSchemesAsPrivileged([]),
+    () =>
+      createProtocol(native, () => false, error, unsupported).protocol.registerSchemesAsPrivileged(
+        []
+      ),
     'ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED'
   );
 

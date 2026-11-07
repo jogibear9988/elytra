@@ -1,6 +1,12 @@
+import createFileHandlers from './files.mjs';
+
 /** Main-only origin registration. File routes and session ownership are separate capabilities. */
 export default function createProtocol(native, isReady, error, unsupported) {
   let registered = false;
+  const fetchEnabledSchemes = new Set();
+  const files = createFileHandlers(native, isReady, error, (scheme) =>
+    fetchEnabledSchemes.has(scheme)
+  );
   const reserved = new Set([
     'http',
     'https',
@@ -39,7 +45,9 @@ export default function createProtocol(native, isReady, error, unsupported) {
     }
   }
 
-  return {
+  const protocol = {
+    ...files.api,
+
     registerSchemesAsPrivileged(customSchemes) {
       if (isReady()) {
         throw error('ERR_FIREFLY_PROTOCOL_TOO_LATE', 'Register schemes before app is ready');
@@ -58,6 +66,7 @@ export default function createProtocol(native, isReady, error, unsupported) {
       }
       const seen = new Set();
       const schemes = [];
+      const fetchSchemes = [];
       for (const entry of customSchemes) {
         object(entry, 'Custom scheme');
         for (const key of Reflect.ownKeys(entry)) {
@@ -77,6 +86,7 @@ export default function createProtocol(native, isReady, error, unsupported) {
         object(values, 'Scheme privileges');
         let standard = false;
         let secure = false;
+        let fetch = false;
         for (const key of Reflect.ownKeys(values)) {
           if (!privileges.has(key)) {
             throw error('ERR_INVALID_ARG_VALUE', 'Unknown scheme privilege');
@@ -89,6 +99,8 @@ export default function createProtocol(native, isReady, error, unsupported) {
             standard = value;
           } else if (key === 'secure') {
             secure = value;
+          } else if (key === 'supportFetchAPI') {
+            fetch = value;
           } else if (value) {
             unsupported(`protocol privilege ${key}`);
           }
@@ -96,12 +108,23 @@ export default function createProtocol(native, isReady, error, unsupported) {
         if (secure && !standard) {
           unsupported('secure nonstandard protocol origins');
         }
+        if (fetch && !standard) {
+          unsupported('fetch for nonstandard custom protocols');
+        }
+        if (fetch) {
+          fetchSchemes.push(scheme);
+        }
         schemes.push({ scheme, standard, secure });
       }
       // Validate the whole batch before native publication. Failure consumes no registration.
       // Native code independently checks the schema and refuses any post-helper publication.
       native.registerSchemes(JSON.stringify({ schema: 1, schemes }));
       registered = true;
+      // Fetch authority is granted through routes, not by changing global origin classification.
+      for (const scheme of fetchSchemes) {
+        fetchEnabledSchemes.add(scheme);
+      }
     }
   };
+  return { protocol, dispatch: files.dispatch, canLoad: files.canLoad };
 }

@@ -16,6 +16,9 @@ add_custom_target(
             "${VCPKG_MANIFEST_DIR}" ${firefly_runtime_dependency_args}
     VERBATIM)
 add_dependencies(firefly-mite check-firefly-dependencies)
+add_library(firefly-protocol-routes STATIC "${CMAKE_CURRENT_LIST_DIR}/../protocol/routes/Files.cpp"
+                                           "${CMAKE_CURRENT_LIST_DIR}/../protocol/routes/Host.cpp")
+target_link_libraries(firefly-protocol-routes PUBLIC firefly-protocol-file-server LibWebView LibJS)
 # Main-origin registration uses LibJS/LibURL only; its acceptance must not need Qt windows.
 add_executable(
     firefly-protocol-registration-probe
@@ -90,6 +93,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
@@ -104,8 +108,9 @@ target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/render
 target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
 target_compile_definitions(firefly
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_runtime_binary_dir}")
-target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol
-                                      firefly-runtime-paths firefly-screen-events)
+target_link_libraries(
+    firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol firefly-runtime-paths
+                    firefly-screen-events firefly-protocol-routes)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
@@ -119,6 +124,19 @@ add_custom_target(
     DEPENDS firefly
     VERBATIM)
 
+add_custom_target(
+    check-firefly-public-protocol
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_protocol.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+add_custom_target(
+    check-firefly-file-policy
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/file-policy.mjs"
+    DEPENDS firefly-protocol-registration-probe
+    VERBATIM)
+add_dependencies(check-firefly-protocol-registration check-firefly-file-policy)
 if(APPLE)
     set(FIREFLY_ELECTRON_REFERENCE
         "${FIREFLY_SOURCE_DIR}/build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
@@ -164,6 +182,7 @@ if(APPLE)
                 check-firefly-protocol-fetch
                 check-firefly-protocol-registration
                 check-firefly-protocol-host
+                check-firefly-public-protocol
                 check-firefly-protocol-renderer
                 check-firefly-resource-renderer
                 firefly-chrome-probe

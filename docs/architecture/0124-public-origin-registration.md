@@ -3,6 +3,9 @@
 Status: implemented subset with local macOS Release native acceptance. Public
 resource/session handlers and a Code-OSS desktop launch remain unimplemented.
 
+Subsequent public default-session file integration is recorded in
+[ADR 0126](0126-public-file-protocol-routes.md). The status below describes this step.
+
 ## Decision
 
 Export a main-only protocol singleton with registerSchemesAsPrivileged. The maintained

@@ -31,8 +31,9 @@ public:
     using Completion = Function<bool(ErrorOr<AuthorizedFile>)>;
     using AuthorizeAsync = Function<void(AuthorizationRequest, Completion)>;
     using CancelAuthorization = Function<void(u32)>;
-    static ErrorOr<NonnullRefPtr<FileServer>> create_async(
-        NonnullOwnPtr<IPC::Transport>, u64 epoch, AuthorizeAsync, CancelAuthorization = {});
+    using AuthorizationFailed = Function<void(u32)>;
+    static ErrorOr<NonnullRefPtr<FileServer>> create_async(NonnullOwnPtr<IPC::Transport>, u64 epoch,
+        AuthorizeAsync, CancelAuthorization = {}, AuthorizationFailed = {});
 
     ~FileServer();
 
@@ -69,14 +70,16 @@ private:
     };
 
     struct Callbacks : RefCounted<Callbacks> {
-        Callbacks(AuthorizeAsync start, CancelAuthorization cancel)
+        Callbacks(AuthorizeAsync start, CancelAuthorization cancel, AuthorizationFailed failed)
             : start(move(start))
             , cancel(move(cancel))
+            , failed(move(failed))
         {
         }
 
         AuthorizeAsync start;
         CancelAuthorization cancel;
+        AuthorizationFailed failed;
     };
 
     FileServer(u64 epoch, NonnullRefPtr<FileRequests>, NonnullRefPtr<Callbacks>);

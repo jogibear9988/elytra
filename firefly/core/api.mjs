@@ -94,7 +94,20 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
-  const protocol = createProtocol(native, () => ready, error, unsupported);
+  const protocols = createProtocol(native, () => ready, error, unsupported);
+  const { protocol } = protocols;
+  const defaultSession = Object.freeze({ protocol });
+  const session = {};
+  Object.defineProperty(session, 'defaultSession', {
+    enumerable: true,
+
+    get() {
+      if (!ready) {
+        throw error('ERR_FIREFLY_NOT_READY', 'defaultSession requires app readiness');
+      }
+      return defaultSession;
+    }
+  });
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
   const theme = createTheme(native, EventEmitter, error);
@@ -178,7 +191,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
       } catch {
         return Promise.reject(error('ERR_INVALID_URL', 'Invalid URL'));
       }
-      if (!['file:', 'http:', 'https:'].includes(parsed.protocol)) {
+      if (
+        !['file:', 'http:', 'https:'].includes(parsed.protocol) &&
+        !protocols.canLoad(parsed.protocol.slice(0, -1))
+      ) {
         return Promise.reject(
           error('ERR_FIREFLY_UNSUPPORTED_API', 'URL scheme is not implemented')
         );
@@ -429,6 +445,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   }
 
   native.setHandler((id, type, data) => {
+    if (type === 'protocol-request' || type === 'protocol-cancel') {
+      protocols.dispatch(type, JSON.parse(data));
+      return;
+    }
     if (type === 'ready') {
       ready = true;
       screens.ready();
@@ -513,6 +533,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   return {
     app,
     protocol,
+    session,
     BrowserWindow,
     ipcMain,
     screen: screens.screen,

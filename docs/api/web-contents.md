@@ -32,8 +32,8 @@ ERR_FIREFLY_UNSUPPORTED_API. A missing/unloadable file rejects navigation.
 
 ## loadURL(url[, options])
 
-url is a string parseable as an absolute URL. Only file:, http: and https: are
-accepted. options must be absent or empty; headers, post data and other options
+url is a string parseable as an absolute URL. Accept file:, http:, https: and
+custom schemes with an active default-session [file handler](protocol.md). options must be absent or empty; headers, post data and other options
 are unsupported. Returns Promise<void>, resolved after did-finish-load is emitted.
 The current loading implementation is not full Electron navigation parity.
 

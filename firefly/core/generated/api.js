@@ -1,9 +1,170 @@
 /* Generated from firefly/core/api.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// firefly/core/protocol/files.mjs
+function createFileHandlers(native, isReady, error, standard) {
+  const handlers = /* @__PURE__ */ new Map();
+  const pending = /* @__PURE__ */ new Map();
+  function ready() {
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "Protocol handlers require app readiness");
+    }
+  }
+  function scheme(value) {
+    if (typeof value !== "string") {
+      throw error("ERR_INVALID_ARG_TYPE", "scheme must be a string");
+    }
+    if (!/^[a-z][a-z0-9+.-]{0,63}$/.test(value)) {
+      throw error("ERR_INVALID_ARG_VALUE", "Invalid canonical scheme");
+    }
+  }
+  function metadata(token, response) {
+    if (typeof response === "string") {
+      response = { path: response };
+    }
+    if (response === null || typeof response !== "object" || Array.isArray(response)) {
+      throw error("ERR_INVALID_ARG_TYPE", "File response must be a path or object");
+    }
+    for (const key of Reflect.ownKeys(response)) {
+      if (!["path", "headers", "error"].includes(key)) {
+        throw error("ERR_FIREFLY_UNSUPPORTED_API", "Unsupported file response option");
+      }
+    }
+    if (Object.hasOwn(response, "error")) {
+      if (Object.keys(response).length !== 1 || !Number.isInteger(response.error) || response.error >= 0) {
+        throw error("ERR_INVALID_ARG_VALUE", "File response error must be a negative integer");
+      }
+      return { token, error: true };
+    }
+    if (typeof response.path !== "string" || response.path.length > 32768 || response.path.includes("\0")) {
+      throw error("ERR_INVALID_ARG_VALUE", "File response needs a bounded native path");
+    }
+    const headers = [];
+    if (response.headers !== void 0) {
+      if (response.headers === null || typeof response.headers !== "object" || Array.isArray(response.headers)) {
+        throw error("ERR_INVALID_ARG_TYPE", "File headers must be an object");
+      }
+      for (const name of Reflect.ownKeys(response.headers)) {
+        if (typeof name !== "string") {
+          throw error("ERR_INVALID_ARG_VALUE", "Header names must be strings");
+        }
+        const values = response.headers[name];
+        for (const value of Array.isArray(values) ? values : [values]) {
+          if (typeof value !== "string") {
+            throw error("ERR_INVALID_ARG_TYPE", "Header values must be strings");
+          }
+          headers.push([name, value]);
+          if (headers.length > 64) {
+            throw error("ERR_OUT_OF_RANGE", "File response header budget exceeded");
+          }
+        }
+      }
+    }
+    return { token, path: response.path, headers };
+  }
+  function deny(token) {
+    return native.protocolFileReply(JSON.stringify({ token, error: true }));
+  }
+  function finish(token, response) {
+    if (!pending.delete(token)) {
+      return false;
+    }
+    try {
+      const wire = JSON.stringify(metadata(token, response));
+      if (wire.length > 128 * 1024) {
+        throw error("ERR_OUT_OF_RANGE", "File reply exceeds metadata budget");
+      }
+      return native.protocolFileReply(wire);
+    } catch (failure) {
+      deny(token);
+      throw failure;
+    }
+  }
+  return {
+    api: {
+      registerFileProtocol(name, handler) {
+        ready();
+        scheme(name);
+        if (typeof handler !== "function") {
+          throw error("ERR_INVALID_ARG_TYPE", "File handler must be callable");
+        }
+        if (!standard(name)) {
+          throw error(
+            "ERR_FIREFLY_UNSUPPORTED_API",
+            "File handlers require a registered standard custom scheme with supportFetchAPI: true"
+          );
+        }
+        if (handlers.has(name)) {
+          return false;
+        }
+        const generation = native.protocolRegisterFile(name);
+        if (generation === false) {
+          return false;
+        }
+        handlers.set(name, { handler, generation });
+        return true;
+      },
+      unregisterProtocol(name) {
+        ready();
+        scheme(name);
+        const removed = native.protocolUnregisterFile(name);
+        handlers.delete(name);
+        for (const [token, request] of pending) {
+          if (request.scheme === name) {
+            pending.delete(token);
+          }
+        }
+        return removed;
+      },
+      isProtocolHandled(name) {
+        ready();
+        scheme(name);
+        return handlers.has(name);
+      }
+    },
+    canLoad: (name) => handlers.has(name),
+    dispatch(type, request) {
+      if (type === "protocol-cancel") {
+        pending.delete(request.token);
+        return;
+      }
+      const entry = handlers.get(request.scheme);
+      if (!entry || entry.generation !== request.generation || pending.size >= 64) {
+        deny(request.token);
+        return;
+      }
+      pending.set(request.token, { scheme: request.scheme });
+      try {
+        const result = entry.handler(
+          Object.freeze({ url: request.url, method: request.method }),
+          (response) => {
+            finish(request.token, response);
+          }
+        );
+        Promise.resolve(result).catch(() => {
+          if (pending.delete(request.token)) {
+            deny(request.token);
+          }
+        });
+      } catch {
+        if (pending.delete(request.token)) {
+          deny(request.token);
+        }
+      }
+    }
+  };
+}
+
 // firefly/core/protocol/index.mjs
 function createProtocol(native, isReady, error, unsupported) {
   let registered = false;
+  const fetchEnabledSchemes = /* @__PURE__ */ new Set();
+  const files = createFileHandlers(
+    native,
+    isReady,
+    error,
+    (scheme) => fetchEnabledSchemes.has(scheme)
+  );
   const reserved = /* @__PURE__ */ new Set([
     "http",
     "https",
@@ -40,7 +201,8 @@ function createProtocol(native, isReady, error, unsupported) {
       throw error("ERR_INVALID_ARG_TYPE", `${description} must be an object`);
     }
   }
-  return {
+  const protocol = {
+    ...files.api,
     registerSchemesAsPrivileged(customSchemes) {
       if (isReady()) {
         throw error("ERR_FIREFLY_PROTOCOL_TOO_LATE", "Register schemes before app is ready");
@@ -59,6 +221,7 @@ function createProtocol(native, isReady, error, unsupported) {
       }
       const seen = /* @__PURE__ */ new Set();
       const schemes = [];
+      const fetchSchemes = [];
       for (const entry of customSchemes) {
         object(entry, "Custom scheme");
         for (const key of Reflect.ownKeys(entry)) {
@@ -78,6 +241,7 @@ function createProtocol(native, isReady, error, unsupported) {
         object(values, "Scheme privileges");
         let standard = false;
         let secure = false;
+        let fetch = false;
         for (const key of Reflect.ownKeys(values)) {
           if (!privileges.has(key)) {
             throw error("ERR_INVALID_ARG_VALUE", "Unknown scheme privilege");
@@ -90,6 +254,8 @@ function createProtocol(native, isReady, error, unsupported) {
             standard = value;
           } else if (key === "secure") {
             secure = value;
+          } else if (key === "supportFetchAPI") {
+            fetch = value;
           } else if (value) {
             unsupported(`protocol privilege ${key}`);
           }
@@ -97,12 +263,22 @@ function createProtocol(native, isReady, error, unsupported) {
         if (secure && !standard) {
           unsupported("secure nonstandard protocol origins");
         }
+        if (fetch && !standard) {
+          unsupported("fetch for nonstandard custom protocols");
+        }
+        if (fetch) {
+          fetchSchemes.push(scheme);
+        }
         schemes.push({ scheme, standard, secure });
       }
       native.registerSchemes(JSON.stringify({ schema: 1, schemes }));
       registered = true;
+      for (const scheme of fetchSchemes) {
+        fetchEnabledSchemes.add(scheme);
+      }
     }
   };
+  return { protocol, dispatch: files.dispatch, canLoad: files.canLoad };
 }
 
 // firefly/core/ipc-main.mjs
@@ -724,7 +900,19 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
-  const protocol = createProtocol(native, () => ready, error, unsupported);
+  const protocols = createProtocol(native, () => ready, error, unsupported);
+  const { protocol } = protocols;
+  const defaultSession = Object.freeze({ protocol });
+  const session = {};
+  Object.defineProperty(session, "defaultSession", {
+    enumerable: true,
+    get() {
+      if (!ready) {
+        throw error("ERR_FIREFLY_NOT_READY", "defaultSession requires app readiness");
+      }
+      return defaultSession;
+    }
+  });
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
   const theme = createTheme(native, EventEmitter, error);
@@ -798,7 +986,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
       } catch {
         return Promise.reject(error("ERR_INVALID_URL", "Invalid URL"));
       }
-      if (!["file:", "http:", "https:"].includes(parsed.protocol)) {
+      if (!["file:", "http:", "https:"].includes(parsed.protocol) && !protocols.canLoad(parsed.protocol.slice(0, -1))) {
         return Promise.reject(
           error("ERR_FIREFLY_UNSUPPORTED_API", "URL scheme is not implemented")
         );
@@ -1019,6 +1207,10 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   native.setHandler((id, type, data) => {
+    if (type === "protocol-request" || type === "protocol-cancel") {
+      protocols.dispatch(type, JSON.parse(data));
+      return;
+    }
     if (type === "ready") {
       ready = true;
       screens.ready();
@@ -1102,6 +1294,7 @@ function createFireflyApi(native, EventEmitter, paths, urls) {
   return {
     app,
     protocol,
+    session,
     BrowserWindow,
     ipcMain,
     screen: screens.screen,

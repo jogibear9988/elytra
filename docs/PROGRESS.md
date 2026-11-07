@@ -7890,6 +7890,61 @@ remain open. Code-OSS's last actual import still fails at crashReporter (exit 1)
 this native service step is not public callback support or workbench acceptance.
 Full original specification goal remains active.
 
+## 2026-11-07: Load public default-session file protocols through real windows
+
+- Add public registerFileProtocol/unregisterProtocol/isProtocolHandled and the same
+  main singleton at session.defaultSession after readiness. Add session to real
+  Firefly/Electron-alias ESM/CommonJS exports. Support explicit supportFetchAPI on
+  standard schemes; require that permission for file routes, including navigation,
+  so standard-only registration does not accidentally grant Window fetch authority.
+  Keep other demanded privileges explicitly unsupported and native origin schema
+  unchanged. The public URL loader accepts only live registered custom routes.
+- Add a native main-owned FileRoutes service with scheme generations, owned
+  canonical window roots, bounded channel/pending-token maps and helper grants
+  before upstream navigation/document population. Require exact initial URL and
+  same-origin resources. Use the actual selected page/document identity and the
+  existing strict helper/settings validation. Keep Ladybird unmodified.
+- Queue URL/method metadata through main VM-owner dispatch, never call JavaScript
+  from transport callbacks. Preserve native paths/bodies on main and stream bytes
+  through the existing file service. Validate response metadata/path/header budgets
+  independently; preserve header bytes, actual MIME/length and cookie filtering.
+  Notify pending loads on actual file-open/header failures, grant failure and explicit
+  denial. Drop cancelled queued requests before entering even a busy VM; only
+  callbacks actually delivered to JS need cancellation messages. No fabricated
+  request headers or initiator fields enter application code.
+- Bind application callbacks to native tokens/generations. Reject duplicates/stale
+  replies, settle throws/rejected promises and revoke channels/pending requests on
+  handler removal, replacement navigation, owner loss and shutdown. Extract protocol
+  hook lifetime into bridge/Protocols.cpp. Clear callbacks/timer/hooks before VM
+  teardown. Re-registration currently needs navigation/reload for a fresh document
+  channel; do not claim in-place rebinding.
+- Add pure Node/Mite callback-policy tests and one bundled public hidden-window
+  gate. Ordinary delayed JavaScript handlers load real HTML/nested ESM/CSS and
+  every byte of a 4-MiB-plus GET/HEAD; deny cross-origin/POST without main admission,
+  preserve absent page capabilities and refuse duplicate callbacks. Verify explicit
+  denial, actual missing files, invalid headers, pending navigation/document removal,
+  stale generation refusal and successful replacement navigation. No test-only path
+  authorizer/endpoint is installed in this public gate.
+- Require policy/public gates in macOS Release and experimental Linux's existing
+  native Xvfb runtime stage. Add detailed protocol/session references and ADR 0126;
+  refresh loading/compatibility/roadmap/native service docs with exact current scope.
+
+Validation: local macOS Release actual public handler/window batch and main-host
+singleton/readiness tests pass; four real LibJS/native registration modes and
+Node/Mite callback/geometry policy pass. Existing native file/server/navigation/
+JavaScript-process fetch/stream regressions pass, including real 30-second deadlines.
+Actual pinned Code-OSS entry with frozen root production dependencies still exits 1
+at missing crashReporter. No workbench startup is accepted. Full source style,
+generated-adapter and upstream checks pass; site validation passes (226 pages /
+15,962 local links/resources/fragments).
+Fresh hosted Linux execution remains required; no Windows desktop/helper claim.
+
+Next implement the remaining demanded protocol privileges and general Response/file:
+interception, main startup services/imports (crashReporter/Menu/contentTracing and
+required app methods), then rerun actual Code-OSS. Broader sessions/partitions,
+request metadata, workers/frames and live document rebinding remain open.
+Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

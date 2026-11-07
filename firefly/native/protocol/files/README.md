@@ -138,4 +138,6 @@ existing limit. No request/response wire change or JavaScript dependency is need
 
 [ADR 0125](../../../../docs/architecture/0125-asynchronous-file-authorization.md)
 records the separate-process, pending-quota, real-timeout and actual production-helper
-acceptance. The public main-VM callback/session integration is still unimplemented.
+acceptance. [ADR 0126](../../../../docs/architecture/0126-public-file-protocol-routes.md)
+now connects the default-session public main-VM file callbacks. General handlers
+and broader session compatibility remain unfinished.

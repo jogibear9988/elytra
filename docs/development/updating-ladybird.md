@@ -295,8 +295,15 @@ Also preserve upstream's destination document ID before population. The resource
 gate loads real external ESM/CSS/binary GET/HEAD, refuses wrong/missing document
 grants, preserves the original against duplicate endpoints and revokes on navigation.
 Inspect exact local settings/document/page/navigable identity checks and the pending
-five-second grant expiry. It opens no desktop window. The ordinary main bridge
-and public document routing remain unimplemented. These adapters never write to the vendor tree.
+five-second grant expiry. It opens no desktop window. General Response handlers and broader session routing remain unimplemented. These adapters never write to the vendor tree.
+
+The normal main bridge now uses these seams through its default-session FileRoutes
+service. On updates, preserve canonical root ownership across selected hosts,
+initial URL/document ID binding, queued main-VM dispatch and hook teardown. Run
+check-firefly-protocol-host without a window and batch check-firefly-public-protocol
+only for relevant renderer/window changes (or hosted CI). The latter must load
+real public callback resources and preserve failure/revocation/generation controls;
+an internal native fixture alone does not accept that public path.
 
 ## File module seam
 

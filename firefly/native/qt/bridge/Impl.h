@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "../Bridge.h"
+#include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -69,6 +70,8 @@ struct Bridge::Impl {
     int next_id { 1 };
     bool stopping { false };
     size_t ipc_pending_count { 0 };
+    RefPtr<Protocols::FileRoutes> protocols;
+    RefPtr<Core::Timer> protocol_timer;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);
@@ -77,6 +80,12 @@ struct Bridge::Impl {
 
     // VM-owner-thread delivery; busy VM frames defer through the owned Qt context.
     void stop();
+
+    void initialize_protocols();
+
+    void stop_protocols();
+
+    void deliver_protocol(u64 token, ByteString type, ByteString metadata);
 
     void deliver(int, ByteString const&, ByteString const& = {});
 

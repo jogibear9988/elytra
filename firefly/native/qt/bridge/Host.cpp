@@ -1,4 +1,5 @@
 /** Install trusted main-process bindings; preload/renderer code never receives this host object. */
+#include "../../protocol/routes/Host.h"
 #include "../../clipboard/ClipboardHost.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
@@ -30,6 +31,8 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     install_clipboard_host(realm, *host);
     Protocols::install_registration_host(realm, *host);
+    Protocols::install_file_route_host(
+        realm, *host, NonnullRefPtr<Protocols::FileRoutes> { *protocols });
     host->define_native_function(
         realm, "setHandler"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -157,6 +160,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                         "File does not exist or is not a regular file"_utf16);
             }
 
+            if (!url->scheme().is_one_of("file"sv, "http"sv, "https"sv)
+                && !protocols->has_route(url->scheme()))
+                return preload_error(
+                    vm, "ERR_FIREFLY_UNSUPPORTED_API", "URL has no registered file route"sv);
             current->requested_url = *url;
             current->navigation_requests.clear();
             current->failed = false;

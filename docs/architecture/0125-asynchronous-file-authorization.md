@@ -3,6 +3,9 @@
 Status: implemented native component with local macOS Release separate-process and
 production-helper headless acceptance. Public protocol/session handlers remain open.
 
+Subsequent public default-session file integration is recorded in
+[ADR 0126](0126-public-file-protocol-routes.md). The status below describes this step.
+
 ## Problem
 
 The actual pinned Code-OSS ProtocolMainService uses defaultSession.protocol's

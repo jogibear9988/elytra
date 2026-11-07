@@ -22,6 +22,7 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
     , exit_code(exit_code)
     , electron_compat(electron_compat)
 {
+    initialize_protocols();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params) {
         receive_ipc(page, navigable, move(params));
@@ -40,6 +41,7 @@ void Bridge::Impl::stop()
     stopping = true;
     set_preload_configurator({});
     set_native_ipc_handler({});
+    stop_protocols();
     while (!windows.empty())
         delete windows.begin()->second.window;
     context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.

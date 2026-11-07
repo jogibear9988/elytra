@@ -4,7 +4,8 @@ OriginPolicy supplies native custom origin identity and LibWebCommon's matching
 potentially-trustworthy decision. OriginConfig validates and delivers a declared
 parent snapshot before the owned renderer helper bootstrap. The main-only
 RegistrationHost binding now connects the partial public protocol registration
-API to this table. Custom resource handlers remain unimplemented.
+API to this table. routes/ owns default-session public file handlers and their
+trusted native navigation/document grants. General Response handlers remain open.
 
 The policy starts empty. Native code may install one immutable bounded table
 before the first WebContent launch. Launching even an unconfigured helper seals
@@ -34,8 +35,8 @@ the canonical C++ policy through an existing borrowed FfiOrigin callback ABI.
 The earlier C++ URL::origin override is removed. The DOM getter remains upstream;
 other Rust extraction callers receive the same policy. The pinned Rust parser
 still has no custom-standard extension: complete parsing/mutation behavior remains
-open. Public protocol exposes only origin registration; Code-OSS now passes that
-named import and fails at missing crashReporter. No resource routing/startup pass.
+open. Public protocol now also exposes default-session file callbacks; Code-OSS now passes that
+named import and fails at missing crashReporter. Real public file routing passes locally; no Code-OSS startup pass.
 
 Targets.cmake composes three fingerprinted C++ translation units for trust, shared
 fetch classification and helper launch. The owned Rust build driver selects guarded root/module/origin compositions,

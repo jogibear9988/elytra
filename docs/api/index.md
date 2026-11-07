@@ -74,7 +74,8 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 The partial [protocol API](protocol.md) now publishes application scheme origin
 registration through the [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
-and native owned-helper configuration. Public resource handlers remain unavailable. The shared native/Rust DOM origin
+and native owned-helper configuration. Default-session public file handlers now load
+real windows/resources; broader protocol/session compatibility remains partial. The shared native/Rust DOM origin
 gate now passes locally on macOS; see [ADR 0113](../architecture/0113-shared-rust-origin-policy.md).
 
 The [original-fs reference](original-fs.md) describes raw main-process filesystem
@@ -86,7 +87,7 @@ separate Ladybird renderer processes. Detailed entries: [app](app.md),
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
 [preload/contextBridge](context-bridge.md), [ipcMain/ipcRenderer](ipc.md) and
 [screen](screen.md), [clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md)
-and [protocol](protocol.md).
+and [protocol](protocol.md), [session](session.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

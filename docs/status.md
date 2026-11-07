@@ -64,14 +64,14 @@ Native request owners now bound pending jobs, preserve epoch/ID/offset correlati
 and revoke their files/credit on terminal paths. The framed native-child gate and
 concurrent quota/deadline checks pass locally. Actual renderer request/document
 binding and response application are now covered by the live helper gates below.
-Public authorized handler integration remains unfinished.
+Default-session public file-handler integration now has local acceptance below.
 
 The [asynchronous authorization service](architecture/0125-asynchronous-file-authorization.md)
 now reserves bounded request ownership before application code could answer. Local
 separate-process tests cover delayed/out-of-order/duplicate responses, cancellation,
 owner/peer loss and a real unanswered deadline. The production-helper resource gate
-also passes with deferred native authorization. Public JavaScript handler/session
-integration remains unimplemented.
+also passes with deferred native authorization. The public default-session
+file-callback integration is now accepted below; broader session APIs remain open.
 
 The [LibWeb protocol response adapter](architecture/0116-libweb-protocol-responses.md)
 passes local actual pending-response/body-stream tests with real checked files,
@@ -80,7 +80,7 @@ GC, credit and controller/reader cancellation. The next
 actual JavaScript fetch/arrayBuffer, HEAD and AbortController against real files
 in the same-process native fixture. The live helper/document/navigation gates
 below now cover trusted native admission; helpers grant no capability by default.
-Public resource handlers remain open. This is not a Code-OSS launch or new platform
+General Response handlers and broader session compatibility remain open. This is not a Code-OSS launch or new platform
 acceptance.
 
 The [native resource request service](architecture/0118-native-resource-request-service.md)
@@ -117,10 +117,11 @@ wrong-ID/page and missing-handoff controls pass, as does document survival after
 channel retirement. The [exact-document resource handoff](architecture/0123-live-document-resource-handoff.md)
 now also loads external ESM/CSS and binary GET/HEAD through that real production
 helper, with wrong-ID/missing/duplicate controls and revocation on navigation.
-These are internal native probes; the ordinary main bridge still has no public
-resource/session authorizer or automatic document grants. Partial public
-[protocol scheme registration](api/protocol.md) now publishes the native origin
-table; unsupported privileges fail explicitly. Actual Code-OSS import advances
+These are internal native probes. The [public default-session file callback](api/protocol.md)
+now also has actual main/window acceptance, with automatic native navigation/document
+grants, delayed handlers, load failures, cancellation and generation replacement.
+General Response handlers, partitions and further privilege flags remain open. Public [protocol registration](api/protocol.md) publishes the native origin table;
+unsupported privileges fail explicitly. Actual Code-OSS import advances
 to missing crashReporter (exit 1). No Code-OSS workbench
 launch or new platform support follows from these gates.
 
