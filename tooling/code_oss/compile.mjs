@@ -9,18 +9,23 @@ import { createHash } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { transformSync, version } from '../runtime-js/node_modules/esbuild/lib/main.js';
+import { preparedDependencies } from './dependency-graph.mjs';
 
 const { values } = parseArgs({
   options: {
     source: { type: 'string' },
     output: { type: 'string' },
-    overlay: { type: 'string' }
+    overlay: { type: 'string' },
+    dependencies: { type: 'string' }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
   throw new Error('Require --source, --output and pinned esbuild 0.25.12');
 }
 const repository = fileURLToPath(new URL('../../', import.meta.url));
+const pin = JSON.parse(
+  fs.readFileSync(path.join(repository, 'vendor/code-oss-tests/manifest.json'))
+);
 const source = fs.realpathSync(values.source);
 const output = path.join(
   fs.realpathSync(path.dirname(path.resolve(values.output))),
@@ -143,6 +148,12 @@ if (!planned.has('package.json')) {
 if (JSON.parse(planned.get('package.json')).type !== 'module') {
   throw new Error('Expected Code-OSS ESM package');
 }
+const dependencies =
+  values.dependencies &&
+  preparedDependencies(values.dependencies, planned.get('package.json'), pin.revision);
+if (dependencies && (within(dependencies.root, output) || within(output, dependencies.root))) {
+  throw new Error('Output overlaps dependency input tree');
+}
 planned.set('ELYTRA-LICENSE.txt', fs.readFileSync(path.join(repository, 'LICENSE')));
 planned.set(
   'ELYTRA-COMPILE.json',
@@ -152,6 +163,16 @@ planned.set(
         schema: 1,
         kind: 'diagnostic-source-tree',
         compiler: `esbuild ${version}`,
+        runtimeDependencies: dependencies
+          ? {
+              revision: dependencies.report.revision,
+              state: dependencies.report.state,
+              lockSha256: dependencies.report.sourceInputs.find(
+                (item) => item.path === 'pnpm-lock.yaml'
+              )?.sha256,
+              installedPackageCount: dependencies.report.installed.packages.length
+            }
+          : undefined,
         adaptations,
         inputs
       },
@@ -163,8 +184,24 @@ planned.set(
 // All transforms and overlay checks finish before creating output.
 fs.mkdirSync(output);
 for (const [name, data] of planned) {
+  if (name === 'ELYTRA-COMPILE.json') {
+    continue;
+  }
   const destination = path.join(output, name);
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.writeFileSync(destination, data);
 }
+if (dependencies) {
+  fs.cpSync(path.join(dependencies.root, 'node_modules'), path.join(output, 'node_modules'), {
+    recursive: true,
+    dereference: false,
+    verbatimSymlinks: true
+  });
+  fs.copyFileSync(
+    path.join(dependencies.root, 'ELYTRA-DEPENDENCIES.json'),
+    path.join(output, 'ELYTRA-DEPENDENCIES.json')
+  );
+}
+// A killed or failed copy must not leave an apparently completed build record.
+fs.writeFileSync(path.join(output, 'ELYTRA-COMPILE.json'), planned.get('ELYTRA-COMPILE.json'));
 console.log(`Compiled ${inputs.length} real source files into ${output}`);

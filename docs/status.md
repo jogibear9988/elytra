@@ -6,7 +6,7 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-Local macOS Release now passes **74** runtime/component suites, adding custom process events
+Local macOS Release now passes **75** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. That process slice also passes native
 Linux/Windows at 94acc0c; see the [process contract](api/process.md). Code-OSS desktop still
@@ -21,21 +21,32 @@ passes local actual upstream development/missing/disabled/refusal branches. The
 real full-source main.ts probe initializes the cache policy and reaches mainImpl,
 then exits 1 on standalone Mite's missing Firefly-only original-fs module. It is
 not a desktop launch. The cache slice now also passes native Linux at 790235c;
-Windows acceptance of that slice remains pending.
+Windows acceptance of that slice passes at 5735b91.
 
 The current [explicit Electron import option](api/firefly-cli.md) passes a local
 macOS native batch: real main/preload alias, default npm resolution, argument
 stripping, frozen restricted imports and no page privileges. Native argument and
-real macOS package-launcher relocation/option/PID tests also pass. Linux alias
-and whole flagged archive gates remain pending. The actual Code-OSS Firefly-host
-probe advances to missing minimist and retains exit 1; the workbench still does not run.
+real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
+remains pending. With the actual frozen root production dependencies, the Code-OSS
+Firefly-host probe reaches missing node:module.registerHooks and retains exit 1.
+The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
+records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
+the real 14-case CLI parser test. New dependency-install matrix results are pending.
 
-Native Linux **790235c** passes all **72** runtime suites in 80.58 seconds
-([run 42383406706](https://github.com/jogibear9988/elytra/actions/runs/42383406706)),
-including the actual cache branches/refusals. The full Linux renderer/archive/
-Designer [run 42383368668](https://github.com/jogibear9988/elytra/actions/runs/42383368668)
-at **03bd439** also passes and uploads a candidate. Neither contains the later
-Electron-alias implementation.
+Native **5735b91** Linux passes all **74** suites in 78.51 seconds
+([run 42386340937](https://github.com/jogibear9988/elytra/actions/runs/42386340937));
+Windows passes all **73** in 130.32 seconds
+([run 42386340970](https://github.com/jogibear9988/elytra/actions/runs/42386340970)).
+Windows omits the POSIX launcher fixture. These include the actual cache/platform/
+bootstrap and startup option gates. Later success does not diagnose or establish
+a fix for earlier Node reference crashes below.
+The full Linux renderer/archive/Designer
+[run 42386340939](https://github.com/jogibear9988/elytra/actions/runs/42386340939)
+also passes at **5735b91**, including actual native default/opt-in host/preload
+alias assertions. The complete app archive uses the default launcher mode;
+whole --electron-compat archives still require their own acceptance.
+Native package launcher opt-in/default relocation/PID checks also pass in
+[run 42386340998](https://github.com/jogibear9988/elytra/actions/runs/42386340998).
 
 Newer native **Linux 10f6d70** passes all **71** suites in 77.23 seconds
 ([run 42381776025](https://github.com/jogibear9988/elytra/actions/runs/42381776025)).
@@ -98,11 +109,11 @@ and later master changes.
 
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
-| Mite / macOS ARM64 | Current local 74 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy and pure native startup/launcher checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
-| Mite / native Linux x64 | All 72 enabled suites at 790235c; [run 42383406706](https://github.com/jogibear9988/elytra/actions/runs/42383406706) | New startup/launcher/alias gates, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
-| Mite / native Windows x64 | All 70 enabled suites at 2bf956d; [run 42380750929](https://github.com/jogibear9988/elytra/actions/runs/42380750929). Later platform component passes, full run rejected on Node oracle crashes | New cache slice, complete latest regression acceptance, oracle crash diagnosis, full Windows API/error parity and distribution |
+| Mite / macOS ARM64 | Current local 75 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy and pure native startup/launcher checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
+| Mite / native Linux x64 | All 74 enabled suites at 5735b91; [run 42386340937](https://github.com/jogibear9988/elytra/actions/runs/42386340937) | New dependency gate, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / native Windows x64 | All 73 enabled suites at 5735b91; [run 42386340970](https://github.com/jogibear9988/elytra/actions/runs/42386340970). Earlier oracle crashes remain undiagnosed | New dependency gate, oracle crash diagnosis, full Windows API/error parity and distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
-| Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls pass at 197cd2a in [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
+| Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls plus native host/preload alias pass at 5735b91 in [run 42386340939](https://github.com/jogibear9988/elytra/actions/runs/42386340939) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
 | Firefly / native Windows | Production desktop not implemented/accepted; [renderer](development/windows-build.md#experimental-native-libweb-renderer-gate) and [Qt window prototype](development/windows-build.md#native-qt-window-prototype) have native CI gates, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) contains

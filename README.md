@@ -59,6 +59,7 @@ cmake --preset dev
 cmake --build --preset dev --parallel 4
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
+npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
 ctest --preset dev
 build/dev/bin/mite examples/mite-cli/hello.mjs world
 build/dev/bin/mite examples/mite-cli/modules.mjs world

@@ -9,6 +9,7 @@
     "@nodelib/fs.stat": "2.0.5",
     "escape-string-regexp": "5.0.0",
     "eventemitter3": "5.0.1",
+    "minimist": "1.2.8",
     "once": "1.4.0",
     "time-span": "5.1.0"
   }

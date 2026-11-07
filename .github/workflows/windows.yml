@@ -109,6 +109,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
       - name: Install pinned Code-OSS test compiler
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
+      - name: Install pinned Code-OSS dependency tooling
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
       - name: Run all enabled runtime suites
         run: ctest --test-dir build/windows --output-on-failure --output-junit windows-ctest.xml
       - name: Record independent Mite TLS and HTTPS acceptance if the Node reference fails

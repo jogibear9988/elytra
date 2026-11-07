@@ -1,0 +1,12 @@
+{
+  "name": "elytra-code-oss-build-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pinned build-only tools for the audited Code-OSS dependency graph",
+  "devDependencies": {
+    "acorn": "8.15.0",
+    "pnpm": "12.16.0",
+    "yaml": "2.8.2"
+  }
+}

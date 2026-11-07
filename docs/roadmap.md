@@ -14,16 +14,16 @@ Designer sample. Experimental relocated macOS bundles pass focused tests. One-wa
 Windows/Linux releases remain unfinished.
 
 The [current support page](status.md) records exact tested sources and examples.
-Native Linux/Windows Mite now pass 65 suites. Firefly has scoped X11 app/clipboard
-acceptance; new screen wiring, portable builds and archive/Designer gates remain
-pending. The published macOS Alpha 2 and later optimized Actions artifact are
+At 5735b91 native Linux/Windows Mite pass 74/73 suites. Firefly has scoped X11
+app/screen/clipboard, native alias, portable build and archive/Designer acceptance.
+New changes still require their own native gates. The published macOS Alpha 2 and later optimized Actions artifact are
 separate deliverables. A Windows desktop/package remains the largest platform gap.
 
 ## Implementation sequence
 
 | Priority | Deliverable | Evidence needed before declaring it usable |
 | --- | --- | --- |
-| First compatibility target | Code-OSS desktop on Firefly/Mite | Follow the [pinned VS Code blocker audit](compatibility/vscode.md): real bootstrap, binary/event/port IPC, workbench, workspace files, extension/utility processes and native service dependencies; no Electron/Node/V8 substitute |
+| First compatibility target | Code-OSS desktop on Firefly/Mite | Follow the [pinned VS Code blocker audit](compatibility/vscode.md): real bootstrap (next observed blocker: node:module.registerHooks), binary/event/port IPC, workbench, workspace files, extension/utility processes and native service dependencies; no Electron/Node/V8 substitute |
 | Now, driven by Code-OSS | Secure public preload/bridge/IPC and efficient files | Build on validated [invoke/handle IPC](api/ipc.md); prioritize binary values, event IPC, MessagePorts and bounded [file transport](guides/file-transfer.md), retaining sender/revocation/adversarial gates |
 | Required platform work | Native Windows bring-up and requested Designer release | Actual native compiler/runtime results, Firefly window/process/sandbox tests, Designer acceptance, relocatable Windows package and successful required release jobs |
 | Next, chosen from Code-OSS blockers | Required Node services for practical apps | Bootstrap imports, filesystem/watch/stream/process behavior and auxiliary hosts first; implement verified compatible native services and document engine-specific adaptation |

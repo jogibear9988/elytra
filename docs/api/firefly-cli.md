@@ -65,11 +65,12 @@ Local macOS tests use actual Firefly/owned WebContent with hidden windows for
 default/opt-in main and preload modes, npm precedence, ESM/CommonJS identity,
 unchanged application arguments, frozen limited imports and absent page privileges.
 Native launcher tests compile real macOS/Linux launcher sources and check relocation,
-UTF-8/spaces, option placement and exec PID ownership. The new Linux native gate
-is required in CI; its result is pending. Pure argument tests need no GUI/VM.
+UTF-8/spaces, option placement and exec PID ownership. The Linux native gate
+passes at 5735b91 in run 42386340939. Pure argument tests need no GUI/VM.
 Whole flagged application archives still need separate platform acceptance.
 
 The actual pinned Code-OSS entry now advances through cache setup and 'electron'
-resolution in the Firefly host; its current diagnostic fails on missing minimist.
-That is an incomplete dependency/startup trace, not a desktop launch. See
+resolution in the Firefly host; with the frozen root production dependencies, its current diagnostic fails on
+missing node:module.registerHooks (exit 1). That is an incomplete startup trace,
+not a desktop launch. See the [dependency preparation guide](../guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies). See
 [Code-OSS support](../compatibility/vscode.md) and [ADR 0107](../architecture/0107-electron-import-policy.md).

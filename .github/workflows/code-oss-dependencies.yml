@@ -1,0 +1,43 @@
+name: Pinned Code-OSS root dependencies
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/code-oss-dependencies.yml'
+      - 'tooling/code_oss/**'
+      - 'vendor/code-oss-tests/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: code-oss-dependencies-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  dependencies:
+    name: Frozen root install / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.15.0'
+          cache: npm
+          cache-dependency-path: tooling/code_oss/package-lock.json
+      - name: Install pinned build-only package manager and inventory parser
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
+      - name: Prepare workspace output
+        run: node -e "require('node:fs').mkdirSync('build',{recursive:true})"
+      - name: Install exact upstream root production graph without lifecycle scripts
+        run: node tooling/code_oss/dependencies.mjs --output build/code-oss-dependencies
+      - name: Preserve dependency and native-candidate evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: code-oss-dependency-inventory-${{ matrix.os }}
+          path: build/code-oss-dependencies/ELYTRA-DEPENDENCIES.json
+          if-no-files-found: warn

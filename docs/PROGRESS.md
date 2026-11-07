@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 74
+Mite is a working native LibJS runtime; the current macOS Release build has 75
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -6989,6 +6989,50 @@ and diff checks pass. New native Linux alias and
 Windows/current package acceptance remain open. Full goal active; Code-OSS runtime
 dependencies/host startup, public binary/event/port transport and native Windows
 remain required.
+
+## 2026-11-07: Install the real pinned Code-OSS root graph and reach the next loader blocker
+
+- Prioritize actual Code-OSS bootstrap over unrelated example/API breadth. Pin
+  unchanged root package/lock/workspace/configuration hook/native-build inputs,
+  patch, mainImpl and notices from 6531648f5ace8b77ae799262bdc97bf048461938.
+  Use upstream pnpm 12.16.0 in build-only ESM tooling; preserve Ladybird and source.
+- Prepare fresh verified root production installs with --frozen-lockfile --prod
+  --ignore-scripts --filter .; dependency lifecycle scripts are disabled, upstream
+  configuration hook still executes. Distinguish prepared/failed/completed states.
+  Root devDependencies, other workspace/importer and extension roots are excluded.
+- Actual macOS ARM64 frozen install completes: 71 direct dependencies, 258 lock
+  snapshots, 231 installed package directories and 27 native/WASM evidence
+  candidates. Inspect package data without executing it; markers are heuristic,
+  not package compatibility or N-API support. Keep original lock/config unchanged.
+- Feed completed same-source/platform modules into the actual source compiler,
+  validate contained links and write final metadata after successful copy. Refuse
+  partial inventories and source drift before output mutation. Compile 11,534 real
+  JS/JSON source outputs with actual dependencies, not replacement main modules.
+- Run actual full-source main.ts once in the real Firefly host, without creating
+  a workbench window. It advances beyond minimist and exits 1 at the missing named
+  node:module.registerHooks export. Implement that real general loader contract
+  next; no throwing/no-op export merely to make linking appear successful.
+- Extract actual compiled upstream parseCLIArgs with exact minimist 1.2.8
+  (lockfile integrity matches). Fourteen real parser cases agree under Node/Mite.
+  This scoped subroutine test does not substitute for a desktop startup.
+- Add native macOS/Linux/Windows frozen-root-install matrix and retained inventory;
+  results pending. Install the build-only tools in standalone/release test jobs.
+- Record completed 5735b91 acceptance: Linux 42386340937/job 128444427776 all 74
+  suites, 78.51s; Windows 42386340970/job 128444466253 all 73, 130.32s. Linux full
+  renderer 42386340939/job 128444427999 passes actual default/opt-in alias/preload,
+  stripped default archive and Designer edit/Monaco/HTML controls; candidate
+  artifact 13580715220 (122685399-byte ZIP). Native package 42386340998/job
+  128444427726 passes compiled opt-in/default launcher checks. Whole opt-in app
+  archive and Windows desktop remain unaccepted. Later Windows success does not
+  diagnose/fix prior reference crashes. Published Alpha 2 remains old source.
+
+Validation: local macOS Release all 75 CTests pass (22.98s), with the new actual
+root-graph/CLI parser gate; targeted gate also passes both vendored/full-source
+input layouts and refusal controls. One windowless actual Firefly startup
+probe, no repeated local desktop suites. Formatting, generated site (205 pages / 14,496 local links/resources/fragments)
+and diff checks pass. Full goal active; real loader hooks, required desktop
+startup APIs, public binary/event/port transport, native service adapters and
+native Windows remain required. See ADR 0108 and the updated adaptation guide.
 
 ## Resume
 

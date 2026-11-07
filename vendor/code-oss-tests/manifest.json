@@ -118,6 +118,34 @@
     "main.ts": {
       "upstream": "src/main.ts",
       "sha256": "1341442dc8f78d621c35947b2119553c364a554f44880de434f6d81e0a99786d"
+    },
+    "package.json": {
+      "upstream": "package.json",
+      "sha256": "f8e89baba6b8689fe127d7803c842ec944edfce1f6bc300e7dbd77f3637b2f29"
+    },
+    "pnpm-lock.yaml": {
+      "upstream": "pnpm-lock.yaml",
+      "sha256": "31dc6047c775ca6192c36a7f917d3cb71d1fcceb7a0ef02a0c4a5bd0846559fc"
+    },
+    "pnpm-workspace.yaml": {
+      "upstream": "pnpm-workspace.yaml",
+      "sha256": "15948f6e8700230d5d381fe0f86b501261fa47449ef15785e4860a9c515bce05"
+    },
+    "pnpmfile.mjs": {
+      "upstream": ".pnpmfile.mjs",
+      "sha256": "46f235314b6b9a6424eed926ae8b24170acc3be9ec279db662dc4e2e477a842b"
+    },
+    "nativeBuildEnv.ts": {
+      "upstream": "build/npm/pnpm/nativeBuildEnv.ts",
+      "sha256": "9a51b18b146e16ec785c6ffc4b8004efe50d621ca5c04ad6355f9f8983d465f4"
+    },
+    "foundry-local-sdk.patch": {
+      "upstream": "build/npm/patches/foundry-local-sdk.patch",
+      "sha256": "144dc233226af4a735d3bbf7e0476ef09c2c7336c8f47d488703c483b013745e"
+    },
+    "mainImpl.ts": {
+      "upstream": "src/mainImpl.ts",
+      "sha256": "1f3721ebfbe4d1307b97d9f15e801de90837a4ed997098fdbddba96b7e7af6f1"
     }
   }
 }

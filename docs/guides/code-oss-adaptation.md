@@ -35,14 +35,15 @@ hash guarded, reviewed and covered by actual upstream behavior tests.
 
 ```sh
 npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
+npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
 python3 tooling/tests/test_code_oss_platform.py --mite build/release-mite/bin/mite
 ```
 
 The test compiles actual pinned platform/process/nls modules with the existing
 build-only esbuild 0.25.12, then compares unmodified Node, adapted Node and adapted
 Mite. Native OS/arch, environment/cwd, configured locales and timer scheduling
-pass on macOS and in the native Linux/Windows component gates; the latest full
-Windows run still fails on Node HTTP/HTTPS reference crashes. An unadapted Mite
+pass on macOS and in the native Linux/Windows component gates; the native 5735b91 Linux/Windows full runs pass. Earlier Windows Node HTTP/HTTPS
+reference crashes remain undiagnosed; the later success does not establish a fix. An unadapted Mite
 negative control proves why this change
 is needed. Missing/duplicate seams, source/license drift and output overlap are
 refused; original sources and license bytes are checked for preservation.
@@ -93,7 +94,53 @@ build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/co
 
 The final --firefly argument requests explicit diagnostic shutdown, preserving a
 nonzero result on failure. This is a real host run with original-fs and the
-implemented Electron alias. The current full-source trace reaches a missing
-minimist package; it is not a successful desktop launch or a complete dependency
-installation. Prepare/inventory the pinned runtime dependencies before claiming
-the next API blocker. See the [CLI contract](../api/firefly-cli.md).
+implemented Electron alias. Without prepared dependencies, the trace stops at missing minimist. With the
+root production installation below, the actual trace reaches the missing named
+export node:module.registerHooks and retains exit 1. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
+
+
+## Prepare actual root production dependencies
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
+node tooling/code_oss/dependencies.mjs --output build/code-oss-dependencies
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-libjs-overlay --dependencies build/code-oss-dependencies --output build/code-oss-with-dependencies
+build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/code-oss-with-dependencies --firefly
+```
+
+Create build first if absent. Each output must be fresh. Default preparation uses
+vendored exact upstream inputs; --source may select the full pinned checkout.
+The tool verifies package/lock/workspace/hook/native-build/patch/license inputs,
+then runs the application's pnpm 12.16.0 with --prod --ignore-scripts
+--frozen-lockfile --filter . in the separate output tree. Dependency lifecycle
+scripts are disabled; the pinned upstream configuration hook executes. Node/pnpm
+are build tools, not application runtime dependencies.
+
+ELYTRA-DEPENDENCIES.json distinguishes inventory-only (--inventory-only), failed
+and completed installs. The compiler accepts only a completed same-source/native
+platform tree, preserves contained relative links, copies modules and records
+provenance. It writes ELYTRA-COMPILE.json only after successful copying. Owned
+reports are not attestations against later manual module-tree changes.
+
+Scope is **root production dependencies**, excluding root devDependencies, other
+workspace importers and extension/separate install roots. The macOS ARM64 scan
+finds 71 direct dependencies, 258 frozen snapshots, 231 installed package directories
+and 27 candidates with native/WASM evidence. It inspects data without loading
+packages; absence of markers does not certify compatibility. PTY, watcher,
+SQLite, keymap and other Node bindings still need real engine-independent adapters;
+Mite has no native Node addon/N-API loader. Full published packages are retained
+for diagnosis; this tree's size is not a release/framework size measurement.
+
+The pinned Code-OSS root dependency workflow runs this frozen install on native
+macOS/Linux/Windows and retains its inventory. New matrix results remain pending.
+Installation success is separate from actual Mite package and desktop acceptance.
+
+```sh
+python3 tooling/tests/test_code_oss_dependencies.py --mite build/release-mite/bin/mite
+```
+
+This non-GUI gate verifies both input layouts, drift/incomplete-install refusal and
+minimist integrity. It extracts the actual compiled parseCLIArgs function from
+pinned mainImpl.ts, preserving its algorithm, and compares 14 argument cases under
+Node and Mite using minimist 1.2.8. It does not simulate an application launch.
+See [ADR 0108](../architecture/0108-code-oss-root-dependencies.md).

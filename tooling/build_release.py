@@ -93,6 +93,7 @@ def main():
         npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/npm-fixtures"
     )
     run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
+    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/code_oss")
     run("ctest", "--test-dir", build, "--output-on-failure")
     # This deliberately fails on unsupported native desktop platforms. A Mite
     # binary alone must never be relabeled as a successful complete release.

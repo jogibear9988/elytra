@@ -55,9 +55,10 @@ The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-74 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
-the application-only cache policy and pure startup/launcher checks. Native Linux
-cache acceptance passes at 790235c; Windows cache acceptance is pending.
+75 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
+the application-only cache policy, pure startup/launcher checks and real CLI parser.
+At 5735b91 native Linux passes all 74 suites and Windows all 73; the new dependency
+gate still needs its own native acceptance.
 Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js
