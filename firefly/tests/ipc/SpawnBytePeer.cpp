@@ -47,7 +47,8 @@ struct WindowsByteResources final : BytePeerResources {
 #endif
 }
 
-ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(ByteString const& executable)
+ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(
+    ByteString const& executable, ReadonlySpan<ByteString> extra_arguments)
 {
     Core::ProcessSpawnOptions options;
     options.executable = executable;
@@ -77,6 +78,8 @@ ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(ByteString const& execut
     auto send_to_child = TRY(child_receive.insert_right(Core::MachPort::MessageRight::MakeSend));
     IPC::TransportMachPort::raise_receive_queue_limit(child_receive);
     Vector<ByteString> arguments { "child", name };
+    for (auto const& argument : extra_arguments)
+        TRY(arguments.try_append(argument));
     options.arguments = arguments;
     MutexLocker admission(resources->admission);
     MutexLocker registration(resources->server.child_registration_lock());
@@ -120,6 +123,8 @@ ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(ByteString const& execut
             MUST(Core::Environment::unset("SOCKET_TAKEOVER"sv));
     });
     Vector<ByteString> arguments { "child", "native" };
+    for (auto const& argument : extra_arguments)
+        TRY(arguments.try_append(argument));
     options.arguments = arguments;
     options.file_actions.append(Core::FileAction::DupFd { .write_fd = fds[1], .fd = fds[1] });
 #if defined(AK_OS_WINDOWS)

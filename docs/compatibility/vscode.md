@@ -141,6 +141,13 @@ real files in a same-process native fixture. Live helper/document binding and
 public handler/session APIs are still missing; product helpers install no provider.
 This does not yet load workbench resources or establish general fetch compatibility.
 
+The [native resource service](../architecture/0118-native-resource-request-service.md)
+now transfers URL requests, consumer credit, cancellation and real file responses
+across actual native parent/child processes, with local macOS acceptance. The main
+side alone selects authorized paths. Its bounded service is not yet connected to
+the LibWeb response owner or a live admitted helper/document, and does not supply
+the public protocol/session handler contract.
+
 Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |

@@ -30,4 +30,5 @@ struct SpawnedBytePeer {
     ErrorOr<int> wait();
 };
 
-ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(ByteString const& executable);
+ErrorOr<NonnullOwnPtr<SpawnedBytePeer>> spawn_byte_peer(
+    ByteString const& executable, ReadonlySpan<ByteString> extra_arguments = {});

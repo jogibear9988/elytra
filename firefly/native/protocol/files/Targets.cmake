@@ -1,11 +1,31 @@
 # Main-side file bodies and response metadata: no LibWeb, GUI, VM or Node dependency.
-add_library(firefly-protocol-file-codec STATIC "${CMAKE_CURRENT_LIST_DIR}/ResponseHead.cpp"
-                                               "${CMAKE_CURRENT_LIST_DIR}/FilePacket.cpp")
+add_library(
+    firefly-protocol-file-codec STATIC
+    "${CMAKE_CURRENT_LIST_DIR}/ResponseHead.cpp" "${CMAKE_CURRENT_LIST_DIR}/FilePacket.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/RequestPacket.cpp")
 target_include_directories(firefly-protocol-file-codec PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-protocol-file-codec PUBLIC LibCore LibHTTP AK)
 add_library(firefly-protocol-files STATIC "${CMAKE_CURRENT_LIST_DIR}/FileBody.cpp"
                                           "${CMAKE_CURRENT_LIST_DIR}/FileRequests.cpp")
 target_link_libraries(firefly-protocol-files PUBLIC firefly-protocol-file-codec)
+add_library(firefly-protocol-file-server STATIC "${CMAKE_CURRENT_LIST_DIR}/Server.cpp")
+target_link_libraries(firefly-protocol-file-server PUBLIC firefly-protocol-files
+                                                          firefly-byte-channel)
+add_executable(
+    firefly-protocol-server-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/ServerProbe.cpp"
+                                  "${FIREFLY_SOURCE_DIR}/firefly/tests/ipc/SpawnBytePeer.cpp")
+target_link_libraries(firefly-protocol-server-probe PRIVATE firefly-protocol-file-server LibMain)
+ladybird_check_skia_confinement(firefly-protocol-server-probe)
+if(WIN32)
+    target_link_libraries(firefly-protocol-server-probe PRIVATE shell32)
+    ladybird_windows_bin(firefly-protocol-server-probe CONSOLE)
+endif()
+add_custom_target(
+    check-firefly-protocol-server
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_server.py"
+            --probe "$<TARGET_FILE:firefly-protocol-server-probe>"
+    DEPENDS firefly-protocol-server-probe
+    VERBATIM)
 add_executable(
     firefly-protocol-files-probe
     "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FileBodyProbe.cpp"
@@ -24,3 +44,6 @@ add_custom_target(
             --probe "$<TARGET_FILE:firefly-protocol-files-probe>"
     DEPENDS firefly-protocol-files-probe
     VERBATIM)
+# Existing release/Linux/Windows gates must also exercise the request direction and the main-side
+# resource owner, not only preconstructed response frames.
+add_dependencies(check-firefly-protocol-files check-firefly-protocol-server)

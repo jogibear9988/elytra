@@ -96,3 +96,19 @@ request service is still missing.
 Both native protocol fixtures recover Windows command-line arguments from UTF-16
 into owned UTF-8; the file gate checks exact Unicode path preservation before IO.
 Fresh Windows execution is required: local macOS results do not accept that path.
+
+Server adds the request direction over the bounded native byte channel. Its native
+authorizer selects the file path for an admitted URL; the renderer cannot send a
+path. Eight bounded jobs share round-robin delivery and explicit 64-KiB consumer
+credit. ACKs only release transport credit. Native fixed deadlines, disconnect,
+malformed requests and explicit revocation close all files. The caller still must
+bind the channel/epoch and enforce document route policy before using this service.
+
+```sh
+cmake --build build/renderer --target check-firefly-protocol-server --parallel 3
+```
+
+This real two-process gate is also required by check-firefly-protocol-files. It
+includes a real 30-second paused request. No GUI opens. Local macOS execution is
+accepted; the product has no resource service installed and live helper/document
+routing remains open. See [ADR 0118](../../../../docs/architecture/0118-native-resource-request-service.md).

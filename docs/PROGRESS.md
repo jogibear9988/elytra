@@ -7554,6 +7554,44 @@ skip or permissive decoding. Source style/upstream/site checks are required befo
 commit. Code-OSS live resource transport and public protocol are still first;
 full original goal remains active.
 
+## 2026-11-07: Add main-side resource requests over real native IPC
+
+- Continue the Code-OSS resource path, after actual JavaScript scheme fetch. Add
+  FFQP bounded Get/Head/Credit/Cancel packets beside the existing response codec:
+  exact little-endian identity/length/reserved fields, strict UTF-8 URLs and
+  64-KiB grants. No file path, arbitrary headers or native handles on the wire.
+- Add a separate main-side FileServer over the existing bounded byte channel.
+  Its trusted native caller binds one admitted transport/epoch; an authorization
+  callback alone selects the checked path/headers. Consume IDs even for refusal,
+  refuse replay/foreign epochs/future grants/over-credit, bound eight jobs and
+  retain existing global checked-file quotas. No product service or public API
+  is installed, and this internal synchronous callback is not Electron handlers.
+- Send metadata before body credit; round-robin one chunk/frame per deferred task,
+  pause on actual send-window exhaustion and resume on transport acknowledgement.
+  Consumer body credit remains separate. Cancellation, disconnect, malformed
+  packets and native/reentrant revocation release files/jobs permanently.
+- Apply native one-second sweeping with a fixed 30-second job/channel budget,
+  including completed/refused jobs stalled behind transport credit. Grants do not
+  refresh deadlines. Add an actual parent/child request consumer with byte-exact
+  4 MiB + 19 byte files, parallel GET/HEAD/refusal, no-credit pause, cancellation,
+  peer loss, forceful child termination, native/reentrant revocation, quotas,
+  malformed/foreign/replayed/future/over-credit messages and a real deadline wait.
+  Independent Python struct/UTF-8/budget controls cover both codec directions.
+- Require the service through existing check-firefly-protocol-files, including
+  macOS Release, Linux and experimental Windows renderer gates. Keep C++ at the
+  existing IPC/file boundary, with no additional FFI, LibWeb or Mite dependency in
+  the server. Update ADR 0118, current status and Code-OSS resource priorities.
+
+Validation: local macOS Release two-process resource service, file/frame/child,
+byte-channel and actual LibWeb/JavaScript fetch gates pass; Firefly compiles.
+No desktop windows launched. Full source formatting, upstream preservation and site
+validation pass (216 pages / 15,267 local links/resources/fragments).
+Live helper/document admission, renderer
+request-client/response-owner connection, public protocol/session routing and real
+renderer navigation/security acceptance remain open. Code-OSS still fails at its
+missing protocol export; no workbench launch or native Windows/Linux service
+acceptance is claimed. Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

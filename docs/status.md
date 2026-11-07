@@ -74,6 +74,13 @@ in the same-process native fixture. Product helpers install no provider yet.
 Live helper/document admission, navigation and public protocol remain open; this
 is not a Code-OSS launch or new platform acceptance.
 
+The [native resource request service](architecture/0118-native-resource-request-service.md)
+now passes a local macOS real parent/child URL-request, credit and file-response gate.
+Only the main-side native authorization callback selects a file path. Parallel
+GET/HEAD, refusal, cancel/peer loss/forceful termination, quotas and a real fixed
+30-second deadline release pending files. This completes the native request
+component, not live WebContent/document binding or the public protocol API.
+
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):
 strict actual Rust DOM origins, native helper policy delivery, real Cargo dependency
