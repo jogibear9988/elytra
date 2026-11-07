@@ -6245,6 +6245,32 @@ all 187 pages / 13,191 local links/resources/fragments pass, as does diff whites
 No local GUI tests. Full Node/Electron parity and Windows/Linux desktop/package
 completion remain unfinished. Goal active.
 
+## 2026-11-07: Add a native Windows AppContainer launch/security component
+
+- Previous turn made progress: refreshed API/example support evidence, committed
+  and pushed bfdfdad. Resume the unfinished native Windows launch boundary without
+  enabling the guarded production desktop runtime or modifying Ladybird.
+- Add a standalone C++20 Win32 launcher: unique random AppContainer profile, zero
+  capabilities, explicit inherited handle/std-stream list, clean environment,
+  absolute executable/cwd and CRT argument quoting. Create suspended with atomic
+  JOB_LIST assignment, verified one-process/kill-on-close job policy; one explicit
+  resume, fail-closed ownership and synchronized active-child profile lifetime.
+- Add a static-CRT native broker/worker fixture and independent Python observer.
+  Require actual image/parent/token/zero-capability/low-integrity/job facts before
+  resume; allowed file read, denied private read/write/handle/network/child launch,
+  omitted ambient secret, malformed-contract rejection and removed-profile refusal.
+  Kill the broker before and after actual child execution and require the exact
+  held native child object to terminate. Restrict fixture ACL changes to its fresh
+  tree, with no broad package grants, firewall or loopback exemptions.
+- Add a fast Windows-only CI workflow independent of LibWeb/vcpkg/GUI builds.
+  Keep ordinary AppContainer limitations and missing actual renderer IPC/resource/
+  helper integration explicit in ADR 0098 and the Windows guide. Component native
+  acceptance is pending; Windows desktop/Designer/packages are still unfinished.
+
+Validation: Python syntax/help, full pinned source formatting, actionlint and diff
+checks pass locally; generated site 188 pages / 13,261 links/resources/fragments.
+No native Windows result or local GUI pass is claimed. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

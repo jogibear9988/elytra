@@ -349,3 +349,26 @@ and DLL deployment in its development SDK; it is not a relocatable app package.
 Physical/SendInput/DPI/driver coverage, main-process API integration, security and
 Designer release work remain separate requirements. See
 [ADR 0097](../architecture/0097-native-windows-qt-window-prototype.md).
+
+## AppContainer launch component
+
+The separate Native Windows AppContainer component workflow builds a small native
+Win32 broker/worker without the browser SDK or a GUI. It requires a fresh
+zero-capability AppContainer, explicit inherited handles, a clean environment and
+atomic creation-time job assignment. Independent token/process observations precede
+resume. Real denied file/network/process operations and broker-death cleanup are
+required. Native acceptance is pending; this is not yet wired into LibWeb, and the
+production Windows desktop guards remain in place.
+
+```powershell
+cmake -S firefly/native/sandbox/windows -B build/windows-sandbox -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang-cl
+cmake --build build/windows-sandbox --parallel 3
+python tooling/tests/test_windows_sandbox.py --probe build/windows-sandbox/firefly-windows-sandbox-probe.exe --artifacts-dir build/windows-sandbox-artifacts
+```
+
+The fixture changes ACLs only inside a fresh owned temporary tree and deletes
+only its fresh profile. No loopback/firewall exemption or system ACL changes are
+needed. Ordinary AppContainer default access still applies; this is not LPAC or a
+complete renderer-containment proof. Actual IPC/resource integration and complete
+Windows app/Designer/package acceptance remain required. See
+[ADR 0098](../architecture/0098-native-windows-appcontainer-launch.md).

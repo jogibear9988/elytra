@@ -136,12 +136,18 @@ class WindowsProcesses:
             groups = self.token_buffer(token, 11)  # TokenRestrictedSids / TOKEN_GROUPS.
             if len(groups) < C.sizeof(W.DWORD):
                 raise ValueError("Truncated native restricted SID groups")
-            return {
+            result = {
                 "integrityRid": int(integrity),
                 "isAppContainer": bool(self.token_number(token, 29)),
                 "hasRestrictions": self.token_filtered(token),
                 "restrictedSids": W.DWORD.from_buffer(groups).value > 0,
             }
+            if result["isAppContainer"]:
+                capabilities = self.token_buffer(token, 30)  # TokenCapabilities / TOKEN_GROUPS.
+                if len(capabilities) < C.sizeof(W.DWORD):
+                    raise ValueError("Truncated native capability groups")
+                result["capabilityCount"] = int(W.DWORD.from_buffer(capabilities).value)
+            return result
 
     def alive(self, process):
         state = self.kernel.WaitForSingleObject(process, 0)

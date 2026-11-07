@@ -1,0 +1,52 @@
+name: Native Windows AppContainer component
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/windows-sandbox.yml'
+      - '.github/actions/windows-environment/setup.ps1'
+      - 'firefly/native/sandbox/windows/**'
+      - 'tooling/tests/test_windows_sandbox.py'
+      - 'tooling/tests/_windows_processes.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-appcontainer-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  sandbox:
+    name: Native AppContainer launch / Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Native Visual Studio compiler only
+        shell: pwsh
+        run: '& ./.github/actions/windows-environment/setup.ps1'
+      - name: Compile static native broker and worker without LibWeb or a GUI
+        shell: pwsh
+        run: |
+          cmake -S firefly/native/sandbox/windows -B build/windows-sandbox -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang-cl 2>&1 | Tee-Object windows-sandbox-configure.log
+          if ($LASTEXITCODE) { throw 'Native security component configuration failed' }
+          cmake --build build/windows-sandbox --parallel 3 2>&1 | Tee-Object windows-sandbox-build.log
+          if ($LASTEXITCODE) { throw 'Native security component compilation failed' }
+      - name: Independent native token and real denied-operation/lifetime acceptance
+        shell: pwsh
+        run: |
+          python tooling/tests/test_windows_sandbox.py --probe build/windows-sandbox/firefly-windows-sandbox-probe.exe --artifacts-dir build/windows-sandbox-artifacts 2>&1 | Tee-Object windows-sandbox-acceptance.log
+          if ($LASTEXITCODE) { throw 'Native AppContainer component acceptance failed' }
+      - name: Preserve native component evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-appcontainer-component
+          path: |
+            windows-sandbox*.log
+            build/windows-sandbox-artifacts
+            build/windows-sandbox/CMakeCache.txt
+            build/windows-sandbox/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: warn

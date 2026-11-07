@@ -1,0 +1,15 @@
+# Small native security component: no browser, JS engine, vcpkg or GUI dependency.
+cmake_minimum_required(VERSION 3.30)
+project(FireflyWindowsSandbox LANGUAGES CXX)
+if(NOT WIN32)
+    message(FATAL_ERROR "Native Windows AppContainer launch is required")
+endif()
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+add_library(firefly-windows-sandbox STATIC Sandbox.cpp)
+target_compile_definitions(firefly-windows-sandbox PUBLIC UNICODE _UNICODE _WIN32_WINNT=0x0A00
+                                                          NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(firefly-windows-sandbox PUBLIC userenv bcrypt advapi32)
+add_executable(firefly-windows-sandbox-probe Probe.cpp)
+target_link_libraries(firefly-windows-sandbox-probe PRIVATE firefly-windows-sandbox ws2_32)
