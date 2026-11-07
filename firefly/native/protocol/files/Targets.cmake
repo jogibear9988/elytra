@@ -15,6 +15,7 @@ target_link_libraries(firefly-protocol-files-probe
                       PRIVATE firefly-protocol-files firefly-byte-channel LibMain LibFileSystem)
 ladybird_check_skia_confinement(firefly-protocol-files-probe)
 if(WIN32)
+    target_link_libraries(firefly-protocol-files-probe PRIVATE shell32)
     ladybird_windows_bin(firefly-protocol-files-probe CONSOLE)
 endif()
 add_custom_target(

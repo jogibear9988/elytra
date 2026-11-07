@@ -7533,6 +7533,27 @@ Live helper/document authorization, request/credit IPC, teardown/deadline wiring
 public protocol/session APIs and real renderer resource acceptance remain open.
 The provider fixture is same-process only. Full original goal remains active.
 
+## 2026-11-07: Preserve Unicode arguments in native protocol fixtures
+
+- Inspect completed e246fbf Windows renderer run 42404341904/job 128498692034.
+  The portable rename correction now compiles; check-firefly-protocol-files fails
+  at its first real Unicode metadata path with ENOENT, before renderer acceptance.
+- Upstream LibMain builds StringViews from narrow CRT argv. Recover the real wide
+  command line inside our two protocol test entry points, convert strictly to
+  owned UTF-8, then publish stable argv/views for the fixture lifetime. Keep the
+  existing Unicode directory/file inputs. Add an independent argument roundtrip
+  operation before file IO to distinguish entry encoding from file-open failures.
+- Link only these Windows fixture executables to shell32; retain upstream entry,
+  runtime initialization and all product files unchanged. This is fixture argument
+  repair, not a claim that all product/helper Unicode entry paths are accepted.
+
+Validation: local macOS native argument/file/frame/separate-child and real
+JavaScript/LibWeb fetch gates pass without GUI; Windows requires the fresh hosted
+roundtrip and actual file tests. Keep any later failure visible, with no Unicode
+skip or permissive decoding. Source style/upstream/site checks are required before
+commit. Code-OSS live resource transport and public protocol are still first;
+full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

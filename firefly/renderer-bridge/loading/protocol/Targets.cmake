@@ -23,6 +23,7 @@ target_link_libraries(firefly-protocol-fetch-probe PRIVATE firefly-protocol-fetc
                                                            firefly-protocol-files LibMain)
 ladybird_check_skia_confinement(firefly-protocol-fetch-probe)
 if(WIN32)
+    target_link_libraries(firefly-protocol-fetch-probe PRIVATE shell32)
     ladybird_windows_bin(firefly-protocol-fetch-probe CONSOLE)
 endif()
 add_custom_target(

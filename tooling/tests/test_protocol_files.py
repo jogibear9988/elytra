@@ -32,9 +32,12 @@ def main():
                 timeout=30,
             )
             assert result.returncode == 0, result
-            if operation not in ("metadata", "metadata-head"):
+            if operation not in ("metadata", "metadata-head", "arguments"):
                 print(result.stdout.strip())
             return result.stdout
+
+        assert run("arguments", path).rstrip("\n") == str(path)
+        print("PASS native Unicode command-line path is preserved before file IO")
 
         def packet(kind, epoch=101, request=7, offset=0, payload=b""):
             return (

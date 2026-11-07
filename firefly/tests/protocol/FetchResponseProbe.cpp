@@ -5,6 +5,7 @@
  * Read-request recording follows Tests/LibWeb/TestFetchBodyStream.cpp. Exercise
  * actual LibWeb bodies/controllers with our real file jobs, without a desktop.
  */
+#include "Arguments.h"
 #include "FetchDispatchProbe.h"
 #include "loading/protocol/Response.h"
 #include "native/protocol/files/FilePacket.h"
@@ -378,6 +379,9 @@ ErrorOr<void> controls(JS::Realm& realm)
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+    Firefly::Tests::ProtocolArguments native_arguments;
+    TRY(native_arguments.initialize(arguments));
+    arguments = native_arguments.arguments();
     if (arguments.argc != 2)
         return Error::from_string_literal("Expected authorized fixture path");
     Core::EventLoop::initialize_for_current_thread();

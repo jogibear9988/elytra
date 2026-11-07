@@ -1,5 +1,6 @@
 /** Real checked file IO and streamed bytes to a separate native consumer. No window or JS. */
 #include "../ipc/SpawnBytePeer.h"
+#include "Arguments.h"
 #include "FileRequestsProbe.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/protocol/files/FileBody.h"
@@ -310,6 +311,9 @@ static ErrorOr<void> transfer(Core::EventLoop& loop, StringView path, TransferMo
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+    Firefly::Tests::ProtocolArguments native_arguments;
+    TRY(native_arguments.initialize(arguments));
+    arguments = native_arguments.arguments();
 #ifdef AK_OS_WINDOWS
     // Decoder fixtures must see all original bytes, including a DOS EOF byte.
     if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1)
@@ -326,6 +330,11 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return Error::from_string_literal("Expected a file body operation and absolute path");
     auto operation = arguments.strings[1];
     auto path = arguments.strings[2];
+    if (operation == "arguments"sv) {
+        outln("{}", path);
+        return 0;
+    }
+
     if (operation == "packet-encode"sv) {
         Array<u8, 3> bytes { 0, 128, 255 };
         auto packet = TRY(

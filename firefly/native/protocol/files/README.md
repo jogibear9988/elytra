@@ -89,4 +89,10 @@ wire and ownership decision.
 The [LibWeb response adapter](../../../../docs/architecture/0116-libweb-protocol-responses.md)
 now consumes frames into actual engine pending responses and bounded body streams.
 Its non-GUI component test reads real files and exercises controller/reader abort.
-This does not yet connect URL dispatch or a live renderer request service.
+The [scheme-fetch seam](../../../../docs/architecture/0117-native-scheme-fetch-dispatch.md)
+also passes actual JavaScript fetch in a same-process fixture. A live renderer
+request service is still missing.
+
+Both native protocol fixtures recover Windows command-line arguments from UTF-16
+into owned UTF-8; the file gate checks exact Unicode path preservation before IO.
+Fresh Windows execution is required: local macOS results do not accept that path.
