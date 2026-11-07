@@ -67,6 +67,12 @@ Benchmark Electron and Firefly with the same workload before comparing costs.
 
 ## Acceptance and measurements
 
+The internal [trusted WebContent handoff](../architecture/0101-trusted-byte-endpoint-handoff.md)
+exercises a raw native endpoint in the real headless helper. It is an integration
+fixture, not a document-authorized file route or public binary IPC API. Public
+messages remain plain data; efficient Code-OSS file/port transport still needs the
+ownership, revocation and VM delivery work above.
+
 Require independent content hashes and exact sliced-view bytes across real
 processes; cancellation, pressure, navigation revocation, forged/replayed tokens,
 out-of-range reads, file replacement and renderer loss must fail safely. Preserve

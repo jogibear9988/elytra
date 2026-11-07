@@ -52,6 +52,7 @@ def main():
         choices=[
             "firefly-renderer-probe",
             "firefly-preload-probe",
+            "firefly-byte-renderer-probe",
             "firefly-window-probe",
             "firefly",
         ],
@@ -81,7 +82,10 @@ def main():
         parser.error(
             "The native window probe is available only for macOS/Linux/experimental Windows"
         )
-    if args.target == "firefly-preload-probe" and sys.platform not in ["darwin", "linux"]:
+    if args.target in [
+        "firefly-preload-probe",
+        "firefly-byte-renderer-probe",
+    ] and sys.platform not in ["darwin", "linux"]:
         parser.error("The owned sandboxed helper is available only for macOS/Linux probes")
     if args.jobs < 1:
         parser.error("--jobs must be positive")

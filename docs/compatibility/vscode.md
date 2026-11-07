@@ -61,6 +61,12 @@ The [native byte channel](../architecture/0100-native-byte-channel.md) also pass
 its local macOS component/owned-child gate. This supplies a real byte transport,
 not yet a document-bound Code-OSS or public Firefly IPC path.
 
+The next [trusted endpoint handoff](../architecture/0101-trusted-byte-endpoint-handoff.md)
+adds a real headless WebContent integration gate: native handle delivery, PID/cookie
+correlation, raw byte echo and default/invalid/duplicate denial controls. The product
+helper still installs no byte receiver. Document/realm/epoch routing and revocation,
+VM-safe delivery and public binary/event/port APIs remain prerequisites for Code-OSS.
+
 ## Implementation order
 
 Choose general compatibility work against this application path first. Keep

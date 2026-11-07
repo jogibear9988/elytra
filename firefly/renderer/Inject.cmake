@@ -4,6 +4,10 @@ if(NOT DEFINED FIREFLY_SOURCE_DIR)
     message(FATAL_ERROR "Configure with tooling/build_renderer.py")
 endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+cmake_path(CONVERT "${FIREFLY_SOURCE_DIR}/firefly/cmake" TO_CMAKE_PATH_LIST firefly_module_path
+           NORMALIZE)
+list(PREPEND CMAKE_MODULE_PATH "${firefly_module_path}")
+set_property(GLOBAL PROPERTY FIREFLY_BYTE_GENERATOR_SELECTED FALSE)
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_upstream.py"
                 RESULT_VARIABLE firefly_upstream_check)
 if(NOT firefly_upstream_check EQUAL 0)

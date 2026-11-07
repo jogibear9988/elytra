@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Native byte handoff</title>
+<p id="status">Waiting for document script</p>
+<script>
+  const absent = ['process', 'require', 'Buffer', '__miteEnqueueTick'].every(
+    (name) => !(name in globalThis)
+  );
+  document.querySelector('#status').textContent = `BYTE_DOCUMENT_OK CAPABILITIES_ABSENT=${absent}`;
+</script>

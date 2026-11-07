@@ -6501,6 +6501,44 @@ site 192 pages / 13,559 local links/resources/fragments pass. No local GUI. New
 Linux/Windows paths remain natively unaccepted; public IPC stays plain-data and
 Code-OSS still does not run. Goal active.
 
+## 2026-11-07: Transfer the native byte endpoint to real headless WebContent
+
+- Follow the user's Code-OSS priority with an actual renderer transport slice,
+  retaining the full platform/Designer/security goal. Add a native trusted endpoint
+  handoff over the existing frontend control connection instead of another named
+  bootstrap service or a page-visible API.
+- Keep vendor sources unchanged. Owned CMake module wrappers preserve upstream
+  targets/HSTS behavior and select a fingerprinted IPC-generator adapter for only
+  WebContentServer. Independently generate the original protocol, require all 251
+  original IDs to remain identical and append exactly one NotRouted message. Fail
+  on changed fingerprints, ambiguous seams or a missing generator selection.
+- Add one LibIPC hook shared by the generated control stub and helper. Default and
+  all-zero-cookie admission close the transferred native handle. Stage its header
+  under the existing binary include root; standalone Mite stays independent.
+- Register a receiver only in the diagnostic helper, admitting once per session.
+  Native PID/cookie handshake and raw byte echo run after the real renderer sandbox
+  is installed. Reject duplicate endpoints without replacing the original channel;
+  unregister/close on shutdown. Product helper has no receiver.
+- Add a real headless LibWeb gate: verify 65,536 exact arbitrary bytes, actual
+  renderer PID/cookie and duplicate refusal; require the original endpoint and DOM
+  control connection to remain usable. Separate ordinary-helper/zero-cookie
+  negatives require peer EOF followed by a successful live-document response,
+  rejecting parser disconnect/crash false positives. No privileged page globals.
+- Include the gate in macOS release helper checks and Linux renderer workflow.
+  Update ADR 0101, upstream-update, Code-OSS and file transport docs. Public binary
+  IPC remains disabled: document/realm/epoch binding, ordered revocation, VM-safe
+  decoding and compatible event/port/preload integration are the next priority.
+
+Validation: local macOS ordinary/diagnostic/product helper and probe builds pass;
+the complete handoff gate passes.
+Existing headless isolated-world/helper callback/lifetime controls, native byte
+channel/owned-child tests and binary graph/separate-process wire gates pass. Full
+pinned formatting, Python syntax/diff and unmodified-upstream checks pass; generated
+site 193 pages / 13,633 local links/resources/fragments passes. No
+local visible GUI. Linux execution and native Windows renderer integration remain
+pending; neither Code-OSS launch nor public binary API support is claimed. Full
+goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

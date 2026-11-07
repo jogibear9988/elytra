@@ -3,6 +3,7 @@
  * capabilities must never be installed by the production preload service.
  */
 
+#include "DiagnosticByteChannel.h"
 #include "RendererSession.h"
 #include "context/ContextBridge.h"
 #include "context/FunctionBridge.h"
@@ -490,6 +491,7 @@ void initialize()
     if (session)
         fail("Session initialized twice"sv);
     session = new Session;
+    initialize_byte_diagnostic();
     session->jobs = make<WorldJobGuard>(Web::Bindings::main_thread_vm());
     apply({});
     session->sweep_timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(10), [] {
@@ -582,6 +584,7 @@ void apply(Web::WebDriver::BiDiSessionState state)
 
 void shutdown()
 {
+    shutdown_byte_diagnostic();
     Web::WebDriver::BiDi::set_event_sink({});
     if (!session)
         return;

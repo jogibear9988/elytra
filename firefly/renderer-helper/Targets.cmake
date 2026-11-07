@@ -14,10 +14,11 @@ include("${CMAKE_CURRENT_LIST_DIR}/Layout.cmake")
 add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp" "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp" ${firefly_renderer_platform_sources})
+    "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp" ${firefly_renderer_platform_sources})
 add_dependencies(FireflyWebContent check-firefly-upstream check-firefly-renderer-hooks)
 target_link_libraries(FireflyWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox
-                                                LibURL)
+                                                LibURL firefly-byte-channel)
 set_target_properties(
     FireflyWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                         "${firefly_helper_binary_dir}")
@@ -56,13 +57,28 @@ target_compile_definitions(firefly-preload-probe
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_helper_binary_dir}")
 add_dependencies(firefly-preload-probe stage-firefly-helper check-firefly-upstream)
 ladybird_check_skia_confinement(firefly-preload-probe)
+add_executable(firefly-byte-renderer-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/renderer/ByteRendererProbe.cpp")
+target_link_libraries(firefly-byte-renderer-probe PRIVATE LibWebView firefly-byte-channel LibURL
+                                                          LibGfx LibMain)
+target_compile_definitions(
+    firefly-byte-renderer-probe PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_helper_binary_dir}"
+                                        FIREFLY_UPSTREAM_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
+add_dependencies(firefly-byte-renderer-probe stage-firefly-helper check-firefly-upstream)
+ladybird_check_skia_confinement(firefly-byte-renderer-probe)
+add_custom_target(
+    check-firefly-byte-renderer
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_byte_renderer.py"
+            --probe "$<TARGET_FILE:firefly-byte-renderer-probe>"
+    DEPENDS firefly-byte-renderer-probe
+    USES_TERMINAL VERBATIM)
 add_custom_target(
     check-firefly-renderer-helper
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_renderer_helper.py"
         --probe "$<TARGET_FILE:firefly-preload-probe>" --control
         "$<TARGET_FILE:firefly-renderer-probe>"
-    DEPENDS firefly-preload-probe firefly-renderer-probe
+    DEPENDS firefly-preload-probe firefly-renderer-probe check-firefly-byte-renderer
     USES_TERMINAL VERBATIM)
 
 if(FIREFLY_BUILD_RUNTIME)

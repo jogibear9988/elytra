@@ -269,6 +269,19 @@ symbol inventory and relocated full-app gates if OpenSSL/CMake linkage changes.
 Do not keep an accidental engine export as a substitute for the explicit provider.
 Unknown archive ABI/platform changes reject; static standalone Mite stays independent.
 
+## Byte transport bootstrap
+
+The [trusted byte bootstrap adapter](../architecture/0101-trusted-byte-endpoint-handoff.md)
+also fingerprints Meta/CMake/code_generators.cmake, the original Python IPC
+generator and WebContentServer.ipc. Review tooling/prepare_byte_codegen.py and
+tooling/generate_byte_bootstrap.py together; do not only refresh hashes. Confirm
+the targets/hsts_preload wrapper order still selects the owned generator and all
+original message IDs remain unchanged. Build the ordinary and owned helpers and
+run check-firefly-byte-renderer: raw delivery must pass, while unregistered/zero
+cookie/duplicate handoffs close safely without breaking the native document
+control connection. Keep the product receiver disabled until its authorization
+and public routing gates exist. These adapters never write to the vendor tree.
+
 ## File module seam
 
 Review tooling/prepare_file_module_hook.py and renderer-bridge/loading when changing

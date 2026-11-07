@@ -1,5 +1,6 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
+include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/bootstrap/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/ExecutionContextAdapter.cmake")
 mite_adapt_execution_context("${FIREFLY_SOURCE_DIR}")
 include("${CMAKE_CURRENT_LIST_DIR}/LinuxFFmpeg.cmake")
