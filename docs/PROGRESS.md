@@ -6344,6 +6344,26 @@ Validation: generated site and local links/anchors pass; diff whitespace clean.
 Documentation only, no local GUI or runtime changes. Windows work remains current
 priority and the full goal remains active.
 
+## 2026-11-07: Fix native Windows callback-adapter include selection
+
+- Revalidate the original long native jobs: Windows run 42352483937/job
+  128343398086 is now terminal failure, not a live wait. Its actual clang-cl
+  command fails at CustomEventAdapter.cpp: serialization/EventValues.h missing.
+  The command has generated-adapter includes but lacks our renderer-bridge root.
+- The source-selection condition treated FIREFLY_SOURCE_DIR as a regex. Native
+  Windows backslashes (and checkout metacharacters) therefore suppress the literal
+  owned-path match. Replace it with string(FIND) prefix comparison, preserving the
+  per-source include scope and upstream source list. No Ladybird changes.
+- Original Linux baseline run 42351420391/job 128340196083 is terminal as well:
+  actual renderer/app gates progress to archive staging, which refuses conflicting
+  libdbus-1.so.3 contents. Preserve this correct refusal for subsequent dependency
+  provenance diagnosis; do not silently choose a different library.
+
+Validation: actual CMake adapter include block configures with native Windows
+backslashes and regex-metacharacter checkout paths, requires the owned include
+root and verifies upstream sources do not gain it; source formatting/diff pass.
+Fresh native Windows renderer compilation remains required. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

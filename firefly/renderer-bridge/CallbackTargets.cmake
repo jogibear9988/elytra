@@ -140,7 +140,11 @@ endif()
 # Owned adapters compile as LibWeb units, so they need our subsystem include root independently of
 # the firefly-isolated-world consumer target.
 foreach(source IN LISTS firefly_web_adapted_sources)
-    if(source MATCHES "^${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/")
+    # This is a literal path prefix, not a regex. Native Windows backslashes and metacharacters in a
+    # checkout path must not suppress owned includes.
+    string(FIND "${source}" "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/"
+                firefly_owned_source_prefix)
+    if(firefly_owned_source_prefix EQUAL 0)
         set_property(
             SOURCE "${source}" TARGET_DIRECTORY LibWeb
             APPEND
