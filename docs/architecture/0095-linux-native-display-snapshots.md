@@ -1,7 +1,11 @@
 # ADR 0095: Native X11 display snapshots before public screen integration
 
-Status: native component and public Linux query/notification wiring implemented;
-provider and actual app acceptance pending. Linux screen is not yet listed as tested. This does not change macOS display behavior or Ladybird sources.
+Status: native provider component accepted at 3936884 in
+[run 42350712038](https://github.com/jogibear9988/elytra/actions/runs/42350712038),
+job 128338038590. All nine native-service tests pass, including actual RandR output,
+work-area/cursor and scale-1/2 checks. Public Linux query/notification wiring is
+implemented but its actual app acceptance remains pending. No macOS/Ladybird
+source behavior is changed by this provider.
 
 ## Context
 

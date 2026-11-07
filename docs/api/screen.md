@@ -8,7 +8,8 @@ readiness and event policy pass through the real API factory in Node and Mite.
 The public Firefly/Electron desktop fixture also passes in hosted macOS
 [run 42316853522](https://github.com/jogibear9988/elytra/actions/runs/42316853522)
 at `19ad113`. Linux X11 native queries and owner-scoped notification wiring are
-implemented; their hosted provider/public-app acceptance is pending. Native
+implemented. The native provider passes its independent hosted gate at 3936884;
+public-app acceptance of the new binding remains pending. Native
 Windows display support and physical hotplug/DPI-change acceptance remain open.
 
 ```js
@@ -141,6 +142,8 @@ The shared geometry/readiness/event policy passes in Node/Mite without GUI. Host
 native tests independently compare output IDs, bounds/work area and cursor through
 xrandr/EWMH/Xlib. The actual Mite-driven app gate now requires these same native
 observations through public screen methods while retaining renderer/kernel checks.
-Those new native gates must pass on this implementation before Linux screen is
-listed as tested. Watchers use the bridge owner as Qt connection context; broader
+The provider gate passes at 3936884 in
+[run 42350712038](https://github.com/jogibear9988/elytra/actions/runs/42350712038).
+The public app gate must still pass before the complete Linux binding is listed
+as tested. Watchers use the bridge owner as Qt connection context; broader
 physical notification completeness is still pending.

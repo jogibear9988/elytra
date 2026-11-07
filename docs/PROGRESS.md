@@ -6200,6 +6200,26 @@ execution. Generated site: 187 pages and 13,185 links/resources/fragments pass.
 Actual Windows window/protocol acceptance is pending. Complete sandbox/main-Mite/Designer/packages and remaining Linux gates
 are unfinished. Goal active.
 
+## 2026-11-07: Record native Linux display and Windows pipe component acceptance
+
+- Original Linux native-service run 42350712038/job 128338038590 at 3936884 completes
+  successfully: all nine native OS-service tests pass (1.62s), including actual
+  no-GUI display refusal and independent RandR/EWMH/Xlib scale-1/2 snapshots.
+  This validates the real Linux provider, not the later public VM binding/app gate.
+  Update screen contract, ADR 0095 and Linux guide with that exact evidence.
+- Windows observer component run 42354246345/job 128348719912 at 3c8999e succeeds:
+  native process/parent/image/creation/token/job observations, invalid/exited PID
+  refusal, actual pipe readiness, bounded silent timeout and one-MiB output budget.
+  Its native Python peers prove protocol/control mechanics only; the actual Qt
+  window/HWND/WebContent-loss and production sandbox are still unaccepted.
+- Record scoped protocol proof in ADR 0097. Do not turn a successful component
+  into a general Windows desktop, physical-display or Linux distribution claim.
+  Original long Windows renderer/Linux baseline jobs remain under their own gates.
+
+Validation: native component results and local diff/upstream checks pass without
+GUI. Generated site: 187 pages and 13,187 links/resources/fragments pass. Full Windows/Linux renderer/app/archive/Designer
+integration remains pending; goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

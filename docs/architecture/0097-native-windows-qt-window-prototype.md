@@ -60,3 +60,14 @@ remain required. No local desktop UI tests are necessary for this bring-up step.
 API references: [PeekNamedPipe](https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe),
 [TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess),
 and the pinned Qt DirectX and existing native window-probe sources.
+
+
+## Native protocol component evidence
+
+The Windows observer/pipe component at 3c8999e passes in
+[run 42354246345](https://github.com/jogibear9988/elytra/actions/runs/42354246345),
+job 128348719912: native process facts, actual pipe readiness, bounded silent timeout
+and one-MiB startup-output refusal all succeed with owned Python peers. This proves
+the observation/protocol component only. It does not execute the Qt window, HWND
+assertions, owned WebContent termination or product sandbox. Their full native
+renderer/window gate remains pending.
