@@ -5830,6 +5830,28 @@ The original complete specification stays active: full Linux distributions/apps,
 Windows desktop and remaining Node/Electron/OS/platform work are unfinished.
 Goal active.
 
+## 2026-11-07: Share pinned native dependency notices for both package backends
+
+- Previous goal turn delivers real progress: ELF closure staging is committed
+  and passes its compiled Linux relocation/deduplication/refusal gate. Continue
+  toward whole-app packaging, including the mandatory dependency notices.
+- Move the existing macOS notice/cache helpers to native_package/notices.py.
+  Preserve the macOS import names and its two-SDK behavior, including strict
+  embedded-JS notice hashes and Rust source fallback archives. Linux can pass
+  the one combined runtime SDK without duplicating its vcpkg notice inventory.
+  No downloaded/generated notice text or upstream source is rewritten.
+- Existing runtime-notice manifest/distribution/tamper tests pass through the
+  macOS compatibility imports. Run the actual shared collector against the
+  current renderer SDK: project/Ladybird, embedded-JS/vcpkg and 350 pinned Rust
+  package inventories are collected, with the expected single SDK notice tree.
+  This is notice-data validation, not a new native app/platform acceptance.
+
+Validation: Python syntax, notice tests and actual offline pinned inventory pass;
+final source checks recorded before commit. No GUI runs. Linux system-library
+notices, launcher, payload/archive staging and real packaged-app gates remain
+required; optional macOS profile and latest Linux graph remain under their own
+native CI. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -47,3 +47,12 @@ For host/parser refusal checks only, without loader execution or GUI:
 ```sh
 python3 tooling/tests/test_elf_package.py --check-guard
 ```
+
+## Shared dependency notices
+
+notices.py preserves project/Ladybird notices, verified embedded JavaScript
+licenses, vcpkg copyright records and pinned Rust package metadata/notices. Crates
+without standalone notice files retain their source archive. The existing macOS
+packager imports this same implementation; passing one combined runtime SDK
+avoids copying its vcpkg notice set twice. OS distribution library notices remain
+a separate Linux packaging responsibility.
