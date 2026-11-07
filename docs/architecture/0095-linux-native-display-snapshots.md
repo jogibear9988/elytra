@@ -1,8 +1,7 @@
 # ADR 0095: Native X11 display snapshots before public screen integration
 
-Status: implemented component; native hosted acceptance pending. The public Linux
-screen API remains explicitly unsupported until its integration and actual app
-acceptance pass. This does not change macOS display behavior or Ladybird sources.
+Status: native component and public Linux query/notification wiring implemented;
+provider and actual app acceptance pending. Linux screen is not yet listed as tested. This does not change macOS display behavior or Ladybird sources.
 
 ## Context
 
@@ -34,9 +33,9 @@ Omit internal-panel, color and component-depth metadata until native evidence
 supports them; an eDP/LVDS-looking name alone does not prove a physical panel.
 
 Keep this component independently buildable/testable in the native-services graph.
-The public VM binding/error translation, owner-scoped notifications and main-process
-API acceptance form the next integration step. No new public API is advertised by
-component compilation alone.
+Public VM binding now converts provider error records to native JS exceptions;
+owner-scoped notifications reuse the existing Qt/VM bridge. Main-process API
+acceptance is required independently of component compilation.
 
 ## Validation and remaining work
 
@@ -51,7 +50,7 @@ This gate currently targets one virtual output at an unrotated zero origin.
 Physical/multiple/mixed-DPI outputs, panel identity, rotations, mirroring, hotplug,
 work-area notifications, Wayland and Electron comparisons remain required; neither
 policy fixtures nor a virtual single-display gate prove those behaviors. Pending
-public integration must retain explicit unsupported failures until completed.
+native integration acceptance must not be represented as tested platform support.
 
 Sources: [Qt QScreen](https://doc.qt.io/qt-6/qscreen.html),
 [Electron Display](https://www.electronjs.org/docs/latest/api/structures/display),

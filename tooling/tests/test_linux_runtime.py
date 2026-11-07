@@ -16,6 +16,7 @@ import threading
 
 from test_renderer import ROOT, environment, linux_security, stop
 from _x11 import managed_window_manager
+from _x11_screen import native_layout, compare_snapshot
 from _linux_package import packaged_app, mapped_elfs
 
 
@@ -118,10 +119,17 @@ def main():
                 assert renderer["PPid"] == process.pid, (renderer, process.pid)
                 assert renderer["NoNewPrivs"] == 1 and renderer["Seccomp"] == 2, renderer
                 assert renderer["Seccomp_filters"] > parent["Seccomp_filters"], (renderer, parent)
+                compare_snapshot(
+                    {"screens": value["screen"], "cursor": value["cursor"]},
+                    native_layout(os.environ),
+                    1,
+                )
                 assert value == {
                     "renderer": pid,
                     "ipc": 1,
                     "clipboard": True,
+                    "screen": value["screen"],
+                    "cursor": value["cursor"],
                     "explicitUnsupported": True,
                     "rendered": True,
                 }, value
@@ -240,7 +248,7 @@ def main():
             "PASS actual stripped archive extraction, launcher, library closure and no SDK ELF mappings"
         )
     print(
-        "Pending: public screen/theme, broader Electron/platform behavior and distribution coverage"
+        "Pending: theme, physical display/event acceptance, broader Electron/platform behavior and distribution coverage"
     )
 
 

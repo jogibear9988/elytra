@@ -1,3 +1,6 @@
+# Native notification ownership is shared; providers remain platform-specific.
+add_library(firefly-screen-events STATIC "${CMAKE_CURRENT_LIST_DIR}/ScreenEvents.cpp")
+target_link_libraries(firefly-screen-events PUBLIC Qt::Gui)
 # RandR is a native Linux dependency. Do not substitute synthetic IDs on other hosts.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(PkgConfig REQUIRED)

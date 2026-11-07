@@ -7,8 +7,9 @@ its actual OS snapshots pass a windowless CLI probe on macOS ARM64. Geometry,
 readiness and event policy pass through the real API factory in Node and Mite.
 The public Firefly/Electron desktop fixture also passes in hosted macOS
 [run 42316853522](https://github.com/jogibear9988/elytra/actions/runs/42316853522)
-at `19ad113`. Native Windows/Linux desktop support and
-physical display hotplug/DPI-change acceptance remain open.
+at `19ad113`. Linux X11 native queries and owner-scoped notification wiring are
+implemented; their hosted provider/public-app acceptance is pending. Native
+Windows display support and physical hotplug/DPI-change acceptance remain open.
 
 ```js
 import {app, screen} from 'firefly';
@@ -48,21 +49,24 @@ the rectangle's center and nearest-distance policy. This is the current Firefly
 policy; all Electron tie and degenerate-rectangle behavior is not established.
 Invalid coordinate types/fractions/overflow throw `ERR_INVALID_ARG_TYPE`;
 negative dimensions throw `ERR_OUT_OF_RANGE`. With no primary display, all queries
-except `getAllDisplays()` throw `ERR_FIREFLY_DISPLAY_UNAVAILABLE`.
+except `getAllDisplays()` throw `ERR_FIREFLY_DISPLAY_UNAVAILABLE` on macOS.
+Linux provider failures (including missing/ambiguous RandR mappings) throw that
+error from any query, including `getAllDisplays()`. This is an explicit partial
+platform difference; no synthetic display is substituted.
 
 ## Display record
 
 | Field | Meaning |
 | --- | --- |
-| `id` | CoreGraphics display ID; not an array index or persistent hardware identity |
+| `id` | CoreGraphics display ID on macOS; native RandR output XID on Linux; neither is an array index or persistent hardware identity |
 | `bounds`, `workArea` | `{x, y, width, height}` integer DIP rectangles |
 | `size`, `workAreaSize` | `{width, height}` from the corresponding rectangles |
-| `scaleFactor` | AppKit backing scale |
-| `rotation` | CoreGraphics rotation in degrees |
-| `internal` | CoreGraphics built-in display flag |
+| `scaleFactor` | AppKit backing scale or Qt native device scale |
+| `rotation` | Native clockwise rotation in degrees |
+| `internal` | CoreGraphics built-in flag on macOS; omitted on Linux pending verified panel metadata |
 | `detected` | true for a currently enumerated display |
-| `label` | AppKit localized display name |
-| `displayFrequency` | Current CoreGraphics mode frequency in Hz, or 0 when unavailable |
+| `label` | AppKit localized name or Qt/X11 output label |
+| `displayFrequency` | Native CoreGraphics mode or Qt refresh rate in Hz; unavailable values need platform-specific interpretation |
 | `touchSupport`, `accelerometerSupport` | `unknown`; not capability detection |
 
 Color space/depth, HDR and other Electron Display properties are not implemented
@@ -122,3 +126,21 @@ The shared public export fixture lives in
 batched desktop CI suite. Its results must be distinguished from the windowless
 probe. API baseline: [Electron screen](https://www.electronjs.org/docs/latest/api/screen)
 and [Display](https://www.electronjs.org/docs/latest/api/structures/display).
+
+
+## Experimental Linux X11 provider
+
+The provider requires the actual xcb GUI thread and RandR 1.3. Each Qt screen must
+map uniquely to an active connected RandR output; failures and reflected layouts
+are explicit errors. Bounds/work area/cursor use Qt DIP relative to the primary
+origin. No cursor movement occurs. Internal-panel/color/depth fields are omitted;
+physical/mixed-DPI, nonprimary work-area fidelity, rotation and hotplug remain
+unverified. See [ADR 0095](../architecture/0095-linux-native-display-snapshots.md).
+
+The shared geometry/readiness/event policy passes in Node/Mite without GUI. Hosted
+native tests independently compare output IDs, bounds/work area and cursor through
+xrandr/EWMH/Xlib. The actual Mite-driven app gate now requires these same native
+observations through public screen methods while retaining renderer/kernel checks.
+Those new native gates must pass on this implementation before Linux screen is
+listed as tested. Watchers use the bridge owner as Qt connection context; broader
+physical notification completeness is still pending.

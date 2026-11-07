@@ -21,6 +21,14 @@ function unsupported(operation) {
   }
 }
 
+let notReady = false;
+try {
+  screen.getAllDisplays();
+} catch (error) {
+  notReady = error.code === 'ERR_FIREFLY_NOT_READY';
+}
+check(notReady, 'screen queried the OS before app readiness');
+
 app
   .whenReady()
   .then(async () => {
@@ -99,7 +107,23 @@ app
     await clipboard.writeText(text);
     check((await clipboard.readText()) === text, 'native clipboard did not round-trip');
 
-    unsupported(() => screen.getAllDisplays());
+    const displays = screen.getAllDisplays();
+    const primary = screen.getPrimaryDisplay();
+    const cursor = screen.getCursorScreenPoint();
+    check(
+      displays.length > 0 && displays.some((display) => display.id === primary.id),
+      'native display identity'
+    );
+    check(screen.getDisplayMatching(primary.bounds).id === primary.id, 'native display matching');
+    check(
+      displays.some((display) => display.id === screen.getDisplayNearestPoint(cursor).id),
+      'nearest native display'
+    );
+    const copy = screen.getPrimaryDisplay();
+    copy.bounds.width = -1;
+    check(screen.getPrimaryDisplay().bounds.width > 0, 'independent native display snapshots');
+
+    unsupported(() => screen.dipToScreenPoint(cursor));
 
     unsupported(() => nativeTheme.shouldUseDarkColors);
 
@@ -113,6 +137,8 @@ app
       renderer: window.webContents.getOSProcessId(),
       ipc: calls,
       clipboard: true,
+      screen: { primaryId: primary.id, displays },
+      cursor,
       explicitUnsupported: true,
       rendered: true
     };

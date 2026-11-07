@@ -19,6 +19,7 @@ on:
       - 'tooling/tests/test_x11_clipboard.py'
       - 'tooling/tests/test_x11_geometry.py'
       - 'tooling/tests/test_x11_screen.py'
+      - 'tooling/tests/_x11_screen.py'
       - 'tooling/tests/_x11.py'
       - 'tooling/tests/test_runtime_paths.py'
       - 'vendor/ladybird'

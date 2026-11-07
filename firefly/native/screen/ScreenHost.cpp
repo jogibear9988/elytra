@@ -1,11 +1,12 @@
 /** Keep OS snapshots separate from VM objects and queue through the existing bridge owner. */
 #include "ScreenHost.h"
 #include "Screen.h"
+#include <LibGC/Root.h>
+#include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/ValueInlines.h>
-#include <QGuiApplication>
 #include <QJsonDocument>
-#include <QScreen>
 
 namespace Firefly {
 void install_screen_host(JS::Realm& realm, JS::Object& host)
@@ -15,7 +16,18 @@ void install_screen_host(JS::Realm& realm, JS::Object& host)
         host.define_native_function(
             realm, name,
             [read](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto bytes = QJsonDocument(read()).toJson(QJsonDocument::Compact);
+                auto snapshot = read();
+                if (snapshot.contains("error")) {
+                    auto message = snapshot["error"].toObject()["message"].toString().toUtf8();
+                    GC::Root error { JS::Error::create(vm.realm(),
+                        Utf16String::from_utf8(StringView(message.constData(), message.size()))) };
+                    error->define_direct_property("code"_utf16,
+                        JS::PrimitiveString::create(vm, "ERR_FIREFLY_DISPLAY_UNAVAILABLE"_utf16),
+                        JS::default_attributes);
+                    return JS::throw_completion(error);
+                }
+
+                auto bytes = QJsonDocument(snapshot).toJson(QJsonDocument::Compact);
                 return JS::PrimitiveString::create(
                     vm, Utf16String::from_utf8(StringView(bytes.data(), bytes.size())));
             },
@@ -23,26 +35,4 @@ void install_screen_host(JS::Realm& realm, JS::Object& host)
     }
 }
 
-void watch_screen_changes(QObject& context, std::function<void()> changed)
-{
-    auto connect = [&context, changed](QScreen* screen) {
-        QObject::connect(screen, &QScreen::geometryChanged, &context, [changed] { changed(); });
-        QObject::connect(
-            screen, &QScreen::availableGeometryChanged, &context, [changed] { changed(); });
-        QObject::connect(
-            screen, &QScreen::logicalDotsPerInchChanged, &context, [changed] { changed(); });
-        QObject::connect(screen, &QScreen::orientationChanged, &context, [changed] { changed(); });
-    };
-
-    for (auto* screen : QGuiApplication::screens())
-        connect(screen);
-    QObject::connect(
-        qGuiApp, &QGuiApplication::screenAdded, &context, [connect, changed](QScreen* screen) {
-            connect(screen);
-            changed();
-        });
-    QObject::connect(qGuiApp, &QGuiApplication::screenRemoved, &context, [changed] { changed(); });
-    QObject::connect(
-        qGuiApp, &QGuiApplication::primaryScreenChanged, &context, [changed] { changed(); });
-}
 }

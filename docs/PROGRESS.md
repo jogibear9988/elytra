@@ -6012,6 +6012,31 @@ Validation: CPU policy multi-case test, Python formatting and diff checks pass
 without GUI. Hosted generated-command and native app/package acceptance remain
 pending. Goal active.
 
+## 2026-11-07: Wire public Linux screen queries without weakening native acceptance
+
+- Bind the real RandR/Qt provider through the shared screen host and route native
+  unavailable records to ERR_FIREFLY_DISPLAY_UNAVAILABLE JS exceptions. Reuse the
+  existing owner-scoped Qt display watcher/VM notification path. Move notification
+  implementation into a separate Qt-only source; retain macOS behavior.
+- Separate Linux startup-environment refusal from Linux desktop bindings, so its
+  no-GUI probe still compiles on macOS without fake X11 providers or a JS VM.
+  Native Linux-only screen bindings link the actual provider and common watchers.
+- Replace the Linux app fixture's old screen-unsupported assertion with real public
+  readiness, enumeration, primary/cursor/matching/nearest and independent-copy
+  checks. Its live peer independently validates native output identity, DIP bounds,
+  work area and cursor using shared Xrandr/EWMH/Xlib observations. Preserve every
+  actual renderer/parent/kernel/preload/IPC check, explicit unsupported conversions
+  and unavailable nativeTheme behavior; archive execution uses the same app gate.
+- Update screen contract, matrix and ADR with implemented-versus-pending scope,
+  native identity/error differences, omitted fields and unverified physical/events
+  coverage. User requests a broader documentation audit; that follows separately.
+
+Validation: actual macOS Firefly/environment targets rebuild/link, native no-GUI
+startup refusal and actual Node/Mite screen policy pass; Linux fixture stages and
+syntax-checks without GUI. Upstream pin unchanged. Native Linux provider/public
+app/archives remain pending; baseline checker fix is separately committed 108a32f.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -416,8 +416,9 @@ Qt/XCB RandR display provider in firefly/native/screen. It reads actual output I
 DIP geometry, work area, rotation and cursor without creating a window. Ambiguous
 or missing native mappings return an explicit error. The standalone native-services
 workflow now requires no-GUI refusal and independent xrandr/EWMH/Xlib checks at
-Qt scales 1 and 2. Hosted acceptance is pending; the public Linux screen/nativeTheme
-API remains unsupported until its separate integration/app acceptance is complete.
+Qt scales 1 and 2. Public Linux screen query/error/notification wiring is now
+implemented, with provider/app acceptance pending. nativeTheme remains explicitly
+unsupported. Physical/mixed-DPI/hotplug acceptance remains separate.
 
 
 ## Portable CPU policy and native crash diagnostics

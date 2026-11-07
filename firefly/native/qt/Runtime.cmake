@@ -45,12 +45,23 @@ if(APPLE)
 else()
     list(APPEND firefly_native_services "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryLinux.cpp")
 endif()
-# Compile the Linux service seam on macOS as well, without linking it into the AppKit runtime.
-add_library(firefly-linux-desktop-services STATIC "${CMAKE_CURRENT_LIST_DIR}/../platform/Linux.cpp")
-target_link_libraries(firefly-linux-desktop-services PUBLIC LibJS LibGC AK Qt::Core)
+# Compile startup refusal without a GUI/VM, including on macOS; native X11 bindings stay Linux-only.
+add_library(firefly-linux-environment STATIC
+            "${CMAKE_CURRENT_LIST_DIR}/../platform/LinuxEnvironment.cpp")
+target_link_libraries(firefly-linux-environment PUBLIC AK Qt::Core)
 add_executable(firefly-linux-environment-probe
                "${CMAKE_CURRENT_LIST_DIR}/../platform/EnvironmentProbe.cpp")
-target_link_libraries(firefly-linux-environment-probe PRIVATE firefly-linux-desktop-services)
+target_link_libraries(firefly-linux-environment-probe PRIVATE firefly-linux-environment)
+if(NOT APPLE)
+    add_library(
+        firefly-linux-desktop-services STATIC
+        "${CMAKE_CURRENT_LIST_DIR}/../platform/Linux.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenHost.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenLinux.cpp")
+    target_link_libraries(
+        firefly-linux-desktop-services PUBLIC LibJS LibGC AK firefly-linux-environment
+                                              firefly-x11-screen firefly-screen-events)
+endif()
 add_executable(
     firefly
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
@@ -72,7 +83,7 @@ target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generate
 target_compile_definitions(firefly
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_runtime_binary_dir}")
 target_link_libraries(firefly PRIVATE firefly-qt-view firefly-mite firefly-clipboard-protocol
-                                      firefly-runtime-paths)
+                                      firefly-runtime-paths firefly-screen-events)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
