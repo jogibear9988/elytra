@@ -5,6 +5,9 @@ same ClientRequest/IncomingMessage implementation as node:http over verified nat
 TLS; there is no separate JavaScript engine or plaintext fallback. Native Linux/Windows CLI HTTPS suites pass at da5e3e8; [current evidence](../status.md)
 records that baseline, with wider platform/option parity still open. HTTPS servers and Agents are unsupported.
 
+HTTP/2 and HTTP/3 are [planned later work](../roadmap.md#planned-http2-and-http3).
+Current HTTPS support does not negotiate either protocol.
+
 ```js
 import { get } from 'node:https';
 import { readFileSync } from 'node:fs';

@@ -29,10 +29,42 @@ separate deliverables. A Windows desktop/package remains the largest platform ga
 | Next | Practical Electron migration services | Native dialog/menu/tray/clipboard/shell/screen/image/session slices with Electron migration fixtures |
 | Next | Native Linux and platform-complete CI | Native builds/tests, renderer and process/security evidence, packages and launch acceptance on every required OS |
 | Next | Real application compatibility | Broader locked npm packages, unmodified application entry points where possible, meaningful Designer feature coverage and recorded differences |
+| Later, after current platform work | HTTP/2 and HTTP/3 in Mite's HTTP stack | Native protocol client/server slices, secure transport, independent interoperability and lifecycle/security tests; scope below |
 | Before production claims | Distribution and operational maturity | Notices, signing/notarization, installer/update policy, release/upgrade tests, reproducibility and security review |
 
 Upstream remains pinned and unmodified. Changes belong in our adapters/build files;
 no Node, V8, Chromium or WSL runtime fallback is permitted by the specification.
+
+## Planned HTTP/2 and HTTP/3
+
+Requested 2026-11-07. This is future implementation work, below current Windows/
+Linux desktop, Designer and distribution priorities. Today's HTTP/HTTPS/Fetch
+implementation remains HTTP/1; neither HTTP/2 nor HTTP/3 is supported yet.
+
+- **HTTP/2:** add a Node-compatible node:http2 client/server surface in vertical
+  slices, including sessions/streams, multiplexing, headers/trailers, flow control,
+  cancellation, stream/session errors and graceful shutdown. Use verified TLS/ALPN
+  for secure HTTP/2 and explicitly document any unsupported cleartext mode.
+- **HTTP/3:** add a native QUIC/TLS transport and HTTP/3 client/server support.
+  Select a maintained, pinned implementation with preserved notices. Choose the
+  public API against the then-current Node/standards baseline; do not invent a
+  Node-compatible node:http3 promise before such a baseline is verified. Document
+  UDP, certificate, connection lifecycle and platform requirements explicitly.
+- **Shared HTTP consumers:** design the native transport boundary so Mite Fetch
+  and eligible HTTP clients can reuse the new protocols with documented negotiation,
+  pooling and fallback rules. Preserve current HTTP/1 behavior and public contracts;
+  the node:http/node:https API must not silently become node:http2. Mite remains
+  independent of Firefly/LibWeb, Node and V8. Renderer networking is a separate
+  upstream integration concern.
+- **Acceptance:** require real independent HTTP/2 and HTTP/3 peers on native
+  macOS/Linux/Windows, protocol/version evidence, concurrent streams, pressure,
+  cancellation, malformed inputs, bounded resources, TLS verification/refusal and
+  shutdown. Compare HTTP/2 behavior against Node where applicable. Mark individual
+  APIs/options partial until tested; unsupported modes must fail explicitly.
+
+Choose dependencies and record an ADR when this work starts. Add detailed API
+references and compatibility entries alongside each working slice; this roadmap
+entry does not change current support status.
 
 ## Documentation sequence
 

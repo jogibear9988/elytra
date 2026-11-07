@@ -5,6 +5,9 @@ against Node 24.15.0 with independent HTTP/TLS peers. The native Linux/Windows
 CLI Fetch suites pass in the 65-suite baseline at da5e3e8; see [platform evidence](../status.md). These globals run in standalone Mite and Firefly's main process;
 Ladybird renderer globals remain separate. No Node, V8 or LibWeb is embedded in Mite.
 
+The current transport uses HTTP/1. HTTP/2 and HTTP/3 transport integration is
+[planned later work](../roadmap.md#planned-http2-and-http3), below current platform work.
+
 ```js
 const controller = new AbortController();
 const response = await fetch('https://example.com', { signal: controller.signal });

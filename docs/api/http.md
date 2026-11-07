@@ -6,6 +6,9 @@ Linux/Windows CLI HTTP suites at da5e3e8; [current evidence](../status.md) recor
 that baseline. Full option/error parity remains open. No renderer Node API is exposed. See the
 [compatibility matrix](../compatibility/mite-0.1.md) for existing server/platform scope.
 
+HTTP/2 and HTTP/3 are [planned later work](../roadmap.md#planned-http2-and-http3),
+not implemented by this HTTP/1 module. They are below current platform priorities.
+
 ```js
 import {request, get, ClientRequest, IncomingMessage} from 'node:http';
 ```

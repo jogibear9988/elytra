@@ -6327,6 +6327,23 @@ native security fixture acceptance remains pending. Goal active.
 Validation: source formatting, Python syntax and diff checks pass. No local GUI.
 A fresh native diagnostic result is required. Goal active.
 
+## 2026-11-07: Add requested HTTP/2 and HTTP/3 future work
+
+- Preserve the user's requested future scope in the delivery roadmap, explicitly
+  below current platform/Designer/distribution priorities. Cover native HTTP/2
+  sessions/streams and Node-style APIs, HTTP/3 over QUIC/TLS, client/server slices,
+  shared Fetch transport negotiation and documented fallback boundaries.
+- Require maintained pinned dependencies, standalone Mite separation, independent
+  protocol peers, native cross-platform lifecycle/security/interoperability gates
+  and detailed contracts as each slice becomes real. Defer HTTP/3 API selection
+  until its then-current Node/standards baseline is verified.
+- Link the plan from HTTP, HTTPS and Fetch references. Keep today's HTTP/1 scope
+  explicit; no HTTP/2, HTTP/3 or node:http3 implementation claim is introduced.
+
+Validation: generated site and local links/anchors pass; diff whitespace clean.
+Documentation only, no local GUI or runtime changes. Windows work remains current
+priority and the full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
