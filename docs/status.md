@@ -37,9 +37,21 @@ in [run 42389926763](https://github.com/jogibear9988/elytra/actions/runs/4238992
 The new synchronous resolve-hook slice passes local macOS Node/Mite/host-GC checks;
 its native Linux/Windows acceptance is pending. Linux 98866c3 fails linking before
 CTest in [run 42390960317](https://github.com/jogibear9988/elytra/actions/runs/42390960317);
-6c613ec adds the missing LibJS inline header, with new acceptance pending.
+6c613ec adds the missing LibJS inline header and passes the new full Linux run below.
 The new [promisify contract](api/util.md) passes local actual callback-service and
 host-GC gates; new native results remain pending.
+
+The native [custom-protocol origin/trust foundation](architecture/0111-custom-protocol-origins.md)
+now passes local tests against actual LibURL/LibWebCommon, including IDNA/IPv6,
+origin separation, immutable policy and concurrent reads. It is internal and
+unconfigured in product helpers; public protocol, full custom-standard parsing
+and resource transport remain absent. This does not advance the Code-OSS launch
+beyond its recorded protocol import failure. New native component CI is pending.
+
+Linux **6c613ec** passes all **76** runtime suites in 96.57 seconds
+([run 42391732431](https://github.com/jogibear9988/elytra/actions/runs/42391732431)),
+including actual resolve hooks. It accepts the inline-header link correction;
+new promisify/protocol changes need their own native results.
 
 The newer **adc00d0** Linux dependency/parser baseline passes all **75** suites
 in 66.05 seconds ([run 42389926816](https://github.com/jogibear9988/elytra/actions/runs/42389926816)).

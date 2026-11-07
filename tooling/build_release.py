@@ -122,6 +122,7 @@ def main():
         "check-firefly",
         "check-firefly-renderer",
         "check-firefly-isolation",
+        "check-firefly-protocol-origins",
         "check-firefly-renderer-helper",
         "--parallel",
         args.jobs,

@@ -60,8 +60,8 @@ custom events and the explicitly owned native signal subset. Local macOS passes
 the application-only cache policy, pure startup/launcher checks, real CLI parser
 synchronous resolve chains and promisify/native callback services with actual host GC.
 At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-hook
-acceptance remains pending after a Linux inline-definition link fix; the new
-promisify slice also requires its own native gates.
+acceptance passes Linux at 6c613ec (76 suites) after its inline-definition link fix;
+new promisify/native protocol components require separate native gates.
 Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js
@@ -70,6 +70,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 ```
 
 ## Firefly
+
+Public protocol remains absent. The internal [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
+does not yet provide resource handlers or application scheme registration.
 
 The [original-fs reference](original-fs.md) describes raw main-process filesystem
 access, separate facades and the remaining ASAR limitation.

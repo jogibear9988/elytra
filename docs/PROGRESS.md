@@ -7132,6 +7132,53 @@ local desktop suites, no Ladybird changes. ADR 0110 and detailed util reference
 record semantics and limits. Full goal active; protocol/startup, public binary/event/
 port IPC, workbench/native service integration and native Windows remain required.
 
+## 2026-11-07: Build actual custom-protocol origin and secure-context foundations
+
+- Audit the real pinned Code-OSS protocol usage: mainImpl registers privileged
+  custom schemes; protocolMainService later registers authorized vscode-file file
+  responses, blocks direct file access and handles managed remote resources.
+  Do not replace the current import failure with a dummy exported registry.
+- Add an internal native origin policy in C++, integrated with actual LibURL and
+  LibWebCommon through two fingerprinted owned build compositions. Preserve all
+  upstream bytes outside the include/early-return seams and all notices. Neither
+  the Ladybird source nor standalone Mite's linked dependency graph changes.
+- Native-only one-time atomic table publication validates canonical names, limits,
+  duplicates and builtin/internal takeover before changing state. Keep bounded
+  immutable policy alive for worker/static teardown; no reset, JS entry point,
+  environment or helper argument configures it. Product/diagnostic defaults remain
+  empty; only the native probe installs its own process table.
+- For standard entries, derive real custom-scheme/normalized-host/explicit-port
+  tuple origins using upstream domain/IDNA/IP parsing. Preserve host/scheme/port
+  separation and relative URL origins. Secure trust requires a matching registered
+  secure standard tuple; opaque/nonstandard/invalid/unregistered URLs gain none.
+  Existing HTTPS/HTTP/loopback/file behavior remains on upstream paths.
+- Actual native composed-library tests pass: default denial, tuple identity,
+  path/query/fragment/userinfo behavior, explicit 0/443 ports, IDNA, IPv6, same-host
+  relative resolution, invalid/duplicate/oversized registration atomicity,
+  immutable publication and concurrent read loops. No mock policy-only acceptance.
+- Require the non-GUI native gate in macOS check-firefly/release, Linux renderer and
+  experimental Windows renderer CI. Run the Windows origin component before the
+  broader renderer build, retaining its separate evidence if later work fails.
+  Add the exact composition guard to standalone CTest and CI trigger paths.
+- This does not yet supply Chromium custom-standard URL parser/mutation behavior,
+  trusted main/helper configuration, actual resource/file transport, fetch/CORS/CSP,
+  ServiceWorkers or code caches. Public protocol remains absent; Code-OSS still
+  stops at its import. Next complete parser/configuration and bounded native
+  request/file-response paths before public registration/renderer acceptance.
+- Native Linux inline-header fix is now accepted: 6c613ec run 42391732431/job
+  128460535492 passes all 76 suites in 96.57s, actual resolve hooks 0.45s. This
+  snapshot predates promisify and the new protocol component; Windows/current
+  source acceptance remains separate. Prior failure evidence stays recorded.
+
+Validation: local actual LibURL/LibWebCommon default/configured probes pass without
+GUI; full Firefly integration rebuild passes (existing SDK deployment-target
+warnings retained). Standalone native rebuild, new protocol composition CTest and
+upstream/guard tests pass (3 tests, 1.76s); last full runtime baseline remains the
+previous 77-suite macOS acceptance. Formatting/site (209 pages / 14,783 local links/resources/fragments) and diff
+checks pass. No local GUI, no new Code-OSS launch claim and no Ladybird edits. ADR 0111
+and native README record remaining stages. Full goal active, including real
+protocol/resources, public binary/event/port IPC, workbench and native Windows.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

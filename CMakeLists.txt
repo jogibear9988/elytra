@@ -243,6 +243,9 @@ if(BUILD_TESTING)
         NAME mite-web-streams
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_streams.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(NAME firefly-protocol-origin-adapter
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py")
     add_test(
         NAME mite-web-adapters
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_adapters.py"

@@ -9,6 +9,7 @@ on:
       - 'mite/cmake/**'
       - 'mite/runtime/adapters/**'
       - 'tooling/build_renderer.py'
+      - 'tooling/prepare_protocol_origin_hooks.py'
       - 'tooling/bootstrap.py'
       - 'tooling/check_upstream.py'
       - 'tooling/check_checkout_paths.py'
@@ -90,6 +91,11 @@ jobs:
         run: |
           python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-renderer-probe --configure-only --jobs 3 2>&1 | Tee-Object build/windows-renderer-configure.log
           if ($LASTEXITCODE) { throw 'Native renderer configuration failed' }
+      - name: Native custom protocol origins and trust without a GUI
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-protocol-origins --parallel 3 2>&1 | Tee-Object build/windows-renderer-protocol-origins.log
+          if ($LASTEXITCODE) { throw 'Native custom protocol origin acceptance failed' }
       - name: Compile LibWeb, renderer helpers and native isolation/wire probes
         shell: pwsh
         run: |

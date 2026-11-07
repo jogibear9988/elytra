@@ -290,3 +290,16 @@ byte preservation; do not merely refresh the hash. Verify the native policy defa
 is off outside the product helper, then run check-firefly-isolation and check-firefly.
 The latter runs actual external-module/MIME/CSP/file-security comparisons and the
 IPC fixtures with directly loaded ESM, without the earlier inline workaround.
+
+
+## Custom protocol origin seams
+
+The renderer graph also composes LibURL URL::origin and LibWebCommon's
+potentially-trustworthy-origin decision through
+[prepare_protocol_origin_hooks.py](../../tooling/prepare_protocol_origin_hooks.py).
+Review both fingerprints, the exact early-return seams and CMake source ownership
+on an upstream update. The native-only immutable policy defaults empty; standalone
+Mite does not use it. Run check-firefly-protocol-origins against actual native
+LibURL/LibWebCommon, separately from the standalone source-composition guard.
+This does not certify custom-standard parsing or request/resource transport; see
+[ADR 0111](../architecture/0111-custom-protocol-origins.md).

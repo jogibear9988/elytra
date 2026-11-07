@@ -18,6 +18,7 @@ on:
       - 'tooling/npm_payload.py'
       - 'examples/web-component-designer/**'
       - 'tooling/build_renderer.py'
+      - 'tooling/prepare_protocol_origin_hooks.py'
       - 'tooling/compiler_cache.py'
       - 'tooling/compiler-cache.conf'
       - 'tooling/*dependencies.py'
@@ -130,6 +131,10 @@ jobs:
         run: |
           set -o pipefail
           python tooling/tests/test_renderer.py --probe build/linux-renderer/bin/firefly-renderer-probe --artifacts-dir build/linux-renderer-artifacts 2>&1 | tee build/linux-renderer-acceptance.log
+      - name: Native custom protocol origins and trust without a GUI
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-protocol-origins --parallel 3 2>&1 | tee build/linux-renderer-protocol-origins.log
       - name: Native realm isolation and cross-process wire gates
         run: |
           set -o pipefail
