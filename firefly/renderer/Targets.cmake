@@ -39,7 +39,9 @@ add_custom_target(
     DEPENDS firefly-renderer-probe
     USES_TERMINAL VERBATIM)
 
-if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(APPLE
+   OR WIN32
+   OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${FIREFLY_SOURCE_DIR}/firefly/native/qt/Targets.cmake")
 endif()
 

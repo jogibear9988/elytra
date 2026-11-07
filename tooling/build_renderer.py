@@ -77,8 +77,10 @@ def main():
         parser.error(
             "The desktop runtime currently supports macOS and experimental Linux X11 builds"
         )
-    if args.target == "firefly-window-probe" and sys.platform not in ["darwin", "linux"]:
-        parser.error("The native window probe is available only for macOS/Linux")
+    if args.target == "firefly-window-probe" and sys.platform not in ["darwin", "linux", "win32"]:
+        parser.error(
+            "The native window probe is available only for macOS/Linux/experimental Windows"
+        )
     if args.target == "firefly-preload-probe" and sys.platform not in ["darwin", "linux"]:
         parser.error("The owned sandboxed helper is available only for macOS/Linux probes")
     if args.jobs < 1:

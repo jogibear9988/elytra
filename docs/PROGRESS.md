@@ -6170,6 +6170,36 @@ observer component passes; refreshed style bootstrap and Windows/Linux renderer,
 screen/archives/Designer integration still require their actual hosted results.
 Goal active.
 
+## 2026-11-07: Add the native Windows Qt/DirectX window prototype gate
+
+- Previous goal turn is progress: native Windows process observations pass their
+  real component gate after the class-21 ABI correction; fresh isolated formatter
+  run 42353402489/job 128346169011 also succeeds. Full product scope stays active.
+- Revalidate original native Windows renderer, Linux services and baseline renderer
+  jobs: they remain authoritatively active configuring/compiling. Do not restart
+  them merely because the large graphs take time; continue required presentation.
+- Select an owned Windows.cmake adapter for the curated Qt view, requiring pinned
+  HAS_DIRECTX and upstream's unchanged DirectX view plus d3d11. Permit only the
+  internal native window probe; keep production Windows app/preload guards intact.
+  Apply upstream console/DLL setup and retain its native Qt plugin SDK deployment.
+- Extend the native renderer workflow after all existing headless/realm/wire gates
+  with actual window input/resize/navigation/close and painted PNG assertions.
+  Require QPA windows, so no offscreen replacement can satisfy native acceptance.
+- Add Windows-native bounded pipe readiness (no selectors/reader-thread races),
+  independent visible-style HWND/owner/client-size observation, and verified owned
+  WebContent termination using actual image/parent/creation identity on a held
+  process handle. Require the host's existing renderer-loss failure assertion.
+- Extend the fast native observer component with real owned Python-pipe readiness
+  and silent-timeout cases, explicitly not a LibWeb/window substitute. Preserve the
+  original POSIX process-control branch and all existing assertions. Add ADR 0097
+  with exact Qt-event/physical-display/security/production integration limits.
+
+Validation: syntax, unsupported-host guard, actionlint/diff and full formatting
+checks pass. The existing macOS window target configures/builds/links without GUI
+execution. Generated site: 187 pages and 13,185 links/resources/fragments pass.
+Actual Windows window/protocol acceptance is pending. Complete sandbox/main-Mite/Designer/packages and remaining Linux gates
+are unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

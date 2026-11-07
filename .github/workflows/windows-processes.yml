@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/windows-processes.yml'
       - 'tooling/tests/_windows_processes.py'
+      - 'tooling/tests/_windows_window.py'
       - 'tooling/tests/test_windows_processes.py'
   workflow_dispatch:
 permissions:

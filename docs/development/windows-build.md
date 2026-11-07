@@ -325,3 +325,27 @@ The workflow preserves configuration/build/test logs, PNG and pinned dependency
 buildtree diagnostics after failures. Native window/input, process/token/sandbox,
 main Mite integration, desktop services, Designer and release packaging remain
 required. See [ADR 0096](../architecture/0096-native-windows-renderer-bringup.md).
+
+
+## Native Qt window prototype
+
+The owned presentation build now selects the pinned Qt DirectX backend on Windows
+and provides firefly-window-probe. Its native hosted gate remains pending. After
+all headless/realm/wire gates succeed, renderer CI compiles it and runs the shared
+native input/resize/navigation/close/paint assertions, requiring the actual windows
+QPA platform. A second window observes actual HWND ownership and uses a verified
+native WebContent handle to test renderer-loss failure. It does not enable the
+unfinished production Firefly/Mite desktop runtime or its absent Windows sandbox.
+
+```powershell
+python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-window-probe --configure-only --jobs 3
+cmake --build build/windows-renderer --target firefly-window-probe --parallel 3
+python tooling/tests/test_window.py --probe build/windows-renderer/bin/firefly-window-probe.exe
+```
+
+These are native GUI commands intended for dedicated CI/testing, not the default
+standalone Mite acceptance path. The prototype inherits upstream Qt native plugin
+and DLL deployment in its development SDK; it is not a relocatable app package.
+Physical/SendInput/DPI/driver coverage, main-process API integration, security and
+Designer release work remain separate requirements. See
+[ADR 0097](../architecture/0097-native-windows-qt-window-prototype.md).

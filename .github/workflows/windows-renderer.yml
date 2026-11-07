@@ -13,6 +13,8 @@ on:
       - 'tooling/check_upstream.py'
       - 'tooling/check_checkout_paths.py'
       - 'tooling/tests/test_renderer.py'
+      - 'tooling/tests/test_window.py'
+      - 'tooling/tests/_windows_window.py'
       - 'tooling/tests/_windows_processes.py'
       - 'tooling/tests/_windows_renderer.py'
       - 'tooling/tests/test_windows_processes.py'
@@ -105,6 +107,16 @@ jobs:
         run: |
           cmake --build build/windows-renderer --target check-firefly-isolation --parallel 3 2>&1 | Tee-Object build/windows-renderer-isolation.log
           if ($LASTEXITCODE) { throw 'Native realm/wire acceptance failed' }
+      - name: Compile experimental native Qt DirectX window adapter
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target firefly-window-probe --parallel 3 2>&1 | Tee-Object build/windows-renderer-window-build.log
+          if ($LASTEXITCODE) { throw 'Native Windows window compilation failed' }
+      - name: Native windows-platform input, painted capture and owned renderer crash
+        shell: pwsh
+        run: |
+          python tooling/tests/test_window.py --probe build/windows-renderer/bin/firefly-window-probe.exe 2>&1 | Tee-Object build/windows-renderer-window-acceptance.log
+          if ($LASTEXITCODE) { throw 'Native Windows window acceptance failed' }
       - name: Record unmodified upstream
         if: always()
         run: python tooling/check_upstream.py
@@ -126,6 +138,7 @@ jobs:
           path: |
             build/windows-renderer*.log
             build/windows-renderer-artifacts
+            build/renderer-artifacts/window.png
             build/windows-renderer/CMakeCache.txt
             build/windows-renderer/CMakeFiles/CMakeConfigureLog.yaml
             build/vcpkg/buildtrees/**/*.log

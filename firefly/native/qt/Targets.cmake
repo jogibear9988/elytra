@@ -78,6 +78,8 @@ target_link_libraries(
            Qt::GuiPrivate)
 if(APPLE)
     include("${CMAKE_CURRENT_LIST_DIR}/Mac.cmake")
+elseif(WIN32)
+    include("${CMAKE_CURRENT_LIST_DIR}/Windows.cmake")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${CMAKE_CURRENT_LIST_DIR}/Linux.cmake")
 else()
@@ -89,6 +91,11 @@ target_compile_definitions(firefly-window-probe
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
 add_dependencies(firefly-window-probe ladybird ${ladybird_helper_processes} check-firefly-upstream)
 ladybird_check_skia_confinement(firefly-window-probe)
+if(WIN32)
+    ladybird_windows_bin(firefly-window-probe CONSOLE)
+    # The upstream ladybird dependency deploys native Qt platform plugins into this same SDK bin
+    # directory; keep its native layout instead of copying Qt.
+endif()
 add_custom_target(
     check-firefly-window
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_window.py" --probe

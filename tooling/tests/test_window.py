@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the native macOS/Linux X11 window gate; no offscreen or missing-binary fallback."""
+"""Run native macOS/Linux X11/experimental Windows windows without offscreen fallback."""
 
 import _support  # Shared build-helper import path for standalone test CLIs.
 
@@ -22,8 +22,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", required=True, type=Path)
     args = parser.parse_args()
-    if sys.platform not in ["darwin", "linux"]:
-        parser.error("Native Windows window adapters and tests remain unverified")
+    if sys.platform not in ["darwin", "linux", "win32"]:
+        parser.error("Native window acceptance requires macOS, Linux or experimental Windows")
     probe = args.probe.resolve()
     if not probe.is_file():
         parser.error("Build with tooling/build_renderer.py --target firefly-window-probe")
@@ -39,6 +39,8 @@ def main():
     ]
     if sys.platform == "linux":
         expected.append("Native Qt platform: xcb")
+    elif sys.platform == "win32":
+        expected.append("Native Qt platform: windows")
     if (
         result.returncode
         or not all(marker in result.stdout for marker in expected)
@@ -60,44 +62,50 @@ def main():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=environment(directory),
-            start_new_session=True,
+            start_new_session=os.name != "nt",
         )
         try:
-            deadline = time.monotonic() + 15
-            renderer_pid = None
-            pending = b""
-            with selectors.DefaultSelector() as selector:
-                selector.register(process.stdout, selectors.EVENT_READ)
-                while process.poll() is None and time.monotonic() < deadline:
-                    if not selector.select(0.1):
-                        continue
-                    # Read the descriptor directly: TextIOWrapper can prefetch
-                    # the PID behind another line while select sees no OS bytes.
-                    chunk = os.read(process.stdout.fileno(), 65536)
-                    if not chunk:
-                        break
-                    pending += chunk
-                    while b"\n" in pending:
-                        line, pending = pending.split(b"\n", 1)
-                        match = re.fullmatch(rb"WebContent PID: (\d+)", line)
-                        if match:
-                            renderer_pid = int(match[1])
-                    if renderer_pid is not None:
-                        break
-            if renderer_pid is None:
-                raise AssertionError("No loaded renderer to crash")
-            rows = subprocess.check_output(
-                ["ps", "-axo", "pid=,ppid=,comm="], text=True
-            ).splitlines()
-            children = [row.strip().split(maxsplit=2) for row in rows]
-            if not any(
-                int(pid) == renderer_pid
-                and int(ppid) == process.pid
-                and Path(command).name == "WebContent"
-                for pid, ppid, command in children
-            ):
-                raise AssertionError("Reported renderer is not an owned WebContent child")
-            os.kill(renderer_pid, signal.SIGKILL)
+            if os.name == "nt":
+                from _windows_window import loaded_renderer, crash_renderer
+
+                renderer_pid = loaded_renderer(process)
+                crash_renderer(probe, process, renderer_pid)
+            else:
+                deadline = time.monotonic() + 15
+                renderer_pid = None
+                pending = b""
+                with selectors.DefaultSelector() as selector:
+                    selector.register(process.stdout, selectors.EVENT_READ)
+                    while process.poll() is None and time.monotonic() < deadline:
+                        if not selector.select(0.1):
+                            continue
+                        # Read the descriptor directly: TextIOWrapper can prefetch
+                        # the PID behind another line while select sees no OS bytes.
+                        chunk = os.read(process.stdout.fileno(), 65536)
+                        if not chunk:
+                            break
+                        pending += chunk
+                        while b"\n" in pending:
+                            line, pending = pending.split(b"\n", 1)
+                            match = re.fullmatch(rb"WebContent PID: (\d+)", line)
+                            if match:
+                                renderer_pid = int(match[1])
+                        if renderer_pid is not None:
+                            break
+                if renderer_pid is None:
+                    raise AssertionError("No loaded renderer to crash")
+                rows = subprocess.check_output(
+                    ["ps", "-axo", "pid=,ppid=,comm="], text=True
+                ).splitlines()
+                children = [row.strip().split(maxsplit=2) for row in rows]
+                if not any(
+                    int(pid) == renderer_pid
+                    and int(ppid) == process.pid
+                    and Path(command).name == "WebContent"
+                    for pid, ppid, command in children
+                ):
+                    raise AssertionError("Reported renderer is not an owned WebContent child")
+                os.kill(renderer_pid, signal.SIGKILL)
             stdout, stderr = process.communicate(timeout=15)
             if process.returncode != 1 or b"Firefly WebContent crashed" not in stderr:
                 raise AssertionError(
@@ -106,7 +114,7 @@ def main():
             print("PASS actual WebContent process crash reports failure and exits")
         finally:
             stop(process)
-            process.communicate()
+            process.communicate(timeout=10)
     return 0
 
 
