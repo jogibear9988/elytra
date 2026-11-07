@@ -59,8 +59,18 @@ The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
 HEAD, cancellation and explicit mutation/type errors. Versioned response metadata
 now transfers checked MIME/length and ordered HTTP header bytes before the body.
-Renderer request dispatch, actual response application, authorized handler
-integration and public protocol remain unfinished.
+Native request owners now bound pending jobs, preserve epoch/ID/offset correlation
+and revoke their files/credit on terminal paths. The framed native-child gate and
+concurrent quota/deadline checks pass locally. Actual renderer request/document
+binding, response application, authorized handler integration and public protocol
+remain unfinished.
+
+The CPU-corrected **1d033fe** Linux renderer passes
+[run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):
+strict actual Rust DOM origins, native helper policy delivery, real Cargo dependency
+checks, stripped archive and extracted Designer gates. This accepts the shared
+origin composition on Ubuntu 24.04 x64 X11; it predates the native file-response
+components and does not accept those or broader desktop platforms.
 
 The later standalone **614ebf1** Windows run accepts all **78** tests in 140.07s
 ([run 42398340794](https://github.com/jogibear9988/elytra/actions/runs/42398340794)),

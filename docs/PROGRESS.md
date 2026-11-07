@@ -7384,6 +7384,56 @@ helper/document revocation, application handler/session dispatch and actual rend
 fetch/navigation/response security still need implementation. Public protocol and
 Code-OSS workbench remain unsupported. Full specification goal remains active.
 
+## 2026-11-07: Own bounded file jobs and correlate native response frames
+
+- Add FileRequests for one admitted native document generation. Require matching
+  nonzero epoch and strictly increasing nonzero IDs, consuming admitted IDs even
+  when later budget/open/metadata checks fail. Reject stale/wrapping/reused IDs.
+  Authorization and real document admission remain the native adapter's job.
+- Bound each owner to eight pending jobs and all owner threads to 64 shared atomic
+  leases. Close files before returning credit. Completion, bodyless HEAD, cancel,
+  read/metadata/encoded-budget failure, expiry, permanent revocation and destruction
+  release ownership. Pulls return exact offsets and completion without file reopen.
+- Apply a fixed 30-second deadline without activity extension. Check before reads;
+  expose expiry settlement IDs for native event-loop scheduling, allocating before
+  mutation. No automatic timer or forced interruption of synchronous IO is claimed.
+  Revoked owners cannot revive through retained weak callbacks.
+- Add versioned 32-byte little-endian FilePacket envelopes with native epoch,
+  request, kind, payload size and body position. Validate exact lengths, known
+  flags/kinds, nonzero identity, kind-specific metadata/chunk/control budgets and
+  offset bounds. Metadata stays JSON; file bytes remain raw. These IDs identify,
+  not authenticate; real helper/document request admission is still required.
+- Move the actual separate-child file transfer onto the request owner and framed
+  metadata/body/completion. Require exact epoch/ID and sequential positions in the
+  native consumer. HEAD, empty files, 4 MiB + 19 byte transfer and cancellation
+  after one 64-KiB chunk pass. Forcefully terminate the actual owned child while
+  its file job is pending; actual peer-close callback revokes/releases the owner.
+  Invalidate borrowed fixture callbacks before stack exit and pump deferred close
+  delivery after return, preserving native callback lifetime.
+- Test native interleaved pulls, deadline boundaries, foreign/stale contexts,
+  completion/cancel/error/metadata-failure/destructor cleanup, late weak callbacks
+  and ID exhaustion. Twelve actual native threads retain jobs concurrently and
+  admit exactly the process maximum of 64, with eight-per-owner enforcement.
+  Independent Python struct interoperability checks endian/layout, IDs, versions,
+  reserved flags, kinds, truncated/trailing frames and offset/payload limits.
+- Inspect terminal 1d033fe Linux renderer 42399004586/job 128482529005 SUCCESS:
+  actual generated CPU policy, native origin/trust, Rust archive dependency audits,
+  strict actual DOM origins, production helper configuration, stripped archive and
+  extracted Designer gates pass. This accepts shared Rust/native origins on Linux;
+  it predates file-response code. Do not apply it to the new native file component.
+- Record ADR 0115 and update status/origin/Code-OSS references. No new upstream seam,
+  Ladybird change, Mite API dependency or desktop GUI test is introduced.
+
+Validation: actual local macOS native file component gate passes with managed
+framed transfer, partial cancellation, forced peer loss and all registry/codec
+checks. Source formatting, upstream/diff and site checks pass (213 pages / 15,061
+local links/resources/fragments). New file-request code still requires Linux/Windows
+component CI. Actual LibWeb pending-response/abort integration, native helper/
+document binding and timer/revocation wiring, receiver multiplexing/error settlement,
+application handler/session dispatch and renderer resource/security acceptance stay
+unfinished. Public protocol and the real Code-OSS workbench remain unsupported.
+Full original specification goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

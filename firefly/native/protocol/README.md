@@ -60,7 +60,7 @@ tests verify actual child PID/policy before bootstrap, first-script observation,
 default denial, absent page privileges, real getter branding and normalized DOM
 origins for credentials, explicit ports, IDNA, IPv6 and relative URLs. The strict
 origin checks are required by the renderer configuration gate.
-Native macOS passes. Linux/Windows need separate results; the Windows renderer
+Native macOS and 1d033fe Linux (run 42399004586) origin/helper gates pass. The Windows renderer
 has no owned helper delivery or production desktop acceptance yet.
 
 The [native file-body component](files/README.md) now reads checked regular files

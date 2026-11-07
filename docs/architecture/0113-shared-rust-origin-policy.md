@@ -1,6 +1,6 @@
 # ADR 0113: Share native origin policy with Rust URL consumers
 
-Status: accepted for local macOS origin extraction; other platforms require fresh CI. Builds on [ADR 0112](0112-native-protocol-configuration.md).
+Status: accepted for local macOS and native Linux origin extraction (1d033fe, run 42399004586); Windows renderer acceptance remains open. Builds on [ADR 0112](0112-native-protocol-configuration.md).
 
 ## Problem
 

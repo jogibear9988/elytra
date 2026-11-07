@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 
 
@@ -34,6 +35,66 @@ def main():
             if operation not in ("metadata", "metadata-head"):
                 print(result.stdout.strip())
             return result.stdout
+
+        def packet(kind, epoch=101, request=7, offset=0, payload=b""):
+            return (
+                struct.pack("<4sBBHQIIQ", b"FFRP", 1, kind, 0, epoch, request, len(payload), offset)
+                + payload
+            )
+
+        def check_packet(source, accepted):
+            result = subprocess.run(
+                [str(probe), "packet-decode", "-"], input=source, capture_output=True, timeout=10
+            )
+            assert (result.returncode == 0) == accepted, result
+            if accepted:
+                assert result.stdout == source, result
+
+        encoded = subprocess.run(
+            [str(probe), "packet-encode", "-"], capture_output=True, timeout=10
+        )
+        assert encoded.returncode == 0, encoded
+        assert encoded.stdout == packet(
+            2, 0x0102030405060708, 0x10203040, 123, bytes([0, 128, 255])
+        )
+        for source in [
+            packet(1, payload=b"{}"),
+            packet(1, payload=b"x" * 32768),
+            packet(2, payload=b"x" * 65536),
+            packet(2, offset=64 * 1024**3 - 1, payload=b"x"),
+            packet(3, offset=64 * 1024**3),
+            packet(4),
+            packet(2, epoch=2**64 - 1, request=2**32 - 1, payload=b"x"),
+        ]:
+            check_packet(source, True)
+        for source in [
+            packet(0),
+            packet(5),
+            packet(1),
+            packet(2),
+            packet(3, payload=b"x"),
+            packet(4, offset=1),
+            packet(4, payload=b"x"),
+            packet(2, epoch=0, payload=b"x"),
+            packet(2, request=0, payload=b"x"),
+            packet(2, offset=64 * 1024**3, payload=b"x"),
+            packet(3, offset=2**64 - 1),
+            packet(1, offset=1, payload=b"x"),
+            packet(1, payload=b"x" * 32769),
+            packet(2, payload=b"x" * 65537),
+        ]:
+            check_packet(source, False)
+        valid = packet(2, payload=b"abc")
+        for position in [0, 4, 5, 6, 7, 20]:
+            corrupt = bytearray(valid)
+            corrupt[position] = 255
+            check_packet(corrupt, False)
+        for truncated_length in [0, 4, 20, 31, len(valid) - 1]:
+            check_packet(valid[:truncated_length], False)
+        check_packet(valid + b"trailing", False)
+        print(
+            "PASS independent file packet endian/layout, owner/request/offset identity, lengths, kinds and budgets"
+        )
 
         metadata = json.loads(run("metadata", path))
         assert metadata == {
@@ -147,6 +208,10 @@ def main():
 
         run("metadata-policy", path)
         assert "bytes=0 chunks=0" in run("transfer-head", path)
+        assert "bytes=65536 chunks=1" in run("transfer-cancel", path)
+        assert "peer loss to separate native child: bytes=65536 chunks=1" in run(
+            "transfer-peer-loss", path
+        )
         streamed = run("transfer", path)
         assert f"bytes={length} chunks=65" in streamed, streamed
         assert f"HEAD length={length}" in run("head", path)
@@ -166,6 +231,9 @@ def main():
             with huge.open("wb") as file:
                 file.truncate(64 * 1024 * 1024 * 1024 + 1)
             run("refuse", huge)
+        requests = directory / "requests.bin"
+        requests.write_bytes(pattern * 32)
+        run("requests", requests)
         run("grow", path)
         run("replace", path)
         run("truncate", path)

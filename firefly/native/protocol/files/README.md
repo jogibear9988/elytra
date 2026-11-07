@@ -43,11 +43,27 @@ and response application belong to renderer fetch integration. Only a successful
 200 file response is represented; errors, ranges, redirects and other statuses
 need explicit request/response service support.
 
+FileRequests now owns pending jobs for one trusted native document generation,
+with eight jobs per owner and 64 shared process credits. IDs cannot be reused,
+even after an admitted attempt fails. Pulls return exact byte offsets; completion,
+HEAD, cancellation, errors, deadline expiry, revocation and destruction release
+jobs. Deadlines are fixed at 30 seconds; the native caller must schedule expiry
+and settle consumers. This component does not install a timer or authenticate a
+renderer document. See [ADR 0115](../../../../docs/architecture/0115-file-request-ownership.md).
+
+FilePacket adds bounded versioned metadata/chunk/complete/cancel frames carrying
+native document epoch, request ID and byte position. The actual native child
+checks these fields; body bytes stay raw. Native tests also cover stale IDs/epochs,
+weak callbacks, expiry boundaries and 12 concurrent owner threads contending for
+64 credits. Killing the owned native child after one chunk revokes its pending
+file job through the actual peer-close callback. Renderer request dispatch and
+document revocation wiring are pending.
+
 ```sh
 cmake --build build/renderer --target check-firefly-protocol-files --parallel 3
 ```
 
-The native gate reads a real 4 MiB + 19 byte file and streams 65 bounded chunks over
+The native gate reads through FileRequests from a real 4 MiB + 19 byte file and streams 65 bounded chunks over
 the existing byte channel to a separate native child. The child admits and checks the real response metadata before any body bytes,
 then independently checks all bytes and returns its kernel PID and cumulative position. It never
 receives the source path. The probe also checks empty files, HEAD, chunk budgets,
@@ -60,9 +76,9 @@ native process boundary, with its advertised file length and zero body bytes.
 Only local macOS execution is accepted so far; native Linux/Windows CI
 must supply their own results.
 
-Still required before Code-OSS resources work: versioned request/body correlation,
-trusted helper/document admission, bounded concurrent request lifecycle and
-cancellation on navigation/crash, application handler dispatch, application of MIME/
+Still required before Code-OSS resources work: actual renderer request/body dispatch,
+trusted helper/document admission and lifecycle/revocation wiring, receiver
+multiplexing/error settlement, application handler dispatch, application of MIME/
 headers in renderer fetch/navigation, sessions and the public Electron
 protocol APIs. This component does not enable `file:` access from a custom origin
 or change existing renderer file permissions.

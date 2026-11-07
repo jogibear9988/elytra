@@ -1,7 +1,10 @@
 /** Real checked file IO and streamed bytes to a separate native consumer. No window or JS. */
 #include "../ipc/SpawnBytePeer.h"
+#include "FileRequestsProbe.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/protocol/files/FileBody.h"
+#include "native/protocol/files/FilePacket.h"
+#include "native/protocol/files/FileRequests.h"
 #include "native/protocol/files/ResponseHead.h"
 #include <AK/Array.h>
 #include <AK/ScopeGuard.h>
@@ -25,6 +28,12 @@
 using Firefly::Bytes::Channel;
 using Firefly::Protocols::FileBody;
 using Firefly::Protocols::ResponseHead;
+
+// Channel close callbacks are deferred. Keep only this token alive after the
+// fixture's stack leaves; every borrowing callback must test it before access.
+struct CallbackScope final : RefCounted<CallbackScope> {
+    bool active { true };
+};
 
 static auto supplied_headers()
 {
@@ -77,17 +86,34 @@ static ErrorOr<int> child(Core::EventLoop& loop, StringView server)
     bool done = false, bad = false;
     u64 received = 0;
     Optional<ResponseHead> metadata;
+    auto callbacks = adopt_ref(*new CallbackScope);
     RefPtr<Channel> channel;
     channel = TRY(Channel::create(TRY(IPC::take_over_startup_transport(server)),
         {
             .on_data =
-                [&](ReadonlyBytes bytes) {
-                    if (done || bytes.size() > Firefly::Protocols::file_chunk_limit) {
+                [&, callbacks](ReadonlyBytes wire) {
+                    if (!callbacks->active)
+                        return;
+                    auto decoded_packet = Firefly::Protocols::decode_file_packet(wire);
+                    if (decoded_packet.is_error()) {
+                        bad = true;
+                        return;
+                    }
+
+                    auto const& packet = decoded_packet.value();
+                    using Kind = Firefly::Protocols::FilePacketKind;
+                    auto bytes = packet.payload;
+                    if (packet.epoch != 101 || packet.request != 7 || done) {
                         bad = true;
                         return;
                     }
 
                     if (!metadata.has_value()) {
+                        if (packet.kind != Kind::Metadata) {
+                            bad = true;
+                            return;
+                        }
+
                         auto decoded = Firefly::Protocols::decode_file_response_head(
                             { reinterpret_cast<char const*>(bytes.data()), bytes.size() });
                         if (decoded.is_error()) {
@@ -110,12 +136,17 @@ static ErrorOr<int> child(Core::EventLoop& loop, StringView server)
                             || metadata->headers[7].value != "application/octet-stream"sv)
                             bad = true;
                     } else {
-                        if (bytes.is_empty()) {
+                        if (packet.kind == Kind::Cancel) {
+                            done = true;
+                        } else if (packet.kind == Kind::Complete) {
+                            if (packet.offset != received)
+                                bad = true;
                             done = true;
                             if (received != (metadata->head ? 0 : metadata->content_length))
                                 bad = true;
                         } else {
-                            if (metadata->head
+                            if (packet.kind != Kind::Chunk || packet.offset != received
+                                || metadata->head
                                 || bytes.size() > metadata->content_length - received) {
                                 bad = true;
                                 return;
@@ -139,28 +170,44 @@ static ErrorOr<int> child(Core::EventLoop& loop, StringView server)
                 },
             .on_writable = {},
             .on_closed =
-                [&](auto) {
+                [&, callbacks](auto) {
+                    if (!callbacks->active)
+                        return;
                     if (!done)
                         bad = true;
                 },
         }));
+    ScopeGuard close = [&] {
+        callbacks->active = false;
+        channel->close();
+    };
+
     TRY(until(loop, [&] { return bad || (done && !channel->pending_send_count()); }));
     channel->close();
     return bad ? 1 : 0;
 }
 
-static ErrorOr<void> transfer(Core::EventLoop& loop, StringView path, bool head_only = false)
+enum class TransferMode { Body, Head, Cancel, PeerLoss };
+
+static ErrorOr<void> transfer(Core::EventLoop& loop, StringView path, TransferMode mode)
 {
-    auto body = TRY(FileBody::open(path, head_only));
+    using namespace Firefly::Protocols;
+    bool head_only = mode == TransferMode::Head;
+    auto owner = TRY(FileRequests::create(101));
+    auto fields = supplied_headers();
+    auto metadata = TRY(owner->begin(101, 7, path, head_only, fields, MonotonicTime::now()));
     auto executable = TRY(Core::System::current_executable_path());
     auto peer = TRY(spawn_byte_peer(executable));
     u64 observed = 0;
     size_t replies = 0;
-    bool bad = false;
+    bool bad = false, peer_closed = false;
+    auto callbacks = adopt_ref(*new CallbackScope);
     auto channel = TRY(Channel::create(move(peer->transport),
         {
             .on_data =
-                [&](ReadonlyBytes bytes) {
+                [&, callbacks](ReadonlyBytes bytes) {
+                    if (!callbacks->active)
+                        return;
                     if (bytes.size() != 16) {
                         bad = true;
                         return;
@@ -176,37 +223,87 @@ static ErrorOr<void> transfer(Core::EventLoop& loop, StringView path, bool head_
                     ++replies;
                 },
             .on_writable = {},
-            .on_closed = {},
+            .on_closed =
+                [&, callbacks](auto) {
+                    if (!callbacks->active)
+                        return;
+                    peer_closed = true;
+                    owner->revoke();
+                },
         }));
-    ScopeGuard close = [&] { channel->close(); };
-    auto fields = supplied_headers();
-    auto head = TRY(Firefly::Protocols::make_file_response_head(
-        7, body->content_length(), head_only, path, fields));
-    auto encoded = TRY(Firefly::Protocols::encode_file_response_head(head));
-    TRY(channel->send(encoded.bytes()));
-    TRY(until(loop, [&] { return bad || replies == 1; }));
-    if (bad || observed)
-        return Error::from_string_literal("File metadata was not admitted before bytes");
-    size_t chunks = 0;
-    for (;;) {
-        auto bytes = TRY(body->read());
+    ScopeGuard close = [&] {
+        callbacks->active = false;
+        owner->revoke();
+        channel->close();
+    };
+
+    auto send = [&](FilePacketKind kind, u64 offset, ReadonlyBytes bytes) -> ErrorOr<void> {
+        auto packet = TRY(encode_file_packet({ kind, 101, 7, offset, bytes }));
         auto expected = replies + 1;
-        TRY(channel->send(bytes));
-        TRY(until(loop, [&] { return bad || replies == expected; }));
-        if (bad || observed != body->transferred())
-            return Error::from_string_literal("File bytes/PID/stream position mismatch");
-        if (bytes.is_empty())
+        TRY(channel->send(packet));
+        TRY(until(loop, [&] { return bad || peer_closed || replies == expected; }));
+        if (bad || replies != expected)
+            return Error::from_string_literal("File response peer/sequence failed");
+        return {};
+    };
+
+    auto encoded = TRY(encode_file_response_head(metadata));
+    TRY(send(FilePacketKind::Metadata, 0, encoded.bytes()));
+    if (observed)
+        return Error::from_string_literal("File metadata arrived after body bytes");
+    size_t chunks = 0;
+    bool cancelled = false;
+    bool killed = false;
+    for (;;) {
+        auto chunk = TRY(owner->pull(101, 7, file_chunk_limit, MonotonicTime::now()));
+        if (!chunk.bytes.is_empty()) {
+            TRY(send(FilePacketKind::Chunk, chunk.offset, chunk.bytes));
+            ++chunks;
+            if (observed != chunk.offset + chunk.bytes.size())
+                return Error::from_string_literal("File bytes/PID/offset mismatch");
+        }
+
+        if (mode == TransferMode::PeerLoss && chunks == 1) {
+            if (owner->pending() != 1)
+                return Error::from_string_literal("Peer-loss fixture has no active file job");
+            TRY(Core::Process::terminate_process(
+                peer->process.pid(), Core::Process::TerminationMode::Forceful));
+            TRY(until(loop, [&] { return peer_closed; }));
+            if (!owner->is_revoked() || owner->pending()
+                || !owner->pull(101, 7, 1, MonotonicTime::now()).is_error())
+                return Error::from_string_literal("Peer loss did not revoke pending file job");
+            killed = true;
             break;
-        ++chunks;
+        }
+
+        if (mode == TransferMode::Cancel && chunks == 1) {
+            if (!owner->cancel(101, 7))
+                return Error::from_string_literal("File request cancel failed");
+            TRY(send(FilePacketKind::Cancel, 0, {}));
+            cancelled = true;
+            break;
+        }
+
+        if (chunk.complete) {
+            TRY(send(FilePacketKind::Complete, chunk.offset + chunk.bytes.size(), {}));
+            break;
+        }
     }
 
-    if (TRY(peer->wait()) != 0 || body->transferred() != (head_only ? 0 : body->content_length()))
-        return Error::from_string_literal("File consumer did not complete");
-    outln("PASS actual checked file body to separate native child: bytes={} chunks={} parent={} "
+    auto status = TRY(peer->wait());
+    if ((killed ? status == 0 : status != 0) || owner->pending()
+        || (!cancelled && !killed && observed != (head_only ? 0 : metadata.content_length)))
+        return Error::from_string_literal("File consumer did not finish/release its request");
+    outln("PASS actual checked file {} to separate native child: bytes={} chunks={} parent={} "
           "child={}",
+        killed          ? "peer loss"sv
+            : cancelled ? "cancellation"sv
+                        : "body"sv,
         observed, chunks, Core::System::getpid(), peer->process.pid());
     outln("PASS native child admitted versioned length/MIME/COOP/COEP/cache/document-policy and "
           "duplicate/obs-text header bytes before file chunks");
+    outln("PASS request-managed frames preserve owner/request identity and exact chunk/completion "
+          "offsets");
     return {};
 }
 
@@ -228,7 +325,25 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return Error::from_string_literal("Expected a file body operation and absolute path");
     auto operation = arguments.strings[1];
     auto path = arguments.strings[2];
-    if (operation == "decode"sv) {
+    if (operation == "packet-encode"sv) {
+        Array<u8, 3> bytes { 0, 128, 255 };
+        auto packet = TRY(
+            Firefly::Protocols::encode_file_packet({ Firefly::Protocols::FilePacketKind::Chunk,
+                0x0102030405060708ull, 0x10203040u, 123, bytes }));
+        if (fwrite(packet.data(), 1, packet.size(), stdout) != packet.size())
+            return 1;
+    } else if (operation == "packet-decode"sv) {
+        std::string input(
+            Firefly::Protocols::file_packet_header_size + Firefly::Protocols::file_chunk_limit + 1,
+            '\0');
+        std::cin.read(input.data(), static_cast<std::streamsize>(input.size()));
+        input.resize(static_cast<size_t>(std::cin.gcount()));
+        auto packet = TRY(Firefly::Protocols::decode_file_packet(
+            { reinterpret_cast<u8 const*>(input.data()), input.size() }));
+        auto encoded = TRY(Firefly::Protocols::encode_file_packet(packet));
+        if (fwrite(encoded.data(), 1, encoded.size(), stdout) != encoded.size())
+            return 1;
+    } else if (operation == "decode"sv) {
         std::string input(Firefly::Protocols::response_head_limit + 1, '\0');
         std::cin.read(input.data(), static_cast<std::streamsize>(input.size()));
         input.resize(static_cast<size_t>(std::cin.gcount()));
@@ -243,8 +358,15 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         auto metadata = TRY(Firefly::Protocols::make_file_response_head(
             7, body->content_length(), head, path, fields));
         outln("{}", TRY(Firefly::Protocols::encode_file_response_head(metadata)));
-    } else if (operation == "transfer"sv || operation == "transfer-head"sv) {
-        TRY(transfer(loop, path, operation == "transfer-head"sv));
+    } else if (operation == "transfer"sv || operation == "transfer-head"sv
+        || operation == "transfer-cancel"sv || operation == "transfer-peer-loss"sv) {
+        auto mode = operation == "transfer-head"sv ? TransferMode::Head
+            : operation == "transfer-cancel"sv     ? TransferMode::Cancel
+            : operation == "transfer-peer-loss"sv  ? TransferMode::PeerLoss
+                                                   : TransferMode::Body;
+        TRY(transfer(loop, path, mode));
+        // Exercise deferred close delivery after transfer's borrowed stack left.
+        loop.pump(Core::EventLoop::WaitMode::PollForEvents);
     } else if (operation == "metadata-policy"sv) {
         using namespace Firefly::Protocols;
         for (auto const& header : Array<HTTP::Header, 4> {
@@ -290,6 +412,8 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             return 1;
         outln("PASS native metadata builder rejects framing overrides, invalid identity/fields, "
               "duplicate type and raw/encoded budgets");
+    } else if (operation == "requests"sv) {
+        TRY(check_file_requests(path));
     } else if (operation == "head"sv) {
         auto body = TRY(FileBody::open(path, true));
         if (body->state() != FileBody::State::Complete || !TRY(body->read()).is_empty()
