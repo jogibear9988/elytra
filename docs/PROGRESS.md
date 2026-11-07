@@ -7078,6 +7078,19 @@ Full goal active. Next actual loader/API blocker is util.promisify, followed by 
 remaining startup contracts, public binary/event/port transport, workbench/native
 service and Windows requirements. ADR 0109 records ownership/language decisions.
 
+## 2026-11-07: Include the LibJS inline value operations required by resolve hooks
+
+Native Linux 98866c3 run 42390960317/job 128458229557 fails at linking before
+CTest: undefined JS::Value::to_boolean() const from ResolveHooks.cpp. Its declaration
+is in Value.h, but the inline definition belongs to ValueInlines.h. Include that
+header directly in our adapter, as existing encoding adapters already do. Do not
+patch Ladybird or depend on another object happening to emit this inline symbol.
+
+Validation: local native object/runtime rebuild and targeted actual resolver tests
+pass after the include. Existing macOS full regression passed; this small include
+fix still needs a fresh native Linux job before hook acceptance. No local GUI or
+upstream changes. Full goal active; util.promisify work remains a separate slice.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -9,6 +9,7 @@
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Intrinsics.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/ValueInlines.h>
 #include <LibURL/Parser.h>
 
 namespace Mite {
