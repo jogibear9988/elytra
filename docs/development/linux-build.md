@@ -1,5 +1,11 @@
 # Native Linux bring-up
 
+Current standalone evidence: all 68 suites pass at 678c85e; newer local macOS
+process-event/Code-OSS bootstrap slices await their own native Linux acceptance.
+The separate [renderer/package gate](linux-renderer.md) at 197cd2a now accepts an
+experimental Ubuntu 24.04 x64 X11 stripped archive and extracted bundled Designer.
+Historical CLI baselines below do not supersede this scoped later evidence.
+
 The Native Linux development workflow builds standalone Mite on Ubuntu 24.04
 x64 with Clang 22, pinned Rust 1.98.0 and the pinned vcpkg source/dependencies.
 It runs the same enabled CTest suites and locked npm fixtures as the other native

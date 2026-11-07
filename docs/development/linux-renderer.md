@@ -1,5 +1,14 @@
 # Native Linux renderer bring-up
 
+**Current acceptance:** [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065)
+at **197cd2a** passes the native renderer/helper/isolation/byte handoff, X11 app,
+screen/clipboard/kernel, portable CPU-command policy, stripped archive/ELF
+provenance and extracted bundled Designer edit/Monaco/HTML controls. This extends
+the historical baseline below. Scope remains Ubuntu 24.04 x64 Xvfb/Openbox;
+the [package candidate](linux-packaging.md) is not a published release or arbitrary
+Linux desktop acceptance. Earlier SIGILL observations below are not a diagnosis
+or a claim that CPU baseline selection fixed their cause.
+
 Status: **experimental native X11 application slice accepted at `19ad113`**.
 [Run 42316853517](https://github.com/jogibear9988/elytra/actions/runs/42316853517),
 job 128262565703, passes the actual renderer/helper, isolated-world and Qt window

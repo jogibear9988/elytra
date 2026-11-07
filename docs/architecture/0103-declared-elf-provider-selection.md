@@ -2,8 +2,9 @@
 
 Status: implemented; the compiled native component passes at cff79fb in
 [run 42377484491](https://github.com/jogibear9988/elytra/actions/runs/42377484491).
-Complete application/archive acceptance remains separate and pending; see
-[PROGRESS](../PROGRESS.md).
+Complete application/archive and extracted Designer acceptance now also pass at
+197cd2a in [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065).
+This remains an experimental Ubuntu 24.04 x64 X11 candidate, not broad distribution support.
 
 ## Evidence and decision
 

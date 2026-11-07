@@ -2,8 +2,9 @@
 
 Status: partial native macOS ARM64 development implementation. Firefly aims for
 Electron-compatible APIs using Mite + Ladybird, not general Electron compatibility
-today. Experimental Linux X11 app/preload/IPC/clipboard acceptance exists; new
-screen/package/profile gates remain pending. Native Windows desktop is absent.
+today. Experimental Ubuntu 24.04 X11 app/screen/preload/IPC/clipboard, portable
+CPU profile and stripped archive/Designer gates pass at 197cd2a. Wider distribution
+acceptance and native Windows desktop remain unfinished.
 See [current support](../status.md) for exact sources and runs. Node integration in renderers is unavailable. [Compatibility matrix](../compatibility/firefly-0.1.md)
 and [renderer build guide](../development/renderer-build.md) record the acceptance gates.
 

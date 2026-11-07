@@ -4,8 +4,9 @@ Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
 macOS ARM64 and the scoped Linux/Windows x64 Mite gates: all 68 enabled suites
 pass at 678c85e. Firefly has tested macOS subsets and an experimental X11 app;
-Windows desktop and complete Linux packages remain unfinished. The new Linux
-screen integration and portable CPU profile await their own native gates.
+Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
+archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
+wider Linux distribution support and release publication remain unfinished.
 [Current support and tested examples](../status.md) records exact source/run
 references; use the matrices and per-API contracts for individual limits.
 

@@ -43,9 +43,17 @@ The baseline Linux renderer run
 native Windows renderer run
 [42352483937](https://github.com/jogibear9988/elytra/actions/runs/42352483937)
 both completed with failure; neither establishes complete platform acceptance.
-The Linux archive rejected conflicting libdbus providers; the Windows renderer
-compile rejected an adapter include path. Later fixes/runs require separate
-completed native evidence.
+That Linux archive rejected conflicting libdbus providers; the Windows renderer
+compile rejected an adapter include path. The newer Linux run below passes after
+provider/ELF fixes; no newer Windows desktop acceptance follows from it.
+
+The full Linux renderer/package [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065)
+at **197cd2a** now passes: portable CPU-command checks, renderer/helper/isolation,
+trusted byte handoff, live X11 app/screen/clipboard/kernel checks, stripped archive
+extraction/ELF provenance and the extracted bundled Designer's edit/Monaco/HTML
+controls. Its [linux-designer-package-candidate artifact](https://github.com/jogibear9988/elytra/actions/runs/42379262065/artifacts/13577811546)
+is an experimental Ubuntu 24.04 x64 X11 candidate, separate from published releases
+and later master changes.
 
 ## Platforms and delivery
 
@@ -55,7 +63,7 @@ completed native evidence.
 | Mite / native Linux x64 | All 68 enabled suites at 678c85e; [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084) | Wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
 | Mite / native Windows x64 | All 68 enabled suites at 678c85e; [run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074) | Full Windows API/error parity, other architectures and standalone distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
-| Firefly / Linux x64 | Experimental X11 app/renderer/preload/IPC/clipboard and live kernel checks pass at 8dc5830 in [run 42348529660](https://github.com/jogibear9988/elytra/actions/runs/42348529660) | New screen integration, portable CPU build, complete archive and Designer gates pending; newer da5e3e8 app run failed with SIGILL |
+| Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls pass at 197cd2a in [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
 | Firefly / native Windows | Production desktop not implemented/accepted; [renderer](development/windows-build.md#experimental-native-libweb-renderer-gate) and [Qt window prototype](development/windows-build.md#native-qt-window-prototype) have native CI gates, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) contains

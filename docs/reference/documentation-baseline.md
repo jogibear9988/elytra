@@ -80,7 +80,7 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 | shell / nativeImage / session | Unsupported | Native services, permissions and migration fixtures |
 | Navigation / frames / protocol / web preferences | Narrow loading/defaults only | Frame/navigation policy, session/network controls and structured option reference |
 | System integration | Partial macOS appearance; most services absent | Native notifications, shortcuts, Linux/Windows themes, power/storage and utility services |
-| Distribution / updates / crash diagnostics | Published macOS Alpha 2; later optimized Actions artifact; Linux archive/Designer gates pending | Native Windows/Linux acceptance, signed distributions, installer/update behavior and diagnostics |
+| Distribution / updates / crash diagnostics | Published macOS Alpha 2; later optimized Actions artifact; experimental Linux archive/extracted Designer gates pass at 197cd2a | Native Windows and wider Linux acceptance, signed distributions, installer/update behavior and diagnostics |
 | Chromium-specific or deprecated facilities | Outside initial promise | Record deliberate differences; do not copy deprecated surfaces merely to fill an inventory |
 
 ## Reference-entry requirements

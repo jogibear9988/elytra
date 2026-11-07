@@ -36,11 +36,11 @@ Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
 
 Firefly has a partial working macOS desktop runtime and an existing macOS ARM64
-alpha release. At 19ad113 the native Linux renderer/helper/window, independent
-X11 geometry/clipboard and relocated public application gates pass. This is an
-experimental Ubuntu 24.04 x64 Xvfb/Openbox slice, not broad Linux desktop/package
-acceptance. Linux screen/theme/distributables and native Windows desktop remain
-required and unfinished.
+alpha release. At 197cd2a the experimental native Linux renderer/helper/window,
+screen/clipboard/kernel, stripped archive/ELF provenance and extracted bundled
+Designer gates pass. This is Ubuntu 24.04 x64 X11 Xvfb/Openbox acceptance;
+broader Linux distribution/theme/installer support and native Windows desktop
+remain required and unfinished.
 The milestone checklist above remains open; scoped component success does not
 complete those cross-platform requirements. See the latest entries for exact
 source revisions, evidence, limits and live candidates.
@@ -6812,9 +6812,37 @@ binary/event/port transport prerequisites.
 Validation: local macOS Release all 70 CTests pass (20.68 seconds), including the
 actual source-bootstrap gate (0.15 seconds), process delivery/GC and pinned
 performance module. New native Linux/Windows gates remain pending. No runtime
-implementation changed in this step; no local GUI. Site (199 pages / 14,085 local
+implementation changed in this step; no local GUI. Site (199 pages / 14,067 local
 links/resources/fragments), formatting, Windows LF/hash and diff checks pass.
 Full goal remains active.
+
+## 2026-11-07: Accept the complete experimental Linux archive and Designer candidate
+
+- Native Linux renderer run 42379262065 / job 128423224720 at 197cd2a completes
+  successfully. Actual renderer/helper/isolation and trusted WebContent byte
+  handoff pass; unchanged upstream and owned codegen checks pass.
+- Portable x86-64-v2 policy audits 2,948 project C++/19 Cargo commands in the
+  renderer SDK and 278 C++/7 Cargo commands for independent Mite. Live X11 app,
+  screen/clipboard and renderer kernel observations pass under Xvfb/Openbox.
+- The actual stripped archive is extracted and launched under relocation with
+  complete checksum/ELF closure and no SDK ELF mappings. DBus provider selection
+  and genuine dependency-free DSO handling now pass the full application path.
+- The pinned production Designer bundle removes 139.8 MiB of app/module build
+  payload. Its actual extracted archive passes boot, edit/round-trip, Monaco,
+  native HTML controls, server/capability checks and absent Node privileges.
+- Accepted archive/checksum/BUILD.json are retained as Actions artifact
+  linux-designer-package-candidate, ID 13577811546. ZIP upload is 122,681,800 bytes;
+  that is not the installed framework size or a newly published release.
+- Refresh current status/API/platform/package docs and correct the previous
+  source-bootstrap site's recorded link count to the actual 14,067.
+
+Validation: inspect the completed successful native job's metadata/logs and
+artifact inventory; no retries or removed checks. Scope is Ubuntu 24.04 x64 X11
+Xvfb/Openbox, not Wayland/physical displays/other distributions or Windows desktop.
+Earlier SIGILL cause remains undiagnosed. New process/bootstrap sources need
+their own native gates. Site (199 pages / 14,069 local links/resources/fragments)
+and diff checks pass. No
+local GUI. Full goal active with Code-OSS bootstrap/cache and IPC prioritized.
 
 ## Resume
 

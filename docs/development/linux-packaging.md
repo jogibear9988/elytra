@@ -6,6 +6,13 @@ acceptance is a separate, required CI gate. Linux packages are experimental
 candidates, not published release assets or a verified portable distribution.
 The existing macOS packages and release are described in [releases](releases.md).
 
+**Native acceptance:** source **197cd2a**, [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065),
+job 128423224720, passes the complete stripped archive and extracted Designer
+gates below on Ubuntu 24.04 x64 Xvfb/Openbox. The
+[candidate artifact](https://github.com/jogibear9988/elytra/actions/runs/42379262065/artifacts/13577811546)
+contains the tested experimental archive/checksum/BUILD.json. Its 122,681,800-byte
+Actions ZIP is a compressed upload size, not the installed framework footprint.
+
 ## Build inputs and command
 
 Use native Ubuntu 24.04 x64 with the pinned dependencies/compiler, patchelf,
@@ -23,8 +30,9 @@ The [DBus provider policy](../architecture/0103-declared-elf-provider-selection.
 addresses the observed SDK/system libdbus-1.so.3 collision. Declare the frontend's
 actual provider and require all consumer imports' symbol versions/types before
 staging one copy. Record the selection/proof in BUILD.json; do not silently accept
-other conflicting dependencies. This change still requires the compiled Linux
-component and complete relocated app/archive gates to pass.
+other conflicting dependencies. The compiled component and complete relocated
+app/archive/Designer gates pass at 197cd2a; matching exported symbols is not a
+general semantic guarantee for arbitrary provider substitutions.
 
 ```sh
 # Both SDKs must already be built; output/archive must be fresh.
@@ -36,7 +44,7 @@ python3 tooling/package_linux.py \
 
 The example assumes the pinned Designer was compiled/bundled with
 `tooling/build_designer.py`. It describes staging; native editing, Monaco and
-window-control acceptance still require the actual gate below to pass.
+window-control acceptance are supplied by the native gate below at 197cd2a.
 
 The default modes are --dependencies production and --symbols stripped. Use
 --symbols keep for native diagnostic symbols. Bundled Designer dependency mode
@@ -109,9 +117,9 @@ linux-designer-package-candidate with missing files treated as an error. Failure
 retain staging/acceptance/window-manager metadata under the diagnostics artifact.
 This is an experimental Actions candidate, not automatic Linux release publication.
 
-These new gates must pass on the committed source; local syntax/refusal tests do
-not establish native application acceptance. Designer native UI acceptance and
-release upload are still pending. Compatible host glibc/loader, X11 and host
+These gates pass on the committed source above; later sources need fresh gates.
+Release publication remains separate from the accepted Actions candidate.
+Compatible host glibc/loader, X11 and host
 GPU/audio drivers/services remain requirements. Wayland, other architectures,
 older glibc/distributions, installer/signing/update lifecycle and complete security
 containment are not established. See [ADR 0094](../architecture/0094-linux-elf-package-closure.md).
