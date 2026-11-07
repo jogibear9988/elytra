@@ -5881,6 +5881,34 @@ checks pass without GUI. Native launcher/distribution and whole-app archive gate
 are added for hosted Linux; their result is pending. Source/style/upstream/site
 checks recorded with this commit. No local GUI tests. Goal active.
 
+## 2026-11-07: Record hosted launcher and current refactor acceptance
+
+- Commit/push da5e3e8 adds the experimental Linux app packager. Independent native
+  component run 42349719941/job 128335067273 now succeeds: real compiled ELF closure,
+  relocation/deduplication/refusals, three payload tests and real C++ launcher
+  forwarding/PID/Unicode/platform behavior plus actual dpkg copyright provenance.
+  This is component proof; whole-app archive/Designer acceptance is still pending.
+- Linux renderer/app run 42348529660/job 128333001604 at 8dc5830 succeeds under all
+  unchanged native engine/isolation/helper/window/raw-app and live kernel gates.
+  It covers the native bridge/world-job/TCP refactors. Earlier source 209f64e
+  run 42348028641/job 128330299443 failed its first headless page with only
+  "Firefly WebContent crashed"; runtime sources are identical between those commits.
+  Retain the unexplained failure, do not claim a diagnosed fix or relax acceptance.
+- Optional size-profile/shared-OpenSSL macOS run 42345882824/job 128323403936 at
+  85557be succeeds through 65 CLI suites, native desktop/isolation/IPC/crash/budget
+  gates, Designer editing/Monaco/window controls, relocation and package audits.
+  Alpha publication was disabled. Artifact 13564569254 is a verified workflow
+  output for that source, not current master or a replacement of published alpha2.
+  Downloaded artifact digest a90b2d8f...e91cf60 and all inner manifest checksums
+  verify. BUILD metadata confirms clean 85557be, Release/-Oz/shared provider.
+  Actual uncompressed framework/Designer: 205,745,925/241,516,362 bytes
+  (196.21/230.33 MiB); ZIPs 98,262,228/110,255,070 bytes. Update size guide.
+
+Validation: full source/style/actionlint/diff/upstream checks pass and 183 generated
+site pages/12,656 links/resources/fragments pass for the preceding implementation.
+No local GUI tests. Whole native Linux archives and the complete Windows desktop
+remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

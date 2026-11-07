@@ -393,3 +393,17 @@ with Clang 22.1.8/patchelf 0.18.0. The experimental
 plugins, licenses/notices, a launcher and archives. Its required native extracted-app
 gate is separate and pending on that implementation. Designer acceptance and Linux
 release publication remain unfinished; the component alone does not establish them.
+
+
+## Latest refactor acceptance
+
+The complete native renderer/application workflow at `8dc5830` passes in
+[run 42348529660](https://github.com/jogibear9988/elytra/actions/runs/42348529660),
+job 128333001604, including isolation/helper callbacks, actual X11 windows and the
+relocated Mite-driven app with independent live renderer/kernel checks. This covers
+the native bridge, world-job policy and TCP refactors. Its runtime sources are
+unchanged from `209f64e`; the earlier run at that commit failed during the initial
+headless page with "Firefly WebContent crashed" and no signal/backtrace. Preserve
+that failure as unexplained; the later success does not identify its cause.
+No gate was removed, weakened or retried inside the acceptance harness. The newer
+whole-app archive gate introduced at `da5e3e8` still requires its own native result.

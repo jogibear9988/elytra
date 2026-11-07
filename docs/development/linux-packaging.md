@@ -74,7 +74,10 @@ that extracted launcher in a dedicated Xvfb/Openbox environment. A live independ
 HTTP peer checks real main/renderer executables, parent PID and kernel sandbox
 state. It also checks /proc maps for ELF files loaded from either original SDK.
 A compiled launcher fixture separately tests forwarding, PID ownership, relocation,
-platform defaults/refusals and actual distribution copyright collection.
+platform defaults/refusals and actual distribution copyright collection. This
+component gate passes at `da5e3e8` in
+[run 42349719941](https://github.com/jogibear9988/elytra/actions/runs/42349719941),
+job 128335067273. Its synthetic runtime does not establish Firefly app acceptance.
 
 These new gates must pass on the committed source; local syntax/refusal tests do
 not establish native application acceptance. Designer native UI acceptance and

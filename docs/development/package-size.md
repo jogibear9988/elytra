@@ -295,3 +295,33 @@ whole size difference is not an isolated optimization benchmark. The local
 same-source provider experiment above remains the evidence for that component's
 6.51-MiB saving. No new Windows/Linux/macOS x64 or notarization claim follows.
 Newer ESM/gallery/wire/HMAC work needs its own complete hosted artifact acceptance.
+
+
+## Updated hosted profile after HTTP and crash-fixture work
+
+The complete optimized/shared-provider macOS
+[run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824),
+job 128323403936, succeeds at `85557bec320efebeffbaf238cfc76d5c50d17a35`.
+It passes 65 runtime suites, native desktop/isolation/helper/provider/IPC budget,
+crash replacement and deadline gates, plus actual Designer editing, Monaco and
+window controls after packaging/relocation. Alpha publication was disabled.
+This remains an Actions artifact, not an overwrite of the published Alpha 2.
+
+Artifact 13564569254 has SHA-256
+`a90b2d8ff69c7a723b4859f95727f22aa4077ffd05e703d8d48162209e91cf60`.
+The downloaded artifact and all four manifest-listed file hashes verify. Each
+archive's BUILD.json records that clean source, Release/Release, stripped symbols,
+production dependencies, M1 baseline ON/ON, -Oz ON/ON, C++ LTO OFF/OFF and shared
+OpenSSL ON. Preserve its original `0.1.0-dev.121` metadata and filenames.
+
+| Hosted package | Uncompressed bytes | MiB | Download ZIP bytes |
+| --- | ---: | ---: | ---: |
+| Firefly | 205,745,925 | **196.21** | 98,262,228 |
+| Web Component Designer | 241,516,362 | **230.33** | 110,255,070 |
+
+The standalone Mite ZIP is 30,766,914 bytes. The already published default-profile
+Alpha 2 framework/Designer were 216.74/250.85 MiB. These also differ in source;
+this is a practical artifact comparison, not an isolated optimization benchmark.
+This acceptance predates subsequent native bridge/world-job/TCP refactors and
+does not establish the new Linux package, Windows desktop, notarization or older
+macOS compatibility. Newer source builds retain their own native gates.
