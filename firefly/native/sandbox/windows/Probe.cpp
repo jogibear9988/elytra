@@ -4,6 +4,7 @@
 #include <aclapi.h>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
@@ -102,6 +103,29 @@ std::string read_file(HANDLE handle)
     return { bytes, count };
 }
 
+bool excluded_handle(HANDLE handle)
+{
+    // This negative test deliberately probes a handle value absent from our
+    // allowlist. Strict-handle mitigation may raise instead of returning an
+    // invalid-handle error. Catch only that expected exception, only here.
+    __try {
+        SetLastError(ERROR_SUCCESS);
+        auto type = GetFileType(handle);
+        if (type == FILE_TYPE_UNKNOWN)
+            return GetLastError() == ERROR_INVALID_HANDLE;
+        if (type != FILE_TYPE_DISK)
+            return true; // Startup may reuse this number for an unrelated object.
+        char bytes[64];
+        DWORD count = 0;
+        if (!ReadFile(handle, bytes, sizeof(bytes), &count, nullptr))
+            return GetLastError() == ERROR_INVALID_HANDLE || GetLastError() == ERROR_ACCESS_DENIED;
+        return count != 17 || std::memcmp(bytes, "PRIVATE_TEST_ONLY", 17) != 0;
+    } __except (GetExceptionCode() == 0xc0000008UL ? EXCEPTION_EXECUTE_HANDLER
+                                                   : EXCEPTION_CONTINUE_SEARCH) {
+        return true;
+    }
+}
+
 bool denied_network(unsigned short port)
 {
     WSADATA data {};
@@ -166,8 +190,7 @@ int worker(int argc, wchar_t** argv)
         (resources / L"blocked.txt").c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
     bool write_denied = write == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED;
     Handle write_owner(write);
-    bool handle_isolated
-        = GetFileType(inherited) != FILE_TYPE_DISK || read_file(inherited) != "PRIVATE_TEST_ONLY";
+    bool handle_isolated = excluded_handle(inherited);
     wchar_t value[64];
     bool clean_env = GetEnvironmentVariableW(L"FIREFLY_SANDBOX_SECRET", value, 64) == 0
         && GetLastError() == ERROR_ENVVAR_NOT_FOUND;

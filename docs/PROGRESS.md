@@ -6291,6 +6291,25 @@ No native Windows result or local GUI pass is claimed. Goal active.
 Validation: syntax/formatting/diff pass locally without GUI. Actual AppContainer
 launch and all security negatives remain required. Goal active.
 
+## 2026-11-07: Handle strict invalid-handle rejection in the negative fixture
+
+- Native run 42356570628/job 128355846058 at 25d5230 compiles and passes startup,
+  independent child/parent/image and AppContainer/zero-capability/low-integrity/job
+  checks before resume. The native known-folder addition resolves error 203.
+- After resume, the worker exits with 0xC0000008 (STATUS_INVALID_HANDLE), without
+  completing its operation report. The negative fixture deliberately references an
+  excluded private handle; Windows strict-handle policy may raise this exception
+  instead of returning ERROR_INVALID_HANDLE. Isolate that probe in a small SEH
+  boundary, accepting only that exact exception at the deliberate negative access.
+  Unexpected exceptions elsewhere remain fatal. Do not disable strict handling.
+- Retain actual readable-secret failure, explicit invalid/access-denied read errors
+  and all other file/network/process checks. A fresh native run must prove the
+  complete negative report and pre/post-execution broker-death cases; token setup
+  alone is not component or renderer containment acceptance.
+
+Validation: native source formatting and diff checks pass locally; no GUI. Full
+native security fixture acceptance remains pending. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
