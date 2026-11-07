@@ -24,7 +24,7 @@ before using the reference app; smoke mode is not a substitute for manual valida
 
 ## API connections
 
-- `Menu.buildFromTemplate` (not a supported Firefly desktop export)
+- `Menu.buildFromTemplate` (partial application menus; accelerators/context menus remain unsupported)
 - `globalShortcut.register` (not a supported Firefly desktop export)
 
 ## Source files

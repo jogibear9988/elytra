@@ -119,7 +119,7 @@ The gate runs ESM option/snapshot policy and actual public main/owned-helper cra
 Main capture/recovery needs no window; helper acceptance uses one hidden window.
 It validates native PID ancestry, real SIGABRT reports, original Unicode metadata,
 main/global separation, private modes, absence of an environment sentinel/paths and
-clean-exit cleanup. Code-OSS now resolves this export but stops at missing Menu;
+clean-exit cleanup. Code-OSS now resolves this export but stops at missing contentTracing;
 its ignoreSystemCrashHandler request and other services still need work.
 See [ADR 0127](../architecture/0127-local-crash-reporting.md).
 Baseline: [Electron crashReporter](https://www.electronjs.org/docs/latest/api/crash-reporter).

@@ -22,8 +22,10 @@ async function run() {
     check(
       imported.protocol === firefly.protocol &&
         legacy.protocol === firefly.protocol &&
-        !('Menu' in imported),
-      'Partial protocol export is shared; unsupported Menu remains unavailable'
+        imported.Menu === firefly.Menu &&
+        legacy.MenuItem === firefly.MenuItem &&
+        !('contentTracing' in imported),
+      'Partial protocol/menu exports are shared; unsupported contentTracing remains unavailable'
     );
   } else {
     check(

@@ -135,7 +135,7 @@ with ERR_FAILED; pending loads cancelled by window/app lifecycle use ERR_ABORTED
 handle/unhandle, net.fetch, protocol interception, custom partitions, broader
 request fields/privileges and in-place document rebinding remain unavailable. The
 pinned Code-OSS entry still needs additional privileges/APIs and stops at missing
-Menu; no workbench launch follows from this subset.
+contentTracing; no workbench launch follows from this subset.
 
 ## Validation
 

@@ -43,6 +43,7 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     window->resize(width, height);
     auto* layout = new QVBoxLayout(window);
     layout->setContentsMargins(0, 0, 0, 0);
+    application_menu->attach(*window);
     auto* view = new Ladybird::WebContentView(window);
     layout->addWidget(view);
     window->observe(view);

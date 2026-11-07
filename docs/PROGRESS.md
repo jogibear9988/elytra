@@ -8000,6 +8000,47 @@ verified Menu import blocker after local crashReporter landed. Keep ADR 0126's
 historical evidence and link its subsequent ADR 0127. Validate generated site links;
 this is documentation only and requires no further desktop/crash tests.
 
+## 2026-11-07: Implement native application menus on the Code-OSS startup path
+
+- Add maintained ESM Menu/MenuItem graphs and a separate bounded Qt native provider.
+  Export real main constructors through Firefly and explicit Electron ESM/CommonJS
+  aliases. Support early null suppression, application-menu installation/removal,
+  nested normal/checkbox/separator/submenu items, lookup, properties and quit/close
+  roles. Keep callbacks in the main VM, not Qt or the renderer.
+- Independently validate exact native schemas, UTF-8/size/tree budgets and monotonic
+  int32 identifiers. Queue actual native action signals through the existing bridge;
+  discard retired generations, synchronize checkbox state across bars/new windows,
+  and dispose actions before VM teardown. Use a native global macOS menu bar and
+  per-window Linux bars. Keep Ladybird untouched and standalone Mite GUI-independent.
+- Reject unsupported options, roles, accelerators, radio items, installed structural
+  mutation and invalid ownership/graphs. Popup/context menus, lifecycle events and
+  broader menu services remain absent. Keep the combined menus sample blocked on
+  popup support and update its preflight so partial application support cannot be
+  mistaken for full sample acceptance.
+- Add Node/Mite graph policy, real Qt QAction-to-LibJS acceptance and an actual
+  public main-host export/install/update/remove gate without a BrowserWindow.
+  Exercise native schema/budget rejection, callbacks, disabled/hidden suppression,
+  checkbox state, properties, roles and stale events. Bound the native probe's run
+  time; its Qt pump exits when Mite work is idle rather than waiting indefinitely.
+  Require both native gates in macOS aggregate checks and Linux's existing Xvfb
+  runtime stage. Refresh API/status/example/Code-OSS docs and ADR 0128.
+
+Validation: local macOS Release builds and both menu gates pass. Native policy and
+existing BrowserWindow geometry policy pass in Node and actual Mite. The prepared
+real Code-OSS main entry now passes Menu import and fails at missing contentTracing
+(exit 1), recorded in build/code-oss-menu-entry.log; no workbench launch is claimed.
+All 23 ESM example apps stage successfully; this does not run/accept their features.
+Full maintained-source style, generated JS freshness, unmodified upstream pin and
+whitespace checks pass. Site validation passes (230 pages / 16,254 local links,
+resources and fragments). No broad desktop suite or physical menu-click automation
+was run. Fresh Linux native acceptance, physical focus/modifier/menu interaction
+and Windows desktop remain unverified/unfinished.
+
+Next implement real contentTracing and demanded app/main services, rerun actual
+Code-OSS, then continue protocol requirements and binary/event/port IPC/workbench
+services from the measured blockers. Broader example coverage follows Code-OSS
+needs. Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -1,4 +1,5 @@
 /** Main-process desktop API and native-window lifecycle policy. */
+import createMenus from './menu/index.mjs';
 import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createMainIpc from './ipc-main.mjs';
@@ -115,6 +116,17 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const menus = createMenus(
+    native,
+    error,
+    unsupported,
+    () => app.quit(),
+    (id) => {
+      const window = windows.get(id);
+      return window && !window._closing && !window._destroyed ? window : undefined;
+    }
+  );
+  const { Menu, MenuItem } = menus;
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported);
   const { protocol } = protocols;
@@ -467,6 +479,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   }
 
   native.setHandler((id, type, data) => {
+    if (type === 'menu-click') {
+      menus.dispatch(id, JSON.parse(data));
+      return;
+    }
     if (type === 'protocol-request' || type === 'protocol-cancel') {
       protocols.dispatch(type, JSON.parse(data));
       return;
@@ -554,6 +570,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
 
   return {
     app,
+    Menu,
+    MenuItem,
     crashReporter,
     protocol,
     session,

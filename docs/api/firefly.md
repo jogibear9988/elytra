@@ -10,7 +10,7 @@ and [renderer build guide](../development/renderer-build.md) record the acceptan
 
 Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
 [webContents](web-contents.md), [IPC](ipc.md), [screen](screen.md) and
-[clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+[clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).
 
 ## Application entry
@@ -49,8 +49,7 @@ Nested quit requests coalesce; retry after cancellation is supported. Forced exi
 suppresses window-all-closed and normal quit cancellation, destroys windows and emits
 closed/quit. A current JS turn can finish before native termination.
 
-Platform activation/dock/Cmd-Q integration, beforeunload handling, paths, application
-menus, single-instance locking, packaging metadata and most Electron app methods are
+Platform activation/dock/Cmd-Q integration, beforeunload handling, general paths, single-instance locking, packaging metadata and most Electron app methods are
 not implemented. Calling an absent method throws an ordinary JS API error.
 
 ## BrowserWindow
@@ -156,7 +155,7 @@ ERR_INVALID_ARG_TYPE, ERR_INVALID_ARG_VALUE, ERR_INVALID_URL, ERR_ABORTED,
 ERR_TIMED_OUT and ERR_FAILED. Messages, stack traces and detailed network error
 fields are not generally Electron-compatible.
 
-Dialogs, Menu/MenuItem, Tray, shell, nativeImage, session,
+Dialogs, popup/context menus, accelerators, Tray, shell, nativeImage, session,
 auto-updates and production signed/notarized packages remain unimplemented.
 Experimental macOS bundles and a gated build workflow are described in the
 [release guide](../development/releases.md). Native Windows

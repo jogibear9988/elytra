@@ -120,7 +120,7 @@
       "smoke": false,
       "actions": [],
       "preload": false,
-      "notes": "Application and context menus use the real Menu API. Firefly Menu/MenuItem are not implemented.",
+      "notes": "Firefly application menus are partial; this combined example remains blocked on popup/context-menu support.",
       "platforms": []
     },
     {

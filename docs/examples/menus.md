@@ -2,7 +2,9 @@
 
 **Firefly:** Unsupported in Firefly; the launcher fails explicitly before unsupported operations. Electron feature execution is manual/unverified.
 
-Application and context menus use the real Menu API. Firefly Menu/MenuItem are not implemented.
+Application and context menus use the real Menu API. Firefly now has partial
+[application menus](../api/menu.md); this combined example remains blocked on
+popup/context-menu support.
 
 ## Run
 
@@ -18,14 +20,14 @@ For the explicit Electron comparison build:
 build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron build/desktop-examples-reference/menus/main.mjs
 ```
 
-This is reference code for a missing feature, not a successful Firefly demo.
+This remains reference code for an incomplete feature, not a successful Firefly demo.
 No automated feature success is reported. Read the platform/setup requirements
 before using the reference app; smoke mode is not a substitute for manual validation.
 
 ## API connections
 
-- `Menu.buildFromTemplate` (not a supported Firefly desktop export)
-- `Menu.popup` (not a supported Firefly desktop export)
+- `Menu.buildFromTemplate` (partial application-menu support)
+- `Menu.prototype.popup` (not implemented; checked before this example runs)
 
 ## Source files
 

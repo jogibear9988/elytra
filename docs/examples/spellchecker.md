@@ -25,7 +25,7 @@ before using the reference app; smoke mode is not a substitute for manual valida
 ## API connections
 
 - [webContents.session](../api/web-contents.md)
-- `Menu.buildFromTemplate` (not a supported Firefly desktop export)
+- `Menu.buildFromTemplate` (partial application menus; accelerators/context menus remain unsupported)
 - [webContents.replaceMisspelling](../api/web-contents.md)
 
 ## Source files

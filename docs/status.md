@@ -29,7 +29,7 @@ stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
 Firefly-host probe passes the registerHooks/promisify imports and reaches missing
-Electron Menu (exit 1); protocol and crashReporter exports now resolve.
+Electron contentTracing (exit 1); protocol, crashReporter and Menu exports now resolve.
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
 the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
@@ -46,7 +46,13 @@ capture/storage for real local main/helper reports, with crashDumps paths and fr
 annotations. Actual main SIGABRT recovery and a real owned-helper crash pass locally
 on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
-The current Code-OSS import now stops at Menu.
+The current Code-OSS import now stops at contentTracing.
+
+Partial [Menu/MenuItem](api/menu.md) application menus now pass local macOS
+Release Qt/LibJS native actions and actual public main-host gates. Checkbox state,
+properties, callbacks, null suppression and generation retirement are implemented.
+Popup/context menus, accelerators and broader roles remain unsupported. The combined
+menus sample remains blocked; fresh Linux native acceptance is required.
 
 The native [protocol policy delivery](architecture/0112-native-protocol-configuration.md)
 now passes local typed-codec/argv/lifecycle tests and actual headless diagnostic/
@@ -61,7 +67,7 @@ URL::origin override is removed. Cargo source selection, explicit freshness and
 actual dependency outputs are checked. Public origin registration is now available
 as the subset described below. Complete standard parsing, worker propagation and
 public resource/session contracts remain unfinished. Code-OSS stops at the missing
-Menu export; no desktop launch is claimed.
+contentTracing export; no desktop launch is claimed.
 
 The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
@@ -129,7 +135,7 @@ now also has actual main/window acceptance, with automatic native navigation/doc
 grants, delayed handlers, load failures, cancellation and generation replacement.
 General Response handlers, partitions and further privilege flags remain open. Public [protocol registration](api/protocol.md) publishes the native origin table;
 unsupported privileges fail explicitly. Actual Code-OSS import advances
-to missing Menu (exit 1). No Code-OSS workbench
+to missing contentTracing (exit 1). No Code-OSS workbench
 launch or new platform support follows from these gates.
 
 The CPU-corrected **1d033fe** Linux renderer passes
@@ -322,7 +328,7 @@ errors, overloads and intentional differences.
 | IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; one-way/sync/ports/subframes unfinished; [IPC](api/ipc.md) |
 | Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
 
-Menu/MenuItem, dialog, Tray, shell, nativeImage, session/permission/protocol control,
+popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,
 notifications, global shortcuts, auto-updates and most Electron APIs remain absent.
 Renderer Node integration is rejected; privileged Mite APIs stay in the main process.
 

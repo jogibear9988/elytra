@@ -2,6 +2,7 @@
 #include "../../protocol/routes/Host.h"
 #include "../../clipboard/ClipboardHost.h"
 #include "../../crash/Host.h"
+#include "../../menu/Host.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
 #include "../../window/Geometry.h"
@@ -32,6 +33,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     install_clipboard_host(realm, *host);
     CrashReporting::install_host(realm, *host);
+    install_menu_host(realm, *host, *application_menu);
     Protocols::install_registration_host(realm, *host);
     Protocols::install_file_route_host(
         realm, *host, NonnullRefPtr<Protocols::FileRoutes> { *protocols });

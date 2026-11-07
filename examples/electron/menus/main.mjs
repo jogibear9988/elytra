@@ -1,12 +1,12 @@
 /**
- * Menus main-process reference. Application and context menus use the real Menu API. Firefly
- * Menu/MenuItem are not implemented.
+ * Menus main-process reference. Firefly has partial application menus; this combined
+ * example remains blocked on popup/context-menu support.
  */
 import { runExample } from '../shared/run.mjs';
 
 await runExample(import.meta.url, {
   id: 'menus',
-  requires: ['Menu.buildFromTemplate'],
+  requires: ['Menu.buildFromTemplate', 'Menu.prototype.popup'],
   earlyRequires: [],
   smoke: false,
 

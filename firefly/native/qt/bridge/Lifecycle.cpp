@@ -5,6 +5,7 @@
 #include "TransportHooks.h"
 #include "Value.h"
 #include "core/EventLoop.h"
+#include <AK/JsonObject.h>
 #include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <QTimer>
@@ -22,6 +23,25 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
     , exit_code(exit_code)
     , electron_compat(electron_compat)
 {
+    application_menu = std::make_unique<ApplicationMenu>(*context,
+        [this](int generation, int command, bool checked, QWidget* focused, int modifiers) {
+            if (stopping)
+                return;
+            int window_id = 0;
+            for (auto const& [id, state] : windows)
+                if (!state.closing && focused
+                    && (focused == state.window || state.window->isAncestorOf(focused))) {
+                    window_id = id;
+                    break;
+                }
+
+            JsonObject metadata;
+            metadata.set("generation"sv, generation);
+            metadata.set("command"sv, command);
+            metadata.set("checked"sv, checked);
+            metadata.set("modifiers"sv, modifiers);
+            enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
+        });
     initialize_protocols();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params) {
@@ -42,6 +62,8 @@ void Bridge::Impl::stop()
     set_preload_configurator({});
     set_native_ipc_handler({});
     stop_protocols();
+    if (application_menu)
+        application_menu->stop();
     while (!windows.empty())
         delete windows.begin()->second.window;
     context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.

@@ -4,6 +4,7 @@
  * destroys windows and cancels the QObject context before releasing VM roots.
  */
 #pragma once
+#include "../../menu/ApplicationMenu.h"
 #include "../Bridge.h"
 #include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
@@ -70,6 +71,7 @@ struct Bridge::Impl {
     int next_id { 1 };
     bool stopping { false };
     size_t ipc_pending_count { 0 };
+    std::unique_ptr<ApplicationMenu> application_menu;
     RefPtr<Protocols::FileRoutes> protocols;
     RefPtr<Core::Timer> protocol_timer;
 
