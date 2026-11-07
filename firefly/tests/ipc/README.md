@@ -20,3 +20,10 @@ Security preload actions return fixture-owned assertion diagnostics as plain
 records; page fixtures require the exact true result before marking readiness.
 This preserves the production bridge's sanitized exceptions while identifying a
 failing check in CI. Rejections remain test failures, never successful readiness.
+
+security-main and crash-main independently acknowledge receipt of all sixteen
+held requests in the main handler before navigating, destroying or announcing a
+renderer PID to kill. Renderer-local budget rejection/title readiness alone is
+not a delivery acknowledgement. receipt.mjs shares the bounded wait/cleanup;
+missing requests still fail with counts. Crash startup failures retain the child
+exit status and stderr in the Python assertion and native diagnostic artifact.

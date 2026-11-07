@@ -2,11 +2,22 @@
 import { app, BrowserWindow, ipcMain } from 'firefly';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createReceipt } from './receipt.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const waiting = [];
+const receipt = createReceipt();
 
-ipcMain.handle('held', (event) => new Promise((resolve) => waiting.push({ event, resolve })));
+ipcMain.handle(
+  'held',
+  (event) =>
+    new Promise((resolve) => {
+      waiting.push({ event, resolve });
+      if (waiting.length === 16) {
+        receipt.acknowledge();
+      }
+    })
+);
 
 ipcMain.handle('bad-result', () => ({ unsupported() {} }));
 
@@ -61,8 +72,10 @@ try {
 
   await window.loadFile('security.html');
   await title(window, 'SECURITY_READY');
+  // A renderer-local full budget is not acknowledgement of main-handler delivery.
+  await receipt.wait(() => `Requests missing before crash: held=${waiting.length}`);
   if (waiting.length !== 16) {
-    throw Error('Requests were not pending before crash');
+    throw Error(`Requests were not pending before crash: held=${waiting.length}`);
   }
   console.log('CRASH_READY ' + window.webContents.getOSProcessId());
 } catch (error) {

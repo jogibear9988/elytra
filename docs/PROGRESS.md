@@ -5555,6 +5555,40 @@ returns the expected draft ID/tag/state with the corrected field selection.
 Fresh alpha publication still needs successful final server-digest
 checks and observed published state. No local GUI runs. Goal active.
 
+## 2026-11-07: Apply main-handler receipt gating to the IPC crash fixture
+
+- Optimized 12f15f1 run 42316338587 fails at the next crash fixture after passing
+  security/budget checks. Its crash harness discards the child's stderr and
+  reports only "No renderer ready". The crash fixture still has the same source
+  ordering gap: renderer-local SECURITY_READY need not acknowledge delivery of
+  all sixteen main handlers. This is a source-level race; it is not a reproduced
+  optimized failure diagnosis, since that run did not preserve child diagnostics.
+- Share the existing five-second main-side receipt/deadline cleanup in a small
+  ESM fixture helper. Use it in security and crash fixtures. Register the crash
+  receipt before loading; acknowledge only at sixteen actual held-handler
+  arrivals, then keep the exact count check before CRASH_READY/PID publication.
+  Preserve owned-child verification, real SIGKILL, destroyed sender snapshots,
+  stale replies, replacement-window checks, limits and every existing assertion.
+- On crash startup failure, stop/reap only the owned process group, retain its
+  pre-cleanup status/stdout/stderr in an artifact and include them in the failed
+  assertion. Do not claim an unavailable renderer as a passed crash test.
+- Actual Node and native Mite checks pass for already-received, delayed and
+  repeated acknowledgements and timer cleanup. An actual non-GUI failing Python
+  child verifies exit status 4 and stderr survive the harness failure path.
+  JS/Python syntax and formatting pass; no local GUI opens. Positive changed
+  native crash acceptance remains for fresh hosted CI.
+- Corrected alpha promotion run 42345691857 succeeds. Verify job 128322822894
+  and publish job 128322917304 pass; final server count/state/size/SHA-256 checks
+  pass. Public GET observes release 437377666 draft=false/prerelease=true at
+  2026-11-07T06:09:34Z, all five original assets. Alpha.2 points to verified
+  source 19ad113 with unchanged dev.118 archive metadata. It does not contain
+  the subsequent HTTP refactor or this fixture change. Update release links next.
+
+Limits: the released default profile measures 216.74 MiB framework/250.85 MiB
+Designer, not a successful optional size/shared-provider profile. A new optimized
+candidate still needs every native/security/package gate. Windows desktop and
+Linux distributables/broader OS services remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

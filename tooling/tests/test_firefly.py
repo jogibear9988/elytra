@@ -90,7 +90,20 @@ def crash_probe(binary, script):
                     if match:
                         renderer = int(match[1])
                         break
-            assert renderer is not None, "No renderer ready for crash test"
+            if renderer is None:
+                status = process.poll()
+                stop(process)
+                stdout, stderr = process.communicate(timeout=5)
+                failure = {
+                    "script": str(script),
+                    "statusBeforeCleanup": status,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                }
+                (ROOT / "build/firefly-last-crash-test.log").write_text(
+                    json.dumps(failure, indent=2)
+                )
+                raise AssertionError(("No renderer ready for crash test", failure))
             rows = [
                 row.strip().split(maxsplit=2)
                 for row in subprocess.check_output(

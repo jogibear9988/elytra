@@ -2,6 +2,7 @@
 import { app, BrowserWindow, ipcMain } from 'firefly';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createReceipt } from './receipt.mjs';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const waiting = [];
@@ -49,25 +50,15 @@ async function title(window, expected) {
 async function securityBatch(window, cycle) {
   // Renderer-local budget rejection and title updates do not acknowledge main
   // handlers. Observe both endpoints before asserting delivery counts or navigating.
-  const received = new Promise((resolve) => {
-    receivedBatch = resolve;
-  });
+  const receipt = createReceipt();
+  receivedBatch = receipt.acknowledge;
   await window.loadFile('security.html');
   await title(window, 'SECURITY_READY');
-  let deadline;
   try {
-    await Promise.race([
-      received,
-      new Promise((resolve, reject) => {
-        deadline = setTimeout(() => {
-          reject(
-            Error(`Missing held batch: cycle=${cycle}, held=${waiting.length}, pings=${pings}`)
-          );
-        }, 5000);
-      })
-    ]);
+    await receipt.wait(
+      () => `Missing held batch: cycle=${cycle}, held=${waiting.length}, pings=${pings}`
+    );
   } finally {
-    clearTimeout(deadline);
     receivedBatch = undefined;
   }
   if (waiting.length !== 16 || pings !== cycle * 8) {
