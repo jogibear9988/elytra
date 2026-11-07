@@ -407,3 +407,14 @@ headless page with "Firefly WebContent crashed" and no signal/backtrace. Preserv
 that failure as unexplained; the later success does not identify its cause.
 No gate was removed, weakened or retried inside the acceptance harness. The newer
 whole-app archive gate introduced at `da5e3e8` still requires its own native result.
+
+
+## Native display component under development
+
+[ADR 0095](../architecture/0095-linux-native-display-snapshots.md) adds a separate
+Qt/XCB RandR display provider in firefly/native/screen. It reads actual output IDs,
+DIP geometry, work area, rotation and cursor without creating a window. Ambiguous
+or missing native mappings return an explicit error. The standalone native-services
+workflow now requires no-GUI refusal and independent xrandr/EWMH/Xlib checks at
+Qt scales 1 and 2. Hosted acceptance is pending; the public Linux screen/nativeTheme
+API remains unsupported until its separate integration/app acceptance is complete.

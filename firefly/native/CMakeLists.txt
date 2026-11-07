@@ -29,6 +29,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 endif()
 include("${CMAKE_CURRENT_SOURCE_DIR}/clipboard/Targets.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/window/Targets.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/screen/Targets.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/platform/RuntimePaths.cmake")
 enable_testing()
 add_test(
@@ -48,6 +49,16 @@ add_test(NAME geometry-isolation-guard
                  --probe "$<TARGET_FILE:firefly-x11-geometry-probe>" --check-guard)
 set_tests_properties(geometry-arithmetic geometry-isolation-guard PROPERTIES TIMEOUT 15)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(
+        NAME screen-no-gui-guard
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_screen.py"
+                --probe "$<TARGET_FILE:firefly-x11-screen-probe>" --check-guard)
+    add_test(
+        NAME screen-native-x11
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_screen.py"
+                --probe "$<TARGET_FILE:firefly-x11-screen-probe>")
+    set_tests_properties(screen-no-gui-guard PROPERTIES TIMEOUT 15)
+    set_tests_properties(screen-native-x11 PROPERTIES TIMEOUT 60)
     add_test(
         NAME clipboard-native-x11
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_x11_clipboard.py"

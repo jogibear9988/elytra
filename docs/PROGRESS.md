@@ -5936,6 +5936,35 @@ Validation: Python syntax/help, full source formatting, actionlint/diff, payload
 site: 183 pages and 12,660 links/resources/fragments pass. Native Designer archive
 acceptance remains pending on hosted Linux. Goal active.
 
+## 2026-11-07: Add an independently testable native Linux display provider
+
+- Previous goal turn is progress: 9f79375 commits/pushes actual extracted Designer
+  acceptance and candidate upload gates. Recheck original da5e3e8 renderer job
+  128335356488/run 42349719779: authoritatively live compiling its native graph.
+  Leave it active, with its archive gate still pending; no observation-age restart.
+- Continue required Linux OS services with a Qt/XCB RandR snapshot adapter,
+  independent of JS/renderer ownership. Use actual active output XIDs, not invented
+  array/hash identities. Match native output names strictly, refuse ambiguous or
+  missing mappings/resource races/reflections, translate rotation direction and
+  read primary-relative DIP geometry/work area, scale, refresh and cursor.
+- Require the native xcb GUI application thread. Return explicit unavailable
+  records outside it; omit unverified panel/color/depth properties. Do not wire
+  or advertise public Linux screen until the component and app integration pass.
+- Add a native read-only probe and standalone service CTest gates: actual no-GUI
+  refusal, independent xrandr output identity/geometry, EWMH work area and Xlib
+  pointer comparisons at Qt scale 1 and 2 in isolated Xvfb/Openbox. The provider
+  never creates a window or warps the pointer. CI's independent manager control
+  remains required before native reads; do not substitute a startup sleep.
+- Add ADR 0095 with language/boundary/identity/error choices and exact remaining
+  public API, events, physical/mixed-DPI/rotation/hotplug/Wayland acceptance work.
+  Keep Ladybird unchanged and existing public Linux service refusals intact.
+
+Validation: Python syntax/help, full source formatting (142 Python, 569 JS/config,
+193 native, 26 CMake), actionlint/diff and unchanged-upstream checks pass. Generated
+site: 184 pages and 12,728 links/resources/fragments pass. No local GUI. Native X11
+compilation/acceptance is pending on hosted Linux; no macOS stand-in result is
+claimed. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -8,6 +8,7 @@ on:
       - 'firefly/native/CMakeLists.txt'
       - 'firefly/native/clipboard/**'
       - 'firefly/native/window/**'
+      - 'firefly/native/screen/**'
       - 'firefly/native/platform/RuntimePaths*'
       - 'firefly/native/qt/Requirements.cmake'
       - 'tooling/renderer_dependencies.py'
@@ -17,6 +18,7 @@ on:
       - 'tooling/check_upstream.py'
       - 'tooling/tests/test_x11_clipboard.py'
       - 'tooling/tests/test_x11_geometry.py'
+      - 'tooling/tests/test_x11_screen.py'
       - 'tooling/tests/_x11.py'
       - 'tooling/tests/test_runtime_paths.py'
       - 'vendor/ladybird'
@@ -48,7 +50,7 @@ jobs:
         with:
           renderer: 'true'
       - name: Independent X11 geometry tools
-        run: sudo apt-get install -y x11-utils
+        run: sudo apt-get install -y x11-utils x11-xserver-utils
       - name: Prepare shared native dependency cache
         run: |
           mkdir -p build/vcpkg-cache build/renderer-cache
