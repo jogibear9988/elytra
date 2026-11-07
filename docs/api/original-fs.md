@@ -2,9 +2,9 @@
 
 Status: partial Firefly main-process module. Local macOS ARM64 tests run the same
 ESM fixture in the real Firefly starter and Electron 45.2.3 console mode, plus a
-non-GUI embedded Mite host with actual GC. Native Linux x64 also passes the
-host/standalone gate at 678c85e (all 68 runtime suites). New Windows host execution
-and Linux product execution remain pending; Windows desktop remains unavailable.
+non-GUI embedded Mite host with actual GC. Native Linux and Windows x64 also pass
+the host/standalone gate at 678c85e (all 68 runtime suites). Linux product execution
+remains pending; Windows desktop remains unavailable.
 
 ```js
 import fs, {readFileSync, promises} from 'original-fs';

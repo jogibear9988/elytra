@@ -1,9 +1,9 @@
 # node:module
 
 Status: partial utility API. createRequire, isBuiltin and builtinModules have local
-macOS ARM64 Node differential and actual embedded-host GC tests. Native Linux x64
-also passes at 678c85e (all 68 runtime suites); new Windows execution remains
-pending. See [current evidence](../status.md).
+macOS ARM64 Node differential and actual embedded-host GC tests. Native Linux and
+Windows x64 also pass at 678c85e (all 68 runtime suites). See
+[current evidence](../status.md).
 
 ```js
 import {createRequire, isBuiltin, builtinModules} from 'node:module';
@@ -52,8 +52,8 @@ retained; no permanent synthetic-module root is added to the loader.
 
 require.resolve options, require.extensions, global lookup folders, loader hooks,
 automatic named CommonJS exports and synchronous require(ESM) remain unsupported.
-Native Windows rooted paths and trailing backslashes have source/test coverage;
-their new execution gate is pending. Existing platform-specific loader limits,
+Native Windows current-drive rooted paths and trailing backslashes pass the
+678c85e native gate. Existing platform-specific loader limits,
 including UNC module URLs, still apply.
 
 ## isBuiltin(name)

@@ -1,7 +1,9 @@
 # ADR 0103: Declare and verify a single packaged DBus provider
 
-Status: implemented; native component and complete application acceptance are
-recorded separately in [PROGRESS](../PROGRESS.md).
+Status: implemented; the compiled native component passes at cff79fb in
+[run 42377484491](https://github.com/jogibear9988/elytra/actions/runs/42377484491).
+Complete application/archive acceptance remains separate and pending; see
+[PROGRESS](../PROGRESS.md).
 
 ## Evidence and decision
 
@@ -51,3 +53,7 @@ DBus's selected provider is already the frontend's native baseline; the complete
 archive, live loader provenance and actual relocated application/Designer gates
 remain required. Do not generalize this rule to arbitrary library replacement or
 advertise native package support from the component fixture alone.
+
+Symbol/version interpretation follows the primary
+[GNU readelf reference](https://sourceware.org/binutils/docs/binutils/readelf.html)
+and [linker version script contract](https://sourceware.org/binutils/docs/ld/VERSION.html).

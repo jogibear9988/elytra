@@ -1,9 +1,9 @@
 # node:perf_hooks
 
 Status: partial native clock API. Local macOS ARM64 Node 24.15 comparisons and
-actual embedded-host collection pass. Native Linux x64 passes this gate, including
-the pinned Code-OSS module, at 678c85e (all 68 runtime suites). New Windows
-execution remains pending; see [current evidence](../status.md).
+actual embedded-host collection pass. Native Linux and Windows x64 pass this gate,
+including the pinned Code-OSS module, at 678c85e (all 68 runtime suites).
+See [current evidence](../status.md).
 This does not implement Node's complete performance measurement API.
 
 ```js

@@ -1,8 +1,8 @@
 # Mite runtime API
 
 Status: partial Node-style runtime; tested on macOS ARM64 against Node 24.15.0,
-with native Linux x64 and Windows x64 passing all 65 enabled runtime suites at
-da5e3e8. [Current support](../status.md) records the runs and scope; later
+with native Linux x64 and Windows x64 passing all 68 enabled runtime suites at
+678c85e. [Current support](../status.md) records the runs and scope; later
 profiles/SDK changes require their own acceptance.
 See the [compatibility matrix](../compatibility/mite-0.1.md) for differences and
 [getting started](../getting-started.md) for builds. This is the supported subset,
@@ -99,13 +99,13 @@ values can have platform-specific native behavior. Non-number/fractional write
 positions select the cursor; excessive positive positions fail explicitly.
 Reads have their own integer/BigInt validation and do not inherit write coercions.
 Sync, callback and FileHandle position/data/cursor behavior is compared with Node;
-the new negative-position Windows fix still requires native acceptance.
+the tested negative-position Windows cases pass at 678c85e.
 
 The Windows adapter now prepares namespaced paths for native operations, retains
 the caller's Dirent parentPath and strips the internal namespace prefix from error
 path/dest fields. Recursive mkdir returns the first created native namespace path
-on Windows. These new Windows semantics await native acceptance; local macOS
-checks do not establish them.
+on Windows. The measured Windows path/error cases pass the native 678c85e gate;
+broader platform/permission/namespace edge cases remain unverified.
 
 ```js
 import {readFile, writeFile} from 'node:fs/promises';

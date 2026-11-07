@@ -6,21 +6,24 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-Native Linux x64 at **678c85e** passes all **68** Mite suites in
+Native Linux and Windows x64 at **678c85e** pass all **68** Mite suites:
 [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084)
-(83.24 seconds), including module utilities, the collecting raw-FS host gate and
+(Linux, 83.24 seconds) and
+[run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074)
+(Windows, 124.04 seconds), including module utilities, the collecting raw-FS host gate and
 the native performance clock/pinned Code-OSS module. This is standalone/host API
-acceptance, not a Code-OSS desktop launch, full Linux app archive or Windows proof.
+acceptance, not a Code-OSS desktop launch, full Linux app archive or Windows desktop proof.
 
 The [node:module utilities](api/module.md) at 8f617c0 pass local macOS ARM64 Node
 differential/embedded-host GC checks and the full **66-suite** Mite run. This adds
-ESM-owned createRequire, not Code-OSS startup or compile-cache/V8 support. New
-Linux/Windows execution remains pending.
+ESM-owned createRequire, not Code-OSS startup or compile-cache/V8 support. The
+newer native Linux/Windows gates above include these utilities.
 
 The newer [node:perf_hooks clock](api/perf-hooks.md) passes local native clock/GC
 checks and executes the pinned Code-OSS performance module after type erasure,
 using that module's mark fallback. It supplies now/timeOrigin only; it does not
-establish full performance API, desktop bootstrap or new Linux/Windows acceptance.
+establish full performance API or desktop bootstrap support. The newer native
+Linux/Windows gates above include the clock and actual pinned module checks.
 
 Latest completed macOS Release/package verification:
 [run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659)
@@ -41,8 +44,8 @@ completed native evidence.
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
 | Mite / macOS ARM64 | 65 CLI suites and native package gate at 85557be; independent LibJS runtime | Full Node API coverage, older hosts and production distribution |
-| Mite / native Linux x64 | All 65 enabled suites at da5e3e8; [run 42349719739](https://github.com/jogibear9988/elytra/actions/runs/42349719739) | Wider hosts/architectures; new portable-CPU profile needs its own acceptance |
-| Mite / native Windows x64 | All 65 enabled suites at da5e3e8; [run 42349719866](https://github.com/jogibear9988/elytra/actions/runs/42349719866) | Full Windows API/error parity, other architectures and standalone distribution |
+| Mite / native Linux x64 | All 68 enabled suites at 678c85e; [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084) | Wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / native Windows x64 | All 68 enabled suites at 678c85e; [run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074) | Full Windows API/error parity, other architectures and standalone distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
 | Firefly / Linux x64 | Experimental X11 app/renderer/preload/IPC/clipboard and live kernel checks pass at 8dc5830 in [run 42348529660](https://github.com/jogibear9988/elytra/actions/runs/42348529660) | New screen integration, portable CPU build, complete archive and Designer gates pending; newer da5e3e8 app run failed with SIGILL |
 | Firefly / native Windows | Production desktop not implemented/accepted; [renderer](development/windows-build.md#experimental-native-libweb-renderer-gate) and [Qt window prototype](development/windows-build.md#native-qt-window-prototype) have native CI gates, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |

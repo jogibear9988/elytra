@@ -6,7 +6,10 @@ on Windows Server 2025 with Visual Studio clang-cl x64, the pinned Rust toolchai
 and pinned vcpkg source/dependencies. No WSL, MinGW compiler or alternate JS engine
 is used as a runtime/build fallback. Node is only the differential test reference.
 
-Later slices need separate acceptance. At 8f617c0,
+At 678c85e, [run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074)
+passes all 68 enabled suites (124.04 seconds), including Unicode host startup,
+module utilities, raw host filesystem and performance/Code-OSS module tests.
+Later slices need separate acceptance. At the earlier 8f617c0,
 [run 42373435149](https://github.com/jogibear9988/elytra/actions/runs/42373435149)
 compiled the native runtime but failed two tests: the new module utility fixture
 incorrectly assumed its C: temp path and D: checkout shared a current drive, and
@@ -19,7 +22,8 @@ test host now share WindowsArguments, which owns converted strings/pointers from
 wmain's UTF-16 arguments and rejects invalid UTF-16. The host must not rely on the
 CRT's narrow main argument encoding; libuv's Windows uv_setup_args returns those
 arguments unchanged. CLI-only binary-output and handle-inheritance policies remain
-at its entry point. New native execution of this shared entry adapter is pending.
+at its entry point. The shared entry adapter and Unicode host cases pass in the
+678c85e native gate above.
 
 Historical bring-up: the first job failed before compilation because the DNS NUL-input fixture had the
 reserved basename nul.mjs. It is now null-byte.mjs; its contents and assertions are

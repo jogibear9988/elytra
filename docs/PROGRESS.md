@@ -6723,6 +6723,27 @@ No local GUI. Full goal active; Code-OSS desktop still does not run.
 Validation: local ELF/parser guards pass. Native component rerun pending; no local
 GUI. Full goal active, Code-OSS desktop remains incomplete.
 
+## 2026-11-07: Accept native provider component and refresh Windows API evidence
+
+- Native Linux component cff79fb run 42377484491 / job 128417952776 passes all real
+  ELF gates: compatible declared/versioned provider, one physical DSO, unchanged
+  originals, relocation after hiding source builds and incompatible-version/
+  unobserved/host/implicit-collision refusal. Existing payload, native launcher,
+  live DSO provenance and distribution-notice component gates also pass.
+- This is not full archive acceptance. Renderer cff79fb run 42377484455 remains
+  live at native configure/compile as checked through job 128418042162. Earlier
+  24ba055 renderer stopped in the already-corrected component assertion before the
+  full app stages, so it provides no packaged-provider application evidence.
+- Refresh API/matrix/status and Windows development docs with the authoritative
+  678c85e Windows 68-suite result (124.04 seconds). New module/performance/raw-host
+  and wide-entry tests are accepted on native Linux/Windows for their scoped
+  contracts. Windows Firefly desktop, Linux archive/Designer, Code-OSS desktop and
+  broader API/platform coverage remain required; no full-goal completion claim.
+
+Validation: source-backed documentation update; previously completed native jobs
+above are the evidence. Site 198 pages / 13,995 local links/resources/fragments
+and diff checks pass. Native full archive run remains in progress. No local GUI.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
