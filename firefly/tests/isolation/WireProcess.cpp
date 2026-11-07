@@ -26,7 +26,8 @@ ErrorOr<int> ladybird_main(Main::Arguments args)
     if (args.argc != 2
         || (args.strings[1] != "encode"sv && args.strings[1] != "decode"sv
             && args.strings[1] != "checks"sv && args.strings[1] != "binary-encode"sv
-            && args.strings[1] != "binary-decode"sv))
+            && args.strings[1] != "binary-decode"sv && args.strings[1] != "views-encode"sv
+            && args.strings[1] != "views-decode"sv))
         return Error::from_string_literal("Expected checks, encode or decode");
     auto vm = JS::VM::create();
     auto initialized = JS::Realm::initialize_host_defined_realm(*vm, {}, {});
@@ -54,18 +55,27 @@ ErrorOr<int> ladybird_main(Main::Arguments args)
         ScopeGuard pop_target([&] { vm->pop_execution_context(); });
         TRY(check_bridge_wire(*vm, realm, *target_context->realm));
         TRY(check_binary_wire(*vm, realm, *target_context->realm));
+        TRY(check_binary_views(*vm, realm, *target_context->realm));
         return 0;
     }
 
     ByteString output;
-    if (args.strings[1] == "binary-encode"sv || args.strings[1] == "binary-decode"sv) {
+    if (args.strings[1] == "binary-encode"sv || args.strings[1] == "binary-decode"sv
+        || args.strings[1] == "views-encode"sv || args.strings[1] == "views-decode"sv) {
         Firefly::BridgeData::Limits policy;
         policy.binary_bytes = 65536;
-        if (args.strings[1] == "binary-encode"sv) {
+        bool views = args.strings[1].starts_with("views-"sv);
+        realm.global_object().define_direct_property(
+            "withViews"_utf16, JS::Value(views), JS::default_attributes);
+        if (args.strings[1] == "binary-encode"sv || args.strings[1] == "views-encode"sv) {
             auto value = TRY(run(uR"JS((()=>{
                 const buffer=new ArrayBuffer(65536),view=new Uint8Array(buffer);
                 for(let i=0;i<view.length;i++)view[i]=(i*37+11)&255;
-                const root={buffer,alias:buffer,empty:new ArrayBuffer(0)};root.self=root;return root;
+                const root={buffer,alias:buffer,empty:new ArrayBuffer(0)};root.self=root;
+                if(withViews){root.view=new Uint8Array(buffer,5,17);root.sameView=root.view;
+                    root.words=new Uint16Array(buffer,8,4);root.data=new DataView(buffer,3,19);
+                    root.tail=new Uint8Array(buffer,65536,0);}
+                return root;
             })())JS"sv));
             output
                 = TRY(TRY(Firefly::BridgeData::capture(value, realm, policy)).encode_wire(policy));
@@ -86,7 +96,15 @@ ErrorOr<int> ladybird_main(Main::Arguments args)
             auto result = TRY(run(uR"JS(
                 binaryData.self===binaryData&&binaryData.alias===binaryData.buffer&&
                 binaryData.buffer instanceof ArrayBuffer&&binaryData.empty.byteLength===0&&
-                binaryData.buffer.byteLength===65536&&new Uint8Array(binaryData.buffer).every((x,i)=>x===((i*37+11)&255))
+                binaryData.buffer.byteLength===65536&&new Uint8Array(binaryData.buffer).every((x,i)=>x===((i*37+11)&255))&&
+                (!withViews||(binaryData.view instanceof Uint8Array&&binaryData.view.buffer===binaryData.buffer&&
+                    binaryData.view===binaryData.sameView&&binaryData.view.byteOffset===5&&binaryData.view.length===17&&
+                    binaryData.view.every((x,i)=>x===(((i+5)*37+11)&255))&&
+                    binaryData.words instanceof Uint16Array&&binaryData.words.buffer===binaryData.buffer&&
+                    binaryData.words.byteOffset===8&&binaryData.words.length===4&&
+                    binaryData.data instanceof DataView&&binaryData.data.buffer===binaryData.buffer&&
+                    binaryData.data.byteOffset===3&&binaryData.data.byteLength===19&&
+                    binaryData.tail.buffer===binaryData.buffer&&binaryData.tail.byteOffset===65536&&binaryData.tail.length===0))
             )JS"sv));
             if (!result.is_boolean() || !result.as_bool())
                 return Error::from_string_literal("Fresh process binary byte assertions failed");

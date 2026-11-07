@@ -115,6 +115,63 @@ def main():
     print(
         "PASS internal raw binary transfer after producer exit, independent Python frame/bytes and default-policy refusal"
     )
+    views = subprocess.run(
+        [command, "views-encode"], capture_output=True, timeout=15, check=True
+    ).stdout
+    assert views[:4] == b"FFB2" and len(views) < 65536 + 4096
+    length = int.from_bytes(views[4:8], "little")
+    rows = json.loads(views[8 : 8 + length])[1]
+    assert views[8 + length :] == expected
+    assert sum(row[1] for row in rows if row[0] == 8) == 65536
+    assert len([row for row in rows if row[0] == 9]) == 3
+    assert len([row for row in rows if row[0] == 10]) == 1
+    assert (
+        subprocess.run(
+            [command, "views-decode"], input=views, capture_output=True, timeout=15, check=True
+        ).stdout
+        == views
+    )
+    # Views before their backing node exercise forward references. A recapture
+    # may renumber graph nodes; native assertions establish semantic identity.
+    forward = frame(
+        [
+            [
+                5,
+                False,
+                [
+                    prop("view", 1),
+                    prop("sameView", 1),
+                    prop("words", 2),
+                    prop("data", 3),
+                    prop("tail", 4),
+                    prop("buffer", 5),
+                    prop("alias", 5),
+                    prop("empty", 6),
+                    prop("self", 0),
+                ],
+            ],
+            [9, 0, 5, 5, 17],
+            [9, 3, 5, 8, 4],
+            [10, 5, 3, 19],
+            [9, 0, 5, 65536, 0],
+            [8, 65536],
+            [8, 0],
+        ]
+    )
+    recaptured = subprocess.run(
+        [command, "views-decode"], input=forward, capture_output=True, timeout=15, check=True
+    ).stdout
+    length = int.from_bytes(recaptured[4:8], "little")
+    assert recaptured[8 + length :] == expected
+    assert (
+        subprocess.run(
+            [command, "views-decode"], input=recaptured, capture_output=True, timeout=15, check=True
+        ).stdout
+        == recaptured
+    )
+    print(
+        "PASS fresh-process typed/DataView offsets, backing deduplication and independent forward-reference frame"
+    )
     print(
         "PASS separate process/VM wire transfer after producer exit, fresh prototypes/GC/cycles/UTF-16/IEEE values and bounded malformed-input rejection"
     )

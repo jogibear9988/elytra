@@ -4,11 +4,13 @@
  */
 
 #include "serialization/BridgeData.h"
+#include "serialization/BinaryView.h"
 #include <AK/HashMap.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/ArrayBuffer.h>
+#include <LibJS/Runtime/DataView.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Intrinsics.h>
@@ -80,6 +82,58 @@ ErrorOr<BridgeData> BridgeData::capture(
             node.length = TRY(functions(function));
         } else if (input.is_object()) {
             auto& object = input.as_object();
+            bool typed = JS::TypedArrayBase::is_engine_class_of(object);
+            bool data_view = JS::DataView::is_engine_class_of(object);
+            if (typed || data_view) {
+                if (!limits.binary_bytes || limits.binary_bytes > 1024 * 1024
+                    || &object.vm() != &source.vm() || &object.shape().realm() != &source
+                    || JS::host_class_of(object))
+                    return Error::from_string_literal("Unsupported bridge binary view");
+                JS::ArrayBuffer* buffer = nullptr;
+                if (typed) {
+                    auto& view = static_cast<JS::TypedArrayBase&>(object);
+                    auto type = binary_view_type(view.kind());
+                    auto length = view.array_length();
+                    auto bytes = view.byte_length();
+                    if (!type.has_value() || length.is_auto() || length.is_detached()
+                        || bytes.is_auto() || bytes.is_detached()
+                        || length.length() > 1024 * 1024 / type->element_size
+                        || bytes.length() != length.length() * type->element_size)
+                        return Error::from_string_literal("Invalid bridge typed view slots");
+                    node.kind = Kind::TypedArray;
+                    node.length = length.length();
+                    node.byte_offset = view.byte_offset();
+                    node.view_type = type->tag;
+                    buffer = view.viewed_array_buffer();
+                    if (node.byte_offset % type->element_size)
+                        return Error::from_string_literal("Unaligned bridge typed view");
+                } else {
+                    auto& view = static_cast<JS::DataView&>(object);
+                    auto bytes = view.byte_length();
+                    if (bytes.is_auto() || bytes.is_detached())
+                        return Error::from_string_literal("Invalid bridge data view slots");
+                    node.kind = Kind::DataView;
+                    node.length = bytes.length();
+                    node.byte_offset = view.byte_offset();
+                    buffer = view.viewed_array_buffer();
+                }
+
+                if (!buffer || buffer->is_detached() || buffer->is_shared_array_buffer()
+                    || !buffer->is_fixed_length() || node.byte_offset > buffer->byte_length())
+                    return Error::from_string_literal("Unsupported bridge view backing buffer");
+                size_t element_size = typed ? binary_view_type(node.view_type)->element_size : 1;
+                if (node.length > (buffer->byte_length() - node.byte_offset) / element_size)
+                    return Error::from_string_literal("Out-of-bounds bridge binary view");
+                auto index = result.m_nodes.size();
+                result.m_nodes.append(move(node));
+                seen.set(&object, index);
+                // Capture storage once, even for multiple views and forward
+                // references. Native slots avoid getters/species/iterator hooks.
+                auto backing = TRY(self(self, JS::Value(buffer), depth + 1));
+                result.m_nodes[index].buffer = backing;
+                return index;
+            }
+
             if (object.engine_class_id() == JS_LAYOUT_CLASS_ID_ARRAY_BUFFER) {
                 auto& buffer = static_cast<JS::ArrayBuffer&>(object);
                 if (!limits.binary_bytes || limits.binary_bytes > 1024 * 1024
@@ -178,7 +232,8 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
         return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"sv);
     if (integrity == Materialization::Frozen) {
         for (auto const& node : m_nodes) {
-            if (node.kind == Kind::ArrayBuffer)
+            if (node.kind == Kind::ArrayBuffer || node.kind == Kind::TypedArray
+                || node.kind == Kind::DataView)
                 return destination.vm().throw_completion<JS::TypeError>(
                     "Binary snapshots require explicit mutable materialization"sv);
         }
@@ -208,6 +263,11 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             break;
         }
 
+        case Kind::TypedArray:
+        case Kind::DataView:
+            values.append(JS::js_undefined()); // Construct after every backing buffer exists.
+            break;
+
         case Kind::String:
             values.append(JS::PrimitiveString::create(destination.vm(), node.string));
             break;
@@ -232,6 +292,30 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             values.append(TRY(JS::Array::create(destination, node.length)));
             break;
         }
+    }
+
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
+        auto const& node = m_nodes[i];
+        if (node.kind != Kind::TypedArray && node.kind != Kind::DataView)
+            continue;
+        if (node.buffer >= m_nodes.size() || m_nodes[node.buffer].kind != Kind::ArrayBuffer)
+            return destination.vm().throw_completion<JS::TypeError>(
+                "Invalid binary view backing"sv);
+        auto& buffer = static_cast<JS::ArrayBuffer&>(values[node.buffer].as_object());
+        auto type = binary_view_type(node.view_type);
+        size_t width = node.kind == Kind::TypedArray && type.has_value() ? type->element_size : 1;
+        if ((node.kind == Kind::TypedArray && !type.has_value()) || node.byte_offset % width
+            || node.byte_offset > buffer.byte_length()
+            || node.length > (buffer.byte_length() - node.byte_offset) / width)
+            return destination.vm().throw_completion<JS::TypeError>(
+                "Invalid binary view geometry"sv);
+        if (node.kind == Kind::TypedArray)
+            values[i] = JS::TypedArrayBase::create_from_slots(
+                destination, type->kind, buffer, node.length, node.length * width, node.byte_offset)
+                            .ptr();
+        else
+            values[i]
+                = JS::DataView::create(destination, &buffer, node.length, node.byte_offset).ptr();
     }
     // Allocate every container first to preserve cycles and shared identities.
     // Define own properties directly: even __proto__ cannot invoke a setter.

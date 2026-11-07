@@ -87,7 +87,8 @@ add_executable(
     firefly-wire-process-probe
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/WireProcess.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BridgeWireTest.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryWireTest.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryWireTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryViewTest.cpp")
 target_link_libraries(firefly-wire-process-probe PRIVATE firefly-isolated-world LibMain)
 ladybird_check_skia_confinement(firefly-wire-process-probe)
 add_custom_target(

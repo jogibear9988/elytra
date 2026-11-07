@@ -52,9 +52,10 @@ missing original-fs package. That confirms those import blockers, not a launch o
 Code-OSS or a current-master full runtime validation.
 
 The first [internal binary snapshot/wire slice](../architecture/0099-bounded-native-binary-wire.md)
-passes local macOS native/separate-process tests. This handles explicitly opted-in
-ArrayBuffer storage only; the public binary IPC/Uint8Array/port path required by
-Code-OSS is still missing.
+passes local macOS native/separate-process tests. It now preserves typed-array/
+DataView offsets, repeated-view identity and shared backing with raw attachments.
+The public binary IPC/Uint8Array/port path required by Code-OSS is still missing;
+actual Mite Buffer/main-process integration and Linux/Windows execution need gates.
 
 ## Implementation order
 

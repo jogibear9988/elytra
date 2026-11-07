@@ -12,10 +12,13 @@ has its own capture/publication restrictions; adding a wire type alone is not
 end-to-end support. Do not encode a large file as JSON, number arrays or base64 to
 work around these limits. No file-transfer performance has been measured yet.
 
-An [internal native ArrayBuffer snapshot/wire slice](../architecture/0099-bounded-native-binary-wire.md)
+An [internal native buffer/view snapshot and wire slice](../architecture/0099-bounded-native-binary-wire.md)
 now passes local macOS separate-process tests, with raw binary attachments and
-explicit byte budgets. It does not enable public IPC, typed-array/Buffer transfer,
-frozen contextBridge publication, streaming or shared storage.
+explicit byte budgets. It preserves typed-array/DataView offsets and backing
+aliases with one copy of each complete backing store. This does not enable public
+IPC/Buffer workflows, frozen contextBridge publication, streaming or shared storage.
+Full backing storage is visible in a cloned view; use a dedicated range when
+limiting exposed bytes. No throughput/latency or zero-copy claim follows from this.
 
 ## What Electron and Code-OSS actually establish
 

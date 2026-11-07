@@ -6428,6 +6428,41 @@ site 191 pages / 13,488 local links/resources/fragments pass. No local GUI. Nati
 Linux/Windows execution of this new slice remains pending; no Code-OSS/public
 binary-transfer/zero-copy support claim. Goal active.
 
+## 2026-11-07: Preserve typed-array/DataView geometry and backing graphs
+
+- Previous goal turn made concrete progress: native ArrayBuffer snapshots/raw wire
+  frames at 8e563af pass real cross-process tests. Continue the prioritized Code-OSS
+  binary path without enabling the still-text-based public IPC transport.
+- Capture native typed-array/DataView slots without getters, constructors, species,
+  iterators or custom prototype hooks. Preserve byte offsets, lengths, repeated-view
+  identity and backing references. A fixed table maps all twelve pinned typed kinds
+  to stable private tags, independently of upstream enum numbering.
+- Snapshot each complete backing buffer once and charge its full byte length,
+  including for tiny selected views. Rebuild backing storage before all views so
+  forward references and overlapping destination views work. Normalize Uint8Array
+  subclasses to native Uint8Array; retain default/frozen publication refusal.
+- Extend FFB2 metadata with typed/DataView references and geometry. Validate backing
+  type/reachability/depth, kind, alignment and range before native factories. Reject
+  detached/shared/resizable backing, unknown/dangling/self refs, misalignment,
+  fractional/negative lengths and zero-length views beyond the backing end.
+- Add actual native realm/GC/mutation/hostile-subclass tests for all twelve kinds and
+  DataView, including a real native shared-buffer negative control. Extend producer-
+  exit/fresh-consumer tests and the independent Python peer with Uint8/Uint16/
+  DataView/empty-tail graphs and forward backing references. The payload remains
+  one exact 65,536-byte attachment, not one copy per view.
+- Update ADR 0099 and Code-OSS/file transport docs: cloning exposes the complete
+  backing storage; a subarray is not an access restriction. Actual Mite Buffer/
+  main-process integration, public binary transport/ports and platform acceptance
+  remain separate work. No public support or zero-copy/performance claim.
+
+Validation: native macOS wire target compiles/links; original/plain/buffer/new-view
+wire and separate-process tests pass, including independent raw bytes and forward
+refs. Rebuilt native non-GUI isolation probe and existing callback/GC/revocation
+regressions pass. Full pinned formatting/Python syntax/diff checks pass; generated
+site 191 pages / 13,489 local links/resources/fragments passes. No local GUI.
+Native Linux/Windows acceptance of this new view slice remains pending. Full goal
+active; Code-OSS does not run yet.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

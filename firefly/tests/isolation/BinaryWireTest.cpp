@@ -76,10 +76,9 @@ ErrorOr<void> check_binary_wire(JS::VM& vm, JS::Realm& source, JS::Realm& target
     TRY(check(u"new Uint8Array(binaryOriginal.buffer).every(x=>x===0)&&binaryHooks===0"sv, source));
     if (TRY(decoded.encode_wire(policy)) != wire)
         return Error::from_string_literal("Destination mutation changed native binary snapshot");
-    for (auto code :
-        { u"new ArrayBuffer(1,{maxByteLength:2})"sv,
-            u"(()=>{const b=new ArrayBuffer(1);b.transfer();return b})()"sv, u"new Uint8Array(3)"sv,
-            u"new Proxy(new ArrayBuffer(1),{get(){throw Error('trap')}})"sv }) {
+    for (auto code : { u"new ArrayBuffer(1,{maxByteLength:2})"sv,
+             u"(()=>{const b=new ArrayBuffer(1);b.transfer();return b})()"sv,
+             u"new Proxy(new ArrayBuffer(1),{get(){throw Error('trap')}})"sv }) {
         auto bad = TRY(run(code, source));
         if (!Firefly::BridgeData::capture(bad, source, policy).is_error())
             return Error::from_string_literal("Unsupported binary source admitted");

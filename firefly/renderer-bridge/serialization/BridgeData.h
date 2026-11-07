@@ -58,7 +58,9 @@ private:
         Object = 5,
         Array = 6,
         Function = 7,
-        ArrayBuffer = 8
+        ArrayBuffer = 8,
+        TypedArray = 9,
+        DataView = 10
     };
 
     struct Property {
@@ -74,6 +76,9 @@ private:
         ByteBuffer bytes;
         Vector<Property> properties;
         size_t length { 0 };
+        size_t buffer { 0 };
+        size_t byte_offset { 0 };
+        u8 view_type { 0 };
         bool null_prototype { false };
     };
 

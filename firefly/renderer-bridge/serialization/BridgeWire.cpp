@@ -3,6 +3,7 @@
  * resource bounds before allocating destination JavaScript values.
  */
 
+#include "serialization/BinaryView.h"
 #include "serialization/BridgeData.h"
 #include <AK/HashTable.h>
 #include <AK/JsonArray.h>
@@ -132,6 +133,19 @@ ErrorOr<void> BridgeData::validate_wire_graph(Limits limits) const
             TRY(charge(binary_bytes, node.bytes.size(), limits.binary_bytes));
         }
 
+        if (node.kind == Kind::TypedArray || node.kind == Kind::DataView) {
+            if (!limits.binary_bytes || !node.properties.is_empty() || node.buffer >= m_nodes.size()
+                || m_nodes[node.buffer].kind != Kind::ArrayBuffer)
+                return Error::from_string_literal("Invalid wire binary view backing");
+            auto size = m_nodes[node.buffer].bytes.size();
+            auto type = binary_view_type(node.view_type);
+            size_t width
+                = node.kind == Kind::TypedArray && type.has_value() ? type->element_size : 1;
+            if ((node.kind == Kind::TypedArray && !type.has_value()) || node.byte_offset % width
+                || node.byte_offset > size || node.length > (size - node.byte_offset) / width)
+                return Error::from_string_literal("Invalid wire binary view geometry");
+        }
+
         TRY(charge(strings, node.string.length_in_code_units(), limits.string_code_units));
         TRY(charge(properties, node.properties.size(), limits.properties));
         if (node.kind == Kind::Array) {
@@ -163,6 +177,8 @@ ErrorOr<void> BridgeData::validate_wire_graph(Limits limits) const
         if (seen.contains(index))
             return {};
         seen.set(index);
+        if (m_nodes[index].kind == Kind::TypedArray || m_nodes[index].kind == Kind::DataView)
+            TRY(self(self, m_nodes[index].buffer, depth + 1));
         for (auto const& property : m_nodes[index].properties)
             TRY(self(self, property.value, depth + 1));
         return {};
@@ -212,6 +228,14 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
             binary = true;
             binary_bytes += node.bytes.size();
             TRY(row.append(node.bytes.size()));
+            break;
+        case Kind::TypedArray:
+        case Kind::DataView:
+            if (node.kind == Kind::TypedArray)
+                TRY(row.append(node.view_type));
+            TRY(row.append(node.buffer));
+            TRY(row.append(node.byte_offset));
+            TRY(row.append(node.length));
             break;
         case Kind::Object:
         case Kind::Array: {
@@ -309,11 +333,13 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
         auto const& row = value.as_array();
         Node node {};
         node.kind = static_cast<Kind>(
-            TRY(integer(row[0], static_cast<size_t>(binary ? Kind::ArrayBuffer : Kind::Array))));
+            TRY(integer(row[0], static_cast<size_t>(binary ? Kind::DataView : Kind::Array))));
         if (node.kind == Kind::Function)
             return Error::from_string_literal("Function tokens cannot cross IPC");
         size_t arity = node.kind == Kind::Undefined || node.kind == Kind::Null ? 1
             : node.kind == Kind::Object || node.kind == Kind::Array            ? 3
+            : node.kind == Kind::TypedArray                                    ? 5
+            : node.kind == Kind::DataView                                      ? 4
                                                                                : 2;
         if (row.size() != arity)
             return Error::from_string_literal("Invalid wire node arity");
@@ -351,6 +377,17 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
             auto length = TRY(integer(row[1], payload.size() - payload_offset));
             node.bytes = TRY(ByteBuffer::copy(payload.slice(payload_offset, length)));
             payload_offset += length;
+            break;
+        }
+
+        case Kind::TypedArray:
+        case Kind::DataView: {
+            size_t field = 1;
+            if (node.kind == Kind::TypedArray)
+                node.view_type = static_cast<u8>(TRY(integer(row[field++], 255)));
+            node.buffer = TRY(integer(row[field++], rows.size() - 1));
+            node.byte_offset = TRY(integer(row[field++], max_wire_bytes));
+            node.length = TRY(integer(row[field], max_wire_bytes));
             break;
         }
 
