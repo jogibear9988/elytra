@@ -201,7 +201,7 @@ jobs:
           ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_protocol_registration.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-protocol-host.log
-          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing --parallel 3 2>&1 | tee build/linux-renderer-menu.log
+          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing check-firefly-command-line --parallel 3 2>&1 | tee build/linux-renderer-menu.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_crash_reporter.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-crash-reporter.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_public_protocol.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-public-protocol.log
       - name: Actual opt-in Electron import alias and isolated preload policy

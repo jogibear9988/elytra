@@ -8089,6 +8089,52 @@ operation capture acceptance; renderer/helper tracing, sampling/heap diagnostics
 Perfetto protobuf encoding and fresh native Linux execution remain unfinished.
 Windows desktop and the full original specification goal remain unfinished/active.
 
+## 2026-11-08: Expose native command-line reads and effective supported engine switches
+
+- Add main-only app.commandLine over a bounded native snapshot of real sanitized
+  launch arguments, separate from process.argv and synthetic browser argv. Parse
+  dash prefixes, first equals, last duplicate and '--' termination; keep positional
+  values and executable-owned import policy distinct. Add maintained ESM validation,
+  Qt/LibWeb-independent native State, LibJS bindings and an owned EnginePolicy.
+- Implement before-ready lang through the actual public WebView settings/language
+  propagation APIs, Unicode canonicalization and availability checks. Restore the
+  pre-application language list on removal. Native refusal restores the previous
+  switch snapshot. Seal mutations at native readiness; reject unsupported engine
+  options/appendArgument explicitly rather than storing inert successful flags.
+- Integrate valueless --force-cpu-painting into the native synthesized browser
+  arguments before Application::create launches the compositor. The first acceptance
+  exposed that the setting belongs to the already-started compositor, not WebContent;
+  correct that early consumption boundary and reject later append/remove even before
+  readiness. Inspect the actual owned compositor argv, not an unrelated helper or
+  a late in-memory option assignment. Preserve sandbox policy and upstream sources.
+- Add native parser/transaction/initial-policy/count/value/phase tests, Node/Mite
+  JS policy and real public aliases/argv-preservation acceptance. Compare shared
+  read observations with actual Electron. Batch language/compositor acceptance into
+  one hidden-window fixture; do not rerun broad renderer/window suites. Add both
+  native/public gates to required macOS/Linux runtime checks, update detailed API,
+  current status/Code-OSS references and ADR 0130.
+
+Validation: macOS Release build and native/Node/Mite command-line checks pass.
+Shared read results match actual Electron. The actual renderer reports only de-DE;
+its owned compositor argv contains --force-cpu-painting while helper/compositor
+sandbox-disabling flags remain absent. Public checks cover aliases, native invalid-
+language rollback, readonly singleton, early CPU-policy refusal, ready sealing and
+unchanged process.argv. Invalid startup CPU values are refused before native app
+creation. Existing real menu-host/contentTracing gates and Node/Mite geometry policy
+remain green. Full maintained-source style, generated JS freshness, unmodified
+Ladybird pin and whitespace checks pass. Site validation passes (234 pages / 16,536
+local links/resources/fragments). Fresh Linux execution and Windows desktop remain
+required; no wider engine-switch/platform support is inferred.
+
+The prepared actual Code-OSS main entry now passes commandLine reads and fails
+explicitly at appendSwitch('enable-features', ...) with ERR_FIREFLY_UNSUPPORTED_API
+(exit 1), recorded in build/code-oss-command-line-entry.log. Chromium/Blink/V8
+feature configuration has no direct LibWeb/LibJS equivalent. Next audit that pinned
+application configuration for an explicit justified engine adaptation, then
+continue demanded main/protocol/IPC/workbench services from actual startup errors.
+The workbench, broader command-line switches and original specification remain
+unfinished; the full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

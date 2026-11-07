@@ -1,6 +1,7 @@
 /** Main-process desktop API and native-window lifecycle policy. */
 import createMenus from './menu/index.mjs';
 import createTracing from './tracing/index.mjs';
+import createCommandLine from './app/command-line.mjs';
 import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createMainIpc from './ipc-main.mjs';
@@ -117,6 +118,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  Object.defineProperty(app, 'commandLine', {
+    enumerable: true,
+    value: createCommandLine(native, error, unsupported)
+  });
   const menus = createMenus(
     native,
     error,

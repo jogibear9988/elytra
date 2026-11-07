@@ -95,8 +95,8 @@ build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/co
 The final --firefly argument requests explicit diagnostic shutdown, preserving a
 nonzero result on failure. This is a real host run with original-fs and the
 implemented Electron alias. Without prepared dependencies, the trace stops at missing minimist. With the
-root production installation below, the actual trace reaches the unavailable
-app.commandLine.getSwitchValue and retains exit 1 after passing registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
+root production installation below, the actual trace reaches the unsupported
+Chromium enable-features and retains exit 1 after passing registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
 
 
 ## Prepare actual root production dependencies

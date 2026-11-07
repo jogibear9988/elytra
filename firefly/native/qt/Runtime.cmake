@@ -6,6 +6,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
+add_library(firefly-command-line STATIC "${CMAKE_CURRENT_LIST_DIR}/../command-line/State.cpp")
 add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
 target_link_libraries(firefly-tracing PUBLIC Qt::Core)
 add_custom_target(
@@ -55,6 +56,17 @@ add_custom_target(
     COMMAND "$<TARGET_FILE:firefly-menu-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/menu/native.mjs"
     DEPENDS firefly-menu-probe firefly-protocol-registration-probe
+    VERBATIM)
+add_executable(firefly-command-line-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/command-line/State.cpp")
+target_include_directories(firefly-command-line-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-command-line-probe PRIVATE firefly-command-line)
+add_custom_target(
+    check-firefly-command-line-native
+    COMMAND "$<TARGET_FILE:firefly-command-line-probe>"
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/command-line/policy.mjs"
+    DEPENDS firefly-command-line-probe firefly-protocol-registration-probe
     VERBATIM)
 add_executable(firefly-tracing-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/tracing/Recorder.cpp")
 target_include_directories(firefly-tracing-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
@@ -126,6 +138,8 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../tracing/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../command-line/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../command-line/EnginePolicy.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
@@ -146,7 +160,8 @@ target_link_libraries(
             firefly-screen-events
             firefly-protocol-routes
             firefly-application-menu
-            firefly-tracing)
+            firefly-tracing
+            firefly-command-line)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
@@ -158,6 +173,13 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_registration.py"
         --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly
+    VERBATIM)
+
+add_custom_target(
+    check-firefly-command-line
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_command_line.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly check-firefly-command-line-native
     VERBATIM)
 
 add_custom_target(
@@ -243,6 +265,7 @@ if(APPLE)
                 check-firefly-menu
                 check-firefly-menu-host
                 check-firefly-content-tracing
+                check-firefly-command-line
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

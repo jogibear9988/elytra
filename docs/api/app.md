@@ -36,6 +36,7 @@ window/load/quit trace and the [example guide](../examples/lifecycle.md) to run 
 | [exit([exitCode])](#appexitexitcode) | undefined | Partial forced shutdown |
 | [getPath(name)](#crash-report-directory) | string | crashDumps only |
 | [setPath(name, path)](#crash-report-directory) | undefined | Existing absolute crashDumps directory before native initialization |
+| [commandLine](command-line.md) | Native singleton | Real launch-switch observation, before-ready lang changes and startup-only CPU painting |
 | [EventEmitter methods](#eventemitter-methods) | Depends on method | Supported emitter subset |
 | [Other Electron app members](#unsupported-electron-app-surface) | Unavailable | Not native implementations |
 
@@ -267,7 +268,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
 | OS integration | setUserTasks, setJumpList, addRecentDocument, clearRecentDocuments, dock, badgeCount |
-| Appearance/media/process policy | commandLine, disableHardwareAcceleration, getGPUInfo, getAppMetrics, accessibility properties |
+| Appearance/media/process policy | Broader commandLine switches, disableHardwareAcceleration, getGPUInfo, getAppMetrics, accessibility properties |
 | Sessions and global services | session-created, certificate-error, login, child-process-gone and related native dispatch |
 | Native lifecycle events | will-finish-launching, open-file, open-url, activate, did-become-active, did-resign-active, browser-window-created/focus/blur and OS shutdown delivery |
 

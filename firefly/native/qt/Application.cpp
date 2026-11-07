@@ -3,6 +3,9 @@
  * registered before application entry and disconnected before VM teardown.
  */
 
+#include "../command-line/EnginePolicy.h"
+#include "../command-line/Host.h"
+#include "../command-line/State.h"
 #include "../platform/DesktopServices.h"
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
@@ -56,6 +59,16 @@ public:
 
     int run_script(int argc, char** argv, bool electron_compat)
     {
+        CommandLine::EnginePolicy engine_policy;
+        CommandLine::State command_line(
+            argc, argv, [&](auto name, auto const& value, bool initial) {
+                return engine_policy.apply(name, value, initial);
+            });
+        if (auto error = command_line.apply_initial(); error.has_value()) {
+            warnln("{}: {}", error->code.c_str(), error->message.c_str());
+            return 1;
+        }
+
         std::unique_ptr<Bridge> bridge;
         Mite::HostHooks hooks;
         hooks.allow_process_signals = true;
@@ -66,6 +79,7 @@ public:
             bridge = std::make_unique<Bridge>(
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
+            CommandLine::install_host(realm, *native, command_line);
             std::error_code error;
             auto entry = std::filesystem::absolute(argv[1], error).parent_path().string();
             if (error)
@@ -106,6 +120,7 @@ public:
             });
             if (bridge->pump_jobs())
                 return jobs.status();
+            command_line.seal();
             bridge->ready();
             poll.start();
             auto status = m_loop->exec();
@@ -157,6 +172,20 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return options.help ? 0 : 1;
     }
 
+    // Parse supported app switches before Application::create starts the compositor.
+    Firefly::CommandLine::State initial_switches(options.argc(), options.arguments.data(), {});
+    if (initial_switches.error().has_value()) {
+        warnln("{}: {}", initial_switches.error()->code.c_str(),
+            initial_switches.error()->message.c_str());
+        return 1;
+    }
+
+    bool cpu_painting = initial_switches.has("force-cpu-painting");
+    if (cpu_painting && !initial_switches.value("force-cpu-painting").empty()) {
+        warnln("ERR_INVALID_ARG_VALUE: force-cpu-painting does not take a value");
+        return 1;
+    }
+
     TRY(Firefly::verify_desktop_environment());
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     auto format = QSurfaceFormat::defaultFormat();
@@ -164,9 +193,17 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     QSurfaceFormat::setDefaultFormat(format);
     char program[] = "firefly";
     char temporary[] = "--temporary-profile";
-    char* browser_argv[] { program, temporary, nullptr };
-    StringView browser_strings[] { "firefly"sv, "--temporary-profile"sv };
-    Main::Arguments browser_args { 2, browser_argv, browser_strings };
+    char cpu[] = "--force-cpu-painting";
+    std::vector<char*> browser_argv { program, temporary };
+    Vector<StringView> browser_strings { "firefly"sv, "--temporary-profile"sv };
+    if (cpu_painting) {
+        browser_argv.push_back(cpu);
+        browser_strings.append("--force-cpu-painting"sv);
+    }
+
+    auto browser_argc = static_cast<int>(browser_argv.size());
+    browser_argv.push_back(nullptr);
+    Main::Arguments browser_args { browser_argc, browser_argv.data(), browser_strings.span() };
     auto app = TRY(Firefly::Application::create(browser_args));
     return app->run_script(options.argc(), options.arguments.data(), options.electron_compat);
 }
