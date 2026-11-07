@@ -28,7 +28,11 @@ def check(build):
         # Ninja's escaped spaces/dollars occur inside CMake's shell command.
         args = shlex.split(line.replace("$$", "$").replace("$ ", " "))
         flags = [arg[len(prefix) :] for arg in args if arg.startswith(prefix)]
-        if len(flags) != 1 or shlex.split(flags[0]) != ["-Dwarnings", "-Ctarget-cpu=x86-64-v2"]:
+        expected = ["-Dwarnings", "-Ctarget-cpu=x86-64-v2"]
+        # Pinned upstream retains frame pointers on Linux. They change unwind
+        # diagnostics, not the CPU ISA; accept only that exact optional flag.
+        accepted = [expected, [*expected, "-Cforce-frame-pointers=yes"]]
+        if len(flags) != 1 or shlex.split(flags[0]) not in accepted:
             raise ValueError(f"Unexpected generated Cargo CPU/warning flags: {flags}")
         rust += 1
     if not cpp or not rust:

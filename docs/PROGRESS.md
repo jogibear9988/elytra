@@ -5993,6 +5993,25 @@ full source formatting/actionlint/diff and unchanged-upstream checks pass. Gener
 site: 184 pages and 12,730 links/resources/fragments pass. No local GUI. Actual
 native baseline/app/archive acceptance remains pending. Goal active.
 
+## 2026-11-07: Accept the pinned Linux Rust frame-pointer flag in CPU auditing
+
+- Previous goal turn is progress: native display provider and portable CPU policy
+  are committed/pushed with native acceptance explicitly pending.
+- Source 0a7bd26 renderer run 42351084931/job 128339161550 stops during configuration:
+  the generated Cargo command correctly contains -Dwarnings and x86-64-v2, plus
+  upstream's Linux-only -Cforce-frame-pointers=yes. Our new checker incorrectly
+  rejects that diagnostic flag; no native app/package gate has run on this source.
+- Inspect pinned compile_options.cmake/rust_crate.cmake and accept only the exact
+  optional frame-pointer=yes suffix. Keep strict CPU/warning validation. Add both
+  positive variants and negative alternate CPU/frame-pointer/warning cases.
+- Do not remove upstream frame pointers, relax CPU matching or call this a SIGILL
+  fix. Keep the original native display service job 128338038590 active; it remains
+  authoritatively compiling. Public screen integration is separate ongoing work.
+
+Validation: CPU policy multi-case test, Python formatting and diff checks pass
+without GUI. Hosted generated-command and native app/package acceptance remain
+pending. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

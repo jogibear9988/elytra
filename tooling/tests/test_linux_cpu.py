@@ -28,9 +28,11 @@ class LinuxCpuPolicy(unittest.TestCase):
                 }
             ]
             commands.write_text(json.dumps(records))
-            cargo = 'COMMAND = cmake -E env "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-Dwarnings -Ctarget-cpu=x86-64-v2" cargo build\n'
+            cargo = 'COMMAND = cmake -E env "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-Dwarnings -Ctarget-cpu=x86-64-v2 -Cforce-frame-pointers=yes" cargo build\n'
             ninja.write_text(cargo)
             with contextlib.redirect_stdout(io.StringIO()):
+                check(root)
+                ninja.write_text(cargo.replace(" -Cforce-frame-pointers=yes", ""))
                 check(root)
             for arguments in [
                 ["-march=native"],
@@ -44,7 +46,12 @@ class LinuxCpuPolicy(unittest.TestCase):
                     check(root)
             records[0]["arguments"] = ["clang++", "-march=x86-64-v2", "-c", "engine.cpp"]
             commands.write_text(json.dumps(records))
-            for text in [cargo.replace("x86-64-v2", "native"), cargo.replace("-Dwarnings ", "")]:
+            for text in [
+                cargo.replace("x86-64-v2", "native"),
+                cargo.replace("-Dwarnings ", ""),
+                cargo.replace("-Cforce-frame-pointers=yes", "-Ctarget-cpu=native"),
+                cargo.replace("-Cforce-frame-pointers=yes", "-Cforce-frame-pointers=no"),
+            ]:
                 ninja.write_text(text)
                 with self.assertRaisesRegex(ValueError, "Unexpected generated Cargo"):
                     check(root)
