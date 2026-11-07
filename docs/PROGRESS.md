@@ -6705,6 +6705,24 @@ All 68 local Mite regression suites pass (19.75 seconds); generated site 198 pag
 13,993 local links/resources/fragments passes.
 No local GUI. Full goal active; Code-OSS desktop still does not run.
 
+## 2026-11-07: Native Windows 68-suite acceptance and ELF fixture source-scope correction
+
+- Windows 678c85e run 42376107074 / job 128413923404 succeeds: all 68 suites in
+  124.04 seconds, including corrected drive behavior, Unicode collecting host,
+  module utilities, original-fs host and native performance/Code-OSS module gates.
+  This is Mite/host acceptance, not Windows Firefly desktop or package support.
+- The first provider component run 42377345034 / job 128417550031 stages the
+  compatible graph, then fails its source-preservation assertion. The fixture
+  accidentally included the staged executable copies, which must receive new
+  RUNPATHs. Check only the actual original executables/providers; retain hash
+  evidence for all originals, real relocation and incompatible ABI refusal.
+- Renewed native component and complete Linux archive/Designer gates remain
+  required. Keep the earlier isolated Node HTTP crash recorded; a passing current
+  suite is not a diagnosed fix for that intermittent reference failure.
+
+Validation: local ELF/parser guards pass. Native component rerun pending; no local
+GUI. Full goal active, Code-OSS desktop remains incomplete.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

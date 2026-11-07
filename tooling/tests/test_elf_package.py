@@ -185,7 +185,7 @@ def provider_policy(root):
     left = copied(package, old, "bin/main")
     right = copied(package, new, "helpers/peer")
     sources = {left: old, right: new}
-    before = {path: elf.digest(path) for path in [left, right, old, new, first, selected]}
+    before = {path: elf.digest(path) for path in [old, new, first, selected]}
     refused(lambda: elf.stage(package, sources), "Conflicting ELF dependency")
     assert not (package / "lib").exists()
     refused(
