@@ -76,3 +76,13 @@ not enable debug privileges, read process memory or change tokens. Known exits a
 handled as races; live-process permission/API failures fail instead of generating
 invented records. No token/job flag alone proves containment, and false restricting
 SID presence does not exclude other token restrictions.
+
+
+The first native observer run at a2775a2 rejects TokenHasRestrictions because its
+returned payload is one byte, while the initial generic decoder expected DWORD.
+The [Microsoft maintainer clarification](https://github.com/microsoft/win32metadata/discussions/2308)
+specifies a BOOLEAN at a DWORD-aligned address. Decode this class separately:
+provide aligned four-byte storage, require a successful one-byte result and consume
+only that byte. Other scalar token classes still require DWORD-sized records.
+The corrected decoder needs fresh native component acceptance; the initial failure
+did not establish token facts or renderer support.

@@ -6127,6 +6127,25 @@ and integrated Windows renderer process acceptance are pending. Complete Windows
 sandbox/desktop/Designer/packages and remaining Linux gates stay unfinished.
 Goal active.
 
+## 2026-11-07: Correct the native TokenHasRestrictions observation ABI
+
+- Fast independent observer run 42353077365/job 128345176621 at a2775a2 fails on
+  the real Windows primary-token query before any child/renderer acceptance:
+  our generic DWORD decoder incorrectly handles TokenHasRestrictions (class 21).
+- Inspect the recorded failure and Microsoft win32metadata discussion 2308:
+  maintainer guidance specifies BOOLEAN at a DWORD-aligned address, correcting
+  older DWORD documentation. Add a class-specific aligned four-byte allocation,
+  require the successful one-byte return length and decode only byte zero.
+- Keep all other scalar classes strictly DWORD-sized, retain API failures and
+  unexpected-length refusal, and improve mismatch diagnostics. Do not reinterpret
+  untouched tail bytes or globally relax scalar checking. This fixes our observer,
+  not the unimplemented Windows renderer sandbox or an application API.
+
+Validation: Python syntax/unsupported-host guard/formatting/diff pass locally
+without native Windows calls or GUI. Fresh native observer acceptance is required.
+Original Windows/Windows-renderer and Linux native builds remain under their own
+gates. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

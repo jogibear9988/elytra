@@ -97,8 +97,24 @@ class WindowsProcesses:
     def token_number(self, token, information):
         data = self.token_buffer(token, information)
         if len(data) != C.sizeof(W.DWORD):
-            raise ValueError("Unexpected native scalar token layout")
+            raise ValueError(
+                f"Unexpected native scalar token layout: class={information}, size={len(data)}"
+            )
         return W.DWORD.from_buffer(data).value
+
+    def token_filtered(self, token):
+        # Class 21 is BOOLEAN at a DWORD-aligned address, despite older DWORD
+        # documentation: microsoft/win32metadata discussion 2308. Keep capacity
+        # four, require the actual one-byte result and consume only that byte.
+        data = W.DWORD()
+        returned = W.DWORD()
+        if not self.security.GetTokenInformation(
+            token, 21, C.byref(data), C.sizeof(data), C.byref(returned)
+        ):
+            raise C.WinError(C.get_last_error())
+        if returned.value != C.sizeof(W.BYTE):
+            raise ValueError(f"Unexpected TokenHasRestrictions size: {returned.value}")
+        return C.cast(C.byref(data), C.POINTER(W.BYTE))[0] != 0
 
     def token(self, process):
         token = W.HANDLE()
@@ -123,7 +139,7 @@ class WindowsProcesses:
             return {
                 "integrityRid": int(integrity),
                 "isAppContainer": bool(self.token_number(token, 29)),
-                "hasRestrictions": bool(self.token_number(token, 21)),
+                "hasRestrictions": self.token_filtered(token),
                 "restrictedSids": W.DWORD.from_buffer(groups).value > 0,
             }
 
