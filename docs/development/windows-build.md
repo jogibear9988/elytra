@@ -303,8 +303,11 @@ absent Node globals, compositor PNG and actual isolation/wire assertions. Upstre
 native console/DLL deployment helper is applied to our diagnostic executables.
 
 Compilation/execution is pending. This is a first headless component gate, not a
-Windows desktop implementation or app package. The existing renderer runner keeps
-Windows process/sandbox observations explicitly UNVERIFIED. Product target guards
+Windows desktop implementation or app package. The renderer runner now requires independent Win32 executable/parent/creation-time
+observations for WebContent, RequestServer and Compositor, and records actual
+primary-token/job facts. The SDK's Windows RendererSandboxUnimplemented applies
+no renderer sandbox; containment remains explicitly UNVERIFIED. The observer's
+own native component gate uses a real owned Python child, not a renderer substitute. Product target guards
 still reject unsupported Windows desktop/preload builds. No WSL, MinGW, Node/V8 or
 alternate renderer substitutes for native acceptance.
 

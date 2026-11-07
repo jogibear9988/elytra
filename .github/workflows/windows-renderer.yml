@@ -13,6 +13,9 @@ on:
       - 'tooling/check_upstream.py'
       - 'tooling/check_checkout_paths.py'
       - 'tooling/tests/test_renderer.py'
+      - 'tooling/tests/_windows_processes.py'
+      - 'tooling/tests/_windows_renderer.py'
+      - 'tooling/tests/test_windows_processes.py'
       - 'tooling/tests/test_wire_process.py'
       - 'tooling/tests/_support.py'
       - 'vendor/ladybird'
@@ -41,6 +44,12 @@ jobs:
         with:
           python-version: '3.12'
       - uses: ./.github/actions/windows-environment
+      - name: Native process observer component and unsupported-host guard
+        run: |
+          python tooling/tests/test_windows_processes.py --check-guard
+          if ($LASTEXITCODE) { throw 'Native observer guard failed' }
+          python tooling/tests/test_windows_processes.py
+          if ($LASTEXITCODE) { throw 'Native Windows observer component failed' }
       - name: Pinned native CMake and Rust
         shell: pwsh
         run: |
@@ -89,7 +98,7 @@ jobs:
         run: |
           python tooling/tests/test_renderer.py --probe build/windows-renderer/bin/firefly-renderer-probe.exe --artifacts-dir build/windows-renderer-artifacts 2>&1 | Tee-Object build/windows-renderer-acceptance.log
           if ($LASTEXITCODE) { throw 'Native headless renderer acceptance failed' }
-          # test_renderer retains an explicit UNVERIFIED Windows process/sandbox label.
+          # test_renderer requires native helper ownership and retains an UNVERIFIED containment label.
           # This component gate must never be presented as complete desktop acceptance.
       - name: Actual realm isolation and separate-process wire data
         shell: pwsh

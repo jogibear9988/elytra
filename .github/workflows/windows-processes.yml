@@ -1,0 +1,38 @@
+name: Native Windows process observer
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/windows-processes.yml'
+      - 'tooling/tests/_windows_processes.py'
+      - 'tooling/tests/test_windows_processes.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-process-observer-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  observer:
+    name: Read-only process observations / native Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Actual native process identity, parent, primary-token and job observations
+        shell: pwsh
+        run: |
+          python tooling/tests/test_windows_processes.py --check-guard
+          if ($LASTEXITCODE) { throw 'Observer unsupported-host guard failed' }
+          python tooling/tests/test_windows_processes.py 2>&1 | Tee-Object windows-process-observer.log
+          if ($LASTEXITCODE) { throw 'Native observer component failed' }
+      - name: Preserve component observations
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: windows-process-observer-component
+          path: windows-process-observer.log
+          if-no-files-found: warn

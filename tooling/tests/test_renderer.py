@@ -196,7 +196,15 @@ def main():
                 stop(process)
                 process.communicate()
     else:
-        print("UNVERIFIED: native Windows process/sandbox validation remains required")
+        from _windows_renderer import observe
+
+        observe(
+            probe,
+            directory,
+            environment,
+            stop,
+            (ROOT / "firefly/tests/renderer/processes.html").as_uri(),
+        )
     return 0
 
 

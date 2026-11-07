@@ -6097,6 +6097,36 @@ Generated site: 186 pages and 13,110 links/resources/fragments pass. Actual Wind
 graph/renderer acceptance is newly added and execution pending; Linux app/archives/
 screen and Windows desktop remain unfinished. Goal active.
 
+## 2026-11-07: Observe native Windows renderer processes independently
+
+- Previous goal turn is progress: 9c5a9a9 adds actual native renderer/isolation/wire
+  build gates and the Windows console/DLL adapter. Recheck run 42352483937/job
+  128343398086: live configuring the real graph. Linux service/baseline jobs remain
+  live compiling too; do not restart/cancel on observation age.
+- Inspect pinned WebContent source selection: Windows uses the empty
+  RendererSandboxUnimplemented::apply_sandbox. Record that concrete missing
+  security implementation instead of assuming a job/token flag means containment.
+- Add an independent query-only Win32 peer: Toolhelp native parent/child snapshot,
+  full process image, liveness/creation time, primary-token integrity/AppContainer/
+  restrictions and job membership. Preserve native error behavior and known-exit
+  races; request no debug/memory/mutation permissions and never fabricate records.
+- Replace the renderer runner's entirely skipped Windows process stage with actual
+  manual-page process observation. Require SDK WebContent/RequestServer/Compositor
+  images, native parent relation/creation ordering and agreement with the reported
+  renderer PID. Retain raw token/job observations and logs while keeping Windows
+  sandbox containment explicitly unimplemented/unverified.
+- Add a fast independent native Windows observer workflow plus the same component
+  gate in renderer CI. Its real owned Python child checks process/parent/image/
+  creation/exit/invalid-PID behavior; it is not a substitute for LibWeb acceptance.
+  Non-Windows refusal runs before loading native APIs. Document exact boundaries.
+
+Validation: Python syntax, unsupported-host guard, full formatting/actionlint/
+diff and unchanged-upstream checks pass without local GUI. Generated site: 186
+pages and 13,112 links/resources/fragments pass. Actual native observer component
+and integrated Windows renderer process acceptance are pending. Complete Windows
+sandbox/desktop/Designer/packages and remaining Linux gates stay unfinished.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

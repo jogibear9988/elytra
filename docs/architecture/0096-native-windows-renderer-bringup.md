@@ -39,9 +39,18 @@ job; missing binaries are not skipped. Tests do not launch the Qt browser UI.
 
 ## Scope and next requirements
 
-The renderer runner explicitly reports Windows process/sandbox checks UNVERIFIED.
-The headless component gate must retain that distinction rather than advertise
-complete Windows isolation or a production desktop release. Native executable/
+The renderer runner now adds independent native process observations. A Python
+Win32 peer uses Toolhelp to select direct children and query-only process handles
+to read full executable paths, creation times, primary-token integrity/AppContainer/
+restriction facts and job membership. It requires the reported renderer PID to match
+an observed SDK WebContent child, plus actual RequestServer/Compositor children.
+A native Python-child component gate validates that observer separately from the
+long renderer build; it is not renderer acceptance.
+
+The current pin selects RendererSandboxUnimplemented.cpp for Windows, whose
+apply_sandbox returns success without applying restrictions. Token/job observations
+are diagnostic facts only. The headless component gate keeps containment explicitly
+UNVERIFIED rather than advertising a production desktop release. Native executable/
 parent/token/job/handle restrictions and independent live process observations
 remain required, along with a native Qt window/input/compositor path, product
 preload/IPC integration, desktop services, the Mite main process and packaging.
@@ -53,3 +62,17 @@ Current Windows SDK support, other architectures/hosts, GPU/driver coverage,
 Unicode packaged paths, actual Designer editing and release acceptance need their
 own evidence. See the full [specification](../../mite-firefly-agent-instructions.md)
 and [current support](../status.md).
+
+
+## Independent observation references
+
+- [Toolhelp process snapshots](https://learn.microsoft.com/en-us/windows/win32/toolhelp/taking-a-snapshot-and-viewing-processes)
+- [QueryFullProcessImageNameW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-queryfullprocessimagenamew)
+- [GetTokenInformation](https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation)
+- [IsProcessInJob](https://learn.microsoft.com/en-us/windows/win32/api/jobapi/nf-jobapi-isprocessinjob)
+
+The observer requests only process query/liveness and TOKEN_QUERY rights; it does
+not enable debug privileges, read process memory or change tokens. Known exits are
+handled as races; live-process permission/API failures fail instead of generating
+invented records. No token/job flag alone proves containment, and false restricting
+SID presence does not exclude other token restrictions.
