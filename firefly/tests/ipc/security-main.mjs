@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const waiting = [];
 let pings = 0;
+let receivedBatch;
 
 ipcMain.handle('ping', (event) => {
   const suffix = pings % 2 === 0 ? '/fresh.html' : '/fresh.html#same-document';
@@ -20,7 +21,16 @@ ipcMain.handle('ping', (event) => {
 
 ipcMain.handle('bad-result', () => ({ unsupported() {} }));
 
-ipcMain.handle('held', (event) => new Promise((resolve) => waiting.push({ event, resolve })));
+ipcMain.handle(
+  'held',
+  (event) =>
+    new Promise((resolve) => {
+      waiting.push({ event, resolve });
+      if (waiting.length === 16) {
+        receivedBatch?.();
+      }
+    })
+);
 
 async function title(window, expected) {
   for (let index = 0; index < 500; index++) {
@@ -36,6 +46,37 @@ async function title(window, expected) {
   throw Error(`Missing title ${expected}: ${window.webContents.getTitle()}`);
 }
 
+async function securityBatch(window, cycle) {
+  // Renderer-local budget rejection and title updates do not acknowledge main
+  // handlers. Observe both endpoints before asserting delivery counts or navigating.
+  const received = new Promise((resolve) => {
+    receivedBatch = resolve;
+  });
+  await window.loadFile('security.html');
+  await title(window, 'SECURITY_READY');
+  let deadline;
+  try {
+    await Promise.race([
+      received,
+      new Promise((resolve, reject) => {
+        deadline = setTimeout(() => {
+          reject(
+            Error(`Missing held batch: cycle=${cycle}, held=${waiting.length}, pings=${pings}`)
+          );
+        }, 5000);
+      })
+    ]);
+  } finally {
+    clearTimeout(deadline);
+    receivedBatch = undefined;
+  }
+  if (waiting.length !== 16 || pings !== cycle * 8) {
+    throw Error(
+      `Invalid inputs reached handlers, or pending budget was lost: cycle=${cycle}, held=${waiting.length}, pings=${pings}, expectedPings=${cycle * 8}`
+    );
+  }
+}
+
 await app.whenReady();
 try {
   const window = new BrowserWindow({
@@ -45,11 +86,7 @@ try {
     }
   });
   for (let cycle = 0; cycle < 3; cycle++) {
-    await window.loadFile('security.html');
-    await title(window, 'SECURITY_READY');
-    if (waiting.length !== 16 || pings !== cycle * 8) {
-      throw Error('Invalid inputs reached handlers, or pending budget was lost');
-    }
+    await securityBatch(window, cycle);
     const old = waiting.splice(0);
     await window.loadFile('fresh.html');
     await title(window, 'FRESH_READY');
@@ -62,8 +99,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
     await title(window, 'FRESH_READY');
   }
-  await window.loadFile('security.html');
-  await title(window, 'SECURITY_READY');
+  await securityBatch(window, 3);
   window.destroy();
   for (const entry of waiting.splice(0)) {
     entry.resolve('reply after destruction');

@@ -5405,6 +5405,36 @@ actionlint, the unmodified upstream pin and site links pass. No local GUI starts
 Positive X11 acceptance and the macOS release/security repair remain outstanding.
 Goal active.
 
+## 2026-11-07: Synchronize IPC security assertions with actual main-handler receipt
+
+- Investigate the optimized 57c2675 IPC failure with a focused native run instead
+  of repeating the desktop suite. The original fixture with detailed counters
+  passes locally, so the hosted failure is not locally reproduced.
+- The source allows a renderer-local pending-limit rejection/title update to
+  precede main-process handler dispatch (which is deliberately queued after
+  native history processing). Treat this ordering gap as a fixture issue;
+  it remains an inference about the hosted failure, not a proven root cause.
+- Register a main-side batch Promise before loading each security document.
+  Only receipt of the sixteenth held request resolves it. Require both the
+  renderer's existing SECURITY_READY and this independent main acknowledgement
+  before checking exact counters or navigating/destroying the window. A missing
+  request still fails after a bounded five-second wait with cycle/held/ping
+  diagnostics. No retries, budget changes or early settlement of held replies.
+- Retain exact sixteen-handler/eight-ping-per-cycle assertions, invalid-input
+  refusal, zero serialization traps, renderer limit enforcement, stale-reply
+  checks and destroyed sender-frame checks. Apply the same assertions to the
+  final destruction batch, previously checked only through the renderer title.
+- The corrected fixture passes one focused native macOS execution with all
+  original result fields true (three navigation cycles plus destruction).
+  Both before/after runs are one targeted diagnostic batch using hidden windows;
+  no broad local GUI suite is run. JavaScript syntax and formatting pass.
+
+Limits: this is scoped local fixture validation, not fresh optimized CI/package
+acceptance. Start a fresh size/shared-provider candidate from the committed
+source and retain every existing native/security/package gate. Alpha publication
+still requires verified successful artifacts. Linux geometry/app acceptance and
+native Windows desktop support remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
