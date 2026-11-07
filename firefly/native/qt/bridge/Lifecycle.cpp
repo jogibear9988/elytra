@@ -61,6 +61,7 @@ void Bridge::Impl::stop()
     stopping = true;
     set_preload_configurator({});
     set_native_ipc_handler({});
+    tracing.reset();
     stop_protocols();
     if (application_menu)
         application_menu->stop();
@@ -80,6 +81,8 @@ void Bridge::Impl::deliver(int id, ByteString const& type, ByteString const& dat
         return;
     }
 
+    Tracing::Recorder::Scope scope(
+        tracing, type.starts_with("ipc-"sv) ? "firefly.ipc" : "firefly.main", type.characters());
     jobs.dispatch([&] {
         return JS::call(
             vm, *handler, JS::js_undefined(), JS::Value(id), text(vm, type), text(vm, data));

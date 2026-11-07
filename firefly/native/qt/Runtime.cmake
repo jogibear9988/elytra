@@ -6,6 +6,8 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
+add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
+target_link_libraries(firefly-tracing PUBLIC Qt::Core)
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -53,6 +55,16 @@ add_custom_target(
     COMMAND "$<TARGET_FILE:firefly-menu-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/menu/native.mjs"
     DEPENDS firefly-menu-probe firefly-protocol-registration-probe
+    VERBATIM)
+add_executable(firefly-tracing-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/tracing/Recorder.cpp")
+target_include_directories(firefly-tracing-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-tracing-probe PRIVATE firefly-tracing)
+add_custom_target(
+    check-firefly-tracing-native
+    COMMAND "$<TARGET_FILE:firefly-tracing-probe>"
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/tracing/policy.mjs"
+    DEPENDS firefly-tracing-probe firefly-protocol-registration-probe
     VERBATIM)
 file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/api.js" FIREFLY_API_SOURCE)
 set_property(
@@ -113,6 +125,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../tracing/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
@@ -132,7 +145,8 @@ target_link_libraries(
             firefly-runtime-paths
             firefly-screen-events
             firefly-protocol-routes
-            firefly-application-menu)
+            firefly-application-menu
+            firefly-tracing)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
@@ -144,6 +158,13 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_registration.py"
         --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly
+    VERBATIM)
+
+add_custom_target(
+    check-firefly-content-tracing
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_content_tracing.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly check-firefly-tracing-native
     VERBATIM)
 
 add_custom_target(
@@ -221,6 +242,7 @@ if(APPLE)
                 check-firefly-protocol-host
                 check-firefly-menu
                 check-firefly-menu-host
+                check-firefly-content-tracing
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

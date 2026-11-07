@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "../../menu/ApplicationMenu.h"
+#include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
@@ -72,6 +73,7 @@ struct Bridge::Impl {
     bool stopping { false };
     size_t ipc_pending_count { 0 };
     std::unique_ptr<ApplicationMenu> application_menu;
+    Tracing::Recorder tracing;
     RefPtr<Protocols::FileRoutes> protocols;
     RefPtr<Core::Timer> protocol_timer;
 

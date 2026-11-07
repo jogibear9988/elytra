@@ -38,6 +38,9 @@ public:
     // Queue lifecycle delivery after the main entry has installed its JS handler.
     void ready();
 
+    // Measure actual main event-loop work while tracing is enabled.
+    int pump_jobs();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> m_impl;

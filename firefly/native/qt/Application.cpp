@@ -80,14 +80,15 @@ public:
             GC::Root events { TRY(modules.builtin_exports("events")) };
             GC::Root paths { TRY(modules.builtin_exports("path")) };
             GC::Root urls { TRY(modules.builtin_exports("url")) };
+            GC::Root files { TRY(modules.builtin_exports("fs")) };
             auto api = TRY(JS::call(vm, factory, JS::js_undefined(), JS::Value(native.ptr()),
                 TRY(events->get("EventEmitter"_utf16)), JS::Value(paths.ptr()),
-                JS::Value(urls.ptr())));
+                JS::Value(urls.ptr()), JS::Value(files.ptr())));
             if (!api.is_object())
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
-                "Menu", "MenuItem" };
+                "Menu", "MenuItem", "contentTracing" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)
@@ -100,10 +101,10 @@ public:
             poll.setInterval(1);
             poll.setTimerType(Qt::PreciseTimer);
             QObject::connect(&poll, &QTimer::timeout, [&] {
-                if (jobs.pump_once())
+                if (bridge->pump_jobs())
                     m_loop->quit(jobs.status());
             });
-            if (jobs.pump_once())
+            if (bridge->pump_jobs())
                 return jobs.status();
             bridge->ready();
             poll.start();

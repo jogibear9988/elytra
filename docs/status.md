@@ -28,8 +28,8 @@ macOS native batch: real main/preload alias, default npm resolution, argument
 stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
-Firefly-host probe passes the registerHooks/promisify imports and reaches missing
-Electron contentTracing (exit 1); protocol, crashReporter and Menu exports now resolve.
+Firefly-host probe passes the registerHooks/promisify imports and reaches an unavailable
+app.commandLine.getSwitchValue (exit 1); protocol, crashReporter, Menu and contentTracing exports now resolve.
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
 the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
@@ -46,7 +46,14 @@ capture/storage for real local main/helper reports, with crashDumps paths and fr
 annotations. Actual main SIGABRT recovery and a real owned-helper crash pass locally
 on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
-The current Code-OSS import now stops at contentTracing.
+The current Code-OSS entry now stops at missing app.commandLine.getSwitchValue.
+
+Partial [contentTracing](api/content-tracing.md) now measures real native main
+work, with exact categories, bounded first/ring buffers and async private file
+output/retry. Local macOS native and public main-host acceptance pass without a
+BrowserWindow. Renderer/helper tracing, CPU/heap sampling, Chromium categories and
+Perfetto protobuf output remain unsupported; Code-OSS tracing commands are not
+accepted by this slice. Fresh Linux native execution is required.
 
 Partial [Menu/MenuItem](api/menu.md) application menus now pass local macOS
 Release Qt/LibJS native actions and actual public main-host gates. Checkbox state,
@@ -66,8 +73,8 @@ helpers, including IDNA/IPv6, ports, relative origins and default denial. The C+
 URL::origin override is removed. Cargo source selection, explicit freshness and
 actual dependency outputs are checked. Public origin registration is now available
 as the subset described below. Complete standard parsing, worker propagation and
-public resource/session contracts remain unfinished. Code-OSS stops at the missing
-contentTracing export; no desktop launch is claimed.
+public resource/session contracts remain unfinished. Code-OSS stops at the unavailable
+app.commandLine.getSwitchValue; no desktop launch is claimed.
 
 The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
@@ -135,7 +142,7 @@ now also has actual main/window acceptance, with automatic native navigation/doc
 grants, delayed handlers, load failures, cancellation and generation replacement.
 General Response handlers, partitions and further privilege flags remain open. Public [protocol registration](api/protocol.md) publishes the native origin table;
 unsupported privileges fail explicitly. Actual Code-OSS import advances
-to missing contentTracing (exit 1). No Code-OSS workbench
+to missing app.commandLine.getSwitchValue (exit 1). No Code-OSS workbench
 launch or new platform support follows from these gates.
 
 The CPU-corrected **1d033fe** Linux renderer passes

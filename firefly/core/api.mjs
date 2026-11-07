@@ -1,5 +1,6 @@
 /** Main-process desktop API and native-window lifecycle policy. */
 import createMenus from './menu/index.mjs';
+import createTracing from './tracing/index.mjs';
 import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createMainIpc from './ipc-main.mjs';
@@ -8,7 +9,7 @@ import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
 
-export default function createFireflyApi(native, EventEmitter, paths, urls) {
+export default function createFireflyApi(native, EventEmitter, paths, urls, files) {
   const error = (code, message) => Object.assign(new Error(message), { code });
 
   const unsupported = (name) => {
@@ -127,6 +128,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   );
   const { Menu, MenuItem } = menus;
+  const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported);
   const { protocol } = protocols;
@@ -572,6 +574,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     app,
     Menu,
     MenuItem,
+    contentTracing,
     crashReporter,
     protocol,
     session,

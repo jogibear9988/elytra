@@ -8041,6 +8041,54 @@ Code-OSS, then continue protocol requirements and binary/event/port IPC/workbenc
 services from the measured blockers. Broader example coverage follows Code-OSS
 needs. Full original specification goal remains active.
 
+## 2026-11-08: Record real native main traces through contentTracing
+
+- Replace the next measured Code-OSS missing export with useful main-owned native
+  tracing, not an inert compatibility object. Record actual monotonic main-loop,
+  bridge delivery and window create/destroy request scopes in Firefly categories.
+  Keep traces main-only; do not pretend Chromium/V8/renderer sampling exists.
+- Add a QtCore-only native recorder with independent exact schema/category bounds,
+  8,192-event first/ring retention, explicit dropped-event counts, actual PID/logical
+  thread metadata and generation retirement for scopes crossing stop/restart.
+  Disabled tracing allocates no event strings. No JS roots or application payloads
+  are retained by native scopes. Reset recording on bridge teardown; keep Ladybird
+  unmodified and Mite independent of all graphical libraries.
+- Expose promise-based getCategories/startRecording/getTraceBufferUsage/stopRecording
+  through the real Firefly/explicit Electron main aliases. Support exact category
+  inclusion/exclusion and the two bounded recording modes in modern/legacy shapes.
+  Reject sampling, memory configs, Chromium categories and unknown options explicitly.
+  Preserve active configuration on repeated starts, reject conflicting saves and
+  retain failed output snapshots for retry with a new path.
+- Supply the existing real main fs singleton to the API factory. Serialize bounded
+  snapshots on the native owner thread, then write asynchronously through Mite.
+  Default output uses a native private directory/exclusive 0600 file; explicit paths
+  have ordinary overwrite semantics. Document caller-owned temporary files, failed
+  partial outputs and JSON vs current Electron Perfetto protobuf differences.
+- Add actual native clock/filter/capacity/retention/generation tests, Node/Mite policy
+  and a public main-host/file-output gate without any BrowserWindow. Wait for a
+  completed main pump before asserting buffer use, since an in-flight first pump
+  is not yet an event. Require the gate in macOS aggregate checks and Linux Xvfb.
+  Refresh API/status/roadmap/Code-OSS docs and add ADR 0129.
+
+Validation: local macOS Release native recorder and actual public main tracing
+pass. Inspect real durations/timestamps/PID, exact filtering, 0700/0600 permissions,
+absence of a supplied environment sentinel/application path, output failure/retry
+and ESM/CommonJS identity. Node/Mite tracing policy and existing window geometry
+policy pass; the actual public menu-host gate remains green. Full maintained-source
+style, generated JS freshness, unmodified upstream pin and whitespace checks pass.
+Site validation passes (232 pages / 16,394 local links/resources/fragments).
+The prepared actual Code-OSS entry now passes contentTracing import and fails at
+missing app.commandLine.getSwitchValue (exit 1), recorded in
+build/code-oss-tracing-entry.log. No desktop workbench or Code-OSS tracing command
+is claimed. No browser/window suite or physical UI automation was run.
+
+Next implement the demanded real app.commandLine/main services, rerun Code-OSS,
+then prioritize required protocol/IPC/workbench/auxiliary-host services from its
+actual blockers. Window/IPC trace instrumentation still needs dedicated real-
+operation capture acceptance; renderer/helper tracing, sampling/heap diagnostics,
+Perfetto protobuf encoding and fresh native Linux execution remain unfinished.
+Windows desktop and the full original specification goal remain unfinished/active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

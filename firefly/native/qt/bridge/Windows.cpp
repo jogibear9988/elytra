@@ -26,6 +26,7 @@ JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::state(JS::VM& vm)
 
 void Bridge::Impl::destroy(int id)
 {
+    Tracing::Recorder::Scope scope(tracing, "firefly.window", "destroy");
     auto found = windows.find(id);
     if (found == windows.end() || found->second.closing)
         return;
@@ -37,6 +38,7 @@ void Bridge::Impl::destroy(int id)
 Optional<int> Bridge::Impl::create(int width, int height, QString const& title, bool show,
     bool frame, Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y)
 {
+    Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     auto id = next_id++;
     auto* window = new ChromeWindow(frame);
     window->setWindowTitle(title);

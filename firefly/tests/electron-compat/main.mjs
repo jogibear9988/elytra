@@ -24,8 +24,9 @@ async function run() {
         legacy.protocol === firefly.protocol &&
         imported.Menu === firefly.Menu &&
         legacy.MenuItem === firefly.MenuItem &&
-        !('contentTracing' in imported),
-      'Partial protocol/menu exports are shared; unsupported contentTracing remains unavailable'
+        imported.contentTracing === firefly.contentTracing &&
+        !('desktopCapturer' in imported),
+      'Partial protocol/menu/tracing exports are shared; unsupported desktopCapturer remains unavailable'
     );
   } else {
     check(
