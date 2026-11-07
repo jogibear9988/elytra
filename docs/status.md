@@ -6,13 +6,22 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-Local macOS Release now passes **70** Mite suites, adding custom process events
+Local macOS Release now passes **71** Mite suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
-embedded-host ownership/GC checks. This new slice awaits native Linux/Windows
-acceptance; see the [process contract](api/process.md). Code-OSS desktop still
+embedded-host ownership/GC checks. That process slice also passes native
+Linux/Windows at 94acc0c; see the [process contract](api/process.md). Code-OSS desktop still
 does not run. A newer source-mode gate also evaluates the actual pinned Code-OSS
 bootstrap-node.ts and its portable configuration under Mite after type erasure;
-main.ts, compile-cache adaptation and desktop startup remain open.
+main.ts, compile-cache adaptation and desktop startup remain open. The newest
+[source overlay](guides/code-oss-adaptation.md) makes actual Code-OSS platform/process
+modules recognize truthful Mite identity; OS/arch/env/cwd/locales/timer and the
+unadapted negative control pass locally. Bootstrap/platform native gates are pending.
+
+Native **94acc0c** passes all **69** suites on
+[Linux](https://github.com/jogibear9988/elytra/actions/runs/42380475178) (76.84 seconds)
+and [Windows](https://github.com/jogibear9988/elytra/actions/runs/42380475051)
+(102.93 seconds). This includes process events: actual owned-child POSIX signals
+on Linux, registration/unref/policy on Windows. No Windows POSIX delivery claim.
 
 Native Linux and Windows x64 at **678c85e** pass all **68** Mite suites:
 [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084)
@@ -59,9 +68,9 @@ and later master changes.
 
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
-| Mite / macOS ARM64 | Current local 70 CLI suites including process events and actual source-mode Code-OSS shared bootstrap; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
-| Mite / native Linux x64 | All 68 enabled suites at 678c85e; [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084) | Wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
-| Mite / native Windows x64 | All 68 enabled suites at 678c85e; [run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074) | Full Windows API/error parity, other architectures and standalone distribution |
+| Mite / macOS ARM64 | Current local 71 CLI suites including process events and actual source-mode Code-OSS shared bootstrap/platform modules; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
+| Mite / native Linux x64 | All 69 enabled suites at 94acc0c; [run 42380475178](https://github.com/jogibear9988/elytra/actions/runs/42380475178) | New bootstrap/platform slices, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / native Windows x64 | All 69 enabled suites at 94acc0c; [run 42380475051](https://github.com/jogibear9988/elytra/actions/runs/42380475051) | New bootstrap/platform slices, full Windows API/error parity, other architectures and standalone distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
 | Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls pass at 197cd2a in [run 42379262065](https://github.com/jogibear9988/elytra/actions/runs/42379262065) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
 | Firefly / native Windows | Production desktop not implemented/accepted; [renderer](development/windows-build.md#experimental-native-libweb-renderer-gate) and [Qt window prototype](development/windows-build.md#native-qt-window-prototype) have native CI gates, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |

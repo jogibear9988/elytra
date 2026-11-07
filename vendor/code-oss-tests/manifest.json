@@ -2,6 +2,18 @@
   "repository": "https://github.com/microsoft/vscode",
   "revision": "6531648f5ace8b77ae799262bdc97bf048461938",
   "files": {
+    "platform.ts": {
+      "upstream": "src/vs/base/common/platform.ts",
+      "sha256": "c56bff3a1f52227eafed8e81a498c238b28bc430d11219e5ab06eaeeaa696c39"
+    },
+    "process.ts": {
+      "upstream": "src/vs/base/common/process.ts",
+      "sha256": "c72b499f137a9f52134cd816db076f02712b7ee279f2957b53740639f80d9083"
+    },
+    "nls.ts": {
+      "upstream": "src/vs/nls.ts",
+      "sha256": "537a1d24fd17c9361626c2b7ebef194d55218f54b216817b3de87cf0a90d6bac"
+    },
     "bootstrap-node.ts": {
       "upstream": "src/bootstrap-node.ts",
       "sha256": "5e2d1f077a3d7d122b952d106e7087064e707dbdf63b8297307f47dc9258c5fd"
@@ -12,7 +24,8 @@
     },
     "LICENSE.txt": {
       "upstream": "LICENSE.txt",
-      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9"
+      "sha256": "9480271317925265e806a9a196aaa33410a962fa9d4d1e248a4a5187bc8c9df9",
+      "crlfCheckoutSha256": "cce33203a80863c22499035b1cfb6aba5df5f02e4ea2669cf5bc5730c1864236"
     }
   }
 }

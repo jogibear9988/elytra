@@ -92,6 +92,7 @@ def main():
     run(
         npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/npm-fixtures"
     )
+    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
     run("ctest", "--test-dir", build, "--output-on-failure")
     # This deliberately fails on unsupported native desktop platforms. A Mite
     # binary alone must never be relabeled as a successful complete release.
@@ -111,7 +112,6 @@ def main():
         args.jobs,
         *renderer_options,
     )
-    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
     run(sys.executable, "tooling/bootstrap_electron.py")
     run(
         "cmake",

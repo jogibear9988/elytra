@@ -13,7 +13,10 @@ on:
         'mite/**',
         'tooling/bootstrap.py',
         'tooling/check_checkout_paths.py',
-        'tooling/tests/**'
+        'tooling/tests/**',
+        'tooling/code_oss/**',
+        'vendor/code-oss-tests/**',
+        'tooling/runtime-js/package*.json'
       ]
   pull_request:
     paths:
@@ -27,7 +30,10 @@ on:
         'mite/**',
         'tooling/bootstrap.py',
         'tooling/check_checkout_paths.py',
-        'tooling/tests/**'
+        'tooling/tests/**',
+        'tooling/code_oss/**',
+        'vendor/code-oss-tests/**',
+        'tooling/runtime-js/package*.json'
       ]
   workflow_dispatch:
 permissions:
@@ -97,6 +103,8 @@ jobs:
         run: python tooling/diagnose_windows_startup.py --probe build/windows/bin/mite-startup-probe.exe --output build/windows/native-startup.log
       - name: Install locked npm test fixtures
         run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/npm-fixtures
+      - name: Install pinned Code-OSS test compiler
+        run: npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/runtime-js
       - name: Run all enabled runtime suites
         run: ctest --test-dir build/windows --output-on-failure --output-junit windows-ctest.xml
       - name: Record independent Mite TLS and HTTPS acceptance if the Node reference fails

@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release CLI has 70
+Mite is a working native LibJS runtime; the current macOS Release CLI has 71
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -6843,6 +6843,45 @@ Earlier SIGILL cause remains undiagnosed. New process/bootstrap sources need
 their own native gates. Site (199 pages / 14,069 local links/resources/fragments)
 and diff checks pass. No
 local GUI. Full goal active with Code-OSS bootstrap/cache and IPC prioritized.
+
+## 2026-11-07: Recognize truthful Mite identity in actual Code-OSS platform modules
+
+- Inspect the actual pinned full Code-OSS source, now retained in ignored
+  build/code-oss-source. common/platform and common/process recognize native
+  execution through versions.node; unchanged Mite is misclassified as web/unknown,
+  dropping architecture, environment and real cwd. Do not fake Node/Electron.
+- Add a reusable Python source-overlay preparation command. Validate exact
+  platform/process/license hashes and unique seams before creating fresh output;
+  add versions.mite recognition and its TypeScript interface field only. Keep
+  originals and every other source byte unchanged. Preserve MIT license and
+  record revision/input/output hashes in ELYTRA-ADAPTATIONS.json.
+- A real upstream source archive exposed its explicit LICENSE.txt eol=crlf rule.
+  Record that exact alternate checksum; accept only the two pinned license forms
+  and preserve supplied bytes. Verify both LF/CRLF and drift refusal. Require LF
+  TypeScript inputs; refuse existing outputs, overlapping trees and changed files
+  before writing output. This is a partial source overlay, not a runnable app.
+- Pin unmodified platform.ts/process.ts/nls.ts, preserve license/hash/LF guards.
+  Compile actual TypeScript with existing pinned build-only esbuild 0.25.12,
+  including const enums and type-only imports. Compare unmodified Node, adapted
+  Node and adapted Mite; require native OS/arch/env/cwd, NLS configuration, native
+  timer and absent fake Node/Electron identity. Unadapted Mite must reproduce the
+  original diagnostic/web fallback. No test module replacements or fake services.
+- Install the pinned build compiler before native CLI CTests in Linux/Windows
+  CI and release driver; extend trigger paths and README build prerequisites.
+  Document ADR 0105, adaptation guide and exact remaining desktop/cache blockers.
+- Native 94acc0c process-event acceptance completes: Linux run 42380475178 /
+  job 128426838492 passes all 69 suites in 76.84 seconds, with actual POSIX child
+  delivery. Windows run 42380475051 / job 128426933149 passes all 69 in 102.93
+  seconds, including registration/unref/policy; no Windows POSIX delivery claim.
+
+Validation: local macOS Release all 71 suites pass (20.61 seconds), actual
+platform gate 0.40 seconds; targeted gate also passes added license checkout
+controls. Prepare the overlay successfully against the actual full pinned source
+archive. New native bootstrap/platform jobs are pending/running, not accepted yet.
+Formatting, Windows LF/hash, site (201 pages / 14,205 local links/resources/fragments)
+and diff checks pass. No local GUI,
+no Ladybird changes. Full goal active; cache/V8, main.ts/mainImpl and public
+binary/event/port transport remain prioritized prerequisites for real Code-OSS.
 
 ## Resume
 

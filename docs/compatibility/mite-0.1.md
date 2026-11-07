@@ -4,9 +4,9 @@ This is a versioned inventory, not a claim of general Node.js compatibility.
 Statuses describe this repository, not upstream LibJS's language conformance.
 The behavioral oracle is Node v24.15.0. Local macOS ARM64 tests and the
 [Linux](../development/linux-build.md) and [Windows](../development/windows-build.md)
-x64 default Release gates at 678c85e pass all **68 enabled suites**, including
+x64 default Release gates at 94acc0c pass all **69 enabled suites**, including
 Fetch/body data, HTTP/HTTPS/TLS clients, HMAC, native child pipes, cancellation,
-listener rejection capture and forced-GC delivery. [Current support](../status.md)
+listener rejection capture, process events and forced-GC delivery. [Current support](../status.md)
 records the source/run evidence. This is scoped acceptance of the documented
 subset, not full Node compatibility, desktop support or untested compiler/CPU/SDK
 profiles. Specific hardware, permissions, failure injection and unmeasured platform
@@ -17,7 +17,7 @@ edge cases remain open.
 | JavaScript file entry | partial | LibJS engine with CommonJS wrapper or explicit ESM format; no automatic ESM syntax detection |
 | CLI script arguments / `-e` | partial | File execution, eval, help/version; other flags fail explicitly |
 | `console.log`, `console.error` | partial | String conversion, space joining and immediate line flush (including pipes); raw LF/CRLF/NUL/SUB/UTF-8 byte checks. Windows CLI binary-output correction passes native CI; no Node object inspection or format substitutions |
-| `process` / `node:process` | partial | Native identity/environment/exit and clock/CPU subset tested, including native Linux/Windows. Custom EventEmitter methods and restricted native signal watches now pass local macOS Node/owned-child/collecting-host checks (69 suites); new native Linux/Windows gates pending. Lifecycle/rejection/IPC event registration explicitly rejects; stdio streams, process.kill and broader reports absent. [Contract](../api/process.md) |
+| `process` / `node:process` | partial | Native identity/environment/exit and clock/CPU subset, custom EventEmitter methods and restricted native signal watches pass macOS and native Linux/Windows at 94acc0c (69 suites). Real POSIX signal delivery/GC/handler restoration on macOS/Linux; Windows registration/unref/policy only. Lifecycle/rejection/IPC event registration explicitly rejects; stdio streams, process.kill and broader reports absent. [Contract](../api/process.md) |
 | Runtime identity | intentional difference | Reports Mite version/release, libuv and pinned LibJS versions; versions.node is absent |
 | `global` | partial | Alias to `globalThis` |
 | Promise jobs / `queueMicrotask` | partial | Shared FIFO queue, nested jobs, checkpoint after each native callback; nextTick runs in a separate priority FIFO; no rejection events |

@@ -25,6 +25,7 @@ from a future Code-OSS test.
 
 | Area | Observed upstream dependency | Elytra gap and required proof |
 | --- | --- | --- |
+| Native environment identity | common/platform and common/process recognize native execution through versions.node | Explicit pinned source overlay also recognizes truthful versions.mite. Actual upstream modules, locale/env/cwd/timer checks and unadapted negative control pass locally on macOS; desktop/Electron detection remains open. [Adaptation guide](../guides/code-oss-adaptation.md) |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | node:module now has createRequire utilities, but its compile-cache exports and node:v8 remain absent. Define a truthful LibJS cache/diagnostics adaptation; do not fake a V8 cache or embed V8. First prove the pinned bootstrap progresses with an explicit adaptation report |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
 | Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | perf_hooks supplies native now/timeOrigin; original-fs now has a separate raw main-process facade with local macOS acceptance. ASAR and broader performance APIs remain absent, desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
@@ -99,6 +100,11 @@ helper still installs no byte receiver. Document/realm/epoch routing and revocat
 VM-safe delivery and public binary/event/port APIs remain prerequisites for Code-OSS.
 
 ## Implementation order
+
+An [audited source overlay](../architecture/0105-code-oss-native-identity.md) now
+handles the first native identity checks without fabricating Node metadata.
+This preserves actual native environment/cwd instead of Code-OSS's web fallback;
+it does not supply compile-cache/V8 or desktop identity/API behavior.
 
 Choose general compatibility work against this application path first. Keep
 security and the full native platform specification; deprioritize unrelated

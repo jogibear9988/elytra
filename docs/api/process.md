@@ -122,8 +122,11 @@ follow the existing runtime failure path; no uncaughtException recovery is suppl
 Native POSIX two-delivery/once/microtask/cleanup tests pass locally on macOS for
 all five signals, against Node 24.15.0. A collecting embedded host also passes
 SIGUSR2 delivery, foreign-handler refusal and restoration of an initially ignored
-disposition after removal and runtime shutdown. Linux/Windows acceptance of this
-new slice is pending. Windows registration does not establish POSIX-style signal
+disposition after removal and runtime shutdown. Native Linux x64 also passes at
+94acc0c ([run 42380475178](https://github.com/jogibear9988/elytra/actions/runs/42380475178),
+all 69 suites). Windows x64 passes registration/unref/policy at 94acc0c
+([run 42380475051](https://github.com/jogibear9988/elytra/actions/runs/42380475051),
+all 69 suites). Windows registration does not establish POSIX-style signal
 delivery: libuv can accept watches for signals that Windows never delivers.
 
 Embedding hosts default to refusing native subscriptions with

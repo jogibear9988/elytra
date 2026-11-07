@@ -196,6 +196,11 @@ if(BUILD_TESTING)
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_bootstrap.py"
             --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-code-oss-platform
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_platform.py"
+            --mite "$<TARGET_FILE:mite>")
     add_test(NAME firefly-screen-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_screen.py"
                      --mite "$<TARGET_FILE:mite>")
