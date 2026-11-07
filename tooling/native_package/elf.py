@@ -45,7 +45,7 @@ def native_tools():
     """Fail before mutation or loader execution on unverified hosts."""
     if sys.platform != "linux" or platform.machine() != "x86_64":
         raise RuntimeError("ELF closure staging requires native Linux x64")
-    for name in ["ldd", "patchelf"]:
+    for name in ["ldd", "patchelf", "readelf"]:
         if not shutil.which(name):
             raise RuntimeError(f"Missing native packaging tool: {name}")
 
@@ -155,7 +155,7 @@ def verify(root, binaries):
     return sorted(external)
 
 
-def stage(root, binaries):
+def stage(root, binaries, *, preferred_providers=None):
     """Stage destination-to-original mappings and independently verify the closure.
 
     Inspect originals before copying libraries so both absolute and $ORIGIN build
@@ -185,6 +185,7 @@ def stage(root, binaries):
     if libraries.exists() or libraries.is_symlink():
         raise ValueError("ELF staging requires a fresh package lib/ directory")
     sources = {}
+    candidates = {}
     hashes = {}
     for binary in binaries:
         # Inspect the original location: build RUNPATHs can already use $ORIGIN
@@ -195,9 +196,48 @@ def stage(root, binaries):
             elf_x64(dependency)
             if dependency not in hashes:
                 hashes[dependency] = digest(dependency)
-            if name in sources and hashes[sources[name]] != hashes[dependency]:
-                raise ValueError(f"Conflicting ELF dependency contents: {name}")
-            sources[name] = dependency
+            candidates.setdefault(name, set()).add(dependency)
+    if preferred_providers is None:
+        preferred_providers = {}
+    overrides = {}
+    if not isinstance(preferred_providers, dict):
+        raise ValueError("ELF provider policy must be a name-to-source mapping")
+    for name, path in preferred_providers.items():
+        if name in HOST_ABI or name not in candidates:
+            raise ValueError(
+                f"ELF provider policy must select an observed non-host dependency: {name}"
+            )
+        provider = Path(path).resolve(strict=True)
+        if provider not in candidates[name]:
+            raise ValueError(
+                f"ELF provider policy must select an observed non-host dependency: {name}"
+            )
+        overrides[name] = provider
+    for name, paths in candidates.items():
+        if name in overrides:
+            sources[name] = overrides[name]
+        elif len({hashes[path] for path in paths}) > 1:
+            details = "; ".join(f"{path} ({hashes[path]})" for path in sorted(paths))
+            raise ValueError(f"Conflicting ELF dependency contents: {name}: {details}")
+        else:
+            sources[name] = sorted(paths)[0]
+    # An explicit policy is never an automatic same-name collision bypass. Verify
+    # SONAME and all used symbol/version/type requirements of the selected graph.
+    from .elf_symbols import validate_provider
+
+    provider_inventory = {}
+    consumers = set(originals.values()) | set(sources.values())
+    for name, provider in sorted(overrides.items()):
+        required = validate_provider(name, provider, candidates[name], consumers, command)
+        provider_inventory[name] = {
+            "selectedSource": str(provider),
+            "selectedSourceSha256": hashes[provider],
+            "candidates": [
+                {"source": str(path), "sourceSha256": hashes[path]}
+                for path in sorted(candidates[name])
+            ],
+            "consumerImports": required,
+        }
     libraries.mkdir()
     physical = {}
     inventory = {}
@@ -228,10 +268,12 @@ def stage(root, binaries):
         "tools": {
             "patchelf": command("patchelf", "--version").strip(),
             "ldd": command("ldd", "--version").splitlines()[0],
+            "readelf": command("readelf", "--version").splitlines()[0],
         },
         "hostABI": external,
         "binaries": [str(path.relative_to(root)) for path in binaries],
         "binarySources": {str(path.relative_to(root)): str(originals[path]) for path in binaries},
         "libraries": inventory,
         "physicalLibraries": len(physical),
+        "providerOverrides": provider_inventory,
     }

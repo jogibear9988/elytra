@@ -6,6 +6,12 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
+Native Linux x64 at **678c85e** passes all **68** Mite suites in
+[run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084)
+(83.24 seconds), including module utilities, the collecting raw-FS host gate and
+the native performance clock/pinned Code-OSS module. This is standalone/host API
+acceptance, not a Code-OSS desktop launch, full Linux app archive or Windows proof.
+
 The [node:module utilities](api/module.md) at 8f617c0 pass local macOS ARM64 Node
 differential/embedded-host GC checks and the full **66-suite** Mite run. This adds
 ESM-owned createRequire, not Code-OSS startup or compile-cache/V8 support. New

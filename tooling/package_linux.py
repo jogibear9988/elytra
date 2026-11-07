@@ -141,7 +141,14 @@ def stage(
         )
         shutil.copy2(launcher, output / "launch")
         binaries[output / "launch"] = launcher
-        closure = elf.stage(output, binaries)
+        # LibWebView's SDK DBus and a helper/plugin's system dependency can resolve
+        # different libdbus-1.so.3 files. Declare the frontend's actual provider for
+        # the package, then require all consumers' imported ABI to remain available.
+        frontend = elf.dependencies(build / "bin/firefly")
+        dbus = "libdbus-1.so.3"
+        if dbus not in frontend:
+            raise ValueError("Review Linux frontend DBus provider after SDK change")
+        closure = elf.stage(output, binaries, preferred_providers={dbus: frontend[dbus]})
     if (
         any(name.startswith("libQt6") for name in closure["libraries"])
         and not (output / "plugins/platforms/libqxcb.so").is_file()

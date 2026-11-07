@@ -22,6 +22,16 @@ returned inventory records source and packaged hashes, tool versions, deduplicat
 library count and actual external host ABI names. glibc/the host loader remain
 external; arbitrary Linux distributions and other architectures are not accepted.
 
+An explicit preferred_providers policy may select an already observed non-host
+dependency, subject to exact SONAME and required dynamic symbol/version/type
+checks before mutation. There is no automatic collision override. The Linux app
+packager declares only its frontend's actual DBus provider; BUILD.json records
+candidate/selected source hashes and consumer imports. See
+[ADR 0103](../../docs/architecture/0103-declared-elf-provider-selection.md).
+Native tools now include readelf. The compiled fixture covers compatible versioned
+providers, relocation and incompatible-version refusal; complete app/Designer
+acceptance remains an independent gate.
+
 The experimental [application packager](../../docs/development/linux-packaging.md)
 adds app/resources, dynamic Qt plugins, notices, a native launcher and tar archives.
 Its whole-app CI gate remains separate from this compiled fixture; neither

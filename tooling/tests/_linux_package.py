@@ -59,6 +59,13 @@ def packaged_app(
         assert path.resolve().is_relative_to(root.resolve()), path
         assert elf.digest(path) == expected, path
     metadata = json.loads((root / "BUILD.json").read_text())
+    policy = metadata["elf"]["providerOverrides"]["libdbus-1.so.3"]
+    provider = metadata["elf"]["libraries"]["libdbus-1.so.3"]
+    assert policy["selectedSource"] == provider["source"], "DBus provider provenance differs"
+    assert policy["selectedSourceSha256"] == provider["sourceSha256"], (
+        "DBus provider source hash differs"
+    )
+    assert policy["consumerImports"] and policy["candidates"], "Missing DBus ABI/provider evidence"
     assert metadata["symbols"] == "stripped" and metadata["standaloneMiteBundled"] is False, (
         metadata
     )

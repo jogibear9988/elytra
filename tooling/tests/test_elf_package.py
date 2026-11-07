@@ -12,6 +12,7 @@ import tempfile
 from unittest.mock import patch
 
 from native_package import elf
+from native_package.elf_symbols import parse_symbols
 
 
 def refused(operation, message):
@@ -50,6 +51,21 @@ def guards():
         )
         assert set(root.iterdir()) == {first, second}
     print("PASS unsupported-host/non-ELF/parser refusal; no loader, patcher or GUI launched")
+    sample = """Symbol table '.dynsym' contains 3 entries:
+       Num: Value Size Type Bind Vis Ndx Name
+       0: 0000000000000000 0 NOTYPE LOCAL DEFAULT UND
+       1: 0000000000000000 0 FUNC GLOBAL DEFAULT UND leaf@FIXTURE_1 (2)
+       2: 0000000000000010 8 FUNC GLOBAL DEFAULT 8 leaf@@FIXTURE_1
+"""
+    imported, defined = parse_symbols(sample)
+    assert imported.undefined and imported.version == "FIXTURE_1" and not imported.default
+    assert not defined.undefined and defined.version == "FIXTURE_1" and defined.default
+    refused(lambda: parse_symbols("opaque output"), "Unrecognized ELF dynamic symbol")
+    refused(
+        lambda: parse_symbols(sample.replace("leaf@@FIXTURE_1", "leaf@@@FIXTURE_1")),
+        "Ambiguous ELF",
+    )
+    print("PASS dynamic import/default-version parser and malformed symbol refusal")
 
 
 def compile_graph(root, value, absolute=False):
@@ -112,10 +128,127 @@ def copied(root, source, relative):
     return target
 
 
+def compile_provider(root, version, compatible=False):
+    """Two valid original graphs with the same SONAME and explicit versioned ABIs."""
+    root.mkdir()
+    library = root / "libprovider-fixture.so.1"
+    source = root / "provider.c"
+    source.write_text("int leaf(void) { return 17; } int extra(void) { return 29; }\n")
+    script = root / "exports.map"
+    script.write_text(
+        "FIXTURE_1 { global: leaf; local: *; }; FIXTURE_2 { global: extra; } FIXTURE_1;\n"
+        if compatible
+        else f"{version} {{ global: leaf; local: *; }};\n"
+    )
+    compiler = os.environ.get("CC", "cc")
+    subprocess.run(
+        [
+            compiler,
+            "-shared",
+            "-fPIC",
+            str(source),
+            "-Wl,-soname," + library.name,
+            "-Wl,--version-script=" + str(script),
+            "-o",
+            str(library),
+        ],
+        check=True,
+    )
+    source = root / "main.c"
+    source.write_text(
+        '#include <stdio.h>\nint leaf(void); int main(void) { printf("%d\\n", leaf()); return leaf() != 17; }\n'
+    )
+    binary = root / "program"
+    subprocess.run(
+        [
+            compiler,
+            str(source),
+            "-L" + str(root),
+            "-l:" + library.name,
+            "-Wl,-rpath,$ORIGIN",
+            "-o",
+            str(binary),
+        ],
+        check=True,
+    )
+    return binary, library
+
+
+def provider_policy(root):
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("LD_")}
+    old, first = compile_provider(root / "provider old", "FIXTURE_1")
+    new, selected = compile_provider(root / "provider compatible", "FIXTURE_1", compatible=True)
+    name = first.name
+    for binary in [old, new]:
+        assert subprocess.check_output([binary], env=environment, text=True, timeout=5) == "17\n"
+    package = root / "provider package"
+    left = copied(package, old, "bin/main")
+    right = copied(package, new, "helpers/peer")
+    sources = {left: old, right: new}
+    before = {path: elf.digest(path) for path in [left, right, old, new, first, selected]}
+    refused(lambda: elf.stage(package, sources), "Conflicting ELF dependency")
+    assert not (package / "lib").exists()
+    refused(
+        lambda: elf.stage(package, sources, preferred_providers={"libc.so.6": first}),
+        "observed non-host",
+    )
+    refused(
+        lambda: elf.stage(package, sources, preferred_providers={name: old}), "observed non-host"
+    )
+    report = elf.stage(package, sources, preferred_providers={name: selected})
+    assert before == {path: elf.digest(path) for path in before}, (
+        "provider selection changed originals"
+    )
+    proof = report["providerOverrides"][name]
+    assert proof["selectedSource"] == str(selected) and len(proof["candidates"]) == 2, proof
+    assert "leaf@FIXTURE_1" in proof["consumerImports"][str(old)], proof
+    assert report["physicalLibraries"] == 1 and report["libraries"][name]["source"] == str(
+        selected
+    ), report
+    assert {record["source"]: record["sourceSha256"] for record in proof["candidates"]} == {
+        str(first): before[first],
+        str(selected): before[selected],
+    }, proof
+    relocated = root / "provider relocated"
+    package.rename(relocated)
+    old.parent.rename(root / "provider old hidden")
+    new.parent.rename(root / "provider compatible hidden")
+    for relative in ["bin/main", "helpers/peer"]:
+        assert (
+            subprocess.check_output([relocated / relative], env=environment, text=True, timeout=5)
+            == "17\n"
+        )
+    elf.verify(
+        relocated, [relocated / "bin/main", relocated / "helpers/peer", relocated / "lib" / name]
+    )
+
+    old, first = compile_provider(root / "version old", "FIXTURE_1")
+    incompatible, bad = compile_provider(root / "version incompatible", "FIXTURE_2")
+    bad_package = root / "version refusal"
+    left = copied(bad_package, old, "bin/main")
+    right = copied(bad_package, incompatible, "helpers/peer")
+    before = {path: elf.digest(path) for path in [left, right, first, bad]}
+    refused(
+        lambda: elf.stage(
+            bad_package, {left: old, right: incompatible}, preferred_providers={name: bad}
+        ),
+        "ELF provider lacks required ABI",
+    )
+    assert not (bad_package / "lib").exists()
+    assert before == {path: elf.digest(path) for path in before}
+    print(
+        "PASS declared provider, exact versioned imports, one physical DSO and relocated independent executables"
+    )
+    print(
+        "PASS incompatible symbol version, unobserved/host provider and implicit collision refusal before mutation"
+    )
+
+
 def native():
     elf.native_tools()
     with tempfile.TemporaryDirectory(prefix="elf-native-") as directory:
         root = Path(directory).resolve()
+        provider_policy(root)
         original = root / "original build"
         binary = compile_graph(original, 17)
         before = {file: elf.digest(file) for file in original.rglob("*") if file.is_file()}

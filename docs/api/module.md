@@ -1,9 +1,9 @@
 # node:module
 
 Status: partial utility API. createRequire, isBuiltin and builtinModules have local
-macOS ARM64 Node differential and actual embedded-host GC tests. New native
-Linux/Windows execution remains pending; the general loader's earlier platform
-acceptance does not establish this new API.
+macOS ARM64 Node differential and actual embedded-host GC tests. Native Linux x64
+also passes at 678c85e (all 68 runtime suites); new Windows execution remains
+pending. See [current evidence](../status.md).
 
 ```js
 import {createRequire, isBuiltin, builtinModules} from 'node:module';

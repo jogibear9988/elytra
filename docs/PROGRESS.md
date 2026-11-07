@@ -6673,6 +6673,38 @@ formatting, diff and unmodified-upstream checks pass; generated site 197 pages /
 13,922 local links/resources/fragments passes. Full goal active; Code-OSS desktop
 and full platform acceptance remain incomplete.
 
+## 2026-11-07: Resolve the Linux DBus package collision through a declared ABI-checked provider
+
+- Previous goal turn made progress with original-fs and Windows entry/oracle fixes
+  in 7067636 / 678c85e. Read current native evidence: Linux development runs at
+  8f617c0 and 66cbe5c succeed (66/67 suites respectively); Windows 66cbe5c now fails
+  only the already-corrected drive fixture, not HTTP. Keep the intermittent earlier
+  Node HTTP failure recorded rather than declaring it fixed.
+- Native Linux renderer run 42374318919, job 128410439668, reaches archive staging
+  after actual renderer/helper/byte-handoff/app checks, then rejects different
+  libdbus-1.so.3 files. Keep that genuine guard; the package needs one provider.
+- Add an explicit policy choosing the frontend's actual clean-environment DBus
+  provider. Generic closure staging still rejects undeclared content conflicts.
+  Before mutation require the selected source to be observed in the original graph,
+  have matching SONAME and fulfill selected consumers' symbol/version/type imports.
+  Unversioned imports need default exports; incompatible/unknown/host choices fail.
+- Retain all candidate/selected source hashes and per-consumer imports in the
+  package manifest, stage one provider and preserve normal source copying, notices,
+  relative RUNPATHs and relocated dependency checks. No vendor/build tree patch.
+- Extend the real native ELF fixture with independent versioned providers, actual
+  relocation after deleting build paths, source preservation and incompatible ABI
+  negatives. Whole-app peer checks require matching provider provenance. Add ADR
+  0103 and packaging docs; matching loader symbols alone is not application proof.
+
+Validation: confirm Linux 678c85e run 42376107084 / job 128413897697 passes all 68
+runtime suites (83.24 seconds), including module/performance/raw-host APIs, and
+refresh their scoped API/matrix status. Local non-native ELF/parser guards and
+formatting/syntax checks pass;
+native component/provider and full Linux app/archive/Designer acceptance pending.
+All 68 local Mite regression suites pass (19.75 seconds); generated site 198 pages /
+13,993 local links/resources/fragments passes.
+No local GUI. Full goal active; Code-OSS desktop still does not run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
