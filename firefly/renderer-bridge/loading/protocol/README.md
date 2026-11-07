@@ -6,7 +6,9 @@ path, uses a weak transport proxy, and forwards native credit/cancel notificatio
 Dispatch adds a native-only scoped provider slot to the owned scheme-fetch seam.
 It defaults to empty; product/diagnostic helpers install no provider. Only registered
 standard schemes, same-origin top-level Window requests and GET/HEAD are admitted;
-Range, navigation and worker requests are denied. Upstream fetch policy still runs.
+Range and worker requests are denied. Navigation requires a separate explicit
+native handler and one-shot intent; it stays denied for existing document providers.
+Upstream fetch policy still runs.
 No JavaScript registration capability or public protocol handler is installed here.
 
 The class compiles inside LibWeb because upstream PendingResponse is intentionally
@@ -47,3 +49,21 @@ real body/HEAD/refusal, quotas, foreign same-origin documents, abort/reader canc
 owner destruction, peer loss, malformed responses and a real silent-peer deadline.
 This is not live WebContent bootstrap/document routing. See
 [ADR 0119](../../../../docs/architecture/0119-document-fetch-channel-client.md).
+
+Navigation provides the separate one-shot browser-UI scope used by
+Client::create_navigation. It checks the current native ID/navigable/source settings
+and expected URL against the actual upstream-created navigation request. It does
+not make a document resource client accept navigation or install a helper service.
+
+```sh
+cmake --build build/renderer --target check-firefly-protocol-navigation --parallel 3
+```
+
+The real upstream navigation population gate is required by the fetch gate. It
+checks descriptor body bytes/origin/CSP, exact 16-MiB acceptance/over-limit refusal,
+foreign native navigables, one-shot/default/page-source refusal and body teardown.
+Upstream fully buffers these initial bodies without a RequestServer transfer lease;
+Response rejects oversized navigation metadata before creating the body channel.
+Normal resource response limits remain unchanged. The test leaves the source
+about:blank document untouched; actual document commit/live helper routing remain
+open. See [ADR 0121](../../../../docs/architecture/0121-native-navigation-population.md).

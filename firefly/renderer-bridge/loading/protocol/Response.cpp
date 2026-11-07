@@ -41,23 +41,24 @@ private:
     WeakPtr<Response> m_owner;
 };
 
-ErrorOr<NonnullRefPtr<Response>> Response::create(
-    Infrastructure::FetchParams const& params, u64 epoch, u32 request, Callbacks callbacks)
+ErrorOr<NonnullRefPtr<Response>> Response::create(Infrastructure::FetchParams const& params,
+    u64 epoch, u32 request, Callbacks callbacks, u64 maximum_length)
 {
     if (!epoch || !request || !callbacks.credit || !callbacks.cancel || params.is_canceled()
-        || params.controller()->task_destination().has<Empty>())
+        || params.controller()->task_destination().has<Empty>()
+        || maximum_length > Protocols::file_size_limit)
         return Error::from_string_literal("Invalid or cancelled protocol fetch admission");
     auto callback_owner
         = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) CallbackOwner(move(callbacks))));
     auto response = TRY(adopt_nonnull_ref_or_enomem(
-        new (nothrow) Response(params, epoch, request, move(callback_owner))));
+        new (nothrow) Response(params, epoch, request, move(callback_owner), maximum_length)));
     response->m_transport = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) Transport(*response)));
     params.controller()->set_body_transport(*response->m_transport);
     return response;
 }
 
 Response::Response(Infrastructure::FetchParams const& params, u64 epoch, u32 request,
-    NonnullRefPtr<CallbackOwner> callbacks)
+    NonnullRefPtr<CallbackOwner> callbacks, u64 maximum_length)
     : m_controller(params.controller())
     , m_pending(Web::Fetch::Fetching::PendingResponse::create(params))
     , m_params(params)
@@ -66,6 +67,7 @@ Response::Response(Infrastructure::FetchParams const& params, u64 epoch, u32 req
     , m_callbacks(move(callbacks))
     , m_epoch(epoch)
     , m_request(request)
+    , m_maximum_length(maximum_length)
 {
 }
 
@@ -178,6 +180,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         auto head = Protocols::decode_file_response_head(
             { reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size() });
         if (head.is_error() || head.value().request != m_request
+            || head.value().content_length > m_maximum_length
             || head.value().head != (m_params->request()->method() == "HEAD"sv))
             return reject();
         m_head = head.release_value();

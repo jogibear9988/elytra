@@ -92,9 +92,17 @@ fixture, not a live WebContent helper or a public protocol/session implementatio
 The [shared fetch-scheme classification](architecture/0120-custom-fetch-scheme-classification.md)
 now also includes explicitly registered standard schemes in the actual engine and
 native UI predicates. Local native routing and existing headless helper regressions
-pass. Navigation responses still require a separate admitted lifecycle: the current
-document-bound client cannot bootstrap the first custom-origin document. No custom
-navigation, public protocol handler or new platform support is accepted here.
+pass. This classifies URLs without granting response authority. The separate native
+navigation population scope below supplies the next component; live document commit,
+public protocol handlers and fresh platform acceptance are still required.
+
+The [native navigation response path](architecture/0121-native-navigation-population.md)
+now also passes actual upstream top-level navigation population over the native
+resource channel locally. It verifies returned body bytes, target origin and CSP,
+with one-shot URL/navigable/client identity and cancellation/refusal controls.
+Initial navigation buffering is bounded to 16 MiB. Document commit and live helper
+bootstrap still remain separate gates; no app-origin document/workbench is loaded
+by the product yet.
 
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):

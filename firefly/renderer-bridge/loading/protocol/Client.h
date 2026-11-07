@@ -1,5 +1,6 @@
-/** One document's native request/credit channel to the main-side file service. */
+/** Native request/credit channel scoped to one document or one explicit UI navigation. */
 #pragma once
+#include "Navigation.h"
 #include "Response.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/protocol/files/RequestPacket.h"
@@ -13,6 +14,11 @@ public:
     // Creating a client neither installs a provider nor exports any page API.
     static ErrorOr<NonnullRefPtr<Client>> create(
         NonnullOwnPtr<IPC::Transport>, u64 epoch, Web::DOM::Document&);
+    // Separate one-shot scope: the native navigable must already carry this
+    // navigation ID. This does not weaken document-client request admission.
+
+    static ErrorOr<NonnullRefPtr<Client>> create_navigation(NonnullOwnPtr<IPC::Transport>,
+        u64 epoch, Web::HTML::LocalNavigable&, URL::URL expected_url, Utf16String navigation_id);
 
     ~Client();
 
@@ -44,7 +50,9 @@ private:
 
     Client(u64, Web::DOM::Document&);
 
-    bool document_is_active() const;
+    ErrorOr<void> initialize(NonnullOwnPtr<IPC::Transport>);
+
+    bool scope_is_active() const;
 
     void receive(ReadonlyBytes);
 
@@ -60,6 +68,7 @@ private:
 
     RefPtr<Bytes::Channel> m_channel;
     GC::Root<Web::DOM::Document> m_document;
+    OwnPtr<Navigation> m_navigation;
     HashMap<u32, Job> m_jobs;
     RefPtr<Core::Timer> m_timer;
     URL::Origin const m_origin;

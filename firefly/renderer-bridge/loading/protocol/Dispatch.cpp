@@ -6,12 +6,14 @@
 
 namespace Firefly::ProtocolFetch {
 struct Registration::Provider : RefCounted<Provider> {
-    explicit Provider(Handler value)
+    Provider(Handler value, Handler navigation_value)
         : handler(move(value))
+        , navigation(move(navigation_value))
     {
     }
 
     Handler handler;
+    Handler navigation;
     AK::ThreadID thread { AK::ThreadID::current() };
     bool active { true };
 };
@@ -24,12 +26,13 @@ Registration::Registration(NonnullRefPtr<Provider> provider)
 {
 }
 
-ErrorOr<NonnullOwnPtr<Registration>> Registration::install(Handler handler)
+ErrorOr<NonnullOwnPtr<Registration>> Registration::install(Handler handler, Handler navigation)
 {
-    if (!handler || s_current.get())
+    if ((!handler && !navigation) || s_current.get())
         return Error::from_string_literal(
             "Protocol provider is empty or already installed on this agent");
-    auto provider = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) Provider(move(handler))));
+    auto provider
+        = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) Provider(move(handler), move(navigation))));
     auto registration = TRY(adopt_nonnull_own_or_enomem(new (nothrow) Registration(provider)));
     s_current.get() = move(provider);
     return registration;
@@ -90,6 +93,24 @@ bool allows_request(Web::Fetch::Infrastructure::FetchParams const& params)
     return true;
 }
 
+bool allows_navigation_request(Web::Fetch::Infrastructure::FetchParams const& params)
+{
+    using Request = Web::Fetch::Infrastructure::Request;
+    using Reserved = Web::Fetch::Infrastructure::ReservedClientContext;
+    auto const& request = *params.request();
+    auto const& reserved = request.reserved_client_snapshot();
+    auto const* environment
+        = reserved ? reserved->kind.get_pointer<Reserved::Environment>() : nullptr;
+    return !params.is_canceled() && Protocols::is_standard_scheme(request.current_url().scheme())
+        && !request.current_url().origin().is_opaque() && request.method() == "GET"sv
+        && request.mode() == Request::Mode::Navigate
+        && request.destination() == Request::Destination::Document
+        && request.redirect_mode() == Request::RedirectMode::Manual && !request.client().has_value()
+        && !request.client_snapshot() && !request.remote_client_navigation().has_value()
+        && request.body().has<Empty>() && !request.header_list()->contains("Range"sv) && environment
+        && environment->target_browsing_context == Reserved::TargetBrowsingContext::TopLevel;
+}
+
 GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
     Web::Fetch::Infrastructure::FetchParams const& params)
 {
@@ -105,10 +126,13 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
                 "Custom protocol request is outside the admitted provider scope"_string));
     };
 
-    if (!provider->active || !allows_request(params))
+    bool navigation = request->is_navigation_request();
+    auto& handler = navigation ? provider->navigation : provider->handler;
+    if (!provider->active || !handler
+        || !(navigation ? allows_navigation_request(params) : allows_request(params)))
         return deny();
     // Retain provider through callback reentrancy, including native revocation.
-    auto result = provider->handler(params);
+    auto result = handler(params);
     if (result.is_error() || result.value()->finished())
         return deny();
     auto response = result.release_value();

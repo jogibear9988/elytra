@@ -15,7 +15,8 @@ target_include_directories(
                                      "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
 target_link_libraries(firefly-protocol-fetch INTERFACE LibWeb LibJS LibGC LibURL
                                                        firefly-protocol-file-codec)
-add_library(firefly-protocol-client STATIC "${CMAKE_CURRENT_LIST_DIR}/Client.cpp")
+add_library(firefly-protocol-client STATIC "${CMAKE_CURRENT_LIST_DIR}/Client.cpp"
+                                           "${CMAKE_CURRENT_LIST_DIR}/Navigation.cpp")
 target_link_libraries(firefly-protocol-client PUBLIC firefly-protocol-fetch firefly-byte-channel)
 add_executable(
     firefly-protocol-fetch-channel-probe
@@ -54,3 +55,23 @@ add_custom_target(
     VERBATIM)
 add_dependencies(check-firefly-protocol-fetch check-firefly-protocol-fetch-channel)
 add_dependencies(check-firefly-protocol-fetch check-firefly-protocol-routing)
+
+add_executable(
+    firefly-protocol-navigation-probe
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/NavigationProbe.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/ipc/SpawnBytePeer.cpp")
+target_link_libraries(firefly-protocol-navigation-probe
+                      PRIVATE firefly-protocol-client firefly-protocol-file-server LibMain)
+ladybird_check_skia_confinement(firefly-protocol-navigation-probe)
+if(WIN32)
+    target_link_libraries(firefly-protocol-navigation-probe PRIVATE shell32)
+    ladybird_windows_bin(firefly-protocol-navigation-probe CONSOLE)
+endif()
+add_custom_target(
+    check-firefly-protocol-navigation
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_navigation.py"
+        --probe "$<TARGET_FILE:firefly-protocol-navigation-probe>"
+    DEPENDS firefly-protocol-navigation-probe
+    VERBATIM)
+add_dependencies(check-firefly-protocol-fetch check-firefly-protocol-navigation)

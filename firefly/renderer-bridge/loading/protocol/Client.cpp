@@ -20,10 +20,28 @@ ErrorOr<NonnullRefPtr<Client>> Client::create(
     NonnullOwnPtr<IPC::Transport> transport, u64 epoch, Web::DOM::Document& document)
 {
     auto owner = adopt_ref(*new Client(epoch, document));
-    if (!epoch || !owner->document_is_active())
+    if (!epoch || !owner->scope_is_active())
         return Error::from_string_literal("Protocol channel requires an admitted active document");
-    auto weak = owner->make_weak_ptr();
-    owner->m_channel = TRY(Bytes::Channel::create(move(transport),
+    TRY(owner->initialize(move(transport)));
+    return owner;
+}
+
+ErrorOr<NonnullRefPtr<Client>> Client::create_navigation(NonnullOwnPtr<IPC::Transport> transport,
+    u64 epoch, Web::HTML::LocalNavigable& navigable, URL::URL url, Utf16String id)
+{
+    if (!epoch)
+        return Error::from_string_literal("Invalid navigation channel epoch");
+    auto navigation = TRY(Navigation::create(navigable, move(url), move(id)));
+    auto owner = adopt_ref(*new Client(epoch, *navigable.active_document()));
+    owner->m_navigation = move(navigation);
+    TRY(owner->initialize(move(transport)));
+    return owner;
+}
+
+ErrorOr<void> Client::initialize(NonnullOwnPtr<IPC::Transport> transport)
+{
+    auto weak = make_weak_ptr();
+    m_channel = TRY(Bytes::Channel::create(move(transport),
         {
             .on_data =
                 [weak](ReadonlyBytes bytes) {
@@ -41,12 +59,12 @@ ErrorOr<NonnullRefPtr<Client>> Client::create(
                         self->revoke();
                 },
         }));
-    owner->m_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [weak] {
+    m_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [weak] {
         if (auto self = weak.strong_ref())
             self->sweep();
     });
-    owner->m_timer->start();
-    return owner;
+    m_timer->start();
+    return {};
 }
 
 Client::~Client()
@@ -54,8 +72,10 @@ Client::~Client()
     revoke();
 }
 
-bool Client::document_is_active() const
+bool Client::scope_is_active() const
 {
+    if (m_navigation)
+        return !m_revoked && m_navigation->active();
     return !m_revoked && m_document && m_document->is_fully_active() && m_document->navigable()
         && m_document->navigable()->is_top_level_traversable() && !m_origin.is_opaque()
         && m_origin.is_same_origin(m_document->origin())
@@ -77,6 +97,7 @@ void Client::revoke()
     for (auto& entry : jobs)
         if (entry.value.response)
             entry.value.response->stop();
+    m_navigation = nullptr;
     m_document = nullptr;
 }
 
@@ -84,7 +105,7 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
     Web::Fetch::Infrastructure::FetchParams const& params)
 {
     VERIFY(m_thread == AK::ThreadID::current());
-    if (!document_is_active() || !m_channel->is_open()) {
+    if (!scope_is_active() || !m_channel->is_open()) {
         revoke();
         return Error::from_string_literal("Protocol document channel is revoked");
     }
@@ -95,13 +116,13 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
         : nullptr;
     // Origin equality cannot distinguish two live same-origin documents. Compare
     // the native local settings identity too; remote/worker clients are refused.
-    if (!allows_request(params) || !address
-        || *address != m_document->relevant_settings_object().address()
-        || !request.current_url().origin().is_same_origin(m_origin)
-        || m_jobs.size() >= Protocols::document_file_request_limit
+    bool admitted = m_navigation ? m_navigation->admit(params)
+                                 : allows_request(params) && address
+            && *address == m_document->relevant_settings_object().address()
+            && request.current_url().origin().is_same_origin(m_origin);
+    if (!admitted || m_jobs.size() >= Protocols::document_file_request_limit
         || m_next == NumericLimits<u32>::max())
-        return Error::from_string_literal(
-            "Protocol request is outside the admitted document scope");
+        return Error::from_string_literal("Protocol request is outside the admitted scope");
     auto url = request.current_url().serialize();
     if (url.bytes().size() > Protocols::file_request_url_limit)
         return Error::from_string_literal("Protocol request URL exceeds the transport limit");
@@ -119,7 +140,8 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
                     if (auto self = weak.strong_ref())
                         self->cancel(id);
                 },
-        }));
+        },
+        m_navigation ? Protocols::navigation_body_limit : Protocols::file_size_limit));
     TRY(m_jobs.try_set(id,
         Job { response, url.to_byte_string(), MonotonicTime::now() + AK::Duration::from_seconds(30),
             0, request.method() == "HEAD"sv }));
@@ -166,7 +188,7 @@ void Client::receive(ReadonlyBytes bytes)
 {
     VERIFY(m_thread == AK::ThreadID::current());
     auto packet = Protocols::decode_file_packet(bytes);
-    if (!document_is_active() || packet.is_error() || packet.value().epoch != m_epoch) {
+    if (!scope_is_active() || packet.is_error() || packet.value().epoch != m_epoch) {
         revoke();
         return;
     }
@@ -212,7 +234,7 @@ void Client::pump()
 {
     VERIFY(m_thread == AK::ThreadID::current());
     m_scheduled = false;
-    if (!document_is_active() || !m_channel->is_open()) {
+    if (!scope_is_active() || !m_channel->is_open()) {
         revoke();
         return;
     }
@@ -257,7 +279,7 @@ void Client::pump()
 
 void Client::sweep()
 {
-    if (!document_is_active() || !m_channel->is_open()) {
+    if (!scope_is_active() || !m_channel->is_open()) {
         revoke();
         return;
     }

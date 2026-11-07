@@ -8,6 +8,8 @@ namespace Firefly::ProtocolFetch {
 // Shared native admission policy for the scheme seam and its transport client.
 WEB_API bool allows_request(Web::Fetch::Infrastructure::FetchParams const&);
 
+WEB_API bool allows_navigation_request(Web::Fetch::Infrastructure::FetchParams const&);
+
 class WEB_API Registration final {
     AK_ALLOC_WITH_KMALLOC;
     AK_MAKE_NONCOPYABLE(Registration);
@@ -17,7 +19,7 @@ class WEB_API Registration final {
 public:
     using Handler = Function<ErrorOr<NonnullRefPtr<Response>>(
         Web::Fetch::Infrastructure::FetchParams const&)>;
-    static ErrorOr<NonnullOwnPtr<Registration>> install(Handler);
+    static ErrorOr<NonnullOwnPtr<Registration>> install(Handler, Handler navigation = {});
 
     ~Registration();
 

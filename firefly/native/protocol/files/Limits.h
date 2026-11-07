@@ -6,6 +6,9 @@ namespace Firefly::Protocols {
 inline constexpr size_t document_file_request_limit = 8;
 inline constexpr size_t process_file_request_limit = 64;
 inline constexpr size_t file_chunk_limit = 64 * 1024;
+// Without a RequestServer transfer lease, upstream serializes a navigation body
+// into its process-safe descriptor. Bound that initial-document buffering.
+inline constexpr u64 navigation_body_limit = 16 * 1024 * 1024;
 inline constexpr u64 file_size_limit = 64ull * 1024 * 1024 * 1024;
 inline constexpr size_t response_head_limit = 32 * 1024;
 inline constexpr size_t response_header_limit = 64;

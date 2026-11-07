@@ -155,9 +155,12 @@ remain open; Code-OSS resources still do not load through the product.
 Inspection of the real navigation path identifies another prerequisite for the
 first workbench URL: the [shared fetch classifier](../architecture/0120-custom-fetch-scheme-classification.md)
 now routes registered standard schemes internally in engine/native UI checks.
-Navigation is still refused by the scheme dispatcher. Implement a separate native
-browser-initiated navigation admission/body lifecycle before live helper bootstrap;
-post-commit document resource admission alone cannot load that first document.
+The next [one-shot navigation scope](../architecture/0121-native-navigation-population.md)
+now passes actual upstream population through the native resource channel, with
+returned body/origin/CSP and refusal/cancellation checks. Navigation is still refused
+without its explicit native handler and intent. Initial descriptor buffering is
+limited to 16 MiB. Live helper bootstrap and actual document commit remain open;
+post-commit resource admission alone cannot load that first document.
 
 Immediate execution order (each step needs real native acceptance):
 

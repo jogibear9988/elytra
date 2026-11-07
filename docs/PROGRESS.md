@@ -7672,6 +7672,49 @@ becomes inactive at commit while navigation body delivery may still be pending.
 Public protocol/session handlers and real Code-OSS workbench remain unimplemented.
 Full original specification goal remains active.
 
+## 2026-11-07: Populate native navigation responses through the resource channel
+
+- Add a separate optional native navigation provider and one-shot Navigation scope.
+  Existing document providers still deny navigation. Require current native
+  top-level navigable/navigation ID, exact target URL, replaced client ID and
+  reserved environment URLs, browser-UI null source client, GET/manual/document
+  shape and no body/Range. No page/remote-client/worker/subframe permission.
+- Reuse Client's bounded request/credit transport with distinct scope lifetime;
+  keep its document admission unchanged. Native scope replacement/destruction,
+  controller cancellation, peer failure and fixed expiry tear down actual bodies.
+  Preserve the observed destination's identity for eventual post-commit lifetime;
+  those commit branches still require real UI/helper acceptance.
+- Inspect actual upstream population serialization: without a RequestServer lease
+  it fully reads a body into the navigation descriptor before commit. Bound initial
+  navigation metadata to 16 MiB before body/channel credit. Add a shared response
+  maximum-length parameter with unchanged 64-GiB resource default. No zero-copy
+  navigation or broader file privileges claimed; Ladybird/Mite remain unchanged.
+- Add an actual parent/child upstream LocalNavigable population gate, using the
+  exported native UI snapshot deserializer. Upstream generates the real fetch
+  request/controller/reserved client. Only the parent opens the Unicode HTML file.
+  Verify all 256 KiB + 19 body bytes, computed app origin, native identity and parsed
+  response CSP. Exact 16 MiB succeeds; one byte over refuses without body delivery.
+  Missing explicit handler, serialized page source, wrong URL, a second real native
+  navigable with the same URL/ID and replay refuse without extra file admissions.
+  Revocation/replacement after headers, peer loss and oversize settle population
+  and release all jobs/files. Observe response state without consuming the engine's
+  single PendingResponse callback; keep its assertions and vendor code intact.
+- Require navigation through existing check-firefly-protocol-fetch and add ADR 0121.
+  Refresh current Code-OSS/status/internal integration docs with the exact boundary.
+
+Validation: local macOS Release navigation, prior JavaScript/native-channel and
+response/stream gates, native file/service checks and Firefly product build pass
+without GUI. Full source style/upstream/site checks pass (219 pages / 15,471 local
+links/resources/fragments). Native Windows/Linux require fresh hosted execution. The source stays about:blank/opaque;
+only navigation response population is accepted, not an app DOM load or commit.
+
+Next wire native control/bootstrap before actual helper population (the scope
+requires the native ongoing navigation ID already installed), then exercise the
+real UI/helper document commit and bind post-commit resource channels to that exact
+new document. Production helpers still install no resource provider/client/service.
+Public protocol/session handlers and a real Code-OSS workbench remain open. Full
+original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

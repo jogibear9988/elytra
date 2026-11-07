@@ -18,8 +18,8 @@ public:
         Function<void()> cancel;
     };
 
-    static ErrorOr<NonnullRefPtr<Response>> create(
-        Web::Fetch::Infrastructure::FetchParams const&, u64 epoch, u32 request, Callbacks);
+    static ErrorOr<NonnullRefPtr<Response>> create(Web::Fetch::Infrastructure::FetchParams const&,
+        u64 epoch, u32 request, Callbacks, u64 maximum_length = Protocols::file_size_limit);
 
     ~Response();
 
@@ -37,6 +37,11 @@ public:
         return m_finished;
     }
 
+    bool headers_received() const
+    {
+        return m_head.has_value();
+    }
+
 private:
     class Transport;
 
@@ -49,8 +54,8 @@ private:
         Callbacks callbacks;
     };
 
-    Response(
-        Web::Fetch::Infrastructure::FetchParams const&, u64, u32, NonnullRefPtr<CallbackOwner>);
+    Response(Web::Fetch::Infrastructure::FetchParams const&, u64, u32, NonnullRefPtr<CallbackOwner>,
+        u64);
 
     ErrorOr<void> reject();
 
@@ -72,6 +77,7 @@ private:
     RefPtr<CallbackOwner> m_callbacks;
     u64 const m_epoch;
     u32 const m_request;
+    u64 const m_maximum_length;
     u64 m_received { 0 };
     u64 m_requested { 0 };
     u64 m_allowance { 0 };
