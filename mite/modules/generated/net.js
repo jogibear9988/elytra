@@ -1,17 +1,10 @@
 /* Generated from mite/modules/network/net.mjs; edit the ESM source. */
 (function () {
 'use strict';
-// mite/modules/network/net.mjs
-function createNetworkModule(host) {
+// mite/modules/network/net/policy.mjs
+function createNetworkPolicy(host) {
   const native = host.native;
-  const { Duplex } = host.stream;
-  const EventEmitter = host.EventEmitter;
-  const Buffer = host.Buffer;
-  const tick = host.process.nextTick;
-  const dnsLookup = host.dns.lookup;
   const abort = host.abort;
-  const sockets = /* @__PURE__ */ new WeakMap();
-  const servers = /* @__PURE__ */ new WeakMap();
   function error(Type, code, message) {
     const e = new Type(message);
     e.code = code;
@@ -98,6 +91,25 @@ function createNetworkModule(host) {
     }
     return e;
   }
+  return {
+    error,
+    unsupported,
+    validateSignal,
+    abortError,
+    releaseSignal,
+    port,
+    ip,
+    options,
+    hostname,
+    systemError
+  };
+}
+
+// mite/modules/network/net/connection.mjs
+function createConnectionAttempts(host, policy, sockets, socketEvent) {
+  const native = host.native;
+  const tick = host.process.nextTick;
+  const { error, systemError } = policy;
   function handle(socket) {
     const state = sockets.get(socket);
     const id = native.create((type, value) => {
@@ -192,6 +204,36 @@ function createNetworkModule(host) {
       socket.destroy(failure);
     }
   }
+  return { handle, clearAttempt, attempt, connectFailure };
+}
+
+// mite/modules/network/net/socket.mjs
+function createSockets(host, policy) {
+  const native = host.native;
+  const { Duplex } = host.stream;
+  const Buffer = host.Buffer;
+  const tick = host.process.nextTick;
+  const dnsLookup = host.dns.lookup;
+  const abort = host.abort;
+  const {
+    error,
+    unsupported,
+    validateSignal,
+    abortError,
+    releaseSignal,
+    port,
+    ip,
+    options,
+    hostname,
+    systemError
+  } = policy;
+  const sockets = /* @__PURE__ */ new WeakMap();
+  const { handle, clearAttempt, attempt, connectFailure } = createConnectionAttempts(
+    host,
+    policy,
+    sockets,
+    socketEvent
+  );
   function socketEvent(socket, type, value) {
     const state = sockets.get(socket);
     if (type === "close") {
@@ -671,6 +713,41 @@ function createNetworkModule(host) {
     }
     return socket;
   }
+  function connect(...args) {
+    const [opts, callback] = options(args);
+    const socket = new Socket(opts);
+    try {
+      if (opts.timeout) {
+        socket.setTimeout(opts.timeout);
+      }
+      return socket.connect({ ...opts, signal: void 0 }, callback);
+    } catch (failure) {
+      socket.destroy();
+      throw failure;
+    }
+  }
+  return { Socket, accepted, connect };
+}
+
+// mite/modules/network/net/server.mjs
+function createServers(host, policy, accepted) {
+  const native = host.native;
+  const EventEmitter = host.EventEmitter;
+  const tick = host.process.nextTick;
+  const dnsLookup = host.dns.lookup;
+  const abort = host.abort;
+  const {
+    error,
+    unsupported,
+    validateSignal,
+    releaseSignal,
+    port,
+    ip,
+    options,
+    hostname,
+    systemError
+  } = policy;
+  const servers = /* @__PURE__ */ new WeakMap();
   function finishClose(server) {
     const state = servers.get(server);
     if (!state.closing || state.id !== null || state.connections.size) {
@@ -866,19 +943,15 @@ function createNetworkModule(host) {
   function createServer(...args) {
     return new Server(...args);
   }
-  function connect(...args) {
-    const [opts, callback] = options(args);
-    const socket = new Socket(opts);
-    try {
-      if (opts.timeout) {
-        socket.setTimeout(opts.timeout);
-      }
-      return socket.connect({ ...opts, signal: void 0 }, callback);
-    } catch (failure) {
-      socket.destroy();
-      throw failure;
-    }
-  }
+  return { Server, createServer };
+}
+
+// mite/modules/network/net.mjs
+function createNetworkModule(host) {
+  const policy = createNetworkPolicy(host);
+  const { Socket, accepted, connect } = createSockets(host, policy);
+  const { Server, createServer } = createServers(host, policy, accepted);
+  const { ip } = policy;
   return {
     Socket,
     Server,

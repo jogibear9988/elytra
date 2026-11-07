@@ -9,7 +9,7 @@ and CommonJS require. Native handles, threads and OS calls stay in
 | Directory | Sources and responsibility |
 | --- | --- |
 | core | Events, buffers, lexical paths, process properties, URL and text facades |
-| network | DNS overloads, TCP streams and [HTTP client/server subsystems](network/http/README.md) |
+| network | DNS overloads, [TCP socket/listener subsystems](network/net/README.md) and [HTTP client/server subsystems](network/http/README.md) |
 | filesystem | Filesystem overloads, callback/Promise adaptation and FileHandle lifetime |
 | crypto | Assembly, OS entropy APIs, digest/HMAC lifecycle and byte adaptation |
 | process | ChildProcess streams, native completion and bounded execFile collection |
