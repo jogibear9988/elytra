@@ -116,6 +116,10 @@ def exercise(probe, artifacts, mode):
                     stdout, stderr = process.communicate(timeout=20)
                     assert process.returncode == 0, (process.returncode, stdout, stderr)
                     report = json.loads(stdout)
+                    assert report.pop("networkError") == 10013, report  # WSAEACCES only.
+                    assert report.pop("networkOperation") in ("WSASocket", "connect", "SO_ERROR"), (
+                        report
+                    )
                     assert report == {
                         "allowedRead": True,
                         "privateReadDenied": True,

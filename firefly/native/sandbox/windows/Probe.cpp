@@ -126,23 +126,31 @@ bool excluded_handle(HANDLE handle)
     }
 }
 
-bool denied_network(unsigned short port)
+struct NetworkResult {
+    bool denied;
+    char const* operation;
+    int error;
+};
+
+NetworkResult denied_network(unsigned short port)
 {
     WSADATA data {};
-    if (WSAStartup(MAKEWORD(2, 2), &data) != 0)
-        return false;
+    auto startup = WSAStartup(MAKEWORD(2, 2), &data);
+    if (startup != 0)
+        return { false, "WSAStartup", startup };
     auto socket = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, 0);
     if (socket == INVALID_SOCKET) {
         auto error = WSAGetLastError();
         WSACleanup();
-        return error == WSAEACCES;
+        return { error == WSAEACCES, "WSASocket", error };
     }
 
     u_long nonblocking = 1;
     if (ioctlsocket(socket, FIONBIO, &nonblocking) != 0) {
+        auto error = WSAGetLastError();
         closesocket(socket);
         WSACleanup();
-        return false;
+        return { false, "ioctlsocket", error };
     }
 
     sockaddr_in target {};
@@ -151,19 +159,29 @@ bool denied_network(unsigned short port)
     target.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     auto result = connect(socket, reinterpret_cast<sockaddr*>(&target), sizeof(target));
     auto error = result == 0 ? 0 : WSAGetLastError();
+    char const* operation = "connect";
     if (error == WSAEWOULDBLOCK) {
         WSAPOLLFD wait { socket, POLLWRNORM, 0 };
-        if (WSAPoll(&wait, 1, 2000) > 0) {
+        auto polled = WSAPoll(&wait, 1, 2000);
+        if (polled > 0) {
             int size = sizeof(error);
+            operation = "SO_ERROR";
             if (getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &size)
-                != 0)
-                error = 0; // A failed query is not evidence of network denial.
+                != 0) {
+                error = WSAGetLastError();
+                operation = "getsockopt failed";
+            }
+        } else {
+            operation = polled == 0 ? "WSAPoll timeout" : "WSAPoll failed";
+            error = polled == 0 ? WSAETIMEDOUT : WSAGetLastError();
         }
     }
 
     closesocket(socket);
     WSACleanup();
-    return error == WSAEACCES;
+    return { (std::strcmp(operation, "connect") == 0 || std::strcmp(operation, "SO_ERROR") == 0)
+            && error == WSAEACCES,
+        operation, error };
 }
 
 int worker(int argc, wchar_t** argv)
@@ -206,13 +224,14 @@ int worker(int argc, wchar_t** argv)
         CloseHandle(process.hProcess);
     }
 
-    bool network = denied_network(port);
+    auto network = denied_network(port);
     auto all = can_read && read_denied && write_denied && handle_isolated && clean_env && !nested
-        && network;
+        && network.denied;
     std::cout << "{\"allowedRead\":" << can_read << ",\"privateReadDenied\":" << read_denied
               << ",\"writeDenied\":" << write_denied << ",\"handleIsolated\":" << handle_isolated
               << ",\"cleanEnvironment\":" << clean_env << ",\"childSpawnDenied\":" << !nested
-              << ",\"networkDenied\":" << network << "}\n"
+              << ",\"networkDenied\":" << network.denied << ",\"networkOperation\":\""
+              << network.operation << "\",\"networkError\":" << network.error << "}\n"
               << std::flush;
     return all ? 0 : 1;
 }

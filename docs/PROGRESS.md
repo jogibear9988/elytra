@@ -6310,6 +6310,23 @@ launch and all security negatives remain required. Goal active.
 Validation: native source formatting and diff checks pass locally; no GUI. Full
 native security fixture acceptance remains pending. Goal active.
 
+## 2026-11-07: Diagnose the remaining native Windows network refusal gate
+
+- Actual component run 42356707395/job 128356259732 at e30955a reaches the worker
+  report: allowedRead/privateReadDenied/writeDenied/handleIsolated/cleanEnvironment/
+  childSpawnDenied are true; networkDenied is false. The narrow strict-handle
+  negative-test boundary resolves the earlier fatal exit without disabling policy.
+- Preserve strict WSAEACCES acceptance but report the precise Winsock operation and
+  native error (startup/socket/nonblocking/connect/poll/SO_ERROR), rather than an
+  opaque false. Query failures and timeouts are still failures, not denied-access
+  evidence. Preserve the independently live listener and no-connection assertion.
+- The malformed-contract and suspended-child token assertions also run before the
+  reported failure. Broker-death tests remain unexecuted until the checks mode
+  succeeds; no complete component/renderer containment claim is made.
+
+Validation: source formatting, Python syntax and diff checks pass. No local GUI.
+A fresh native diagnostic result is required. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
