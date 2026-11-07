@@ -5665,6 +5665,42 @@ for subsequent review, especially WorldJobGuard.cpp (1,382 lines) and net.mjs
 (1,000 lines); this step does not declare the whole readability priority finished.
 Goal active.
 
+## 2026-11-07: Separate world-job isolation policies under one VM-retained owner
+
+- The preceding goal turn made concrete progress: native bridge refactor 1669947
+  is committed/pushed, the actual Firefly target links and all 65 runtime suites
+  pass. Keep the full specification active and continue the readability priority;
+  do not expand API claims because files have been reorganized.
+- Split 1,382-line WorldJobGuard.cpp into its existing public registration/diagnostic
+  facade and private worlds/jobs units for callback-gate registration, principal
+  frames, job/WebIDL dispatch, event values, handler maps, listeners/signals,
+  traversal and timer/observer resources. The largest implementation is 270 lines.
+- Preserve a single refcounted State retained by the VM hooks and queued jobs.
+  Weak realm/world/native registries, native tracing, temporary cleanup roots,
+  previous-hook delegation and detach ordering remain unchanged. Private header
+  contracts/source maps explain these ownership and source/principal boundaries.
+  No engine, public API, process, platform-provider or upstream source is changed.
+- A one-off C++ lexical comparison verifies all 36 original private method-body
+  token streams including string literals, the exact state fields, hook move
+  initializer order and complete public facade unchanged. This is move-review
+  evidence alongside actual native tests, not a complete security proof.
+- Build/link the real Firefly executable, owned runtime WebContent, native isolation
+  probe and wire-process probe with the new explicit CMake source list. Then run
+  check-firefly-isolation: actual separate-process wire checks and actual LibWeb
+  source/principal/GC/revocation/job/timer/observer/listener/handler/event-snapshot/
+  NodeFilter tests pass. The probe creates in-memory documents without Qt windows;
+  no local desktop UI or browser is opened.
+- Optional optimized/shared-provider macOS run 42345882824 at 85557be and Linux
+  renderer run 42345846818 remain confirmed live under their original native
+  gates. They predate this source move; do not restart because a step is long.
+
+Validation: all 65 standalone Release CTests pass (20.68 seconds). Formatting,
+actionlint, unmodified upstream and both generated-source manifests pass; 181
+site pages and 12,511 local links/resources/fragments pass. Fresh hosted desktop/helper acceptance must cover
+this source split. Readability review continues with the remaining larger modules;
+Windows desktop, Linux distributables/OS services and other required Node/Electron
+coverage remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

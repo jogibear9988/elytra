@@ -50,7 +50,15 @@ add_library(
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/context/FunctionBridge.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/context/ContextBridge.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/WorldJobGuard.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/WorldJobGuard.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Registration.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Principal.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/EventValues.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Handlers.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Listeners.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Traversal.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Resources.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/jobs/Dispatch.cpp")
 target_include_directories(
     firefly-isolated-world PUBLIC "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
                                   "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")

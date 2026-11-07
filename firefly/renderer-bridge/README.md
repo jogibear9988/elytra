@@ -7,6 +7,7 @@ The native service/helper selects the documented public subset.
 | Directory | Responsibility |
 | --- | --- |
 | worlds | Own isolated realms and reject jobs after document/world revocation |
+| [worlds/jobs](worlds/jobs/README.md) | Shared VM hook state and separate dispatch/event/listener/traversal/resource policies |
 | serialization | Capture/materialize bounded data graphs and validate native wire bytes |
 | context | Publish frozen APIs and guarded callbacks/Promise results across worlds |
 | loading | Product-only file script module policy with pinned fetch composition |
