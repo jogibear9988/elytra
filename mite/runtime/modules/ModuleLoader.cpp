@@ -609,33 +609,8 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(
     if (!json && TRY(is_es_module(filename)))
         return error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
             "Synchronous require of ES modules is not implemented yet");
-    GC::Root module { JS::Object::create(m_realm, m_realm.intrinsics().object_prototype()) };
-    auto exports = JS::Object::create(m_realm, m_realm.intrinsics().object_prototype());
-    module->define_direct_property("exports"_utf16, exports, JS::default_attributes);
-    module->define_direct_property(
-        "filename"_utf16, js_string(m_vm, path_string(filename)), JS::default_attributes);
-    module->define_direct_property(
-        "id"_utf16, js_string(m_vm, main ? "." : path_string(filename)), JS::default_attributes);
-    module->define_direct_property(
-        "path"_utf16, js_string(m_vm, path_string(filename.parent_path())), JS::default_attributes);
-    module->define_direct_property(
-        "parent"_utf16, parent ? JS::Value(parent) : JS::js_null(), JS::default_attributes);
-    module->define_direct_property(
-        "children"_utf16, TRY(JS::Array::create(m_realm, 0)), JS::default_attributes);
-    module->define_direct_property("loaded"_utf16, JS::Value(false), JS::default_attributes);
-    GC::RootVector<JS::Value> search_paths;
-    auto directory = filename.parent_path();
-    while (!directory.empty()) {
-        if (directory.filename() != "node_modules")
-            search_paths.append(js_string(m_vm, path_string(directory / "node_modules")));
-        auto parent_directory = directory.parent_path();
-        if (parent_directory == directory)
-            break;
-        directory = parent_directory;
-    }
-
-    module->define_direct_property(
-        "paths"_utf16, JS::Array::create_from(m_realm, search_paths), JS::default_attributes);
+    GC::Root module { TRY(make_commonjs_module(filename, parent, main)) };
+    GC::Root exports { TRY(module->get("exports"_utf16)).as_object() };
     if (main)
         m_main_module = module.ptr();
     auto require = make_require(filename, *module);

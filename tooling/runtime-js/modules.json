@@ -2,6 +2,7 @@
   "events": "mite/modules/core/events.mjs",
   "process": "mite/modules/core/process.mjs",
   "path": "mite/modules/core/path.mjs",
+  "module": "mite/modules/core/module.mjs",
   "buffer": "mite/modules/core/buffer.mjs",
   "url": "mite/modules/core/url.mjs",
   "util": "mite/modules/core/util.mjs",

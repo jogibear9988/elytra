@@ -6,6 +6,11 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
+The new [node:module utilities](api/module.md) pass local macOS ARM64 Node
+differential/embedded-host GC checks and the full **66-suite** Mite run. This adds
+ESM-owned createRequire, not Code-OSS startup or compile-cache/V8 support. New
+Linux/Windows execution remains pending.
+
 Latest completed macOS Release/package verification:
 [run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659)
 at **8dc5830**, including all six shared example smoke slices, explicit gates for
@@ -15,7 +20,10 @@ The baseline Linux renderer run
 [42351420391](https://github.com/jogibear9988/elytra/actions/runs/42351420391) and
 native Windows renderer run
 [42352483937](https://github.com/jogibear9988/elytra/actions/runs/42352483937)
-are still building at this review; neither is counted as passed.
+both completed with failure; neither establishes complete platform acceptance.
+The Linux archive rejected conflicting libdbus providers; the Windows renderer
+compile rejected an adapter include path. Later fixes/runs require separate
+completed native evidence.
 
 ## Platforms and delivery
 

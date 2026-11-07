@@ -146,6 +146,11 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_modules.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-module-utilities
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_utilities.py"
+            --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
         NAME mite-module-paths
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_paths.py"
                 --mite "$<TARGET_FILE:mite>")

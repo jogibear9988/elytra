@@ -6539,6 +6539,43 @@ local visible GUI. Linux execution and native Windows renderer integration remai
 pending; neither Code-OSS launch nor public binary API support is claimed. Full
 goal active.
 
+## 2026-11-07: Add ESM-owned require contexts for the Code-OSS bootstrap
+
+- Previous goal turn made verified progress: bc0afb2 committed/pushed trusted
+  native byte handoff and real headless WebContent controls. Continue toward the
+  full original specification with Code-OSS prioritized; public binary routing,
+  ports, revocation and native platform/package acceptance remain open.
+- Inspect the pinned Code-OSS bootstrap-node source: its createRequire(import.meta.url)
+  call is a real additional startup dependency. Add node:module createRequire over
+  Mite's existing native CommonJS resolver, shared CJS/JSON caches and require
+  package conditions. No second evaluator, Node/V8 dependency or altered upstream.
+- Extract common module metadata creation. Synthetic parents may name nonexistent
+  files or directory contexts but are never executed/cached. Preserve require.main,
+  cache deletion/reload, missing-module requireStack and closure-owned context
+  lifetime, including retained resolve after actual GC. Validate file URL/native
+  bases; reject NUL before native path operations. Keep unsupported require options.
+- Add isBuiltin and a frozen sorted builtinModules inventory from the implemented
+  registry. Do not advertise reserved unsupported Node names as available; reserved
+  names still reject local npm fallback. Keep the default export a documented
+  partial utility object, not an imitation Module constructor or compile cache.
+- Add actual Node 24.15 comparisons for ESM and CJS entries, special-character file
+  URLs, virtual/directory parents, package imports/exports, shared identity, error
+  codes and collection. Every listed builtin is imported and required. Add this
+  as the 66th standalone CTest gate for native CI; no local visible GUI.
+- Refresh the detailed module API, Code-OSS inventory, concepts/matrix/status and
+  ADR 0102. Recheck the older Linux/Windows renderer runs: both are terminal failures,
+  not still building. Current fixes and new API branches require native evidence.
+
+Validation: standalone macOS Release CLI/embedded host compile and all 66 CTest
+suites pass (20.15 seconds), including Node/actual-GC module comparisons. Full
+pinned formatting and generated runtime bundle guards pass. New Linux/Windows
+module utility execution remains pending. Firefly also compiles/links against the
+changed shared runtime; this is a build check, not a new desktop acceptance run.
+Python syntax/diff and unmodified-upstream checks pass; generated site 195 pages /
+13,772 local links/resources/fragments passes. Code-OSS still does not run: cache/V8,
+perf_hooks/original-fs, desktop/process services and public port/binary routing
+remain required. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

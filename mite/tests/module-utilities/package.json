@@ -1,0 +1,11 @@
+{
+  "name": "mite-module-utilities-fixture",
+  "type": "module",
+  "imports": {
+    "#choice": {
+      "import": "./choice.mjs",
+      "require": "./choice.cjs"
+    },
+    "#blocked": null
+  }
+}

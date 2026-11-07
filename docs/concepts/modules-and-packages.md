@@ -50,6 +50,12 @@ module's default/module.exports value. Automatic named CommonJS export detection
 require.extensions and synchronous require(ESM) remain unsupported. Eval mode does
 not provide the full CommonJS file wrapper.
 
+ESM can use [createRequire(import.meta.url)](../api/module.md) when an existing
+dependency needs CommonJS loading. The returned require shares the ordinary
+CommonJS/JSON caches and require package conditions; its synthetic parent is not
+executed or cached. This does not enable synchronous require(ESM) or Node's loader
+hooks/compile cache.
+
 For implemented built-ins, node: and ordinary names share the exports object;
 prefixing with node: also avoids a local package shadowing the intended built-in.
 Fixed ESM named exports exist only for the implemented registry surface.

@@ -26,8 +26,10 @@
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/SyntheticModule.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <span>
@@ -66,6 +68,8 @@ static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL",
           "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
+static constexpr std::string_view module_exports[]
+    = { "createRequire", "isBuiltin", "builtinModules" };
 static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Writable", "Duplex",
     "Transform", "PassThrough", "pipeline", "finished", "compose", "destroy", "addAbortSignal",
     "isDestroyed", "isDisturbed", "isErrored", "isReadable", "isWritable",
@@ -102,6 +106,7 @@ static constexpr std::string_view tls_exports[]
 static constexpr std::string_view https_exports[]
     = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "module", { MITE_MODULE_SOURCE, sizeof(MITE_MODULE_SOURCE) - 1 }, module_exports },
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
     { "timers", {}, timers_exports },
@@ -200,6 +205,34 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "module") {
+        install_module_utilities(*host);
+        host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
+        host->define_direct_property("url"_utf16, TRY(builtin("url")), JS::default_attributes);
+        GC::RootVector<JS::Value> names;
+        std::vector<std::string_view> sorted;
+        for (auto const& candidate : definitions)
+            sorted.push_back(candidate.name);
+        std::sort(sorted.begin(), sorted.end());
+        for (auto candidate : sorted)
+            names.append(JS::PrimitiveString::create(
+                m_vm, Utf16String::from_utf8(StringView(candidate.data(), candidate.size()))));
+        host->define_direct_property(
+            "builtinModules"_utf16, JS::Array::create_from(m_realm, names), JS::default_attributes);
+        host->define_native_function(
+            m_realm, "isBuiltin"_utf16,
+            +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_string())
+                    return JS::Value(false);
+                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto name = string(bytes);
+                if (name.starts_with("node:"))
+                    name.erase(0, 5);
+                return JS::Value(definition_for(name) != nullptr);
+            },
+            1, JS::default_attributes);
+    }
+
     if (name == "events")
         host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
     if (name == "timers/promises") {

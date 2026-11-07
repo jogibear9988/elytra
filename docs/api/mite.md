@@ -32,6 +32,8 @@ Bare packages resolve through node_modules, package exports/imports, self refere
 and legacy main/index. Global package folders, NODE_PATH and custom conditions are
 unsupported. For implemented built-ins, `require('fs')` and `require('node:fs')` share
 exports; ESM has fixed named exports. `syncBuiltinESMExports` is absent.
+The partial [node:module utility API](module.md) adds createRequire for ESM-owned
+CommonJS loading, isBuiltin and a frozen inventory of available builtins.
 
 ## Globals and process
 

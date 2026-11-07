@@ -29,6 +29,7 @@ function(mite_add_runtime target root js_target)
         events
         process
         path
+        module
         buffer
         fs
         url
@@ -75,6 +76,7 @@ function(mite_add_runtime target root js_target)
         modules/Builtins
         modules/HostModules
         modules/ModuleLoader
+        modules/ModuleUtilities
         modules/ModulePaths
         modules/PackageResolver
         # platform/process

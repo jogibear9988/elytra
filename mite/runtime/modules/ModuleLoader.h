@@ -102,6 +102,11 @@ private:
 
     GC::Ref<JS::NativeFunction> make_require(std::filesystem::path const&, GC::Ref<JS::Object>);
 
+    JS::ThrowCompletionOr<GC::Ref<JS::Object>> make_commonjs_module(
+        std::filesystem::path const&, GC::Ptr<JS::Object>, bool main);
+
+    void install_module_utilities(JS::Object&);
+
     JS::ThrowCompletionOr<void> add_child(JS::Object&, JS::Object&);
 
     JS::ThrowCompletionOr<void> remove_child(JS::Object&, JS::Object&);
