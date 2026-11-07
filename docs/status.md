@@ -6,7 +6,7 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-Local macOS Release now passes **75** runtime/component suites, adding custom process events
+Local macOS Release now passes **76** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. That process slice also passes native
 Linux/Windows at 94acc0c; see the [process contract](api/process.md). Code-OSS desktop still
@@ -28,10 +28,18 @@ macOS native batch: real main/preload alias, default npm resolution, argument
 stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
-Firefly-host probe reaches missing node:module.registerHooks and retains exit 1.
+Firefly-host probe passes the registerHooks import and reaches missing node:util.promisify (exit 1).
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
-the real 14-case CLI parser test. New dependency-install matrix results are pending.
+the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
+in [run 42389926763](https://github.com/jogibear9988/elytra/actions/runs/42389926763).
+The new synchronous resolve-hook slice passes local macOS Node/Mite/host-GC checks;
+its native Linux/Windows acceptance is pending.
+
+The newer **adc00d0** Linux dependency/parser baseline passes all **75** suites
+in 66.05 seconds ([run 42389926816](https://github.com/jogibear9988/elytra/actions/runs/42389926816)).
+It does not include the new resolve hooks. The earlier snapshots below retain
+separate platform/package evidence.
 
 Native **5735b91** Linux passes all **74** suites in 78.51 seconds
 ([run 42386340937](https://github.com/jogibear9988/elytra/actions/runs/42386340937));
@@ -109,8 +117,8 @@ and later master changes.
 
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
-| Mite / macOS ARM64 | Current local 75 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy and pure native startup/launcher checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
-| Mite / native Linux x64 | All 74 enabled suites at 5735b91; [run 42386340937](https://github.com/jogibear9988/elytra/actions/runs/42386340937) | New dependency gate, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / macOS ARM64 | Current local 76 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy, pure native startup/launcher checks and synchronous resolve-hook/host-GC checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
+| Mite / native Linux x64 | All 75 enabled suites at adc00d0; [run 42389926816](https://github.com/jogibear9988/elytra/actions/runs/42389926816) | New resolve-hook gate, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
 | Mite / native Windows x64 | All 73 enabled suites at 5735b91; [run 42386340970](https://github.com/jogibear9988/elytra/actions/runs/42386340970). Earlier oracle crashes remain undiagnosed | New dependency gate, oracle crash diagnosis, full Windows API/error parity and distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
 | Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls plus native host/preload alias pass at 5735b91 in [run 42386340939](https://github.com/jogibear9988/elytra/actions/runs/42386340939) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |

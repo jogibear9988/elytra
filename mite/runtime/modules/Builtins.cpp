@@ -71,7 +71,7 @@ static constexpr std::string_view url_exports[]
           "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder" };
 static constexpr std::string_view module_exports[]
-    = { "createRequire", "isBuiltin", "builtinModules" };
+    = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };
 static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Writable", "Duplex",
     "Transform", "PassThrough", "pipeline", "finished", "compose", "destroy", "addAbortSignal",

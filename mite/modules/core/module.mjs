@@ -1,3 +1,5 @@
+import createResolveHooks from './module-hooks.mjs';
+
 /** Node module utilities over the same native loader used by ordinary CommonJS. */
 export default function createModuleUtilities(host) {
   const { isAbsolute } = host.path;
@@ -26,5 +28,10 @@ export default function createModuleUtilities(host) {
   }
 
   // Enumerate available Mite modules, not the larger set of reserved Node names.
-  return { createRequire, isBuiltin, builtinModules: Object.freeze(host.builtinModules) };
+  return {
+    createRequire,
+    isBuiltin,
+    builtinModules: Object.freeze(host.builtinModules),
+    registerHooks: createResolveHooks(host)
+  };
 }

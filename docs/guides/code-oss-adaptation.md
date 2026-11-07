@@ -96,7 +96,7 @@ The final --firefly argument requests explicit diagnostic shutdown, preserving a
 nonzero result on failure. This is a real host run with original-fs and the
 implemented Electron alias. Without prepared dependencies, the trace stops at missing minimist. With the
 root production installation below, the actual trace reaches the missing named
-export node:module.registerHooks and retains exit 1. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
+export node:util.promisify and retains exit 1 after passing registerHooks. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
 
 
 ## Prepare actual root production dependencies
@@ -132,7 +132,8 @@ Mite has no native Node addon/N-API loader. Full published packages are retained
 for diagnosis; this tree's size is not a release/framework size measurement.
 
 The pinned Code-OSS root dependency workflow runs this frozen install on native
-macOS/Linux/Windows and retains its inventory. New matrix results remain pending.
+macOS/Linux/Windows and retains its inventory. The native frozen installs pass on macOS/Linux/Windows at adc00d0 in
+[run 42389926763](https://github.com/jogibear9988/elytra/actions/runs/42389926763).
 Installation success is separate from actual Mite package and desktop acceptance.
 
 ```sh

@@ -32,7 +32,8 @@ Bare packages resolve through node_modules, package exports/imports, self refere
 and legacy main/index. Global package folders, NODE_PATH and custom conditions are
 unsupported. For implemented built-ins, `require('fs')` and `require('node:fs')` share
 exports; ESM has fixed named exports. `syncBuiltinESMExports` is absent.
-The partial [node:module utility API](module.md) adds createRequire for ESM-owned
+The partial [node:module utility API](module.md) includes synchronous resolve hooks
+and createRequire for ESM-owned
 CommonJS loading, isBuiltin and a frozen inventory of available builtins.
 Global performance and [node:perf_hooks](perf-hooks.md) share native now/timeOrigin;
 the broader timeline/observer/profiling APIs remain absent.

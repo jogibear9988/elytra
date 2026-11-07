@@ -49,6 +49,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::make_commonjs_module(
 
 void ModuleLoader::install_module_utilities(JS::Object& host)
 {
+    install_resolve_hook_host(host);
     host.define_native_function(
         m_realm, "createRequire"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

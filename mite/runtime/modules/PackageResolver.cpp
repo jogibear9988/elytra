@@ -85,7 +85,7 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::package_scope(fs::path c
 
 JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_target(
     fs::path const& root, AK::JsonValue const& value, Optional<std::string> const& pattern,
-    bool imports, bool require, size_t depth)
+    bool imports, bool require, size_t depth, std::vector<std::string> const* active_conditions)
 {
     using State = PackageTarget::State;
     if (depth > 64)
@@ -108,8 +108,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_target(
             if (URL::Parser::basic_parse(view(target)).has_value())
                 return error(
                     "ERR_INVALID_PACKAGE_TARGET", "Invalid external package target: " + target);
-            auto resolved = TRY(resolve_package(
-                substitute(target, pattern), root / "package.json", require, depth + 1));
+            auto resolved = TRY(resolve_package(substitute(target, pattern), root / "package.json",
+                require, depth + 1, active_conditions));
             return PackageTarget { State::Resolved, std::move(resolved) };
         }
 
@@ -129,7 +129,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_target(
     if (value.is_array()) {
         Optional<JS::Completion> last_error;
         for (auto const& item : value.as_array().values()) {
-            auto attempt = resolve_target(root, item, pattern, imports, require, depth + 1);
+            auto attempt = resolve_target(
+                root, item, pattern, imports, require, depth + 1, active_conditions);
             if (attempt.is_error()) {
                 auto exception = attempt.error_value();
                 auto code = exception.is_object()
@@ -170,10 +171,15 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_target(
         }
 
         for (auto const& [condition, target] : conditions) {
-            if (condition != "default" && condition != "node" && condition != "node-addons"
-                && condition != (require ? "require" : "import"))
+            bool matches = active_conditions
+                ? std::find(active_conditions->begin(), active_conditions->end(), condition)
+                    != active_conditions->end()
+                : condition == "node" || condition == "node-addons"
+                    || condition == (require ? "require" : "import");
+            if (condition != "default" && !matches)
                 continue;
-            auto result = TRY(resolve_target(root, *target, pattern, imports, require, depth + 1));
+            auto result = TRY(resolve_target(
+                root, *target, pattern, imports, require, depth + 1, active_conditions));
             if (result.state != State::Unmatched)
                 return result;
         }
@@ -186,7 +192,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_target(
 }
 
 JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_map(fs::path const& root,
-    AK::JsonObject const& map, std::string const& match, bool imports, bool require, size_t depth)
+    AK::JsonObject const& map, std::string const& match, bool imports, bool require, size_t depth,
+    std::vector<std::string> const* active_conditions)
 {
     if (match.ends_with('/'))
         return error(
@@ -194,7 +201,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_map(fs:
     if (match.find('*') == std::string::npos) {
         auto direct = map.get(view(match));
         if (direct.has_value())
-            return resolve_target(root, *direct, {}, imports, require, depth + 1);
+            return resolve_target(
+                root, *direct, {}, imports, require, depth + 1, active_conditions);
     }
 
     std::vector<std::pair<std::string, AK::JsonValue const*>> patterns;
@@ -215,7 +223,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_map(fs:
         auto suffix = key.substr(star + 1);
         if (match.starts_with(prefix) && match.ends_with(suffix) && match.size() >= key.size()) {
             auto pattern = match.substr(star, match.size() - star - suffix.size());
-            return resolve_target(root, *target, pattern, imports, require, depth + 1);
+            return resolve_target(
+                root, *target, pattern, imports, require, depth + 1, active_conditions);
         }
     }
 
@@ -223,7 +232,8 @@ JS::ThrowCompletionOr<ModuleLoader::PackageTarget> ModuleLoader::resolve_map(fs:
 }
 
 JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_exports(fs::path const& root,
-    std::string const& subpath, AK::JsonValue const& exports, bool require, size_t depth)
+    std::string const& subpath, AK::JsonValue const& exports, bool require, size_t depth,
+    std::vector<std::string> const* active_conditions)
 {
     bool subpaths = false;
     bool conditions = false;
@@ -241,9 +251,11 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_exports(fs::path const& ro
             "ERR_INVALID_PACKAGE_CONFIG", "Package exports cannot mix subpaths and condition keys");
     PackageTarget result;
     if (subpath == "." && !subpaths) {
-        result = TRY(resolve_target(root, exports, {}, false, require, depth + 1));
+        result
+            = TRY(resolve_target(root, exports, {}, false, require, depth + 1, active_conditions));
     } else if (exports.is_object() && subpaths) {
-        result = TRY(resolve_map(root, exports.as_object(), subpath, false, require, depth + 1));
+        result = TRY(resolve_map(
+            root, exports.as_object(), subpath, false, require, depth + 1, active_conditions));
     }
 
     if (result.state != PackageTarget::State::Resolved)
@@ -252,8 +264,9 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_exports(fs::path const& ro
     return result.url.release_value();
 }
 
-JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(
-    std::string const& request, fs::path const& parent_file, bool require, size_t depth)
+JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const& request,
+    fs::path const& parent_file, bool require, size_t depth,
+    std::vector<std::string> const* active_conditions)
 {
     if (depth > 64)
         return error(
@@ -287,7 +300,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(
             auto package = TRY(read_package(*scope));
             auto imports = package->as_object().get_object("imports"sv);
             if (imports.has_value()) {
-                auto result = TRY(resolve_map(*scope, *imports, request, true, require, depth + 1));
+                auto result = TRY(resolve_map(
+                    *scope, *imports, request, true, require, depth + 1, active_conditions));
                 if (result.state == PackageTarget::State::Resolved)
                     return result.url.release_value();
             }
@@ -318,7 +332,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(
         auto exports = package->as_object().get("exports"sv);
         if (self.has_value() && string(*self) == name && exports.has_value()
             && (exports->is_string() || exports->is_object() || exports->is_array()))
-            return resolve_exports(*scope, subpath, *exports, require, depth + 1);
+            return resolve_exports(
+                *scope, subpath, *exports, require, depth + 1, active_conditions);
     }
 
     auto directory = parent_file.parent_path();
@@ -334,7 +349,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(
                     auto exports = package->as_object().get("exports"sv);
                     if (exports.has_value()
                         && (exports->is_string() || exports->is_object() || exports->is_array()))
-                        return resolve_exports(root, subpath, *exports, require, depth + 1);
+                        return resolve_exports(
+                            root, subpath, *exports, require, depth + 1, active_conditions);
                 }
 
                 if (subpath == ".") {

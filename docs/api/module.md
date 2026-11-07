@@ -1,6 +1,6 @@
 # node:module
 
-Status: partial utility API. createRequire, isBuiltin and builtinModules have local
+Status: partial utility and synchronous resolve API. createRequire, isBuiltin and builtinModules have local
 macOS ARM64 Node differential and actual embedded-host GC tests. Native Linux and
 Windows x64 also pass at 678c85e (all 68 runtime suites). See
 [current evidence](../status.md).
@@ -50,7 +50,7 @@ retained; no permanent synthetic-module root is added to the loader.
 | Reserved but unimplemented Node builtin | ERR_MITE_UNSUPPORTED_BUILTIN; no local npm fallback |
 | Native addon / synchronous require(ESM) | Existing explicit unsupported error |
 
-require.resolve options, require.extensions, global lookup folders, loader hooks,
+require.resolve options, require.extensions, global lookup folders, load hooks,
 automatic named CommonJS exports and synchronous require(ESM) remain unsupported.
 Native Windows current-drive rooted paths and trailing backslashes pass the
 678c85e native gate. Existing platform-specific loader limits,
@@ -71,9 +71,73 @@ The wider list of reserved Node names is not a support inventory. Reassigning a
 facade property cannot change the native resolver's registry or reserved-name
 denial policy.
 
+## registerHooks(options)
+
+Register a synchronous **resolve** hook and return an object with an idempotent
+`deregister()` method. Later registrations execute first. Local macOS Node/Mite
+and real embedded-host GC tests pass; native Linux/Windows acceptance is pending.
+This is a partial API: passing a load function rejects the entire registration
+with ERR_MITE_UNSUPPORTED_API before installing its resolve function.
+
+```js
+import {registerHooks} from 'node:module';
+
+const hooks = registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === 'app-config') {
+      return nextResolve('./config.mjs', context);
+    }
+    return nextResolve(specifier, context);
+  }
+});
+const config = await import('app-config');
+hooks.deregister();
+```
+
+Hooks apply to subsequent dynamic imports, static edges in modules loaded after
+registration, require and require.resolve, including createRequire. Static imports
+in the registering module have already resolved. Multiple hooks form a LIFO chain;
+nextResolve calls the next hook or the ordinary native resolver. Omitting its context
+keeps the current context; supplied properties merge over it. The hook can change
+the specifier, parentURL or package conditions. Native conditions are node/import/
+node-addons for ESM and require/node/node-addons for CommonJS; module-sync remains
+absent because synchronous require(ESM) is unsupported.
+
+Context includes parentURL (a file URL) and conditions. ESM also receives
+importAttributes; CommonJS omits it. Hooks can return a different importAttributes
+object, limited to the existing JSON type contract. Merely changing nextResolve's
+context attributes does not replace the final result attributes, matching the
+Node reference. No general attribute-dependent cache variants are implemented.
+
+Return a synchronous object with an absolute url. Call nextResolve or return
+shortCircuit:true. Optional format hints must agree with the native module type;
+transforms/overrides require unsupported load hooks. Supported targets are actual
+local file modules, builtins and registered native host modules; ordinary module
+cache identity is preserved. Unsupported protocols/private bridge URLs fail
+explicitly. Native addon and require(ESM) restrictions remain in force.
+
+Deregistration removes the hook from future chains, preserving an in-flight
+snapshot. A saved nextResolve remains usable after its original call and removal;
+it captures realm-owned state rather than a native stack frame. The loader roots
+active hooks until deregistration or VM shutdown. This adds no privileged loader
+to a renderer or preload.
+
+| Failure / limit | Result |
+| --- | --- |
+| Null/missing options or invalid hook function | TypeError; invalid function has ERR_INVALID_ARG_TYPE |
+| Promise/primitive/missing URL or broken continuation chain | TypeError; some malformed-result codes/messages differ from Node |
+| Relative/invalid result URL | ERR_INVALID_URL |
+| Non-file protocol or private shim target | ERR_UNSUPPORTED_ESM_URL_SCHEME |
+| load function or mismatching format override | ERR_MITE_UNSUPPORTED_API |
+| More than 64 active resolve hooks or 1,024 conditions | ERR_MITE_RESOLVE_HOOK_LIMIT |
+
+No asynchronous register, load/source transformation, --import/--require preload
+CLI, worker inheritance or ASAR filesystem support is supplied. See
+[ADR 0109](../architecture/0109-synchronous-resolve-hooks.md).
+
 ## Remaining module APIs
 
-The Module constructor, loader hooks, findPackageJSON, compile-cache APIs and
+The Module constructor, asynchronous register, findPackageJSON, compile-cache APIs and
 syncBuiltinESMExports are not exported. In particular this does not supply a V8
 compile cache or allow the complete Code-OSS bootstrap to run. Its cache/diagnostic
 imports use an explicit application-only [LibJS cache policy](../architecture/0106-code-oss-libjs-cache-policy.md),

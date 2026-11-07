@@ -103,10 +103,36 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
                     return *m_builtin_bridge;
             }
 
-            auto url = TRY(resolve(string(bytes), referrer_url(referrer)));
+            GC::Root attributes { JS::Object::create(m_realm, nullptr) };
+            for (auto const& attribute : request.attributes)
+                attributes->define_direct_property(attribute.key,
+                    JS::PrimitiveString::create(m_vm, attribute.value), JS::default_attributes);
+            auto parent = referrer_url(referrer);
+            GC::Root<JS::Object> hook_result;
+            auto result = TRY(run_resolve_hooks(string(bytes), parent, false, attributes.ptr()));
+            if (result.is_object())
+                hook_result = &result.as_object();
+            auto url = hook_result ? TRY(hook_result_url(*hook_result, parent))
+                                   : TRY(resolve(string(bytes), parent));
+            if (hook_result) {
+                auto changed = TRY(hook_result->get("importAttributes"_utf16));
+                if (!changed.is_undefined()) {
+                    if (!changed.is_object())
+                        return error("ERR_INVALID_ARG_TYPE",
+                            "Hook importAttributes must be an object", true);
+                    attributes = &changed.as_object();
+                }
+            }
+
+            auto keys = TRY(attributes->internal_own_property_keys());
             bool json_type = false;
-            for (auto const& attribute : request.attributes) {
-                if (attribute.key != "type"_utf16 || attribute.value != "json"_utf16)
+            for (auto const& key : keys) {
+                if (!key.is_string())
+                    return error(
+                        "ERR_IMPORT_ATTRIBUTE_UNSUPPORTED", "Unsupported import attribute", true);
+                auto value = TRY(attributes->get(TRY(JS::PropertyKey::from_value(m_vm, key))));
+                if (key.as_string().utf16_string_view() != "type"_utf16 || !value.is_string()
+                    || value.as_string().utf16_string_view() != "json"_utf16)
                     return error(
                         "ERR_IMPORT_ATTRIBUTE_UNSUPPORTED", "Unsupported import attribute", true);
                 json_type = true;
@@ -197,8 +223,8 @@ JS::ThrowCompletionOr<bool> ModuleLoader::is_es_module(fs::path const& path)
     return false;
 }
 
-JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(
-    std::string const& specifier, std::string const& referrer)
+JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifier,
+    std::string const& referrer, std::vector<std::string> const* conditions)
 {
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
@@ -209,7 +235,7 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(
     auto url = relative ? URL::Parser::basic_parse(view(specifier), *base)
                         : URL::Parser::basic_parse(view(specifier));
     if (!url.has_value())
-        url = TRY(resolve_package(specifier, url_path(*base), false));
+        url = TRY(resolve_package(specifier, url_path(*base), false, 0, conditions));
     if (url->scheme() == "node"sv || url->scheme() == "mite-host"sv)
         return url.release_value();
     if (url->scheme() != "file"sv)
@@ -428,7 +454,7 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::legacy_path(fs::path con
 }
 
 JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_require(
-    std::string const& request, fs::path const& parent)
+    std::string const& request, fs::path const& parent, std::vector<std::string> const* conditions)
 {
     if (request.empty())
         return error("ERR_INVALID_ARG_VALUE", "Module ID must not be empty", true);
@@ -439,7 +465,7 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
     bool relative = request == "." || request == ".." || request.starts_with("./")
         || request.starts_with("../");
     if (!relative && !path.is_absolute()) {
-        auto url = TRY(resolve_package(request, parent, true));
+        auto url = TRY(resolve_package(request, parent, true, 0, conditions));
         if (url.scheme() == "mite-host"sv) {
             auto name = string(url.serialize()).substr(10);
             return RequireResolution { {}, {}, name, name };
@@ -545,7 +571,7 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
             if (!vm.argument(0).is_string())
                 return error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
             auto request = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto resolved = resolve_require(string(request), filename);
+            auto resolved = resolve_require_hooked(string(request), filename);
             if (resolved.is_error())
                 return require_error(resolved.release_error(), *module);
             auto target = resolved.release_value();
@@ -579,7 +605,7 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
                 return error(
                     "ERR_MITE_UNSUPPORTED_API", "require.resolve options are not implemented yet");
             auto request = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto resolved = resolve_require(string(request), filename);
+            auto resolved = resolve_require_hooked(string(request), filename);
             if (resolved.is_error())
                 return require_error(resolved.release_error(), *module);
             auto target = resolved.release_value();

@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 75
+Mite is a working native LibJS runtime; the current macOS Release build has 76
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -7033,6 +7033,50 @@ probe, no repeated local desktop suites. Formatting, generated site (205 pages /
 and diff checks pass. Full goal active; real loader hooks, required desktop
 startup APIs, public binary/event/port transport, native service adapters and
 native Windows remain required. See ADR 0108 and the updated adaptation guide.
+
+## 2026-11-07: Implement synchronous resolve hooks and advance the actual Code-OSS import graph
+
+- Add real node:module.registerHooks resolve chains to the ESM-owned utility
+  module. LIFO nextResolve, changed specifiers/context, explicit short-circuit,
+  synchronous result validation and idempotent deregistration are implemented.
+  Reject load functions atomically; no fake hooks, source transforms or V8/Node.
+- Bridge later static/dynamic ESM edges, CommonJS require/resolve and createRequire
+  through the same native resolvers and canonical caches. Pass conditions through
+  package imports/exports recursively without mutable global resolver state.
+  Preserve truthful absence of module-sync while require(ESM) remains unsupported.
+- Root the dispatcher in the owning VM/loader; snapshot each active chain. Saved
+  continuations retain JS state and a persistent native resolver, never borrowed
+  native stack frames. Real embedded-host GC tests cover active registration and
+  continuation calls after return/deregistration. Bound registrations/conditions.
+- Preserve native file URL/separator/NUL/protocol checks and private shim guards;
+  validate format hints and effective supported JSON attributes. Node comparison
+  confirms nextResolve context attributes alone do not replace returned attributes;
+  correct that initial mismatch before acceptance. Explicit unsupported load,
+  format/protocol/private-target and capacity controls pass.
+- Compare real Node 24.15/Mite module execution: chains/context, both loaders,
+  cache identity, builtin mappings, custom export conditions, changed bases,
+  nested resolution and later static graphs, JSON attributes, exact thrown
+  exceptions, bad results and saved continuations. No desktop simulation.
+- Build actual Firefly and run one windowless full-source Code-OSS diagnostic with
+  the installed pinned root dependencies. registerHooks now links; the actual
+  next failure is missing node:util.promisify, still exit 1. This does not prove
+  execution of Code-OSS's Electron-only ASAR path or a workbench launch.
+- Record adc00d0 native dependency installation acceptance: run 42389926763 jobs
+  128455167722 (Linux), 128455167869 (macOS), 128455167888 (Windows) all complete
+  the exact 71-root/258-snapshot graph with scripts disabled and inventories.
+  Linux standalone run 42389926816/job 128455167679 passes all 75 in 66.05s.
+  These snapshots do not contain the new resolve hooks; their native gates remain
+  pending. No Windows desktop acceptance follows from dependency installation.
+
+Validation: local macOS Release all 76 CTests pass (22.39s), new hook gate 0.28s;
+Node/Mite/actual host-GC comparisons and explicit refusal controls pass. Firefly
+integration build passes with existing SDK deployment-target warnings. Formatting,
+generated integrity, site (206 pages / 14,566 local links/resources/fragments)
+and diff checks pass. One windowless
+startup diagnostic, no repeated local desktop suites and no Ladybird changes.
+Full goal active. Next actual loader/API blocker is util.promisify, followed by the
+remaining startup contracts, public binary/event/port transport, workbench/native
+service and Windows requirements. ADR 0109 records ownership/language decisions.
 
 ## Resume
 

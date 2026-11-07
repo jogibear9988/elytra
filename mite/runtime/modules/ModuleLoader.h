@@ -82,26 +82,40 @@ private:
     JS::ThrowCompletionOr<Optional<std::filesystem::path>> package_scope(
         std::filesystem::path const&);
 
-    JS::ThrowCompletionOr<URL::URL> resolve_package(
-        std::string const&, std::filesystem::path const&, bool require, size_t depth = 0);
+    JS::ThrowCompletionOr<URL::URL> resolve_package(std::string const&,
+        std::filesystem::path const&, bool require, size_t depth = 0,
+        std::vector<std::string> const* conditions = nullptr);
 
     JS::ThrowCompletionOr<URL::URL> resolve_exports(std::filesystem::path const&,
-        std::string const&, AK::JsonValue const&, bool require, size_t depth);
+        std::string const&, AK::JsonValue const&, bool require, size_t depth,
+        std::vector<std::string> const* conditions);
 
     JS::ThrowCompletionOr<PackageTarget> resolve_map(std::filesystem::path const&,
-        AK::JsonObject const&, std::string const&, bool imports, bool require, size_t depth);
+        AK::JsonObject const&, std::string const&, bool imports, bool require, size_t depth,
+        std::vector<std::string> const* conditions);
 
     JS::ThrowCompletionOr<PackageTarget> resolve_target(std::filesystem::path const&,
         AK::JsonValue const&, Optional<std::string> const& pattern, bool imports, bool require,
-        size_t depth);
+        size_t depth, std::vector<std::string> const* conditions);
 
     JS::ThrowCompletionOr<Optional<AK::JsonValue>> read_package(std::filesystem::path const&);
 
     JS::ThrowCompletionOr<Optional<std::filesystem::path>> legacy_path(
         std::filesystem::path const&);
 
-    JS::ThrowCompletionOr<RequireResolution> resolve_require(
+    JS::ThrowCompletionOr<RequireResolution> resolve_require(std::string const&,
+        std::filesystem::path const&, std::vector<std::string> const* conditions = nullptr);
+
+    JS::ThrowCompletionOr<RequireResolution> resolve_require_hooked(
         std::string const&, std::filesystem::path const&);
+
+    // Only trusted main-process module resolution enters these realm-owned hooks.
+    JS::ThrowCompletionOr<JS::Value> run_resolve_hooks(
+        std::string const&, std::string const&, bool require, JS::Value attributes);
+
+    JS::ThrowCompletionOr<URL::URL> hook_result_url(JS::Object&, std::string const&);
+
+    void install_resolve_hook_host(JS::Object&);
 
     JS::ThrowCompletionOr<JS::Value> load_commonjs(
         std::filesystem::path const&, GC::Ptr<JS::Object> parent = nullptr, bool main = false);
@@ -121,8 +135,8 @@ private:
 
     JS::Completion error(char const* code, std::string const& message, bool type_error = false);
 
-    JS::ThrowCompletionOr<URL::URL> resolve(
-        std::string const& specifier, std::string const& referrer);
+    JS::ThrowCompletionOr<URL::URL> resolve(std::string const& specifier,
+        std::string const& referrer, std::vector<std::string> const* conditions = nullptr);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Module>> load(URL::URL const&);
 
@@ -151,6 +165,7 @@ private:
     GC::Root<JS::Object> m_web_stream_state;
     GC::Root<JS::Object> m_http_client_hooks;
     GC::Root<JS::Object> m_tls_client_hooks;
+    GC::Root<JS::Object> m_resolve_hook_dispatcher;
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;

@@ -79,6 +79,7 @@ function(mite_add_runtime target root js_target)
         modules/HostModules
         modules/ModuleLoader
         modules/ModuleUtilities
+        modules/ResolveHooks
         modules/ModulePaths
         modules/PackageResolver
         # platform/process
