@@ -170,6 +170,12 @@ bridge now exposes partial [scheme registration](../api/protocol.md), but has no
 resource/session authorizer or automatic document grants.
 This is not Code-OSS startup.
 
+The pinned ProtocolMainService uses defaultSession.protocol.registerFileProtocol for
+its authorized workbench files. The [native async authorization service](../architecture/0125-asynchronous-file-authorization.md)
+now accepts delayed/out-of-order completions with quota/deadline/cancel ownership;
+actual helper ESM/CSS/file loading passes with deferred native authorization. Main-VM
+callback delivery, session registration and automatic grants still need integration.
+
 Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |

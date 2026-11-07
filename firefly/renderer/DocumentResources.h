@@ -29,6 +29,8 @@ public:
     void revoke();
 
 private:
+    ErrorOr<Protocols::AuthorizedFile> authorize(StringView url);
+
     void send(WebView::WebContentPage&, Web::HTML::NavigationPopulationRequest const&,
         Web::HTML::CrossProcessId document, IPC::TransportHandle, u64 epoch);
 

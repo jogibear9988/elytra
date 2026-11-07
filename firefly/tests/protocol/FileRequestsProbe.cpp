@@ -25,6 +25,56 @@ ErrorOr<void> check_file_requests(StringView path)
     auto later = now + AK::Duration::from_seconds(30);
     TRY(check(FileRequests::create(0).is_error(), "Zero epoch admitted"sv));
     {
+        auto owner = TRY(FileRequests::create(1201));
+        TRY(owner->admit(1201, 1, false, now));
+        TRY(owner->admit(1201, 2, true, now));
+        TRY(owner->admit(1201, 3, false, now));
+        TRY(check(owner->pending() == 3 && !owner->files()
+                && owner->pull(1201, 1, 1, now).is_error() && owner->pending() == 3,
+            "Unanswered authorization opened or lost a file job"sv));
+        auto second = TRY(owner->authorize(1201, 2, path, {}, now));
+        auto first = TRY(owner->authorize(1201, 1, path, {}, now));
+        TRY(check(second.request == 2 && second.head && first.request == 1 && !first.head
+                && owner->files() == 2,
+            "Out-of-order authorization lost native identity/method"sv));
+        TRY(check(owner->authorize(1201, 1, path, {}, now).is_error() && owner->files() == 2,
+            "Duplicate authorization replaced a checked file"sv));
+        TRY(check(owner->cancel(1201, 3) && owner->authorize(1201, 3, path, {}, now).is_error()
+                && owner->files() == 2,
+            "Cancelled authorization reopened a file"sv));
+        auto expired = TRY(owner->expire(later));
+        TRY(check(expired.size() == 2 && !owner->files() && !owner->pending(),
+            "Admission deadline did not survive authorization"sv));
+        TRY(owner->admit(1201, 4, false, now));
+        TRY(check(owner->authorize(1201, 4, path, {}, later).is_error() && !owner->pending(),
+            "Late authorization opened a file or retained credit"sv));
+    }
+
+    {
+        Vector<NonnullRefPtr<FileRequests>> owners;
+        for (u64 epoch = 1301; epoch <= 1308; ++epoch) {
+            auto owner = TRY(FileRequests::create(epoch));
+            for (u32 id = 1; id <= 8; ++id)
+                TRY(owner->admit(epoch, id, false, now));
+            TRY(check(owner->pending() == 8 && !owner->files(), "Pending quota opened files"sv));
+            owners.append(move(owner));
+        }
+
+        auto overflow = TRY(FileRequests::create(1309));
+        TRY(check(overflow->admit(1309, 1, false, now).is_error(),
+            "Unanswered authorizations bypassed the process quota"sv));
+        TRY(check(owners[0]->cancel(1301, 1), "Pending credit was not cancellable"sv));
+        TRY(overflow->admit(1309, 2, false, now));
+        TRY(check(overflow->authorize(1309, 2, "/missing/authorization/file"sv, {}, now).is_error()
+                && !overflow->pending(),
+            "Failed asynchronous open retained credit"sv));
+        TRY(overflow->admit(1309, 3, false, now));
+    }
+
+    outln("PASS pending authorization leases, out-of-order identity, duplicate/cancel/deadline "
+          "refusal and shared quota");
+
+    {
         auto owner = TRY(FileRequests::create(101));
         TRY(check(
             owner->begin(100, 1, path, false, {}, now).is_error(), "Foreign epoch admitted"sv));

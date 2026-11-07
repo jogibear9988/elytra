@@ -22,6 +22,15 @@ public:
 
     ~FileRequests();
 
+    // Reserve identity, quota and deadline before invoking asynchronous application code.
+    ErrorOr<void> admit(u64 epoch, u32 request, bool head, MonotonicTime now);
+
+    // Responses may arrive out of order, but only once for a still-admitted request.
+    ErrorOr<ResponseHead> authorize(u64 epoch, u32 request, StringView authorized_path,
+        ReadonlySpan<HTTP::Header>, MonotonicTime now);
+
+    size_t files() const;
+
     ErrorOr<ResponseHead> begin(u64 epoch, u32 request, StringView authorized_path, bool head,
         ReadonlySpan<HTTP::Header>, MonotonicTime now);
 
@@ -69,8 +78,9 @@ private:
     struct Request {
         // Reverse destruction order closes the file before returning its credit.
         Lease lease;
-        NonnullOwnPtr<FileBody> body;
+        OwnPtr<FileBody> body;
         MonotonicTime deadline;
+        bool head;
     };
 
     explicit FileRequests(u64 epoch)

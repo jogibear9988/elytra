@@ -82,6 +82,15 @@ def main():
             "future-credit",
             "quota",
             "deadline",
+            "async-body",
+            "async-duplicate",
+            "async-order",
+            "async-cancel",
+            "async-revoke",
+            "async-owner",
+            "async-kill",
+            "async-quota",
+            "async-deadline",
         ]:
             result = subprocess.run(
                 [str(probe), mode, str(path)],
@@ -95,7 +104,7 @@ def main():
             assert "VERIFICATION FAILED" not in result.stderr, result
             print(result.stdout.strip(), flush=True)
     print(
-        "PASS real separate-process resource service; live renderer/document binding remains open"
+        "PASS real separate-process resource service; public protocol/session handlers remain open"
     )
 
 

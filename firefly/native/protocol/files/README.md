@@ -117,3 +117,25 @@ The [document-bound client](../../../../docs/architecture/0119-document-fetch-ch
 now connects this service to actual global JavaScript fetch in a separate native
 LibWeb fixture. This proves the client/response/request channel together locally;
 product helper bootstrap and document admission remain separate integration work.
+
+## Asynchronous native authorization
+
+FileServer.create_async accepts an owned AuthorizationRequest (ID, URL and HEAD flag)
+and a Completion. The native owner may queue that request to application code and
+answer later on the same owner thread. Completion returns false for a duplicate,
+cancelled, expired or destroyed owner, without opening the supplied path. An optional
+CancelAuthorization notification lets the owner discard outstanding callback state.
+It is delivered after terminal state is installed and may itself attempt a stale
+completion safely. FileServer.create uses the same machinery with an immediate answer.
+
+FileRequests.admit reserves identity, the original 30-second deadline and one of the
+existing eight-document/64-process leases before calling application code. No file
+opens until authorize succeeds. Authorizations may finish out of order without
+changing method/identity, replacing a previous file or renewing the deadline. pending
+includes unanswered jobs; files counts checked file bodies. All terminal paths return
+reserved credit. Headers/body pumping waits for authorization; body credit retains its
+existing limit. No request/response wire change or JavaScript dependency is needed.
+
+[ADR 0125](../../../../docs/architecture/0125-asynchronous-file-authorization.md)
+records the separate-process, pending-quota, real-timeout and actual production-helper
+acceptance. The public main-VM callback/session integration is still unimplemented.

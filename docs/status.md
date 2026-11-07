@@ -66,6 +66,13 @@ concurrent quota/deadline checks pass locally. Actual renderer request/document
 binding and response application are now covered by the live helper gates below.
 Public authorized handler integration remains unfinished.
 
+The [asynchronous authorization service](architecture/0125-asynchronous-file-authorization.md)
+now reserves bounded request ownership before application code could answer. Local
+separate-process tests cover delayed/out-of-order/duplicate responses, cancellation,
+owner/peer loss and a real unanswered deadline. The production-helper resource gate
+also passes with deferred native authorization. Public JavaScript handler/session
+integration remains unimplemented.
+
 The [LibWeb protocol response adapter](architecture/0116-libweb-protocol-responses.md)
 passes local actual pending-response/body-stream tests with real checked files,
 GC, credit and controller/reader cancellation. The next

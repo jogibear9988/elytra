@@ -7848,6 +7848,48 @@ including crashReporter/Menu/contentTracing, based on actual Code-OSS requiremen
 Keep explicit refusals instead of fake exported objects or silent privilege no-ops.
 No workbench launch is accepted. Full original specification goal remains active.
 
+## 2026-11-07: Support asynchronous native protocol file authorization
+
+- Inspect the actual pinned Code-OSS ProtocolMainService: its workbench route uses
+  session.defaultSession.protocol.registerFileProtocol and an application callback.
+  Remove the native service's synchronous-only authorization requirement before
+  connecting that callback to main-VM dispatch; do not add fake crash-reporter exports.
+- Split file admission from authorization. Reserve the existing monotonic identity,
+  eight-document/64-process lease and fixed 30-second deadline before any application
+  response. Keep pending jobs unopened, permit out-of-order replies for admitted IDs,
+  preserve HEAD and deadline, and release leases on every failed/terminal path.
+  Keep begin as the original synchronous adapter; expose separate pending/file counts.
+- Add FileServer.create_async with owned ID/URL/method, native completion and optional
+  cancellation notification. Keep create on the same state machine. Insert waiting
+  state before callback, withhold metadata/body until authorization, preserve bounded
+  credit and refuse duplicate/stale results before opening a file. Retain callback
+  ownership across reentry and invalidate weak completions before terminal/destructor
+  notifications, so reentrant callbacks cannot revive dying owners. Wire unchanged.
+- Add nine real separate-process service modes: delay, duplicate, reverse-order
+  GET/HEAD/refusal, cancellation while waiting, revoke, owner destruction, forced
+  peer death, pending quota and actual unanswered 30-second timeout. Add native file
+  reservation/out-of-order/shared-quota/refusal tests. The production-helper document
+  resource authorizer now defers to another native task and retains real ESM/CSS/
+  binary/HEAD, identity and navigation-teardown checks. No desktop windows opened.
+- Add ADR 0125 and refresh service/status/VS Code documentation. Existing release and
+  Linux/Windows file-service gates automatically include the new cases; Ladybird,
+  public JS exports and standalone Mite dependencies remain unchanged.
+
+Validation: local macOS Release old/new separate-process file-service and file-owner
+checks pass, including both actual 30-second deadline cases. Production-helper
+navigation/document resources pass with asynchronous authorization. Native navigation
+and JavaScript/process fetch/stream regressions pass. Final owner-thread completion
+guard builds and delayed/order/cancel/destructor cases pass. Full source style and
+upstream checks pass; site validation passes (224 pages / 15,819 local links/resources/
+fragments). Fresh hosted execution remains required; no Windows production-helper claim.
+
+Next connect public default-session file-route registration, queued main-VM callback
+request/reply ownership and automatic navigation/document grants to this native path.
+Additional demanded privileges and crashReporter/Menu/contentTracing/main services
+remain open. Code-OSS's last actual import still fails at crashReporter (exit 1);
+this native service step is not public callback support or workbench acceptance.
+Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -74,8 +74,11 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
         return channel->send(wire);
     };
 
+    bool multiplex = mode.is_one_of("multiplex"sv, "async-order"sv);
+    bool async_cancel = mode == "async-cancel"sv;
     bool disconnect = mode.is_one_of("malformed"sv, "epoch"sv, "replay"sv, "overcredit"sv,
-        "future-credit"sv, "quota"sv, "deadline"sv, "revoke"sv, "reentrant"sv);
+        "future-credit"sv, "quota"sv, "deadline"sv, "revoke"sv, "reentrant"sv, "async-quota"sv,
+        "async-deadline"sv, "async-revoke"sv, "async-owner"sv, "async-kill"sv);
     channel = TRY(Channel::create(TRY(IPC::take_over_startup_transport(bootstrap)),
         {
             .on_data =
@@ -96,9 +99,14 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
                     }
 
                     if (packet.kind == P::FilePacketKind::Cancel) {
-                        if (!((mode == "multiplex"sv && id == 3) || mode == "cancel"sv))
+                        if (!((multiplex && id == 3) || mode == "cancel"sv
+                                || (async_cancel && id == 1)))
                             state->bad = true;
                         state->done[id] = true;
+                        if (async_cancel && id == 1
+                            && request(P::FileRequestKind::Head, 2, 0, "app://bundle/body"sv)
+                                .is_error())
+                            state->bad = true;
                         return;
                     }
 
@@ -184,12 +192,14 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     else {
         TRY(request(
             P::FileRequestKind::Get, 1, 0, "app://bundle/body"sv, mode == "epoch"sv ? 102 : 101));
-        if (mode == "multiplex"sv) {
+        if (multiplex) {
             TRY(request(P::FileRequestKind::Head, 2, 0, "app://bundle/body"sv));
             TRY(request(P::FileRequestKind::Get, 3, 0, "file:///untrusted-path"sv));
-        } else if (mode == "replay"sv)
+        } else if (async_cancel)
+            TRY(request(P::FileRequestKind::Cancel, 1));
+        else if (mode == "replay"sv)
             TRY(request(P::FileRequestKind::Get, 1, 0, "app://bundle/body"sv));
-        else if (mode == "quota"sv)
+        else if (mode.is_one_of("quota"sv, "async-quota"sv))
             for (u32 id = 2; id <= 9; ++id)
                 TRY(request(P::FileRequestKind::Get, id, 0, "app://bundle/body"sv));
     }
@@ -209,20 +219,120 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
         [&] {
             return state->bad || state->closed
                 || (!disconnect && state->done[1]
-                    && (mode != "multiplex"sv || (state->done[2] && state->done[3])));
+                    && (!multiplex || (state->done[2] && state->done[3]))
+                    && (!async_cancel || state->done[2]));
         },
-        mode == "deadline"sv ? 40 : 10));
+        mode.is_one_of("deadline"sv, "async-deadline"sv) ? 40 : 10));
     if (state->bad || (disconnect && !state->closed))
         return Error::from_string_literal("Resource channel response/state mismatch");
     if (mode == "deadline"sv
         && (!state->headers[1] || state->received[1] || lifetime.elapsed_milliseconds() < 29000))
         return Error::from_string_literal("Request deadline did not exercise a live paused file");
+    if (mode == "async-deadline"sv
+        && (state->headers[1] || state->received[1] || lifetime.elapsed_milliseconds() < 29000))
+        return Error::from_string_literal(
+            "Unanswered authorization did not exercise the real deadline");
     if (mode == "cancel"sv && state->received[1] != P::file_chunk_limit)
         return Error::from_string_literal("Cancellation did not stop at credited body limit");
     if (!disconnect && mode != "peerloss"sv && !state->done[1])
         return Error::from_string_literal("Resource channel lost response before completion");
     TRY(until([&] { return !channel->pending_send_count() || state->closed; }, 10));
     return 0;
+}
+
+ErrorOr<void> asynchronous_parent(StringView path, StringView mode)
+{
+    auto executable = TRY(Core::System::current_executable_path());
+    Array<ByteString, 1> extra { ByteString(mode) };
+    auto peer = TRY(spawn_byte_peer(executable, extra));
+    size_t calls = 0, cancellations = 0;
+    bool bad = false;
+    HashMap<u32, P::FileServer::Completion> pending;
+    RefPtr<P::FileServer> server;
+    auto file = [&] {
+        return P::AuthorizedFile { ByteString(path), { { "Cache-Control", "no-store" } } };
+    };
+
+    server = TRY(P::FileServer::create_async(
+        move(peer->transport), 101,
+        [&](P::FileServer::AuthorizationRequest request, P::FileServer::Completion complete) {
+            ++calls;
+            if (server->files()
+                || (request.url != "app://bundle/body"sv
+                    && !(mode == "async-order"sv && request.id == 3)))
+                bad = true;
+            if (mode.is_one_of("async-body"sv, "async-duplicate"sv)
+                || (mode == "async-cancel"sv && request.id == 2)) {
+                // The owned URL must survive after receive() returns and other packets arrive.
+                Core::deferred_invoke([&, request = move(request), complete = move(complete)] {
+                    if (request.url != "app://bundle/body"sv || !complete(file()))
+                        bad = true;
+                    if (mode == "async-duplicate"sv && complete(file()))
+                        bad = true;
+                });
+                return;
+            }
+
+            pending.set(request.id, move(complete));
+            if (mode == "async-order"sv && calls == 3) {
+                Core::deferred_invoke([&] {
+                    if (!pending.get(3)->operator()(Error::from_errno(EACCES))
+                        || !pending.get(2)->operator()(file())
+                        || !pending.get(1)->operator()(file()))
+                        bad = true;
+                });
+            }
+        },
+        [&](u32 id) {
+            ++cancellations;
+            auto found = pending.find(id);
+            if (found == pending.end() || found->value(file()))
+                bad = true; // Reentrant stale completion must be harmless, including during
+                            // destruction.
+        }));
+    ScopeGuard revoke = [&] {
+        if (server)
+            server->revoke();
+    };
+
+    if (mode.is_one_of("async-revoke"sv, "async-owner"sv, "async-kill"sv)) {
+        TRY(until([&] { return calls == 1 || server->is_revoked(); }, 10));
+        if (server->files() || server->pending() != 1)
+            return Error::from_string_literal(
+                "Unanswered authorization did not own a pending lease");
+        if (mode == "async-owner"sv)
+            server = nullptr;
+        else if (mode == "async-kill"sv)
+            TRY(Core::Process::terminate_process(
+                peer->process.pid(), Core::Process::TerminationMode::Forceful));
+        else
+            server->revoke();
+    }
+
+    TRY(until(
+        [&] { return !server || server->is_revoked(); }, mode == "async-deadline"sv ? 40 : 15));
+    if (server && (server->pending() || server->files()))
+        return Error::from_string_literal("Async owner retained pending files/jobs");
+    auto status = TRY(peer->wait());
+    if ((mode == "async-kill"sv && status == 0) || (mode != "async-kill"sv && status != 0))
+        return Error::from_string_literal("Async resource consumer failed");
+    size_t expected_calls = mode == "async-order"sv ? 3
+        : mode == "async-cancel"sv                  ? 2
+        : mode == "async-quota"sv                   ? 8
+                                                    : 1;
+    size_t expected_cancel
+        = mode == "async-order"sv || mode.is_one_of("async-body"sv, "async-duplicate"sv) ? 0
+        : mode == "async-quota"sv                                                        ? 8
+                                                                                         : 1;
+    if (bad || calls != expected_calls || cancellations != expected_cancel)
+        return Error::from_string_literal("Async completion/cancellation counts or state mismatch");
+    for (auto& entry : pending)
+        if (entry.value(file()))
+            return Error::from_string_literal("Late completion revived a terminal service");
+    outln("PASS native resource service {}: asynchronous native authorization and terminal "
+          "callback refusal",
+        mode);
+    return {};
 }
 
 ErrorOr<void> parent(StringView path, StringView mode)
@@ -302,7 +412,9 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             0x10203040, 0, "app://bundle/body"sv.bytes() }));
         if (fwrite(wire.data(), 1, wire.size(), stdout) != wire.size())
             return Error::from_string_literal("Cannot write request fixture");
-    } else
+    } else if (mode.starts_with("async-"sv))
+        TRY(asynchronous_parent(arguments.strings[2], mode));
+    else
         TRY(parent(arguments.strings[2], mode));
     return 0;
 }

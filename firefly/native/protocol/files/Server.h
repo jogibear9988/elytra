@@ -20,6 +20,20 @@ public:
     static ErrorOr<NonnullRefPtr<FileServer>> create(
         NonnullOwnPtr<IPC::Transport>, u64 epoch, Authorize);
 
+    struct AuthorizationRequest {
+        u32 id;
+        ByteString url;
+        bool head;
+    };
+
+    // Completion is VM-independent, owner-thread only, and safe after cancellation/destruction.
+    // It returns false for a duplicate/stale result and never reopens such a file.
+    using Completion = Function<bool(ErrorOr<AuthorizedFile>)>;
+    using AuthorizeAsync = Function<void(AuthorizationRequest, Completion)>;
+    using CancelAuthorization = Function<void(u32)>;
+    static ErrorOr<NonnullRefPtr<FileServer>> create_async(
+        NonnullOwnPtr<IPC::Transport>, u64 epoch, AuthorizeAsync, CancelAuthorization = {});
+
     ~FileServer();
 
     void revoke();
@@ -38,7 +52,7 @@ public:
 
     size_t files() const
     {
-        return m_files->pending();
+        return m_files->files();
     }
 
 private:
@@ -46,6 +60,7 @@ private:
         ByteBuffer metadata;
         u64 credit { 0 };
         u64 offset { 0 };
+        bool authorizing { true };
         bool headers_sent { false };
         bool complete { false };
         bool cancelled { false };
@@ -53,7 +68,20 @@ private:
         MonotonicTime deadline;
     };
 
-    FileServer(u64 epoch, NonnullRefPtr<FileRequests>, Authorize);
+    struct Callbacks : RefCounted<Callbacks> {
+        Callbacks(AuthorizeAsync start, CancelAuthorization cancel)
+            : start(move(start))
+            , cancel(move(cancel))
+        {
+        }
+
+        AuthorizeAsync start;
+        CancelAuthorization cancel;
+    };
+
+    FileServer(u64 epoch, NonnullRefPtr<FileRequests>, NonnullRefPtr<Callbacks>);
+
+    bool authorize(u32 request, ErrorOr<AuthorizedFile>);
 
     void receive(ReadonlyBytes);
 
@@ -67,7 +95,7 @@ private:
 
     RefPtr<Bytes::Channel> m_channel;
     NonnullRefPtr<FileRequests> m_files;
-    Authorize m_authorize;
+    NonnullRefPtr<Callbacks> m_callbacks;
     HashMap<u32, Job> m_jobs;
     RefPtr<Core::Timer> m_timer;
     u64 const m_epoch;

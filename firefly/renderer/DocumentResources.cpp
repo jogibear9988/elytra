@@ -1,6 +1,7 @@
 /** Exercise the selected host's real document-ID handoff and bounded main-side file routes. */
 #include "DocumentResources.h"
 #include <AK/LexicalPath.h>
+#include <LibCore/EventLoop.h>
 #include <LibWebView/WebContentClient.h>
 
 namespace Firefly {
@@ -39,36 +40,19 @@ ErrorOr<void> DocumentResources::prepare(WebView::WebContentPage& page,
         return Error::from_string_literal("Unexpected native document population handoff");
     auto pair = TRY(IPC::Transport::create_paired());
     auto weak = make_weak_ptr();
-    m_server = TRY(Protocols::FileServer::create(
-        move(pair.local), 2, [weak](StringView url, bool) -> ErrorOr<Protocols::AuthorizedFile> {
-            auto self = weak.strong_ref();
-            if (!self)
-                return Error::from_string_literal("Document authorizer has ended");
-            ++self->m_requests;
-            StringView filename;
-            u32 bit = 0;
-            if (url == "app://bundle/main.mjs"sv) {
-                filename = "main.mjs"sv;
-                bit = 1;
-            } else if (url == "app://bundle/math.mjs"sv) {
-                filename = "math.mjs"sv;
-                bit = 2;
-            } else if (url == "app://bundle/theme.css"sv) {
-                filename = "theme.css"sv;
-                bit = 4;
-            } else if (url == "app://bundle/payload.bin"sv) {
-                filename = "payload.bin"sv;
-                bit = 8;
-            } else if (url == "app://bundle/denied.bin"sv) {
-                self->m_seen |= 16;
-                return Error::from_string_literal("Route explicitly denied");
-            } else
-                return Error::from_string_literal("URL outside the native bundle routes");
-            self->m_seen |= bit;
-            return Protocols::AuthorizedFile {
-                LexicalPath::join(self->m_directory, filename).string(),
-                { { "Cache-Control", "no-store" }, { "Set-Cookie", "fixture=private" } }
-            };
+    m_server = TRY(Protocols::FileServer::create_async(move(pair.local), 2,
+        [weak](Protocols::FileServer::AuthorizationRequest request,
+            Protocols::FileServer::Completion complete) {
+            // Exercise real helper loading while file authorization awaits another native task.
+            Core::deferred_invoke([weak, request = move(request), complete = move(complete)] {
+                auto self = weak.strong_ref();
+                if (!self) {
+                    (void)complete(Error::from_errno(ECANCELED));
+                    return;
+                }
+
+                (void)complete(self->authorize(request.url));
+            });
         }));
     send(page, request, *result.document_id, move(pair.remote_handle), 2);
     if (m_mode == "document-duplicate"sv) {
@@ -94,6 +78,33 @@ ErrorOr<void> DocumentResources::prepare(WebView::WebContentPage& page,
     }
 
     return {};
+}
+
+ErrorOr<Protocols::AuthorizedFile> DocumentResources::authorize(StringView url)
+{
+    ++m_requests;
+    StringView filename;
+    u32 bit = 0;
+    if (url == "app://bundle/main.mjs"sv) {
+        filename = "main.mjs"sv;
+        bit = 1;
+    } else if (url == "app://bundle/math.mjs"sv) {
+        filename = "math.mjs"sv;
+        bit = 2;
+    } else if (url == "app://bundle/theme.css"sv) {
+        filename = "theme.css"sv;
+        bit = 4;
+    } else if (url == "app://bundle/payload.bin"sv) {
+        filename = "payload.bin"sv;
+        bit = 8;
+    } else if (url == "app://bundle/denied.bin"sv) {
+        m_seen |= 16;
+        return Error::from_string_literal("Route explicitly denied");
+    } else
+        return Error::from_string_literal("URL outside the native bundle routes");
+    m_seen |= bit;
+    return Protocols::AuthorizedFile { LexicalPath::join(m_directory, filename).string(),
+        { { "Cache-Control", "no-store" }, { "Set-Cookie", "fixture=private" } } };
 }
 
 bool DocumentResources::ready(bool away) const
