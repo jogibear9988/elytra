@@ -1,0 +1,397 @@
+/*
+ * Copyright (c) 2026-present, the Ladybird developers.
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * Read-request recording follows Tests/LibWeb/TestFetchBodyStream.cpp. Exercise
+ * actual LibWeb bodies/controllers with our real file jobs, without a desktop.
+ */
+#include "loading/protocol/Response.h"
+#include "native/protocol/files/FilePacket.h"
+#include "native/protocol/files/FileRequests.h"
+#include <AK/WeakPtr.h>
+#include <LibCore/EventLoop.h>
+#include <LibCore/Timer.h>
+#include <LibHTTP/HeaderList.h>
+#include <LibJS/Runtime/TypedArray.h>
+#include <LibJS/Runtime/VM.h>
+#include <LibMain/Main.h>
+#include <LibURL/Parser.h>
+#include <LibWeb/Bindings/MainThreadVM.h>
+#include <LibWeb/Bindings/PrincipalHostDefined.h>
+#include <LibWeb/DOM/Document.h>
+#include <LibWeb/Fetch/Fetching/BodyStreamPullSource.h>
+#include <LibWeb/HTML/EventLoop/EventLoop.h>
+#include <LibWeb/HTML/LocalTraversableNavigable.h>
+#include <LibWeb/HTML/Scripting/Environments.h>
+#include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
+#include <LibWeb/Loader/LoaderConfig.h>
+#include <LibWeb/Platform/FontPlugin.h>
+#include <LibWeb/Streams/ReadableStreamDefaultReader.h>
+
+namespace Infra = Web::Fetch::Infrastructure;
+namespace Engine = Web::Fetch::Engine;
+namespace Protocols = Firefly::Protocols;
+using Receiver = Firefly::ProtocolFetch::Response;
+using Kind = Protocols::FilePacketKind;
+
+namespace {
+class Read final : public Web::Streams::ReadRequest {
+    GC_CELL(Read, Web::Streams::ReadRequest);
+    GC_DECLARE_ALLOCATOR(Read);
+
+public:
+    virtual void on_chunk(JS::Value value) override
+    {
+        auto& array = as<JS::Uint8Array>(value.as_object());
+        auto witness = JS::make_typed_array_with_buffer_witness_record(
+            array, JS::ArrayBuffer::Order::SeqCst);
+        bytes = MUST(array.viewed_array_buffer()->copy_to_byte_buffer(
+            array.byte_offset(), JS::typed_array_byte_length(witness)));
+        settled = true;
+    }
+
+    virtual void on_close() override
+    {
+        settled = closed = true;
+    }
+
+    virtual void on_error(JS::Value) override
+    {
+        settled = errored = true;
+    }
+
+    ByteBuffer bytes;
+    bool settled { false }, closed { false }, errored { false };
+};
+
+GC_DEFINE_ALLOCATOR(Read);
+
+struct State : RefCounted<State> {
+    u64 credit { 0 };
+    size_t cancellations { 0 };
+    RefPtr<Infra::Response> response;
+    WeakPtr<Receiver> receiver;
+    bool reenter { false };
+    size_t credit_returns { 0 };
+};
+
+struct Fetch {
+    Infra::FetchControllerRegistry registry;
+    GC::Root<Infra::FetchController> controller { Infra::FetchController::create(registry) };
+    NonnullRefPtr<Infra::FetchParams> params;
+    NonnullRefPtr<State> state { adopt_ref(*new State) };
+    RefPtr<Receiver> receiver;
+    GC::Root<Web::Fetch::Fetching::PendingResponse> pending;
+
+    explicit Fetch(bool head = false)
+        : params(make_params(*controller, head))
+    {
+        auto shared = state;
+        receiver = MUST(Receiver::create(*params, 91, 7,
+            {
+                .credit =
+                    [shared](u64 count) {
+                        shared->credit += count;
+                        if (shared->reenter) {
+                            if (auto owner = shared->receiver.strong_ref())
+                                owner->stop();
+                        }
+
+                        ++shared->credit_returns;
+                    },
+                .cancel = [shared] { ++shared->cancellations; },
+            }));
+        pending = receiver->pending();
+        state->receiver = receiver->make_weak_ptr();
+        receiver->when_loaded([shared](auto response) { shared->response = move(response); });
+    }
+
+    static NonnullRefPtr<Infra::FetchParams> make_params(
+        Infra::FetchController& controller, bool head)
+    {
+        controller.set_task_destination(GC::Ref<JS::Object> { Web::HTML::current_global_object() });
+        auto request = Infra::Request::create();
+        auto url = URL::Parser::basic_parse("https://example.test/resource"sv);
+        VERIFY(url.has_value());
+        request->set_url_list({ url.release_value() });
+        request->set_method(head ? "HEAD" : "GET");
+        auto algorithms = Infra::FetchAlgorithms::create(
+            Infra::FetchAlgorithms::Input { Engine::BodyIntent::DeliverStreamToConsumerAgent });
+        return Infra::FetchParams::create(controller, request, algorithms,
+            Infra::FetchTimingInfo::create(), Web::current_loader_config());
+    }
+
+    ErrorOr<void> send(Kind kind, u64 offset, ReadonlyBytes bytes = {})
+    {
+        auto frame = TRY(Protocols::encode_file_packet({ kind, 91, 7, offset, bytes }));
+        return receiver->receive(frame);
+    }
+
+    ErrorOr<void> metadata(u64 length, bool head = false)
+    {
+        auto info = TRY(Protocols::make_file_response_head(7, length, head, "/fixture.mjs"sv));
+        auto encoded = TRY(Protocols::encode_file_response_head(info));
+        return send(Kind::Metadata, 0, encoded.bytes());
+    }
+
+    ~Fetch()
+    {
+        if (receiver)
+            receiver->stop();
+    }
+};
+
+void pump()
+{
+    for (size_t i = 0; i < 4; ++i)
+        Core::EventLoop::current().pump(Core::EventLoop::WaitMode::PollForEvents);
+}
+
+ErrorOr<void> check(bool condition, StringView message)
+{
+    if (!condition)
+        return Error::from_string_view(message);
+    return {};
+}
+
+GC::Ref<Read> read(JS::Realm& realm, Web::Streams::ReadableStreamDefaultReader& reader)
+{
+    auto request = realm.heap().allocate<Read>();
+    reader.read_a_chunk(*request);
+    if (!request->settled) {
+        auto timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(3), [] { });
+        timer->start();
+        Web::HTML::main_thread_event_loop().spin_until(GC::create_function(
+            realm.heap(), [request, timer] { return request->settled || !timer->is_active(); }));
+    }
+
+    return request;
+}
+
+GC::Ref<Infra::Body> body(JS::Realm& realm, Fetch& fetch)
+{
+    pump();
+    VERIFY(fetch.state->response && fetch.state->response->body().has_value());
+    auto channel
+        = fetch.state->response->body()->bytes().get<NonnullRefPtr<Engine::FetchByteChannel>>();
+    return Web::Fetch::Fetching::create_body_from_channel(realm, *fetch.controller, channel);
+}
+
+ErrorOr<void> transfer(JS::Realm& realm, StringView path)
+{
+    Fetch fetch;
+    auto source = TRY(Protocols::FileRequests::create(91));
+    Array<HTTP::Header, 1> headers { { { "Cache-Control", "no-store" } } };
+    auto info = TRY(source->begin(91, 7, path, false, headers, MonotonicTime::now()));
+    auto encoded = TRY(Protocols::encode_file_response_head(info));
+    TRY(fetch.send(Kind::Metadata, 0, encoded.bytes()));
+    GC::Root stream_body { body(realm, fetch) };
+    TRY(check(fetch.state->response->status() == 200
+            && fetch.state->response->header_list()->get("Content-Type"sv)
+                == Optional<ByteString> { "application/octet-stream" }
+            && fetch.state->response->header_list()->get("Content-Length"sv)
+                == Optional<ByteString> { ByteString::number(info.content_length) }
+            && fetch.state->response->header_list()->get("Cache-Control"sv)
+                == Optional<ByteString> { "no-store" },
+        "Actual LibWeb response lost status/headers"sv));
+    GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+    u64 received = 0;
+    for (;;) {
+        TRY(check(fetch.state->credit > 0 && fetch.state->credit <= Protocols::file_chunk_limit,
+            "Invalid upstream body credit"sv));
+        auto maximum = min<u64>(fetch.state->credit, Protocols::file_chunk_limit);
+        auto chunk = TRY(source->pull(91, 7, maximum, MonotonicTime::now()));
+        fetch.state->credit -= chunk.bytes.size();
+        if (!chunk.bytes.is_empty())
+            TRY(fetch.send(Kind::Chunk, chunk.offset, chunk.bytes));
+        if (chunk.complete)
+            TRY(fetch.send(Kind::Complete, chunk.offset + chunk.bytes.size()));
+        while (received < chunk.offset + chunk.bytes.size()) {
+            GC::Root result { read(realm, *reader) };
+            TRY(check(result->settled && !result->errored && !result->closed
+                    && !result->bytes.is_empty()
+                    && result->bytes.size() <= chunk.offset + chunk.bytes.size() - received,
+                "Actual ReadableStream did not deliver chunk"sv));
+            for (size_t i = 0; i < result->bytes.size(); ++i)
+                TRY(check(result->bytes[i] == static_cast<u8>(((received + i) * 37 + 11) & 255),
+                    "ReadableStream file byte mismatch"sv));
+            received += result->bytes.size();
+        }
+
+        if (chunk.complete)
+            break;
+        realm.vm().heap().collect_garbage();
+        pump();
+    }
+
+    GC::Root end { read(realm, *reader) };
+    TRY(check(end->closed && received == info.content_length && fetch.receiver->finished()
+            && !fetch.state->cancellations && !source->pending(),
+        "ReadableStream completion/lifetime failed"sv));
+    outln("PASS actual file jobs through LibWeb PendingResponse/ReadableStream: {} bytes, bounded "
+          "credit and GC",
+        received);
+    return {};
+}
+
+ErrorOr<void> controls(JS::Realm& realm)
+{
+    {
+        Fetch fetch;
+        auto weak = fetch.receiver->make_weak_ptr();
+        fetch.receiver = nullptr;
+        pump();
+        TRY(check(!weak.strong_ref() && fetch.state->cancellations == 1 && fetch.state->response
+                && fetch.state->response->is_network_error(),
+            "Dropping native owner retained unresolved fetch"sv));
+    }
+
+    {
+        Fetch fetch;
+        fetch.controller->abort(realm, {});
+        pump();
+        TRY(check(fetch.receiver->finished() && fetch.state->cancellations == 1
+                && fetch.state->response && fetch.state->response->aborted(),
+            "Abort before metadata did not settle"sv));
+    }
+
+    {
+        Fetch fetch;
+        TRY(fetch.metadata(100));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        Array<u8, 17> queued {};
+        TRY(fetch.send(Kind::Chunk, 0, queued));
+        fetch.controller->abort(realm, {});
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.receiver->finished() && fetch.state->cancellations == 1,
+            "Abort after metadata left body pending"sv));
+        fetch.receiver->stop();
+        TRY(check(fetch.state->cancellations == 1, "Repeated stop sent duplicate cancellation"sv));
+    }
+
+    {
+        Fetch fetch;
+        TRY(fetch.metadata(100));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        (void)reader->cancel(JS::js_undefined());
+        pump();
+        TRY(check(fetch.receiver->finished() && fetch.state->cancellations == 1,
+            "Actual reader cancellation did not reach native transport"sv));
+    }
+
+    {
+        Fetch fetch(true);
+        TRY(fetch.metadata(100, true));
+        TRY(fetch.send(Kind::Complete, 0));
+        pump();
+        TRY(check(fetch.state->response && !fetch.state->response->body().has_value()
+                && fetch.receiver->finished() && !fetch.state->credit
+                && !fetch.state->cancellations,
+            "HEAD supplied body or transport credit"sv));
+    }
+
+    {
+        Fetch fetch;
+        TRY(fetch.metadata(0));
+        TRY(fetch.send(Kind::Complete, 0));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->closed && !result->errored && !fetch.state->cancellations,
+            "Empty body did not close normally"sv));
+    }
+
+    {
+        Fetch fetch;
+        fetch.state->reenter = true;
+        TRY(fetch.metadata(100));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.receiver->finished() && fetch.state->cancellations == 1
+                && fetch.state->credit_returns == 1,
+            "Credit callback cancellation lost native lifetime"sv));
+    }
+
+    {
+        Fetch fetch;
+        TRY(fetch.metadata(Protocols::file_chunk_limit + 1));
+        auto bytes = TRY(ByteBuffer::create_zeroed(Protocols::file_chunk_limit));
+        TRY(fetch.send(Kind::Chunk, 0, bytes));
+        u8 extra = 1;
+        TRY(check(fetch.send(Kind::Chunk, bytes.size(), { &extra, 1 }).is_error(),
+            "Producer exceeded upstream credit"sv));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.state->cancellations == 1,
+            "Over-credit response did not error"sv));
+    }
+
+    {
+        Fetch fetch;
+        u8 byte = 1;
+        TRY(check(fetch.send(Kind::Chunk, 0, { &byte, 1 }).is_error(), "Body preceded metadata"sv));
+        pump();
+        TRY(check(fetch.state->response && fetch.state->response->is_network_error(),
+            "Missing-head failure did not settle pending response"sv));
+    }
+
+    for (auto foreign : { Protocols::FilePacket { Kind::Complete, 92, 7, 0, {} },
+             Protocols::FilePacket { Kind::Complete, 91, 8, 0, {} } }) {
+        Fetch fetch;
+        auto wire = TRY(Protocols::encode_file_packet(foreign));
+        TRY(check(
+            fetch.receiver->receive(wire).is_error(), "Foreign owner/request frame admitted"sv));
+        pump();
+        TRY(check(fetch.state->response && fetch.state->response->is_network_error()
+                && fetch.state->cancellations == 1,
+            "Foreign frame did not settle pending response"sv));
+    }
+
+    for (size_t mode = 0; mode < 5; ++mode) {
+        Fetch fetch;
+        TRY(fetch.metadata(100));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        u8 byte = 1;
+        auto invalid = mode == 0 ? fetch.send(Kind::Chunk, 1, { &byte, 1 })
+            : mode == 1          ? fetch.send(Kind::Complete, 0)
+            : mode == 2          ? fetch.metadata(100)
+            : mode == 3          ? fetch.receiver->receive("bad"sv.bytes())
+                                 : fetch.metadata(100, true);
+        TRY(check(invalid.is_error(), "Malformed protocol response admitted"sv));
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.state->cancellations == 1,
+            "Invalid response left stream pending"sv));
+    }
+
+    outln("PASS actual FetchController abort before/after headers, reader cancel, HEAD and "
+          "malformed-frame stream errors");
+    return {};
+}
+}
+
+ErrorOr<int> ladybird_main(Main::Arguments arguments)
+{
+    if (arguments.argc != 2)
+        return Error::from_string_literal("Expected authorized fixture path");
+    Core::EventLoop::initialize_for_current_thread();
+    Web::Platform::FontPlugin font_plugin(false);
+    Web::Platform::FontPlugin::install(font_plugin);
+    GC::Root initial { Web::Bindings::create_a_principal_javascript_realm() };
+    auto& page = Web::Bindings::principal_host_defined_page(*initial);
+    auto traversable = Web::HTML::LocalTraversableNavigable::create_a_new_top_level_traversable(
+        page, nullptr, {});
+    page.set_top_level_traversable(traversable);
+    GC::Root document { *traversable->active_document() };
+    auto& realm = document->relevant_settings_object().realm();
+    Web::HTML::TemporaryExecutionContext context { realm,
+        Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
+    TRY(transfer(realm, arguments.strings[1]));
+    TRY(controls(realm));
+    pump();
+    return 0;
+}

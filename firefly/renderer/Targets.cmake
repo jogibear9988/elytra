@@ -33,6 +33,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/bytes/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/files/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/protocol/Targets.cmake")
 # Retain upstream's process boundary: Skia must stay in Compositor, including when our frontend is
 # added after the upstream root's own confinement check.
 ladybird_check_skia_confinement(firefly-renderer-probe)

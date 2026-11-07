@@ -65,6 +65,12 @@ concurrent quota/deadline checks pass locally. Actual renderer request/document
 binding, response application, authorized handler integration and public protocol
 remain unfinished.
 
+The [LibWeb protocol response adapter](architecture/0116-libweb-protocol-responses.md)
+passes local actual pending-response/body-stream tests with real checked files,
+GC, credit and controller/reader cancellation. It is not yet wired to scheme fetch
+or an admitted live helper/document. No successful page fetch, navigation,
+Code-OSS launch or new platform support follows from that component gate.
+
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):
 strict actual Rust DOM origins, native helper policy delivery, real Cargo dependency

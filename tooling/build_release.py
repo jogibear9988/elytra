@@ -124,6 +124,7 @@ def main():
         "check-firefly-isolation",
         "check-firefly-protocol-origins",
         "check-firefly-protocol-files",
+        "check-firefly-protocol-fetch",
         "check-firefly-protocol-renderer",
         "check-firefly-renderer-helper",
         "--parallel",

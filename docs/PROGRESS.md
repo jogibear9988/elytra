@@ -7454,6 +7454,49 @@ rename call. No GUI or Ladybird change. These are fixes for observed failures,
 not new macOS Release/Windows acceptance. Fresh hosted runs remain required.
 Full Code-OSS/resource/renderer and original cross-platform goal remains active.
 
+## 2026-11-07: Adapt file frames to real LibWeb pending responses and streams
+
+- Inspect pinned FetchController/FetchBodyDeliveryGate/FetchByteChannel and reuse
+  their actual body/abort machinery. Add a native response owner with GC roots,
+  epoch/request/state/HEAD/length/credit validation and metadata-to-response fields.
+  Reject cancelled admission and an empty native fetch task destination.
+- Keep the owner inside LibWeb because PendingResponse methods are not exported
+  upstream. Export only an owned native class/callback boundary; do not patch
+  upstream or copy its pending-response implementation. Separate pure codec/limits
+  from checked files/request owners and link only the codec into LibWeb. Native
+  dylib symbol inspection finds no FileBody/FileRequests globals in LibWeb.
+- Use upstream 32/64-KiB channel watermarks and explicit remaining-credit accounting,
+  not a parallel JS stream or whole-file buffer. Preserve real response status,
+  URL and headers; HEAD has neither body nor producer credit. Require exact normal
+  completion length and release native pending/controller/params/proxy roots.
+- Install body transport before metadata so actual controller abort reaches it
+  before headers. Use a weak transport proxy to avoid a native owner/gate/channel
+  retention cycle, and retain the callback owner across reentrant cancellation.
+  Terminal paths cancel once and release VM ownership. Error the body channel on
+  transport failure: ConsumerCancelled alone does not settle an upstream reader.
+- Add actual non-GUI principal-realm/document/FetchParams/controller/ReadableStream
+  tests: a real checked 4 MiB + 19 byte file passes through FileRequests, framed
+  metadata/body, real PendingResponse and the upstream stream reader. Check all
+  bytes, status/MIME/length/cache headers, bounded credit, completion and GC between
+  chunks. Native task destination is initialized as actual fetch requires.
+- Test controller abort before headers and with queued body bytes, reader cancel,
+  HEAD, empty success, dropping the native owner, reentrant credit cancellation,
+  producer over-credit, wrong epoch/ID/offset, missing/duplicate/malformed headers
+  and early completion. All failures settle actual pending responses or readers.
+- Require the component in macOS Release/check-firefly and native Linux/experimental
+  Windows renderer workflows. Add ADR 0116 and maintain the distinction between
+  actual engine response adaptation and a real URL/page/renderer request service.
+
+Validation: local native Release file-response/LibWeb component gates and Firefly
+product compilation pass, without GUI. Existing file-body/request/frame/peer-loss
+checks still pass after separating the codec library. Full source formatting,
+site, upstream/diff checks pass (214 pages / 15,130 local links/resources/fragments). No Ladybird
+source, standalone Mite API or page/native capability changes. Fresh Linux/Windows
+component CI remains required. Scheme fetch dispatch, live helper/document admission,
+request/credit transport/multiplexing, navigation/worker policy, lifecycle deadlines,
+public protocol/session handlers and real renderer security acceptance remain open.
+Code-OSS still has no accepted workbench launch. Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

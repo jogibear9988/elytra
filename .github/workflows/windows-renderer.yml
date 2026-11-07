@@ -107,6 +107,11 @@ jobs:
         run: |
           cmake --build build/windows-renderer --target firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe --parallel 3 2>&1 | Tee-Object build/windows-renderer-build.log
           if ($LASTEXITCODE) { throw 'Native renderer compilation failed' }
+      - name: Actual LibWeb protocol response bodies and abort lifecycle
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-protocol-fetch --parallel 3 2>&1 | Tee-Object build/windows-renderer-protocol-fetch.log
+          if ($LASTEXITCODE) { throw 'Native LibWeb protocol response acceptance failed' }
       - name: Actual LibJS DOM, absent Node privileges and compositor PNG
         shell: pwsh
         run: |

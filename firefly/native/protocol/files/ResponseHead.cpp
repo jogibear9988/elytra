@@ -1,6 +1,5 @@
 /** Versioned exact schema, byte-preserving HTTP values and bounded metadata validation. */
 #include "ResponseHead.h"
-#include "FileBody.h"
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>

@@ -132,6 +132,12 @@ concurrent-budget tests. Renderer request admission/binding, response applicatio
 and public handler dispatch remain open; this
 does not yet load Code-OSS resources or resolve its protocol import.
 
+The [LibWeb response adapter](../architecture/0116-libweb-protocol-responses.md)
+now passes a local non-GUI real-file-to-ReadableStream gate with bounded credit,
+GC and actual FetchController/reader cancellation. URL dispatch, live helper/
+document binding and public handler/session APIs are still missing. This does not
+yet load the workbench or establish JavaScript fetch compatibility.
+
 Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |

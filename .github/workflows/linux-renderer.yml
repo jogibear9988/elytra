@@ -140,6 +140,10 @@ jobs:
         run: |
           set -o pipefail
           cmake --build build/linux-renderer --target check-firefly-protocol-origins --parallel 3 2>&1 | tee build/linux-renderer-protocol-origins.log
+      - name: Actual LibWeb protocol response bodies and abort lifecycle
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-protocol-fetch --parallel 3 2>&1 | tee build/linux-renderer-protocol-fetch.log
       - name: Native realm isolation and cross-process wire gates
         run: |
           set -o pipefail

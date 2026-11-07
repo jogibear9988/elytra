@@ -1,6 +1,6 @@
 /** Versioned response frames correlate bounded metadata/body/control with one native owner. */
 #pragma once
-#include "FileBody.h"
+#include "Limits.h"
 #include <AK/ByteBuffer.h>
 
 namespace Firefly::Protocols {

@@ -1,5 +1,6 @@
 /** Internal file-response metadata. No path or native file capability crosses this boundary. */
 #pragma once
+#include "Limits.h"
 #include <AK/ByteString.h>
 #include <AK/Error.h>
 #include <AK/Span.h>
@@ -7,9 +8,6 @@
 #include <LibHTTP/Header.h>
 
 namespace Firefly::Protocols {
-inline constexpr size_t response_head_limit = 32 * 1024;
-inline constexpr size_t response_header_limit = 64;
-
 struct ResponseHead {
     u32 request;
     u64 content_length;

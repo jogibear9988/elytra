@@ -85,3 +85,8 @@ or change existing renderer file permissions.
 
 See [ADR 0114](../../../../docs/architecture/0114-file-response-metadata.md) for the
 wire and ownership decision.
+
+The [LibWeb response adapter](../../../../docs/architecture/0116-libweb-protocol-responses.md)
+now consumes frames into actual engine pending responses and bounded body streams.
+Its non-GUI component test reads real files and exercises controller/reader abort.
+This does not yet connect URL dispatch or a live renderer request service.

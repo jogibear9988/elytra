@@ -131,6 +131,7 @@ if(APPLE)
         DEPENDS firefly
                 check-firefly-protocol-origins
                 check-firefly-protocol-files
+                check-firefly-protocol-fetch
                 check-firefly-protocol-renderer
                 firefly-chrome-probe
                 firefly-screen-probe

@@ -1,5 +1,6 @@
 /** Bounded regular-file response body. Trusted main code authorizes the path before opening. */
 #pragma once
+#include "Limits.h"
 #include <AK/ByteBuffer.h>
 #include <AK/NonnullOwnPtr.h>
 #include <AK/StringView.h>
@@ -7,9 +8,6 @@
 
 namespace Firefly::Protocols {
 // Read into byte-channel sized chunks, never a whole-file JSON/string snapshot.
-inline constexpr size_t file_chunk_limit = 64 * 1024;
-inline constexpr u64 file_size_limit = 64ull * 1024 * 1024 * 1024;
-
 class FileBody final {
     AK_ALLOC_WITH_KMALLOC;
     AK_MAKE_NONCOPYABLE(FileBody);
