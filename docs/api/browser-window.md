@@ -21,7 +21,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
-| webPreferences.sandbox | true only |
+| webPreferences.sandbox | true by default; boolean false is overridden after early [app.enableSandbox()](app.md#appenablesandbox), otherwise explicitly rejected |
 | webPreferences.preload | Absolute path to a bounded UTF-8 CommonJS preload; see [preload/contextBridge](context-bridge.md) |
 
 Unknown window/preferences options and unsafe preference values throw

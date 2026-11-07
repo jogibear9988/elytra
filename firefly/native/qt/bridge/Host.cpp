@@ -5,6 +5,7 @@
 #include "../../menu/Host.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
+#include "../../sandbox/policy/Host.h"
 #include "../../tracing/Host.h"
 #include "../../window/Geometry.h"
 #include "../ChromeWindow.h"
@@ -16,6 +17,7 @@
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibURL/Parser.h>
+#include <LibWebView/Application.h>
 #include <LibWebView/WebContentPage.h>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -35,6 +37,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_clipboard_host(realm, *host);
     CrashReporting::install_host(realm, *host);
     Tracing::install_host(realm, *host, tracing);
+    SandboxPolicy::install_host(realm, *host, sandbox, [] {
+        return WebView::Application::browser_options().disable_sandbox
+            == WebView::DisableSandbox::No;
+    });
     install_menu_host(realm, *host, *application_menu);
     Protocols::install_registration_host(realm, *host);
     Protocols::install_file_route_host(
@@ -106,6 +112,11 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "create"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            // Independently enforce native launch policy before preload I/O/window creation.
+            auto native_enabled = WebView::Application::browser_options().disable_sandbox
+                == WebView::DisableSandbox::No;
+            if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
+                return SandboxPolicy::fail(vm, *failure);
             auto title = TRY(vm.argument(2).to_utf16_string(vm));
             auto preload = TRY(read_preload(vm));
             auto id = create(TRY(vm.argument(0).to_i32(vm)), TRY(vm.argument(1).to_i32(vm)),

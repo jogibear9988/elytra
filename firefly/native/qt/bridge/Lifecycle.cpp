@@ -61,6 +61,7 @@ void Bridge::Impl::stop()
     stopping = true;
     set_preload_configurator({});
     set_native_ipc_handler({});
+    sandbox.stop();
     tracing.reset();
     stop_protocols();
     if (application_menu)

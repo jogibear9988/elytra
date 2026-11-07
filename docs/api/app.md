@@ -34,6 +34,7 @@ window/load/quit trace and the [example guide](../examples/lifecycle.md) to run 
 | [whenReady()](#appwhenready) | Promise<void> | Implemented shared readiness promise |
 | [quit()](#appquit) | undefined | Partial cancellable application shutdown |
 | [exit([exitCode])](#appexitexitcode) | undefined | Partial forced shutdown |
+| [enableSandbox()](#appenablesandbox) | undefined | Early native global sandbox requirement; overrides boolean per-window sandbox:false |
 | [getPath(name)](#crash-report-directory) | string | crashDumps only |
 | [setPath(name, path)](#crash-report-directory) | undefined | Existing absolute crashDumps directory before native initialization |
 | [commandLine](command-line.md) | Native singleton | Real launch-switch observation, before-ready lang changes and startup-only CPU painting |
@@ -244,6 +245,56 @@ The same event instance is delivered synchronously to listeners for that emissio
 Only before-quit/will-quit consume its cancellation flag. It is not the complete
 Electron Event type: sender/frame/native-message properties are absent. Prefer
 preventDefault over assigning fields, and keep cancellation before the first await.
+
+## app.enableSandbox()
+
+**Parameters:** none. **Returns:** undefined, synchronously. Extra arguments are
+ignored; they cannot disable enforcement. Call at the entry's top level before
+readiness. Repeated early calls are supported; there is no disabling counterpart.
+
+```js
+import {app, BrowserWindow} from 'firefly';
+app.enableSandbox();
+app.whenReady().then(() => {
+  const window = new BrowserWindow({webPreferences: {sandbox: false}});
+  // Global policy keeps the actual renderer sandboxed despite the local false.
+});
+```
+
+Firefly already uses Ladybird's native renderer sandbox by default. This call
+verifies the actual native helper launch configuration and latches a global
+requirement. After success, boolean sandbox:false in BrowserWindow preferences
+is overridden. The caller's preference object is unchanged; no weaker sandbox
+mode is created. Without the global call, sandbox:false still fails explicitly.
+
+Native window creation independently verifies readiness and enabled native sandbox
+launch policy before reading a preload or creating a window. No success is reported
+if the underlying native option disables sandboxing. The JS override is set only
+after the native operation succeeds. There is no renderer/preload app export or
+new privileged page API. The main process itself is not sandboxed by this method.
+
+The native boundary seals when readiness is scheduled; even a call made just before
+observing the queued ready event can be too late. Late calls throw
+ERR_FIREFLY_SANDBOX_TOO_LATE, native disabled-policy mismatches throw
+ERR_FIREFLY_SANDBOX_DISABLED, and calls after exit use ERR_FIREFLY_APP_EXITED.
+Global enforcement does not enable unsupported nodeIntegration:true or
+contextIsolation:false. Those requests and nonboolean sandbox values remain
+explicit ERR_FIREFLY_UNSUPPORTED_API failures. The restriction is a deliberate
+partial-API difference from the broader Electron preference surface.
+
+Local macOS acceptance uses one hidden public window with sandbox:false, validates
+its actual preload/page isolation, and independently queries Seatbelt activation
+for its checked native PID. Linux CI requires NoNewPrivs/seccomp kernel evidence
+for the owned renderer; fresh execution remains required. These are sandbox-
+activation checks, not a complete permissions/escape audit or native Windows claim.
+process.sandboxed and broader window types are not implemented by this slice.
+
+```sh
+cmake --build build/renderer --target check-firefly-enable-sandbox --parallel 3
+```
+
+See [ADR 0132](../architecture/0132-global-sandbox-policy.md). The API baseline is
+[Electron app.enableSandbox](https://www.electronjs.org/docs/latest/api/app#appenablesandbox).
 
 ## EventEmitter methods
 

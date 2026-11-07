@@ -25,6 +25,7 @@ int Bridge::pump_jobs()
 
 void Bridge::ready()
 {
+    m_impl->sandbox.ready();
     m_impl->enqueue(0, "ready");
 }
 }

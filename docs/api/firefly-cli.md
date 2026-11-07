@@ -72,7 +72,7 @@ Whole flagged application archives still need separate platform acceptance.
 The actual pinned Code-OSS entry now advances through cache setup and 'electron'
 resolution in the Firefly host; with the frozen root production dependencies, its current diagnostic fails on
 unsupported Chromium enable-features (exit 1) without the engine overlay. The explicit
---libjs-engine application adaptation advances to missing app.enableSandbox (exit 1),
+--libjs-engine application adaptation advances to unsupported app.setPath('userData', ...) (exit 1),
 after passing the registerHooks/promisify imports. That is an incomplete startup trace,
 not a desktop launch. See the [dependency preparation guide](../guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies). See
 [Code-OSS support](../compatibility/vscode.md) and [ADR 0107](../architecture/0107-electron-import-policy.md).

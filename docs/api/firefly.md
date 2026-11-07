@@ -40,6 +40,7 @@ app is an EventEmitter.
 | --- | --- |
 | `app.isReady()` | boolean |
 | `app.whenReady()` | Shared Promise resolved at ready |
+| [app.enableSandbox()](app.md#appenablesandbox) | Before-ready native global requirement; boolean per-window sandbox:false is overridden |
 | `app.quit()` | Request normal quit; cancellable before-quit, window close and will-quit |
 | `app.exit([exitCode = 0])` | Force exit without normal close cancellation; signed int32 code |
 
@@ -75,10 +76,10 @@ in 1..16384. frame:false removes the native title bar; [custom chrome](browser-w
 uses Electron app-region CSS with documented adapter limits. Only the options
 shown, frame, x/y, useContentSize and an absolute CommonJS preload path are supported.
 Geometry now distinguishes outer and client dimensions; see [window geometry](browser-window.md#outer-and-content-geometry).
-The three boolean
-webPreferences values can only request their safe defaults. nodeIntegration true,
-sandbox false, contextIsolation false and other options explicitly reject with
-ERR_FIREFLY_UNSUPPORTED_API. See [preload/contextBridge](context-bridge.md) for
+nodeIntegration true and contextIsolation false explicitly reject with
+ERR_FIREFLY_UNSUPPORTED_API. Boolean sandbox false is overridden after early
+app.enableSandbox(); otherwise it also rejects. Global enforcement preserves the
+native sandbox and does not mutate the caller's preferences. See [preload/contextBridge](context-bridge.md) for
 source limits, navigation policy and remaining differences.
 
 | Member | Behavior |

@@ -1447,6 +1447,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
   let ready = false;
   let quitting = false;
   let exited = false;
+  let sandboxRequired = false;
   let resolveReady;
   const readyPromise = new Promise((resolve) => {
     resolveReady = resolve;
@@ -1458,6 +1459,19 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
     }
   });
   class App extends EventEmitter {
+    enableSandbox() {
+      if (exited) {
+        throw error("ERR_FIREFLY_APP_EXITED", "Application has exited");
+      }
+      if (ready) {
+        throw error(
+          "ERR_FIREFLY_SANDBOX_TOO_LATE",
+          "enableSandbox must be called before readiness"
+        );
+      }
+      native.enableSandbox();
+      sandboxRequired = true;
+    }
     getPath(name) {
       if (typeof name !== "string") {
         throw error("ERR_INVALID_ARG_TYPE", "Path name must be a string");
@@ -1711,6 +1725,9 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
         }
         if (!["contextIsolation", "nodeIntegration", "sandbox"].includes(key)) {
           unsupported(`webPreferences.${key}`);
+        }
+        if (key === "sandbox" && sandboxRequired && typeof prefs[key] === "boolean") {
+          continue;
         }
         if (prefs[key] !== (key !== "nodeIntegration")) {
           unsupported(`webPreferences.${key}=${prefs[key]}`);

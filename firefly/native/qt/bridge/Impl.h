@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "../../menu/ApplicationMenu.h"
+#include "../../sandbox/policy/Policy.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "native/protocol/routes/Files.h"
@@ -74,6 +75,7 @@ struct Bridge::Impl {
     size_t ipc_pending_count { 0 };
     std::unique_ptr<ApplicationMenu> application_menu;
     Tracing::Recorder tracing;
+    SandboxPolicy::Policy sandbox;
     RefPtr<Protocols::FileRoutes> protocols;
     RefPtr<Core::Timer> protocol_timer;
 

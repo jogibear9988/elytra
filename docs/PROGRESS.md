@@ -8180,6 +8180,51 @@ then continue app paths/locales and protocol privileges from actual startup erro
 Renderer/workbench, native services/auxiliary hosts, Windows desktop and the full
 original specification remain unfinished; the goal remains active.
 
+## 2026-11-08: Require the native renderer sandbox through app.enableSandbox
+
+- Add a main-owned native sandbox policy with early/idempotent enable, native
+  readiness sealing, stopped-state refusal and launch-policy mismatch errors.
+  Verify the actual BrowserOptions sandbox setting and independently recheck it
+  before trusted window creation/preload I/O. Keep the existing default sandbox
+  mandatory even without a global call. No unsandboxed fallback is introduced.
+- Expose app.enableSandbox on the real main singleton/aliases. Set the JS global
+  requirement only after native success; override boolean sandbox:false without
+  modifying caller preferences. Keep nonboolean sandbox requests, Node integration
+  and context-isolation weakening explicitly unsupported. No renderer/preload app
+  export, fabricated process.sandboxed or main-process sandbox is added.
+- Reuse Ladybird's actual OS sandbox/bootstrap/profile unchanged. Keep the native
+  lifecycle policy independent of Qt/LibWeb and avoid any new standalone Mite
+  graphical dependency. Add exact native/JS policy tests and one public hidden-
+  window acceptance fixture with authored ESM/bundled isolated preload.
+- Independently inspect the actual owned renderer after PID ancestry checks. Require
+  sandbox launch flags to remain enabled and inspect OS state outside the page:
+  macOS null-operation sandbox_check reports owned main 0 / renderer 1; Linux's
+  hosted gate requires NoNewPrivs and additional seccomp filters over the main.
+  The private macOS query exists only in tests and is sourced in ADR 0132.
+  Validate the real frozen preload bridge/page privilege absence and acknowledge
+  external inspection before shutdown instead of racing an arbitrary sleep.
+- Require native/public gates in macOS aggregate and Linux Xvfb checks. Refresh
+  app/BrowserWindow/general API, compatibility, Code-OSS/status/roadmap and ADR 0132.
+
+Validation: macOS Release build, native latch/phase/mismatch/stop tests and actual
+Node/Mite factory policy pass. Public default-mode rejection, early/repeated enable,
+late-call refusal, sandbox:false override, unchanged preferences, actual preload/
+page isolation and independent owned-renderer Seatbelt activation pass. Existing
+real menu-host/contentTracing gates and Node/Mite window geometry policy remain
+green. Source style, generated JS freshness, unmodified Ladybird pin and whitespace
+checks pass. Site validation passes (236 pages / 16,685 local links/resources/
+fragments). Only the one targeted hidden-window fixture ran; no broad desktop suite
+or physical UI automation was used. Fresh Linux kernel acceptance and Windows
+desktop remain required; this is not an exhaustive sandbox-permission/escape audit.
+
+The actual Code-OSS entry with the explicit engine overlay now passes its unchanged
+app.enableSandbox call and fails at app.setPath('userData', ...) with
+ERR_FIREFLY_UNSUPPORTED_API (exit 1), recorded in build/code-oss-sandbox-entry.log.
+Next implement real app paths/userData and demanded locale/main/protocol services,
+then rerun the actual entry. Renderer/workbench, broader APIs, native auxiliary
+hosts/platform packaging and the original full specification remain unfinished;
+the full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

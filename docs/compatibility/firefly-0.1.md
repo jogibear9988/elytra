@@ -25,6 +25,7 @@ it does not establish complete containment, screen/theme services or packaging.
 | Custom window chrome | partial | frame:false, top-document app-region/-webkit-app-region drag/no-drag CSS adapter; native drag/exclusion/double-click and actual LibWeb style/layout tests pass. Stylesheet/geometry/polling limits in ADR 0055; inline/shadow/frame/CSP/zoom/native resize parity remain incomplete |
 | `webContents`, loadFile/loadURL | partial | Shared object, URL/title/PID access, did-finish-load and load promise; local files and an actual Mite HTTP server tested; file/connect errors and renderer-crash event tested; redirects, fragment navigation, overlapping loads and full error shapes need work |
 | Renderer browser modules | partial | External local static/dynamic ESM, live bindings/cache, Unicode paths, navigation, MIME/CSP and absent native imports tested against actual Electron. HTTP modules have Designer evidence. [Scope and file policy](../guides/renderer-modules.md); workers/full module types remain unverified |
+| app.enableSandbox | partial | Native early global requirement and actual sandbox:false override pass local macOS, with checked owned renderer Seatbelt state. Node-integration/context-isolation weakening remains unsupported; fresh Linux kernel acceptance required. [Contract](../api/app.md#appenablesandbox) |
 | Renderer capability defaults | partial | No process/require/Buffer/Mite globals, node:fs import denied in shared HTML fixture; this is not a full sandbox/IPC security audit |
 | `ipcMain`, `ipcRenderer` | partial | Native invoke/handle/handleOnce/removeHandler, early preload requests, mutable plain-data graphs, sender ownership, adversarial input, pending limits and navigation/closure tests pass; one-way/sync/port/subframe IPC and full clone types remain unsupported. [Contract](../api/ipc.md) |
 | preload, `contextBridge` | partial | Bounded top-level CommonJS preloads and frozen data/function APIs; first-script, navigation, process replacement and failure controls pass. [Contract and differences](../api/context-bridge.md); fixed invoke actions can call main-process handlers |
@@ -48,7 +49,8 @@ main/preload subsets; default resolution and unsupported exports stay unchanged.
 Standalone Mite does not register or depend on Firefly.
 Only width, height, x/y, useContentSize, title, show, frame, absolute CommonJS preload and the secure
 default webPreferences settings are accepted. Unknown options, nodeIntegration=true,
-contextIsolation=false or sandbox=false fail explicitly. Dimensions are restricted
+contextIsolation=false fails explicitly. sandbox=false fails unless early global
+app.enableSandbox overrides it while preserving native sandboxing. Dimensions are restricted
 to integer values in 1..16384. Extra load options are not implemented. The
 contextIsolation setting requires the implemented isolated preload world; it cannot
 be disabled. Native ES module preloads remain unsupported; bundle authored ESM
