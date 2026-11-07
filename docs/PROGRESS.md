@@ -5801,6 +5801,35 @@ Validation: actionlint and diff checks pass; 182 site pages and 12,581 local
 links/resources/fragments pass. Native compiled-component acceptance is pending; local parser/refusal checks are not a
 substitute. No local desktop UI starts. Goal active.
 
+## 2026-11-07: Prove real native ELF closure staging and relocated execution
+
+- Independent [package-component run 42348028753](https://github.com/jogibear9988/elytra/actions/runs/42348028753)
+  at 209f64e/job 128329923480 completes successfully. Authoritative logs record
+  Ubuntu Clang 22.1.8 and patchelf 0.18.0, actual transitive ELF closure and
+  main/helper execution after relocation with the original build paths removed.
+- The unchanged native fixture asserts two physical shared libraries for both
+  executables, source-build hash preservation, exact program output and packaged
+  hashes. Absolute/relative original RUNPATH discovery, missing-library failure,
+  content collisions, external inputs, hardlinks/tampered copies and existing
+  lib/ refusal all pass. This is compiled Linux proof, not the local parser mock.
+- Update the component guide, ADR 0094 and Linux bring-up guide with that scoped
+  evidence. Retain unfinished whole-app resource/plugin/license/launcher/archive
+  and actual Firefly/Designer package gates. Do not publish or advertise a Linux
+  app release from the synthetic C/DSO fixture.
+- Linux renderer/application source 85557be run 42345846818/job 128323290945
+  is now terminal success, including real X11 geometry/clipboard and the relocated
+  public Firefly app with live renderer/kernel ownership checks. It validates
+  that earlier source, not the later native-bridge/world-policy/TCP refactors.
+  Correct ADR 0093's stale pending label using already-proven 19ad113 evidence.
+- Optimized/shared-provider macOS run 42345882824 remains authoritatively live
+  under its original native/package gates. Keep it; no age/observation restart.
+
+Validation: native component workflow, local guards, formatting and actionlint
+pass; 182 site pages and 12,582 local links/resources/fragments pass. No local GUI or loader/patcher invocation occurs.
+The original complete specification stays active: full Linux distributions/apps,
+Windows desktop and remaining Node/Electron/OS/platform work are unfinished.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

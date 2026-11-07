@@ -1,6 +1,8 @@
 # ADR 0093: Native Linux application integration after renderer probes
 
-Status: implemented integration candidate; native Linux end-to-end acceptance pending.
+Status: scoped native X11 application acceptance passes at `19ad113` in
+[run 42316853517](https://github.com/jogibear9988/elytra/actions/runs/42316853517).
+General Linux desktop, OS-service completeness and distributable packages remain unfinished.
 
 The Linux renderer path already selects native LibWeb processes, Linux sandbox
 sources and an owned resource layout. The application target previously stopped

@@ -37,7 +37,10 @@ The fixture builds real transitive DSOs and two executable layouts, checks share
 library deduplication/source preservation, moves the package, removes the original
 build paths and executes both programs. Missing libraries, content collisions and
 unsafe staging inputs must fail. This native gate runs in an independent Linux package-component workflow and before the large
-renderer build; its first hosted result remains pending.
+renderer build. Native [run 42348028753](https://github.com/jogibear9988/elytra/actions/runs/42348028753)
+at `209f64e` passes on Ubuntu 24.04 x64 with Clang 22.1.8 and patchelf 0.18.0:
+real relocation/deduplication, both executions and refusal cases succeed.
+This is component acceptance, not a Linux app package.
 
 For host/parser refusal checks only, without loader execution or GUI:
 

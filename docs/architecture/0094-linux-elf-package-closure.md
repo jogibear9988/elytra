@@ -1,7 +1,9 @@
 # ADR 0094: Linux ELF package dependency closure
 
-Status: component implemented; first hosted native acceptance pending. Full
-Firefly/Designer Linux packaging remains unfinished.
+Status: native component acceptance passes at `209f64e` in
+[run 42348028753](https://github.com/jogibear9988/elytra/actions/runs/42348028753), job 128329923480, on Ubuntu 24.04 x64
+with Clang 22.1.8/patchelf 0.18.0. Full Firefly/Designer Linux packaging remains
+unfinished.
 
 ## Context
 

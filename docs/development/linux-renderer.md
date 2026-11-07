@@ -386,7 +386,9 @@ hardlinked/tampered staging inputs are refused.
 The native CI fixture compiles real transitive shared libraries and two binary
 layouts, moves the staged package and removes the original source locations
 before executing them. It is a packaging component gate, not a substituted
-Firefly/Designer acceptance. Its first native result is pending. A complete
+Firefly/Designer acceptance. The actual compiled component fixture passes at
+`209f64e` in [run 42348028753](https://github.com/jogibear9988/elytra/actions/runs/42348028753)
+with Clang 22.1.8/patchelf 0.18.0. A complete
 Linux packager still must supply application/resources, explicit dlopen plugins,
 licenses/notices, launcher/archive formats and native packaged-application gates.
 No Linux release artifact is advertised from this component alone.
