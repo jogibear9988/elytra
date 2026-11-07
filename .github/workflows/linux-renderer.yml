@@ -176,7 +176,7 @@ jobs:
         run: |
           set -o pipefail
           python tooling/build_renderer.py --build-dir build/linux-renderer --target firefly --configure-only --ccache --baseline-cpu --jobs 3 2>&1 | tee build/linux-renderer-runtime-configure.log
-          cmake --build build/linux-renderer --target firefly firefly-linux-environment-probe --parallel 3 2>&1 | tee build/linux-renderer-runtime-build.log
+          cmake --build build/linux-renderer --target firefly firefly-linux-environment-probe check-firefly-protocol-registration --parallel 3 2>&1 | tee build/linux-renderer-runtime-build.log
           python tooling/firefly_dependencies.py --check build/linux-renderer/firefly-manifest --linux
           ldd build/linux-renderer/bin/firefly
           ldd build/linux-renderer/firefly-runtime/bin/WebContent
@@ -200,6 +200,7 @@ jobs:
           set -o pipefail
           ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
+          xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_protocol_registration.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-protocol-host.log
       - name: Actual opt-in Electron import alias and isolated preload policy
         env:
           QT_QPA_PLATFORM: xcb

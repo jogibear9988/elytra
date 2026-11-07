@@ -71,6 +71,6 @@ Whole flagged application archives still need separate platform acceptance.
 
 The actual pinned Code-OSS entry now advances through cache setup and 'electron'
 resolution in the Firefly host; with the frozen root production dependencies, its current diagnostic fails on
-missing Electron protocol (exit 1), after passing the registerHooks/promisify imports. That is an incomplete startup trace,
+missing Electron crashReporter (exit 1), after passing the registerHooks/promisify imports. That is an incomplete startup trace,
 not a desktop launch. See the [dependency preparation guide](../guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies). See
 [Code-OSS support](../compatibility/vscode.md) and [ADR 0107](../architecture/0107-electron-import-policy.md).

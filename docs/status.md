@@ -29,7 +29,7 @@ stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
 Firefly-host probe passes the registerHooks/promisify imports and reaches missing
-Electron protocol (exit 1).
+Electron crashReporter (exit 1); the partial protocol export now resolves.
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
 the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
@@ -51,9 +51,10 @@ The [shared Rust/native origin entry](architecture/0113-shared-rust-origin-polic
 now passes the strict local macOS headless DOM gate for diagnostic and production
 helpers, including IDNA/IPv6, ports, relative origins and default denial. The C++
 URL::origin override is removed. Cargo source selection, explicit freshness and
-actual dependency outputs are checked. Public protocol, standard parsing,
-registration timing/worker propagation and resource transport remain unfinished.
-Code-OSS still fails at the protocol import; no desktop launch is claimed.
+actual dependency outputs are checked. Public origin registration is now available
+as the subset described below. Complete standard parsing, worker propagation and
+public resource/session contracts remain unfinished. Code-OSS stops at the missing
+crashReporter export; no desktop launch is claimed.
 
 The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
@@ -62,17 +63,18 @@ now transfers checked MIME/length and ordered HTTP header bytes before the body.
 Native request owners now bound pending jobs, preserve epoch/ID/offset correlation
 and revoke their files/credit on terminal paths. The framed native-child gate and
 concurrent quota/deadline checks pass locally. Actual renderer request/document
-binding, response application, authorized handler integration and public protocol
-remain unfinished.
+binding and response application are now covered by the live helper gates below.
+Public authorized handler integration remains unfinished.
 
 The [LibWeb protocol response adapter](architecture/0116-libweb-protocol-responses.md)
 passes local actual pending-response/body-stream tests with real checked files,
 GC, credit and controller/reader cancellation. The next
 [scheme-fetch seam](architecture/0117-native-scheme-fetch-dispatch.md) also passes
 actual JavaScript fetch/arrayBuffer, HEAD and AbortController against real files
-in the same-process native fixture. Product helpers install no provider yet.
-Live helper/document admission, navigation and public protocol remain open; this
-is not a Code-OSS launch or new platform acceptance.
+in the same-process native fixture. The live helper/document/navigation gates
+below now cover trusted native admission; helpers grant no capability by default.
+Public resource handlers remain open. This is not a Code-OSS launch or new platform
+acceptance.
 
 The [native resource request service](architecture/0118-native-resource-request-service.md)
 now passes a local macOS real parent/child URL-request, credit and file-response gate.
@@ -109,7 +111,10 @@ channel retirement. The [exact-document resource handoff](architecture/0123-live
 now also loads external ESM/CSS and binary GET/HEAD through that real production
 helper, with wrong-ID/missing/duplicate controls and revocation on navigation.
 These are internal native probes; the ordinary main bridge still has no public
-protocol/session authorizer or automatic document grants. No Code-OSS workbench
+resource/session authorizer or automatic document grants. Partial public
+[protocol scheme registration](api/protocol.md) now publishes the native origin
+table; unsupported privileges fail explicitly. Actual Code-OSS import advances
+to missing crashReporter (exit 1). No Code-OSS workbench
 launch or new platform support follows from these gates.
 
 The CPU-corrected **1d033fe** Linux renderer passes

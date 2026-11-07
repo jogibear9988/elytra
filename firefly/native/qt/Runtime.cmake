@@ -16,6 +16,27 @@ add_custom_target(
             "${VCPKG_MANIFEST_DIR}" ${firefly_runtime_dependency_args}
     VERBATIM)
 add_dependencies(firefly-mite check-firefly-dependencies)
+# Main-origin registration uses LibJS/LibURL only; its acceptance must not need Qt windows.
+add_executable(
+    firefly-protocol-registration-probe
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/RegistrationProbe.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp")
+target_include_directories(firefly-protocol-registration-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-protocol-registration-probe PRIVATE firefly-mite LibURL)
+add_custom_target(
+    check-firefly-protocol-registration
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/registration.mjs" publish
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/registration.mjs" empty
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/registration.mjs" ready
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/registration.mjs" sealed
+    DEPENDS firefly-protocol-registration-probe
+    VERBATIM)
+
 file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/api.js" FIREFLY_API_SOURCE)
 set_property(
     DIRECTORY
@@ -72,6 +93,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
     ${firefly_native_services}
@@ -89,6 +111,14 @@ if(NOT APPLE)
 endif()
 add_dependencies(firefly ladybird ${ladybird_helper_processes} check-firefly-upstream)
 ladybird_check_skia_confinement(firefly)
+add_custom_target(
+    check-firefly-protocol-host
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_registration.py"
+        --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+
 if(APPLE)
     set(FIREFLY_ELECTRON_REFERENCE
         "${FIREFLY_SOURCE_DIR}/build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
@@ -132,6 +162,8 @@ if(APPLE)
                 check-firefly-protocol-origins
                 check-firefly-protocol-files
                 check-firefly-protocol-fetch
+                check-firefly-protocol-registration
+                check-firefly-protocol-host
                 check-firefly-protocol-renderer
                 check-firefly-resource-renderer
                 firefly-chrome-probe

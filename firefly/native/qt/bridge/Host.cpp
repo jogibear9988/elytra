@@ -1,6 +1,7 @@
 /** Install trusted main-process bindings; preload/renderer code never receives this host object. */
 #include "../../clipboard/ClipboardHost.h"
 #include "../../platform/DesktopServices.h"
+#include "../../protocol/RegistrationHost.h"
 #include "../../window/Geometry.h"
 #include "../ChromeWindow.h"
 #include "Impl.h"
@@ -28,6 +29,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     install_clipboard_host(realm, *host);
+    Protocols::install_registration_host(realm, *host);
     host->define_native_function(
         realm, "setHandler"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

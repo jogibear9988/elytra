@@ -2,14 +2,15 @@
 
 OriginPolicy supplies native custom origin identity and LibWebCommon's matching
 potentially-trustworthy decision. OriginConfig validates and delivers a declared
-parent snapshot before the owned renderer helper bootstrap. This is internal
-infrastructure, not an exported protocol object or a custom resource handler.
+parent snapshot before the owned renderer helper bootstrap. The main-only
+RegistrationHost binding now connects the partial public protocol registration
+API to this table. Custom resource handlers remain unimplemented.
 
 The policy starts empty. Native code may install one immutable bounded table
 before the first WebContent launch. Launching even an unconfigured helper seals
 the empty policy, without adding a private option, and rejects later registration.
-This prevents mismatched prelaunched/new helpers. No JavaScript, page, preload or
-environment API configures the table.
+This prevents mismatched prelaunched/new helpers. Only the trusted main-process
+registration API can configure it; pages, preloads and environment variables cannot.
 
 When the native parent has declared a policy, its actual WebContent process launch
 adds --firefly-origin-policy=JSON. Only the owned helper entry consumes it, before
@@ -33,7 +34,8 @@ the canonical C++ policy through an existing borrowed FfiOrigin callback ABI.
 The earlier C++ URL::origin override is removed. The DOM getter remains upstream;
 other Rust extraction callers receive the same policy. The pinned Rust parser
 still has no custom-standard extension: complete parsing/mutation behavior remains
-open. Public protocol remains absent and Code-OSS still fails at that import.
+open. Public protocol exposes only origin registration; Code-OSS now passes that
+named import and fails at missing crashReporter. No resource routing/startup pass.
 
 Targets.cmake composes three fingerprinted C++ translation units for trust, shared
 fetch classification and helper launch. The owned Rust build driver selects guarded root/module/origin compositions,

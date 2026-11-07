@@ -72,9 +72,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 ## Firefly
 
-Public protocol remains absent. The internal [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
-now includes native owned-helper configuration, but does not provide resource
-handlers or application scheme registration. The shared native/Rust DOM origin
+The partial [protocol API](protocol.md) now publishes application scheme origin
+registration through the [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
+and native owned-helper configuration. Public resource handlers remain unavailable. The shared native/Rust DOM origin
 gate now passes locally on macOS; see [ADR 0113](../architecture/0113-shared-rust-origin-policy.md).
 
 The [original-fs reference](original-fs.md) describes raw main-process filesystem
@@ -85,7 +85,8 @@ webContents, events and errors. Firefly embeds Mite in its main process and uses
 separate Ladybird renderer processes. Detailed entries: [app](app.md),
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
 [preload/contextBridge](context-bridge.md), [ipcMain/ipcRenderer](ipc.md) and
-[screen](screen.md), [clipboard/ClipboardItem](clipboard.md) and [nativeTheme](native-theme.md).
+[screen](screen.md), [clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md)
+and [protocol](protocol.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

@@ -20,8 +20,10 @@ async function run() {
     check(imported.app === app && imported.BrowserWindow === BrowserWindow, 'Named host exports');
     check(require.resolve('electron') === 'electron', 'Host alias wins over npm');
     check(
-      !('protocol' in imported) && legacy.protocol === undefined,
-      'Unsupported APIs remain unavailable'
+      imported.protocol === firefly.protocol &&
+        legacy.protocol === firefly.protocol &&
+        !('Menu' in imported),
+      'Partial protocol export is shared; unsupported Menu remains unavailable'
     );
   } else {
     check(

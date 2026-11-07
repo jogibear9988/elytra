@@ -1,4 +1,5 @@
 /** Main-process desktop API and native-window lifecycle policy. */
+import createProtocol from './protocol/index.mjs';
 import createMainIpc from './ipc-main.mjs';
 import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
@@ -93,6 +94,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const protocol = createProtocol(native, () => ready, error, unsupported);
   const screens = createScreen(native, EventEmitter, () => ready, error, unsupported);
   const { clipboard, ClipboardItem } = createClipboard(native, error, unsupported);
   const theme = createTheme(native, EventEmitter, error);
@@ -510,6 +512,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
 
   return {
     app,
+    protocol,
     BrowserWindow,
     ipcMain,
     screen: screens.screen,

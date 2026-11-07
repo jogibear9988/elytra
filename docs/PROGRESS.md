@@ -7806,6 +7806,48 @@ Code-OSS main entry and follow its next failure. The ordinary main bridge still
 installs no public authorizer or automatic grants. No Code-OSS workbench launch is
 accepted. Full original specification goal remains active.
 
+## 2026-11-07: Publish partial main-process protocol origin registration
+
+- Export one protocol singleton through actual Firefly main ESM/CommonJS and the
+  explicit Electron alias. Maintain its implementation in a commented ESM module;
+  regenerate pinned native adapters. Expose registerSchemesAsPrivileged with
+  standard/secure origin flags; reject requested unimplemented privileges and
+  secure nonstandard origins, unknown options/types/names and duplicate schemes.
+  Validate the whole batch before publication; failed input consumes no state.
+- Add a private LibJS/LibURL registration binding that independently validates the
+  existing bounded native schema and publishes the original immutable process
+  table. Preserve native once-only/helper-launch sealing plus public pre-readiness
+  checks. No file route, response handler, session or automatic document grant is
+  created. No registration API reaches renderer/preload, standalone Mite or vendor.
+- Add a real Mite/LibJS/native URL registration gate without Qt/LibWeb. Exercise
+  valid/empty/late/sealed processes, atomic batch refusal, native malformed/budget/
+  type refusal, real secure/normalized/opaque origins, owned helper snapshots and
+  second-factory native refusal. Add actual Firefly main ESM/CommonJS registration/
+  readiness acceptance without a BrowserWindow. Update the existing alias fixture
+  to require the new shared export while retaining unsupported Menu absence.
+- Require both gates in macOS Release. Configure experimental Linux's runtime
+  before running its native binding gate; exercise the main host with Xvfb only
+  after runtime compilation. Add ADR 0124, detailed public API and updated current
+  startup/support/roadmap references.
+
+Validation: local macOS Release native registration (four modes), actual Firefly
+main-host singleton/registration/readiness and Node/Mite geometry regressions pass;
+Firefly compiles. Full source style, generated-adapter freshness and upstream checks
+pass; site validation passes (223 pages / 15,750 local links/resources/fragments).
+Actual pinned Code-OSS main with frozen root production modules
+now resolves protocol and fails on missing crashReporter (exit 1). This is import
+link progress, not execution of Code-OSS's registration call or desktop startup.
+That call also asks for still-unsupported ServiceWorker/CORS/fetch/cache privileges.
+No BrowserWindow was created. The minimal Qt SDK has no offscreen plugin; its
+unsupported-plugin refusal was observed, then the actual shipped native starter
+was used. Fresh hosted Linux execution remains required; no Windows desktop claim.
+
+Next connect real public resource/session handlers and automatic navigation/document
+grants to the native paths; implement demanded privileges and main services/imports,
+including crashReporter/Menu/contentTracing, based on actual Code-OSS requirements.
+Keep explicit refusals instead of fake exported objects or silent privilege no-ops.
+No workbench launch is accepted. Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
