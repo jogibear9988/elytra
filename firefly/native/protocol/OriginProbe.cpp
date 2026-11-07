@@ -5,6 +5,7 @@
 #include <AK/Vector.h>
 #include <LibMain/Main.h>
 #include <LibURL/Parser.h>
+#include <LibWebCommon/Fetch/Infrastructure/URL.h>
 #include <LibWebCommon/SecureContexts/AbstractOperations.h>
 #include <atomic>
 #include <thread>
@@ -35,6 +36,12 @@ bool trusted(URL::URL const& url)
 
 void baseline()
 {
+    for (auto scheme :
+        { "about"sv, "blob"sv, "data"sv, "file"sv, "http"sv, "https"sv, "resource"sv })
+        check(Web::Fetch::Infrastructure::is_fetch_scheme(scheme),
+            "upstream fetch schemes preserved"sv);
+    check(!Web::Fetch::Infrastructure::is_fetch_scheme("unregistered"sv),
+        "unknown scheme is not fetchable"sv);
     check(parse("https://example.com/path"sv).origin().serialize() == "https://example.com"sv,
         "HTTPS origin"sv);
     check(trusted(parse("https://example.com"sv)), "HTTPS secure default"sv);
@@ -130,6 +137,8 @@ void sealed_case()
         "sealed default stays empty"sv);
     check(
         parse("app://bundle/a"sv).origin().is_opaque(), "sealed default does not grant origins"sv);
+    check(!Web::Fetch::Infrastructure::is_fetch_scheme("app"sv),
+        "sealed default does not grant fetch classification"sv);
     outln("PASS first helper launch seals an unconfigured policy and rejects late registration");
 }
 
@@ -153,6 +162,14 @@ void configured()
         OriginScheme { "insecure-app"_string, true, false },
         OriginScheme { "opaque-app"_string, false, true } };
     MUST(install_origin_schemes(schemes));
+    check(Web::Fetch::Infrastructure::is_fetch_scheme("app"sv)
+            && Web::Fetch::Infrastructure::is_fetch_scheme("insecure-app"sv),
+        "registered standard schemes reach fetch regardless of secure flag"sv);
+    check(!Web::Fetch::Infrastructure::is_fetch_scheme("opaque-app"sv),
+        "nonstandard registration is not fetchable"sv);
+    check(!Web::Fetch::Infrastructure::is_http_or_https_scheme("app"sv)
+            && !Web::Fetch::Infrastructure::is_local_url(parse("app://bundle/a"sv)),
+        "fetch classification grants neither HTTP nor local-scheme privileges"sv);
     check(install_origin_schemes(schemes).is_error(), "registration immutable"sv);
     auto app = parse("app://BUNDLE/a?query#hash"sv);
     check(app.origin().serialize() == "app://bundle"sv, "normalized custom tuple origin"sv);
@@ -210,6 +227,8 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     if (arguments.strings.size() != 2)
         return 2;
     baseline();
+    check(!Web::Fetch::Infrastructure::is_fetch_scheme("app"sv),
+        "default custom fetch classification disabled"sv);
     if (arguments.strings[1] == "sealed"sv) {
         sealed_case();
         return 0;

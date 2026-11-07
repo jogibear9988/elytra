@@ -35,8 +35,8 @@ other Rust extraction callers receive the same policy. The pinned Rust parser
 still has no custom-standard extension: complete parsing/mutation behavior remains
 open. Public protocol remains absent and Code-OSS still fails at that import.
 
-Targets.cmake composes two fingerprinted C++ translation units for trust and helper
-launch. The owned Rust build driver selects guarded root/module/origin compositions,
+Targets.cmake composes three fingerprinted C++ translation units for trust, shared
+fetch classification and helper launch. The owned Rust build driver selects guarded root/module/origin compositions,
 preserving all other source bytes and license notices, original manifests/lockfiles
 and parser modules. Changed fingerprints invalidate Cargo artifacts; actual archive
 dependency outputs must include the adapter. Drift or changed module/target ownership
@@ -80,3 +80,13 @@ Remaining work before public registration:
    acceptance and actual Code-OSS workbench resources.
 
 See [ADR 0112](../../../docs/architecture/0112-native-protocol-configuration.md).
+
+The [shared fetch-scheme classification](../../../docs/architecture/0120-custom-fetch-scheme-classification.md)
+now makes registered standard schemes reach the engine/native UI fetch path.
+This grants neither HTTP/local status nor a navigation response handler. Actual
+custom navigation loading and live resource bootstrap remain open.
+
+```sh
+# Pure native engine/UI routing checks: no window or external application launch.
+cmake --build build/renderer --target check-firefly-protocol-routing --parallel 3
+```

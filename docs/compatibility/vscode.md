@@ -152,6 +152,13 @@ parallel quotas, real abort/reader cancellation and silent-peer expiry are check
 Live helper/document bootstrap routing and the public protocol/session contract
 remain open; Code-OSS resources still do not load through the product.
 
+Inspection of the real navigation path identifies another prerequisite for the
+first workbench URL: the [shared fetch classifier](../architecture/0120-custom-fetch-scheme-classification.md)
+now routes registered standard schemes internally in engine/native UI checks.
+Navigation is still refused by the scheme dispatcher. Implement a separate native
+browser-initiated navigation admission/body lifecycle before live helper bootstrap;
+post-commit document resource admission alone cannot load that first document.
+
 Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |

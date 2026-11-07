@@ -298,10 +298,14 @@ IPC fixtures with directly loaded ESM, without the earlier inline workaround.
 
 ## Custom protocol origin seams
 
-The renderer graph composes LibWebCommon's potentially-trustworthy-origin decision
-and the WebContent launch call through
+The renderer graph composes LibWebCommon's potentially-trustworthy-origin and
+fetch-scheme decisions, plus the WebContent launch call, through
 [prepare_protocol_origin_hooks.py](../../tooling/prepare_protocol_origin_hooks.py).
-Review both fingerprints, exact seams and CMake source ownership on upstream updates.
+Review all three fingerprints, exact seams and CMake source ownership on upstream
+updates. The shared Fetch/Infrastructure/URL.cpp predicate must add only explicitly
+registered standard schemes, preserve builtin HTTP/local classification and restore
+all upstream bytes. Run check-firefly-protocol-routing against the real engine and
+LibWebView URL/input classifiers; this check opens no window or external application.
 LibURL URL.cpp remains upstream: native and DOM consumers instead share Rust
 Url::origin through [the owned Rust composition](../../tooling/rust-origin/prepare.py).
 Review the pinned lib.rs/origin.rs/ffi.rs hashes, module layouts, borrowed-origin

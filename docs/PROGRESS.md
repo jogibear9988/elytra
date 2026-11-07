@@ -7633,6 +7633,45 @@ routing, navigation/teardown wiring, public protocol/session handlers and actual
 renderer security acceptance remain open. Code-OSS still lacks its protocol export
 and accepted workbench launch. Full original specification goal remains active.
 
+## 2026-11-07: Classify registered standard schemes for native navigation routing
+
+- Inspect actual helper bootstrap and navigation before wiring the live resource
+  channel. The current document Client cannot create the first vscode-file document.
+  LocalNavigable first branches on shared is_fetch_scheme; LibWebView's actual
+  is_url_handled_internally uses that predicate too. Native custom origin identity
+  and JavaScript component fetch alone do not make initial navigation reach fetch.
+- Extend the existing origin composer with one exact pinned LibWebCommon
+  Fetch/Infrastructure/URL.cpp seam. Registered standard schemes are fetchable;
+  default, sealed, nonstandard and unknown schemes retain upstream behavior.
+  Preserve FETCH_SCHEMES/HTTP_SCHEMES/LOCAL_SCHEMES constants, builtin predicates,
+  full source hash/notices and exact byte restoration. No vendor modification,
+  duplicate policy table, FFI or standalone Mite dependency.
+- Expand native origin checks and add an actual LibWebView/Common routing probe:
+  input parsing/classification and native internal URL handling agree before and
+  after registration, including insecure standard vs secure-only nonstandard,
+  query/fragment, unknown URLs, HTTP/HTTPS/file/data and mailto. It creates no view,
+  window, navigation or external-app request. Require it through the existing fetch
+  release/Linux/experimental Windows gate, keeping the lightweight origin gate.
+- Record ADR 0120 and update status/Code-OSS/upstream update instructions. Navigation
+  remains denied by the provider seam, and no public protocol flags/handlers appear.
+
+Validation: local macOS Release native origin/routing gates pass. Existing actual
+headless diagnostic and production-helper policy/DOM-origin regressions pass, with
+no desktop windows. Actual JavaScript/native-channel regression and Firefly product
+compilation pass, as do upstream/site checks (218 pages / 15,403 local links/
+resources/fragments). Full source formatting is checked before commit. Fresh native
+Windows/Linux classification evidence remains required. Previously confirmed
+8d38e34 macOS hosted Release run 42406993506 is still in progress at observation;
+no new alpha acceptance follows from local component results.
+
+Next: implement native browser-initiated top-level navigation admission with exact
+expected URL/navigable/replaced-client/reserved-client scope, real response policy
+and body/controller lifetime across document commit; then wire helper bootstrap
+and post-commit document routing. Do not loosen document Client guards: its source
+becomes inactive at commit while navigation body delivery may still be pending.
+Public protocol/session handlers and real Code-OSS workbench remain unimplemented.
+Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

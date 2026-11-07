@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose exact origin-policy and helper-launch seams without editing pinned Ladybird sources."""
+"""Compose origin, fetch-scheme and helper-launch seams without editing pinned Ladybird sources."""
 
 import argparse
 import hashlib
@@ -8,6 +8,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "native/protocol/OriginPolicy.h"\n'
 ENTRIES = {
+    "FetchURL.cpp": (
+        "Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp",
+        "4b80c8ec28036075fb142b475d0459df3b80a0181779a00ccb74f866e4524d33",
+        '    // A fetch scheme is "about", "blob", "data", "file", or an HTTP(S) scheme.\n',
+        "    if (Firefly::Protocols::is_standard_scheme(scheme))\n        return true;\n\n",
+    ),
     "HelperProcess.cpp": (
         "Libraries/LibWebView/HelperProcess.cpp",
         "b534514372909dec44a6a31738825e0d92aabea923add1fa2067647f82a1d888",
@@ -55,7 +61,9 @@ def prepare(output):
             data = text.encode("utf-8")
             if not path.exists() or path.read_bytes() != data:
                 path.write_bytes(data)
-    print("PASS pinned origin/trust/helper-launch seams, drift refusal and exact byte preservation")
+    print(
+        "PASS pinned origin/trust/fetch-scheme/helper-launch seams, drift refusal and exact byte preservation"
+    )
 
 
 def main():

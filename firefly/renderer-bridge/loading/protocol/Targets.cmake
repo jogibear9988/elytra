@@ -53,3 +53,4 @@ add_custom_target(
     DEPENDS firefly-protocol-fetch-probe
     VERBATIM)
 add_dependencies(check-firefly-protocol-fetch check-firefly-protocol-fetch-channel)
+add_dependencies(check-firefly-protocol-fetch check-firefly-protocol-routing)

@@ -89,6 +89,13 @@ refused requests, abort/reader cancellation, client destruction, malformed repli
 and a silent-peer deadline. Only the parent opens files. This is still a native
 fixture, not a live WebContent helper or a public protocol/session implementation.
 
+The [shared fetch-scheme classification](architecture/0120-custom-fetch-scheme-classification.md)
+now also includes explicitly registered standard schemes in the actual engine and
+native UI predicates. Local native routing and existing headless helper regressions
+pass. Navigation responses still require a separate admitted lifecycle: the current
+document-bound client cannot bootstrap the first custom-origin document. No custom
+navigation, public protocol handler or new platform support is accepted here.
+
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):
 strict actual Rust DOM origins, native helper policy delivery, real Cargo dependency

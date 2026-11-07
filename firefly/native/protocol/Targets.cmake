@@ -12,6 +12,7 @@ set_property(
     PROPERTY CMAKE_CONFIGURE_DEPENDS
              "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/HelperProcess.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp")
 
 function(firefly_origin_source target original replacement)
@@ -39,6 +40,8 @@ function(firefly_origin_source target original replacement)
 endfunction()
 firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp"
                       SecureContexts.cpp)
+firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
+                      FetchURL.cpp)
 firefly_origin_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp" HelperProcess.cpp)
 target_sources(
     LibURL
@@ -89,6 +92,18 @@ add_executable(firefly-protocol-origin-probe "${CMAKE_CURRENT_LIST_DIR}/OriginPr
 target_include_directories(firefly-protocol-origin-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-protocol-origin-probe PRIVATE LibURL LibWebCommon LibMain LibCore)
 ladybird_copy_runtime_dlls(firefly-protocol-origin-probe)
+add_executable(firefly-protocol-routing-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/RoutingProbe.cpp")
+target_include_directories(firefly-protocol-routing-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-protocol-routing-probe PRIVATE LibWebView LibWebCommon LibURL LibMain
+                                                             LibCore)
+ladybird_check_skia_confinement(firefly-protocol-routing-probe)
+ladybird_copy_runtime_dlls(firefly-protocol-routing-probe)
+add_custom_target(
+    check-firefly-protocol-routing
+    COMMAND "$<TARGET_FILE:firefly-protocol-routing-probe>"
+    DEPENDS firefly-protocol-routing-probe
+    VERBATIM)
 add_custom_target(
     check-firefly-protocol-origins
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" default
