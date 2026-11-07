@@ -112,3 +112,8 @@ This real two-process gate is also required by check-firefly-protocol-files. It
 includes a real 30-second paused request. No GUI opens. Local macOS execution is
 accepted; the product has no resource service installed and live helper/document
 routing remains open. See [ADR 0118](../../../../docs/architecture/0118-native-resource-request-service.md).
+
+The [document-bound client](../../../../docs/architecture/0119-document-fetch-channel-client.md)
+now connects this service to actual global JavaScript fetch in a separate native
+LibWeb fixture. This proves the client/response/request channel together locally;
+product helper bootstrap and document admission remain separate integration work.

@@ -7592,6 +7592,47 @@ renderer navigation/security acceptance remain open. Code-OSS still fails at its
 missing protocol export; no workbench launch or native Windows/Linux service
 acceptance is claimed. Full original goal stays active.
 
+## 2026-11-07: Connect actual JavaScript fetch to the native resource process
+
+- Add a document-bound native Client linking the real Response owner to the
+  existing URL request/credit/cancel channel and main-side FileServer. Keep the
+  client outside LibWeb and the checked-file/server owner outside the engine.
+  Move shared request quotas to the pure Limits header. Mite/Ladybird unchanged.
+- Reuse the scheme seam's native eligibility function. Require an exact native
+  local settings identity as well as same-origin active top-level document scope.
+  Recheck activity/origin on receive/send/sweep. Creating a client installs no
+  provider, helper capability or public API; product helpers still create none.
+- Bound eight jobs and monotonic IDs, round-robin queued request/control frames,
+  and separate channel ACK credit from actual engine consumer credit. Before-wire
+  abort removes a job with no file admission. After-wire cancellation releases VM
+  state and retains only a bounded retiring job until its terminal frame arrives.
+- On malformed/foreign/future responses, transport failure, native revocation,
+  owner destruction or fixed 30-second expiry, stop all real responses/streams,
+  close transport and release document roots. Retain response ownership across
+  callbacks; use weak client callbacks/timers and no map references after delivery.
+- Add a real parent/child JavaScript gate: only the parent knows/opens the authorized
+  Unicode file. Actual global fetch/arrayBuffer verifies all 4 MiB + 19 bytes over
+  IPC, with parallel HEAD/refusal and forbidden-header filtering. Eight bodies
+  finish while a ninth rejects. A second real same-origin document is refused.
+  Real AbortController, zero-admission early abort, reader.cancel, native revoke,
+  dropping the client after headers, peer loss and malformed/foreign/future frames
+  settle promises/streams. A silent raw peer tests the client's own real deadline,
+  independently of FileServer. Require native admission counts, reaped child status,
+  JavaScript markers, GC at wait boundaries and absent Node/Firefly page globals.
+- Require the new channel gate through check-firefly-protocol-fetch, preserving
+  existing macOS Release/Linux/experimental Windows workflow entry points and old
+  engine/stream tests. Add ADR 0119 and refresh status/Code-OSS resource documents.
+
+Validation: local macOS Release channel/JavaScript, existing response/stream/fetch,
+file/service/frame/child gates and Firefly product build pass without GUI windows.
+Full source formatting, upstream preservation and site checks pass (217 pages /
+15,335 local links/resources/fragments). Native Windows/Linux execution remains
+a fresh hosted gate. The child is a native
+LibWeb fixture, not a live sandboxed WebContent helper: trusted bootstrap/document
+routing, navigation/teardown wiring, public protocol/session handlers and actual
+renderer security acceptance remain open. Code-OSS still lacks its protocol export
+and accepted workbench launch. Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

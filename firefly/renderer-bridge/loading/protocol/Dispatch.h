@@ -5,6 +5,9 @@
 #include <AK/NonnullOwnPtr.h>
 
 namespace Firefly::ProtocolFetch {
+// Shared native admission policy for the scheme seam and its transport client.
+WEB_API bool allows_request(Web::Fetch::Infrastructure::FetchParams const&);
+
 class WEB_API Registration final {
     AK_ALLOC_WITH_KMALLOC;
     AK_MAKE_NONCOPYABLE(Registration);

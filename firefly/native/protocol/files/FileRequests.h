@@ -9,9 +9,6 @@
 #include <AK/Weakable.h>
 
 namespace Firefly::Protocols {
-inline constexpr size_t document_file_request_limit = 8;
-inline constexpr size_t process_file_request_limit = 64;
-
 struct FileChunk {
     u64 offset;
     ByteBuffer bytes;

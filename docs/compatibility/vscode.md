@@ -144,9 +144,13 @@ This does not yet load workbench resources or establish general fetch compatibil
 The [native resource service](../architecture/0118-native-resource-request-service.md)
 now transfers URL requests, consumer credit, cancellation and real file responses
 across actual native parent/child processes, with local macOS acceptance. The main
-side alone selects authorized paths. Its bounded service is not yet connected to
-the LibWeb response owner or a live admitted helper/document, and does not supply
-the public protocol/session handler contract.
+side alone selects authorized paths. The next
+[document-bound client](../architecture/0119-document-fetch-channel-client.md)
+connects it to the real LibWeb response owner and global JavaScript fetch in a
+separate native child, with local macOS acceptance. Exact document identity,
+parallel quotas, real abort/reader cancellation and silent-peer expiry are checked.
+Live helper/document bootstrap routing and the public protocol/session contract
+remain open; Code-OSS resources still do not load through the product.
 
 Immediate execution order (each step needs real native acceptance):
 

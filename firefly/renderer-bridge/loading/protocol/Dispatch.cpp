@@ -51,11 +51,48 @@ void Registration::revoke()
     m_provider = nullptr;
 }
 
-GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
-    Web::Fetch::Infrastructure::FetchParams const& params)
+bool allows_request(Web::Fetch::Infrastructure::FetchParams const& params)
 {
     using Request = Web::Fetch::Infrastructure::Request;
     using Client = Web::Fetch::Infrastructure::ClientContext;
+    auto request = params.request();
+    if (!Protocols::is_standard_scheme(request->current_url().scheme()))
+        return false;
+    auto const& client = request->client_snapshot();
+    auto const* origin = request->origin().get_pointer<URL::Origin>();
+    auto target = request->current_url().origin();
+    if (params.is_canceled() || !client || !origin || target.is_opaque()
+        || client->global_kind != Client::GlobalKind::Window
+        || client->is_window_of_a_top_level_navigable != Client::IsWindowOfATopLevelNavigable::Yes
+        || !Protocols::is_standard_scheme(client->creation_url.scheme())
+        || !origin->is_same_origin(target) || !client->origin.is_same_origin(target)
+        || !client->creation_url.origin().is_same_origin(target) || request->is_navigation_request()
+        || request->mode() == Request::Mode::WebSocket
+        || !request->method().is_one_of("GET"sv, "HEAD"sv)
+        || request->header_list()->contains("Range"sv))
+        return false;
+    if (request->destination().has_value()) {
+        switch (*request->destination()) {
+        case Request::Destination::Worker:
+        case Request::Destination::SharedWorker:
+        case Request::Destination::ServiceWorker:
+        case Request::Destination::AudioWorklet:
+        case Request::Destination::PaintWorklet:
+        case Request::Destination::Document:
+        case Request::Destination::Frame:
+        case Request::Destination::IFrame:
+            return false;
+        default:
+            break;
+        }
+    }
+
+    return true;
+}
+
+GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
+    Web::Fetch::Infrastructure::FetchParams const& params)
+{
     using Pending = Web::Fetch::Fetching::PendingResponse;
     using Record = Web::Fetch::Infrastructure::Response;
     auto provider = Registration::s_current.get();
@@ -68,34 +105,8 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
                 "Custom protocol request is outside the admitted provider scope"_string));
     };
 
-    auto const& client = request->client_snapshot();
-    auto const* origin = request->origin().get_pointer<URL::Origin>();
-    auto target = request->current_url().origin();
-    if (!provider->active || params.is_canceled() || !client || !origin || target.is_opaque()
-        || client->global_kind != Client::GlobalKind::Window
-        || client->is_window_of_a_top_level_navigable != Client::IsWindowOfATopLevelNavigable::Yes
-        || !Protocols::is_standard_scheme(client->creation_url.scheme())
-        || !origin->is_same_origin(target) || !client->origin.is_same_origin(target)
-        || !client->creation_url.origin().is_same_origin(target) || request->is_navigation_request()
-        || request->mode() == Request::Mode::WebSocket
-        || !request->method().is_one_of("GET"sv, "HEAD"sv)
-        || request->header_list()->contains("Range"sv))
+    if (!provider->active || !allows_request(params))
         return deny();
-    if (request->destination().has_value()) {
-        switch (*request->destination()) {
-        case Request::Destination::Worker:
-        case Request::Destination::SharedWorker:
-        case Request::Destination::ServiceWorker:
-        case Request::Destination::AudioWorklet:
-        case Request::Destination::PaintWorklet:
-        case Request::Destination::Document:
-        case Request::Destination::Frame:
-        case Request::Destination::IFrame:
-            return deny();
-        default:
-            break;
-        }
-    }
     // Retain provider through callback reentrancy, including native revocation.
     auto result = provider->handler(params);
     if (result.is_error() || result.value()->finished())

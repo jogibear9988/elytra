@@ -30,3 +30,20 @@ a principal realm/document with a native same-process file provider. It checks
 forbidden header filtering, scope denial, unchanged data: fetching, revocation and
 registration lifetime. This is not live WebContent IPC or public protocol support.
 See [ADR 0117](../../../../docs/architecture/0117-native-scheme-fetch-dispatch.md).
+
+Client now connects Response to the native main-side FileServer over bounded byte
+IPC. It roots one exact active document, checks local native settings identity in
+addition to origin, and releases VM ownership on cancellation/revocation/destruction.
+It performs no file IO and compiles separately from LibWeb. Creating it installs
+neither a provider nor a page API; product helpers still create none.
+
+```sh
+cmake --build build/renderer --target check-firefly-protocol-fetch-channel --parallel 3
+```
+
+This gate is also required by check-firefly-protocol-fetch. It executes real global
+fetch in a separate native LibWeb child; the parent alone opens the file. It tests
+real body/HEAD/refusal, quotas, foreign same-origin documents, abort/reader cancel,
+owner destruction, peer loss, malformed responses and a real silent-peer deadline.
+This is not live WebContent bootstrap/document routing. See
+[ADR 0119](../../../../docs/architecture/0119-document-fetch-channel-client.md).

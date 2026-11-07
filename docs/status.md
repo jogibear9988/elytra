@@ -81,6 +81,14 @@ GET/HEAD, refusal, cancel/peer loss/forceful termination, quotas and a real fixe
 30-second deadline release pending files. This completes the native request
 component, not live WebContent/document binding or the public protocol API.
 
+The [document-bound fetch client](architecture/0119-document-fetch-channel-client.md)
+now connects that native service to actual global JavaScript fetch in a separate
+LibWeb child fixture. Local macOS tests cover byte-exact file bodies, HEAD,
+forbidden-header filtering, same-origin document isolation, eight accepted/ninth
+refused requests, abort/reader cancellation, client destruction, malformed replies
+and a silent-peer deadline. Only the parent opens files. This is still a native
+fixture, not a live WebContent helper or a public protocol/session implementation.
+
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):
 strict actual Rust DOM origins, native helper policy delivery, real Cargo dependency
