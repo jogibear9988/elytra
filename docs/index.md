@@ -11,10 +11,12 @@ x64 Mite runtime gates. Windows/Linux desktop releases remain unfinished.
 support, including bounded [invoke/handle IPC](api/ipc.md). See [compatibility](compatibility/mite-0.1.md)
 and [implementation progress](PROGRESS.md) for the actual limits.
 
-The first [macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
-ships the verified 745c7af snapshot. Current documentation describes newer master
-features as well; check the release's pinned source/metadata before assuming that
-its binaries include them.
+[macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+ships the verified `19ad113` snapshot, including public preload/contextBridge,
+request/reply IPC and modern ESM examples. Current master can contain later
+changes; check the release's pinned source/metadata before assuming its binaries
+include them. Linux has scoped experimental X11 application acceptance; Linux
+and Windows desktop packages remain unfinished.
 
 ## Start here
 

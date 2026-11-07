@@ -4,7 +4,9 @@ Status: partial, validated on native macOS ARM64. Firefly implements asynchronou
 `ipcRenderer.invoke` with `ipcMain.handle`, `handleOnce` and `removeHandler`. This
 is request/reply IPC between separate Mite and Ladybird processes. One-way events,
 synchronous IPC, MessagePorts, subframe IPC and full structured clone are not yet
-implemented. The published alpha.1 binary predates this implementation.
+implemented. [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+includes this subset at `19ad113`; Alpha 1 predates it. The relocated experimental
+Linux X11 application also passes a scoped invoke/preload fixture at that source.
 
 The API follows Electron's [ipcMain](https://www.electronjs.org/docs/latest/api/ipc-main)
 and [ipcRenderer](https://www.electronjs.org/docs/latest/api/ipc-renderer) contracts

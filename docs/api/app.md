@@ -289,8 +289,8 @@ quit cancellation/reentry and forced-exit fixtures. Gallery evidence:
 [test_electron_examples.py](../../tooling/tests/test_electron_examples.py). Commands and
 individual sample coverage are in the [example catalog](../examples/index.md).
 
-These four app methods and scoped lifecycle behavior are included in the first
-[macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
-at 745c7af. Newer ESM example sources are subsequent master work; alpha.1 does not
-contain them. This reference does not promise general Electron or Windows/Linux
-GUI compatibility, notarization or a completed security review.
+These four app methods and scoped lifecycle behavior are included in
+[macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+at `19ad113`, together with modern ESM examples. This reference does not promise
+general Electron or Windows/Linux GUI compatibility, notarization or a completed
+security review.

@@ -273,5 +273,6 @@ These are intentional differences, not omitted tests. See the
 HMAC verification also uses independent Python stdlib vectors and an RFC 4231
 known answer, including digest block-size boundaries, long/empty keys and messages.
 See [the HMAC/equality design](../architecture/0071-native-hmac-and-byte-comparison.md).
-New HMAC/equality exports are subsequent master work and are not in alpha.1.
-Native Windows/Linux acceptance for these new exports remains pending hosted CI.
+HMAC/equality exports are included in [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+at `19ad113`, whose native macOS/Linux/Windows Release CLI suites all pass.
+Alpha 1 predates these exports; later changes need their own platform acceptance.

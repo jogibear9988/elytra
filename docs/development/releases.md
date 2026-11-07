@@ -11,6 +11,24 @@ the workflow cannot yet publish a complete macOS + Windows release. There are no
 skip/continue-on-error success paths for a required native platform. Hosted macOS package builds now pass; the full cross-platform release workflow
 remains incomplete. This is not a claim of available Windows/Linux desktop binaries.
 
+## Published macOS Alpha 2
+
+[Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+is published from successful [package run 42316853522](https://github.com/jogibear9988/elytra/actions/runs/42316853522),
+source `19ad11390793278c2bda829180de61ff33980d7f`. The corrected
+[promotion run 42345691857](https://github.com/jogibear9988/elytra/actions/runs/42345691857)
+verifies the actual source ZIPs and every uploaded asset's size/state/SHA-256,
+then publishes the draft. All five original assets retain snapshot version
+`0.1.0-dev.118`; no repacking or metadata rewriting occurs.
+
+This includes modern ESM examples, public preload/contextBridge, bounded IPC and
+current runtime features at that source. It is **macOS ARM64 only**, ad-hoc signed
+and not notarized. Framework: **216.74 MiB**; Designer: **250.85 MiB** uncompressed.
+The archives use default Release, without the optional size/shared-provider flags.
+Windows/Linux packages and optional-profile acceptance remain separate work.
+The subsequent HTTP source refactor and IPC crash-fixture synchronization on master
+are not included in these exact release bytes.
+
 ## Measured macOS development packages
 
 The macOS Release packages workflow builds master in Release mode, runs the native

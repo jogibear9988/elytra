@@ -35,10 +35,11 @@ time; our adapters carry integration changes. See the
 [upstream update workflow](docs/development/updating-ladybird.md) for reviewing
 new revisions without maintaining a fork.
 
-The first [macOS ARM64 alpha](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.1)
-includes native Mite, Firefly and the Designer app. It is an ad-hoc signed,
-not-notarized snapshot at 745c7af; current master contains newer work. Windows/Linux
-desktop packages remain in progress. See the release notes for its exact scope.
+[macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+includes native Mite, Firefly and the Designer app from verified source `19ad113`.
+It includes public preload/contextBridge, bounded request/reply IPC and modern
+ESM examples. These are ad-hoc signed, not-notarized snapshots. Windows/Linux
+packages remain unfinished; check the release notes for exact scope and sizes.
 
 ## Development build
 

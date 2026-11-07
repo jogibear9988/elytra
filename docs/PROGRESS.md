@@ -5589,6 +5589,39 @@ Designer, not a successful optional size/shared-provider profile. A new optimize
 candidate still needs every native/security/package gate. Windows desktop and
 Linux distributables/broader OS services remain unfinished. Goal active.
 
+## 2026-11-07: Publish and document macOS ARM64 Alpha 2
+
+- Observe the completed real promotion, not merely its workflow dispatch:
+  run 42345691857, verify job 128322822894 and publish job 128322917304 succeed.
+  The publish log records all remote draft asset sizes/states/SHA-256 digests
+  verified, then the public release URL. Public REST by-tag GET now succeeds and
+  observes release 437377666, draft=false, prerelease=true, published 06:09:34 UTC.
+- Publish v0.1.0-alpha.2 at verified source
+  19ad11390793278c2bda829180de61ff33980d7f, from package run 42316853522.
+  Preserve the three original dev.118 ZIPs, SIZE and SHA256SUMS records. Archive
+  sizes: Mite 30,881,907; Firefly 105,710,830; Designer 117,703,569 bytes.
+  Public server digests agree with the verifier; no source/tag/ZIP rewriting.
+- Update README, documentation home, packaging/release guidance and scoped
+  app/IPC/crypto/example availability to Alpha 2. Include its exact source,
+  snapshot-version provenance, normal Release profile and measured framework
+  216.74 MiB / Designer 250.85 MiB uncompressed. The new HTTP source organization
+  and receipt/crash-test changes are later master work, not these release bytes.
+- Start fresh optional size/shared-OpenSSL candidate 42345882824 from 85557be
+  after the crash fixture receipt/diagnostic fix. It is confirmed in progress;
+  retain all existing native/security/package gates. This candidate has not yet
+  produced verified smaller artifacts and is not part of Alpha 2.
+- No local GUI launches in this goal turn. Source changes are the logical HTTP
+  ESM refactor, corrected draft-ID publication path, scoped acceptance records
+  and crash-fixture synchronization/diagnostics; each is committed separately.
+
+Validation: 181 generated pages and 12,508 local links/resources/fragments pass;
+repository formatting and actionlint pass. git ls-remote confirms the annotated
+alpha.2 tag peels to exact source 19ad11390793278c2bda829180de61ff33980d7f.
+The complete original
+specification remains active: native Windows desktop, Linux distributables and
+broader OS services, remaining Node/Electron coverage, physical desktop/platform
+acceptance and further roadmap milestones are unfinished.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
