@@ -6068,6 +6068,35 @@ partial smoke entries, one manual partial and 16 unsupported entries. Generated
 site: 185 pages and 13,039 links/resources/fragments pass. Native latest profile/
 archive/screen acceptance remains pending; original goal stays active.
 
+## 2026-11-07: Start the required native Windows renderer acceptance path
+
+- Previous goal turn is progress: docs/API/example audit is committed/pushed at
+  92bf486, and Pages build/deploy run 42352011055 succeeds. Full product scope is
+  still incomplete; do not turn that documentation acceptance into runtime support.
+- Revalidate actual hosted Linux service and baseline renderer handles: original
+  service job 128338038590 and baseline job 128340196083 remain in progress building
+  real graphs. Do not restart them; take independent required Windows bring-up work.
+- Inspect the actual current Ladybird pin: native clang-cl is experimental, with
+  Windows Qt/DirectX sources, manifests and helper/process paths. Its WSL browser
+  recommendation is not our allowed fallback. Native Mite CLI success does not
+  establish a renderer/window/sandbox implementation.
+- Add an independent native Windows x64 renderer workflow using the pinned native
+  toolchain/bootstrap/upstream graph. Build actual LibWebView/helpers and owned
+  headless/realm/wire probes. Apply the upstream console/runtime-DLL deployment
+  helper to owned Windows probe targets, leaving vendor bytes unchanged.
+- Require real DOM/absent ambient Node/PID separation/640x400 PNG and existing actual
+  realm/GC/callback/separate-process wire tests. Keep Windows process/sandbox checks
+  explicitly UNVERIFIED and production desktop/preload/window target guards intact.
+  Preserve actual diagnostic/build/dependency artifacts and fail missing/failed gates.
+- Document ADR 0096, native commands and remaining window/process/token/sandbox,
+  main-Mite, services, Designer and package work. This is native bring-up, not a
+  substitute for the full required Windows application or a release acceptance.
+
+Validation: actionlint, full formatting, diff/upstream checks pass without local GUI.
+Generated site: 186 pages and 13,110 links/resources/fragments pass. Actual Windows
+graph/renderer acceptance is newly added and execution pending; Linux app/archives/
+screen and Windows desktop remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

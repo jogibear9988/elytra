@@ -291,3 +291,34 @@ run. Its root cause is not established; retain the comparison and diagnose any
 recurrence rather than treating unknown native exits as acceptable. This success
 is not native Firefly windows/sandbox, Windows app packaging, an installer or a
 published Windows release. Those requirements remain open.
+
+
+## Experimental native LibWeb renderer gate
+
+The independent Experimental native Windows renderer workflow now configures the
+actual pinned Ladybird graph with the owned Firefly diagnostic targets, using
+Visual Studio clang-cl x64, Rust 1.98.0 and CMake 4.2.0 on Windows Server 2025.
+It compiles LibWebView, helpers and realm/wire probes, then requires real DOM,
+absent Node globals, compositor PNG and actual isolation/wire assertions. Upstream's
+native console/DLL deployment helper is applied to our diagnostic executables.
+
+Compilation/execution is pending. This is a first headless component gate, not a
+Windows desktop implementation or app package. The existing renderer runner keeps
+Windows process/sandbox observations explicitly UNVERIFIED. Product target guards
+still reject unsupported Windows desktop/preload builds. No WSL, MinGW, Node/V8 or
+alternate renderer substitutes for native acceptance.
+
+```powershell
+# Run in the native VS x64 clang-cl environment after bootstrap.
+$env:CC = 'clang-cl'
+$env:CXX = 'clang-cl'
+python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-renderer-probe --configure-only --jobs 3
+cmake --build build/windows-renderer --target firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe --parallel 3
+python tooling/tests/test_renderer.py --probe build/windows-renderer/bin/firefly-renderer-probe.exe --artifacts-dir build/windows-renderer-artifacts
+cmake --build build/windows-renderer --target check-firefly-isolation --parallel 3
+```
+
+The workflow preserves configuration/build/test logs, PNG and pinned dependency
+buildtree diagnostics after failures. Native window/input, process/token/sandbox,
+main Mite integration, desktop services, Designer and release packaging remain
+required. See [ADR 0096](../architecture/0096-native-windows-renderer-bringup.md).

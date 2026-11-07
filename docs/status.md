@@ -15,7 +15,7 @@ gates; the source snapshots below are deliberately explicit.
 | Mite / native Windows x64 | All 65 enabled suites at da5e3e8; [run 42349719866](https://github.com/jogibear9988/elytra/actions/runs/42349719866) | Full Windows API/error parity, other architectures and standalone distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
 | Firefly / Linux x64 | Experimental X11 app/renderer/preload/IPC/clipboard and live kernel checks pass at 8dc5830 in [run 42348529660](https://github.com/jogibear9988/elytra/actions/runs/42348529660) | New screen integration, portable CPU build, complete archive and Designer gates pending; newer da5e3e8 app run failed with SIGILL |
-| Firefly / native Windows | Not implemented/accepted | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |
+| Firefly / native Windows | Desktop not implemented/accepted; [headless renderer bring-up](development/windows-build.md#experimental-native-libweb-renderer-gate) now has a native CI gate, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) contains
 tested macOS ARM64 source 19ad113, with original artifact version 0.1.0-dev.118.
