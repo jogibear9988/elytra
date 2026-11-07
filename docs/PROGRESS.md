@@ -6928,6 +6928,19 @@ and diff checks pass. No local
 GUI. New native cache slice pending; full goal active, Code-OSS host startup and
 public binary/event/port transport remain priorities.
 
+## 2026-11-07: Keep native cache acceptance triggered by application policy changes
+
+- Extend native Linux/Windows workflow push/PR filters to the owned
+  firefly/compat/code-oss source directory. A policy-only edit must run the real
+  CLI/cache gates, even though this application adapter intentionally lives
+  outside Mite. The previous cache implementation commit includes test/CMake
+  changes and already triggers these workflows; this closes the future isolated
+  policy-edit gap. Runtime behavior and tests are unchanged.
+
+Validation: pinned workflow formatting and diff checks pass. No local GUI.
+Full goal active; cache slice needs its own native acceptance and actual Code-OSS
+desktop/transport/native Windows work remains required.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

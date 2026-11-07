@@ -15,6 +15,7 @@ on:
         'tooling/check_checkout_paths.py',
         'tooling/tests/**',
         'tooling/code_oss/**',
+        'firefly/compat/code-oss/**',
         'vendor/code-oss-tests/**',
         'tooling/runtime-js/package*.json'
       ]
@@ -32,6 +33,7 @@ on:
         'tooling/check_checkout_paths.py',
         'tooling/tests/**',
         'tooling/code_oss/**',
+        'firefly/compat/code-oss/**',
         'vendor/code-oss-tests/**',
         'tooling/runtime-js/package*.json'
       ]
