@@ -6,11 +6,13 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-Local macOS Release now passes **69** Mite suites, adding custom process events
+Local macOS Release now passes **70** Mite suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. This new slice awaits native Linux/Windows
 acceptance; see the [process contract](api/process.md). Code-OSS desktop still
-does not run.
+does not run. A newer source-mode gate also evaluates the actual pinned Code-OSS
+bootstrap-node.ts and its portable configuration under Mite after type erasure;
+main.ts, compile-cache adaptation and desktop startup remain open.
 
 Native Linux and Windows x64 at **678c85e** pass all **68** Mite suites:
 [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084)
@@ -49,7 +51,7 @@ completed native evidence.
 
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
-| Mite / macOS ARM64 | 65 CLI suites and native package gate at 85557be; independent LibJS runtime | Full Node API coverage, older hosts and production distribution |
+| Mite / macOS ARM64 | Current local 70 CLI suites including process events and actual source-mode Code-OSS shared bootstrap; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
 | Mite / native Linux x64 | All 68 enabled suites at 678c85e; [run 42376107084](https://github.com/jogibear9988/elytra/actions/runs/42376107084) | Wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
 | Mite / native Windows x64 | All 68 enabled suites at 678c85e; [run 42376107074](https://github.com/jogibear9988/elytra/actions/runs/42376107074) | Full Windows API/error parity, other architectures and standalone distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |

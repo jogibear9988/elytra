@@ -2,6 +2,10 @@
   "repository": "https://github.com/microsoft/vscode",
   "revision": "6531648f5ace8b77ae799262bdc97bf048461938",
   "files": {
+    "bootstrap-node.ts": {
+      "upstream": "src/bootstrap-node.ts",
+      "sha256": "5e2d1f077a3d7d122b952d106e7087064e707dbdf63b8297307f47dc9258c5fd"
+    },
     "performance.ts": {
       "upstream": "src/vs/base/common/performance.ts",
       "sha256": "6553044d87308e75de33b7e59b8d438211cb35621f308ac9b0e3601038061c01"

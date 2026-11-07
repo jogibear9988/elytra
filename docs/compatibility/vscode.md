@@ -26,7 +26,7 @@ from a future Code-OSS test.
 | Area | Observed upstream dependency | Elytra gap and required proof |
 | --- | --- | --- |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | node:module now has createRequire utilities, but its compile-cache exports and node:v8 remain absent. Define a truthful LibJS cache/diagnostics adaptation; do not fake a V8 cache or embed V8. First prove the pinned bootstrap progresses with an explicit adaptation report |
-| Shared Node bootstrap | bootstrap-node statically imports createRequire and registers SIGPIPE during evaluation | createRequire and restricted process signal events pass local macOS Node/GC/native delivery tests. Packaged ASAR resolver customization remains absent; individual API fixtures do not prove this complete upstream module runs |
+| Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
 | Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | perf_hooks supplies native now/timeOrigin; original-fs now has a separate raw main-process facade with local macOS acceptance. ASAR and broader performance APIs remain absent, desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
 | Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
@@ -57,7 +57,16 @@ the existing native loader, with shared CJS/JSON instances, real package require
 conditions and actual GC acceptance locally on macOS. This targets the pinned
 [bootstrap-node createRequire call](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/bootstrap-node.ts#L7).
 It does not implement the separate compile-cache imports, node:v8 or execute the
-whole Code-OSS bootstrap. Their blockers remain open.
+whole desktop bootstrap. Their blockers remain open.
+
+The newer non-GUI **mite-code-oss-bootstrap** gate executes the actual pinned
+bootstrap-node.ts after type erasure, using VSCODE_DEV=1. It proves module
+evaluation, its SIGPIPE registration, original cwd capture and portable-mode
+existing/missing directory/temp configuration locally on macOS. It leaves all
+source algorithms intact. It does not call the exported developer loader-hook or
+global-search customization, and does not activate packaged ASAR support. Those
+paths, nodeCompileCache/main.ts, mainImpl and desktop launch remain open. Node is
+only the development oracle/type stripper; Mite still executes with LibJS alone.
 
 The [performance clock slice](../api/perf-hooks.md) supplies native global/module
 now/timeOrigin. Its gate runs the actual pinned common/performance.ts after

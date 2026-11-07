@@ -52,7 +52,8 @@ The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-69 suites including process events; that new slice awaits Linux/Windows acceptance.
+70 suites including process events and the pinned Code-OSS source-mode bootstrap;
+those new slices await Linux/Windows acceptance.
 
 ```js
 import {createHash} from 'node:crypto';

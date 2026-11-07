@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release CLI has 65
+Mite is a working native LibJS runtime; the current macOS Release CLI has 70
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -6792,6 +6792,29 @@ passes 199 pages / 14,066 local links/resources/fragments; source formatting,
 generated integrity and diff checks pass. No local GUI tests. Full goal active; next prioritize an actual
 pinned Code-OSS bootstrap gate, then truthful cache/V8 adaptation and public
 binary/event/port transport prerequisites.
+
+## 2026-11-07: Execute the actual pinned Code-OSS shared source bootstrap
+
+- Pin unmodified bootstrap-node.ts from the existing audited Code-OSS commit
+  6531648f5ace8b77ae799262bdc97bf048461938, with exact SHA-256, LF checkout guard
+  and original MIT license. Node's existing test-only stripTypeScriptTypes erases
+  types; both runtimes execute identical output with no function replacements.
+- The actual module evaluates under Mite/LibJS: createRequire/imports, SIGPIPE
+  registration, VSCODE_CWD and platform cwd setup succeed. Invoke upstream
+  configurePortable with actual present/missing directories and portable tmp;
+  compare resulting paths/environment against Node 24.15.0.
+- Source mode is explicit (VSCODE_DEV=1). Exported developer loader hooks/global
+  search customization and packaged ASAR resolution are not exercised or accepted.
+  This is bootstrap-node, not the complete main.ts entry, nodeCompileCache,
+  mainImpl, renderer workbench, extension host or terminal. Cache/V8 adaptation
+  and public binary/event/port transport remain priority blockers.
+
+Validation: local macOS Release all 70 CTests pass (20.68 seconds), including the
+actual source-bootstrap gate (0.15 seconds), process delivery/GC and pinned
+performance module. New native Linux/Windows gates remain pending. No runtime
+implementation changed in this step; no local GUI. Site (199 pages / 14,085 local
+links/resources/fragments), formatting, Windows LF/hash and diff checks pass.
+Full goal remains active.
 
 ## Resume
 

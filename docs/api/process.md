@@ -148,6 +148,11 @@ integration and are not simulated by an otherwise working emitter. process.kill
 and arbitrary signal support remain absent. See
 [ADR 0104](../architecture/0104-process-events-signals.md).
 
+The separate pinned Code-OSS source-mode gate evaluates its real bootstrap-node
+module, including this SIGPIPE subscription and native cwd/environment setup,
+then exercises portable configuration. That confirms one bootstrap dependency
+path, not the full Code-OSS main entry or desktop application.
+
 ## Limits, example and validation
 
 Process lifecycle/rejection events, stdio streams, broader signals, per-thread CPU usage,
