@@ -2,8 +2,8 @@
 
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
-macOS ARM64 and scoped native Mite gates: Linux passes 75 suites at adc00d0;
-Windows passes 74 at adc00d0. Firefly has tested macOS subsets and an experimental X11 app;
+macOS ARM64 and scoped native Mite gates: Linux passes 78 suites at f2e887b;
+Windows passes 76 at a56d183. Firefly has tested macOS subsets and an experimental X11 app;
 Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
 archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
 wider Linux distribution support and release publication remain unfinished.
@@ -61,7 +61,8 @@ the application-only cache policy, pure startup/launcher checks, real CLI parser
 synchronous resolve chains and promisify/native callback services with actual host GC.
 At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-hook
 acceptance passes Linux at 6c613ec (76 suites) after its inline-definition link fix;
-new promisify/native protocol components require separate native gates.
+promisify passes Linux/Windows at a56d183; new native protocol components
+require separate gates.
 Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js
@@ -72,7 +73,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 ## Firefly
 
 Public protocol remains absent. The internal [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)
-does not yet provide resource handlers or application scheme registration.
+now includes native owned-helper configuration, but does not provide resource
+handlers or application scheme registration. The Rust DOM URL origin gate remains
+failing; see [ADR 0112](../architecture/0112-native-protocol-configuration.md).
 
 The [original-fs reference](original-fs.md) describes raw main-process filesystem
 access, separate facades and the remaining ASAR limitation.

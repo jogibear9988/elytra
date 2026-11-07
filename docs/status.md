@@ -35,23 +35,42 @@ records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
 the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
 in [run 42389926763](https://github.com/jogibear9988/elytra/actions/runs/42389926763).
 The new synchronous resolve-hook slice passes local macOS Node/Mite/host-GC checks;
-its native Linux/Windows acceptance is pending. Linux 98866c3 fails linking before
+its native Linux/Windows acceptance passes at a56d183. Linux 98866c3 fails linking before
 CTest in [run 42390960317](https://github.com/jogibear9988/elytra/actions/runs/42390960317);
 6c613ec adds the missing LibJS inline header and passes the new full Linux run below.
 The new [promisify contract](api/util.md) passes local actual callback-service and
-host-GC gates; new native results remain pending.
+host-GC gates and native Linux/Windows at a56d183.
 
-The native [custom-protocol origin/trust foundation](architecture/0111-custom-protocol-origins.md)
-now passes local tests against actual LibURL/LibWebCommon, including IDNA/IPv6,
-origin separation, immutable policy and concurrent reads. It is internal and
-unconfigured in product helpers; public protocol, full custom-standard parsing
-and resource transport remain absent. This does not advance the Code-OSS launch
-beyond its recorded protocol import failure. New native component CI is pending.
+The native [protocol policy delivery](architecture/0112-native-protocol-configuration.md)
+now passes local typed-codec/argv/lifecycle tests and actual headless diagnostic/
+production helper tests. Each selected helper receives the exact immutable parent
+policy before its VM starts; no page/preload setter is added. The first helper
+launch seals even an empty policy and late registration rejects.
+
+The first application-facing DOM URL expectation **fails**: Rust's DOM URL class
+bypasses the native C++ origin hook. The strict check-firefly-protocol-dom-origins
+gate remains failing, separately from native configuration acceptance. Public
+protocol, standard parsing, registration timing/worker propagation and resource
+transport remain unfinished. Code-OSS still fails at the protocol import; no new
+Code-OSS desktop launch is claimed.
+
+Native **a56d183** accepts promisify/resolve hooks on Linux (all **77**, 68.73s,
+[run 42391944791](https://github.com/jogibear9988/elytra/actions/runs/42391944791))
+and Windows (all **76**, 130.36s,
+[run 42391944810](https://github.com/jogibear9988/elytra/actions/runs/42391944810)).
+The later **f2e887b** Linux run passes all **78** including the origin source guard
+(97.65s, [run 42393201428](https://github.com/jogibear9988/elytra/actions/runs/42393201428));
+that standalone guard does not prove native renderer origin behavior.
+The full Linux renderer/default archive/Designer **a56d183**
+[run 42391944775](https://github.com/jogibear9988/elytra/actions/runs/42391944775)
+passes, including actual opt-in host/preload aliases; candidate artifact
+13582388416 is a 122713450-byte ZIP. It predates native protocol policy delivery.
+New protocol component native CI results remain pending.
 
 Linux **6c613ec** passes all **76** runtime suites in 96.57 seconds
 ([run 42391732431](https://github.com/jogibear9988/elytra/actions/runs/42391732431)),
 including actual resolve hooks. It accepts the inline-header link correction;
-new promisify/protocol changes need their own native results.
+new protocol changes need their own native results; later promisify acceptance is above.
 
 The newer **adc00d0** Linux dependency/parser baseline passes all **75** suites
 in 66.05 seconds ([run 42389926816](https://github.com/jogibear9988/elytra/actions/runs/42389926816)).
@@ -140,10 +159,10 @@ and later master changes.
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
 | Mite / macOS ARM64 | Current local 77 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy, pure native startup/launcher checks and synchronous resolve-hook/host-GC checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
-| Mite / native Linux x64 | All 75 enabled suites at adc00d0; [run 42389926816](https://github.com/jogibear9988/elytra/actions/runs/42389926816) | New resolve-hook gate, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
-| Mite / native Windows x64 | All 74 enabled suites at adc00d0; [run 42389926814](https://github.com/jogibear9988/elytra/actions/runs/42389926814). Earlier oracle crashes remain undiagnosed | New hook/promisify gates, oracle crash diagnosis, full Windows API/error parity and distribution |
+| Mite / native Linux x64 | All 78 enabled suites at f2e887b; [run 42393201428](https://github.com/jogibear9988/elytra/actions/runs/42393201428) | New native protocol component, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / native Windows x64 | All 76 enabled suites at a56d183; [run 42391944810](https://github.com/jogibear9988/elytra/actions/runs/42391944810). Earlier oracle crashes remain undiagnosed | New protocol component, oracle crash diagnosis, full Windows API/error parity and distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
-| Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls plus native host/preload alias pass at 5735b91 in [run 42386340939](https://github.com/jogibear9988/elytra/actions/runs/42386340939) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
+| Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls plus native host/preload alias pass at a56d183 in [run 42391944775](https://github.com/jogibear9988/elytra/actions/runs/42391944775) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |
 | Firefly / native Windows | Production desktop not implemented/accepted; [renderer](development/windows-build.md#experimental-native-libweb-renderer-gate) and [Qt window prototype](development/windows-build.md#native-qt-window-prototype) have native CI gates, execution pending | Native renderer/window/process/sandbox services and app packaging; no WSL or alternate-engine fallback |
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2) contains

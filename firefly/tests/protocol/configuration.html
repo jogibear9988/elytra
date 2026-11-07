@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Protocol configuration first script</title>
+<body>
+  WAITING
+</body>
+<script>
+  // This executes in the ordinary page, before any application/preload intervention.
+  const origin = new URL('app://BUNDLE/path?query#hash').origin;
+  const other = new URL('app://other/path').origin;
+  const nativeAbsent = ['process', 'require', 'firefly', 'electron', 'configureOriginPolicy'].every(
+    (name) => typeof globalThis[name] === 'undefined'
+  );
+  document.body.textContent = `FIRST_SCRIPT origin=${origin} other=${other} NATIVE_ABSENT=${nativeAbsent}`;
+</script>

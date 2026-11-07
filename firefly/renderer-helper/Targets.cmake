@@ -17,6 +17,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp" ${firefly_renderer_platform_sources})
 add_dependencies(FireflyWebContent check-firefly-upstream check-firefly-renderer-hooks)
+target_include_directories(FireflyWebContent PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(FireflyWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox
                                                 LibURL firefly-byte-channel)
 set_target_properties(
@@ -90,7 +91,8 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
         ${firefly_renderer_platform_sources})
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
-    target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+    target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
+                                                                "${FIREFLY_SOURCE_DIR}/firefly")
     target_link_libraries(FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world
                                                            LibSandbox LibURL)
     set_target_properties(
@@ -117,3 +119,48 @@ if(FIREFLY_BUILD_RUNTIME)
     endforeach()
     add_dependencies(firefly stage-firefly-runtime-helper check-firefly-js)
 endif()
+
+# Real parent/owned-child configuration before the helper's first page script.
+add_executable(firefly-protocol-renderer-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/native/protocol/RendererProbe.cpp")
+target_include_directories(firefly-protocol-renderer-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(
+    firefly-protocol-renderer-probe
+    PRIVATE LibWebView
+            LibIPC
+            LibURL
+            LibGfx
+            LibCore
+            LibMain
+            AK)
+target_compile_definitions(
+    firefly-protocol-renderer-probe
+    PRIVATE FIREFLY_PROTOCOL_DIAGNOSTIC_DIRECTORY="${firefly_helper_binary_dir}")
+add_dependencies(firefly-protocol-renderer-probe stage-firefly-helper check-firefly-upstream)
+if(FIREFLY_BUILD_RUNTIME)
+    target_compile_definitions(
+        firefly-protocol-renderer-probe
+        PRIVATE FIREFLY_PROTOCOL_RUNTIME_DIRECTORY="${firefly_runtime_binary_dir}")
+    add_dependencies(firefly-protocol-renderer-probe stage-firefly-runtime-helper)
+    set(protocol_runtime_test_argument --runtime)
+endif()
+ladybird_check_skia_confinement(firefly-protocol-renderer-probe)
+add_custom_target(
+    check-firefly-protocol-renderer
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
+        --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper
+        "$<TARGET_FILE:FireflyWebContent>" ${protocol_runtime_test_argument}
+    DEPENDS firefly-protocol-renderer-probe
+    USES_TERMINAL VERBATIM)
+
+# Separate application-facing acceptance: intentionally remains red until Rust DOM URL origin
+# semantics agree with the native policy. Not a supported API gate.
+add_custom_target(
+    check-firefly-protocol-dom-origins
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
+        --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper
+        "$<TARGET_FILE:FireflyWebContent>" ${protocol_runtime_test_argument} --require-dom
+    DEPENDS firefly-protocol-renderer-probe
+    USES_TERMINAL VERBATIM)

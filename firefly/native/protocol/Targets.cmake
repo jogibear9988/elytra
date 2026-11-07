@@ -12,6 +12,7 @@ set_property(
     PROPERTY CMAKE_CONFIGURE_DEPENDS
              "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibURL/URL.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/HelperProcess.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp")
 
 function(firefly_origin_source target original replacement)
@@ -40,7 +41,9 @@ endfunction()
 firefly_origin_source(LibURL "Libraries/LibURL/URL.cpp" URL.cpp)
 firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp"
                       SecureContexts.cpp)
-target_sources(LibURL PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp")
+firefly_origin_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp" HelperProcess.cpp)
+target_sources(LibURL PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp"
+                              "${CMAKE_CURRENT_LIST_DIR}/OriginConfig.cpp")
 add_custom_target(
     check-firefly-protocol-origin-hooks
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
@@ -48,6 +51,7 @@ add_custom_target(
     VERBATIM)
 add_dependencies(LibURL check-firefly-protocol-origin-hooks)
 add_dependencies(LibWebCommon check-firefly-protocol-origin-hooks)
+add_dependencies(LibWebView check-firefly-protocol-origin-hooks)
 add_executable(firefly-protocol-origin-probe "${CMAKE_CURRENT_LIST_DIR}/OriginProbe.cpp")
 target_include_directories(firefly-protocol-origin-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-protocol-origin-probe PRIVATE LibURL LibWebCommon LibMain LibCore)
@@ -56,5 +60,7 @@ add_custom_target(
     check-firefly-protocol-origins
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" default
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" configured
+    COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" arguments
+    COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" sealed
     DEPENDS firefly-protocol-origin-probe
     USES_TERMINAL VERBATIM)

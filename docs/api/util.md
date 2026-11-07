@@ -3,7 +3,9 @@
 Status: partial. Shared TextEncoder/TextDecoder classes and promisify are
 implemented. The Promise adaptation has local macOS ARM64 Node 24.15 differential,
 real filesystem/DNS/child/timer and forced embedded-host GC acceptance. Native
-Linux/Windows validation of this new slice remains pending. Other util APIs are
+Linux/Windows validation passes at a56d183 in
+[Linux run 42391944791](https://github.com/jogibear9988/elytra/actions/runs/42391944791)
+and [Windows run 42391944810](https://github.com/jogibear9988/elytra/actions/runs/42391944810). Other util APIs are
 not supplied merely because the module imports successfully.
 
 ## promisify(original)

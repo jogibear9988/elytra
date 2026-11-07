@@ -294,12 +294,20 @@ IPC fixtures with directly loaded ESM, without the earlier inline workaround.
 
 ## Custom protocol origin seams
 
-The renderer graph also composes LibURL URL::origin and LibWebCommon's
-potentially-trustworthy-origin decision through
+The renderer graph composes LibURL URL::origin, LibWebCommon's
+potentially-trustworthy-origin decision and the WebContent launch call through
 [prepare_protocol_origin_hooks.py](../../tooling/prepare_protocol_origin_hooks.py).
-Review both fingerprints, the exact early-return seams and CMake source ownership
+Review all three fingerprints, the exact origin/trust/launch seams and CMake source ownership
 on an upstream update. The native-only immutable policy defaults empty; standalone
 Mite does not use it. Run check-firefly-protocol-origins against actual native
 LibURL/LibWebCommon, separately from the standalone source-composition guard.
-This does not certify custom-standard parsing or request/resource transport; see
+Run check-firefly-protocol-renderer for actual owned helper configuration. Its
+separate strict check-firefly-protocol-dom-origins is still failing because Rust
+DOM URL origin bypasses the native hook. Review that Rust binding/parser separately;
+no standard parsing or request/resource transport acceptance follows. See
 [ADR 0111](../architecture/0111-custom-protocol-origins.md).
+
+The owned helper Entry.cpp consumes the bounded immutable origin policy before
+calling upstream main. Check argv ownership, stripping and error-before-bootstrap
+behavior on updates. Parent launch seals even an empty policy; public registration
+must not diverge from existing spare processes. See [ADR 0112](../architecture/0112-native-protocol-configuration.md).

@@ -75,7 +75,8 @@ denial policy.
 
 Register a synchronous **resolve** hook and return an object with an idempotent
 `deregister()` method. Later registrations execute first. Local macOS Node/Mite
-and real embedded-host GC tests pass; native Linux/Windows acceptance is pending.
+and real embedded-host GC tests pass; native Linux passes at 6c613ec and
+Windows at a56d183. See [current evidence](../status.md).
 This is a partial API: passing a load function rejects the entire registration
 with ERR_MITE_UNSUPPORTED_API before installing its resolve function.
 

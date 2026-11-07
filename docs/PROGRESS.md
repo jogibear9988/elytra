@@ -7179,6 +7179,58 @@ checks pass. No local GUI, no new Code-OSS launch claim and no Ladybird edits. A
 and native README record remaining stages. Full goal active, including real
 protocol/resources, public binary/event/port IPC, workbench and native Windows.
 
+## 2026-11-07: Deliver immutable native origin policy before owned helper bootstrap
+
+- Inspect actual pinned Rust SchemeType/BasicParseOptions: no custom-standard
+  scheme extension exists. Preserve the unmodified upstream parser; do not create
+  a private copy/fork. Continue the required independent native configuration path.
+- Add exact versioned JSON codec with 8 KiB/32-entry budgets, typed canonical
+  scheme/standard/secure fields, common pure name/duplicate/builtin validation and
+  explicit unknown-field/privilege rejection. Parsing/roundtrip do not publish.
+- Add one fingerprinted owned LibWebView WebContent-launch seam, preserving source
+  bytes/notices and all IPC method IDs. A declared native parent policy is copied
+  through one private argument; no environment, file or page/preload setter.
+- Seal an empty undeclared policy on the first helper launch as well, omitting
+  its option. A real NeverDestroyed empty table avoids sentinel/destruction races;
+  late registration fails instead of diverging from prelaunched helpers. Public
+  scheme registration timing/spare-process integration remains unfinished.
+- Consume/validate the private option in both owned helper entries before upstream
+  bootstrap/VM initialization. Preserve argv0, post-delimiter/empty/Unicode args,
+  null termination and owned buffers through the upstream entry. Invalid/duplicate
+  input fails before startup or publication. A read-only PID/canonical-policy
+  readiness record supplies native startup evidence while this path develops.
+- Native tests pass actual codec, malformed/unknown data, budgets, roundtrip,
+  atomic refusals, copied temporary-input/argv lifetime, default origins and late
+  registration denial. Reuse the actual headless renderer probe via an owned
+  wrapper; ordinary probes gain no protocol test options.
+- Real diagnostic and production helpers receive the exact parent's policy before
+  the first page script, correlated to their actual WebContent PID. Default mode
+  sends none and page/native capabilities remain absent. Require this native
+  configuration gate in macOS release/check-firefly and Linux runtime CI;
+  Windows has the native codec/origin gate, not owned helper delivery.
+- The initial DOM URL end-to-end assertion fails: new URL(app://...).origin stays
+  null despite correct native delivery. Inspect Bindings/Rust/src/domurl/url.rs:
+  DOM origin/extract-origin use Rust directly, bypassing C++ URL::origin. Preserve
+  a distinct strict --require-dom/check-firefly-protocol-dom-origins gate and
+  confirm its failure; the internal configuration gate reports this as PENDING,
+  never application compatibility. No public protocol export or successful
+  Code-OSS launch follows. Resolve the Rust/C++ origin/parser gap before exposure.
+- Record completed a56d183 acceptance: Linux 42391944791/job 128463329796 all 77
+  suites, 68.73s (promisify 0.41s, resolve hooks 0.30s); Windows 42391944810/job
+  128462034123 all 76, 130.36s (promisify 0.86s, hooks 0.67s). Linux renderer/default
+  archive/Designer 42391944775/job 128462303093 passes; artifact 13582388416 is
+  122713450 bytes. Later f2e887b Linux 42393201428/job 128464976481 all 78 passes
+  in 97.65s, including the composition guard, not the native renderer component.
+
+Validation: actual native origin/config/argv/sealing probes and headless diagnostic/
+production helper configuration pass; strict DOM origin compatibility explicitly
+fails with its observed reason. Integration compilation passes with existing SDK
+warnings. The standalone composition CTest passes; Mite runtime code is unchanged
+and the last full local runtime baseline remains 77 suites. Formatting, site
+(210 pages / 14,854 local links/resources/fragments) and upstream/diff checks pass. No desktop windows/GUI suite or new
+Code-OSS launch; Ladybird remains unchanged. ADR 0112 and references record worker,
+parser/DOM, registration-lifecycle and resource-transport gaps. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

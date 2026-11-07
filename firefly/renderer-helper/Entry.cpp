@@ -3,9 +3,11 @@
  * selected service only after the renderer VM is initialized.
  */
 
-// Reuse upstream's complete bootstrap/sandbox/connection setup. Only its entry
-// name and VM-initialization call are adapted in this translation unit.
+// Consume the owned native policy before upstream bootstrap/sandbox/connection
+// setup. Rename only its entry and VM-initialization call inside the composition.
 #include "RendererSession.h"
+#include "native/protocol/OriginConfig.h"
+#include <LibCore/System.h>
 #include <LibMain/Main.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
 
@@ -30,7 +32,15 @@ void firefly_initialize_renderer_vm(HTML::AgentType type)
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
-    auto result = firefly_upstream_renderer_main(arguments);
+    auto filtered = TRY(Firefly::Protocols::consume_origin_configuration(arguments.strings));
+    // Read-only startup evidence while this internal protocol path is under
+    // development. No page/preload command can set or replace this policy.
+    if (auto configuration = Firefly::Protocols::configuration_for_helper();
+        configuration.has_value())
+        dbgln("FIREFLY_ORIGIN_POLICY_READY pid={} configuration={}", Core::System::getpid(),
+            *configuration);
+    auto result = firefly_upstream_renderer_main({ static_cast<int>(filtered.strings.size()),
+        filtered.argv.data(), filtered.strings.span() });
     Firefly::RendererSession::shutdown();
     return result;
 }

@@ -161,4 +161,5 @@ has an immediate .child property and resolves with {stdout, stderr}. Rejection
 errors retain both output fields. The same callback implementation still owns
 spawning, bounded collection, cancellation and completion; options/platform limits
 above still apply. Local macOS Node/Mite tests execute real children and verify
-both successful and nonzero output paths; new native platform gates are pending.
+both successful and nonzero output paths; native Linux/Windows also pass the
+promisify gate at a56d183. See [current evidence](../status.md).

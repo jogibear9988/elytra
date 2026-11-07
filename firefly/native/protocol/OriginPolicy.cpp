@@ -4,6 +4,8 @@
  * reconfiguration, reset, or destruction of security policy.
  */
 #include "OriginPolicy.h"
+#include "OriginConfig.h"
+#include <AK/NeverDestroyed.h>
 #include <AK/OwnPtr.h>
 #include <AK/Vector.h>
 #include <LibURL/Parser.h>
@@ -13,6 +15,13 @@ namespace Firefly::Protocols {
 namespace {
     struct Table {
         AK_ALLOC_WITH_KMALLOC;
+
+        explicit Table(bool declared = true)
+            : declared(declared)
+        {
+        }
+
+        bool declared;
         Vector<OriginScheme> schemes;
     };
 
@@ -45,11 +54,11 @@ namespace {
     }
 }
 
-ErrorOr<void> install_origin_schemes(ReadonlySpan<OriginScheme> schemes)
+ErrorOr<void> validate_origin_schemes(ReadonlySpan<OriginScheme> schemes)
 {
     if (schemes.size() > 32)
         return Error::from_string_literal("At most 32 custom origin schemes are supported");
-    auto table = TRY(try_make<Table>());
+    size_t index = 0;
     for (auto const& entry : schemes) {
         auto name = entry.name.bytes_as_string_view();
         if (!valid_name(name))
@@ -60,22 +69,51 @@ ErrorOr<void> install_origin_schemes(ReadonlySpan<OriginScheme> schemes)
                 "devtools"sv, "webkit"sv, "moz-extension"sv, "mite"sv, "mite-host"sv, "firefly"sv))
             return Error::from_string_literal(
                 "Built-in and internal origin schemes cannot be replaced");
-        for (auto const& existing : table->schemes) {
+        for (auto const& existing : schemes.slice(0, index)) {
             if (existing.name == name)
                 return Error::from_string_literal("Duplicate custom origin scheme");
         }
 
-        TRY(table->schemes.try_append(entry));
+        ++index;
     }
 
+    return {};
+}
+
+ErrorOr<void> install_origin_schemes(ReadonlySpan<OriginScheme> schemes)
+{
+    TRY(validate_origin_schemes(schemes));
+    auto table = TRY(try_make<Table>());
+    for (auto const& entry : schemes)
+        TRY(table->schemes.try_append(entry));
     Table const* expected = nullptr;
     if (!policy.compare_exchange_strong(
             expected, table.ptr(), std::memory_order_acq_rel, std::memory_order_acquire))
-        return Error::from_string_literal("Custom origin policy is already installed");
+        return Error::from_string_literal(
+            "Custom origin policy is installed or helper launch has already started");
     // Bounded immutable process security state deliberately outlives all worker
     // threads/static destructors. There is no public reset or teardown callback.
     (void)table.leak_ptr();
     return {};
+}
+
+Optional<ByteString> configuration_for_helper()
+{
+    auto const* table = policy.load(std::memory_order_acquire);
+    if (!table || !table->declared)
+        return {};
+    return MUST(serialize_origin_configuration(table->schemes));
+}
+
+Optional<ByteString> configuration_for_helper_launch()
+{
+    // A real process-lifetime empty table avoids sentinel pointers and teardown
+    // races. Omit the option for default helpers while permanently closing install.
+    static NeverDestroyed<Table> sealed_empty { false };
+    Table const* expected = nullptr;
+    policy.compare_exchange_strong(
+        expected, &sealed_empty.get(), std::memory_order_acq_rel, std::memory_order_acquire);
+    return configuration_for_helper();
 }
 
 Optional<URL::Origin> custom_origin(URL::URL const& url)

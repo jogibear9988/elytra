@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose two exact origin-policy seams without editing pinned Ladybird sources."""
+"""Compose exact origin-policy and helper-launch seams without editing pinned Ladybird sources."""
 
 import argparse
 import hashlib
@@ -13,6 +13,12 @@ ENTRIES = {
         "3e233367b17349e9b5e305df0b44ff72c80167d529f392ab5c699195fee4c764",
         "    // NB: liburl_rust runs the remaining steps.\n",
         "    if (auto custom = Firefly::Protocols::custom_origin(*this); custom.has_value())\n        return custom.release_value();\n\n",
+    ),
+    "HelperProcess.cpp": (
+        "Libraries/LibWebView/HelperProcess.cpp",
+        "b534514372909dec44a6a31738825e0d92aabea923add1fa2067647f82a1d888",
+        '    auto client = TRY(launch_server_process<WebView::WebContentClient>("WebContent"sv, move(arguments), is_private, initial_page_id, root_navigable_id));\n',
+        '    if (auto configuration = Firefly::Protocols::configuration_for_helper_launch(); configuration.has_value())\n        arguments.append(ByteString::formatted("--firefly-origin-policy={}", *configuration));\n\n',
     ),
     "SecureContexts.cpp": (
         "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp",
@@ -55,7 +61,7 @@ def prepare(output):
             data = text.encode("utf-8")
             if not path.exists() or path.read_bytes() != data:
                 path.write_bytes(data)
-    print("PASS pinned origin/secure-context seams, drift refusal and exact byte preservation")
+    print("PASS pinned origin/trust/helper-launch seams, drift refusal and exact byte preservation")
 
 
 def main():
