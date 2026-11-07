@@ -149,8 +149,9 @@ side alone selects authorized paths. The next
 connects it to the real LibWeb response owner and global JavaScript fetch in a
 separate native child, with local macOS acceptance. Exact document identity,
 parallel quotas, real abort/reader cancellation and silent-peer expiry are checked.
-Live helper/document bootstrap routing and the public protocol/session contract
-remain open; Code-OSS resources still do not load through the product.
+The internal live helper/document routing is covered below; the public
+protocol/session contract remains open. Code-OSS resources still do not load through
+the product.
 
 Inspection of the real navigation path identifies another prerequisite for the
 first workbench URL: the [shared fetch classifier](../architecture/0120-custom-fetch-scheme-classification.md)
@@ -162,8 +163,11 @@ without its explicit native handler and intent. Initial descriptor buffering is
 limited to 16 MiB. The [native live helper path](../architecture/0122-live-helper-resource-navigation.md)
 now loads and activates a real app-origin DOM through the production helper in a
 local headless probe, with exact endpoint/navigation admission and absent page
-privileges. The normal main bridge still has no public protocol authorizer, and
-post-commit scripts/styles/resources remain unwired. This is not Code-OSS startup.
+privileges. The [exact-document handoff](../architecture/0123-live-document-resource-handoff.md)
+now also loads external ESM, CSS and binary GET/HEAD in the real helper; wrong-ID,
+missing/duplicate grants and revocation on navigation pass locally. The normal main
+bridge still has no public protocol/session authorizer or automatic document grants.
+This is not Code-OSS startup.
 
 Immediate execution order (each step needs real native acceptance):
 

@@ -22,13 +22,26 @@ NAV_HOOK = """    NonnullRefPtr<WebContentPage> firefly_page { *this };
         return;
 """
 
+DOC_SEAM = (
+    "        host->async_populate_navigation(weak_loader->request(), weak_loader->take_result());\n"
+)
+DOC_HOOK = """        auto firefly_loader = weak_loader.strong_ref();
+        auto firefly_navigable = navigable->make_weak_ptr();
+        Firefly::prepare_native_document(*host, firefly_loader->request(), firefly_loader->result());
+        auto* firefly_current = firefly_navigable.ptr();
+        if (!host->is_open() || !firefly_current
+            || firefly_current->navigation_with_id(navigation_id) != navigation
+            || navigation->loader() != firefly_loader)
+            return;
+"""
+
 
 def adapt(source):
-    if source.count(SEAM) != 1 or source.count(NAV_SEAM) != 1:
+    if source.count(SEAM) != 1 or source.count(NAV_SEAM) != 1 or source.count(DOC_SEAM) != 1:
         raise ValueError("Review WebContentPage IPC seam")
     return '#include "TransportHooks.h"\n' + source.replace(SEAM, HOOK + SEAM).replace(
         NAV_SEAM, NAV_HOOK + NAV_SEAM
-    )
+    ).replace(DOC_SEAM, DOC_HOOK + DOC_SEAM)
 
 
 def main():
@@ -44,6 +57,7 @@ def main():
         output.removeprefix('#include "TransportHooks.h"\n')
         .replace(HOOK + SEAM, SEAM)
         .replace(NAV_HOOK + NAV_SEAM, NAV_SEAM)
+        .replace(DOC_HOOK + DOC_SEAM, DOC_SEAM)
         == original
     )
     for invalid in [
@@ -52,6 +66,8 @@ def main():
         original.replace(SEAM, ""),
         original + NAV_SEAM,
         original.replace(NAV_SEAM, ""),
+        original + DOC_SEAM,
+        original.replace(DOC_SEAM, ""),
     ]:
         try:
             adapt(invalid)

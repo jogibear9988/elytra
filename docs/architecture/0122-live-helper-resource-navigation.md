@@ -2,7 +2,8 @@
 
 Status: local macOS Release native headless acceptance. A real production helper
 loads and activates a custom-origin document; public protocol/session APIs and
-post-commit resource loading remain unimplemented.
+post-commit resource loading were outside this step. The latter now has internal
+acceptance in [ADR 0123](0123-live-document-resource-handoff.md).
 
 ## Decision
 
@@ -83,7 +84,8 @@ enabled by this step. Shared control code still needs fresh Windows compilation.
 
 This proves an internal native navigation, not BrowserWindow.loadURL custom scheme
 support through the public runtime. The normal main bridge installs no file-route
-authorizer, and the helper's document handler remains empty. Next bind a new exact
+authorizer. At this step the helper's document handler remained empty;
+[ADR 0123](0123-live-document-resource-handoff.md) now binds a new exact
 document to post-commit resource transport before its scripts/styles need it,
 including selected-process changes, navigation/teardown and security checks.
 Then implement the demanded public protocol/session APIs and re-run real Code-OSS

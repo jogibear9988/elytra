@@ -18,6 +18,32 @@ struct NavigationCallback : RefCounted<NavigationCallback> {
 
 static NeverDestroyed<RefPtr<NavigationCallback>> navigation_handler;
 
+struct DocumentCallback : RefCounted<DocumentCallback> {
+    explicit DocumentCallback(NativeDocumentHandler value)
+        : callback(move(value))
+    {
+    }
+
+    NativeDocumentHandler callback;
+};
+
+static NeverDestroyed<RefPtr<DocumentCallback>> document_handler;
+
+void set_native_document_handler(NativeDocumentHandler value)
+{
+    document_handler.get()
+        = value ? adopt_ref(*new DocumentCallback(move(value))) : RefPtr<DocumentCallback> {};
+}
+
+void prepare_native_document(WebView::WebContentPage& page,
+    Web::HTML::NavigationPopulationRequest const& request,
+    Web::HTML::NavigationPopulationResult const& result)
+{
+    auto owner = document_handler.get();
+    if (owner)
+        owner->callback(page, request, result);
+}
+
 void set_native_navigation_handler(NativeNavigationHandler value)
 {
     navigation_handler.get()

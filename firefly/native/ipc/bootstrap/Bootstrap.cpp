@@ -26,6 +26,17 @@ namespace {
     };
 
     NeverDestroyed<RefPtr<NavigationCallback>> navigation_receiver;
+
+    struct DocumentCallback : RefCounted<DocumentCallback> {
+        explicit DocumentCallback(DocumentReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        DocumentReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<DocumentCallback>> document_receiver;
 }
 
 void set_bootstrap_receiver(BootstrapReceiver callback)
@@ -58,5 +69,23 @@ void accept_navigation(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u
         || navigation.length_in_code_units() > 1024 || url.is_empty() || url.bytes().size() > 8192)
         return; // Dropping the transferred handle closes an unadmitted endpoint.
     callback->callback(stub, move(handle), { page, ns, local, move(navigation), move(url), epoch });
+}
+
+void set_document_receiver(DocumentReceiver callback)
+{
+    document_receiver.get()
+        = callback ? adopt_ref(*new DocumentCallback(move(callback))) : RefPtr<DocumentCallback> {};
+}
+
+void accept_document(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u64 ns, u64 local,
+    u64 document_ns, u64 document_local, Utf16String navigation, String url, u64 epoch)
+{
+    auto callback = document_receiver.get();
+    if (!callback || !epoch || !ns || !local || !document_ns || !document_local
+        || navigation.is_empty() || navigation.length_in_code_units() > 1024 || url.is_empty()
+        || url.bytes().size() > 8192)
+        return;
+    callback->callback(stub, move(handle),
+        { { page, ns, local, move(navigation), move(url), epoch }, document_ns, document_local });
 }
 }

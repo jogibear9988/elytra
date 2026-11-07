@@ -1,5 +1,6 @@
 /** Bind trusted control handoffs to the actual receiving connection/page/navigation. */
 #include "Session.h"
+#include "Documents.h"
 #include "loading/protocol/Client.h"
 #include <LibCore/System.h>
 #include <LibIPC/FireflyBootstrap.h>
@@ -20,6 +21,7 @@ namespace {
     };
 
     struct Session {
+        Documents documents;
         HashMap<Web::HTML::CrossProcessId, Record> records;
         OwnPtr<ProtocolFetch::Registration> provider;
         RefPtr<Core::Timer> timer;
@@ -31,6 +33,7 @@ namespace {
 
     void sweep()
     {
+        session->documents.sweep();
         Vector<Web::HTML::CrossProcessId> destroyed;
         for (auto& entry : session->records) {
             auto& record = entry.value;
@@ -71,6 +74,37 @@ namespace {
         return client->fetch(params);
     }
 
+    ErrorOr<NonnullRefPtr<ProtocolFetch::Response>> fetch_document(
+        Web::Fetch::Infrastructure::FetchParams const& params)
+    {
+        if (!session || !session->thread.is_current_thread())
+            return Error::from_string_literal("Native document service is unavailable");
+        return session->documents.fetch(params);
+    }
+
+    ErrorOr<void> ensure_provider()
+    {
+        if (!session->provider)
+            session->provider = TRY(ProtocolFetch::Registration::install(fetch_document, fetch));
+        return {};
+    }
+
+    void receive_document(
+        IPC::Stub& stub, IPC::TransportHandle handle, Bytes::DocumentBinding binding)
+    {
+        if (!session || !session->thread.is_current_thread()
+            || binding.navigation.epoch <= session->last_epoch)
+            return;
+        auto epoch = binding.navigation.epoch;
+        auto& connection = static_cast<WebContent::ConnectionFromClient&>(
+            static_cast<WebContentServerStub&>(stub));
+        if (session->documents.receive(connection, move(handle), move(binding)).is_error())
+            return;
+        if (ensure_provider().is_error())
+            return;
+        session->last_epoch = epoch;
+    }
+
     void receive(IPC::Stub& stub, IPC::TransportHandle handle, Bytes::NavigationBinding binding)
     {
         if (!session || !session->thread.is_current_thread()
@@ -106,12 +140,8 @@ namespace {
             binding.epoch, *navigable, url.release_value(), binding.navigation);
         if (client.is_error())
             return;
-        if (!session->provider) {
-            auto provider = ProtocolFetch::Registration::install({}, fetch);
-            if (provider.is_error())
-                return;
-            session->provider = provider.release_value();
-        }
+        if (ensure_provider().is_error())
+            return;
 
         if (previous != session->records.end() && previous->value.client)
             previous->value.client->revoke();
@@ -130,6 +160,7 @@ void initialize()
     VERIFY(!session);
     session = new Session;
     Bytes::set_navigation_receiver(receive);
+    Bytes::set_document_receiver(receive_document);
     session->timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(250), [] {
         if (session)
             sweep();
@@ -140,11 +171,13 @@ void initialize()
 void shutdown()
 {
     Bytes::set_navigation_receiver({});
+    Bytes::set_document_receiver({});
     if (!session)
         return;
     session->timer->stop();
     if (session->provider)
         session->provider->revoke();
+    session->documents.revoke();
     for (auto& entry : session->records)
         if (entry.value.client)
             entry.value.client->revoke();

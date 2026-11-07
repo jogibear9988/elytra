@@ -15,6 +15,7 @@ add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/resources/Documents.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp"
@@ -90,6 +91,7 @@ if(FIREFLY_BUILD_RUNTIME)
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/resources/Documents.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
@@ -163,8 +165,10 @@ add_custom_target(
 add_custom_target(check-firefly-protocol-dom-origins DEPENDS check-firefly-protocol-renderer)
 
 if(FIREFLY_BUILD_RUNTIME)
-    add_executable(firefly-resource-renderer-probe
-                   "${FIREFLY_SOURCE_DIR}/firefly/renderer/ResourceRendererProbe.cpp")
+    add_executable(
+        firefly-resource-renderer-probe
+        "${FIREFLY_SOURCE_DIR}/firefly/renderer/ResourceRendererProbe.cpp"
+        "${FIREFLY_SOURCE_DIR}/firefly/renderer/DocumentResources.cpp")
     target_link_libraries(
         firefly-resource-renderer-probe PRIVATE LibWebView firefly-protocol-file-server LibURL
                                                 LibGfx LibCore LibMain)
@@ -178,6 +182,9 @@ if(FIREFLY_BUILD_RUNTIME)
         check-firefly-resource-renderer
         COMMAND
             "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_resource_renderer.py"
+            --probe "$<TARGET_FILE:firefly-resource-renderer-probe>"
+        COMMAND
+            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_document_resources.py"
             --probe "$<TARGET_FILE:firefly-resource-renderer-probe>"
         DEPENDS firefly-resource-renderer-probe
         VERBATIM)

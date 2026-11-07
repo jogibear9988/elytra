@@ -92,9 +92,9 @@ fixture, not a live WebContent helper or a public protocol/session implementatio
 The [shared fetch-scheme classification](architecture/0120-custom-fetch-scheme-classification.md)
 now also includes explicitly registered standard schemes in the actual engine and
 native UI predicates. Local native routing and existing headless helper regressions
-pass. This classifies URLs without granting response authority. The separate native
-navigation population scope below supplies the next component; live document commit,
-public protocol handlers and fresh platform acceptance are still required.
+pass. This classifies URLs without granting response authority. The native
+navigation and document scopes below supply internal response ownership; public
+protocol handlers and fresh platform acceptance are still required.
 
 The [native navigation response path](architecture/0121-native-navigation-population.md)
 now also passes actual upstream top-level navigation population over the native
@@ -105,9 +105,12 @@ Initial navigation buffering is bounded to 16 MiB. The next
 real native UI/helper document commit locally: the production helper activates an
 app-origin DOM, executes its script and preserves absent page capabilities. Duplicate,
 wrong-ID/page and missing-handoff controls pass, as does document survival after
-channel retirement. This is an internal native probe; the ordinary main bridge has
-no public protocol authorizer or post-commit document-resource handler yet. No
-Code-OSS workbench launch or new platform support follows from this gate.
+channel retirement. The [exact-document resource handoff](architecture/0123-live-document-resource-handoff.md)
+now also loads external ESM/CSS and binary GET/HEAD through that real production
+helper, with wrong-ID/missing/duplicate controls and revocation on navigation.
+These are internal native probes; the ordinary main bridge still has no public
+protocol/session authorizer or automatic document grants. No Code-OSS workbench
+launch or new platform support follows from these gates.
 
 The CPU-corrected **1d033fe** Linux renderer passes
 [run 42399004586](https://github.com/jogibear9988/elytra/actions/runs/42399004586):

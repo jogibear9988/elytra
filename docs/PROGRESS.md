@@ -7765,6 +7765,47 @@ still has no public protocol/session authorizer, and the helper grants no docume
 resource capability. Implement those real contracts, then resume the pinned Code-OSS
 bootstrap. No workbench launch is accepted. Full original goal remains active.
 
+## 2026-11-07: Load committed-document resources through the production helper
+
+- Add a third guarded WebContentPage seam before the selected host's original
+  async_populate_navigation. Transfer the actual upstream destination document ID,
+  retaining loader/weak navigable and rechecking current host/navigation/loader
+  after callback reentry. Preserve source fingerprints, exact byte restoration
+  and missing/duplicate seam refusal; leave Ladybird unmodified.
+- Append a third private NotRouted document message without changing original or
+  previous private IDs. Carry page/navigable/navigation/URL/epoch plus document ID
+  and the native endpoint through the shared retained LibIPC callback registry.
+- Admit pending resource grants only for the receiving connection's real page and
+  registered standard URL. Bound them to 32, require increasing epochs, reject
+  duplicates, and expire unused grants after five seconds. Resolve actual native
+  local Window/settings on the first fetch; require exact document/page/navigable/
+  URL/origin and fully active state before creating the existing strict client.
+  Keep active document channels across idle periods; sweep inactive clients and
+  revoke pending/bound grants on shutdown. Navigation retirement stays separate.
+- Extend the real native UI/production-helper headless gate with external ESM and
+  a nested import, applied CSS, every-byte verification of a 4-MiB-plus binary GET,
+  HEAD length/empty body, explicit route denial, filtered Set-Cookie and absent
+  page capabilities. Require selected-helper PID evidence. Wrong document ID and
+  missing grants open no resource files; duplicates close only their extra peer.
+  Real navigation to a replacement data: document revokes the old resource channel
+  with no pending jobs/files and leaves the document/control path alive.
+- Add ADR 0123 and refresh current status, VS Code priorities and the upstream
+  update guide. The already-required headless resource target includes this gate
+  in macOS Release and experimental Linux runtime CI. No desktop windows opened.
+
+Validation: local macOS Release resource navigation (six modes) and committed
+resource loading (five modes) pass. Actual diagnostic byte handoff, diagnostic/
+production helper origin policy, native navigation and JavaScript/process fetch/
+stream/abort gates pass; Firefly compiles. Full source style and upstream checks
+pass; site validation passes (221 pages / 15,609 local links/resources/fragments). Fresh hosted Linux execution and shared Windows
+compilation remain required; no Windows production-helper support claimed.
+
+Next implement public protocol/session registration and main-side route ownership,
+connect it to these native navigation/document grants, then rerun the actual pinned
+Code-OSS main entry and follow its next failure. The ordinary main bridge still
+installs no public authorizer or automatic grants. No Code-OSS workbench launch is
+accepted. Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

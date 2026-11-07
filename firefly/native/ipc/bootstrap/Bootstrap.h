@@ -35,4 +35,17 @@ void set_navigation_receiver(NavigationReceiver);
 
 void accept_navigation(IPC::Stub&, IPC::TransportHandle, u64 page, u64 navigable_namespace,
     u64 navigable_local, Utf16String navigation, String url, u64 epoch);
+
+struct DocumentBinding {
+    NavigationBinding navigation;
+    u64 document_namespace;
+    u64 document_local;
+};
+
+using DocumentReceiver = Function<void(IPC::Stub&, IPC::TransportHandle, DocumentBinding)>;
+void set_document_receiver(DocumentReceiver);
+
+void accept_document(IPC::Stub&, IPC::TransportHandle, u64 page, u64 navigable_namespace,
+    u64 navigable_local, u64 document_namespace, u64 document_local, Utf16String navigation,
+    String url, u64 epoch);
 }

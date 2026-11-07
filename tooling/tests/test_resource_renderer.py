@@ -53,7 +53,7 @@ document.body.textContent='RESOURCE_DOM_OK origin='+location.origin+' secure='+i
             assert "VERIFICATION FAILED" not in result.stderr, result
             print(result.stdout.strip(), flush=True)
     print(
-        "PASS real production-helper custom-origin document navigation; post-commit resources/public protocol remain open"
+        "PASS real production-helper custom-origin document navigation; public protocol remains open"
     )
 
 

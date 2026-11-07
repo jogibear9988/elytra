@@ -24,6 +24,13 @@ WEBVIEW_API void set_native_navigation_handler(NativeNavigationHandler);
 WEBVIEW_API void prepare_native_navigation(
     WebView::WebContentPage&, Web::HTML::NavigationPopulationRequest const&);
 
+using NativeDocumentHandler = Function<void(WebView::WebContentPage&,
+    Web::HTML::NavigationPopulationRequest const&, Web::HTML::NavigationPopulationResult const&)>;
+WEBVIEW_API void set_native_document_handler(NativeDocumentHandler);
+
+WEBVIEW_API void prepare_native_document(WebView::WebContentPage&,
+    Web::HTML::NavigationPopulationRequest const&, Web::HTML::NavigationPopulationResult const&);
+
 WEBVIEW_API bool receive_native_ipc(
     WebView::WebContentPage&, Web::HTML::CrossProcessId, String const&, JsonValue&);
 }
