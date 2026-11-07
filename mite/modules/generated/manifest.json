@@ -29,7 +29,7 @@
     "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
     "stream.js": "c558112991e695b043ed7fc2d4e27dc08aa7f45f849125d78e9f478c8024a20a",
     "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
-    "web-globals.js": "ac265e495f6f1b923d0da5723b89fb43d8870d5a90c619370e970c4df84f48f8",
+    "web-globals.js": "c02966ce1137d18ec8bbdb512910ea17f46d32d33b2ee84c02489af7fc0525af",
     "web-globals.LICENSE.txt": "eb3ca84ead2bd450fd4ecd2e1d1940fc4aa0b833052066d80f6c31d65646339e",
     "fetch-data.js": "bc315b15f6983dc70bfecb9646e59bca16892d41ed700526b8186fb618e6b0d1",
     "fetch-data.LICENSE.txt": "6170ed642e328feaba161e081af2a773f0e65e03d9d0c6b33ce9a7ded141df1c"
@@ -249,7 +249,7 @@
         },
         {
           "path": "web-globals-entry.mjs",
-          "sha256": "ff24d9796a49b6f17d9cbede30566367bdfc221b44f29f00c9c8243be280b14d"
+          "sha256": "937f54883f64c6c7f93e0e47c94ac5a139cdc9e545d6e1a73b22cdea0c7aec2a"
         }
       ],
       "packages": [
@@ -438,7 +438,7 @@
     "mite/runtime/bootstrap/web/abort.mjs": "9bd4d9802991ed008bcc5eed00ded5f4ca7a17576e02f5c05b9c2b55344f2e90",
     "mite/runtime/bootstrap/web/dom-exception.mjs": "0f479aac7511003455ec6e32161a8ba30a9337b108d6695908bbf7870656d996",
     "mite/runtime/bootstrap/web/weak-lifetime.mjs": "ce3c0110ebc190a75d29e68d3bdb703166f52471a1755df4ee919a03d1375d08",
-    "tooling/runtime-js/web-globals-entry.mjs": "ff24d9796a49b6f17d9cbede30566367bdfc221b44f29f00c9c8243be280b14d",
+    "tooling/runtime-js/web-globals-entry.mjs": "937f54883f64c6c7f93e0e47c94ac5a139cdc9e545d6e1a73b22cdea0c7aec2a",
     "mite/runtime/bootstrap/fetch/data/blob.mjs": "94a3f638d155d30877b45aad50c808b474171c209869dd83da7b895bb51a9e2d",
     "mite/runtime/bootstrap/fetch/data/form-data.mjs": "91b7b880af5010872ac6de111c0d2d33d9ce83f463205f1d9ef2900b705f525b",
     "mite/runtime/bootstrap/fetch/data/multipart.mjs": "5261f420cddeea9d37b1c670de59a9d911861b2959cbd63f0b367665de719f3e",

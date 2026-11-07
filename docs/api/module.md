@@ -76,7 +76,8 @@ denial policy.
 The Module constructor, loader hooks, findPackageJSON, compile-cache APIs and
 syncBuiltinESMExports are not exported. In particular this does not supply a V8
 compile cache or allow the complete Code-OSS bootstrap to run. Its cache/diagnostic
-imports still need an explicit LibJS adaptation; see the
+imports use an explicit application-only [LibJS cache policy](../architecture/0106-code-oss-libjs-cache-policy.md),
+not new Mite builtin exports; see the
 [Code-OSS inventory](../compatibility/vscode.md).
 
 Reference: [Node 24.15 module API](https://github.com/nodejs/node/blob/v24.15.0/doc/api/module.md).

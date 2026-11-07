@@ -37,4 +37,6 @@ environment/cwd, locale configuration and actual timer behavior, while Mite keep
 versions.node/electron absent. The unadapted Mite control must reproduce the wrong
 classification and diagnostic. Drift/duplicate/missing seams and license changes
 must reject before output mutation; verify unchanged source files and preserved
-license bytes. Local macOS passes all 71 suites; new native execution is pending.
+license bytes. The initial local macOS gate passes all 71 suites; native Linux
+10f6d70 also passes all 71. Windows 10f6d70 passes this component, but its complete
+run is rejected on Node HTTP/HTTPS oracle crashes. See [current evidence](../status.md).

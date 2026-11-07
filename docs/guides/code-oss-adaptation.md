@@ -41,10 +41,46 @@ python3 tooling/tests/test_code_oss_platform.py --mite build/release-mite/bin/mi
 The test compiles actual pinned platform/process/nls modules with the existing
 build-only esbuild 0.25.12, then compares unmodified Node, adapted Node and adapted
 Mite. Native OS/arch, environment/cwd, configured locales and timer scheduling
-pass locally on macOS. An unadapted Mite negative control proves why this change
+pass on macOS and in the native Linux/Windows component gates; the latest full
+Windows run still fails on Node HTTP/HTTPS reference crashes. An unadapted Mite
+negative control proves why this change
 is needed. Missing/duplicate seams, source/license drift and output overlap are
 refused; original sources and license bytes are checked for preservation.
 
-The shared bootstrap-node module and performance module have separate tests.
-Compile-cache/V8 assumptions, desktop identity/API detection, main.ts/mainImpl,
-public binary/event/port transport and the actual workbench remain unfinished.
+## Disable the optional Node/V8 cache for LibJS
+
+```sh
+python3 tooling/code_oss/overlay.py --source build/code-oss-source --output build/code-oss-libjs-overlay --libjs-cache
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-libjs-overlay --output build/code-oss-diagnostic
+build/release-mite/bin/mite tooling/code_oss/probe.mjs build/code-oss-diagnostic
+```
+
+Both outputs must be fresh. The extra overlay redirects nodeCompileCache's two
+engine-specific imports to the owned application policy and adds three explicit
+unsupported-mode guards. Ordinary development/missing/disabled startup paths keep
+the upstream logic. Cache generation, V8 measurements and cache readiness waits
+fail explicitly; there is no fake bytecode, statistics or .ready marker.
+
+The compiler checks overlay hashes, compiles actual source with pinned esbuild
+0.25.12, retains real imports and records ELYTRA-COMPILE.json. It copies source
+and Elytra notices. It compiles .ts/.js/.json under src and root product/package
+metadata, with legacy decorators/class-field settings and ES2024 output. It does
+not type-check, install npm dependencies or build workbench assets; this output is
+a diagnostic source tree, not a production app package.
+
+The standalone-Mite probe currently exits **1**, recording the real original-fs
+import failure at mainImpl after cache initialization. original-fs is already a
+Firefly-only module; standalone Mite deliberately does not provide it. The failure
+remains a failure and must not be reported as a desktop launch. Run the next
+startup gates in the actual Firefly host with its required exports/options.
+
+```sh
+python3 tooling/tests/test_code_oss_cache.py --mite build/release-mite/bin/mite
+```
+
+This uses real pinned upstream cache/static dependency modules, checks the actual
+status/logging branches, explicit refusals, no fabricated files/statistics and
+unchanged originals. [ADR 0106](../architecture/0106-code-oss-libjs-cache-policy.md)
+records the policy. Mite's public node:v8/Node cache APIs remain unavailable.
+The workbench, desktop identity/API, transitive bootstrap and public binary/event/
+port transport remain unfinished.

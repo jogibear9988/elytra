@@ -20,7 +20,17 @@ const ignored = /^(?:vendor|build)\/|\/node_modules\/|\/generated\/|package-lock
 if (ignored.test('mite/modules/network/dns.mjs')) {
   throw Error('Style exclusion swallowed maintained source');
 }
-const extensions = new Set(['.js', '.mjs', '.cjs', '.html', '.css', '.json', '.yml', '.yaml']);
+const extensions = new Set([
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.html',
+  '.css',
+  '.json',
+  '.yml',
+  '.yaml'
+]);
 const exceptions = JSON.parse(
   await readFile(path.join(root, 'tooling/code-style/exceptions.json'), 'utf8')
 );

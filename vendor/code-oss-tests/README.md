@@ -1,7 +1,8 @@
 # Pinned Code-OSS compatibility source
 
 The manifest pins Microsoft's unmodified performance.ts, bootstrap-node.ts,
-platform.ts, process.ts, nls.ts and MIT license at
+platform.ts, process.ts, nls.ts, main.ts, nodeCompileCache.ts, its static common
+dependency sources and MIT license at
 6531648f5ace8b77ae799262bdc97bf048461938. These files are test input, never a runtime
 dependency or a substitute workbench. Preserve their bytes and license.
 
@@ -34,3 +35,11 @@ Only this explicit overlay changes source; the compiler supplies no fake modules
 Input files and license are preserved and all other source bytes remain exact.
 The license's optional crlfCheckoutSha256 records upstream's LICENSE.txt eol=crlf
 checkout rule; the pinned fixture remains LF and integrity checked.
+
+tooling/tests/test_code_oss_cache.py runs real nodeCompileCache/static dependencies
+after compilation, comparing normal development/missing branches with original
+Node and exercising the explicitly selected LibJS disabled policy under Node/Mite.
+Generation/statistics/wait/flush modes must fail explicitly, without fabricated
+markers or measurements. The owned helper is an application adaptation, not a
+Mite builtin. main.ts is pinned for source provenance; the complete local source
+diagnostic is separate from the cache component's CI acceptance.

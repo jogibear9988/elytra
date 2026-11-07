@@ -2,8 +2,8 @@
 
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
-macOS ARM64 and the scoped Linux/Windows x64 Mite gates: all 69 enabled suites
-pass at 94acc0c. Firefly has tested macOS subsets and an experimental X11 app;
+macOS ARM64 and scoped native Mite gates: Linux passes 71 suites at 10f6d70;
+Windows passes 70 at 2bf956d. Firefly has tested macOS subsets and an experimental X11 app;
 Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
 archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
 wider Linux distribution support and release publication remain unfinished.
@@ -53,9 +53,9 @@ The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime and remaining unsupported execution modes.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-71 suites including process events, the pinned Code-OSS source-mode bootstrap
-and actual platform/process modules with an explicit native-identity adaptation.
-The latter two slices await Linux/Windows acceptance.
+72 suites including actual Code-OSS source bootstrap, platform/process and the
+explicit application-only cache policy. Native cache-slice acceptance is pending.
+Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
 
 ```js
 import {createHash} from 'node:crypto';

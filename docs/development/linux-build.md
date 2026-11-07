@@ -1,7 +1,9 @@
 # Native Linux bring-up
 
-Current standalone evidence: all 68 suites pass at 678c85e; newer local macOS
-process-event/Code-OSS bootstrap slices await their own native Linux acceptance.
+Current standalone evidence: all 71 suites pass at 10f6d70 in
+[run 42381776025](https://github.com/jogibear9988/elytra/actions/runs/42381776025),
+77.23 seconds, including real Code-OSS source-bootstrap and native platform modules.
+The newer LibJS cache-policy slice awaits separate native Linux acceptance.
 The separate [renderer/package gate](linux-renderer.md) at 197cd2a now accepts an
 experimental Ubuntu 24.04 x64 X11 stripped archive and extracted bundled Designer.
 Historical CLI baselines below do not supersede this scoped later evidence.

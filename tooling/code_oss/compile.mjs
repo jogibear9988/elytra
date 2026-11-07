@@ -1,0 +1,170 @@
+/**
+ * Build-only compilation of a diagnostic Code-OSS source tree. Preserve real
+ * imports and application algorithms; this does not install packages, build the
+ * workbench assets, type-check the project or claim a distributable app.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { parseArgs } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import { transformSync, version } from '../runtime-js/node_modules/esbuild/lib/main.js';
+
+const { values } = parseArgs({
+  options: {
+    source: { type: 'string' },
+    output: { type: 'string' },
+    overlay: { type: 'string' }
+  }
+});
+if (!values.source || !values.output || version !== '0.25.12') {
+  throw new Error('Require --source, --output and pinned esbuild 0.25.12');
+}
+const repository = fileURLToPath(new URL('../../', import.meta.url));
+const source = fs.realpathSync(values.source);
+const output = path.join(
+  fs.realpathSync(path.dirname(path.resolve(values.output))),
+  path.basename(values.output)
+);
+const overlay = values.overlay && fs.realpathSync(values.overlay);
+
+const sha256 = (data) => createHash('sha256').update(data).digest('hex');
+
+function within(parent, child) {
+  const relative = path.relative(parent, child);
+  return (
+    !relative ||
+    (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
+  );
+}
+
+for (const input of [source, overlay].filter(Boolean)) {
+  if (within(input, output) || within(output, input)) {
+    throw new Error('Output overlaps input tree');
+  }
+}
+try {
+  fs.lstatSync(output);
+  throw new Error('Output must be fresh');
+} catch (error) {
+  if (error.code !== 'ENOENT') {
+    throw error;
+  }
+}
+const replacements = new Map();
+let adaptations;
+if (overlay) {
+  adaptations = JSON.parse(fs.readFileSync(path.join(overlay, 'ELYTRA-ADAPTATIONS.json'), 'utf8'));
+  if (adaptations.schema !== 1 || adaptations.kind !== 'partial-source-overlay') {
+    throw new Error('Unknown overlay');
+  }
+  for (const record of adaptations.files) {
+    if (
+      path.isAbsolute(record.path) ||
+      record.path.split(/[\\/]/).some((part) => !part || part === '..' || part === '.')
+    ) {
+      throw new Error('Invalid overlay path');
+    }
+    const original = record.ownerSource
+      ? path.resolve(repository, record.ownerSource)
+      : path.join(source, record.path);
+    if (record.ownerSource && !within(repository, original)) {
+      throw new Error('Invalid owned source path');
+    }
+    const data = fs.readFileSync(path.join(overlay, record.path));
+    if (
+      sha256(fs.readFileSync(original)) !== record.sourceSha256 ||
+      sha256(data) !== record.overlaySha256
+    ) {
+      throw new Error(`Overlay input/output drift: ${record.path}`);
+    }
+    replacements.set(record.path, data);
+  }
+}
+const paths = new Set();
+
+function collect(directory) {
+  for (const entry of fs.readdirSync(path.join(source, directory), { withFileTypes: true })) {
+    const relative = `${directory}/${entry.name}`;
+    if (entry.isSymbolicLink()) {
+      throw new Error(`Source symlink requires explicit handling: ${relative}`);
+    }
+    if (entry.isDirectory()) {
+      collect(relative);
+    } else if (/\.(ts|js|json)$/.test(relative) && !relative.endsWith('.d.ts')) {
+      paths.add(relative);
+    }
+  }
+}
+
+collect('src');
+for (const name of replacements.keys()) {
+  if (name.startsWith('src/')) {
+    paths.add(name);
+  }
+}
+const planned = new Map();
+const inputs = [];
+for (const name of [...paths].sort()) {
+  const data = replacements.get(name) ?? fs.readFileSync(path.join(source, name));
+  const compiled = name.endsWith('.ts')
+    ? Buffer.from(
+        transformSync(data.toString('utf8'), {
+          loader: 'ts',
+          format: 'esm',
+          target: 'es2024',
+          legalComments: 'inline',
+          tsconfigRaw: {
+            compilerOptions: { experimentalDecorators: true, useDefineForClassFields: false }
+          }
+        }).code
+      )
+    : data;
+  const target = name.replace(/\.ts$/, '.js');
+  if (planned.has(target)) {
+    throw new Error(`Duplicate compilation output: ${target}`);
+  }
+  planned.set(target, compiled);
+  inputs.push({
+    source: name,
+    sourceSha256: sha256(data),
+    output: target,
+    outputSha256: sha256(compiled)
+  });
+}
+for (const name of ['LICENSE.txt', 'ThirdPartyNotices.txt', 'package.json', 'product.json']) {
+  if (fs.existsSync(path.join(source, name))) {
+    planned.set(name, fs.readFileSync(path.join(source, name)));
+  }
+}
+if (!planned.has('package.json')) {
+  planned.set('package.json', Buffer.from('{"type":"module"}\n'));
+}
+if (JSON.parse(planned.get('package.json')).type !== 'module') {
+  throw new Error('Expected Code-OSS ESM package');
+}
+planned.set('ELYTRA-LICENSE.txt', fs.readFileSync(path.join(repository, 'LICENSE')));
+planned.set(
+  'ELYTRA-COMPILE.json',
+  Buffer.from(
+    JSON.stringify(
+      {
+        schema: 1,
+        kind: 'diagnostic-source-tree',
+        compiler: `esbuild ${version}`,
+        adaptations,
+        inputs
+      },
+      null,
+      2
+    ) + '\n'
+  )
+);
+// All transforms and overlay checks finish before creating output.
+fs.mkdirSync(output);
+for (const [name, data] of planned) {
+  const destination = path.join(output, name);
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(destination, data);
+}
+console.log(`Compiled ${inputs.length} real source files into ${output}`);

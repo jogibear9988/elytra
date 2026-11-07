@@ -158,6 +158,9 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     console->define_native_function(
         realm, "error"_utf16, +[](JS::VM& vm) { return print(vm, stderr); }, 0,
         JS::default_attributes);
+    console->define_native_function(
+        realm, "warn"_utf16, +[](JS::VM& vm) { return print(vm, stderr); }, 0,
+        JS::default_attributes);
     global.define_direct_property("global"_utf16, &global, JS::default_attributes);
 
     // Initialize the owned libuv loop before process queries: Windows libuv's

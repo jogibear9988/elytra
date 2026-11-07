@@ -13,6 +13,25 @@ NATIVE_CHECK = (
     "(typeof process?.versions?.node === 'string' || typeof process?.versions?.mite === 'string')"
 )
 FILES = ("platform.ts", "process.ts")
+CACHE_SOURCE = "firefly/compat/code-oss/compile-cache.ts"
+CACHE_TARGET = "src/vs/base/node/elytraCompileCache.ts"
+
+
+def adapt_cache(data):
+    """Redirect engine-specific imports and guard unsupported optional modes."""
+    source = data.decode("utf-8")
+    replacements = {
+        "import { constants, enableCompileCache, flushCompileCache, getCompileCacheDir } from 'node:module';": "import { constants, enableCompileCache, flushCompileCache, getCompileCacheDir } from './elytraCompileCache.js';",
+        "import { getHeapCodeStatistics } from 'node:v8';": "import { assertLibJSCacheMode, getHeapCodeStatistics } from './elytraCompileCache.js';",
+        "export function enableNodeCompileCache(kind: NodeCompileCacheKind): boolean {": "export function enableNodeCompileCache(kind: NodeCompileCacheKind): boolean {\n\tassertLibJSCacheMode('enable');",
+        "export function markNodeCompileCacheReady(log?: (message: string) => void): void {": "export function markNodeCompileCacheReady(log?: (message: string) => void): void {\n\tassertLibJSCacheMode('ready');",
+        "export async function waitForNodeCompileCacheReady(): Promise<void> {": "export async function waitForNodeCompileCacheReady(): Promise<void> {\n\tassertLibJSCacheMode('wait');",
+    }
+    for original, patched in replacements.items():
+        if source.count(original) != 1:
+            raise ValueError(f"Unexpected Code-OSS compile-cache seam: {original}")
+        source = source.replace(original, patched)
+    return source.encode("utf-8")
 
 
 def sha256(data):
@@ -33,7 +52,7 @@ def adapt(name, data):
     return source.encode("utf-8")
 
 
-def prepare(source, output):
+def prepare(source, output, *, libjs_cache=False):
     """Validate every input before creating a fresh, explicitly partial overlay."""
     source = Path(source).resolve(strict=True)
     output = Path(output).absolute()
@@ -45,7 +64,10 @@ def prepare(source, output):
     manifest = json.loads(MANIFEST.read_text())
     planned = {}
     records = []
-    for name in (*FILES, "LICENSE.txt"):
+    names = (
+        (*FILES, "nodeCompileCache.ts", "LICENSE.txt") if libjs_cache else (*FILES, "LICENSE.txt")
+    )
+    for name in names:
         entry = manifest["files"][name]
         original = (source / entry["upstream"]).read_bytes()
         # Upstream explicitly checks LICENSE.txt out with CRLF. Preserve either
@@ -55,13 +77,29 @@ def prepare(source, output):
             accepted.add(entry["crlfCheckoutSha256"])
         if sha256(original) not in accepted:
             raise ValueError(f"Code-OSS source differs from pinned input: {entry['upstream']}")
-        patched = adapt(name, original) if name in FILES else original
+        if name in FILES:
+            patched = adapt(name, original)
+        elif name == "nodeCompileCache.ts":
+            patched = adapt_cache(original)
+        else:
+            patched = original
         planned[entry["upstream"]] = patched
         records.append(
             {
                 "path": entry["upstream"],
                 "sourceSha256": sha256(original),
                 "overlaySha256": sha256(patched),
+            }
+        )
+    if libjs_cache:
+        helper = (ROOT / CACHE_SOURCE).read_bytes()
+        planned[CACHE_TARGET] = helper
+        records.append(
+            {
+                "path": CACHE_TARGET,
+                "ownerSource": CACHE_SOURCE,
+                "sourceSha256": sha256(helper),
+                "overlaySha256": sha256(helper),
             }
         )
     report = {
@@ -74,6 +112,10 @@ def prepare(source, output):
         ],
         "files": records,
     }
+    if libjs_cache:
+        report["adaptations"].append(
+            "Disable optional Node/V8 cache on LibJS; explicitly refuse generation, measurements and readiness waits"
+        )
     output.mkdir(parents=True)
     for name, data in planned.items():
         destination = output / name
@@ -89,9 +131,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True, help="Pinned Code-OSS checkout")
     parser.add_argument("--output", type=Path, required=True, help="Fresh partial source overlay")
+    parser.add_argument(
+        "--libjs-cache", action="store_true", help="Explicitly disable the optional Node/V8 cache"
+    )
     args = parser.parse_args()
-    prepare(args.source, args.output)
-    print(f"Prepared audited native-identity overlay in {args.output}")
+    prepare(args.source, args.output, libjs_cache=args.libjs_cache)
+    print(f"Prepared audited Code-OSS overlay in {args.output}")
 
 
 if __name__ == "__main__":

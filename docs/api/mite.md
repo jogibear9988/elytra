@@ -45,8 +45,10 @@ clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
 [native Fetch contract](fetch.md), including [Blob/File/FormData](blob-formdata.md)
 body support; global Web Crypto remains absent.
 
-- `console.log(...values)` / `console.error(...values)` convert values to strings
+- `console.log(...values)`, `console.error(...values)` and `console.warn(...values)` convert values to strings
   and join with spaces; Node inspection and format substitutions are not implemented.
+  log writes stdout; error/warn write stderr. warn is tested by the actual Code-OSS
+  disabled-cache branch and primitive Node differential routing checks.
 - `process.argv`, `argv0`, `execPath`, `pid`, `ppid`, `arch`, `platform`, `version`,
   `versions`, `release`, `env`; `cwd()`, `chdir(path)`, `nextTick(callback, ...args)`,
   `exit(code)` and `exitCode` provide basic process services.

@@ -117,6 +117,10 @@ function reportError(maybeError) {
 }
 var Global = typeof window !== "undefined" ? window : typeof self !== "undefined" ? self : typeof global !== "undefined" ? global : typeof globalThis !== "undefined" ? globalThis : void 0;
 var currentWarnHandler;
+function setWarningHandler(value) {
+  assertType(typeof value === "function" || value === void 0, "The warning handler must be a function or undefined, but got %o.", value);
+  currentWarnHandler = value;
+}
 var Warning = class {
   constructor(code, message) {
     this.code = code;
@@ -3753,6 +3757,13 @@ function installWebGlobals(host) {
     configurable: true
   });
   const tick = process.nextTick;
+  setWarningHandler(({ code, message, args }) => {
+    if (code === "W06" || code === "W07") {
+      return;
+    }
+    const stack = (new Error().stack ?? "").replace(/^(?:.+?\n){2}/gu, "\n");
+    console.warn(message, ...args, stack);
+  });
   setErrorHandler(
     (error) => tick(() => {
       throw error;

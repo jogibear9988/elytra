@@ -4,7 +4,8 @@ import {
   EventTarget,
   getEventAttributeValue,
   setEventAttributeValue,
-  setErrorHandler
+  setErrorHandler,
+  setWarningHandler
 } from 'event-target-shim';
 import createAbortGlobals from '../../mite/runtime/bootstrap/web/abort.mjs';
 import createDOMException from '../../mite/runtime/bootstrap/web/dom-exception.mjs';
@@ -26,6 +27,16 @@ export default function installWebGlobals(host) {
     configurable: true
   });
   const tick = process.nextTick;
+
+  setWarningHandler(({ code, message, args }) => {
+    // Node silently ignores duplicate listeners and their replacement options.
+    // Enabling console.warn must not expose the shim's advisory W06/W07 output.
+    if (code === 'W06' || code === 'W07') {
+      return;
+    }
+    const stack = (new Error().stack ?? '').replace(/^(?:.+?\n){2}/gu, '\n');
+    console.warn(message, ...args, stack);
+  });
 
   setErrorHandler((error) =>
     tick(() => {

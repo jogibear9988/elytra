@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release CLI has 71
+Mite is a working native LibJS runtime; the current macOS Release CLI has 72
 passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -6882,6 +6882,51 @@ Formatting, Windows LF/hash, site (201 pages / 14,205 local links/resources/frag
 and diff checks pass. No local GUI,
 no Ladybird changes. Full goal active; cache/V8, main.ts/mainImpl and public
 binary/event/port transport remain prioritized prerequisites for real Code-OSS.
+
+## 2026-11-07: Advance actual Code-OSS main.ts through an explicit LibJS cache policy
+
+- Extend the audited source overlay with opt-in --libjs-cache. Redirect the two
+  static engine-specific cache imports to an owned application module; preserve
+  upstream algorithms and other bytes. Guard enable/ready/wait before filesystem
+  effects. Ordinary development/missing/disabled paths run, while V8 generation,
+  measurements, flush/statistics and marker waits fail explicitly. No fake cache,
+  statistics or ready marker; public Mite Node-cache/V8 APIs remain absent.
+- Pin the real cache/static common dependency corpus and main.ts with unchanged
+  source/hash/license/LF guards. Run actual upstream logic in original Node and
+  adapted Node/Mite. Verify statuses, logs, real paths, helper kind mapping,
+  explicit errors, absent false cache metadata/files and preserved originals.
+- Add pinned esbuild diagnostic source compilation with real imports, Code-OSS
+  decorator/class-field/ES2024 settings, overlay input/output checks and complete
+  compilation provenance. Validate/transform before creating fresh output. This
+  is not type checking, package installation, workbench asset building or a
+  distributable-app claim. Original Code-OSS inputs and Ladybird remain unchanged.
+- Compile the actual full pinned source into 11,534 JS/JSON diagnostic files.
+  Run unmodified main.ts under Mite through a diagnostic wrapper: real cache
+  initialization completes in both development and default missing-cache modes,
+  real mainImpl fails at original-fs, and result stays
+  nonzero (1). Raw FS already exists in Firefly; the standalone CLI lacks that
+  host module by design. Next acceptance requires real Firefly host/import/API
+  contracts, not a fabricated mainImpl or a fake successful desktop launch.
+- Add native console.warn stderr routing for the real upstream disabled branch.
+  Full regression exposes previously hidden event-target-shim duplicate warnings.
+  Filter only W06/W07 in our adapter to preserve Node's silent duplicate behavior;
+  unchanged lifetime/abort tests pass again. Regenerate guarded bundles. Extend
+  formatting to maintained TypeScript for the new owned policy module.
+- Native Linux 10f6d70 run 42381776025 / job 128430730479 passes all 71 in 77.23s,
+  including source-bootstrap/platform. Windows 2bf956d run 42380750929 / job
+  128429517381 passes all 70 in 102.74s. Windows 10f6d70 job 128432211417 passes
+  the actual new platform component but full regression fails: Node 24.15 exits
+  0xC0000409 in HTTP/HTTPS, while Mite HTTP completes. Do not diagnose/fix/skip
+  the oracle from these observations or claim full 71-suite Windows acceptance.
+
+Validation: local macOS Release all 72 CTests pass (21.16 seconds) after the real
+warning regression fix; targeted cache tests also pass current owned helper types
+and no-fake-builtin assertions. Non-GUI Firefly integration build passes, with
+existing dependency deployment-target warnings retained. Source formatting,
+generated/LF integrity, site (202 pages / 14,280 local links/resources/fragments)
+and diff checks pass. No local
+GUI. New native cache slice pending; full goal active, Code-OSS host startup and
+public binary/event/port transport remain priorities.
 
 ## Resume
 

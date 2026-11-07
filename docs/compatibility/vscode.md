@@ -26,7 +26,7 @@ from a future Code-OSS test.
 | Area | Observed upstream dependency | Elytra gap and required proof |
 | --- | --- | --- |
 | Native environment identity | common/platform and common/process recognize native execution through versions.node | Explicit pinned source overlay also recognizes truthful versions.mite. Actual upstream modules, locale/env/cwd/timer checks and unadapted negative control pass locally on macOS; desktop/Electron detection remains open. [Adaptation guide](../guides/code-oss-adaptation.md) |
-| Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | node:module now has createRequire utilities, but its compile-cache exports and node:v8 remain absent. Define a truthful LibJS cache/diagnostics adaptation; do not fake a V8 cache or embed V8. First prove the pinned bootstrap progresses with an explicit adaptation report |
+| Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | Explicit --libjs-cache application overlay preserves ordinary upstream startup logic while disabling V8 caches and rejecting generation/measurements/waits. Actual cache branches pass locally; real full-source main.ts reaches mainImpl then standalone-Mite original-fs host-boundary failure. No desktop launch; public Node cache/V8 APIs remain absent. [Policy](../architecture/0106-code-oss-libjs-cache-policy.md) |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
 | Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | perf_hooks supplies native now/timeOrigin; original-fs now has a separate raw main-process facade with local macOS acceptance. ASAR and broader performance APIs remain absent, desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
@@ -58,7 +58,8 @@ the existing native loader, with shared CJS/JSON instances, real package require
 conditions and actual GC acceptance locally on macOS. This targets the pinned
 [bootstrap-node createRequire call](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/bootstrap-node.ts#L7).
 It does not implement the separate compile-cache imports, node:v8 or execute the
-whole desktop bootstrap. Their blockers remain open.
+whole desktop bootstrap. The explicit application cache adaptation below addresses
+its optional engine imports without changing Mite's public API inventory.
 
 The newer non-GUI **mite-code-oss-bootstrap** gate executes the actual pinned
 bootstrap-node.ts after type erasure, using VSCODE_DEV=1. It proves module
@@ -66,7 +67,7 @@ evaluation, its SIGPIPE registration, original cwd capture and portable-mode
 existing/missing directory/temp configuration locally on macOS. It leaves all
 source algorithms intact. It does not call the exported developer loader-hook or
 global-search customization, and does not activate packaged ASAR support. Those
-paths, nodeCompileCache/main.ts, mainImpl and desktop launch remain open. Node is
+paths, transitive mainImpl and desktop launch remain open. Node is
 only the development oracle/type stripper; Mite still executes with LibJS alone.
 
 The [performance clock slice](../api/perf-hooks.md) supplies native global/module
@@ -104,7 +105,12 @@ VM-safe delivery and public binary/event/port APIs remain prerequisites for Code
 An [audited source overlay](../architecture/0105-code-oss-native-identity.md) now
 handles the first native identity checks without fabricating Node metadata.
 This preserves actual native environment/cwd instead of Code-OSS's web fallback;
-it does not supply compile-cache/V8 or desktop identity/API behavior.
+it does not supply desktop identity/API behavior. The separate
+[LibJS cache policy](../architecture/0106-code-oss-libjs-cache-policy.md) now removes
+the optional cache's static import barrier. Actual full-source main.ts records
+cache initialization and reaches mainImpl under a nonzero standalone-Mite probe.
+The next host gate needs Firefly's raw-FS module, import strategy and real required
+desktop exports/options; no complete workbench startup is established.
 
 Choose general compatibility work against this application path first. Keep
 security and the full native platform specification; deprioritize unrelated
