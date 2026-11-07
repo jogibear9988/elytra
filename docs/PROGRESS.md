@@ -7993,6 +7993,13 @@ required protocol privileges/Response/file interception, and rerun actual Code-O
 Uploads, report listing and dynamic/per-renderer annotations remain unfinished.
 Full original specification goal remains active.
 
+## 2026-11-07: Reconcile remaining wrapped Code-OSS status references
+
+Update the guide, roadmap, earlier status paragraph and protocol reference to the
+verified Menu import blocker after local crashReporter landed. Keep ADR 0126's
+historical evidence and link its subsequent ADR 0127. Validate generated site links;
+this is documentation only and requires no further desktop/crash tests.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

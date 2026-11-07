@@ -3,6 +3,9 @@
 Status: local macOS Release actual public main/renderer acceptance. Broader protocol/
 session compatibility, remaining Code-OSS services and workbench startup remain open.
 
+Subsequent local crash reporting and the updated Menu import blocker are recorded
+in [ADR 0127](0127-local-crash-reporting.md).
+
 ## Decision
 
 Add registerFileProtocol, unregisterProtocol and isProtocolHandled to the main

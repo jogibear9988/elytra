@@ -29,7 +29,7 @@ stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
 Firefly-host probe passes the registerHooks/promisify imports and reaches missing
-Electron crashReporter (exit 1); the partial protocol export now resolves.
+Electron Menu (exit 1); protocol and crashReporter exports now resolve.
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
 the real 14-case CLI parser test. The frozen dependency-install matrix passes all three native platforms at adc00d0
@@ -46,7 +46,7 @@ capture/storage for real local main/helper reports, with crashDumps paths and fr
 annotations. Actual main SIGABRT recovery and a real owned-helper crash pass locally
 on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
-The current Code-OSS import now stops at Menu, not a crashReporter placeholder.
+The current Code-OSS import now stops at Menu.
 
 The native [protocol policy delivery](architecture/0112-native-protocol-configuration.md)
 now passes local typed-codec/argv/lifecycle tests and actual headless diagnostic/
