@@ -5847,10 +5847,39 @@ Goal active.
   This is notice-data validation, not a new native app/platform acceptance.
 
 Validation: Python syntax, notice tests and actual offline pinned inventory pass;
-final source checks recorded before commit. No GUI runs. Linux system-library
+formatting and diff checks pass. No GUI runs. Linux system-library
 notices, launcher, payload/archive staging and real packaged-app gates remain
 required; optional macOS profile and latest Linux graph remain under their own
 native CI. Goal active.
+
+## 2026-11-07: Stage experimental complete Linux app candidates
+
+- Add native package_linux.py: require actual Release Firefly and separately built
+  standalone Mite; copy application, physical pinned helpers/resources, dynamic Qt
+  plugins, dependency notices and one shared ELF closure. Default to production
+  npm payload and stripped symbols; record hashes/provenance and create an optional
+  tar archive/checksum. Reuse locked npm selection and shared notices helpers.
+- Reject the trial idea of deriving a CLI from the full renderer SDK: local native
+  linkage inspection proves upstream LibJS merges into LibWeb there. Remove that
+  trial target/output, keep the original standalone Mite build untouched, require
+  the standalone root project in CI and reject graphical/alternate-engine CLI
+  dependencies. The app archive contains embedded Mite through Firefly, without
+  an unused second CLI/engine. Ladybird is unchanged.
+- Add native /proc/self/exe launcher with argument forwarding, exec/PID ownership
+  and explicit caller platform preservation. Collect native dpkg copyright/version
+  records for copied distribution DSOs and preserve referenced common licenses.
+- Keep existing renderer/isolation/window/raw-app gates and add independent archive
+  extraction/checksum/ELF verification plus real app/renderer/kernel checks. Inspect
+  live main/renderer ELF mappings for fallback into either SDK. Add compiled Linux
+  launcher/provenance fixture to the independent component workflow.
+- Document exact staging inputs/layout/modes, host ABI/X11/driver requirements and
+  unfinished native package/Designer/release acceptance. These are candidates;
+  no Linux release asset or new platform acceptance is claimed before CI succeeds.
+
+Validation: local payload (3), npm selection (2), notice/tamper and ELF guard/parser
+checks pass without GUI. Native launcher/distribution and whole-app archive gates
+are added for hosted Linux; their result is pending. Source/style/upstream/site
+checks recorded with this commit. No local GUI tests. Goal active.
 
 ## Resume
 

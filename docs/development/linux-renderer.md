@@ -388,7 +388,8 @@ layouts, moves the staged package and removes the original source locations
 before executing them. It is a packaging component gate, not a substituted
 Firefly/Designer acceptance. The actual compiled component fixture passes at
 `209f64e` in [run 42348028753](https://github.com/jogibear9988/elytra/actions/runs/42348028753)
-with Clang 22.1.8/patchelf 0.18.0. A complete
-Linux packager still must supply application/resources, explicit dlopen plugins,
-licenses/notices, launcher/archive formats and native packaged-application gates.
-No Linux release artifact is advertised from this component alone.
+with Clang 22.1.8/patchelf 0.18.0. The experimental
+[application packager](linux-packaging.md) now stages app/resources, dynamic Qt
+plugins, licenses/notices, a launcher and archives. Its required native extracted-app
+gate is separate and pending on that implementation. Designer acceptance and Linux
+release publication remain unfinished; the component alone does not establish them.

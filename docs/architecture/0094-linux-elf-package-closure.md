@@ -55,8 +55,9 @@ and renderer workflow concurrency groups. The renderer workflow also keeps this
 component gate before building the actual application; all existing native and
 sandbox gates remain required. This fixture does not prove Firefly packaging.
 
-The application packager still must supply resources, explicitly loaded plugins,
-all required dependency notices, a launcher/archive format and actual relocated
-Firefly/Designer acceptance. Host GUI/audio/driver/plugin and glibc requirements
+The experimental [application packager](../development/linux-packaging.md) adds
+resources, explicit dynamic Qt plugins, dependency notices, a launcher/archive
+format and an actual extracted Firefly fixture gate. Native whole-app acceptance
+of that implementation and Designer packaging/UI acceptance remain required. Host GUI/audio/driver/plugin and glibc requirements
 need explicit platform coverage. No arbitrary distribution, older ABI, other
 architecture, Linux release asset or complete security containment is claimed.

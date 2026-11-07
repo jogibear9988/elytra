@@ -7,7 +7,12 @@ on:
       - '.github/actions/linux-environment/**'
       - 'firefly/**'
       - 'mite/cmake/**'
-      - 'mite/runtime/adapters/**'
+      - 'mite/runtime/**'
+      - 'mite/modules/**'
+      - 'mite/cli/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg.json'
+      - 'tooling/package_linux.py'
       - 'tooling/build_renderer.py'
       - 'tooling/compiler_cache.py'
       - 'tooling/compiler-cache.conf'
@@ -157,6 +162,20 @@ jobs:
         run: |
           set -o pipefail
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
+      - name: Compile separate standalone Release Mite for package validation
+        run: |
+          set -o pipefail
+          cmake -S . -B build/linux-package-mite -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee build/linux-renderer-package-mite-configure.log
+          cmake --build build/linux-package-mite --target mite --parallel 3 2>&1 | tee build/linux-renderer-package-mite-build.log
+          ldd build/linux-package-mite/bin/mite | tee build/linux-renderer-package-mite-linkage.log
+          env -u DISPLAY -u QT_QPA_PLATFORM build/linux-package-mite/bin/mite examples/mite-cli/hello.mjs world
+      - name: Actual stripped archive, extracted launcher, live ELF provenance and app acceptance
+        env:
+          QT_QPA_PLATFORM: xcb
+          FIREFLY_TEST_ISOLATED_X11: '1'
+        run: |
+          set -o pipefail
+          xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly --package --mite-build build/linux-package-mite --artifacts-dir build/linux-package-artifacts 2>&1 | tee build/linux-renderer-package-acceptance.log
       - name: Record final upstream integrity
         if: always()
         run: python tooling/check_upstream.py
@@ -189,6 +208,8 @@ jobs:
             build/linux-renderer-artifacts
             build/linux-renderer-helper-artifacts
             build/linux-runtime-artifacts
+            build/linux-package-artifacts
+            build/linux-package-mite/CMakeCache.txt
             build/renderer-artifacts/window.png
             build/linux-renderer/CMakeCache.txt
             build/linux-renderer/CMakeFiles/CMakeConfigureLog.yaml

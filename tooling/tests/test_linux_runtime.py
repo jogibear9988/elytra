@@ -16,6 +16,7 @@ import threading
 
 from test_renderer import ROOT, environment, linux_security, stop
 from _x11 import managed_window_manager
+from _linux_package import packaged_app, mapped_elfs
 
 
 def stage(destination):
@@ -42,6 +43,10 @@ def main():
     parser.add_argument("--firefly", type=Path)
     parser.add_argument("--check-guard", action="store_true")
     parser.add_argument(
+        "--package", action="store_true", help="Stage/archive/extract and run a real native package"
+    )
+    parser.add_argument("--mite-build", type=Path)
+    parser.add_argument(
         "--stage-only", type=Path, help="Bundle/check fixture sources without a GUI"
     )
     parser.add_argument(
@@ -55,6 +60,9 @@ def main():
     if sys.platform != "linux" or not args.firefly or not args.firefly.is_file():
         parser.error("Build the native Linux Firefly executable before running this gate")
     binary = args.firefly.resolve()
+    source_build = binary.parent.parent
+    forbidden_roots = []
+    launch = None
     if args.check_guard:
         base = {key: value for key, value in os.environ.items() if key != "DISPLAY"}
         help_result = subprocess.run(
@@ -117,6 +125,16 @@ def main():
                     "explicitUnsupported": True,
                     "rendered": True,
                 }, value
+                mappings = {}
+                if args.package:
+                    main_executable = (Path("/proc") / str(process.pid) / "exe").resolve(
+                        strict=True
+                    )
+                    assert main_executable == binary, (main_executable, binary)
+                    mappings = {
+                        "main": mapped_elfs(process.pid, forbidden_roots),
+                        "renderer": mapped_elfs(pid, forbidden_roots),
+                    }
                 observations.append(
                     {
                         "app": value,
@@ -124,6 +142,7 @@ def main():
                         "main": parent,
                         "executable": str(executable),
                         "relocatedMain": str(binary),
+                        "mappedElf": mappings,
                     }
                 )
                 self.send_response(200)
@@ -142,19 +161,34 @@ def main():
         temporary = Path(directory)
         app = temporary / "app"
         stage(app)
-        # Exercise discovery after moving the executable and owned helper tree.
-        # Dereference build-time service symlinks so the copied peers are real files.
-        # This checks relocatable helper selection, not dependency-complete packaging.
-        relocated = temporary / "relocated runtime ünicode"
-        relocated_binary = relocated / "bin/firefly"
-        relocated_binary.parent.mkdir(parents=True)
-        shutil.copy2(binary, relocated_binary)
-        shutil.copytree(
-            binary.parent.parent / "firefly-runtime",
-            relocated / "firefly-runtime",
-            symlinks=False,
-        )
-        binary = relocated_binary
+        if args.package:
+            if not args.mite_build or not (args.mite_build / "bin/mite").is_file():
+                parser.error("Package acceptance requires a separately built Mite CLI")
+            root, _archive = packaged_app(
+                source_build,
+                args.mite_build.resolve(),
+                app,
+                temporary,
+                artifacts,
+                "firefly-runtime-acceptance",
+            )
+            binary = root / "bin/firefly"
+            launch = root / "launch"
+            forbidden_roots = [source_build.resolve(), args.mite_build.resolve()]
+        else:
+            # Exercise discovery after moving the executable and owned helper tree.
+            # Dereference build-time service symlinks so the copied peers are real files.
+            # This checks relocatable helper selection, not dependency-complete packaging.
+            relocated = temporary / "relocated runtime ünicode"
+            relocated_binary = relocated / "bin/firefly"
+            relocated_binary.parent.mkdir(parents=True)
+            shutil.copy2(binary, relocated_binary)
+            shutil.copytree(
+                binary.parent.parent / "firefly-runtime",
+                relocated / "firefly-runtime",
+                symlinks=False,
+            )
+            binary = relocated_binary
         runtime = temporary / "runtime"
         runtime.mkdir(mode=0o700)
         env = {
@@ -170,7 +204,7 @@ def main():
                 thread.start()
                 env["FIREFLY_RUNTIME_CONTROL_URL"] = f"http://127.0.0.1:{peer.server_port}/"
                 process = subprocess.Popen(
-                    [str(binary), str(app / "main.mjs")],
+                    [str(launch)] if launch else [str(binary), str(app / "main.mjs")],
                     env=env,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -201,7 +235,13 @@ def main():
     print(
         "PASS relocated native Linux app lifecycle, HTTP/LibWeb/preload/IPC, clipboard and live kernel sandbox"
     )
-    print("Pending: public screen/theme, broader Electron/platform behavior and Linux packaging")
+    if args.package:
+        print(
+            "PASS actual stripped archive extraction, launcher, library closure and no SDK ELF mappings"
+        )
+    print(
+        "Pending: public screen/theme, broader Electron/platform behavior and distribution coverage"
+    )
 
 
 if __name__ == "__main__":

@@ -4,7 +4,10 @@ Current distributable output is experimental macOS ARM64 packaging. The
 [Alpha 2 release](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 contains verified source `19ad113` with unchanged CI version `0.1.0-dev.118`.
 The scoped Linux X11 application gate passes, while Linux dependency-complete
-packages and native Windows desktop/package acceptance remain unfinished.
+package acceptance and native Windows desktop/package acceptance remain unfinished.
+An [experimental Linux stager](../development/linux-packaging.md) now creates
+launcher/resource/library/license archives; its native extracted-app gate must pass
+before those candidates can be treated as verified distributions.
 No complete cross-platform release has been established; required release jobs
 fail until their native gates pass.
 

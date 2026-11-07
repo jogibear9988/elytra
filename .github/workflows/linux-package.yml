@@ -7,6 +7,10 @@ on:
       - '.github/actions/linux-environment/**'
       - 'tooling/native_package/**'
       - 'tooling/tests/test_elf_package.py'
+      - 'tooling/tests/test_package_payload.py'
+      - 'tooling/tests/test_linux_launcher.py'
+      - 'tooling/package_linux.py'
+      - 'firefly/packaging/LauncherLinux.cpp'
       - 'tooling/tests/_support.py'
   workflow_dispatch:
 permissions:
@@ -21,6 +25,7 @@ jobs:
     timeout-minutes: 30
     env:
       CC: clang-22
+      CXX: clang++-22
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -32,3 +37,5 @@ jobs:
           sudo apt-get install -y patchelf
           patchelf --version
           python tooling/tests/test_elf_package.py
+          python tooling/tests/test_package_payload.py
+          python tooling/tests/test_linux_launcher.py

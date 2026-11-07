@@ -22,10 +22,10 @@ returned inventory records source and packaged hashes, tool versions, deduplicat
 library count and actual external host ABI names. glibc/the host loader remain
 external; arbitrary Linux distributions and other architectures are not accepted.
 
-This component does not yet create a Firefly app distribution. The application
-packager still needs resources, explicitly loaded plugins, dependency licenses,
-launchers, archives and an actual relocated Firefly/Designer acceptance gate.
-Do not mistake the compiled fixture for acceptance of those deliverables.
+The experimental [application packager](../../docs/development/linux-packaging.md)
+adds app/resources, dynamic Qt plugins, notices, a native launcher and tar archives.
+Its whole-app CI gate remains separate from this compiled fixture; neither
+establishes arbitrary Linux distribution or Designer acceptance in advance.
 
 On native Linux x64 with a C compiler and patchelf:
 
@@ -56,3 +56,16 @@ without standalone notice files retain their source archive. The existing macOS
 packager imports this same implementation; passing one combined runtime SDK
 avoids copying its vcpkg notice set twice. OS distribution library notices remain
 a separate Linux packaging responsibility.
+
+## Application payload and distribution provenance
+
+payload.py copies locked production/all npm trees and preserves the compiled
+Designer bundle policy. system_notices.py resolves copied system DSOs through
+native dpkg ownership, copies their copyright files and referenced common licenses,
+and records installed package versions. Unknown ownership or missing notices fail.
+The Linux launcher component gate exercises real C++ runtime DSO provenance.
+
+The standalone Mite CLI is built separately from the renderer SDK. Upstream full
+LibJS can be merged into LibWeb; creating a CLI from that graph would violate
+Mite's independence. The Linux app archive embeds Mite through Firefly and does
+not also copy an unused CLI/second engine into its payload.
