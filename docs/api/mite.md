@@ -205,8 +205,11 @@ spawn and ChildProcess provide partial native executable creation with stdin,
 stdout/stderr pipes, exit/close/error events, kill/ref/unref, environment/cwd,
 inherited/ignored descriptors and selected timeouts/flags. See the
 [child-process reference](child-process.md) for signatures, lifecycle and limits.
-Shell execution, exec/execFile/fork, synchronous APIs, IPC and AbortSignal remain
-unsupported. New module acceptance is local macOS; hosted platforms are pending.
+Callback-based execFile adds bounded stdout/stderr capture, text/binary output,
+encoding, failure and timeout handling. The spawn/execFile suites pass native
+macOS, Linux and Windows x64; [current support](../status.md) records exact builds.
+Shell execution, exec/fork, synchronous APIs, IPC and AbortSignal remain
+unsupported. Full Windows process/stdio and error parity remain incomplete.
 
 ## node:os
 

@@ -6,6 +6,17 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
+Latest completed macOS Release/package verification:
+[run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659)
+at **8dc5830**, including all six shared example smoke slices, explicit gates for
+the other 17 examples, native preload/IPC checks and the packaged Designer's
+edit/Monaco/HTML window controls. Its Actions artifacts are separate from Alpha 2.
+The baseline Linux renderer run
+[42351420391](https://github.com/jogibear9988/elytra/actions/runs/42351420391) and
+native Windows renderer run
+[42352483937](https://github.com/jogibear9988/elytra/actions/runs/42352483937)
+are still building at this review; neither is counted as passed.
+
 ## Platforms and delivery
 
 | Product / platform | Confirmed evidence | Remaining work |
@@ -89,3 +100,10 @@ Historical ADR/progress entries retain their original source-specific results.
 Per-feature tests do not certify all options or platforms; newer changes still
 require native results before their status advances. Use [PROGRESS](PROGRESS.md)
 for individual changes and [roadmap](roadmap.md) for unfinished delivery scope.
+
+The latest review also corrects the runtime overview's obsolete execFile rejection
+and separates the Firefly matrix's historical bridge stages from current support.
+API reference depth is still incomplete: the
+[documentation baseline](reference/documentation-baseline.md) tracks the remaining
+member-by-member descriptions and guides. Documentation currency does not imply
+that every Node/Electron member has been implemented or documented in full.

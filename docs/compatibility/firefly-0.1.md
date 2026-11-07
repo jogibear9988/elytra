@@ -52,11 +52,13 @@ polls Mite's nonblocking libuv pump every millisecond; idle-efficient backend
 notifier integration is still required. Main callbacks enter the Mite checkpoint
 boundary, and reentrant GUI pumps are deferred.
 
-Native screenshot/input proof from the preceding window gate remains recorded in
-PROGRESS.md. In the latest combined build, the screenshot gate could not complete
-because macOS reports the desktop locked. Functional Firefly, Electron reference,
-ESM/HTTP and headless tests pass, but current visible presentation must be rechecked
-after unlocking. No replacement image or fake screenshot pass is used.
+The completed macOS ARM64 package gate at 8dc5830
+([run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659))
+passes native desktop/reference tests, all six shared example smoke slices and
+the packaged Designer's edit/Monaco/HTML window-control checks. Earlier local
+desktop-lock failures remain historical observations in PROGRESS.md; they do not
+describe this completed hosted run. This is scoped macOS evidence, not Windows
+desktop or complete Linux package acceptance.
 
 app.exit(code) accepts signed 32-bit integers, bypasses quit/close cancellation and
 emits closed before quit with the requested code. The explicit code takes
@@ -65,6 +67,14 @@ the current JS call; later async callback timing is not claimed compatible.
 Nested app.quit calls within a running quit attempt are coalesced, preventing
 recursive duplicate events. Electron 45.2.3 repeats before-quit/close in the bounded
 reference fixture; this difference is deliberate and tested separately (ADR 0025).
+
+## Historical implementation stages
+
+The following notes preserve the sequence of internal bridge development. Statements
+that public preload/contextBridge/IPC are unavailable describe those earlier stages;
+the current partial public contracts are in the table above and the
+[API reference](../api/index.md). Do not use these historical stages as the current
+support inventory.
 
 An internal synchronous isolated-world adapter now passes native LibWeb tests for
 separate globals/intrinsics/wrapper expandos, shared DOM and GC/detach lifetime.

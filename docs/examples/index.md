@@ -9,6 +9,12 @@ at 85557be: **6 shared smoke slices, 1 manual/partial example, 16 blocked topics
 These are scoped original Elytra examples, not a claim that every Electron Fiddle
 runs unchanged. See [current support](../status.md) for platform/API/release status.
 
+The newer completed macOS Release/package
+[run 42348529659](https://github.com/jogibear9988/elytra/actions/runs/42348529659)
+at 8dc5830 confirms the same **6 passed / 1 manual / 16 blocked** split. The
+upstream overview still lists the same 21 topics at this review. Windows desktop
+and Linux acceptance of the full catalog remain open.
+
 ## Build and run
 
 ```sh

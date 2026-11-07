@@ -6220,6 +6220,31 @@ Validation: native component results and local diff/upstream checks pass without
 GUI. Generated site: 187 pages and 13,187 links/resources/fragments pass. Full Windows/Linux renderer/app/archive/Designer
 integration remains pending; goal active.
 
+## 2026-11-07: Refresh user-facing support and example status against completed CI
+
+- Recheck the current official Electron overview and source catalog: 21 topics
+  plus quick-start/lifecycle, 23 original apps; six shared native smoke slices,
+  one manual/partial dark-mode example and 16 blocked topics. Do not describe
+  rejection tests or checked-in examples as working feature acceptance.
+- Inspect completed macOS Release run 42348529659/job 128334840985 at 8dc5830:
+  success, including the same six shared example assertions, explicit remaining
+  example gates, native preload/IPC and packaged Designer edit/Monaco/HTML controls.
+  Record this newer evidence separately from published Alpha 2 and the optimized
+  85557be artifact. Original Linux baseline and Windows renderer jobs remain live;
+  neither is promoted to accepted desktop/package support.
+- Correct stale execFile/hosted-platform claims in the Mite overview and generic
+  Windows-unverified claims in crypto/OS matrix rows while preserving untested
+  option/provider/permission/error limitations. Mark earlier isolated-world bridge
+  notes as historical and replace the obsolete latest-build desktop-lock summary
+  with completed hosted evidence. Keep documentation-depth gaps explicit.
+- Preserve unfinished Windows sandbox implementation changes for the next code
+  slice; this commit only updates support documentation and evidence.
+
+Validation: source catalog counts agree with native example logs; site build and
+all 187 pages / 13,191 local links/resources/fragments pass, as does diff whitespace.
+No local GUI tests. Full Node/Electron parity and Windows/Linux desktop/package
+completion remain unfinished. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
