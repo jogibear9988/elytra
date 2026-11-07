@@ -55,6 +55,8 @@ compatible with Node or Electron.
 
 - [Moving a Node application to Mite](migration/from-node.md)
 - [Moving an Electron application to Firefly](migration/from-electron.md)
+- [VS Code / Code-OSS target and confirmed blockers](compatibility/vscode.md)
+- [Files and binary data across processes](guides/file-transfer.md)
 - [Security boundaries for application authors](guides/security.md)
 - [Testing and debugging](guides/testing-and-debugging.md)
 - [Troubleshooting](guides/troubleshooting.md)

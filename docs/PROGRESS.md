@@ -6364,6 +6364,37 @@ backslashes and regex-metacharacter checkout paths, requires the owned include
 root and verifies upstream sources do not gain it; source formatting/diff pass.
 Fresh native Windows renderer compilation remains required. Goal active.
 
+## 2026-11-07: Prioritize actual Code-OSS compatibility and efficient file transport
+
+- User explicitly prioritizes making VS Code run on Firefly/Mite. Update roadmap
+  ordering so general Node/Electron API work follows that application's critical
+  path: bootstrap, required preload/event/binary/port IPC, workspace files/watchers,
+  auxiliary/extension hosts and native dependencies. Preserve the entire platform/
+  Designer/security/distribution objective; HTTP/2 and HTTP/3 remain later work.
+- Audit Microsoft Code-OSS at immutable 6531648f5ace8b77ae799262bdc97bf048461938
+  (manifest dev 1.146.0, Electron 43.8.6), distinct from our Electron API oracle.
+  Inspect bootstrap/mainImpl, compile-cache imports, preload, MessagePort acquisition
+  and binary protocol, file-provider client/server and runtime dependencies.
+- Record confirmed blockers and evidence-gated milestones in compatibility/vscode.md.
+  Existing standalone local Mite explicitly rejects ESM imports of node:module,
+  node:v8, node:perf_hooks and original-fs. This is a small bootstrap-import probe,
+  not actual Code-OSS execution or current-master full acceptance. Do not fake V8
+  caches or use a Node/V8 host to bypass the LibJS requirement.
+- Add file-transfer guide: current IPC is plain-data only, 128 KiB wire budget;
+  binary buffers/ports/Blob/File unsupported. Prioritize actual binary snapshots,
+  compatible port/stream transport, authorized lazy file access and then measured
+  ownership/shared-storage optimization. Electron's documented DOM File IPC
+  restrictions and path metadata are distinct from file-byte transfer. Inspected
+  Code-OSS port sender has no transfer list; do not infer zero-copy performance.
+- Define content/revocation/pressure/crash safety and comparable Electron/Firefly
+  latency/CPU/memory/copy-count benchmarks, including large streamed files. Link
+  the audited target/plan from docs home, migration, roadmap and IPC reference.
+
+Validation: source references pinned/read, four actual standalone non-GUI import
+probes, site build and 190 pages / 13,415 links/resources/fragments pass; diff clean.
+No Code-OSS launch, complete dependency inventory, percent/time estimate or new
+file-transfer support claimed. No local GUI. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

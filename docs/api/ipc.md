@@ -84,6 +84,11 @@ negative zero), UTF-16 strings, plain objects and arrays. Copies preserve cycles
 shared references and array holes. Receiving code gets its own mutable objects;
 mutating one does not change the sender's values.
 
+Binary IPC, MessagePorts and efficient disk-backed file/stream access are now
+prioritized for the [Code-OSS target](../compatibility/vscode.md). See the
+[file transport plan](../guides/file-transfer.md). This does not change the current
+supported values or limits below; no zero-copy or File transfer support is claimed.
+
 Functions, accessors, proxies, symbols, host/DOM objects, typed arrays, Buffer,
 Date, Map/Set, transferable objects and other special classes are unsupported.
 Capture rejects getters/proxies without executing their traps. Return a small

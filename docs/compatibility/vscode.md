@@ -1,0 +1,83 @@
+# VS Code / Code-OSS compatibility target
+
+Status: **not supported**. Requested as a priority compatibility target on
+2026-11-07. This is a source-based blocker audit and implementation order, not a
+successful launch, complete dependency inventory or percentage-complete estimate.
+Running Monaco in Designer does not establish Code-OSS desktop compatibility.
+
+## Audited reference
+
+Inspect Microsoft Code-OSS commit
+[6531648f5ace8b77ae799262bdc97bf048461938](https://github.com/microsoft/vscode/tree/6531648f5ace8b77ae799262bdc97bf048461938),
+whose package manifest identifies development version 1.146.0 and Electron 43.8.6.
+Keep this application reference separate from Elytra's Electron 45.2.3 API oracle.
+Do not silently move the application baseline when comparing results.
+
+The target is the desktop Code-OSS application running on Firefly/Mite/LibWeb,
+including practical editor, filesystem, extension and terminal workflows. A web
+editor demonstration, Node-based server or Electron subprocess is not acceptance.
+Mite must still embed LibJS without Node/V8, and remain independent of LibWeb.
+Any required application/runtime adaptation must be isolated and recorded; no
+claim that Microsoft's distributed VS Code binary or every extension runs follows
+from a future Code-OSS test.
+
+## Confirmed blockers and next acceptance gates
+
+| Area | Observed upstream dependency | Elytra gap and required proof |
+| --- | --- | --- |
+| Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module and node:v8 | Both built-ins absent. Define a truthful LibJS runtime/cache/diagnostics adaptation; do not fake a V8 cache or embed V8. First prove the pinned bootstrap progresses with an explicit adaptation report |
+| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | original-fs alias/semantics and perf_hooks are absent; desktop APIs are missing or partial. Audit actual startup calls/options, implement required behavior and fail unsupported branches explicitly |
+| Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Only bounded invoke/handle and partial bridge exist. Need event IPC, binary values, port transfer, required preload process/options and zoom/file access semantics, with revocation/sender checks |
+| Binary channel protocol | Code-OSS MessagePort Protocol sends Uint8Array-backed VSBuffer messages | Firefly IPC currently rejects typed arrays/Buffer and has a 128 KiB wire budget. Implement binary snapshots first, then MessageChannelMain/MessagePortMain and renderer port handoff with correct ownership and limits |
+| Workspace files | Disk provider channel includes open/read/write/readFile/readFileStream/watch and cancellation | Broaden filesystem/stream/watch APIs and native watcher lifecycle; actual open/edit/save/rename/external-change tests must pass |
+| Native services | Manifest includes node-pty, @parcel/watcher, @vscode/sqlite3, native-keymap and other native packages | No Node addon loader/N-API. Inventory each package/ABI; implement engine-independent bindings or compatible service adapters as required. A Node/V8 host is not an allowed shortcut |
+| Auxiliary/extension processes | Bootstrap names extension-host, shared-process, pty-host and agent-host roles | Need utility/process messaging and extension-host runtime compatibility, shutdown/crash recovery and explicit extension limitations; spawning an executable alone is insufficient |
+| Renderer and webviews | Complete workbench and extension UI require actual browser behavior | Monaco proof is only a subset. Run the real workbench; verify DOM/CSS/input/clipboard/workers/webviews, then required WebAssembly/storage/security features. Unmeasured features remain unverified |
+| Platforms/distribution | A usable desktop app requires the native host and packaged helpers | Windows desktop/sandbox/package and complete Linux packages remain open. Keep macOS/Linux/Windows acceptance separate |
+
+Primary source evidence at the pinned commit:
+[bootstrap](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/main.ts),
+[compile cache](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/base/node/nodeCompileCache.ts),
+[main implementation](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/mainImpl.ts),
+[preload](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/base/parts/sandbox/electron-browser/preload.ts),
+[port acquisition](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/base/parts/ipc/electron-browser/ipc.mp.ts),
+[binary port protocol](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/base/parts/ipc/common/ipc.mp.ts),
+[file provider client](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/platform/files/common/diskFileSystemProviderClient.ts),
+[file provider server](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/vs/platform/files/node/diskFileSystemProviderServer.ts),
+and [dependency manifest](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/package.json).
+
+A targeted local non-GUI probe with the existing standalone Mite executable
+reports explicit missing built-ins for node:module/node:v8/node:perf_hooks and a
+missing original-fs package. That confirms those import blockers, not a launch of
+Code-OSS or a current-master full runtime validation.
+
+## Implementation order
+
+Choose general compatibility work against this application path first. Keep
+security and the full native platform specification; deprioritize unrelated
+Electron example breadth and new HTTP protocols.
+
+1. **Reproducible bootstrap and transport slices:** preserve the pinned application
+   baseline, executable/source versions and real failing startup trace. Implement
+   binary IPC and the required event/port/preload contracts in separately tested
+   native slices. Resolve first startup imports and distinguish legitimate
+   engine-specific adaptation from missing general Node APIs.
+2. **Actual workbench:** launch the pinned desktop application using Firefly, not a
+   look-alike shell. Require native window, real workbench/Monaco editing, required
+   resource protocols, configuration delivery and clean shutdown. Select the first
+   working native platform without claiming the others are complete.
+3. **Usable workspace:** open/edit/save files and folders, handle external file
+   changes, search, settings and persistence. Implement efficient bounded
+   [file and binary transport](../guides/file-transfer.md); test large files and
+   sustained small edits rather than just a startup screenshot.
+4. **Developer workflows:** real utility/extension host, a controlled extension/LSP
+   corpus, integrated terminal/PTY, Git/tasks and webviews. Test required native
+   dependency adapters, process failure and workspace-trust boundaries.
+5. **Cross-platform acceptance and delivery:** run those same workflows in native
+   macOS/Linux/Windows packages, including upgrade/relaunch/security/resource
+   measurements. Expand extension compatibility with recorded exact versions.
+
+Several subsystems are missing outright, so a credible date or completion
+percentage needs a runnable pinned bootstrap and transitive API/package inventory.
+A startup-only milestone must not be described as full VS Code support. Neither
+HTTP/2 nor HTTP/3 is a prerequisite established by this initial audit.

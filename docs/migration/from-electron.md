@@ -4,6 +4,10 @@ Firefly follows Electron's public API design, with Mite in the main process and
 Ladybird in the renderer. Its current macOS ARM64 development slice supports only
 a small portion of Electron. The behavioral reference is Electron 45.2.3.
 
+[Code-OSS desktop](../compatibility/vscode.md) is the prioritized compatibility
+target, with a pinned source audit and explicit remaining milestones. It does not
+run yet; Monaco/Designer acceptance is not VS Code acceptance.
+
 ## Identify the boundaries
 
 Inventory main-process imports, BrowserWindow options, preload scripts, renderer

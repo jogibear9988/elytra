@@ -23,10 +23,11 @@ separate deliverables. A Windows desktop/package remains the largest platform ga
 
 | Priority | Deliverable | Evidence needed before declaring it usable |
 | --- | --- | --- |
-| Now | Native Windows bring-up and requested Designer release | Actual native compiler/runtime results, Firefly window/process/sandbox tests, Designer acceptance, relocatable Windows package and successful required release jobs |
-| Now | Secure public preload/bridge/IPC | Build on validated [invoke/handle IPC](api/ipc.md) and isolated preload publication; extend message modes, clone types and platform coverage while retaining sender/revocation/adversarial gates |
-| Next | Required Node services for practical apps | Missing globals/built-ins and options, including network clients/TLS/fetch, child processes and crypto services, verified against Node |
-| Next | Practical Electron migration services | Native dialog/menu/tray/clipboard/shell/screen/image/session slices with Electron migration fixtures |
+| First compatibility target | Code-OSS desktop on Firefly/Mite | Follow the [pinned VS Code blocker audit](compatibility/vscode.md): real bootstrap, binary/event/port IPC, workbench, workspace files, extension/utility processes and native service dependencies; no Electron/Node/V8 substitute |
+| Now, driven by Code-OSS | Secure public preload/bridge/IPC and efficient files | Build on validated [invoke/handle IPC](api/ipc.md); prioritize binary values, event IPC, MessagePorts and bounded [file transport](guides/file-transfer.md), retaining sender/revocation/adversarial gates |
+| Required platform work | Native Windows bring-up and requested Designer release | Actual native compiler/runtime results, Firefly window/process/sandbox tests, Designer acceptance, relocatable Windows package and successful required release jobs |
+| Next, chosen from Code-OSS blockers | Required Node services for practical apps | Bootstrap imports, filesystem/watch/stream/process behavior and auxiliary hosts first; implement verified compatible native services and document engine-specific adaptation |
+| Next, chosen from Code-OSS blockers | Practical Electron migration services | Required preload/window/protocol/session/dialog/menu services first, with Electron migration fixtures; broader example coverage follows |
 | Next | Native Linux and platform-complete CI | Native builds/tests, renderer and process/security evidence, packages and launch acceptance on every required OS |
 | Next | Real application compatibility | Broader locked npm packages, unmodified application entry points where possible, meaningful Designer feature coverage and recorded differences |
 | Later, after current platform work | HTTP/2 and HTTP/3 in Mite's HTTP stack | Native protocol client/server slices, secure transport, independent interoperability and lifecycle/security tests; scope below |
@@ -34,6 +35,12 @@ separate deliverables. A Windows desktop/package remains the largest platform ga
 
 Upstream remains pinned and unmodified. Changes belong in our adapters/build files;
 no Node, V8, Chromium or WSL runtime fallback is permitted by the specification.
+
+Priority updated 2026-11-07 at the user's request: general compatibility work should
+advance actual Code-OSS startup and developer workflows first. This does not remove
+native Windows/Linux, Designer, security, packaging or documentation requirements.
+The [Code-OSS milestones](compatibility/vscode.md#implementation-order) distinguish
+a running workbench from full workspace, extension and terminal acceptance.
 
 ## Planned HTTP/2 and HTTP/3
 
