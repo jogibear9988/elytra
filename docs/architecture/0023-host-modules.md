@@ -42,6 +42,15 @@ host names and arbitrary Unicode export names require a later explicit extension
 
 ## Verification and limits
 
+Trusted hosts can also call register_host_filesystem(name) to construct a separate
+raw fs/promises facade and register its supported named exports. The factory shares
+one native filesystem host/descriptor backend per loader while retaining its own
+JS closures, so patching ordinary fs methods does not change the raw module's
+internal calls. Firefly uses this for original-fs; standalone Mite registers no
+desktop name. Invalid/reserved/duplicate registrations retain the existing host
+entry and fail through the same registry validation. See the
+[raw filesystem contract](../api/original-fs.md) for acceptance and ASAR limits.
+
 The actual embedded host registers test modules during initialization. Test native
 validation failures for invalid/reserved names, duplicate modules/exports, invalid
 export names and a source-injection-shaped name, then retry a valid registration

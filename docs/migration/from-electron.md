@@ -27,6 +27,11 @@ remove security boundaries to force such an application to launch.
 
 ## Start with the supported window slice
 
+Main-process code may keep its [original-fs](../api/original-fs.md) import for raw
+physical file access. Its facade is separate from node:fs and shares Mite's current
+fs subset. Firefly still needs unpacked application/dependency trees; this import
+does not enable ASAR virtual filesystem semantics.
+
 For an app that needs only supported lifecycle/window/loading APIs, change the
 main-process import:
 

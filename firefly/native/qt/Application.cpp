@@ -59,6 +59,7 @@ public:
         hooks.terminate_pending_work_on_stop = true;
         hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                                Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {
+            TRY(modules.register_host_filesystem("original-fs"));
             bridge = std::make_unique<Bridge>(vm, realm, jobs, *m_loop, hooks.exit_code);
             GC::Root native { bridge->exports() };
             std::error_code error;

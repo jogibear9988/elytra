@@ -60,6 +60,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 ## Firefly
 
+The [original-fs reference](original-fs.md) describes raw main-process filesystem
+access, separate facades and the remaining ASAR limitation.
+
 [Firefly desktop API](firefly.md) covers app lifecycle, native BrowserWindow,
 webContents, events and errors. Firefly embeds Mite in its main process and uses
 separate Ladybird renderer processes. Detailed entries: [app](app.md),

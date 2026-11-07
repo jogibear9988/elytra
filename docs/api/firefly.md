@@ -27,6 +27,9 @@ supported Node-style APIs are available in the main process. There is no public
 `electron` import alias. A simple migration changes the import from electron to
 firefly and checks supported options/events; larger apps need a compatibility review.
 
+The main process also provides [original-fs](original-fs.md), a separate raw native
+filesystem facade. This does not implement Electron's ASAR virtual filesystem.
+
 ## app
 
 app is an EventEmitter.

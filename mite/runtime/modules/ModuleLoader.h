@@ -40,6 +40,10 @@ public:
     JS::ThrowCompletionOr<void> register_host_module(std::string const& name,
         GC::Ref<JS::Object> exports, std::vector<std::string> named_exports);
 
+    // Trusted hosts can expose a separate raw filesystem facade. It shares native
+    // descriptor services, not the mutable public fs/promises JavaScript objects.
+    JS::ThrowCompletionOr<void> register_host_filesystem(std::string const& name);
+
     JS::ThrowCompletionOr<bool> is_es_module(std::filesystem::path const&);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Promise>> run_entry();
@@ -57,6 +61,8 @@ private:
     };
 
     JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin(std::string const&);
+
+    JS::ThrowCompletionOr<GC::Ref<JS::Object>> construct_builtin(std::string const&);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Module>> builtin_module(std::string const&);
 
@@ -132,6 +138,7 @@ private:
     GC::Root<JS::Object> m_promise_constructor;
     GC::Root<JS::Object> m_process;
     GC::Root<JS::Object> m_commonjs_cache;
+    GC::Root<JS::Object> m_filesystem_native;
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;
     GC::Root<JS::Module> m_builtin_bridge;

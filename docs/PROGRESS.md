@@ -6610,6 +6610,41 @@ Linux/Windows clock/fixture execution remains pending. Full goal remains active:
 Code-OSS desktop, its cache/V8 adaptation, original-fs, missing process/desktop APIs
 and public binary/event/port routing are not complete.
 
+## 2026-11-07: Separate raw main-process filesystem facade for original-fs
+
+- Previous turn made verified progress: 66cbe5c committed/pushed native performance
+  clocks and actual pinned Code-OSS module acceptance. Continue the full goal with
+  Code-OSS mainImpl's original-fs import, preserving Mite independence and isolation.
+- Compare Electron 45.2.3 directly in its console-only Node mode: fs and original-fs,
+  including promises, are distinct objects. Add trusted register_host_filesystem
+  using a fresh FS factory/JS closures over one shared native filesystem host.
+  Register original-fs only in Firefly's main loader before application entry.
+- Preserve independent raw sync/callback/Promise methods and internal append/exists
+  calls when ordinary fs is patched. Share actual native descriptor services, not
+  mutable public facade objects. Host registry owns exports through GC; invalid,
+  reserved and duplicate registrations reject without replacing the existing module.
+- Test the same ESM fixture in the native Firefly starter, Electron console reference
+  and collecting embedded host: exact Python-verified bytes/SHA-256, raw .asar bytes,
+  URL paths, callback/Promise/sync IO, both descriptor directions, FileHandle use,
+  facade patch isolation and module identity. A poisoned local package cannot replace
+  the trusted registration. Standalone Mite still resolves ordinary npm packages
+  and rejects an absent original-fs; it gains no Firefly dependency or builtin name.
+- Add the 68th standalone CTest gate and focused macOS check-firefly-original-fs,
+  also required by existing macOS release acceptance. The native starter test uses
+  shipped Cocoa without constructing BrowserWindow, and explicitly app.quit;
+  minimal Qt has no offscreen plugin. No renderer/window test suite was launched.
+- Update detailed original-fs, host registration, migration, API index, matrices and
+  Code-OSS docs. Physical raw access is not ASAR archive-entry/package loading;
+  Windows desktop and new Linux/Windows raw facade acceptance remain pending.
+
+Validation: local macOS CLI/host and product builds pass; the shared Firefly/Electron
+raw FS gate and all 68 standalone CTest suites pass (20.54 seconds).
+Full pinned formatting, Python syntax/diff,
+unmodified-upstream and generated site checks pass (197 pages / 13,921 local
+links/resources/fragments). Code-OSS still
+does not run: cache/V8 adaptation, process/desktop services and public binary/event/
+port routing remain required. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

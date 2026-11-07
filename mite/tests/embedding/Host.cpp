@@ -81,13 +81,13 @@ int main(int argc, char** argv)
             JS::PrimitiveString::create(vm, "reserved-export"_utf16), JS::default_attributes);
         TRY(modules.register_host_module("embedded-host", host, { "onPulse", "state", "class" }));
         TRY(modules.register_host_module("host-default-only", host, {}));
+        TRY(modules.register_host_filesystem("original-fs"));
         auto rooted = JS::Object::create(realm, nullptr);
         rooted->define_direct_property("label"_utf16,
             JS::PrimitiveString::create(vm, "registry-root"_utf16), JS::default_attributes);
         TRY(modules.register_host_module("host-rooted", rooted, { "label" }));
-        auto reject = [&](std::string const& name, std::vector<std::string> names,
-                          Utf16View code) -> JS::ThrowCompletionOr<void> {
-            auto result = modules.register_host_module(name, host, std::move(names));
+        auto check_rejection = [&](JS::ThrowCompletionOr<void> result,
+                                   Utf16View code) -> JS::ThrowCompletionOr<void> {
             if (!result.is_error())
                 return vm.throw_completion<JS::Error>(
                     "Invalid host registration was accepted"_utf16);
@@ -101,10 +101,21 @@ int main(int argc, char** argv)
             return {};
         };
 
+        auto reject = [&](std::string const& name, std::vector<std::string> names,
+                          Utf16View code) -> JS::ThrowCompletionOr<void> {
+            return check_rejection(
+                modules.register_host_module(name, host, std::move(names)), code);
+        };
+
         for (auto const* name :
             { "", "fs", "node:fs", "embedded/host", "mite-host:other", "bad name", "1host" })
             TRY(reject(name, {}, "ERR_INVALID_ARG_VALUE"_utf16));
         TRY(reject("embedded-host", {}, "ERR_MITE_HOST_MODULE_EXISTS"_utf16));
+        for (auto const* name : { "", "fs", "node:fs", "bad/name" })
+            TRY(check_rejection(
+                modules.register_host_filesystem(name), "ERR_INVALID_ARG_VALUE"_utf16));
+        TRY(check_rejection(
+            modules.register_host_filesystem("original-fs"), "ERR_MITE_HOST_MODULE_EXISTS"_utf16));
         for (auto const* exported :
             { "", "default", "bad-name", "1value", "x';throw Error('injected')//" })
             TRY(reject("registration-retry", { exported }, "ERR_INVALID_ARG_VALUE"_utf16));

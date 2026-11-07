@@ -200,6 +200,16 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
         return alias.as_object();
     }
 
+    auto result = TRY(construct_builtin(name));
+    m_builtins.emplace(name, GC::Root<JS::Object> { result });
+    return result;
+}
+
+JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::string const& name)
+{
+    auto const* definition = definition_for(name);
+    if (!definition || definition->source.empty())
+        return error("ERR_MITE_UNSUPPORTED_BUILTIN", "No factory for builtin: " + name);
     auto source
         = Utf16String::from_utf8(StringView(definition->source.data(), definition->source.size()));
     auto identity = "node:" + name;
@@ -406,8 +416,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
             "URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
         host->define_direct_property(
             "fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);
-        host->define_direct_property("native"_utf16,
-            create_filesystem_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        if (!m_filesystem_native)
+            m_filesystem_native = create_filesystem_host(m_vm, m_realm, m_event_loop);
+        host->define_direct_property(
+            "native"_utf16, m_filesystem_native.ptr(), JS::default_attributes);
         auto events = TRY(builtin("events"));
         host->define_direct_property(
             "EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
@@ -435,8 +447,16 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     auto value = TRY(JS::call(m_vm, factory, JS::js_undefined(), JS::Value(host.ptr())));
     if (!value.is_object())
         return error("ERR_MITE_BUILTIN_INITIALIZATION", "Builtin factory returned a non-object");
-    m_builtins.emplace(name, GC::Root<JS::Object> { value.as_object() });
     return value.as_object();
+}
+
+JS::ThrowCompletionOr<void> ModuleLoader::register_host_filesystem(std::string const& name)
+{
+    GC::Root exports { TRY(construct_builtin("fs")) };
+    std::vector<std::string> names;
+    for (auto exported : fs_exports)
+        names.emplace_back(exported);
+    return register_host_module(name, *exports, std::move(names));
 }
 
 JS::ThrowCompletionOr<void> ModuleLoader::install_globals()
