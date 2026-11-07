@@ -7335,12 +7335,54 @@ required; full Code-OSS/protocol and cross-platform goals remain unfinished.
 
 Validation: local actual native checked-file/separate-child gate passes all above
 cases; whole-source formatting, site and upstream/diff checks pass. Site validates
-211 pages / 14,925 local links/resources/fragments. No Mite API or Ladybird source
+211 pages / 14,926 local links/resources/fragments. No Mite API or Ladybird source
 changes and no desktop tests. Request/metadata framing, response headers/MIME,
 helper/document admission and revocation, bounded concurrent lifetime, application
 handler/session dispatch and actual renderer fetch/navigation integration remain
 required before Code-OSS resources load. Public protocol and real workbench remain
 unfinished. Full specification/Code-OSS/native Windows goal stays active.
+
+## 2026-11-07: Native file-response metadata before streamed body bytes
+
+- Add ResponseHead beside FileBody, reusing upstream HTTP field validation and
+  Core filename MIME inference; no new Rust FFI, parser copy or upstream change.
+  The internal exact version-1 schema carries nonzero request ID, status 200,
+  captured length, HEAD flag and ordered headers, never an implicit source path.
+- Generate Content-Length from the opened descriptor and infer Content-Type unless
+  supplied. Preserve other header order/duplicates; reject length overrides,
+  duplicate type/length, malformed fields and network framing/hop-by-hop headers.
+  Bound both raw and encoded metadata to 32 KiB / 64 pairs. Preserve HTTP obs-text
+  through explicit isomorphic byte/Unicode mapping, not accidental UTF-8 conversion.
+- The actual separate native child now admits and checks MIME/length and Code-OSS
+  COOP/COEP/cache/Document-Policy fields, duplicate headers and obs-text bytes before
+  any file chunks. Validate completed body length; HEAD uses the same transport
+  with the full advertised length and zero body bytes. Ordinary 4 MiB + 19 byte
+  transfer, empty files, lifetime/cancel/mutation tests remain on the required gate.
+- Add independent Python JSON interoperability/negative controls for schema,
+  unknown fields/types/status, ID/length maxima and invalid values, duplicate/missing/
+  mismatched headers, pair shape, framing, count/size/escaped budget, non-byte HTTP
+  characters, NUL/DOS-EOF tails and nesting. Check the native builder separately,
+  including explicit type override and raw/escaped/count limits. Verify upstream
+  MIME results for ESM, HTML, CSS, WASM, JSON and unknown suffixes. Use explicit
+  UTF-8 and binary Windows fixture streams; no local GUI was launched.
+- Add ADR 0114 and update component/status/Code-OSS docs. These headers are carried,
+  not yet applied in LibWeb. Do not claim cookie/CORS/CSP/COOP/COEP/browser isolation
+  or public protocol compatibility from transport metadata.
+- Inspect completed 614ebf1 Windows standalone 42398340794/job 128480513387:
+  all 78 tests pass in 140.07s; native compiler driver argv/exit acceptance 1.67s.
+  This does not accept renderer origins or current file-response code. The CPU-
+  corrected 1d033fe Linux renderer run 42399004586/job 128482529005 is confirmed
+  live in compile at observation; do not restart/cancel it or claim success.
+
+Validation: actual native Release metadata/file-body gate passes locally, including
+independent codec checks, native builder refusals, bodyless HEAD and metadata plus
+65 raw chunks to a separate native child. Full source formatting, upstream/diff
+and generated website checks pass (212 pages / 14,993 local links/resources/fragments).
+Standalone Mite runtime/API code is unchanged; previous full runtime results stay
+separate. Request admission, correlation/multiplexing, bounded concurrent lifetime,
+helper/document revocation, application handler/session dispatch and actual renderer
+fetch/navigation/response security still need implementation. Public protocol and
+Code-OSS workbench remain unsupported. Full specification goal remains active.
 
 ## Resume
 

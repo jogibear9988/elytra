@@ -57,8 +57,15 @@ Code-OSS still fails at the protocol import; no desktop launch is claimed.
 
 The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
-HEAD, cancellation and explicit mutation/type errors. Renderer request dispatch,
-headers, authorized handler integration and public protocol remain unfinished.
+HEAD, cancellation and explicit mutation/type errors. Versioned response metadata
+now transfers checked MIME/length and ordered HTTP header bytes before the body.
+Renderer request dispatch, actual response application, authorized handler
+integration and public protocol remain unfinished.
+
+The later standalone **614ebf1** Windows run accepts all **78** tests in 140.07s
+([run 42398340794](https://github.com/jogibear9988/elytra/actions/runs/42398340794)),
+including the native compiler-driver argument/exit gate in 1.67s. This is CLI/build
+tooling acceptance, not renderer Rust origins or the new file-response component.
 
 The previous **bd83480** snapshot is accepted on native Linux (all **78**, 100.86s,
 [run 42396266883](https://github.com/jogibear9988/elytra/actions/runs/42396266883))

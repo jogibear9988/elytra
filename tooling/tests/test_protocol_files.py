@@ -2,6 +2,8 @@
 """Check actual regular files, bounded native child streaming and explicit failures."""
 
 import argparse
+import copy
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -22,12 +24,129 @@ def main():
 
         def run(operation, value):
             result = subprocess.run(
-                [str(probe), operation, str(value)], capture_output=True, text=True, timeout=30
+                [str(probe), operation, str(value)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
             )
             assert result.returncode == 0, result
-            print(result.stdout.strip())
+            if operation not in ("metadata", "metadata-head"):
+                print(result.stdout.strip())
             return result.stdout
 
+        metadata = json.loads(run("metadata", path))
+        assert metadata == {
+            "schema": 1,
+            "kind": "file-response",
+            "request": 7,
+            "status": 200,
+            "length": length,
+            "head": False,
+            "headers": [
+                ["Cross-Origin-Opener-Policy", "same-origin"],
+                ["Cross-Origin-Embedder-Policy", "require-corp"],
+                ["Cache-Control", "no-cache, no-store"],
+                ["Document-Policy", "js-profiling"],
+                ["Set-Cookie", "first=1"],
+                ["Set-Cookie", "second=2"],
+                ["X-Bytes", "\x80\xff"],
+                ["Content-Type", "application/octet-stream"],
+                ["Content-Length", str(length)],
+            ],
+        }, metadata
+        assert str(directory) not in json.dumps(metadata, ensure_ascii=False)
+        head_metadata = json.loads(run("metadata-head", path))
+        assert head_metadata == metadata | {"head": True}
+
+        def decode(value, accepted):
+            source = value if isinstance(value, str) else json.dumps(value)
+            result = subprocess.run(
+                [str(probe), "decode", "-"],
+                input=source,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
+            )
+            assert (result.returncode == 0) == accepted, result
+            if accepted:
+                assert json.loads(result.stdout) == value, result
+
+        decode(metadata, True)
+        decode(head_metadata, True)
+        decode(metadata | {"request": 2**32 - 1}, True)
+        maximum = copy.deepcopy(metadata)
+        maximum["length"] = 64 * 1024**3
+        maximum["headers"][-1][1] = str(maximum["length"])
+        decode(maximum, True)
+        for field, value in [
+            ("schema", 2),
+            ("kind", "request"),
+            ("request", 0),
+            ("request", -1),
+            ("request", 2**32),
+            ("request", "7"),
+            ("status", 204),
+            ("length", -1),
+            ("length", 64 * 1024**3 + 1),
+            ("length", 1.5),
+            ("head", "false"),
+            ("path", str(path)),
+            ("headers", {}),
+        ]:
+            decode(metadata | {field: value}, False)
+        for pair in [
+            ["Invalid Name", "x"],
+            ["x-name", "a\r\nb"],
+            ["x-name", "a\0b"],
+            ["x-name", " leading"],
+            ["x-name", "\u0100"],
+            ["Transfer-Encoding", "chunked"],
+            ["Connection", "close"],
+            ["TE", "trailers"],
+            ["Content-Length", str(length)],
+            ["content-type", "text/plain"],
+            ["x-name"],
+            [1, "value"],
+        ]:
+            value = copy.deepcopy(metadata)
+            value["headers"].append(pair)
+            decode(value, False)
+        for name in ["Content-Length", "Content-Type"]:
+            value = copy.deepcopy(metadata)
+            value["headers"] = [pair for pair in value["headers"] if pair[0] != name]
+            decode(value, False)
+        value = copy.deepcopy(metadata)
+        value["headers"][-1][1] = str(length + 1)
+        decode(value, False)
+        value = copy.deepcopy(metadata)
+        value["headers"] += [["X", "v"]] * (64 - len(value["headers"]))
+        decode(value, True)
+        value["headers"].append(["X", "v"])
+        decode(value, False)
+        decode(json.dumps(metadata) + "\0", False)
+        decode(json.dumps(metadata) + "\x1a", False)
+        decode("x" * (32 * 1024 + 1), False)
+        decode("[" * 600 + "]" * 600, False)
+        for suffix, mime in [
+            ("mjs", "application/javascript"),
+            ("HTML", "text/html"),
+            ("css", "text/css"),
+            ("wasm", "application/wasm"),
+            ("json", "application/json"),
+            ("unknown", "application/octet-stream"),
+        ]:
+            resource = directory / f"mime.{suffix}"
+            resource.touch()
+            fields = dict(json.loads(run("metadata", resource))["headers"])
+            assert fields["Content-Type"] == mime and fields["Content-Length"] == "0", fields
+        print(
+            "PASS independent JSON metadata, exact schema/header/length/budget refusals, HEAD and upstream MIME inference"
+        )
+
+        run("metadata-policy", path)
+        assert "bytes=0 chunks=0" in run("transfer-head", path)
         streamed = run("transfer", path)
         assert f"bytes={length} chunks=65" in streamed, streamed
         assert f"HEAD length={length}" in run("head", path)
@@ -51,7 +170,7 @@ def main():
         run("replace", path)
         run("truncate", path)
     print(
-        "PASS native file-body component; renderer requests, headers and public protocol remain separate integration work"
+        "PASS native file-body component; renderer requests and public protocol remain separate integration work"
     )
 
 

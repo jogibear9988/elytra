@@ -64,8 +64,9 @@ Native macOS passes. Linux/Windows need separate results; the Windows renderer
 has no owned helper delivery or production desktop acceptance yet.
 
 The [native file-body component](files/README.md) now reads checked regular files
-in bounded chunks and has a separate-process byte-transfer gate. It is not yet
-connected to renderer requests, application callbacks or response headers.
+in bounded chunks and has a separate-process byte-transfer gate. Versioned heads
+carry checked MIME/length and ordered HTTP header bytes before the body. Renderer
+requests, application callbacks and applying these responses remain unconnected.
 
 Remaining work before public registration:
 
