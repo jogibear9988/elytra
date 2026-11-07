@@ -15,34 +15,13 @@ set_property(
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp")
 
-function(firefly_origin_source target original replacement)
-    get_target_property(sources "${target}" SOURCES)
-    get_target_property(source_directory "${target}" SOURCE_DIR)
-    set(adapted)
-    set(count 0)
-    foreach(source IN LISTS sources)
-        get_filename_component(absolute "${source}" ABSOLUTE BASE_DIR "${source_directory}")
-        if(absolute STREQUAL "${LADYBIRD_SOURCE_DIR}/${original}")
-            list(APPEND adapted "${protocol_origin_output}/${replacement}")
-            math(EXPR count "${count}+1")
-        else()
-            list(APPEND adapted "${source}")
-        endif()
-    endforeach()
-    if(NOT count EQUAL 1)
-        message(FATAL_ERROR "Review ${target} origin source layout")
-    endif()
-    set_property(TARGET "${target}" PROPERTY SOURCES "${adapted}")
-    set_property(
-        SOURCE "${protocol_origin_output}/${replacement}" TARGET_DIRECTORY "${target}"
-        APPEND
-        PROPERTY INCLUDE_DIRECTORIES "${FIREFLY_SOURCE_DIR}/firefly")
-endfunction()
-firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp"
-                      SecureContexts.cpp)
-firefly_origin_source(LibWebCommon "Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
-                      FetchURL.cpp)
-firefly_origin_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp" HelperProcess.cpp)
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer/SourceAdapter.cmake")
+firefly_replace_source(LibWebCommon "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp"
+                       "${protocol_origin_output}/SecureContexts.cpp")
+firefly_replace_source(LibWebCommon "Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
+                       "${protocol_origin_output}/FetchURL.cpp")
+firefly_replace_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp"
+                       "${protocol_origin_output}/HelperProcess.cpp")
 target_sources(
     LibURL
     PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp"

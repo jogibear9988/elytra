@@ -97,6 +97,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
@@ -137,6 +138,14 @@ add_custom_target(
     DEPENDS firefly-protocol-registration-probe
     VERBATIM)
 add_dependencies(check-firefly-protocol-registration check-firefly-file-policy)
+add_custom_target(
+    check-firefly-crash-reporter
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/crash/policy.mjs"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_crash_reporter.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly firefly-protocol-registration-probe
+    VERBATIM)
 if(APPLE)
     set(FIREFLY_ELECTRON_REFERENCE
         "${FIREFLY_SOURCE_DIR}/build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
@@ -182,6 +191,7 @@ if(APPLE)
                 check-firefly-protocol-fetch
                 check-firefly-protocol-registration
                 check-firefly-protocol-host
+                check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer
                 check-firefly-resource-renderer

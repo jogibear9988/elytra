@@ -350,3 +350,17 @@ The owned helper Entry.cpp consumes the bounded immutable origin policy before
 calling upstream main. Check argv ownership, stripping and error-before-bootstrap
 behavior on updates. Parent launch seals even an empty policy; public registration
 must not diverge from existing spare processes. See [ADR 0112](../architecture/0112-native-protocol-configuration.md).
+
+## Local crash-report compositions
+
+Review tooling/prepare_crash_hooks.py and both complete CrashReport.cpp/CrashReportStore.cpp
+fingerprints before updating. Preserve exact source restoration and missing/duplicate
+seam refusal. Directory selection and normal-thread metadata formatting are the only
+insertions; do not change LibCore's fatal handler, raw record format, file locking,
+mode/owner validation, saved-name checks or original build identity. Upstream ASCII
+validation requires JSON Unicode escapes in captured application metadata. A recovered
+main record must keep its original annotations; only pre-configured helper records
+need the surviving parent's frozen global metadata fallback. Run the public crash
+reporter gate on relevant changes/hosted CI: real owned main/helper signals, recovery,
+PID ancestry, private modes and annotation separation must pass. An imported module
+or hand-written report fixture does not accept native capture.

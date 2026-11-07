@@ -1,0 +1,25 @@
+# Replace exactly one pinned upstream translation unit with a generated owned composition.
+include_guard(GLOBAL)
+function(firefly_replace_source target original replacement)
+    get_target_property(sources "${target}" SOURCES)
+    get_target_property(source_directory "${target}" SOURCE_DIR)
+    set(adapted)
+    set(count 0)
+    foreach(source IN LISTS sources)
+        get_filename_component(absolute "${source}" ABSOLUTE BASE_DIR "${source_directory}")
+        if(absolute STREQUAL "${LADYBIRD_SOURCE_DIR}/${original}")
+            list(APPEND adapted "${replacement}")
+            math(EXPR count "${count}+1")
+        else()
+            list(APPEND adapted "${source}")
+        endif()
+    endforeach()
+    if(NOT count EQUAL 1)
+        message(FATAL_ERROR "Review ${target} source ownership: ${original}")
+    endif()
+    set_property(TARGET "${target}" PROPERTY SOURCES "${adapted}")
+    set_property(
+        SOURCE "${replacement}" TARGET_DIRECTORY "${target}"
+        APPEND
+        PROPERTY INCLUDE_DIRECTORIES "${FIREFLY_SOURCE_DIR}/firefly")
+endfunction()

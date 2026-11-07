@@ -7945,6 +7945,54 @@ required app methods), then rerun actual Code-OSS. Broader sessions/partitions,
 request metadata, workers/frames and live document rebinding remain open.
 Full original specification goal remains active.
 
+## 2026-11-07: Reuse native local crash reporting through the public main API
+
+- Inspect the actual pinned LibCore/LibWebView crash infrastructure instead of
+  adding Crashpad or exporting an inert crashReporter. Add real local-only start,
+  disabled-upload state and initial annotation snapshots, plus app.getPath/setPath
+  for crashDumps only. Export the actual main singleton through Firefly/explicit
+  Electron alias ESM/CommonJS. Require uploadToServer: false and explicitly reject
+  uploads, OS-handler suppression and unknown options. Broader methods stay absent.
+- Reuse upstream signal-safe descriptors, bounded native stacks, private report
+  storage, locking/recovery and OS signal termination. Add exact guarded default-
+  directory/build-description/helper-save seams in two pinned source compositions;
+  restore all other bytes and notices, reject fingerprint/unique-seam drift and
+  keep Ladybird untouched. Extract a reusable translation-unit ownership helper
+  instead of coupling the crash composition to an origin-output path.
+- Publish one bounded immutable native path/configuration with no VM references.
+  Preserve main-only extra vs globalExtra and global precedence. Encode Unicode
+  as JSON escapes because upstream raw build descriptions require ASCII; retain
+  crashed-launch metadata on next-launch recovery. Add frozen global metadata
+  when a pre-configured helper's surviving parent saves its report. Never reset
+  partially installed signal state or silently consume failed initialization.
+- Add Node/Mite policy checks and actual public crash tests. Externally signal
+  only the test's owned main/helper PIDs; process.kill/process.crash remain absent.
+  Recover a real main SIGABRT on a clean next launch; verify original Chinese/
+  emoji/umlaut metadata, private 0700/0400 modes, ownership, no environment/path
+  sentinel and raw-record cleanup. Create one hidden-window helper before start,
+  verify its PID ancestry, crash it, observe render-process-gone and inspect its
+  actual saved report: global annotations only, no main-only extra. No synthetic
+  report file or test-only crash backend stands in for the public API.
+- Require the gate in macOS Release and Linux's existing Xvfb runtime stage.
+  Document local text vs minidump/upload semantics, strict metadata bounds,
+  frozen fields, shared default folder, unsupported dynamic extras/report lists/
+  Windows capture and crashDumps-only paths. Add ADR 0127 and refresh current
+  API/status/Code-OSS/upstream-update references.
+
+Validation: local macOS Release actual public main crash/recovery and owned-helper
+capture pass, including the early-helper fallback. Node/Mite option/snapshot and
+existing geometry policy pass. Actual Code-OSS now resolves crashReporter and
+fails at missing Menu (exit 1); this remains import progress, not a workbench run.
+Final source style, generated-adapter freshness and unmodified pin checks pass;
+site validation passes (228 pages / 16,108 local links/resources/fragments). The
+shared source-ownership helper and final API bundle compile successfully. Fresh Linux capture/shared Windows compilation remain required;
+no Windows crash/desktop support is claimed.
+
+Next implement real Menu/contentTracing and demanded app/main services, continue
+required protocol privileges/Response/file interception, and rerun actual Code-OSS.
+Uploads, report listing and dynamic/per-renderer annotations remain unfinished.
+Full original specification goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

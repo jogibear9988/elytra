@@ -41,6 +41,13 @@ CTest in [run 42390960317](https://github.com/jogibear9988/elytra/actions/runs/4
 The new [promisify contract](api/util.md) passes local actual callback-service and
 host-GC gates and native Linux/Windows at a56d183.
 
+The partial [crashReporter API](api/crash-reporter.md) now reuses native Ladybird
+capture/storage for real local main/helper reports, with crashDumps paths and frozen
+annotations. Actual main SIGABRT recovery and a real owned-helper crash pass locally
+on macOS, including Unicode metadata, privacy/modes and main/global separation.
+Uploads, dynamic extras, report listing and Windows capture remain unsupported.
+The current Code-OSS import now stops at Menu, not a crashReporter placeholder.
+
 The native [protocol policy delivery](architecture/0112-native-protocol-configuration.md)
 now passes local typed-codec/argv/lifecycle tests and actual headless diagnostic/
 production helper tests. Each selected helper receives the exact immutable parent
@@ -54,7 +61,7 @@ URL::origin override is removed. Cargo source selection, explicit freshness and
 actual dependency outputs are checked. Public origin registration is now available
 as the subset described below. Complete standard parsing, worker propagation and
 public resource/session contracts remain unfinished. Code-OSS stops at the missing
-crashReporter export; no desktop launch is claimed.
+Menu export; no desktop launch is claimed.
 
 The [protocol file-body component](../firefly/native/protocol/files/README.md)
 passes a local macOS real-file/separate-child streaming gate with bounded chunks,
@@ -122,7 +129,7 @@ now also has actual main/window acceptance, with automatic native navigation/doc
 grants, delayed handlers, load failures, cancellation and generation replacement.
 General Response handlers, partitions and further privilege flags remain open. Public [protocol registration](api/protocol.md) publishes the native origin table;
 unsupported privileges fail explicitly. Actual Code-OSS import advances
-to missing crashReporter (exit 1). No Code-OSS workbench
+to missing Menu (exit 1). No Code-OSS workbench
 launch or new platform support follows from these gates.
 
 The CPU-corrected **1d033fe** Linux renderer passes

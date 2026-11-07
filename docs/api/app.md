@@ -34,6 +34,8 @@ window/load/quit trace and the [example guide](../examples/lifecycle.md) to run 
 | [whenReady()](#appwhenready) | Promise<void> | Implemented shared readiness promise |
 | [quit()](#appquit) | undefined | Partial cancellable application shutdown |
 | [exit([exitCode])](#appexitexitcode) | undefined | Partial forced shutdown |
+| [getPath(name)](#crash-report-directory) | string | crashDumps only |
+| [setPath(name, path)](#crash-report-directory) | undefined | Existing absolute crashDumps directory before native initialization |
 | [EventEmitter methods](#eventemitter-methods) | Depends on method | Supported emitter subset |
 | [Other Electron app members](#unsupported-electron-app-surface) | Unavailable | Not native implementations |
 
@@ -261,7 +263,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 
 | Area | Examples still unavailable |
 | --- | --- |
-| App identity and paths | name, isPackaged, getName, setName, getVersion, getAppPath, getPath, setPath |
+| App identity and paths | name, isPackaged, getName, setName, getVersion, getAppPath; getPath/setPath names other than crashDumps |
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
 | OS integration | setUserTasks, setJumpList, addRecentDocument, clearRecentDocuments, dock, badgeCount |
@@ -275,6 +277,15 @@ exports fail module import. The [example launcher](../../examples/electron/share
 adds explicit capability/platform errors for reference-only demonstrations; it does
 not install framework stubs. Assigning a missing app.name/isPackaged JS property
 only changes a JS object and does not implement native metadata.
+
+## Crash-report directory
+
+app.getPath('crashDumps') / app.setPath('crashDumps', directory)
+
+Available before readiness. The [crashReporter reference](crash-reporter.md)
+describes the actual native path, directory validation, initialization lock and
+local capture/recovery. Other path names remain explicitly unsupported. This does
+not implement general userData/app identity or Chromium path policy.
 
 ## Examples, changes and evidence
 

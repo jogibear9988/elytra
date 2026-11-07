@@ -1,4 +1,5 @@
 /** Main-process desktop API and native-window lifecycle policy. */
+import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createMainIpc from './ipc-main.mjs';
 import createScreen from './screen/index.mjs';
@@ -31,6 +32,26 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
   });
 
   class App extends EventEmitter {
+    getPath(name) {
+      if (typeof name !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'Path name must be a string');
+      }
+      if (name !== 'crashDumps') {
+        unsupported(`app.getPath(${name})`);
+      }
+      return native.crashDirectory();
+    }
+
+    setPath(name, value) {
+      if (typeof name !== 'string' || typeof value !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'Path name/value must be strings');
+      }
+      if (name !== 'crashDumps') {
+        unsupported(`app.setPath(${name})`);
+      }
+      native.crashDirectory(value);
+    }
+
     isReady() {
       return ready;
     }
@@ -94,6 +115,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
     }
   }
   const app = new App();
+  const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported);
   const { protocol } = protocols;
   const defaultSession = Object.freeze({ protocol });
@@ -532,6 +554,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls) {
 
   return {
     app,
+    crashReporter,
     protocol,
     session,
     BrowserWindow,

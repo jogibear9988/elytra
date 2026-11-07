@@ -36,7 +36,7 @@ The earlier C++ URL::origin override is removed. The DOM getter remains upstream
 other Rust extraction callers receive the same policy. The pinned Rust parser
 still has no custom-standard extension: complete parsing/mutation behavior remains
 open. Public protocol now also exposes default-session file callbacks; Code-OSS now passes that
-named import and fails at missing crashReporter. Real public file routing passes locally; no Code-OSS startup pass.
+named import and fails at missing Menu. Real public file routing passes locally; no Code-OSS startup pass.
 
 Targets.cmake composes three fingerprinted C++ translation units for trust, shared
 fetch classification and helper launch. The owned Rust build driver selects guarded root/module/origin compositions,

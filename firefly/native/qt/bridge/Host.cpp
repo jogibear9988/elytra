@@ -1,6 +1,7 @@
 /** Install trusted main-process bindings; preload/renderer code never receives this host object. */
 #include "../../protocol/routes/Host.h"
 #include "../../clipboard/ClipboardHost.h"
+#include "../../crash/Host.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
 #include "../../window/Geometry.h"
@@ -30,6 +31,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     install_clipboard_host(realm, *host);
+    CrashReporting::install_host(realm, *host);
     Protocols::install_registration_host(realm, *host);
     Protocols::install_file_route_host(
         realm, *host, NonnullRefPtr<Protocols::FileRoutes> { *protocols });
