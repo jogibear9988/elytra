@@ -92,6 +92,17 @@ re-signs while preserving helper entitlements/flags. Packages are ad-hoc signed,
 not notarized. [Native release documentation](../../docs/development/releases.md)
 explains the remaining platform/release gates.
 
+## Experimental Linux archive candidate
+
+The [Linux package guide](../../docs/development/linux-packaging.md) describes
+native Release inputs and package_linux.py. The renderer CI now builds this pinned
+production bundle, stages/strips/archives it, extracts it under spaces/Unicode and
+runs the same server/security/edit/Monaco/native window-control assertions as macOS.
+Only a passing run uploads linux-designer-package-candidate with its original
+version/source metadata and SHA-256. This gate is newly added and native Designer
+Linux acceptance is still pending; an archive command alone is not proof of it.
+Compatible host glibc, X11 and host graphics/audio services remain required.
+
 ## Native acceptance
 
 ```sh

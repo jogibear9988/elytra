@@ -13,6 +13,10 @@ on:
       - 'CMakeLists.txt'
       - 'vcpkg.json'
       - 'tooling/package_linux.py'
+      - 'tooling/build_designer.py'
+      - 'tooling/bundle_designer.mjs'
+      - 'tooling/npm_payload.py'
+      - 'examples/web-component-designer/**'
       - 'tooling/build_renderer.py'
       - 'tooling/compiler_cache.py'
       - 'tooling/compiler-cache.conf'
@@ -176,6 +180,24 @@ jobs:
         run: |
           set -o pipefail
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly --package --mite-build build/linux-package-mite --artifacts-dir build/linux-package-artifacts 2>&1 | tee build/linux-renderer-package-acceptance.log
+      - name: Compile and bundle the pinned Designer production sample
+        run: |
+          set -o pipefail
+          python tooling/build_designer.py --dependencies production --bundle 2>&1 | tee build/linux-renderer-designer-build.log
+      - name: Actual extracted Designer archive, editing, Monaco and native HTML controls
+        env:
+          QT_QPA_PLATFORM: xcb
+          FIREFLY_TEST_ISOLATED_X11: '1'
+        run: |
+          set -o pipefail
+          snapshot="0.1.0-dev.${GITHUB_RUN_NUMBER}"
+          xvfb-run -a -s '-screen 0 1280x900x24' python tooling/tests/test_linux_designer_package.py --build build/linux-renderer --mite-build build/linux-package-mite --app build/designer-app --version "$snapshot" 2>&1 | tee build/linux-renderer-designer-package.log
+      - name: Preserve accepted experimental Designer Linux candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: linux-designer-package-candidate
+          path: build/linux-designer-packages
+          if-no-files-found: error
       - name: Record final upstream integrity
         if: always()
         run: python tooling/check_upstream.py
@@ -209,6 +231,8 @@ jobs:
             build/linux-renderer-helper-artifacts
             build/linux-runtime-artifacts
             build/linux-package-artifacts
+            build/linux-designer-package-artifacts
+            build/designer-last-ui.log
             build/linux-package-mite/CMakeCache.txt
             build/renderer-artifacts/window.png
             build/linux-renderer/CMakeCache.txt

@@ -25,9 +25,8 @@ python3 tooling/package_linux.py \
 ```
 
 The example assumes the pinned Designer was compiled/bundled with
-`tooling/build_designer.py`. It describes staging, not proof that the Designer
-passes native Linux editing, Monaco or window-control acceptance. Those gates
-remain required before publishing this sample for Linux.
+`tooling/build_designer.py`. It describes staging; native editing, Monaco and
+window-control acceptance still require the actual gate below to pass.
 
 The default modes are --dependencies production and --symbols stripped. Use
 --symbols keep for native diagnostic symbols. Bundled Designer dependency mode
@@ -78,6 +77,27 @@ platform defaults/refusals and actual distribution copyright collection. This
 component gate passes at `da5e3e8` in
 [run 42349719941](https://github.com/jogibear9988/elytra/actions/runs/42349719941),
 job 128335067273. Its synthetic runtime does not establish Firefly app acceptance.
+
+The renderer workflow additionally compiles/bundles the pinned production Designer
+and runs `test_linux_designer_package.py` on a fresh isolated display. This driver
+uses the same archive extraction/hash/ELF checks, then runs the existing shared
+Designer server/security/edit/Monaco/HTML controls/native minimize/close assertions
+against the extracted app and launcher. All existing macOS assertions remain
+required; Linux has no reduced Designer acceptance definition.
+
+```sh
+FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a \
+  -s '-screen 0 1280x900x24' \
+  python3 tooling/tests/test_linux_designer_package.py \
+  --build build/linux-renderer --mite-build build/linux-package-mite \
+  --app build/designer-app --version 0.1.0-dev.0
+```
+
+Only a successful driver copies the original candidate archive, SHA-256 and
+BUILD.json to build/linux-designer-packages. CI uploads that directory as
+linux-designer-package-candidate with missing files treated as an error. Failures
+retain staging/acceptance/window-manager metadata under the diagnostics artifact.
+This is an experimental Actions candidate, not automatic Linux release publication.
 
 These new gates must pass on the committed source; local syntax/refusal tests do
 not establish native application acceptance. Designer native UI acceptance and

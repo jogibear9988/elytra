@@ -10,7 +10,9 @@ from native_package import elf
 from test_renderer import ROOT
 
 
-def packaged_app(build, mite_build, application, temporary, artifacts, name):
+def packaged_app(
+    build, mite_build, application, temporary, artifacts, name, *, version="0.1.0-dev.0"
+):
     source = temporary / "package-stage"
     result = subprocess.run(
         [
@@ -25,7 +27,7 @@ def packaged_app(build, mite_build, application, temporary, artifacts, name):
             "--output",
             str(source),
             "--version",
-            "0.1.0-dev.0",
+            version,
             "--name",
             name,
             "--archive",
@@ -44,7 +46,7 @@ def packaged_app(build, mite_build, application, temporary, artifacts, name):
         package.extractall(relocated, filter="data")
     # The extracted archive, never its staging tree, is the application under test.
     source.rename(temporary / "unused staging tree")
-    root = relocated / f"{name}-0.1.0-dev.0-linux-x64"
+    root = relocated / f"{name}-{version}-linux-x64"
     sums = json.loads((root / "SHA256SUMS.json").read_text())
     actual = {
         str(path.relative_to(root))

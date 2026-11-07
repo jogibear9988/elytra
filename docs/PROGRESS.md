@@ -5909,6 +5909,33 @@ site pages/12,656 links/resources/fragments pass for the preceding implementatio
 No local GUI tests. Whole native Linux archives and the complete Windows desktop
 remain unfinished. Goal active.
 
+## 2026-11-07: Gate real Linux Designer archive candidates
+
+- Previous goal turn is progress: native Linux packager/component evidence and
+  optimized macOS artifact measurements are committed/pushed with exact scope.
+  Recheck hosted da5e3e8 renderer run 42349719779/job 128335356488: it remains
+  authoritatively in progress compiling the native graph; do not restart/cancel.
+- Add test_linux_designer_package.py, requiring native Linux x64 and explicit
+  dedicated X11 opt-in before staging. Require the actual compiled/bundled
+  production Designer, archive/extract/checksum/ELF-verify its complete native
+  package, then invoke the unchanged shared Designer acceptance driver on that
+  extracted app/launcher under independently observed Xvfb/Openbox readiness.
+- Retain actual asset/worker/server-security, editing/round-trip, Monaco, missing
+  ambient privileges, HTML window controls, native minimize and close assertions.
+  Do not replace native acceptance with a compiled launcher or server-only probe.
+- Extend the renderer workflow with the pinned production Designer build and this
+  required gate. Only success preserves a versioned candidate tar/checksum and
+  original BUILD metadata for Actions upload. Failure keeps diagnostic logs;
+  missing candidate files fail upload. No automatic Linux release publication.
+- Parameterize shared archive helper version while preserving the existing runtime
+  fixture default. Document native commands, candidate scope and unfinished native
+  Designer/distribution acceptance. Ladybird/runtime sources are unchanged.
+
+Validation: Python syntax/help, full source formatting, actionlint/diff, payload
+(3), ELF guard/parser and unchanged-upstream checks pass without GUI. Generated
+site: 183 pages and 12,660 links/resources/fragments pass. Native Designer archive
+acceptance remains pending on hosted Linux. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
