@@ -5371,6 +5371,40 @@ and native application gates remain unverified. The optimized older macOS releas
 candidate is separate and remains under its original native/package gates.
 Goal active.
 
+## 2026-11-07: Establish independent X11 manager readiness and fresh native CLI acceptance
+
+- Corrected source 87845c8 passes all 65 native Release runtime suites on Linux
+  x64 (run 42313640601/job 128220859618, 89.02 seconds) and Windows x64
+  (run 42313640611/job 128220914189, 121.07 seconds). The unchanged forced-GC
+  capture lifetime assertions pass. Update the events/API acceptance scope;
+  this does not establish either platform's desktop runtime.
+- Geometry source 54dadb4 still fails isolated Linux frame acceptance in run
+  42314465500/job 128223587710: Qt reports visibility, but X11 reports the same
+  window unmapped without frame metadata. Native IDs agree. Keep this failure
+  explicit; probe initialization alone did not fix mapping.
+- Extract the shared isolated-X11 manager harness. Before any Qt client runs,
+  require an independent xmessage control window to become server-viewable with
+  actual nonzero WM frame extents. The existing x11-utils dependency provides
+  this client. Keep the control alive until acceptance; remove/reap it before
+  the application starts. Preserve the ten-second readiness deadline and all
+  existing independent geometry, ownership and sandbox assertions.
+- On failure retain the control's server observations plus manager/client exit
+  status and Linux /proc wait/process state. Both app/geometry harnesses use the
+  same lifecycle; always kill/reap their own process groups. Refuse non-Linux,
+  missing display, non-xcb and missing isolated-display opt-in before launching
+  any client. This is a diagnostic/readiness improvement, not native acceptance.
+- Optimized/shared-OpenSSL macOS 57c2675 run 42306965867 is now terminal failure:
+  all 65 CLI suites pass, then public IPC security-main reports invalid handler
+  inputs or lost pending budget. No verified release artifacts were uploaded;
+  do not promote this run or claim alpha. Diagnose this security gate next.
+
+Validation: Python syntax checks and all four unsafe-display guard cases pass
+before any query/process launch. The actual native probe isolation guard and
+all four non-GUI service CTests pass (0.39 seconds). Repository formatting,
+actionlint, the unmodified upstream pin and site links pass. No local GUI starts.
+Positive X11 acceptance and the macOS release/security repair remain outstanding.
+Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

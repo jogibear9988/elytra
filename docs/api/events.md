@@ -5,7 +5,9 @@ This module runs in standalone Mite and the Firefly main process, without LibWeb
 
 Status: partial implementation. Emitter behavior, the once signal consumer and
 opt-in listener rejection capture pass actual local macOS Node/Mite comparisons.
-Fresh Linux/Windows acceptance of these additions remains pending. The behavioral reference
+Native Linux x64 and Windows x64 Release runs at `87845c8` also pass all 65
+runtime suites, including cancellation, rejection capture and forced-GC delivery
+lifetimes. The behavioral reference
 is [Node 24.15.0 events](https://nodejs.org/download/release/v24.15.0/docs/api/events.html).
 
 ```js

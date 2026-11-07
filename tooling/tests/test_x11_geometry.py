@@ -12,28 +12,9 @@ import selectors
 import subprocess
 import sys
 import tempfile
-import time
 
 from test_renderer import environment, stop
-
-
-def query(*args):
-    return subprocess.check_output(args, text=True, timeout=5, env={**os.environ, "LC_ALL": "C"})
-
-
-def property_values(window, name):
-    """Read native window-manager properties without calling the owned Qt geometry adapter."""
-    output = query("xprop", "-id", str(window), name)
-    if " = " not in output:
-        return []
-    return [int(value, 0) for value in output.split(" = ", 1)[1].strip().split(", ")]
-
-
-def root_property(name):
-    output = query("xprop", "-root", name)
-    if "window id #" in output:
-        return output.split("window id #", 1)[1].strip()
-    return output.split(" = ", 1)[1].strip() if " = " in output else ""
+from _x11 import managed_window_manager, property_values, query, root_property, wait_for
 
 
 def native_bounds(window):
@@ -51,17 +32,6 @@ def native_bounds(window):
         "content": values,
         "outer": [x - left, y - top, width + left + right, height + top + bottom],
     }
-
-
-def wait_for(predicate, message):
-    deadline = time.monotonic() + 10
-    last = None
-    while time.monotonic() < deadline:
-        last = predicate()
-        if last:
-            return last
-        time.sleep(0.03)
-    raise AssertionError((message, last))
 
 
 def exercise(probe, mode, env):
@@ -205,7 +175,6 @@ def main():
         or os.environ.get("FIREFLY_TEST_ISOLATED_X11") != "1"
     ):
         parser.error("Use the dedicated Xvfb CI display and explicit isolated-X11 environment")
-    assert not root_property("_NET_SUPPORTING_WM_CHECK"), "Use a fresh dedicated X server"
     with tempfile.TemporaryDirectory(prefix="firefly-x11-geometry-") as directory:
         runtime = Path(directory) / "runtime"
         runtime.mkdir(mode=0o700)
@@ -216,29 +185,9 @@ def main():
             "QT_SCALE_FACTOR": "1",
             "QT_SCREEN_SCALE_FACTORS": "1",
         }
-        with (Path(directory) / "openbox.log").open("wb") as log:
-            manager = subprocess.Popen(
-                ["openbox", "--sm-disable"],
-                env=env,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-            try:
-                wait_for(
-                    lambda: root_property("_NET_SUPPORTING_WM_CHECK"), "dedicated Openbox readiness"
-                )
-                for mode in ["framed", "frameless"]:
-                    exercise(probe, mode, env)
-                assert manager.poll() is None, "window manager exited during acceptance"
-            finally:
-                if sys.exc_info()[0] is not None:
-                    print(f"Openbox status before cleanup: {manager.poll()}", file=sys.stderr)
-                stop(manager)
-                manager.wait(timeout=5)
-                if sys.exc_info()[0] is not None:
-                    log.flush()
-                    print((Path(directory) / "openbox.log").read_text(), file=sys.stderr)
+        with managed_window_manager(env, Path(directory) / "openbox.log"):
+            for mode in ["framed", "frameless"]:
+                exercise(probe, mode, env)
         print(
             "PASS actual X11 frame/content bounds, size-only updates, refusal and work-area centering"
         )

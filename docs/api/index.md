@@ -4,7 +4,8 @@ Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
 macOS ARM64 plus the scoped [Linux Mite baseline](../development/linux-build.md).
 The [Windows x64 Mite gate](../development/windows-build.md) and Linux x64
-pass all 63 runtime suites including process timing/npm at 02ed03f. Windows/Linux desktop support and distributable releases
+pass all 65 runtime suites at `87845c8`, including cancellable event waits,
+listener rejection capture and forced-GC delivery lifetimes. Windows/Linux desktop support and distributable releases
 remain work in progress. Use the compatibility matrices to check individual features.
 
 For tutorials, concepts and migration, start at the [documentation home](../index.md).
