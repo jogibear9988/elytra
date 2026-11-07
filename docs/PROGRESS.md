@@ -7434,6 +7434,26 @@ application handler/session dispatch and renderer resource/security acceptance s
 unfinished. Public protocol and the real Code-OSS workbench remain unsupported.
 Full original specification goal stays active.
 
+## 2026-11-07: Repair observed native CI command and rename boundaries
+
+- Inspect terminal accd1c7 macOS run 42400186300/job 128488113060: generated
+  command verification rejects the explicit Rust-origin cfg fingerprint before
+  Release compilation. Preserve exact M1/fatal-warning checks and require only
+  the actual composed root SHA-256 flag, analogous to the Linux correction.
+  Add standalone/composed/stale/duplicate/extra/CPU/warning command-policy tests
+  and require them before the macOS workflow's native build.
+- Inspect terminal 367a27d Windows renderer 42401824486/job 128491201738: the
+  native file fixture fails compiling Core::System::rename, unavailable on Windows.
+  Use the existing native UTF-8 FileSystem::rename_without_replacing with explicit
+  probe linkage. Keep the actual descriptor-preserving path replacement test on
+  Windows; do not skip it or add a platform pretend-success path.
+
+Validation: generated M1 policy test and formatting pass locally; the full native
+file-body/request/frame/separate-child gate passes on macOS with the portable
+rename call. No GUI or Ladybird change. These are fixes for observed failures,
+not new macOS Release/Windows acceptance. Fresh hosted runs remain required.
+Full Code-OSS/resource/renderer and original cross-platform goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

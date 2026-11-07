@@ -68,6 +68,8 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
+      - name: Validate generated M1 command policy
+        run: python tooling/tests/test_macos_cpu.py
       - name: Native build prerequisites
         run: brew install cmake ninja pkg-config autoconf autoconf-archive automake libtool
       - name: Pinned Rust toolchain

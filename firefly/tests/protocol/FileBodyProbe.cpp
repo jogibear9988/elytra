@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <io.h>
 #endif
+#include <LibFileSystem/FileSystem.h>
 #include <LibMain/Main.h>
 #include <chrono>
 #include <condition_variable>
@@ -450,7 +451,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     } else if (operation == "replace"sv) {
         auto body = TRY(FileBody::open(path));
         auto saved = ByteString::formatted("{}.old", path);
-        TRY(Core::System::rename(path, saved));
+        TRY(FileSystem::rename_without_replacing(saved, path));
         auto writer = TRY(Core::File::open(path, Core::File::OpenMode::Write));
         Array<u8, 17> changed {};
         changed.fill(255);

@@ -2,6 +2,7 @@
 """Verify generated Apple ARM64 project C++ and Cargo commands use the M1 baseline."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shlex
@@ -20,6 +21,12 @@ def check(build):
         if cpu != ["-mcpu=apple-m1"]:
             raise ValueError(f"Unexpected project CPU options for {record['file']}: {cpu}")
         cpp += 1
+    origin = build / "firefly-adapters/rust-origin/lib.rs"
+    composition = []
+    if origin.is_file():
+        composition = [
+            f"--cfg=firefly_origin_build_{hashlib.sha256(origin.read_bytes()).hexdigest()}"
+        ]
     rust = 0
     prefix = "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS="
     for line in (build / "build.ninja").read_text(encoding="utf-8").splitlines():
@@ -28,7 +35,11 @@ def check(build):
         # Ninja's escaped spaces/dollars occur inside CMake's shell command.
         args = shlex.split(line.replace("$$", "$").replace("$ ", " "))
         flags = [arg[len(prefix) :] for arg in args if arg.startswith(prefix)]
-        if len(flags) != 1 or shlex.split(flags[0]) != ["-Dwarnings", "-Ctarget-cpu=apple-m1"]:
+        if len(flags) != 1 or shlex.split(flags[0]) != [
+            "-Dwarnings",
+            "-Ctarget-cpu=apple-m1",
+            *composition,
+        ]:
             raise ValueError(f"Unexpected generated Cargo CPU/warning flags: {flags}")
         rust += 1
     if not cpp or not rust:

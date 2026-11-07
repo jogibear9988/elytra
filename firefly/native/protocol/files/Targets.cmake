@@ -10,8 +10,8 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FileBodyProbe.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/ipc/SpawnBytePeer.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FileRequestsProbe.cpp")
-target_link_libraries(firefly-protocol-files-probe PRIVATE firefly-protocol-files
-                                                           firefly-byte-channel LibMain)
+target_link_libraries(firefly-protocol-files-probe
+                      PRIVATE firefly-protocol-files firefly-byte-channel LibMain LibFileSystem)
 ladybird_check_skia_confinement(firefly-protocol-files-probe)
 if(WIN32)
     ladybird_windows_bin(firefly-protocol-files-probe CONSOLE)
