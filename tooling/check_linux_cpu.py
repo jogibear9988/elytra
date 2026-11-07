@@ -2,6 +2,7 @@
 """Verify generated Linux x64 C++ and Cargo commands use the portable x86-64-v2 baseline."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shlex
@@ -20,6 +21,14 @@ def check(build):
         if cpu != ["-march=x86-64-v2"]:
             raise ValueError(f"Unexpected project CPU options for {record['file']}: {cpu}")
         cpp += 1
+    # The owned origin composition adds one explicit Cargo freshness input.
+    # Compare its actual generated root hash; never permit arbitrary extra flags.
+    origin = build / "firefly-adapters/rust-origin/lib.rs"
+    composition = []
+    if origin.is_file():
+        composition = [
+            f"--cfg=firefly_origin_build_{hashlib.sha256(origin.read_bytes()).hexdigest()}"
+        ]
     rust = 0
     prefix = "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="
     for line in (build / "build.ninja").read_text(encoding="utf-8").splitlines():
@@ -31,7 +40,10 @@ def check(build):
         expected = ["-Dwarnings", "-Ctarget-cpu=x86-64-v2"]
         # Pinned upstream retains frame pointers on Linux. They change unwind
         # diagnostics, not the CPU ISA; accept only that exact optional flag.
-        accepted = [expected, [*expected, "-Cforce-frame-pointers=yes"]]
+        accepted = [
+            [*expected, *composition],
+            [*expected, "-Cforce-frame-pointers=yes", *composition],
+        ]
         if len(flags) != 1 or shlex.split(flags[0]) not in accepted:
             raise ValueError(f"Unexpected generated Cargo CPU/warning flags: {flags}")
         rust += 1

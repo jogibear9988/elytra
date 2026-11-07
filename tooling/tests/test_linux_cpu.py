@@ -4,6 +4,7 @@
 import _support
 
 import contextlib
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -34,6 +35,32 @@ class LinuxCpuPolicy(unittest.TestCase):
                 check(root)
                 ninja.write_text(cargo.replace(" -Cforce-frame-pointers=yes", ""))
                 check(root)
+            origin = root / "firefly-adapters/rust-origin/lib.rs"
+            origin.parent.mkdir(parents=True)
+            origin.write_bytes(b"// generated fixture input\n")
+            fingerprint = hashlib.sha256(origin.read_bytes()).hexdigest()
+            option = f" --cfg=firefly_origin_build_{fingerprint}"
+            configured = cargo.replace('" cargo build', option + '" cargo build')
+            ninja.write_text(configured)
+            with contextlib.redirect_stdout(io.StringIO()):
+                check(root)
+            for invalid in [
+                cargo,
+                configured.replace(fingerprint, "0" * 64),
+                configured.replace(option, option + option),
+                configured.replace(option, option + " --cfg=unrelated"),
+                configured.replace("x86-64-v2", "native"),
+                configured.replace("-Dwarnings ", ""),
+            ]:
+                ninja.write_text(invalid)
+                with self.assertRaisesRegex(ValueError, "Unexpected generated Cargo"):
+                    check(root)
+            origin.write_bytes(b"// changed composition\n")
+            ninja.write_text(configured)
+            with self.assertRaisesRegex(ValueError, "Unexpected generated Cargo"):
+                check(root)
+            origin.unlink()
+            ninja.write_text(cargo)
             for arguments in [
                 ["-march=native"],
                 [],

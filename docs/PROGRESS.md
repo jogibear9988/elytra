@@ -7283,6 +7283,22 @@ lifecycle, public protocol/resource handlers and real Code-OSS workbench remain
 unfinished. No successful Code-OSS launch or new Linux/Windows acceptance is claimed.
 Full goal remains active.
 
+## 2026-11-07: Preserve Linux CPU verification with composed Rust origins
+
+- Inspect terminal 614ebf1 Linux renderer run 42398340872/job 128480474208:
+  configure/build command verification rejects the new explicit origin cfg flag
+  before compiling the renderer. This is not accepted Linux origin behavior.
+- Keep exact portable x86-64-v2, fatal warnings and optional retained-frame-pointer
+  checks. When a generated origin composition exists, require exactly its actual
+  root SHA-256 cfg input; continue rejecting arbitrary/duplicate/stale flags,
+  changed CPU options and missing warnings. Standalone builds remain unchanged.
+- Add generated-command controls for matching fingerprint, missing/wrong/duplicate/
+  unrelated flags and changed composition, alongside existing CPU refusals.
+
+Validation: targeted generated Linux command-policy test and formatting pass locally.
+No GUI, runtime change or Ladybird edit. Fresh hosted Linux renderer acceptance is
+required; full Code-OSS/protocol and cross-platform goals remain unfinished.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
