@@ -9,14 +9,19 @@ const tree = path.resolve(process.argv[2]);
 try {
   await import(pathToFileURL(path.join(tree, 'src/main.js')).href);
   console.log(
-    JSON.stringify({ entryCompleted: true, cache: process._vscodeNodeCompileCacheStatus })
+    JSON.stringify({
+      entryCompleted: true,
+      cache: process._vscodeNodeCompileCacheStatus,
+      engine: process._vscodeLibJSEngineStatus
+    })
   );
 } catch (error) {
   console.error(
     JSON.stringify({
       entryCompleted: false,
       error: { name: error.name, code: error.code, message: error.message },
-      cache: process._vscodeNodeCompileCacheStatus
+      cache: process._vscodeNodeCompileCacheStatus,
+      engine: process._vscodeLibJSEngineStatus
     })
   );
   process.exitCode = 1;

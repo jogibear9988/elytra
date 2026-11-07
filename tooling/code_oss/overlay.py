@@ -6,6 +6,11 @@ import hashlib
 import json
 from pathlib import Path
 
+if __package__:
+    from .engine import adapt_engine
+else:
+    from engine import adapt_engine
+
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "vendor/code-oss-tests/manifest.json"
 NODE_CHECK = "typeof process?.versions?.node === 'string'"
@@ -15,6 +20,8 @@ NATIVE_CHECK = (
 FILES = ("platform.ts", "process.ts")
 CACHE_SOURCE = "firefly/compat/code-oss/compile-cache.ts"
 CACHE_TARGET = "src/vs/base/node/elytraCompileCache.ts"
+ENGINE_SOURCE = "firefly/compat/code-oss/engine-policy.ts"
+ENGINE_TARGET = "src/elytraEnginePolicy.ts"
 
 
 def adapt_cache(data):
@@ -52,7 +59,7 @@ def adapt(name, data):
     return source.encode("utf-8")
 
 
-def prepare(source, output, *, libjs_cache=False):
+def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
     """Validate every input before creating a fresh, explicitly partial overlay."""
     source = Path(source).resolve(strict=True)
     output = Path(output).absolute()
@@ -65,7 +72,10 @@ def prepare(source, output, *, libjs_cache=False):
     planned = {}
     records = []
     names = (
-        (*FILES, "nodeCompileCache.ts", "LICENSE.txt") if libjs_cache else (*FILES, "LICENSE.txt")
+        *FILES,
+        *(["nodeCompileCache.ts"] if libjs_cache else []),
+        *(["mainImpl.ts"] if libjs_engine else []),
+        "LICENSE.txt",
     )
     for name in names:
         entry = manifest["files"][name]
@@ -81,6 +91,8 @@ def prepare(source, output, *, libjs_cache=False):
             patched = adapt(name, original)
         elif name == "nodeCompileCache.ts":
             patched = adapt_cache(original)
+        elif name == "mainImpl.ts":
+            patched = adapt_engine(original)
         else:
             patched = original
         planned[entry["upstream"]] = patched
@@ -91,17 +103,21 @@ def prepare(source, output, *, libjs_cache=False):
                 "overlaySha256": sha256(patched),
             }
         )
-    if libjs_cache:
-        helper = (ROOT / CACHE_SOURCE).read_bytes()
-        planned[CACHE_TARGET] = helper
-        records.append(
-            {
-                "path": CACHE_TARGET,
-                "ownerSource": CACHE_SOURCE,
-                "sourceSha256": sha256(helper),
-                "overlaySha256": sha256(helper),
-            }
-        )
+    for enabled, owned, target in (
+        (libjs_cache, CACHE_SOURCE, CACHE_TARGET),
+        (libjs_engine, ENGINE_SOURCE, ENGINE_TARGET),
+    ):
+        if enabled:
+            helper = (ROOT / owned).read_bytes()
+            planned[target] = helper
+            records.append(
+                {
+                    "path": target,
+                    "ownerSource": owned,
+                    "sourceSha256": sha256(helper),
+                    "overlaySha256": sha256(helper),
+                }
+            )
     report = {
         "schema": 1,
         "kind": "partial-source-overlay",
@@ -115,6 +131,10 @@ def prepare(source, output, *, libjs_cache=False):
     if libjs_cache:
         report["adaptations"].append(
             "Disable optional Node/V8 cache on LibJS; explicitly refuse generation, measurements and readiness waits"
+        )
+    if libjs_engine:
+        report["adaptations"].append(
+            "Separate audited implicit Chromium/Blink defaults from LibJS/LibWeb; refuse unsupported user engine/sandbox requests before mutations"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():
@@ -134,8 +154,13 @@ def main():
     parser.add_argument(
         "--libjs-cache", action="store_true", help="Explicitly disable the optional Node/V8 cache"
     )
+    parser.add_argument(
+        "--libjs-engine",
+        action="store_true",
+        help="Explicitly separate implicit Chromium tuning from LibJS and reject unsupported user engine options",
+    )
     args = parser.parse_args()
-    prepare(args.source, args.output, libjs_cache=args.libjs_cache)
+    prepare(args.source, args.output, libjs_cache=args.libjs_cache, libjs_engine=args.libjs_engine)
     print(f"Prepared audited Code-OSS overlay in {args.output}")
 
 

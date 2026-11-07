@@ -107,7 +107,8 @@ with actual Electron using test_command_line.py --electron <binary>. Exact platf
 acceptance is recorded in [PROGRESS](../PROGRESS.md).
 
 Code-OSS reads now resolve, but its next Chromium feature append remains explicitly
-unsupported. That engine-specific setup needs a justified audited application
-adaptation or a real equivalent, not an inert accepted switch. The workbench still
+unsupported. The explicit [Code-OSS engine overlay](../architecture/0131-code-oss-engine-defaults.md)
+now separates those implicit defaults; without that opt-in they remain errors.
+It does not make Chromium options work through this API. The workbench still
 does not run. See [ADR 0130](../architecture/0130-native-command-line.md).
 The API baseline is [Electron CommandLine](https://www.electronjs.org/docs/latest/api/command-line).

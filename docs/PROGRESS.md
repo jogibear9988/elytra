@@ -8135,6 +8135,51 @@ continue demanded main/protocol/IPC/workbench services from actual startup error
 The workbench, broader command-line switches and original specification remain
 unfinished; the full goal remains active.
 
+## 2026-11-08: Audit Code-OSS implicit Chromium defaults in an opt-in LibJS overlay
+
+- Add explicit --libjs-engine to the existing hash-checked application overlay,
+  independent of --libjs-cache. Preserve the pinned mainImpl source/license bytes
+  outside four declared insertion seams: helper import, user-setting guard and
+  the opening/closing of the exact implicit Chromium default tuning block.
+  Keep the original Node/Electron branch, application argv handling and sandbox
+  branch intact. Reject missing/duplicate/order/input drift before creating output.
+- Own the engine policy under firefly/compat/code-oss, not a generic Electron or
+  commandLine shim. On actual Mite only, record audited omitted Chromium/Blink/
+  Electron tuning names with reasons in deeply frozen startup metadata. Include
+  explicit engine-default-only scope and unestablished renderer compatibility.
+  Do not invent equivalent engine settings, WebGL quotas, portal services or stack
+  collection; the per-feature audit records what remains unverified/unimplemented.
+- Refuse audited explicit user engine/V8/proxy/rendering/debug/portal and sandbox-
+  disable requests from CLI, argv.json or native switch presence before upstream
+  config/argv mutations. Distinguish minimist's mirrored default no-sandbox alias
+  from an actual raw request using canonical sandbox plus native presence. Actual
+  startup exposed this alias behavior; correct it without weakening raw/false-valued
+  no-sandbox rejection. Preserve logging, proposed-API and secret-storage argv work.
+- Emit the scoped engine status in the actual probe. Add a required native Mite
+  CTest that checks exact reversibility, input/license preservation, seam/overlap
+  refusal, unchanged original/adapted Node configuration calls, actual Mite default
+  handling, frozen metadata and eight user/sandbox-negative cases before mutations.
+  Add ADR 0131 and document the explicit opt-in vs ordinary entry behavior.
+
+Validation: local macOS Release CTests mite-code-oss-engine/platform/cache all pass
+(3/3). Compile the full real 11,535-source Code-OSS diagnostic with actual frozen
+root production dependencies and verified owned-overlay hashes. After compilation
+and dependency staging complete, the real Firefly host now reaches missing
+app.enableSandbox (exit 1), recorded in build/code-oss-engine-final-entry.log, with
+10 audited omitted-default entries on macOS. Without --libjs-engine the ordinary
+entry continues to reject enable-features; generic Firefly switch behavior is
+unchanged. The original sandbox branch was not bypassed. No workbench, sandbox-API
+or terminal/WebGL/font/zoom equivalence is claimed. Full maintained-source style,
+unmodified Ladybird pin, generated JS freshness and whitespace checks pass. Site
+validation passes (235 pages / 16,610 local links/resources/fragments). No native
+runtime source or upstream file changed. No browser window/physical UI test ran.
+Fresh native Linux/Windows overlay acceptance remains required.
+
+Next implement the real app.enableSandbox policy demanded by the unchanged branch,
+then continue app paths/locales and protocol privileges from actual startup errors.
+Renderer/workbench, native services/auxiliary hosts, Windows desktop and the full
+original specification remain unfinished; the goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -28,7 +28,7 @@ macOS native batch: real main/preload alias, default npm resolution, argument
 stripping, frozen restricted imports and no page privileges. Native argument and
 real macOS package-launcher relocation/option/PID tests also pass. The Linux native alias gate also passes at 5735b91; whole flagged archive acceptance
 remains pending. With the actual frozen root production dependencies, the Code-OSS
-Firefly-host probe passes the registerHooks/promisify imports and reaches the unsupported
+Firefly-host probe without the engine overlay passes registerHooks/promisify and reaches the unsupported
 Chromium enable-features switch (ERR_FIREFLY_UNSUPPORTED_API, exit 1); protocol, crashReporter, Menu and contentTracing exports now resolve.
 The workbench still does not run. The [dependency guide](guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies)
 records the 71 direct / 258 frozen snapshot graph, native/WASM candidates and
@@ -46,7 +46,11 @@ capture/storage for real local main/helper reports, with crashDumps paths and fr
 annotations. Actual main SIGABRT recovery and a real owned-helper crash pass locally
 on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
-The current Code-OSS entry now stops at unsupported Chromium enable-features.
+The ordinary Code-OSS entry still rejects unsupported Chromium enable-features.
+With the explicit [LibJS engine overlay](guides/code-oss-adaptation.md#separate-implicit-chromium-defaults-explicitly),
+the real prepared entry now reaches missing app.enableSandbox (exit 1). Its implicit
+engine defaults are recorded with reasons; explicit incompatible user/sandbox options
+remain errors. The original sandbox branch is preserved and not bypassed.
 
 Partial [app.commandLine](api/command-line.md) now inspects native launch
 switches and applies supported lang changes, with startup-only CPU painting. Local

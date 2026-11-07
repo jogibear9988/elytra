@@ -86,6 +86,43 @@ records the policy. Mite's public node:v8/Node cache APIs remain unavailable.
 The workbench, desktop identity/API, transitive bootstrap and public binary/event/
 port transport remain unfinished.
 
+## Separate implicit Chromium defaults explicitly
+
+The normal overlay without this extra option still stops at the incompatible
+Chromium enable-features append. Opt in to the audited application adaptation:
+
+```sh
+python3 tooling/code_oss/overlay.py --source build/code-oss-source --output build/code-oss-libjs-engine-overlay --libjs-cache --libjs-engine
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-libjs-engine-overlay --dependencies build/code-oss-dependencies --output build/code-oss-engine-diagnostic
+build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/code-oss-engine-diagnostic --firefly
+```
+
+Prepare the frozen root dependencies as described below first; all output paths
+must be fresh. This only changes declared insertion seams in pinned mainImpl.ts.
+Its default Chromium/Blink/Electron tuning block remains intact in the ordinary
+Node/Electron branch. Actual Mite records omitted implicit tuning names/reasons
+in a deeply frozen process._vscodeLibJSEngineStatus; the probe emits that status.
+Its scope is engine defaults only, and renderer compatibility remains unestablished.
+See the [per-feature audit](../architecture/0131-code-oss-engine-defaults.md).
+
+The audited user-supplied feature/V8/proxy/rendering/debug/portal options and attempts to disable
+the sandbox fail with ERR_CODE_OSS_LIBJS_ENGINE_OPTION before upstream config/argv
+mutations. This includes native switch presence even when a value is empty/false.
+The minimist default sandbox alias is handled separately from actual raw presence.
+Application logging, proposed API and in-memory secret-storage argv behavior is
+preserved. No engine flag is advertised as supported by Firefly through this overlay.
+
+```sh
+python3 tooling/tests/test_code_oss_engine.py --mite build/release-mite/bin/mite
+```
+
+The native CTest entry is mite-code-oss-engine. Local macOS Node/Mite exact-source,
+original/adapted Node behavior and eight negative policy cases pass. With the real
+prepared dependencies, the actual Firefly-host entry now reaches missing
+app.enableSandbox (exit 1). The original sandbox branch is unchanged: this adaptation
+does not enable/disable sandboxing or claim a workbench launch. Fresh native
+Linux/Windows engine-overlay acceptance remains required.
+
 ## Probe the actual Firefly host
 
 ```sh
@@ -95,8 +132,9 @@ build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/co
 The final --firefly argument requests explicit diagnostic shutdown, preserving a
 nonzero result on failure. This is a real host run with original-fs and the
 implemented Electron alias. Without prepared dependencies, the trace stops at missing minimist. With the
-root production installation below, the actual trace reaches the unsupported
-Chromium enable-features and retains exit 1 after passing registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
+root production installation below, the actual trace without --libjs-engine reaches
+unsupported Chromium enable-features. With the explicit engine overlay above, it
+reaches missing app.enableSandbox; both preserve exit 1 after registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
 
 
 ## Prepare actual root production dependencies

@@ -221,6 +221,10 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_cache.py"
                 --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-code-oss-engine
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_engine.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-code-oss-dependencies
         COMMAND
             "${Python3_EXECUTABLE}"
