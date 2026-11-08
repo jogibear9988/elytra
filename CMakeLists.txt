@@ -274,6 +274,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-fetch-data
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fetch_data.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-zlib
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_zlib.py"
+                     --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
         NAME mite-compression
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_compression.py"

@@ -20,5 +20,6 @@
   "tls": "mite/modules/network/tls.mjs",
   "https": "mite/modules/network/https.mjs",
   "fetch": "mite/runtime/bootstrap/fetch/index.mjs",
-  "decompression": "mite/runtime/bootstrap/compression/decompression.mjs"
+  "decompression": "mite/runtime/bootstrap/compression/decompression.mjs",
+  "zlib": "mite/modules/compression/zlib.mjs"
 }

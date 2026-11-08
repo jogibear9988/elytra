@@ -9172,6 +9172,56 @@ platform packaging remain required. Keep full webview/remote requirements after 
 limited experiment. Ladybird is unmodified, Mite independent, and the full original
 product goal stays active.
 
+
+## 2026-11-08 — Native node:zlib streams and actual Code-OSS IPC compression
+
+- Resume from pushed 2131b4c as implementation progress; inspect spec/progress,
+  current runtime and the actual node:zlib startup failure. Audit real Code-OSS
+  raw compression classes and Node/native zlib references, preserving the existing
+  independent Fetch/Web Streams inflater contract.
+- Add a small C++ RAII codec host over the existing pinned zlib 1.3.2#2. Own native
+  stream state, bound copied input/output per call to 1 MiB, clear native pointers
+  before JS allocation/return and validate numeric/detached-byte inputs. Support
+  raw/zlib/gzip encode/decode, final validation and gzip members/zero padding.
+- Add authored ESM option/error policy and shared Transform facade, generated with
+  the existing pinned compiler. Serialize real flush operations using private empty
+  writable markers; preserve dictionary context across messages. Respect readable
+  push pressure and yield steps through setImmediate. Retire handles/work on destroy,
+  explicit close and GC. Keep consumer exceptions outside native error conversion.
+- Register the actual zlib builtin with shared CJS/ESM classes/factories, sync and
+  error-first convenience functions, bounded output collection and constants. Refuse
+  unsupported options/dictionaries/flush kinds/reset/params/autodetection/Brotli/Zstd/
+  crc32 explicitly. Keep full Node signatures/options/error/threadpool parity partial.
+- Differential tests discover two Node pressure/close differences instead of hiding
+  them: Node's emitClose:false does not deliver this close callback (reject that
+  option in Mite), and destroying a pressure-blocked transform retains Node's pending
+  write callback while Mite explicitly retires it once. Record both policies.
+- Add mite-zlib with real Node/Mite/Python cross-codec bytes, input above native-step
+  size, sync/async/fragmented streams, RFC7692 context takeover, corruption/checksum/
+  truncation/output limits, forced native GC, pressure, close and cancellation. Pin
+  actual ipc.net.ts and add a local component probe running its unchanged compression
+  classes with real compiled VSBuffer/Emitter/Disposable/common IPC services on
+  Node/Mite. Update API/status/guide/matrix/roadmap and ADR 0151.
+
+Validation: standalone Mite and Firefly local Release builds pass. Actual Code-OSS
+ZlibDeflateStream/ZlibInflateStream messages and context takeover pass under Node and
+Mite. The rebuilt Firefly real ready/main graph passes zlib and now reports unsupported
+node:assert (build/code-oss-zlib-ready.log); no editor/window/workbench is claimed.
+The first native compile incorrectly treated a byte-copy vector as a fallible result;
+fix that and accept only subsequent builds. The full runtime suite passes 82/83;
+the remaining line-ending gate initially required new generated/source snapshots in
+Git's index. After staging, that gate and the final zlib gate both pass (83 gates
+accepted across the full run plus targeted repeat). Focused final zlib/real-wrapper
+checks, full maintained-source style, unmodified-upstream and generated integrity
+checks pass. The site/link and whitespace checks accompany the commit. No GUI automation ran.
+
+Remaining: actual node:assert contract and subsequent demanded main services, followed
+by real workbench assets/window/preload/ports/File handoff and open/edit/save. Keep
+large-file streaming/performance, extension/shared/PTY hosts, full webview/remote and
+native platform packaging in the original goal. Zlib remains partial and fresh
+Linux/Windows acceptance is not claimed. Ladybird is unmodified, Mite independent,
+and the original full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -10,6 +10,7 @@
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include "modules/ModuleSource.h"
+#include "platform/compression/Codec.h"
 #include "platform/compression/Inflater.h"
 #include "platform/crypto/Crypto.h"
 #include "platform/filesystem/FileSystem.h"
@@ -98,6 +99,14 @@ static constexpr std::string_view os_exports[] = { "arch", "availableParallelism
     "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem",
     "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority",
     "setPriority", "constants", "EOL", "devNull" };
+static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", "createDeflateRaw",
+    "deflateRaw", "deflateRawSync", "InflateRaw", "createInflateRaw", "inflateRaw",
+    "inflateRawSync", "Deflate", "createDeflate", "deflate", "deflateSync", "Inflate",
+    "createInflate", "inflate", "inflateSync", "Gzip", "createGzip", "gzip", "gzipSync", "Gunzip",
+    "createGunzip", "gunzip", "gunzipSync", "createUnzip", "Unzip", "createBrotliCompress",
+    "createBrotliDecompress", "createZstdCompress", "createZstdDecompress", "brotliCompress",
+    "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
+    "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
     "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual" };
 static constexpr std::string_view child_process_exports[] = { "spawn", "execFile", "ChildProcess" };
@@ -115,6 +124,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
     { "timers", {}, timers_exports },
+    { "zlib", { MITE_ZLIB_SOURCE, sizeof(MITE_ZLIB_SOURCE) - 1 }, zlib_exports },
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
@@ -311,6 +321,20 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             host->define_direct_property(
                 "byteView"_utf16, TRY(native->get("byteView"_utf16)), JS::default_attributes);
         }
+    }
+
+    if (name == "zlib") {
+        host->define_direct_property("schedule"_utf16,
+            TRY(m_realm.global_object().get("setImmediate"_utf16)), JS::default_attributes);
+        host->define_direct_property(
+            "nextTick"_utf16, TRY(m_process->get("nextTick"_utf16)), JS::default_attributes);
+        host->define_direct_property(
+            "stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property(
+            "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+        host->define_direct_property(
+            "native"_utf16, create_zlib_host(m_realm), JS::default_attributes);
     }
 
     if (name == "crypto") {

@@ -259,3 +259,21 @@ there is no working workbench. ELYTRA-COMPILE.json records counts, tool provenan
 and generated artifact hashes. The standalone non-GUI CTest is mite-code-oss-nls.
 The pinned TypeScript package is a build dependency only; Mite still embeds LibJS.
 See [ADR 0150](../architecture/0150-code-oss-indexed-nls.md) for exact scope and limits.
+
+## Verify the actual IPC compression wrappers
+
+The native node:zlib slice now implements the required stateful raw compression
+streams and flush. Against a real compiled source tree with the engine/platform
+adaptations, execute the unchanged pinned Code-OSS compression classes using its
+real compiled base services:
+
+```sh
+node tooling/code_oss/probe-zlib.mjs build/code-oss-local-nls build/release-mite/bin/mite
+python3 tooling/tests/test_zlib.py --mite build/release-mite/bin/mite --host build/release-mite/bin/mite-embedded-host
+```
+
+This local Node/Mite component probe passes repeated messages with context takeover.
+The actual ready/main graph now passes the zlib import and stops at unsupported
+node:assert. The bounded ready probe still exits 1; no workbench is accepted. See
+[node:zlib scope and bounds](../api/zlib.md). The previous NLS-only observation above
+remains the historical result for a runtime without this newer native slice.

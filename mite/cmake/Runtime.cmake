@@ -45,6 +45,7 @@ function(mite_add_runtime target root js_target)
         tls
         os
         crypto
+        zlib
         child_process
         timers_promises)
         string(TOUPPER "${module}" module_upper)
@@ -103,6 +104,7 @@ function(mite_add_runtime target root js_target)
         platform/system/OSConstants
         # platform/compression
         platform/compression/Inflater
+        platform/compression/Codec
         # platform/crypto
         platform/crypto/Crypto
         platform/crypto/CryptoHash

@@ -186,6 +186,10 @@
     "nls-build.ts": {
       "upstream": "build/lib/nls.ts",
       "sha256": "c83e185c77e6bbe9d40b4c80a96dfdde2c2501c290c206eda54f684c1c28a5b4"
+    },
+    "ipc-net-node.ts": {
+      "upstream": "src/vs/base/parts/ipc/node/ipc.net.ts",
+      "sha256": "87e59dba1b379659fb7e1a1520a4f51afc91bde0f36eef46bc5b3b196679a743"
     }
   }
 }

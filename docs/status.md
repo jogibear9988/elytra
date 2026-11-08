@@ -13,7 +13,9 @@ native/helper and Electron-reference validation is recorded in
 [local desktop experiment](guides/code-oss-adaptation.md#experimental-local-desktop)
 now completes the real entry import and observes app ready. The new --nls build
 step generates 34,273 matching indexed English messages and removes the catalog
-read failure; asynchronous startup then reports unsupported node:zlib. It disables webviews, remote and
+read failure. The new native node:zlib slice passes actual Code-OSS compression
+classes; asynchronous startup now reports unsupported node:assert. The local desktop
+experiment disables webviews, remote and
 engine caches; without it the allowServiceWorkers blocker remains. No workbench
 open/edit/save acceptance is claimed.
 

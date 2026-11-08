@@ -71,8 +71,9 @@ asserted. Malformed/checksum failures reject the Fetch body as TypeError with th
 decompression cause. Compression does not change HTTP status resolution semantics.
 
 Brotli, zstd and other codings are unavailable and reject explicitly, rather than
-returning encoded bytes as decoded content. Outbound compression, CompressionStream
-and node:zlib are not implemented by this slice. Decoder work runs synchronously
+returning encoded bytes as decoded content. Outbound HTTP compression and
+CompressionStream remain unavailable. Node-style compression streams now have a
+separate [partial node:zlib contract](zlib.md). Decoder work runs synchronously
 in finite native steps on the VM thread; no Node worker-pool parity is promised.
 Convenience consumers still collect data in memory, and a slower tee/clone branch
 can accumulate output. There is no total decoded-size/memory quota.

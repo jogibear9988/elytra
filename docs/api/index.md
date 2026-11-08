@@ -118,3 +118,6 @@ factor/level conversion, rendering evidence and unsupported frame services.
 
 The [native file input reference](file-input.md) describes the bounded chooser,
 browser FileList data, cancellation and the still-missing native path association.
+
+The [node:zlib reference](zlib.md) covers bounded native raw/zlib/gzip Transform streams,
+ordered flush and convenience functions, with explicit unsupported features.
