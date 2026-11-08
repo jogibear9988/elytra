@@ -123,6 +123,28 @@ if(BUILD_TESTING)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
     add_dependencies(mite mite-embedded-host)
+    add_executable(mite-policy-host-probe mite/tests/policy-watcher/HostProbe.cpp)
+    target_link_libraries(mite-policy-host-probe PRIVATE mite-runtime)
+    add_dependencies(mite mite-policy-host-probe)
+    add_test(
+        NAME mite-policy-host
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_policy_watcher_host.py"
+            --probe "$<TARGET_FILE:mite-policy-host-probe>")
+    if(APPLE)
+        add_executable(mite-policy-provider-probe mite/tests/policy-watcher/ProviderProbe.cpp
+                                                  mite/runtime/platform/policy/ProviderMac.cpp)
+        target_include_directories(mite-policy-provider-probe
+                                   PRIVATE "${CMAKE_SOURCE_DIR}/mite/runtime")
+        target_compile_definitions(mite-policy-provider-probe
+                                   PRIVATE MITE_POLICY_PROVIDER_TESTING=1)
+        target_link_libraries(mite-policy-provider-probe PRIVATE AK "-framework CoreFoundation"
+                                                                 "-framework CoreServices")
+        add_dependencies(mite mite-policy-provider-probe)
+        add_test(NAME mite-policy-provider COMMAND "$<TARGET_FILE:mite-policy-provider-probe>")
+        add_test(NAME mite-policy-provider-read-only
+                 COMMAND "$<TARGET_FILE:mite-policy-provider-probe>" --read-only)
+    endif()
     if(WIN32)
         add_executable(mite-startup-probe mite/tests/embedding/WindowsStartup.cpp)
         target_link_libraries(mite-startup-probe PRIVATE mite-runtime Dbghelp)
@@ -279,6 +301,21 @@ if(BUILD_TESTING)
     add_test(NAME firefly-gpu-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_gpu_policy.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-policy-watcher-policy
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_policy_watcher_policy.py" --mite
+            "$<TARGET_FILE:mite>")
+    add_test(NAME mite-policy-watcher-adapter
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_policy_watcher_adapter.py")
+    add_test(
+        NAME mite-policy-watcher-public
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_policy_watcher_public.py" --mite
+            "$<TARGET_FILE:mite>")
     add_test(
         NAME firefly-dialog-policy
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dialog_policy.py"

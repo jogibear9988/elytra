@@ -271,6 +271,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const&
     if (depth > 64)
         return error(
             "ERR_MITE_PACKAGE_RESOLUTION_LIMIT", "Package target nesting/alias limit exceeded");
+    if (request == "mite:policy-watcher")
+        return URL::Parser::basic_parse("mite-host:mite-policy-watcher"sv).release_value();
     if (m_host_modules.contains(request))
         return URL::Parser::basic_parse(view("mite-host:" + request)).release_value();
     // Reserve documented built-ins even before their implementations land;

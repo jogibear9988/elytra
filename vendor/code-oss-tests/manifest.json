@@ -262,6 +262,14 @@
     "managedRemoteResourceProtocol.ts": {
       "upstream": "src/vs/platform/protocol/electron-main/managedRemoteResourceProtocol.ts",
       "sha256": "2889bad6ca1d92d77fd1b1537861d67b98b5d3d5917b709da413fa9b4cab6a37"
+    },
+    "nativePolicyService.ts": {
+      "upstream": "src/vs/platform/policy/node/nativePolicyService.ts",
+      "sha256": "35c770519f76db42fb104b8cc5e7febab5067984df05e3f9acbb98b5ba0503ff"
+    },
+    "nativeManagedSettingsService.ts": {
+      "upstream": "src/vs/platform/policy/node/nativeManagedSettingsService.ts",
+      "sha256": "225c1888b253885ecf93d3e6eeb447bd97ca1f6523f0c625079f81367faf6481"
     }
   }
 }

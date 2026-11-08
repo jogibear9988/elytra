@@ -314,8 +314,8 @@ reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/na
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
 slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents,
-native filesystem watchers and the protocol service. Its next failure is the native
-@vscode/policy-watcher package. The [real LibJS utility payload slice](../api/utility-process.md) has six
+native filesystem watchers and the protocol service. The explicit native policy
+package adaptation below advances startup further to local IPC sockets. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -381,7 +381,8 @@ minimal ready/command-line app fixture. It does not modify the user's Login
 keychain or accept production post-ready app lifecycle. Real Firefly/Electron
 comparison separately accepts pre-ready guards only; post-ready Electron crypto
 is unverified. The current actual ready graph passes safeStorage, native filesystem
-watchers and the protocol service, then fails at native @vscode/policy-watcher. Native utility/renderer endpoint transfer, demanded auth
+watchers and the protocol service. The native policy adaptation below advances
+startup further; current blockers are tracked in the compatibility matrix. Native utility/renderer endpoint transfer, demanded auth
 forwarding and actual Code-OSS shared-service execution remain required; no
 workbench is accepted. See [storage scope](../api/safe-storage.md), including the
 Firefly-specific ciphertext and unavailable migration/async/platform providers.
@@ -398,9 +399,9 @@ fallback; native Linux/XCB and Windows execution remain unverified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports and the protocol service on the production
-objects. Native fs.watchFile/fs.watch have separate local acceptance. Its next failure
-is native @vscode/policy-watcher, whose V8 helper and Node/N-API addon need a genuine
-owned native policy adapter rather than a placeholder or disabled policy service. The metadata-only desktop source and empty-image
+objects. Native fs.watchFile/fs.watch have separate local acceptance. The explicit
+policy package adaptation below uses a genuine native provider instead of loading
+the package's V8 helper/Node addon; startup then reaches local IPC sockets. The metadata-only desktop source and empty-image
 APIs are implemented with separate policy/controlled-host/preflight acceptance;
 valid OS enumeration and media binding remain unaccepted. Notification and genuine read-only macOS powerMonitor component gates now pass;
 physical power transitions and actual OS notification delivery remain unaccepted.
@@ -409,3 +410,35 @@ controlled failure gates; native shell dispatch and genuine owned-file Trash/res
 native scalar preferences and media-status gates now pass. Genuine fork/JSON IPC and the unchanged Code-OSS IPC component now pass. Continue with native file polling and rerun the graph. Integrated BrowserView still
 requires unsupported session/subframe/CDP services; native ports/authentication and
 a working VS Code window remain missing. See [view scope](../api/web-contents-view.md).
+
+
+## Native policy package adapter
+
+The default @vscode/policy-watcher 1.7.0 entry loads a Node/N-API addon using a V8
+stack helper. Mite does not supply either interface. The opt-in build flag below
+adapts only that exact package's entry in a fresh compiled copy. Under Mite it uses
+[mite:policy-watcher](../api/policy-watcher.md); ordinary Node/Electron keep their
+original native-addon branch. Original prepared dependencies and application source
+are unchanged; package/source/adapter/output hashes are recorded in ELYTRA-COMPILE.json.
+A different package version or unexpected original entry fails the build.
+
+After preparing the pinned dependencies as described above:
+
+```sh
+python3 tooling/code_oss/overlay.py --source build/code-oss-source --output build/code-oss-policy-overlay --libjs-cache --libjs-engine --local-desktop
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-policy-overlay --dependencies build/code-oss-dependencies --nls --mite-policy-watcher --output build/code-oss-policy
+node tooling/code_oss/probe-policy.mjs build/code-oss-policy build/release-mite/bin/mite
+```
+
+Use fresh output paths. The consumer probe verifies the unchanged NativePolicyService
+and NativeManagedSettingsService and 46 compiled dependencies, then initializes and
+disposes genuine native watchers against a unique unused preferences domain. Local
+macOS passes without preference writes, injected empty snapshots or GUI tests.
+Windows/Linux providers are unavailable; actual MDM change delivery is unaccepted.
+General .node/N-API and Error.captureStackTrace remain unsupported.
+
+With this explicit package adaptation and the local-desktop/NLS mode, the actual
+main-ready diagnostic advances to ipc.net.serve in main.claimInstance and rejects
+local Unix sockets/named pipes. It still does not display an accepted workbench or
+open/edit/save a workspace. Local IPC transport and the other
+[current Code-OSS requirements](../compatibility/vscode.md) remain outstanding.

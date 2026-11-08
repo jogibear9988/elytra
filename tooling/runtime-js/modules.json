@@ -14,6 +14,7 @@
   "dns": "mite/modules/network/dns.mjs",
   "http": "mite/modules/network/http.mjs",
   "os": "mite/modules/system/os.mjs",
+  "policy-watcher": "mite/modules/system/policy-watcher.mjs",
   "crypto": "mite/modules/crypto/index.mjs",
   "child_process": "mite/modules/process/child-process.mjs",
   "bootstrap": "mite/runtime/bootstrap/globals.mjs",

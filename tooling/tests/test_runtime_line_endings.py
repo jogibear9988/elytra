@@ -38,6 +38,10 @@ def main():
     expected.update(
         {"vendor/node-url/" + source["path"]: source["sha256"] for source in legacy_url["sources"]}
     )
+    policy = json.loads((ROOT / "vendor/policy-watcher/manifest.json").read_text())
+    expected.update(
+        {"vendor/policy-watcher/" + name: digest for name, digest in policy["files"].items()}
+    )
     attributes = subprocess.check_output(
         ["git", "check-attr", "eol", "--", *expected], cwd=ROOT, text=True
     )

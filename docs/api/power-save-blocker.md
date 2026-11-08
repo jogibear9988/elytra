@@ -105,5 +105,5 @@ Actual display-versus-system sleep behavior, forced sleep, failure recovery agai
 the OS, and Linux/Windows implementations remain separate acceptance work.
 
 The actual pinned Code-OSS local-desktop/NLS ready diagnostic passes this export
-and now passes the protocol service before failing at native @vscode/policy-watcher. Entry/app-ready observation is not workbench or
+and the protocol service; later startup blockers are tracked in the linked Code-OSS status. Entry/app-ready observation is not workbench or
 open/edit/save acceptance. See [VS Code status](../compatibility/vscode.md).

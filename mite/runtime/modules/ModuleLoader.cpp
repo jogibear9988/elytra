@@ -228,6 +228,10 @@ JS::ThrowCompletionOr<bool> ModuleLoader::is_es_module(fs::path const& path)
 JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifier,
     std::string const& referrer, std::vector<std::string> const* conditions)
 {
+    // Explicit Mite extension; it neither impersonates a Node builtin nor loads
+    // arbitrary names from the private host URL namespace.
+    if (specifier == "mite:policy-watcher")
+        return URL::Parser::basic_parse("mite-host:mite-policy-watcher"sv).release_value();
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
     auto base = URL::Parser::basic_parse(view(referrer));

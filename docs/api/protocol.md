@@ -264,8 +264,9 @@ Custom partitions, HTTP(S)/other builtin interception, broader request fields,
 workers/frames and additional privileges remain unavailable. The unchanged pinned
 Code-OSS ProtocolMainService now passes genuine file-denial and managed-remote
 404/500/binary/MIME consumer tests. The actual local-desktop/NLS startup advances
-past this service to the native @vscode/policy-watcher dependency. No workbench or
-workspace open/edit/save acceptance follows from this subset. See
+past this service. Subsequent startup blockers are tracked in the
+[Code-OSS status](../compatibility/vscode.md); no workbench or workspace open/edit/save
+acceptance follows from this subset. See
 [ADR 0175](../architecture/0175-public-response-protocols.md).
 
 ## Validation

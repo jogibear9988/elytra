@@ -58,6 +58,8 @@ public:
     JS::ThrowCompletionOr<JS::Value> run_commonjs_entry();
 
 private:
+    JS::ThrowCompletionOr<void> install_policy_watcher();
+
     struct RequireResolution {
         std::filesystem::path path;
         std::string builtin;

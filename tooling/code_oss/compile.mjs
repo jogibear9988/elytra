@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { transformSync, version } from '../runtime-js/node_modules/esbuild/lib/main.js';
 import { preparedDependencies } from './dependency-graph.mjs';
 import { createNLS } from './nls.mjs';
+import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -18,7 +19,8 @@ const { values } = parseArgs({
     output: { type: 'string' },
     overlay: { type: 'string' },
     dependencies: { type: 'string' },
-    nls: { type: 'boolean', default: false }
+    nls: { type: 'boolean', default: false },
+    'mite-policy-watcher': { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -168,6 +170,10 @@ if (JSON.parse(planned.get('package.json')).type !== 'module') {
 const dependencies =
   values.dependencies &&
   preparedDependencies(values.dependencies, planned.get('package.json'), pin.revision);
+if (values['mite-policy-watcher'] && !dependencies) {
+  throw Error('--mite-policy-watcher requires a verified prepared dependency tree');
+}
+const policyWatcher = values['mite-policy-watcher'] ? planPolicyWatcher(dependencies.root) : null;
 if (dependencies && (within(dependencies.root, output) || within(output, dependencies.root))) {
   throw new Error('Output overlaps dependency input tree');
 }
@@ -191,6 +197,7 @@ planned.set(
             }
           : undefined,
         adaptations,
+        packageAdaptations: policyWatcher ? [policyWatcher.record] : undefined,
         nls: nls?.report(),
         generated: nls
           ? [...nls.artifacts()].map(([output, data]) => ({ output, outputSha256: sha256(data) }))
@@ -218,6 +225,9 @@ if (dependencies) {
     dereference: false,
     verbatimSymlinks: true
   });
+  if (policyWatcher) {
+    applyPolicyWatcher(output, policyWatcher);
+  }
   fs.copyFileSync(
     path.join(dependencies.root, 'ELYTRA-DEPENDENCIES.json'),
     path.join(output, 'ELYTRA-DEPENDENCIES.json')

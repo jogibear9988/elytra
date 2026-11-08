@@ -755,6 +755,7 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     if (m_fork_child)
         TRY(builtin("child_process"));
 
+    TRY(install_policy_watcher());
     return {};
 }
 

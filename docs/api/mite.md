@@ -25,8 +25,8 @@ Script arguments are available in `process.argv`. `.mjs` is ESM, `.cjs` is Commo
 `.js` follows package.json type. ESM supports static/dynamic imports, top-level await,
 live bindings and JSON imports with `with {type: 'json'}`. CommonJS supports require,
 module.exports, require.resolve/cache/main and cycles. ESM imports of CommonJS expose
-the default/module.exports value; named-export detection and synchronous require(ESM)
-are not implemented. Unsettled top-level await exits with status 13.
+the default/module.exports value and a tested static named-export subset; synchronous
+require(ESM) remains unsupported. See [module details](module.md#commonjs-named-exports-in-es-modules). Unsettled top-level await exits with status 13.
 
 Bare packages resolve through node_modules, package exports/imports, self references
 and legacy main/index. Global package folders, NODE_PATH and custom conditions are
@@ -38,13 +38,21 @@ CommonJS loading, isBuiltin and a frozen inventory of available builtins.
 Global performance and [node:perf_hooks](perf-hooks.md) share native now/timeOrigin;
 the broader timeline/observer/profiling APIs remain absent.
 
+## Runtime-specific policy extension
+
+The [mite:policy-watcher extension](policy-watcher.md) offers real read-only macOS
+CFPreferences/FSEvents observation. It is independent of Firefly and Node/N-API,
+with explicit unavailable-platform errors. It is not a Node builtin. The opt-in
+Code-OSS package adapter and actual consumer acceptance are documented separately.
+
 ## Globals and process
 
 Available globals include global/globalThis, console, process, Buffer, URL,
 URLSearchParams, TextEncoder, TextDecoder, queueMicrotask, setTimeout/setInterval and
 clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
 [native Fetch contract](fetch.md), including [Blob/File/FormData](blob-formdata.md)
-body support; global Web Crypto remains absent.
+body support. Global Web Crypto supplies native getRandomValues/randomUUID;
+subtle algorithms remain unavailable. See [crypto](crypto.md).
 
 - `console.log(...values)`, `console.error(...values)` and `console.warn(...values)` convert values to strings
   and join with spaces; Node inspection and format substitutions are not implemented.

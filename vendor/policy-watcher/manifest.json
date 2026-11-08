@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/microsoft/vscode-policy-watcher",
+  "package": "@vscode/policy-watcher",
+  "version": "1.7.0",
+  "source": "https://registry.npmjs.org/@vscode/policy-watcher/-/policy-watcher-1.7.0.tgz",
+  "purpose": "Exact entry/type/license inputs for opt-in Code-OSS package adaptation; no native addon bundled or executed.",
+  "files": {
+    "index.js": "4d21c1fd7adefabd5bc9ce1744ccd0d898165ec02886b492cf4accd2bb4b98ca",
+    "index.d.ts": "f5bb5baadda2c816b9dd9428307ff9ed926c1ee39bef8a5e174f2edce6fc28c3",
+    "package.json": "5d04fc9f1c5f77bae9e3cc982048357be6bc19132cebc7aae0691907d11249a6",
+    "LICENSE": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+  }
+}

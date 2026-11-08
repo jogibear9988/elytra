@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 118 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 124 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -10907,6 +10907,94 @@ Remaining: native policy integration, actual main/workbench/open-edit-save, nati
 utility/renderer port handoff/authentication, extension host/PTY/workers, Windows
 watcher/oracle CI repairs, native dialog acceptance and platform/packaging/releases.
 Full original goal remains active.
+
+
+## 2026-11-09 — Real native policy extension and explicit Code-OSS package adapter
+
+- Add the standalone Mite extension mite:policy-watcher with shared ESM/CommonJS
+  exports, maintained ESM validation/diffs/disposal and a private owner-thread Host.
+  It does not claim a Node builtin, N-API, V8 or Firefly/LibWeb dependency. The
+  canonical namespaced resolver alias reaches an existing realm-local trusted host
+  module. No policy observer starts merely by initializing or importing Mite.
+- Implement a real macOS CFPreferences/FSEvents provider. Preserve pinned package
+  1.7.0 semantics: exact CF scalar types; union definitions additionally require
+  forced preferences; successful signed-long-long conversion becomes JS Number;
+  UTF-8 C-string conversion matches the original. The serial native worker owns
+  plain bounded snapshots only, never VM roots or application callbacks. First
+  observed empty data remains distinct from no completed observation. Latest-state
+  coalescing cannot overwrite a latched native failure. Windows/Linux provider
+  creation explicitly returns unavailable, never a successful empty policy set.
+- Owner libuv timers consume completed snapshots and dispatch on Mite's VM thread.
+  Revoke callback roots before stopping/draining the provider and uv_close storage.
+  Stop is idempotent and handles worker/owner reentry; repeated owner disposal drains
+  any already initiated worker stop. Follow Apple Stop/Invalidate/Release ordering;
+  never call Stop after a failed Start. Validate native inputs independently,
+  including strict Unicode before conversion, declared snapshot keys/types and
+  count/byte bounds. At most 16 watchers including closing handles, 256 definitions,
+  4096-byte names, 64 KiB strings and 1 MiB definition/snapshot JSON. Normal errors fail
+  explicitly; native read/data failure retires the watcher through uncaught-error
+  reporting. Actual OS MDM change delivery remains unaccepted.
+- Pin original policy-watcher 1.7.0 entry/types/package/license and both unchanged
+  Code-OSS policy service sources, keeping notices intact and adding LF integrity
+  coverage for Windows checkout. New compile --mite-policy-watcher is opt-in,
+  requires verified prepared dependencies and modifies only a fresh compiled copy's
+  exact audited package entry. Mite uses its real extension; ordinary Node/Electron
+  retain the original addon branch. Record package, original/output and owned
+  adapter hashes; refuse drift or versions other than 1.7.0. No original dependency
+  tree/application/Ladybird changes, native-addon emulation or fake initial callback.
+- Both unchanged NativePolicyService and NativeManagedSettingsService initialize,
+  replace definitions and dispose against a unique unused actual preferences domain,
+  with 46 compiled dependencies and exact conditional adapter provenance verified.
+  No preference writes, injected empty snapshots or visible GUI tests. The public
+  extension separately passes singleton resolution and actual asynchronous read-only
+  initialization. Native provider controlled peers verify CF types, scalar/forced-
+  union behavior, changes/removals/coalescing, startup failure, quotas/error latch and
+  drained/reentrant stop. Nine exact-Host subprocesses verify real owner timers,
+  malformed data/read/callback failures, GC, closing quotas, reentry and teardown
+  before VM destruction. Controlled peers are distinct from real OS observations.
+- Build a fresh diagnostic tree at build/code-oss-policy-final using the explicit
+  adapter/NLS/local-desktop overlay. The actual main-ready startup now reaches
+  ipc.net.serve during main.claimInstance and explicitly fails because node:net has
+  no local Unix socket/named-pipe transport. Update API/compatibility/adaptation docs
+  and ADR 0176. Keep generic feature pages linked to current startup status instead
+  of repeating volatile first-error messages. No workbench/open-edit-save claim.
+
+Validation: all 124 runtime suites pass (19.39 seconds), including native provider,
+public read-only extension, controlled factory/adapter and exact Host gates. Real
+Code-OSS policy consumers pass; production Firefly and exact-object offscreen app
+build and observe the next real startup failure. Mite linkage has system frameworks
+only, with no Node/V8/Qt/LibWeb. Formatting passes for 260 Python, 872 JS/web/config, 497 native and
+64 CMake files. The site validates 310 pages and 21,947 links/resources/fragments. Logs: build/policy-watcher-{runtime-final,host,provider,public,consumer,
+release-build,firefly-final-build,compile,code-oss,style,site}.log. No visible UI or
+preference mutation. Fresh hosted Linux/Windows build and macOS package acceptance
+remain separate requirements.
+
+Corrections during validation: strict native string conversion needs explicit
+AllowLonelySurrogates::No (the default accepts lonely surrogates); malformed native
+input must be rejected before creating even a controlled provider. Native Host
+probe noncapturing lambdas need explicit function-pointer selection. Apple permits
+FSEventStreamStop only after successful Start; track that separately from stream
+allocation. The initial snapshot-error queue could overwrite a read failure with a
+later success; latch terminal failure and test that notification race. Preserve
+exact native provider/root teardown through all failures. Bound union-array length
+before reading elements; ignore custom iterators like the pinned native array
+reader. Regression checks cover oversized getters and hostile iterators. Test sources now share
+mite/tests/policy-watcher rather than two adjacent policy test folders.
+
+Next slice audit (read-only): implement actual uv_pipe endpoints sharing existing
+TCP/Duplex lifetime and pressure behavior, not a TCP substitute. The pinned libuv
+has pipe_bind2/connect2 with NO_TRUNCATE; preserve path errors/ownership and avoid
+DNS/TCP handling for local paths. Code-OSS requires serve(path), connect(path),
+EADDRINUSE conflict, ENOENT and stale ECONNREFUSED handling; the application owns
+stale unlink/retry, never delete a preexisting endpoint automatically in Mite.
+Accept the unchanged ipc.net consumer using real separate OS processes and binary
+payloads, plus socket lifetime/GC/error cases. Native Windows named-pipe execution
+needs its own fresh CI evidence; no compile-only Windows claim.
+
+Remaining: local IPC transport, actual main/workbench/open-edit-save, native
+utility/renderer port transfer/authentication, extension host/PTY/workers, Windows
+watcher/oracle CI repair, native dialog/platform/packaging/releases and real policy
+change acceptance/providers. Full original goal remains active.
 
 ## Resume
 

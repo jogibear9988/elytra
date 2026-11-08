@@ -106,7 +106,8 @@ These implementation bounds and error codes are not Electron API guarantees.
 ## Remaining Code-OSS requirements
 
 The fresh actual ready/main probe completes its entry and reaches app ready, then
-passes the protocol service and fails at native @vscode/policy-watcher. Resolving utilityProcess at
+passes the protocol service; subsequent startup blockers are tracked in the
+[Code-OSS status](../compatibility/vscode.md). Resolving utilityProcess at
 import time does not demonstrate that Code-OSS has forked a utility child.
 
 The actual pinned utility wrapper first sends configuration, then expects genuine

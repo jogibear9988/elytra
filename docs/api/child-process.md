@@ -310,6 +310,6 @@ node tooling/code_oss/probe-fork.mjs build/code-oss-nls-final build/release-mite
 ```
 
 This does not run the full watcher service or extension host. The actual full
-local-desktop/NLS ready graph now passes fork and the protocol service, then fails
-importing native @vscode/policy-watcher. See [current milestones](../compatibility/vscode.md)
+local-desktop/NLS ready graph passes fork and the protocol service. See
+[current milestones](../compatibility/vscode.md) for subsequent startup blockers
 and the [synchronous exit contract](process.md#exit-notification).

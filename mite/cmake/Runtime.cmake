@@ -32,6 +32,7 @@ function(mite_add_runtime target root js_target)
         process
         process_events
         process_stdio
+        policy-watcher
         path
         module
         buffer
@@ -82,6 +83,7 @@ function(mite_add_runtime target root js_target)
         core/ImmediateQueue
         # modules
         modules/Builtins
+        modules/PolicyWatcher
         modules/HostModules
         modules/ModuleLoader
         modules/CommonJSExports
@@ -111,6 +113,8 @@ function(mite_add_runtime target root js_target)
         # platform/system
         platform/system/OS
         platform/system/OSConstants
+        # platform/policy
+        platform/policy/Host
         # platform/compression
         platform/compression/Inflater
         platform/compression/Codec
@@ -142,7 +146,12 @@ function(mite_add_runtime target root js_target)
                OpenSSL::SSL
                ZLIB::ZLIB)
     if(APPLE)
-        target_link_libraries(${target} PUBLIC "-framework Security" "-framework CoreFoundation")
+        target_sources(${target} PRIVATE "${root}/mite/runtime/platform/policy/ProviderMac.cpp")
+        target_link_libraries(${target} PUBLIC "-framework Security" "-framework CoreFoundation"
+                                               "-framework CoreServices")
+    else()
+        target_sources(${target}
+                       PRIVATE "${root}/mite/runtime/platform/policy/ProviderUnsupported.cpp")
     endif()
     add_custom_target(
         ${target}-integrity
