@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include <AK/ByteString.h>
 #include <LibGC/Ptr.h>
 #include <memory>
 #include <optional>
@@ -37,6 +38,10 @@ public:
 
     // Queue lifecycle delivery after the main entry has installed its JS handler.
     void ready();
+
+    void gpu_info_update();
+
+    void gpu_process_gone(ByteString);
 
     // Measure actual main event-loop work while tracing is enabled.
     int pump_jobs();

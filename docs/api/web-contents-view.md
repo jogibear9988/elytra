@@ -104,7 +104,7 @@ notices. Ladybird/vendor code remains unmodified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on these production objects, then fails
-at unimplemented app.getGPUFeatureStatus. Metadata-only desktop source support is now implemented with separately documented
+at unimplemented session.defaultSession.protocol.handle. Metadata-only desktop source support is now implemented with separately documented
 acceptance limits. Notification, power and shell component gates now pass; real
 notification delivery and visible shell actions remain unaccepted. Continue the
 actual graph with native file polling. Import progress is not a VS Code

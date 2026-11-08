@@ -250,6 +250,10 @@
     "dialogMainUtils.ts": {
       "upstream": "src/vs/platform/dialogs/electron-main/dialogMainUtils.ts",
       "sha256": "b74bca03b26b040a1515d0b770365ef57b5f54162ba1dc8d12b9671f6813c5e0"
+    },
+    "gpuProcessMainService.ts": {
+      "upstream": "src/vs/platform/gpu/electron-main/gpuProcessMainService.ts",
+      "sha256": "cc165c72dcf3ec39189ad4c16f95083c6eba9210c3c0053eafd10ae4d4b46f96"
     }
   }
 }

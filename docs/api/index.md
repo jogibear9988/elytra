@@ -81,6 +81,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 ## Firefly
 
+The [GPU policy reference](gpu.md) covers native CPU selection, unknown GPU state,
+status snapshots and genuine Compositor lifecycle forwarding.
+
 The [dialog reference](dialog.md) covers message boxes, macOS open/save panels, native
 parent ownership, cancellation, modal dispatch and unsupported options/platforms.
 

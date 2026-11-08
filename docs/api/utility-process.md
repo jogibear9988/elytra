@@ -106,7 +106,7 @@ These implementation bounds and error codes are not Electron API guarantees.
 ## Remaining Code-OSS requirements
 
 The fresh actual ready/main probe completes its entry and reaches app ready, then
-stops at the next missing runtime method, app.getGPUFeatureStatus. Resolving utilityProcess at
+stops at the next missing runtime method, session.defaultSession.protocol.handle. Resolving utilityProcess at
 import time does not demonstrate that Code-OSS has forked a utility child.
 
 The actual pinned utility wrapper first sends configuration, then expects genuine

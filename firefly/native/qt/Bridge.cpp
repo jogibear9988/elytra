@@ -25,6 +25,16 @@ int Bridge::pump_jobs()
     return m_impl->jobs.pump_once();
 }
 
+void Bridge::gpu_info_update()
+{
+    m_impl->enqueue(0, "gpu-info-update");
+}
+
+void Bridge::gpu_process_gone(ByteString details)
+{
+    m_impl->enqueue(0, "gpu-process-gone", move(details));
+}
+
 void Bridge::ready()
 {
     m_impl->sandbox.ready();

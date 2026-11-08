@@ -322,8 +322,8 @@ migration inventory, not a declaration that these members exist in Firefly:
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
 | OS integration | setUserTasks, setJumpList, addRecentDocument, clearRecentDocuments, dock, badgeCount |
-| Appearance/media/process policy | Broader commandLine switches, disableHardwareAcceleration, getGPUInfo, getAppMetrics, accessibility properties |
-| Sessions and global services | session-created, certificate-error, login, child-process-gone and related native dispatch |
+| Appearance/media/process policy | Broader commandLine switches, detailed getGPUInfo, getAppMetrics, accessibility properties |
+| Sessions and global services | session-created, certificate-error, login and non-Compositor process dispatch |
 | Native lifecycle events | will-finish-launching, open-file, open-url, activate, did-become-active, did-resign-active, browser-window-created/focus/blur and OS shutdown delivery |
 
 This table groups missing areas; it is not an exhaustive Electron member list.
@@ -356,8 +356,17 @@ quit cancellation/reentry and forced-exit fixtures. Gallery evidence:
 [test_electron_examples.py](../../tooling/tests/test_electron_examples.py). Commands and
 individual sample coverage are in the [example catalog](../examples/index.md).
 
-These four app methods and scoped lifecycle behavior are included in
+The original app lifecycle subset was included in
 [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 at `19ad113`, together with modern ESM examples. This reference does not promise
 general Electron or Windows/Linux GUI compatibility, notarization or a completed
 security review.
+
+## GPU configuration and compositor events
+
+The [GPU contract](gpu.md) documents `app.getGPUFeatureStatus()`, real early
+`app.disableHardwareAcceleration()`, explicitly unsupported `app.getGPUInfo()`,
+`gpu-info-update` and scoped `child-process-gone` for the native Compositor.
+Known CPU fields and an unknown default backend are different states; no Chromium
+or physical GPU capabilities are fabricated. These additions are newer than the
+historical Alpha 2 lifecycle subset mentioned above.

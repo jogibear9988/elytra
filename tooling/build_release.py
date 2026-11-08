@@ -132,6 +132,7 @@ def main():
         "check-firefly-system-preferences-unavailable",
         "check-firefly-network-state-unavailable",
         "check-firefly-theme-settings",
+        "check-firefly-gpu-state",
         "check-firefly-global-shortcut-host",
         "check-firefly-global-shortcut-unavailable",
     ]
@@ -152,6 +153,8 @@ def main():
                 "check-firefly-dialog-provider",
                 "check-firefly-dialog-message-widget",
                 "check-firefly-dialog-public",
+                "check-firefly-gpu-public",
+                "check-firefly-gpu-process",
                 "check-firefly-net-native",
                 "check-firefly-net-transport",
             ]

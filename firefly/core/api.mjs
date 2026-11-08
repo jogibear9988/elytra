@@ -24,6 +24,7 @@ import createSystemPreferences from './system-preferences/index.mjs';
 import createNet from './net/index.mjs';
 import createGlobalShortcuts from './global-shortcut/index.mjs';
 import createDialogs from './dialog/index.mjs';
+import createGPU from './app/gpu.mjs';
 
 export default function createFireflyApi(
   native,
@@ -63,7 +64,27 @@ export default function createFireflyApi(
     }
   });
 
+  const gpu = createGPU(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
+
   class App extends EventEmitter {
+    getGPUFeatureStatus() {
+      return gpu.getFeatureStatus();
+    }
+
+    disableHardwareAcceleration() {
+      return gpu.disableHardwareAcceleration();
+    }
+
+    getGPUInfo(type) {
+      return gpu.getInfo(type);
+    }
+
     enableSandbox() {
       if (exited) {
         throw error('ERR_FIREFLY_APP_EXITED', 'Application has exited');
@@ -769,6 +790,30 @@ export default function createFireflyApi(
     }
     if (type === 'shell-result') {
       desktopShell.dispatch(JSON.parse(data));
+      return;
+    }
+    if (type === 'gpu-info-update') {
+      if (!exited) {
+        app.emit('gpu-info-update');
+      }
+      return;
+    }
+    if (type === 'gpu-process-gone') {
+      if (exited) {
+        return;
+      }
+      const details = JSON.parse(data);
+      if (
+        !details ||
+        details.type !== 'GPU' ||
+        !Number.isInteger(details.pid) ||
+        details.pid < 1 ||
+        !Number.isInteger(details.exitCode) ||
+        !['clean-exit', 'abnormal-exit', 'crashed', 'killed', 'unknown'].includes(details.reason)
+      ) {
+        throw error('ERR_FIREFLY_GPU_DATA', 'Invalid native compositor exit event');
+      }
+      app.emit('child-process-gone', event(), details);
       return;
     }
     if (type === 'dialog-result') {

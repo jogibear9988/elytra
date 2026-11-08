@@ -13,6 +13,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/native/system-preferences/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/net/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/global-shortcut/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/dialog/Targets.cmake")
+add_library(firefly-gpu-policy STATIC "${FIREFLY_SOURCE_DIR}/firefly/native/gpu/State.cpp")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ProcessMonitor.cmake")
 set(firefly_qt_sources
     ChromeStyle

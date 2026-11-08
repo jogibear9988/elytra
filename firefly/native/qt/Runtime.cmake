@@ -200,6 +200,7 @@ add_library(
     firefly-application OBJECT
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeSettings.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../gpu/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
@@ -261,6 +262,7 @@ target_link_libraries(
            firefly-network-state
            firefly-global-shortcut
            firefly-dialog
+           firefly-gpu-policy
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config
@@ -334,6 +336,7 @@ if(TARGET firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
 endif()
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/dialog/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/gpu/Targets.cmake")
 add_custom_target(
     check-firefly-fork
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly_fork.py"

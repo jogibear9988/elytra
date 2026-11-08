@@ -8,6 +8,7 @@
 #include "../command-line/EnginePolicy.h"
 #include "../command-line/Host.h"
 #include "../command-line/State.h"
+#include "../gpu/Host.h"
 #include "../locale/Host.h"
 #include "../locale/Locale.h"
 #include "../platform/DesktopServices.h"
@@ -30,8 +31,11 @@
 #include <LibJS/Runtime/Error.h>
 #include <LibMain/Main.h>
 #include <LibWebView/Application.h>
+#include <LibWebView/Process.h>
 #include <QApplication>
 #include <QColorSpace>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSurfaceFormat>
 #include <QTimer>
 #include <UI/Qt/EventLoopImplementationQt.h>
@@ -76,7 +80,7 @@ public:
         , m_storage(storage)
         , m_paths(std::move(directory))
         , m_engine(startup_cpu)
-        , m_startup_cpu(startup_cpu)
+        , m_gpu(startup_cpu)
     {
         defer_theme_settings();
         create_platform_event_loop();
@@ -103,7 +107,9 @@ public:
             TRY(modules.register_host_filesystem("original-fs"));
             bridge = std::make_unique<Bridge>(
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
+            m_bridge = bridge.get();
             GC::Root native { bridge->exports() };
+            GPU::install_host(realm, *native, m_gpu);
             native->define_direct_property("utility"_utf16,
                 Utility::create_host(vm, realm, jobs, electron_compat), JS::default_attributes);
             AppPaths::install_host(realm, *native, m_paths);
@@ -184,17 +190,43 @@ public:
             command_line.seal();
             locale_ready = true;
             bridge->ready();
+            if (m_gpu_initial_update)
+                bridge->gpu_info_update();
             poll.start();
             auto status = m_loop->exec();
             poll.stop();
             return status ? status : jobs.status();
         };
 
-        hooks.shutdown = [&] { bridge.reset(); };
+        hooks.shutdown = [&] {
+            m_gpu.invalidate();
+            m_bridge = nullptr;
+            bridge.reset();
+        };
+
         return Mite::run(argc, argv, hooks);
     }
 
 private:
+    void process_did_exit(WebView::Process&& process, Optional<int> status) override
+    {
+        ByteString details;
+        bool compositor = process.type() == WebView::ProcessType::Compositor;
+        if (compositor && m_bridge && m_loop && !m_loop->was_exit_requested()) {
+            auto exit = GPU::classify_exit(
+                status.has_value() ? std::optional<int>(*status) : std::nullopt);
+            QJsonObject value { { "type", "GPU" }, { "serviceName", "Ladybird Compositor" },
+                { "pid", static_cast<qint64>(process.pid()) }, { "exitCode", exit.exit_code },
+                { "reason", QString::fromUtf8(exit.reason.data(), exit.reason.size()) } };
+            auto bytes = QJsonDocument(value).toJson(QJsonDocument::Compact);
+            details = ByteString(bytes.constData(), bytes.size());
+        }
+        // Preserve upstream transport cleanup, reconnection and crash handling.
+        WebView::Application::process_did_exit(move(process), status);
+        if (!details.is_empty() && m_bridge && !m_loop->was_exit_requested())
+            m_bridge->gpu_process_gone(move(details));
+    }
+
     void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&,
         WebView::WebContentOptions&) override
     {
@@ -234,6 +266,7 @@ private:
 
     ErrorOr<void> initialize_profile()
     {
+        m_gpu.seal();
         if (auto failure = m_paths.seal(); failure.has_value())
             return Error::from_string_literal(
                 "Cannot prepare selected application/profile directories");
@@ -241,7 +274,7 @@ private:
         m_storage.native_owned.append("firefly"sv);
         m_storage.native_owned.append("--profile-path"sv);
         m_storage.native_owned.append(ByteString(root.data(), root.size()));
-        if (m_startup_cpu)
+        if (m_gpu.cpu_requested())
             m_storage.native_owned.append("--force-cpu-painting"sv);
         for (auto& argument : m_storage.native_owned) {
             m_storage.native_argv.push_back(const_cast<char*>(argument.characters()));
@@ -252,13 +285,22 @@ private:
         m_storage.native_argv.push_back(nullptr);
         Main::Arguments selected { argc, m_storage.native_argv.data(),
             m_storage.native_strings.span() };
-        return initialize(selected);
+        TRY(initialize(selected));
+        bool actual_cpu = WebView::Application::web_content_options().force_cpu_painting
+            == WebView::ForceCPUPainting::Yes;
+        if (m_gpu.cpu_requested() && !actual_cpu)
+            return Error::from_string_literal(
+                "Requested CPU painting was not applied by the native engine");
+        m_gpu_initial_update = m_gpu.observe(actual_cpu);
+        return {};
     }
 
     BootstrapStorage& m_storage;
     AppPaths::Paths m_paths;
     CommandLine::EnginePolicy m_engine;
-    bool m_startup_cpu;
+    GPU::State m_gpu;
+    bool m_gpu_initial_update {};
+    Bridge* m_bridge {};
     Core::EventLoop* m_loop { nullptr };
 };
 }

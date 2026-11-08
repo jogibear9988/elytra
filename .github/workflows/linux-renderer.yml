@@ -195,7 +195,7 @@ jobs:
       - name: Native desktop service ownership and explicit unavailable providers without a display
         run: |
           set -o pipefail
-          cmake --build build/linux-renderer --target check-firefly-desktop-capture-host check-firefly-desktop-capture-provider check-firefly-notification-host check-firefly-notification-provider check-firefly-power-monitor-host check-firefly-power-save-host check-firefly-power-save-unsupported check-firefly-shell-host check-firefly-shell-unavailable check-firefly-system-preferences-host check-firefly-system-preferences-unavailable check-firefly-global-shortcut-host check-firefly-global-shortcut-unavailable check-firefly-theme-settings --parallel 3 2>&1 | tee build/linux-renderer-native-services.log
+          cmake --build build/linux-renderer --target check-firefly-desktop-capture-host check-firefly-desktop-capture-provider check-firefly-notification-host check-firefly-notification-provider check-firefly-power-monitor-host check-firefly-power-save-host check-firefly-power-save-unsupported check-firefly-shell-host check-firefly-shell-unavailable check-firefly-system-preferences-host check-firefly-system-preferences-unavailable check-firefly-global-shortcut-host check-firefly-global-shortcut-unavailable check-firefly-theme-settings check-firefly-gpu-state --parallel 3 2>&1 | tee build/linux-renderer-native-services.log
       - name: Actual Mite app, LibWeb/preload/IPC, clipboard and live renderer kernel state
         env:
           QT_QPA_PLATFORM: xcb

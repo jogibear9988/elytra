@@ -265,6 +265,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME firefly-gpu-policy
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_gpu_policy.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(
         NAME firefly-dialog-policy
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dialog_policy.py"

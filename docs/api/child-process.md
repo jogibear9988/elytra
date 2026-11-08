@@ -310,6 +310,6 @@ node tooling/code_oss/probe-fork.mjs build/code-oss-nls-final build/release-mite
 ```
 
 This does not run the full watcher service or extension host. The actual full
-local-desktop/NLS ready graph now passes fork and next fails calling app.getGPUFeatureStatus,
+local-desktop/NLS ready graph now passes fork and next fails calling session.defaultSession.protocol.handle,
 imported by the suspended-path watcher. See [current milestones](../compatibility/vscode.md)
 and the [synchronous exit contract](process.md#exit-notification).

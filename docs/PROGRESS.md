@@ -10704,6 +10704,79 @@ Remaining: fresh Linux link/runtime and hosted macOS native-menu/release validat
 continue genuine GPU policy reporting and real Code-OSS main/workbench progress.
 No Windows desktop, alpha publication or usable Code-OSS claim. Full goal active.
 
+## 2026-11-08 — Native-confirmed GPU policy and genuine Compositor lifecycle
+
+- Add maintained ESM app.getGPUFeatureStatus and early disableHardwareAcceleration,
+  with a private LibJS host backed by a small native policy. Read actual upstream
+  web_content_options.force_cpu_painting after initialization. CPU requests alone do
+  not claim observation; startup fails if native initialization ignores the request.
+  Seal before profile setup, reject late changes, keep launch-only commandLine
+  behavior and clear host knowledge on teardown. Mite remains desktop-independent.
+- Report only confirmed gpu_compositing/rasterization disabled_software under
+  selected CPU painting; pre-init and default-GPU snapshots remain explicitly{}.
+  Fresh objects cannot alter native state; malformed/unconfirmed enabled fields fail.
+  Publish one genuine unknown-to-known CPU policy info update after ready, none for
+  unchanged/unknown state. getGPUInfo basic/complete explicitly returns a rejected Promise;
+  no driver/device/Graphite/WebGL detection or fake Chromium success values.
+- Override the existing protected process_did_exit in our native Application and
+  preserve the upstream base handler. Forward actual Compositor PID, service role
+  and POSIX wait-status classification through the existing owner-thread bridge.
+  SIGKILL means killed, not OOM; missing status is unknown, not a crash. Normalize
+  signal codes as128+signal and document the limited role/reason differences.
+  Retain confirmed policy after child exit, matching the consumer's expected app
+  snapshot behavior. Do not fabricate recovery info from cached device identity.
+- Six actual Node/Mite policy groups pass known/unknown/lifecycle/malformed/error
+  cases. Pure native policy tests prove real sealing and actual owned-child normal/
+  abnormal/SIGKILL wait statuses, with synthetic fatal-signal classification separate.
+  Genuine public offscreen early CPU/default unknown modes pass fresh snapshots,
+  mutation isolation, late rejection and actual info-update count/no invented update.
+- Pin unchanged original GPUProcessMainService source. Its genuine Firefly app-backed
+  consumer passes native snapshot/copy/deduplicated refresh and listener disposal,
+  with20 compiled dependencies verified. Clearly labelled synthetic app events test
+  only that consumer's exit/cache logic; they are not native crash acceptance.
+- Real offscreen acceptance creates one hidden local page, enumerates direct owned
+  Compositor PID/executable/CPU args twice, sends only that PID SIGKILL and verifies
+  actual app GPU PID/killed/137 event, exact-once delivery, retained CPU policy and
+  native replacement carrying the same CPU arguments. No desktop/input/GPU-device
+  claim. Initial fixture hit missing Mite process.kill before signalling anything;
+  use existing real execFile('/bin/kill',['-9',validatedOwnedPid]) instead. Do not
+  imply global process.kill support. Temp profile/process-group cleanup is bounded.
+- Actual local-desktop/NLS main now constructs GPUProcessMainService and next stops
+  in ProtocolMainService calling defaultSession.protocol.handle. This is genuine
+  service-construction progress, not workbench/open-edit-save acceptance. Update
+  API/compatibility/current blockers and ADR0173, keeping upstream unmodified.
+
+Validation: all116 runtime suites pass (27.04 seconds). Production Firefly/exact
+application offscreen frontend build; native state, genuine public modes, original
+Code-OSS consumer and real owned Compositor exit/replacement gates pass. New GPU
+state/public/process checks are wired into release validation; Linux CI adds native
+state classification. Logs: build/gpu-{runtime,final-build,acceptance,consumer,process,
+ready}.log. Fresh b3f4a67 source/Pages gates green, native renderer jobs active and
+macOS release pending when queried. No fresh full platform/release success inferred.
+
+Next protocol audit: unchanged ProtocolMainService keeps authorized legacy
+registerFileProtocol('vscode-file') and headers, then handle('file',()=>Response.error())
+SPECIFICALLY TO DENY ordinary file access; cleanup uses unhandle. Later managed-remote
+handlers return asynchronous binary Response with MIME/status,404 invalid window and
+500 remote failures. Never alias handle to a file-path callback or register builtin
+file as a privileged custom origin. Existing transports only represent GET/HEAD,
+fixed200 regular files, known length and authenticated custom schemes. Implement a
+separate modern handler registry/generations/collisions, real Request/Response,
+network-error termination and builtin-file interception BEFORE native file access.
+Generalize bounded response metadata/chunks/EOF/credit and reader+Request.signal
+cancellation while preserving legacy descriptor routes, CSP/CORS and native document/
+navigation/generation authentication. Navigation/unregister/timeout/process/app death
+must cancel late bodies. Integrate main net.fetch default-session dispatch/bypass
+without silently changing standalone Mite fetch. Prioritize real file-deny plus
+legacy-vscode-file navigation, original remote404/500/binary/MIME and actual streamed
+credit/HEAD/abort/stale/GC acceptance. No whole-body/base64 IPC shortcut.
+
+Remaining: genuine protocol.handle response/file-deny transport, actual main/workbench/
+workspace open-edit-save and utility/renderer endpoints/auth, extension/PTY, workers,
+Windows watcher/oracle CI repairs, native dialog acceptance and platform/releases.
+Physical GPU/backend telemetry and broader process notifications remain unaccepted.
+Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
