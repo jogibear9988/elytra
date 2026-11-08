@@ -7,6 +7,7 @@
   "devDependencies": {
     "acorn": "8.15.0",
     "pnpm": "12.16.0",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "yaml": "2.8.2"
   }
 }

@@ -10,13 +10,15 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { transformSync, version } from '../runtime-js/node_modules/esbuild/lib/main.js';
 import { preparedDependencies } from './dependency-graph.mjs';
+import { createNLS } from './nls.mjs';
 
 const { values } = parseArgs({
   options: {
     source: { type: 'string' },
     output: { type: 'string' },
     overlay: { type: 'string' },
-    dependencies: { type: 'string' }
+    dependencies: { type: 'string' },
+    nls: { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -110,11 +112,16 @@ for (const name of replacements.keys()) {
 }
 const planned = new Map();
 const inputs = [];
+const nls = values.nls ? await createNLS() : undefined;
 for (const name of [...paths].sort()) {
   const data = replacements.get(name) ?? fs.readFileSync(path.join(source, name));
+  const text =
+    nls && /\.(?:ts|js)$/.test(name)
+      ? nls.patch(name, data.toString('utf8'))
+      : data.toString('utf8');
   const compiled = name.endsWith('.ts')
     ? Buffer.from(
-        transformSync(data.toString('utf8'), {
+        transformSync(text, {
           loader: 'ts',
           format: 'esm',
           target: 'es2024',
@@ -124,7 +131,9 @@ for (const name of [...paths].sort()) {
           }
         }).code
       )
-    : data;
+    : nls && name.endsWith('.js')
+      ? Buffer.from(text)
+      : data;
   const target = name.replace(/\.ts$/, '.js');
   if (planned.has(target)) {
     throw new Error(`Duplicate compilation output: ${target}`);
@@ -136,6 +145,14 @@ for (const name of [...paths].sort()) {
     output: target,
     outputSha256: sha256(compiled)
   });
+}
+if (nls) {
+  for (const [name, data] of nls.artifacts()) {
+    if (planned.has(name)) {
+      throw new Error(`Generated NLS output collision: ${name}`);
+    }
+    planned.set(name, data);
+  }
 }
 for (const name of ['LICENSE.txt', 'ThirdPartyNotices.txt', 'package.json', 'product.json']) {
   if (fs.existsSync(path.join(source, name))) {
@@ -174,6 +191,10 @@ planned.set(
             }
           : undefined,
         adaptations,
+        nls: nls?.report(),
+        generated: nls
+          ? [...nls.artifacts()].map(([output, data]) => ({ output, outputSha256: sha256(data) }))
+          : undefined,
         inputs
       },
       null,

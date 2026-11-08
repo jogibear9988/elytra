@@ -174,6 +174,18 @@
     "local-app-main.ts": {
       "upstream": "src/vs/code/electron-main/app.ts",
       "sha256": "7197583f38f615473d4cbcc091077fa493a45a72a8eed45fe013c3c64e06e9be"
+    },
+    "nls-analysis.ts": {
+      "upstream": "build/lib/nls-analysis.ts",
+      "sha256": "073dd4b1708b314e9107b3a6403419eb228652904c628c7b5c7aeb6997e22d46"
+    },
+    "nlsMessages.ts": {
+      "upstream": "build/lib/nlsMessages.ts",
+      "sha256": "3771ac1549ba648813dcf30ccba46e856975e013c18abff437df64a24a934585"
+    },
+    "nls-build.ts": {
+      "upstream": "build/lib/nls.ts",
+      "sha256": "c83e185c77e6bbe9d40b4c80a96dfdde2c2501c290c206eda54f684c1c28a5b4"
     }
   }
 }

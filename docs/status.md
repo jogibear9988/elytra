@@ -11,8 +11,9 @@ additionalArguments/environment snapshots and fresh document-local copies. Local
 native/helper and Electron-reference validation is recorded in
 [sandbox process](api/sandbox-process.md). Full Code-OSS startup remains blocked. The explicit
 [local desktop experiment](guides/code-oss-adaptation.md#experimental-local-desktop)
-now completes the real entry import and observes app ready, then reports missing
-generated NLS messages and unsupported node:zlib. It disables webviews, remote and
+now completes the real entry import and observes app ready. The new --nls build
+step generates 34,273 matching indexed English messages and removes the catalog
+read failure; asynchronous startup then reports unsupported node:zlib. It disables webviews, remote and
 engine caches; without it the allowServiceWorkers blocker remains. No workbench
 open/edit/save acceptance is claimed.
 

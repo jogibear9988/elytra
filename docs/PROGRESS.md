@@ -9123,6 +9123,55 @@ MessagePorts, worker/cache/resources, extension/shared/PTY hosts and native plat
 packaging remain part of the original goal. This experiment does not replace full
 webviews/remote requirements. Ladybird is unmodified and Mite remains independent.
 
+
+## 2026-11-08 — Generate actual indexed Code-OSS English NLS
+
+- Resume from pushed 56b4d1b as concrete progress. Recheck the clean tracked worktree,
+  spec/progress and actual ready failure. Prioritize the missing build catalog before
+  implementing the demanded zlib streaming contracts; do not install import stubs.
+- Inspect the pinned upstream NLS build/analyzer/runtime. Add --nls to the real
+  source compiler: assign globally consistent localize/localize2 indices before
+  transpiling sorted modules, preserve English fallback arguments and generate the
+  matching messages/keys/metadata/ASCII JavaScript catalogs. Preserve translator
+  comments. Without the option, no NLS assets are generated.
+- Fetch and compare three additional pinned upstream build sources against the
+  materialized baseline, retain their MIT notices and manifest fingerprints. Execute
+  the exact checked analyzer/serializer as build tools only. Pin the same upstream
+  @typescript/typescript6 package at 6.0.2 in the separate tool lock; it reports
+  compiler 6.0.3, so verify/report both identities. This adds no Node/V8 runtime
+  dependency or application devDependency installation.
+- Decode only literal message/key/comment expressions without eval. Reject dynamic
+  forms, changed spans, overlap/order violations and generated-path collisions
+  before creating output. Record builder/analyzer/serializer hashes, package/version,
+  catalog counts and generated artifact hashes in ELYTRA-COMPILE.json.
+- Register mite-code-oss-nls. Test the real upstream binding analyzer with namespace
+  and alias imports, shadowing, localize/localize2 ordering, empty/multiline/Unicode
+  strings, translator metadata, deterministic artifacts and malformed/dynamic input.
+  Execute the actual pinned runtime nls.ts against generated indices/catalogs on
+  Node and Mite; compare formatted text and original/value objects. Exercise actual
+  compiler opt-in/default branches, artifact hashes and fail-before-output cases.
+- Update current status/compatibility/roadmap, reproduction guide and ADR 0150.
+
+Validation: local standalone Mite Release build and all seven mite-code-oss-* CTests
+pass. The full final 11,536-source compilation with real root production packages
+produces 34,273 messages across 2,501 modules. Verify current builder/generated hashes
+and run the actual Firefly ready/bootstrap on that final tree: app ready is observed,
+no NLS read error remains, and the next failure is unsupported node:zlib. The bounded
+probe still exits 1; no window/workbench or open/edit/save acceptance is claimed.
+Full maintained-source style, unmodified-upstream, 259-page/18,314-local-link site
+and whitespace checks pass. A final compiler adjustment preserves untouched JS/JSON
+bytes when NLS is inactive; the real compiler integration gate passes again.
+No physical desktop GUI automation ran; native Linux/Windows execution and translated
+language packs remain unverified.
+
+Remaining: implement actual demanded node:zlib compression streams and flush behavior,
+rerun the real main graph and handle subsequent demanded services/assets. The source
+compiler remains diagnostic: complete generated workbench assets/bundles, secure
+preload/File/MessagePort handoff, editor acceptance, extension/PTY hosts and native
+platform packaging remain required. Keep full webview/remote requirements after the
+limited experiment. Ladybird is unmodified, Mite independent, and the full original
+product goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

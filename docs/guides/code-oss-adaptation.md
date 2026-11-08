@@ -233,3 +233,29 @@ original byte preservation outside declared changes, drift/duplicate/seam refusa
 fresh output validation and real Node/Mite enabled/disabled/config/feature/CLI/cache
 policy behavior. These are component tests, not service/workbench or platform GUI
 acceptance. Fresh Linux/Windows runs remain required.
+
+## Generate the indexed English NLS catalog
+
+The compiler now accepts --nls to run the pinned Code-OSS binding analyzer before
+esbuild, replace localize/localize2 key arguments with matching global indices and
+generate the actual English messages/keys/metadata/JavaScript catalogs. This is not
+an empty fallback. Original English arguments and translator comments are retained.
+The build fails on unsupported dynamic keys/messages or generated-path collisions
+before creating output. Without --nls the earlier diagnostic build remains unchanged.
+
+Install the updated locked build tools and use another fresh output directory:
+
+```sh
+npm ci --ignore-scripts --no-audit --no-fund --prefix tooling/code_oss
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-local-overlay --dependencies build/code-oss-dependencies --nls --output build/code-oss-local-nls
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/code-oss-local-nls --firefly-ready --user-data-dir=build/code-oss-local-user-data
+python3 tooling/tests/test_code_oss_nls.py --mite build/release-mite/bin/mite
+```
+
+Local evidence: the full tree generates 34,273 messages in 2,501 modules. The actual
+ready/bootstrap branch loads them without the prior missing nls.messages.json
+error, then stops at unsupported node:zlib. The bounded probe still exits 1;
+there is no working workbench. ELYTRA-COMPILE.json records counts, tool provenance
+and generated artifact hashes. The standalone non-GUI CTest is mite-code-oss-nls.
+The pinned TypeScript package is a build dependency only; Mite still embeds LibJS.
+See [ADR 0150](../architecture/0150-code-oss-indexed-nls.md) for exact scope and limits.

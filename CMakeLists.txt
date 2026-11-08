@@ -231,6 +231,10 @@ if(BUILD_TESTING)
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_local_desktop.py" --mite
             "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-code-oss-nls
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_nls.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-code-oss-dependencies
         COMMAND
             "${Python3_EXECUTABLE}"
