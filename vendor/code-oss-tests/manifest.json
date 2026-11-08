@@ -242,6 +242,14 @@
     "globalKeybindingsMainService.ts": {
       "upstream": "src/vs/platform/globalKeybindings/electron-main/globalKeybindingsMainService.ts",
       "sha256": "db8c7c050e4792e739d949f0e00aaa6f4311f3c2da3d46c34fba7f639329c45d"
+    },
+    "dialogMainService.ts": {
+      "upstream": "src/vs/platform/dialogs/electron-main/dialogMainService.ts",
+      "sha256": "51e3fd39c953b65e0c22e8f9735aa1cb0fd9577644532e05cb58237dd52c88d7"
+    },
+    "dialogMainUtils.ts": {
+      "upstream": "src/vs/platform/dialogs/electron-main/dialogMainUtils.ts",
+      "sha256": "b74bca03b26b040a1515d0b770365ef57b5f54162ba1dc8d12b9671f6813c5e0"
     }
   }
 }

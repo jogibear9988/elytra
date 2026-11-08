@@ -72,6 +72,8 @@ void Bridge::Impl::stop()
         desktop_capture->stop();
     if (notifications)
         notifications->stop();
+    if (dialogs)
+        dialogs->stop();
     if (global_shortcuts)
         global_shortcuts->stop();
     if (power_monitor)
@@ -97,7 +99,7 @@ void Bridge::Impl::deliver(int id, ByteString const& type, ByteString const& dat
 {
     if (stopping || !handler)
         return;
-    if (jobs.is_busy()) {
+    if (jobs.is_busy() || (dialogs && dialogs->is_synchronous())) {
         QTimer::singleShot(1, context.get(), [this, id, type, data] { deliver(id, type, data); });
         return;
     }

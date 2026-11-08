@@ -81,6 +81,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 
 ## Firefly
 
+The [dialog reference](dialog.md) covers message boxes, macOS open/save panels, native
+parent ownership, cancellation, modal dispatch and unsupported options/platforms.
+
 The [globalShortcut reference](global-shortcut.md) covers native macOS hotkey ownership,
 accelerator parsing, callback lifetime, errors and unsupported platform/key families.
 

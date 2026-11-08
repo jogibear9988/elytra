@@ -8,7 +8,7 @@ acceptance and native Windows desktop remain unfinished.
 See [current support](../status.md) for exact sources and runs. Node integration in renderers is unavailable. [Compatibility matrix](../compatibility/firefly-0.1.md)
 and [renderer build guide](../development/renderer-build.md) record the acceptance gates.
 
-Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
+Detailed contracts: [dialog](dialog.md), [globalShortcut](global-shortcut.md), [app](app.md), [BrowserWindow](browser-window.md),
 [webContents](web-contents.md), [IPC](ipc.md), [screen](screen.md) and
 [clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md), [contentTracing](content-tracing.md), [app.commandLine](command-line.md), [app locales](app-locale.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).

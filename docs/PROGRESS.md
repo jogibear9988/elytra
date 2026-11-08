@@ -10575,6 +10575,101 @@ workspace open-edit-save path, transferred utility/renderer endpoints/auth, exte
 PTY and cross-platform/session/package deliverables. Physical shortcut delivery and
 live input-source remapping remain unaccepted. Full original product goal stays active.
 
+## 2026-11-08 — Owned main-process dialogs and real main service construction
+
+- Add maintained ESM dialog methods showMessageBox/Sync, showOpenDialog,
+  showSaveDialog and pre-ready showErrorBox, with strict optional BrowserWindow
+  identity, owned snapshots, original button indices, checkbox/default/cancel
+  handling and explicit unsupported options. Keep sync open/save, bookmarks,
+  AbortSignal and other unimplemented methods unavailable. Match Electron's normal
+  message-box readiness; only showErrorBox bypasses ready.
+- Add exact native Host admission, monotonically increasing IDs,16 pending slots,
+  bounded UTF-8/JSON snapshots, token-only worker completion and native parent
+  revalidation. Parent closure rejects and cancels; stale/duplicate callbacks cannot
+  retarget a request. Receiver destruction, app exit and VM shutdown revoke delivery
+  before provider teardown. Native errors/results are bounded and malformed data
+  fails explicitly. Results must contain absolute paths and consistent cancellation.
+- Real Qt message boxes preserve original button mapping, literal/mnemonic labels,
+  plain visible detail, checkbox state and default/escape actions. Public AppKit
+  NSOpenPanel/NSSavePanel implement files/folders/multiple selection, package
+  traversal, filters, defaults and nonexistent save destinations. Do not reuse HTML
+  file-input byte snapshots or expose privileged paths to renderer globals. Other
+  platforms' file providers are explicitly unavailable; offscreen UI is refused.
+- Bound native operations process-wide, including canceled-but-not-yet-closed panels
+  across provider lifetimes; only actual native completion frees its ticket. Reentrant
+  stop/admission and failed startup never fabricate success or lose charged ownership.
+  Exact controlled-provider tests pass failure/parent/duplicate/reentry/quota cases.
+- Defer all bridge JS dispatch and Mite pumping throughout native synchronous modal
+  execution, including initial-entry showErrorBox. Also defer same-Host completions
+  until its synchronous provider returns. Exact Host test processes nested Qt events
+  during sync, proving no recursive JS sink; it also covers real GC, worker events,
+  parent destruction after queued success, capacity and outstanding VM shutdown.
+  Fix the test driver's Qt liveness: continue while native Host requests remain, not
+  just while libuv is alive; retain a15-second failure deadline and intentional
+  outstanding-shutdown case. No production ownership assertion is weakened.
+- Six actual Node/Mite policy groups pass options/overloads/budgets/absolute returned
+  paths, early completion rollback, failed cancellation and shutdown/parent reentry.
+  Public exact-object offscreen readiness/startup-error/refusal passes without UI.
+  Unchanged pinned Code-OSS massageMessageBoxOptions passes with32 hashed compiled
+  dependencies. Keep complete DialogMainService unaccepted; no fake Electron module.
+- Actual local-desktop/NLS entry now passes dialog imports and constructs real main
+  services. It next fails GPUProcessMainService refreshFeatureStatus calling missing
+  app.getGPUFeatureStatus. This is beyond the prior static-export failure and still
+  not a workbench/open-edit-save acceptance. Default worker refusal and explicit
+  local-desktop restrictions remain. Add API contract/ADR0172/current-blocker updates.
+
+Validation: production Firefly/exact-object offscreen build; exact Host (normal and
+outstanding-shutdown), controlled native-provider and public facade pass. All115
+runtime suites pass locally (27.73 seconds final run); tightened final factory cases also pass
+focused Node/Mite policy. Original Code-OSS option consumer passes; exact offscreen message-widget gate passes. Source formatting,
+generated inputs and unmodified upstream verify. Logs: build/dialog-{runtime,policy,
+build-final,provider-build,public,consumer,ready,style,site,widget-final,final-verification,native-ui}.log.
+
+Native UI acceptance: run one opt-in Cocoa batch only. It failed the first async
+message-result assertion and stopped immediately; no subsequent open/save panel ran.
+The generic first result log lacks actual values. Exact Qt6.11.2 source shows Cocoa
+uses NSAlert and copies its suppression checkbox back into the Qt backing widget;
+the probe only toggled/clicked that backing widget, so it may not have operated
+the actual native alert correctly. This is source evidence for a probe defect, not proof that
+the provider is correct or broken. Keep all real native UI/selection/save acceptance
+unverified and do not repeatedly relaunch visible tests. The optional future probe
+must operate actual public NSAlert/NSButton controls while retaining original native
+callbacks and deadlines. Headless exact message-widget checks are a separate gate. That new gate initially
+hung because its title-based selector could never match: exact Qt6.11.2
+QMessageBox::setWindowTitle is intentionally a no-op under Q_OS_MAC. The timeout
+fallback used the same invalid selector. Sampling the owned process proved a Unix
+Qt event loop, not an active Cocoa helper. Fix fixture identity using unique owned
+message text; assert actual buttons/checkbox/plain text/closure, not window titles.
+Disable native dialog helpers before QApplication in this controlled widget gate and
+wrap it in a10-second child-process deadline. The complete offscreen widget gate now
+passes every original index, checkbox, cancellation, parent destruction and sync
+exec case. Retain the real native UI failure as unaccepted; do not substitute this
+headless success. Future Cocoa probe now captures actual NSAlert public controls,
+avoids title matching and prints returned values, but is only compiled, not rerun.
+
+Next GPU audit: pinned GPUProcessMainService only needs synchronous
+app.getGPUFeatureStatus plus gpu-info-update and child-process-gone(type GPU);
+getGPUInfo is not used by this pinned source graph. Missing gpu_compositing is
+accepted as unknown/unavailable. Do not infer disabled GPU from absent compositor
+device identity: upstream only fills it for Vulkan, while Metal may be active.
+ForceCPUPainting in actual web_content_options is a genuine known CPU policy;
+default GPU status needs owned telemetry or an honest unknown state. The existing
+protected Application::process_did_exit override can observe real Compositor PID/
+wait status in our subclass, retaining base handling; a disconnect alone does not
+prove a crash. No GPU API is implemented by this audit.
+
+Remaining: complete batched native dialog UI acceptance and record its precise scope;
+then genuine GPU capability reporting and actual main/workbench/workspace open-edit-
+save. Native utility/renderer endpoint/auth handoff, extension/PTY, workers/webviews,
+Windows watcher/Node-oracle CI failures and platform/release deliverables remain.
+Latest5dfd16e source/Pages/dependency gates are green; native runs were still active
+or queued when queried. Older8b58f5f Linux renderer job128851164651 failed link on missing
+Firefly::defer_theme_settings/activate_theme_settings (theme implementations only
+selected underAPPLE). Older d5de3d9 macOS release job128832215863 passed menu policy
+but failed native.mjs:114 quit-role dispatch; alpha publication was skipped. Preserve
+real theme/native-menu semantics while repairing these gates; do not add no-op export
+stubs or weaken assertions. No platform/release success is inferred. Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

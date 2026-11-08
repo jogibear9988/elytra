@@ -147,6 +147,10 @@ def main():
                 "check-firefly-network-state-provider",
                 "check-firefly-global-shortcut-provider",
                 "check-firefly-global-shortcut-public",
+                "check-firefly-dialog-host",
+                "check-firefly-dialog-provider",
+                "check-firefly-dialog-message-widget",
+                "check-firefly-dialog-public",
                 "check-firefly-net-native",
                 "check-firefly-net-transport",
             ]

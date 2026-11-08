@@ -19,6 +19,8 @@ GC::Ref<JS::Object> Bridge::exports()
 
 int Bridge::pump_jobs()
 {
+    if (m_impl->dialogs && m_impl->dialogs->is_synchronous())
+        return m_impl->jobs.status();
     Tracing::Recorder::Scope scope(m_impl->tracing, "firefly.main", "event-loop-turn");
     return m_impl->jobs.pump_once();
 }

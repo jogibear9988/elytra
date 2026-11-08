@@ -211,6 +211,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../net/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../global-shortcut/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../dialog/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
@@ -248,6 +249,7 @@ target_link_libraries(
            firefly-system-preferences
            firefly-network-state
            firefly-global-shortcut
+           firefly-dialog
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config
@@ -302,6 +304,7 @@ if(TARGET firefly-view-offscreen)
     set(fork_driver firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
 endif()
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/dialog/Targets.cmake")
 add_custom_target(
     check-firefly-fork
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly_fork.py"

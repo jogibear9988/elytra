@@ -50,6 +50,18 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         = GlobalShortcut::install_host(realm, *host, *context, [this](std::string data) {
               enqueue(0, "global-shortcut-event", ByteString(data.data(), data.size()));
           });
+    dialogs = Dialogs::install_host(
+        realm, *host, *context,
+        [this](std::string data) {
+            enqueue(0, "dialog-result", ByteString(data.data(), data.size()));
+        },
+        [this](int id) -> QWidget* {
+            auto found = windows.find(id);
+            if (found == windows.end() || found->second.kind != State::Kind::WindowMain
+                || found->second.closing)
+                return nullptr;
+            return found->second.window;
+        });
     power_save_blocker = PowerSaveBlocker::install_host(realm, *host);
     shell_service = Shell::install_host(realm, *host, *context, [this](std::string data) {
         enqueue(0, "shell-result", ByteString(data.data(), data.size()));

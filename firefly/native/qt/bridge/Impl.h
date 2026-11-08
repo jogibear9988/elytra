@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "../../desktop-capture/Host.h"
+#include "../../dialog/Host.h"
 #include "../../global-shortcut/Host.h"
 #include "../../menu/ApplicationMenu.h"
 #include "../../net/Host.h"
@@ -146,6 +147,7 @@ struct Bridge::Impl {
     std::shared_ptr<Notifications::Controller> notifications;
     std::shared_ptr<PowerMonitor::Controller> power_monitor;
     std::shared_ptr<GlobalShortcut::Controller> global_shortcuts;
+    std::shared_ptr<Dialogs::Controller> dialogs;
     std::shared_ptr<PowerSaveBlocker::Controller> power_save_blocker;
     std::shared_ptr<Shell::Controller> shell_service;
     std::shared_ptr<SystemPreferences::Controller> system_preferences;

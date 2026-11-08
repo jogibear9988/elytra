@@ -23,6 +23,7 @@ import createShell from './shell/index.mjs';
 import createSystemPreferences from './system-preferences/index.mjs';
 import createNet from './net/index.mjs';
 import createGlobalShortcuts from './global-shortcut/index.mjs';
+import createDialogs from './dialog/index.mjs';
 
 export default function createFireflyApi(
   native,
@@ -177,6 +178,7 @@ export default function createFireflyApi(
       systemPreferencesService.stop();
       network.stop();
       shortcuts.stop();
+      dialogs.stop();
       desktopShell.stop();
       powerSave.stop();
       power.stop();
@@ -204,6 +206,28 @@ export default function createFireflyApi(
     }
   }
   const app = new App();
+  const dialogs = createDialogs(
+    native,
+    () => ready,
+    () => exited,
+    (value) => {
+      // Use map identity, never a user-supplied numeric id or prototype alone.
+      for (const [id, window] of windows) {
+        if (window === value) {
+          if (window._destroyed || window._closing) {
+            throw error('ERR_FIREFLY_OBJECT_DESTROYED', 'Dialog parent closed');
+          }
+          return id;
+        }
+      }
+      if (value instanceof BrowserWindow) {
+        throw error('ERR_FIREFLY_OBJECT_DESTROYED', 'Dialog parent closed');
+      }
+      return undefined;
+    },
+    error,
+    unsupported
+  );
   const shortcuts = createGlobalShortcuts(
     native,
     () => ready,
@@ -314,6 +338,7 @@ export default function createFireflyApi(
     systemPreferencesService.stop();
     network.stop();
     shortcuts.stop();
+    dialogs.stop();
     desktopShell.stop();
     powerSave.stop();
     power.stop();
@@ -746,6 +771,10 @@ export default function createFireflyApi(
       desktopShell.dispatch(JSON.parse(data));
       return;
     }
+    if (type === 'dialog-result') {
+      dialogs.dispatch(JSON.parse(data));
+      return;
+    }
     if (type === 'global-shortcut-event') {
       shortcuts.dispatch(JSON.parse(data));
       return;
@@ -879,6 +908,7 @@ export default function createFireflyApi(
     powerSaveBlocker: powerSave.powerSaveBlocker,
     shell: desktopShell.shell,
     systemPreferences: systemPreferencesService.systemPreferences,
+    dialog: dialogs.dialog,
     globalShortcut: shortcuts.globalShortcut,
     net: network.net
   };
