@@ -48,9 +48,16 @@ on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
 The ordinary Code-OSS entry still rejects unsupported Chromium enable-features.
 With the explicit [LibJS engine overlay](guides/code-oss-adaptation.md#separate-implicit-chromium-defaults-explicitly),
-the real prepared entry now reaches unsupported protocol privilege corsEnabled (exit 1). Its implicit
+the real prepared entry now reaches unsupported protocol privilege allowServiceWorkers (exit 1). Its implicit
 engine defaults are recorded with reasons; explicit incompatible user/sandbox options
 remain errors. The original sandbox branch is preserved and not bypassed.
+
+The [simple custom-protocol CORS subset](api/protocol.md#cross-origin-file-fetch-corsenabled)
+now passes local macOS native and public production-helper tests: actual binary
+GET/HEAD, native-bound source Origin, response-header filtering, policy refusals,
+CSP, target revocation and reload. Other origins/credentials/preflight/workers and
+fresh platform acceptance remain open. This advances one startup prerequisite;
+the real entry still fails at allowServiceWorkers and no workbench is accepted.
 
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local

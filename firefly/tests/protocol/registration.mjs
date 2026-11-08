@@ -27,7 +27,10 @@ function fails(action, code) {
 let ready = false;
 const { protocol } = createProtocol(native, () => ready, error, unsupported);
 const input = [
-  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+  {
+    scheme: 'app',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true }
+  }
 ];
 const mode = process.argv[2];
 if (mode === 'sealed') {
@@ -108,7 +111,9 @@ if (mode === 'sealed') {
   for (const wire of [
     '{}',
     '{"schema":2,"schemes":[]}',
-    '{"schema":1,"schemes":[{"scheme":"http","standard":true,"secure":true}]}'
+    '{"schema":1,"schemes":[{"scheme":"http","standard":true,"secure":true}]}',
+    '{"schema":1,"schemes":[{"scheme":"app","standard":true,"secure":true,"cors":1}]}',
+    '{"schema":1,"schemes":[{"scheme":"app","standard":false,"secure":false,"cors":true}]}'
   ]) {
     fails(() => native.registerSchemes(wire), 'ERR_INVALID_ARG_VALUE');
 
@@ -139,6 +144,14 @@ if (mode === 'sealed') {
   );
   const config = JSON.parse(native.configuration());
   check(config.schema === 1 && config.schemes.length === 3, 'helper snapshot');
+  check(
+    native.cors('app') && !native.cors('insecure') && !native.cors('https'),
+    'native CORS opt-in'
+  );
+  check(
+    config.schemes[0].cors === true && config.schemes[1].cors === undefined,
+    'owned helper CORS snapshot'
+  );
   input[0].scheme = 'mutated';
   check(JSON.parse(native.configuration()).schemes[0].scheme === 'app', 'snapshot owns its data');
 

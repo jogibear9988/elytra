@@ -1,6 +1,7 @@
 /** Default-session routes and trusted native navigation/document grants, owned by the main host. */
 #pragma once
 #include "native/protocol/files/Server.h"
+#include <AK/HashTable.h>
 #include <AK/JsonValue.h>
 #include <LibWebCommon/HTML/NavigationPopulationRequest.h>
 
@@ -47,9 +48,9 @@ private:
         Root root;
         Utf16String navigation;
         URL::URL url;
-        u64 generation;
         bool document;
         NonnullRefPtr<FileServer> server;
+        HashTable<ByteString> targets;
     };
 
     struct Pending {

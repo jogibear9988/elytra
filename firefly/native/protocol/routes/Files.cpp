@@ -44,7 +44,7 @@ bool FileRoutes::unregister_route(StringView scheme)
         return false;
     Vector<u64> retired;
     for (auto const& channel : m_channels)
-        if (channel.value.url.scheme() == scheme)
+        if (channel.value.url.scheme() == scheme || channel.value.targets.contains(scheme))
             retired.append(channel.key);
     for (auto id : retired) {
         failed(id);
@@ -148,7 +148,6 @@ ErrorOr<void> FileRoutes::grant(WebView::WebContentPage& page,
     auto route = m_routes.find(request.history_entry.url.scheme());
     if (route == m_routes.end())
         return Error::from_string_literal("Native file route has ended");
-    auto generation = route->value;
     auto epoch = ++m_next_channel;
     auto pair = TRY(IPC::Transport::create_paired());
     auto weak = make_weak_ptr();
@@ -170,7 +169,7 @@ ErrorOr<void> FileRoutes::grant(WebView::WebContentPage& page,
         }));
     TRY(m_channels.try_set(epoch,
         Channel { request.navigable_id, request.navigation_id, request.history_entry.url,
-            generation, document.has_value(), move(server) }));
+            document.has_value(), move(server), {} }));
     if (document.has_value())
         page.client().async_firefly_connect_document(move(pair.remote_handle), page.id().value(),
             request.navigable_id.namespace_id, request.navigable_id.local_id,
@@ -189,7 +188,8 @@ void FileRoutes::request(
     auto found = m_channels.find(channel);
     auto url = URL::Parser::basic_parse(request.url);
     if (m_stopped || found == m_channels.end() || !m_owns(found->value.root) || !url.has_value()
-        || !url->origin().is_same_origin(found->value.url.origin())
+        || (!url->origin().is_same_origin(found->value.url.origin())
+            && (!found->value.document || !is_cors_scheme(url->scheme())))
         || (!found->value.document && !url->equals(found->value.url, URL::ExcludeFragment::Yes))
         || m_pending.size() >= process_file_request_limit
         || m_next_token == NumericLimits<u64>::max()) {
@@ -197,13 +197,24 @@ void FileRoutes::request(
         return;
     }
 
+    // Source identity belongs to the document; authorization belongs to the
+    // current target route, which may have a different scheme/generation.
+    auto route = m_routes.find(url->scheme());
+    if (route == m_routes.end()
+        || found->value.targets.try_set(ByteString(url->scheme())).is_error()) {
+        (void)complete(Error::from_errno(EACCES));
+        return;
+    }
+
     auto token = ++m_next_token;
     JsonObject metadata;
     metadata.set("token"sv, String::number(token));
-    metadata.set("generation"sv, String::number(found->value.generation));
+    metadata.set("generation"sv, String::number(route->value));
     metadata.set("scheme"sv, url->scheme());
     metadata.set("url"sv, request.url.view());
     metadata.set("method"sv, request.head ? "HEAD"sv : "GET"sv);
+    if (!url->origin().is_same_origin(found->value.url.origin()))
+        metadata.set("origin"sv, found->value.url.origin().serialize());
     if (m_pending.try_set(token, Pending { channel, request.id, move(complete) }).is_error()) {
         failed(channel);
         retire(channel);

@@ -28,9 +28,13 @@ ErrorOr<Vector<OriginScheme>> parse_origin_configuration(StringView text)
         auto name = entry.get_string("scheme"sv);
         auto standard = entry.get_bool("standard"sv);
         auto secure = entry.get_bool("secure"sv);
-        if (entry.size() != 3 || !name.has_value() || !standard.has_value() || !secure.has_value())
-            return Error::from_string_literal("Origin entry requires scheme/standard/secure only");
-        TRY(schemes.try_append({ *name, *standard, *secure }));
+        auto cors = entry.get_bool("cors"sv);
+        bool declares_cors = entry.has("cors"sv);
+        if (entry.size() != (declares_cors ? 4u : 3u) || !name.has_value() || !standard.has_value()
+            || !secure.has_value() || (declares_cors && !cors.has_value()))
+            return Error::from_string_literal(
+                "Origin entry requires scheme/standard/secure and optional boolean cors");
+        TRY(schemes.try_append({ *name, *standard, *secure, cors.value_or(false) }));
     }
 
     TRY(validate_origin_schemes(schemes));
@@ -46,6 +50,8 @@ ErrorOr<ByteString> serialize_origin_configuration(ReadonlySpan<OriginScheme> sc
         entry.set("scheme"sv, scheme.name);
         entry.set("standard"sv, scheme.standard);
         entry.set("secure"sv, scheme.secure);
+        if (scheme.cors)
+            entry.set("cors"sv, true);
         TRY(entries.append(move(entry)));
     }
 

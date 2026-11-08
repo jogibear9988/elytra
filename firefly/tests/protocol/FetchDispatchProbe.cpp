@@ -38,15 +38,20 @@ public:
         ++calls;
         auto url = params.request()->current_url().serialize();
         bool slow = url == "app://bundle/slow"sv;
-        if (!active || (!slow && url != "app://bundle/body"sv))
+        bool cors = url.bytes_as_string_view().starts_with("cors://target/"sv);
+        if (!active || (!slow && !cors && url != "app://bundle/body"sv))
             return Error::from_string_literal("No fixture route");
+        bool refuses_cors = cors && !url.bytes_as_string_view().ends_with("/wild"sv)
+            && !url.bytes_as_string_view().ends_with("/exact"sv);
         auto id = ++m_next;
         auto weak = make_weak_ptr();
         auto response = TRY(PF::Response::create(params, 91, id,
             {
                 .credit =
-                    [weak, id](u64 count) {
+                    [weak, id, refuses_cors](u64 count) {
                         if (auto self = weak.strong_ref()) {
+                            if (refuses_cors)
+                                self->unauthorized_credit += count;
                             auto job = self->m_jobs.find(id);
                             if (job == self->m_jobs.end())
                                 return;
@@ -63,8 +68,25 @@ public:
                         }
                     },
             }));
-        Array<HTTP::Header, 2> headers { { { "Cache-Control", "no-store" },
-            { "Set-Cookie", "fixture=private" } } };
+        Vector<HTTP::Header> headers;
+        TRY(headers.try_append({ "Cache-Control", "no-store" }));
+        TRY(headers.try_append({ "Set-Cookie", "fixture=private" }));
+        if (cors) {
+            TRY(headers.try_append({ "X-Public", "visible" }));
+            TRY(headers.try_append({ "X-Hidden", "private" }));
+            TRY(headers.try_append({ "Access-Control-Expose-Headers", "X-Public" }));
+            if (url.bytes_as_string_view().ends_with("/wild"sv))
+                TRY(headers.try_append({ "Access-Control-Allow-Origin", "*" }));
+            else if (url.bytes_as_string_view().ends_with("/exact"sv))
+                TRY(headers.try_append({ "Access-Control-Allow-Origin", "app://bundle" }));
+            else if (url.bytes_as_string_view().ends_with("/mismatch"sv))
+                TRY(headers.try_append({ "Access-Control-Allow-Origin", "app://other" }));
+            else if (url.bytes_as_string_view().ends_with("/duplicate"sv)) {
+                TRY(headers.try_append({ "Access-Control-Allow-Origin", "app://bundle" }));
+                TRY(headers.try_append({ "Access-Control-Allow-Origin", "*" }));
+            }
+        }
+
         auto head = TRY(m_files->begin(
             91, id, m_path, params.request()->method() == "HEAD"sv, headers, MonotonicTime::now()));
         TRY(m_jobs.try_set(id, Job { response, move(head), 0, false, false, slow }));
@@ -92,6 +114,7 @@ public:
     }
 
     size_t calls { 0 }, cancellations { 0 };
+    u64 unauthorized_credit { 0 };
     bool active { true };
 
 private:
@@ -220,7 +243,8 @@ ErrorOr<void> wait(JS::Realm& realm, Utf16View predicate)
 
 ErrorOr<void> check_fetch_dispatch(JS::Realm& realm, Web::DOM::Document& document, StringView path)
 {
-    Array schemes { P::OriginScheme { "app"_string, true, true } };
+    Array schemes { P::OriginScheme { "app"_string, true, true },
+        P::OriginScheme { "cors"_string, true, true, true } };
     TRY(P::install_origin_schemes(schemes));
     auto url = URL::Parser::basic_parse("app://bundle/index.html"sv);
     VERIFY(url.has_value());
@@ -262,11 +286,42 @@ ErrorOr<void> check_fetch_dispatch(JS::Realm& realm, Web::DOM::Document& documen
     TRY(run(realm,
         u"dispatchResult='pending'; fetch('app://bundle/body',{method:'HEAD'}).then(async r=>dispatchResult=(r.headers.get('content-length')==='4194323'&&(await r.arrayBuffer()).byteLength===0)?'head':'bad').catch(()=>dispatchResult='bad');"sv));
     TRY(wait(realm, u"dispatchResult==='head'"sv));
+    // Exercise upstream CORS filtering with actual native response bodies, not a mock fetch.
+    TRY(run(realm, uR"JS(
+        dispatchResult='pending';
+        (async()=>{
+            for (const route of ['wild','exact']) {
+                const r=await fetch('cors://target/'+route);
+                if(r.type!=='cors' || r.url!=='cors://target/'+route || r.status!==200 ||
+                    r.headers.get('x-public')!=='visible' || r.headers.has('x-hidden') ||
+                    r.headers.has('set-cookie') || r.headers.has('access-control-allow-origin')) throw Error('CORS filter');
+                const bytes=new Uint8Array(await r.arrayBuffer());
+                if(bytes.length!==4194323 || !bytes.every((v,i)=>v===((i*37+11)&255))) throw Error('CORS bytes');
+            }
+            const head=await fetch('cors://target/exact',{method:'HEAD',credentials:'omit'});
+            if(head.type!=='cors' || (await head.arrayBuffer()).byteLength!==0) throw Error('CORS HEAD');
+            for(const route of ['deny','mismatch','duplicate']) {
+                let denied=false;
+                try { await fetch('cors://target/'+route); } catch { denied=true; }
+                if(!denied) throw Error('CORS unauthorized response');
+            }
+            dispatchResult='cors';
+        })().catch(error=>dispatchResult='error:'+error.message);
+    )JS"sv));
+    TRY(wait(realm, u"dispatchResult==='cors'"sv));
+    if (backend->pending() || backend->files() || backend->unauthorized_credit)
+        return Error::from_string_literal("CORS refusal retained file jobs or granted body credit");
     auto accepted = backend->calls;
     for (auto source : { u"fetch('app://other/body',{mode:'no-cors'})"sv,
              u"fetch('app://bundle/body',{method:'POST'})"sv,
              u"fetch('app://bundle/body',{headers:{Range:'bytes=0-1'}})"sv,
-             u"fetch('unknown://bundle/body')"sv }) {
+             u"fetch('unknown://bundle/body')"sv, u"fetch('app://other/body')"sv,
+             u"fetch('cors://target/wild',{credentials:'include'})"sv,
+             u"fetch('cors://target/wild',{mode:'no-cors'})"sv,
+             u"fetch('cors://target/wild',{mode:'same-origin'})"sv,
+             u"fetch('cors://target/wild',{headers:{'X-Private':'test'}})"sv,
+             u"fetch('cors://target/wild',{method:'POST'})"sv,
+             u"fetch('cors://target/wild',{headers:{Range:'bytes=0-1'}})"sv }) {
         auto script = Utf16String::formatted(
             "dispatchResult='pending'; "
             "{}.then(()=>dispatchResult='bad',()=>dispatchResult='denied');",
@@ -324,7 +379,8 @@ ErrorOr<void> check_fetch_dispatch(JS::Realm& realm, Web::DOM::Document& documen
     }
 
     outln("PASS actual JavaScript fetch/arrayBuffer through native scheme seam: 4194323 file "
-          "bytes, HEAD, forbidden-header filtering, scope refusals, abort, upstream data, "
+          "bytes, HEAD, CORS origin/exposure/credentials/preflight checks, forbidden-header "
+          "filtering, scope refusals, abort, upstream data, "
           "reentrant revocation and absent "
           "capabilities");
     return {};

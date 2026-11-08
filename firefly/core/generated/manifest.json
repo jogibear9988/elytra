@@ -1,7 +1,7 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "8edc7c3b396e5464b4e622b36f1adb596f68730055f8073da82c2f487179985e",
+    "api.js": "fe33646c8ef7c5b99423fff1fb59e92bcf302ea281c471b682c154e096882682",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
@@ -11,8 +11,8 @@
     "firefly/core/crash/index.mjs": "2f7001fde2bbd72e744741f3d8aeb053486404df3a596d6e482762e85e8570c6",
     "firefly/core/ipc-main.mjs": "1ac8913051da151f1d781e71f6195dda0cd9b3885b99089652dcae2b328f43c8",
     "firefly/core/menu/index.mjs": "26db0379cdf2a13505c261c305c06ee0dd0d6c4143b6879663d17e7c62acce0b",
-    "firefly/core/protocol/files.mjs": "e8287289187ed7e69c5f37515162d1cccf04c6acb54dc562391b8c065af407b5",
-    "firefly/core/protocol/index.mjs": "370d7900d498fd132ff731c5fb4c73d2d2d51057f2a23f1567632a210cb6815c",
+    "firefly/core/protocol/files.mjs": "e2ce8db80ae03510f225afa823b020246a8ffe564f9fb9e78f8f000d7fcc75e2",
+    "firefly/core/protocol/index.mjs": "99a4c4352ecf241ed14357c59a520ad2a809e7e0930f8411ba18ea76ae0e3030",
     "firefly/core/screen/index.mjs": "8520b379fe29fc484f1960108fa2bed3f0f0cbd609f2f19dba57e42dfd0cf342",
     "firefly/core/theme/index.mjs": "6981ff6c676fdb82714f8a61dee5fe571b23a12fce1cfed74af927404e2d91ec",
     "firefly/core/tracing/index.mjs": "128b00acf259f501f0617d377af9e783ed4189648a233d085cb7e1061b0f9536",

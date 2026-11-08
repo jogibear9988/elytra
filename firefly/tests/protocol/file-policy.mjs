@@ -146,6 +146,28 @@ for (const response of [
   );
   check(reply('/owned/body') === undefined, 'failed response callback retained');
 }
+api.unregisterProtocol('app');
+
+api.registerFileProtocol('app', (request, callback) => {
+  check(
+    Object.isFrozen(request) &&
+      Object.isFrozen(request.headers) &&
+      request.headers.origin === 'source://bundle' &&
+      Object.keys(request.headers).length === 1,
+    'frozen native-derived Origin metadata'
+  );
+  callback('/owned/body');
+});
+
+files.dispatch('protocol-request', {
+  token: 'cross',
+  generation: String(generation),
+  scheme: 'app',
+  url: 'app://bundle/body',
+  method: 'GET',
+  origin: 'source://bundle'
+});
+check(replies.at(-1).token === 'cross' && !replies.at(-1).error, 'CORS callback reply');
 console.log(
   'PASS file-handler JS readiness/validation, callback cancellation, generations and thrown/rejected handlers'
 );

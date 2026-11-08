@@ -4,6 +4,7 @@
 #include "native/protocol/files/FilePacket.h"
 #include <AK/WeakPtr.h>
 #include <LibHTTP/HeaderList.h>
+#include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
 
 namespace Firefly::ProtocolFetch {
@@ -190,6 +191,17 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         response->url_list().append(m_params->request()->current_url());
         for (auto const& header : m_head->headers)
             response->header_list()->append(header);
+        // Reject unauthorized CORS metadata before granting any body credit.
+        // The ordinary upstream HTTP fetch path repeats its own CORS/filter checks.
+        if (m_params->request()->response_tainting()
+                == Infrastructure::Request::ResponseTainting::CORS
+            && !Web::Fetch::Fetching::cors_check(*m_params->request(), *response)) {
+            // A policy refusal belongs to this request; the well-formed channel
+            // remains usable for other resources from the same document.
+            fail();
+            return {};
+        }
+
         if (!m_head->head) {
             m_channel = Engine::FetchByteChannel::create(
                 { .low = Protocols::file_chunk_limit / 2, .high = Protocols::file_chunk_limit },

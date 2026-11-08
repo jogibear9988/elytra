@@ -155,7 +155,13 @@ export default function createFileHandlers(native, isReady, error, standard) {
       pending.set(request.token, { scheme: request.scheme });
       try {
         const result = entry.handler(
-          Object.freeze({ url: request.url, method: request.method }),
+          Object.freeze({
+            url: request.url,
+            method: request.method,
+            ...(typeof request.origin === 'string'
+              ? { headers: Object.freeze({ origin: request.origin }) }
+              : {})
+          }),
           (response) => {
             finish(request.token, response);
           }

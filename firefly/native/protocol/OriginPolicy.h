@@ -12,6 +12,7 @@ struct OriginScheme {
     String name;
     bool standard { false };
     bool secure { false };
+    bool cors { false };
 };
 
 ErrorOr<void> validate_origin_schemes(ReadonlySpan<OriginScheme>);
@@ -32,4 +33,7 @@ Optional<URL::Origin> custom_origin(URL::URL const&);
 bool is_secure_origin(URL::Origin const&);
 
 bool is_standard_scheme(StringView);
+
+// Opt-in CORS classification; this never bypasses origin/header/transport checks.
+bool is_cors_scheme(StringView);
 }

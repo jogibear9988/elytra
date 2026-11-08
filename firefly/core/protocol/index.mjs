@@ -87,6 +87,7 @@ export default function createProtocol(native, isReady, error, unsupported) {
         let standard = false;
         let secure = false;
         let fetch = false;
+        let cors = false;
         for (const key of Reflect.ownKeys(values)) {
           if (!privileges.has(key)) {
             throw error('ERR_INVALID_ARG_VALUE', 'Unknown scheme privilege');
@@ -99,6 +100,8 @@ export default function createProtocol(native, isReady, error, unsupported) {
             standard = value;
           } else if (key === 'secure') {
             secure = value;
+          } else if (key === 'corsEnabled') {
+            cors = value;
           } else if (key === 'supportFetchAPI') {
             fetch = value;
           } else if (value) {
@@ -108,13 +111,18 @@ export default function createProtocol(native, isReady, error, unsupported) {
         if (secure && !standard) {
           unsupported('secure nonstandard protocol origins');
         }
+        if (cors && !standard) {
+          unsupported('CORS for nonstandard custom protocols');
+        }
         if (fetch && !standard) {
           unsupported('fetch for nonstandard custom protocols');
         }
         if (fetch) {
           fetchSchemes.push(scheme);
         }
-        schemes.push({ scheme, standard, secure });
+        schemes.push(
+          cors ? { scheme, standard, secure, cors: true } : { scheme, standard, secure }
+        );
       }
       // Validate the whole batch before native publication. Failure consumes no registration.
       // Native code independently checks the schema and refuses any post-helper publication.

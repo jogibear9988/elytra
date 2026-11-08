@@ -2,7 +2,7 @@
 
 Status: partial main-process API with local macOS Release acceptance. Standard/
 secure origins and default-session file callbacks load real custom-origin windows
-and their resources. General Response handlers, partitions and broader Electron
+and their resources, including a bounded opt-in CORS file-fetch subset. General Response handlers, partitions and broader Electron
 compatibility remain unfinished.
 
 ## Register and load an application bundle
@@ -49,21 +49,22 @@ privileges are errors. Omitted privileges default to false.
 | standard | Native/Rust tuple origin for hierarchical URLs with a valid nonempty host; preserve custom scheme and explicit port |
 | secure | Mark a standard custom tuple origin trustworthy; requires standard: true |
 | supportFetchAPI | Permit file-route registration and same-origin Window fetch; requires standard: true |
-| bypassCSP, allowServiceWorkers, corsEnabled, stream, codeCache | true fails with ERR_FIREFLY_UNSUPPORTED_API; false requests no capability |
+| corsEnabled | Enable native CORS checks for simple cross-origin GET/HEAD to this standard scheme; limited source/credentials scope below |
+| bypassCSP, allowServiceWorkers, stream, codeCache | true fails with ERR_FIREFLY_UNSUPPORTED_API; false requests no capability |
 
 The current file transport requires supportFetchAPI: true even for navigation-only
 apps. Without it, origin registration works but registerFileProtocol explicitly
 refuses the scheme. This avoids granting unrequested fetch capability. Fetch authority
 is enforced when main registers a route and grants its channels; the immutable
-native/helper origin snapshot itself still carries only scheme/standard/secure.
-Secure or fetch-enabled nonstandard schemes are explicitly unsupported.
+native/helper origin snapshot carries scheme/standard/secure and the optional CORS flag.
+Secure, CORS-enabled or fetch-enabled nonstandard schemes are explicitly unsupported.
 
 Validate the entire batch before native publication. Invalid input does not consume
 registration or partially install earlier entries. One success, including an empty
 array, permanently consumes it. Native code independently validates the bounded
 schema and atomically publishes an owned process table. Mutating input cannot change
 it. Even an unconfigured helper launch seals registration. Origin privileges have
-no reset/unregister operation. No CSP bypass, CORS, service workers, media policy or
+no reset/unregister operation. No CSP bypass, service workers, media policy or
 V8 cache follows from registration.
 
 ## protocol.registerFileProtocol(scheme, handler)
@@ -74,10 +75,13 @@ registered with standard and supportFetchAPI above. The same method is available
 through [session.defaultSession.protocol](session.md).
 
 The handler receives a frozen object containing the actual URL and method (GET or
-HEAD) and a callback. Other Electron request fields, including headers/referrer/
-uploadData/webContentsId, are not supplied. Do not infer trusted initiator identity
-from missing fields. Only same-origin top-level Window resources are currently
-eligible; workers, child frames, cross-origin requests, POST and ranges are refused.
+HEAD) and a callback. For admitted cross-origin requests only, request.headers is a
+frozen object containing lowercase origin, derived from the native document binding;
+it is not copied from renderer-supplied request metadata. For same-origin requests,
+headers remains absent. Other request headers/referrer/uploadData/webContentsId are
+not supplied. Do not infer trusted initiator identity from missing fields. Top-level
+Window resources and the CORS subset below are eligible; workers, child frames,
+POST and ranges are refused.
 
 The callback accepts:
 
@@ -108,10 +112,61 @@ for owned default-session windows. Main authorizes every pathname. No Node/Firef
 globals enter the page. Initial navigation buffering retains its 16-MiB bound;
 ordinary file responses retain the native service's 64-GiB file-size bound.
 
+## Cross-origin file fetch (corsEnabled)
+
+Register the **target** scheme with standard, supportFetchAPI and corsEnabled set
+to true before readiness. Both source and target need active default-session file
+handlers. Sources must be owned top-level custom-origin Window documents. HTTP,
+file and opaque sources do not acquire these document channels. A different host
+or explicit port also counts as cross-origin, even under the same scheme.
+
+The renderer uses ordinary fetch(targetURL) or fetch(targetURL, {method: 'HEAD',
+credentials: 'omit'}). Only simple GET/HEAD with mode 'cors' and default/omit
+credentials is supported. Explicit credentials: 'include', cross-origin 'no-cors',
+'same-origin', preflight/custom headers and ranges fail. No preflight API, CORS
+worker/frame transport or credentialed cross-origin cookies are supplied.
+
+The target callback can authorize an origin through its response headers:
+
+```js
+const allowedOrigin = 'app://bundle';
+protocol.registerFileProtocol('resources', (request, callback) => {
+  if (request.url !== 'resources://bundle/config.json' ||
+      request.headers?.origin !== allowedOrigin) {
+    callback({error: -10});
+    return;
+  }
+  callback({path: authorizedConfigPath, headers: {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Expose-Headers': 'X-App-Version',
+    'X-App-Version': '1'
+  }});
+});
+```
+
+Use this after registering resources with the privileges above and after readiness;
+authorize authorizedConfigPath in main. An exact source origin or wildcard * may
+allow an uncredentialed response. Missing/mismatched/duplicate Allow-Origin values
+fail before any file-body credit is granted. A policy refusal cancels only that
+request; other document resources continue. Actual LibWeb CORS checks and exposed-
+header filtering run: response.type is 'cors', arbitrary response headers stay
+hidden unless exposed, and Set-Cookie never becomes page-visible. Successful
+bodies retain streaming/backpressure, HEAD and document lifecycle checks.
+
+CSP remains enforced independently. At the current Ladybird pin, use explicit
+scheme sources such as connect-src 'self' resources: for permitted custom-scheme
+connections. Host-source matching of custom opaque URL hosts is refused by upstream;
+do not treat resources://bundle as an accepted CSP host source. Main must still
+allowlist target URLs and native paths. A target's CORS flag alone authorizes neither
+an origin nor a file. BypassCSP and broader Electron privilege parity remain absent.
+
 ## protocol.unregisterProtocol(scheme)
 
 After readiness, returns whether a handler existed. Remove it, revoke its channels
-and cancel pending navigation/document requests. Late callbacks cannot revive it or
+and cancel pending navigation/document requests. Removing a target scheme also
+retires every document channel that has requested that scheme, including its other
+outstanding resources. Reload the source document after replacement; this conservative
+whole-channel revocation differs from per-request replacement. Late callbacks cannot revive it or
 affect a replacement generation. Removal does not undo origin registration. After
 re-registering, navigate/reload to grant a fresh document channel; existing documents
 are not automatically rebound in this implementation.
@@ -136,7 +191,7 @@ handle/unhandle, net.fetch, protocol interception, custom partitions, broader
 request fields/privileges and in-place document rebinding remain unavailable. The
 pinned Code-OSS entry still needs additional privileges/APIs. Without the engine
 overlay it rejects Chromium enable-features; the explicit LibJS engine overlay
-advances to unsupported protocol privilege corsEnabled. No workbench launch follows from this subset.
+advances to unsupported protocol privilege allowServiceWorkers. No workbench launch follows from this subset.
 
 ## Validation
 
@@ -145,7 +200,12 @@ JS callback policy without windows. check-firefly-protocol-host checks actual ma
 ESM/CommonJS singleton/readiness exports. check-firefly-public-protocol batches one
 hidden native window with real delayed JavaScript handlers, HTML/ESM/CSS, every-byte
 4-MiB binary verification, HEAD, denial, missing files, revoked navigation/document
-callbacks and handler generations. It uses ordinary public APIs, not a test transport.
+callbacks and handler generations. The same batched window checks real cross-origin
+bodies/HEAD, native source origins, exposed/hidden headers, missing/mismatched/duplicate
+CORS authorization, disabled schemes, credentials/mode/preflight/range refusals,
+CSP denial, channel survival after a refusal and target revocation/reload. It uses
+ordinary public APIs, not a test transport. check-firefly-protocol-fetch independently
+checks the actual LibWeb CORS path, including zero body credit for rejected metadata.
 
 ```sh
 cmake --build build/renderer --target check-firefly-protocol-registration check-firefly-protocol-host check-firefly-public-protocol --parallel 3
@@ -153,6 +213,7 @@ cmake --build build/renderer --target check-firefly-protocol-registration check-
 
 Local macOS Release passes; fresh hosted Linux execution remains required. Windows
 production-helper/desktop support is still unavailable. See
-[ADR 0126](../architecture/0126-public-file-protocol-routes.md).
+[ADR 0126](../architecture/0126-public-file-protocol-routes.md) and
+[ADR 0134](../architecture/0134-simple-custom-protocol-cors.md).
 Baseline: [Electron protocol](https://www.electronjs.org/docs/latest/api/protocol).
 Only the subset described here is implemented.

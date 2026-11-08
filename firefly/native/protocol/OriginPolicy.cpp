@@ -74,6 +74,8 @@ ErrorOr<void> validate_origin_schemes(ReadonlySpan<OriginScheme> schemes)
                 return Error::from_string_literal("Duplicate custom origin scheme");
         }
 
+        if (entry.cors && !entry.standard)
+            return Error::from_string_literal("CORS requires a standard custom origin");
         ++index;
     }
 
@@ -127,6 +129,12 @@ Optional<URL::Origin> custom_origin(URL::URL const& url)
     if (!host.has_value())
         return {};
     return URL::Origin { entry->name, *host, url.port() };
+}
+
+bool is_cors_scheme(StringView name)
+{
+    auto const* entry = find(name);
+    return entry && entry->standard && entry->cors;
 }
 
 bool is_standard_scheme(StringView name)

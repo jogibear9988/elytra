@@ -119,7 +119,8 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
     bool admitted = m_navigation ? m_navigation->admit(params)
                                  : allows_request(params) && address
             && *address == m_document->relevant_settings_object().address()
-            && request.current_url().origin().is_same_origin(m_origin);
+            && request.origin().has<URL::Origin>()
+            && request.origin().get<URL::Origin>().is_same_origin(m_origin);
     if (!admitted || m_jobs.size() >= Protocols::document_file_request_limit
         || m_next == NumericLimits<u32>::max())
         return Error::from_string_literal("Protocol request is outside the admitted scope");

@@ -8277,6 +8277,55 @@ locale/main/IPC/workbench/auxiliary-host APIs from measured errors, and rerun th
 real entry. No workbench launch or full-platform support is claimed. The original
 complete specification remains unfinished and the full goal stays active.
 
+## 2026-11-08: Implement real simple custom-protocol CORS on the Code-OSS path
+
+- Follow the user's VS Code priority. Implement corsEnabled as immutable native/
+  helper policy for standard custom schemes, without editing Ladybird or accepting
+  an inert privilege. Optional bounded schema-1 cors metadata defaults false and
+  independently rejects malformed/nonstandard declarations.
+- Extend the fingerprinted/reversible owned Fetch composition at the CORS scheme
+  check and HTTP network seam. Preserve upstream main_fetch, CORS/filtering and CSP.
+  Admit only active owned top-level custom-origin documents, simple GET/HEAD, CORS
+  mode and default/omit credentials. Workers/frames, HTTP/file sources, include
+  credentials, preflight/unsafe headers, POST and Range remain refused.
+- Authorize every target URL through its actual main route generation. Derive the
+  handler's frozen headers.origin from the native source binding, never renderer
+  metadata. Keep same-origin request headers absent. Reject missing/mismatched/
+  duplicate CORS authorization before any body credit; filter response headers
+  through real LibWeb, retain bounded file streaming/HEAD/cancellation.
+- A well-formed CORS refusal cancels only its request. Public production-helper
+  acceptance caught whole-channel shutdown after the first refused response;
+  correct it and verify subsequent denied and allowed requests on that channel.
+- Track used target schemes. Removing a source/used target retires its document
+  channel and pending requests; stale callbacks cannot affect replacement routes.
+  Require source reload for a fresh grant. Document this conservative difference.
+- Extend the actual native no-GUI fetch gate and existing batched public hidden-
+  window acceptance with real 4-MiB CORS bodies, HEAD, origin/exposed/hidden/forbidden
+  headers, origin mismatch/duplicates, disabled schemes, mode/credentials/preflight/
+  ranges, CSP refusal, zero unauthorized body credit, target revocation and reload.
+  Existing file loading, failures, navigation/document cancellation and generations
+  continue to pass. The existing CI targets run these added cases.
+- Refresh detailed protocol/API, matrix, status, roadmap, Code-OSS and upstream-
+  update references, plus ADR 0134. The pinned upstream CSP host-source matcher
+  refuses custom opaque hosts; explicit scheme sources work. Preserve that policy
+  and document the limitation instead of bypassing CSP.
+
+Validation: local macOS Release build, native registration/file callback policy,
+actual LibWeb file/fetch/CORS and real public production-helper acceptance pass.
+The real prepared Code-OSS entry with explicit engine overlay and isolated existing
+userData passes corsEnabled and now fails at unsupported allowServiceWorkers
+(exit 1), recorded in build/code-oss-cors-entry.log. No workbench or service-worker
+support is claimed. Fresh hosted Linux and native Windows desktop remain open.
+Source style, generated adapter freshness, upstream-pin, whitespace and built-site
+checks are recorded with this commit. Only the targeted hidden protocol batch ran;
+no broad GUI suite or physical UI automation. The original full goal remains active.
+
+Next inspect the real vscode-webview service-worker demand against actual upstream
+worker execution/resource routing, implement its real contract or record a measured
+architectural blocker, then continue demanded protocol handlers/main APIs. Binary/
+event/port IPC, workbench files and auxiliary hosts follow the actual Code-OSS path;
+HTTP/2/3, unrelated example breadth and website polish stay below that priority.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

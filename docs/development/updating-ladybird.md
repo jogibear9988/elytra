@@ -319,6 +319,19 @@ The latter runs actual external-module/MIME/CSP/file-security comparisons and th
 IPC fixtures with directly loaded ESM, without the earlier inline workaround.
 
 
+## Custom-scheme CORS fetch seam
+
+The owned prepare_file_module_hook.py composition also recognizes opted-in native
+CORS schemes at main_fetch's scheme check, then dispatches the authorized file
+response at http_network_or_cache_fetch. It preserves upstream CORS checks,
+response filtering and CSP. Review both exact seams and the whole-source fingerprint
+when updating Ladybird; retain reverse byte-preservation and ambiguous/missing-seam
+refusals. Never change vendor sources to make the seam fit. The owned Response
+adapter rejects unauthorized metadata before body credit but keeps that document's
+channel usable. Run check-firefly-protocol-fetch and batch check-firefly-public-protocol
+for real response filtering, policy denial, target revocation and reload. See
+[ADR 0134](../architecture/0134-simple-custom-protocol-cors.md).
+
 ## Custom protocol origin seams
 
 The renderer graph composes LibWebCommon's potentially-trustworthy-origin and

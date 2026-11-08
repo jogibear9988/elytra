@@ -2,6 +2,7 @@
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
 #include "native/protocol/OriginConfig.h"
+#include "native/protocol/OriginPolicy.h"
 #include "native/protocol/RegistrationHost.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Error.h>
@@ -54,8 +55,15 @@ int main(int argc, char** argv)
                 return JS::Value(Firefly::Protocols::is_secure_origin(url->origin()));
             },
             1, JS::default_attributes);
+        native->define_native_function(
+            realm, "cors"_utf16,
+            +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto name = TRY(vm.argument(0).to_utf16_string(vm)).to_utf8();
+                return JS::Value(Firefly::Protocols::is_cors_scheme(name));
+            },
+            1, JS::default_attributes);
         return modules.register_host_module("registration-test", *native,
-            { "registerSchemes", "configuration", "seal", "origin", "secure" });
+            { "registerSchemes", "configuration", "seal", "origin", "secure", "cors" });
     };
 
     return Mite::run(argc, argv, hooks);

@@ -3,6 +3,7 @@
 #include "native/protocol/OriginPolicy.h"
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Infrastructure/ClientContextSnapshot.h>
+#include <LibWeb/Fetch/Infrastructure/HTTP/CORS.h>
 
 namespace Firefly::ProtocolFetch {
 struct Registration::Provider : RefCounted<Provider> {
@@ -68,11 +69,19 @@ bool allows_request(Web::Fetch::Infrastructure::FetchParams const& params)
         || client->global_kind != Client::GlobalKind::Window
         || client->is_window_of_a_top_level_navigable != Client::IsWindowOfATopLevelNavigable::Yes
         || !Protocols::is_standard_scheme(client->creation_url.scheme())
-        || !origin->is_same_origin(target) || !client->origin.is_same_origin(target)
-        || !client->creation_url.origin().is_same_origin(target) || request->is_navigation_request()
-        || request->mode() == Request::Mode::WebSocket
+        || !origin->is_same_origin(client->origin)
+        || !client->creation_url.origin().is_same_origin(*origin)
+        || request->is_navigation_request() || request->mode() == Request::Mode::WebSocket
         || !request->method().is_one_of("GET"sv, "HEAD"sv)
         || request->header_list()->contains("Range"sv))
+        return false;
+    if (!origin->is_same_origin(target)
+        && (!Protocols::is_cors_scheme(request->current_url().scheme())
+            || request->mode() != Request::Mode::CORS
+            || request->credentials_mode() == Request::CredentialsMode::Include
+            || request->use_cors_preflight()
+            || !Web::Fetch::Infrastructure::get_cors_unsafe_header_names(request->header_list())
+                .is_empty()))
         return false;
     if (request->destination().has_value()) {
         switch (*request->destination()) {
