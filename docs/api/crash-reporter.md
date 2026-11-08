@@ -87,7 +87,7 @@ app-specific folder when needed. It is created/secured on start. setPath accepts
 existing absolute native directory, at most 32,768 UTF-8 bytes without NUL, before
 native initialization. It returns undefined. Invalid paths or changing the path
 after initialization throw ERR_INVALID_ARG_VALUE. These methods do not require app
-readiness. Other app path names remain unsupported.
+readiness. Other implemented names follow the separate [application path contract](app-paths.md).
 
 The report directory is private (0700 on supported POSIX systems), saved text is
 read-only (0400), and raw main records remain locked while their owner lives. A clean

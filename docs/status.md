@@ -48,7 +48,7 @@ on macOS, including Unicode metadata, privacy/modes and main/global separation.
 Uploads, dynamic extras, report listing and Windows capture remain unsupported.
 The ordinary Code-OSS entry still rejects unsupported Chromium enable-features.
 With the explicit [LibJS engine overlay](guides/code-oss-adaptation.md#separate-implicit-chromium-defaults-explicitly),
-the real prepared entry now reaches unsupported app.setPath('userData', ...) (exit 1). Its implicit
+the real prepared entry now reaches unsupported protocol privilege corsEnabled (exit 1). Its implicit
 engine defaults are recorded with reasons; explicit incompatible user/sandbox options
 remain errors. The original sandbox branch is preserved and not bypassed.
 
@@ -58,6 +58,13 @@ macOS native/Node/Mite policy and actual public hidden-window acceptance pass,
 including independent owned-renderer Seatbelt activation and preload/page isolation.
 No main-process sandbox, broader Node preferences or Windows support is implied.
 Fresh Linux kernel acceptance remains required.
+
+[Application paths](api/app-paths.md) now select the actual native profile before
+readiness. Local macOS persistence acceptance verifies cookies/localStorage across
+two launches under explicit sessionData, independent application files, early
+language/theme and renderer sandbox state. SQLite-backed default storage is enabled;
+failed profile initialization preserves files and does not signal ready. Fresh Linux
+execution, Windows desktop and broader storage/concurrency/migration remain required.
 
 Partial [app.commandLine](api/command-line.md) now inspects native launch
 switches and applies supported lang changes, with startup-only CPU painting. Local

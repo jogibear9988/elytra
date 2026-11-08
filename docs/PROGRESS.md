@@ -8225,6 +8225,58 @@ then rerun the actual entry. Renderer/workbench, broader APIs, native auxiliary
 hosts/platform packaging and the original full specification remain unfinished;
 the full goal stays active.
 
+## 2026-11-08: Bind real userData/sessionData before native profile startup
+
+- Implement native app paths instead of returning overridden strings while keeping
+  an old temporary browser profile. Construct Qt/Core and the main bootstrap first;
+  seal selected paths, invoke upstream's protected initialization with the actual
+  --profile-path, activate queued language/theme and only then deliver readiness.
+  Enable upstream SQL-backed default cookie/Web Storage stores. Keep Ladybird
+  unchanged and Mite independent of native desktop libraries.
+- Own native argv buffers and Qt outside the application object so both outlive
+  the full WebView base destructor, helper shutdown and database flushes. Early
+  exits skip profile opening; initialization errors refuse ready and preserve
+  existing files. No live profile/database rebinding or private-header trick is used.
+- Add bounded native getPath/setPath for actual userData/sessionData/logs and
+  standard read paths, getAppPath and recursive setAppLogsPath. Default sessionData
+  follows userData unless explicitly selected. Keep crashDumps' independent rules.
+  Use safe package-name/entry-directory identities and private new directories;
+  document name/layout/macOS-log differences, symlinks, existing-directory setters,
+  profile sealing and the absence of automatic migration or broader path APIs.
+- Defer native language/theme settings until the chosen profile exists; retain
+  launch-only CPU policy. Reset each new main's default theme source to system
+  instead of inheriting a previous explicit dark override from persisted settings.
+  Preserve actual native sandboxing, preload limits and protocol boundaries.
+- Add native real-filesystem/Unicode/alias/rollback/budget/seal checks and a public
+  profile gate. Select separate application/session roots, inspect real settings/
+  SQLite files, and verify cookies/localStorage across two launches against the
+  same actual HTTP origin. Check early language/theme, isolated page capabilities
+  and independently inspect the exact owned renderer's OS sandbox. Test conflicting
+  config-file startup failure without ready/deletion and persistent theme reset in
+  no-window launches. Require gates in macOS aggregate and Linux Xvfb stages.
+  Refresh detailed API/status/Code-OSS docs and ADR 0133.
+
+Validation: local macOS Release build and final check-firefly-app-paths gate pass,
+including actual cookie/localStorage survival, selected storage roots, owned-renderer
+Seatbelt activation, profile failure preservation and theme restart behavior. Native
+path checks cover real Unicode directories, bounds, invalid setters, independent
+session selection, logs and lifecycle. Existing actual main/owned-helper crash,
+command-line language/compositor and public file-protocol regressions pass in one
+targeted batch. Actual no-window menu/contentTracing gates and Node/Mite geometry/
+sandbox policy remain green. Source style, generated JS freshness, unmodified pin
+and whitespace checks pass. Site validation passes (238 pages / 16,832 local links,
+resources and fragments). Only targeted hidden acceptance was used; no broad desktop
+suite or physical UI automation ran. Fresh Linux execution and Windows desktop,
+profile concurrency/recovery/migration and broader storage APIs remain unfinished.
+
+The real prepared Code-OSS entry with the explicit engine overlay and an existing
+isolated --user-data-dir passes the path setup and reaches unsupported protocol
+privilege corsEnabled (exit 1), recorded in build/code-oss-userdata-entry.log.
+Next implement the actual required protocol privileges/handlers, continue demanded
+locale/main/IPC/workbench/auxiliary-host APIs from measured errors, and rerun the
+real entry. No workbench launch or full-platform support is claimed. The original
+complete specification remains unfinished and the full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

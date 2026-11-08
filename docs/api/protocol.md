@@ -136,7 +136,7 @@ handle/unhandle, net.fetch, protocol interception, custom partitions, broader
 request fields/privileges and in-place document rebinding remain unavailable. The
 pinned Code-OSS entry still needs additional privileges/APIs. Without the engine
 overlay it rejects Chromium enable-features; the explicit LibJS engine overlay
-advances to unsupported app.setPath('userData', ...). No workbench launch follows from this subset.
+advances to unsupported protocol privilege corsEnabled. No workbench launch follows from this subset.
 
 ## Validation
 

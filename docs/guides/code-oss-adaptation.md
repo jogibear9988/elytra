@@ -119,7 +119,7 @@ python3 tooling/tests/test_code_oss_engine.py --mite build/release-mite/bin/mite
 The native CTest entry is mite-code-oss-engine. Local macOS Node/Mite exact-source,
 original/adapted Node behavior and eight negative policy cases pass. With the real
 prepared dependencies, the actual Firefly-host entry now reaches missing
-app.setPath('userData', ...) (exit 1). The original sandbox branch is unchanged: this adaptation
+protocol privilege corsEnabled (exit 1). The original sandbox branch is unchanged: this adaptation
 does not enable/disable sandboxing or claim a workbench launch. Fresh native
 Linux/Windows engine-overlay acceptance remains required.
 
@@ -134,7 +134,7 @@ nonzero result on failure. This is a real host run with original-fs and the
 implemented Electron alias. Without prepared dependencies, the trace stops at missing minimist. With the
 root production installation below, the actual trace without --libjs-engine reaches
 unsupported Chromium enable-features. With the explicit engine overlay above, it
-reaches unsupported app.setPath('userData', ...); both preserve exit 1 after registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
+reaches unsupported protocol privilege corsEnabled; both preserve exit 1 after registerHooks/promisify. This is not a desktop launch. See the [CLI contract](../api/firefly-cli.md).
 
 
 ## Prepare actual root production dependencies

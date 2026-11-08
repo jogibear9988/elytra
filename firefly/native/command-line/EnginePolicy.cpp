@@ -5,9 +5,17 @@
 #include <LibWebView/Settings.h>
 
 namespace Firefly::CommandLine {
-EnginePolicy::EnginePolicy()
-    : m_languages(WebView::Application::settings().languages())
+EnginePolicy::EnginePolicy(bool startup_cpu)
+    : m_startup_cpu(startup_cpu)
 {
+}
+
+void EnginePolicy::activate()
+{
+    m_languages = WebView::Application::settings().languages();
+    m_active = true;
+    if (m_requested_language.has_value())
+        WebView::Application::settings().set_languages({ *m_requested_language });
 }
 
 std::optional<Failure> EnginePolicy::apply(
@@ -16,14 +24,13 @@ std::optional<Failure> EnginePolicy::apply(
     if (name == "force-cpu-painting") {
         if (value.has_value() && !value->empty())
             return Failure { "ERR_INVALID_ARG_VALUE", "force-cpu-painting does not take a value" };
-        // The compositor exists before the script starts. Its CPU mode must
-        // be selected in native launch arguments, not an ineffective late option.
+        // CPU mode remains a launch-only policy; deferred profile initialization
+        // consumes this validated setting before starting the compositor.
         if (!initial)
             return Failure { "ERR_FIREFLY_COMMAND_LINE_TOO_LATE",
                 "CPU painting must be selected in launch arguments" };
 
-        if (WebView::Application::web_content_options().force_cpu_painting
-            != WebView::ForceCPUPainting::Yes)
+        if (!m_startup_cpu)
             return Failure { "ERR_FIREFLY_UNSUPPORTED_API",
                 "CPU painting was not applied at native startup" };
 
@@ -32,7 +39,9 @@ std::optional<Failure> EnginePolicy::apply(
 
     if (name == "lang") {
         if (!value.has_value()) {
-            WebView::Application::settings().set_languages(m_languages);
+            m_requested_language.clear();
+            if (m_active)
+                WebView::Application::settings().set_languages(m_languages);
             return {};
         }
 
@@ -51,7 +60,9 @@ std::optional<Failure> EnginePolicy::apply(
             return Failure { "ERR_INVALID_ARG_VALUE",
                 "Requested language is unavailable in this build" };
 
-        WebView::Application::settings().set_languages({ std::move(language) });
+        m_requested_language = language;
+        if (m_active)
+            WebView::Application::settings().set_languages({ std::move(language) });
         return {};
     }
 

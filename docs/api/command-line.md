@@ -66,7 +66,7 @@ Select CPU painting at launch:
 build/renderer/bin/firefly main.mjs --force-cpu-painting
 ```
 
-This valueless Firefly/Ladybird switch is parsed before native Application::create
+This valueless Firefly/Ladybird switch is parsed before the application bootstrap
 and passed to the real compositor at its launch. It forces the existing CPU painting
 mode; it is not a general disable-all-GPU/video/WebGL promise. appendSwitch or
 removeSwitch cannot change it after the application script begins and throw
@@ -75,8 +75,9 @@ application is created. lang can also be supplied initially as --lang=de-DE.
 Supported initial values are validated/applied before the main entry runs.
 
 All engine mutations seal when native readiness is scheduled; later mutations
-throw ERR_FIREFLY_COMMAND_LINE_TOO_LATE. The compositor's earlier boundary is
-intentional: assigning a late option would not reconfigure that running process.
+throw ERR_FIREFLY_COMMAND_LINE_TOO_LATE. CPU painting remains a launch-only policy in this subset. Deferred profile startup
+consumes that validated setting before compositor launch; script-time CPU changes
+are still unavailable.
 Unknown engine switch mutations use ERR_FIREFLY_UNSUPPORTED_API. In particular,
 enable-features, disable-features, disable-blink-features, js-flags, no-sandbox,
 remote-debugging-port, proxies and Chromium logging switches are not implemented.

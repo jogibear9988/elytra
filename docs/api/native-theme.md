@@ -51,8 +51,10 @@ system data. A selected light/dark source does not rewrite the OS preference.
 The native host reuses Ladybird's application appearance settings and Qt
 SystemAppearance API. It sets interface and website color preferences together,
 so existing views receive native color-preference messages and new views inherit
-the choice. Changes affect this Firefly application's temporary profile; global
+the choice. Changes affect this Firefly application's selected native profile; global
 macOS defaults are never written. Setting system removes the application override.
+A new main process starts at system; an earlier launch's persisted explicit source
+is reset unless the new bootstrap selects an override.
 
 The renderer's `prefers-color-scheme` queries follow the selected source. Tests
 check real CSS state, not a DOM class or value echoed by an IPC handler. Hidden

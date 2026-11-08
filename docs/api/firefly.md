@@ -41,6 +41,7 @@ app is an EventEmitter.
 | `app.isReady()` | boolean |
 | `app.whenReady()` | Shared Promise resolved at ready |
 | [app.enableSandbox()](app.md#appenablesandbox) | Before-ready native global requirement; boolean per-window sandbox:false is overridden |
+| [app paths](app-paths.md) | Real userData/sessionData profile selection, native path lookup, log-directory creation and getAppPath |
 | `app.quit()` | Request normal quit; cancellable before-quit, window close and will-quit |
 | `app.exit([exitCode = 0])` | Force exit without normal close cancellation; signed int32 code |
 
@@ -50,7 +51,7 @@ Nested quit requests coalesce; retry after cancellation is supported. Forced exi
 suppresses window-all-closed and normal quit cancellation, destroys windows and emits
 closed/quit. A current JS turn can finish before native termination.
 
-Platform activation/dock/Cmd-Q integration, beforeunload handling, general paths, single-instance locking, packaging metadata and most Electron app methods are
+Platform activation/dock/Cmd-Q integration, beforeunload handling, broader paths, single-instance locking, packaging metadata and most Electron app methods are
 not implemented. Calling an absent method throws an ordinary JS API error.
 
 ## BrowserWindow

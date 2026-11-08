@@ -35,8 +35,10 @@ window/load/quit trace and the [example guide](../examples/lifecycle.md) to run 
 | [quit()](#appquit) | undefined | Partial cancellable application shutdown |
 | [exit([exitCode])](#appexitexitcode) | undefined | Partial forced shutdown |
 | [enableSandbox()](#appenablesandbox) | undefined | Early native global sandbox requirement; overrides boolean per-window sandbox:false |
-| [getPath(name)](#crash-report-directory) | string | crashDumps only |
-| [setPath(name, path)](#crash-report-directory) | undefined | Existing absolute crashDumps directory before native initialization |
+| [getPath(name)](app-paths.md) | string | Native home/appData/userData/sessionData/logs/temp/exe; separate crashDumps contract |
+| [setPath(name, path)](app-paths.md#appsetpathname-directory) | undefined | Existing userData/sessionData/log directories; profile paths before readiness; independent crashDumps rules |
+| [getAppPath()](app-paths.md) | string | Actual entry directory |
+| [setAppLogsPath([path])](app-paths.md#appsetapplogspathdirectory) | undefined | Create and select native log directory |
 | [commandLine](command-line.md) | Native singleton | Real launch-switch observation, before-ready lang changes and startup-only CPU painting |
 | [EventEmitter methods](#eventemitter-methods) | Depends on method | Supported emitter subset |
 | [Other Electron app members](#unsupported-electron-app-surface) | Unavailable | Not native implementations |
@@ -315,7 +317,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 
 | Area | Examples still unavailable |
 | --- | --- |
-| App identity and paths | name, isPackaged, getName, setName, getVersion, getAppPath; getPath/setPath names other than crashDumps |
+| App identity and paths | name, isPackaged, getName, setName, getVersion; path names outside the documented subset |
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
 | OS integration | setUserTasks, setJumpList, addRecentDocument, clearRecentDocuments, dock, badgeCount |
@@ -337,7 +339,7 @@ app.getPath('crashDumps') / app.setPath('crashDumps', directory)
 Available before readiness. The [crashReporter reference](crash-reporter.md)
 describes the actual native path, directory validation, initialization lock and
 local capture/recovery. Other path names remain explicitly unsupported. This does
-not implement general userData/app identity or Chromium path policy.
+not implement app identity or general Chromium path policy. See [application paths](app-paths.md) for userData/sessionData and the actual native profile.
 
 ## Examples, changes and evidence
 

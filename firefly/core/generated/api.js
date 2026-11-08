@@ -1476,19 +1476,26 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
       if (typeof name !== "string") {
         throw error("ERR_INVALID_ARG_TYPE", "Path name must be a string");
       }
-      if (name !== "crashDumps") {
-        unsupported(`app.getPath(${name})`);
-      }
-      return native.crashDirectory();
+      return name === "crashDumps" ? native.crashDirectory() : native.appPathGet(name);
     }
     setPath(name, value) {
       if (typeof name !== "string" || typeof value !== "string") {
         throw error("ERR_INVALID_ARG_TYPE", "Path name/value must be strings");
       }
-      if (name !== "crashDumps") {
-        unsupported(`app.setPath(${name})`);
+      if (name === "crashDumps") {
+        native.crashDirectory(value);
+      } else {
+        native.appPathSet(name, value);
       }
-      native.crashDirectory(value);
+    }
+    getAppPath() {
+      return native.appPath;
+    }
+    setAppLogsPath(value) {
+      if (value !== void 0 && typeof value !== "string") {
+        throw error("ERR_INVALID_ARG_TYPE", "Log path must be a string");
+      }
+      native.appLogsSet(value);
     }
     isReady() {
       return ready;

@@ -7,11 +7,16 @@
 namespace Firefly::CommandLine {
 class EnginePolicy {
 public:
-    EnginePolicy();
+    explicit EnginePolicy(bool startup_cpu);
+
+    void activate();
 
     std::optional<Failure> apply(std::string_view, std::optional<std::string> const&, bool initial);
 
 private:
     Vector<String> m_languages;
+    Optional<String> m_requested_language;
+    bool m_active { false };
+    bool m_startup_cpu;
 };
 }

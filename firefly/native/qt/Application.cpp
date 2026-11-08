@@ -3,12 +3,15 @@
  * registered before application entry and disconnected before VM teardown.
  */
 
+#include "../app-paths/Host.h"
+#include "../app-paths/Paths.h"
 #include "../command-line/EnginePolicy.h"
 #include "../command-line/Host.h"
 #include "../command-line/State.h"
 #include "../platform/DesktopServices.h"
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
+#include "../theme/ThemeHost.h"
 #include "ApiSource.h"
 #include "Bridge.h"
 #include "core/EventLoop.h"
@@ -49,20 +52,36 @@ static ByteString runtime_directory()
     return ByteString(selected.string().c_str());
 }
 
+// Owned by ladybird_main: both Qt and borrowed native argv outlive the entire
+// WebView base destructor, including helper shutdown and database flushes.
+struct BootstrapStorage {
+    OwnPtr<QApplication> qt;
+    int qt_argc { 1 };
+    char qt_program[8] { "firefly" };
+    char* qt_argv[2] { qt_program, nullptr };
+    Vector<ByteString> native_owned;
+    std::vector<char*> native_argv;
+    Vector<StringView> native_strings;
+};
+
 class Application final : public WebView::Application {
-    WEB_VIEW_APPLICATION(Application)
 public:
-    Application()
+    Application(BootstrapStorage& storage, QString directory, bool startup_cpu)
         : WebView::Application(runtime_directory())
+        , m_storage(storage)
+        , m_paths(std::move(directory))
+        , m_engine(startup_cpu)
+        , m_startup_cpu(startup_cpu)
     {
+        defer_theme_settings();
+        create_platform_event_loop();
     }
 
     int run_script(int argc, char** argv, bool electron_compat)
     {
-        CommandLine::EnginePolicy engine_policy;
         CommandLine::State command_line(
             argc, argv, [&](auto name, auto const& value, bool initial) {
-                return engine_policy.apply(name, value, initial);
+                return m_engine.apply(name, value, initial);
             });
         if (auto error = command_line.apply_initial(); error.has_value()) {
             warnln("{}: {}", error->code.c_str(), error->message.c_str());
@@ -79,6 +98,7 @@ public:
             bridge = std::make_unique<Bridge>(
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
+            AppPaths::install_host(realm, *native, m_paths);
             CommandLine::install_host(realm, *native, command_line);
             std::error_code error;
             auto entry = std::filesystem::absolute(argv[1], error).parent_path().string();
@@ -120,6 +140,15 @@ public:
             });
             if (bridge->pump_jobs())
                 return jobs.status();
+            if (hooks.exit_code.has_value())
+                return *hooks.exit_code;
+            if (auto initialized = initialize_profile(); initialized.is_error()) {
+                warnln("Firefly native profile initialization failed: {}", initialized.error());
+                return 1;
+            }
+
+            m_engine.activate();
+            activate_theme_settings();
             command_line.seal();
             bridge->ready();
             poll.start();
@@ -136,7 +165,7 @@ private:
     void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&,
         WebView::WebContentOptions&) override
     {
-        browser.disable_sql_database = WebView::DisableSQLDatabase::Yes;
+        browser.disable_sql_database = WebView::DisableSQLDatabase::No;
         browser.enable_content_blocker = WebView::EnableContentBlocker::No;
     }
 
@@ -147,15 +176,43 @@ private:
 
     Core::EventLoop& create_platform_event_loop() override
     {
-        m_qt = make<QApplication>(arguments().argc, arguments().argv);
-        m_qt->setQuitOnLastWindowClosed(false);
+        if (m_loop)
+            return *m_loop;
+        m_storage.qt = make<QApplication>(m_storage.qt_argc, m_storage.qt_argv);
+        m_storage.qt->setQuitOnLastWindowClosed(false);
         Core::EventLoopManager::install(*new Ladybird::EventLoopManagerQt);
         m_loop = &Core::EventLoop::initialize_for_current_thread();
         static_cast<Ladybird::EventLoopImplementationQt&>(m_loop->impl()).set_main_loop();
         return *m_loop;
     }
 
-    OwnPtr<QApplication> m_qt;
+    ErrorOr<void> initialize_profile()
+    {
+        if (auto failure = m_paths.seal(); failure.has_value())
+            return Error::from_string_literal(
+                "Cannot prepare selected application/profile directories");
+        auto root = m_paths.session_root().toUtf8();
+        m_storage.native_owned.append("firefly"sv);
+        m_storage.native_owned.append("--profile-path"sv);
+        m_storage.native_owned.append(ByteString(root.data(), root.size()));
+        if (m_startup_cpu)
+            m_storage.native_owned.append("--force-cpu-painting"sv);
+        for (auto& argument : m_storage.native_owned) {
+            m_storage.native_argv.push_back(const_cast<char*>(argument.characters()));
+            m_storage.native_strings.append(argument.view());
+        }
+
+        auto argc = static_cast<int>(m_storage.native_argv.size());
+        m_storage.native_argv.push_back(nullptr);
+        Main::Arguments selected { argc, m_storage.native_argv.data(),
+            m_storage.native_strings.span() };
+        return initialize(selected);
+    }
+
+    BootstrapStorage& m_storage;
+    AppPaths::Paths m_paths;
+    CommandLine::EnginePolicy m_engine;
+    bool m_startup_cpu;
     Core::EventLoop* m_loop { nullptr };
 };
 }
@@ -191,19 +248,18 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     auto format = QSurfaceFormat::defaultFormat();
     format.setColorSpace(QColorSpace::SRgb);
     QSurfaceFormat::setDefaultFormat(format);
-    char program[] = "firefly";
-    char temporary[] = "--temporary-profile";
-    char cpu[] = "--force-cpu-painting";
-    std::vector<char*> browser_argv { program, temporary };
-    Vector<StringView> browser_strings { "firefly"sv, "--temporary-profile"sv };
-    if (cpu_painting) {
-        browser_argv.push_back(cpu);
-        browser_strings.append("--force-cpu-painting"sv);
+    std::error_code entry_error;
+    auto entry_directory
+        = std::filesystem::absolute(options.arguments[1], entry_error).parent_path().string();
+    if (entry_error)
+        return Error::from_string_literal("Cannot resolve application directory");
+    Firefly::BootstrapStorage storage;
+    int result;
+    {
+        auto app = adopt_own(*new Firefly::Application(storage,
+            QString::fromUtf8(entry_directory.data(), entry_directory.size()), cpu_painting));
+        result = app->run_script(options.argc(), options.arguments.data(), options.electron_compat);
     }
 
-    auto browser_argc = static_cast<int>(browser_argv.size());
-    browser_argv.push_back(nullptr);
-    Main::Arguments browser_args { browser_argc, browser_argv.data(), browser_strings.span() };
-    auto app = TRY(Firefly::Application::create(browser_args));
-    return app->run_script(options.argc(), options.arguments.data(), options.electron_compat);
+    return result;
 }
