@@ -21,7 +21,8 @@ A bounded [native HTML file input](api/file-input.md) now has local hidden Qt ch
 and actual native-view/helper File.text/basename/cancel/navigation acceptance. The
 BrowserWindow hook is wired; interactive platform sheets and complete application
 workflow remain unverified. An internal weak File/document origin registry now
-passes native identity/GC/limit tests; actual path delivery, public
+and one-shot request guard pass native identity/GC/limit/Page-delivery tests; actual
+chooser-to-helper path transport, public
 webUtils.getPathForFile and efficient large-file streaming remain missing.
 
 Local macOS Release now passes **77** runtime/component suites, adding custom process events

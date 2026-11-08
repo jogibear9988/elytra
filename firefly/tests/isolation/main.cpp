@@ -6,6 +6,7 @@
 #include "ErrorEventTest.h"
 #include "FileModulePolicyTest.h"
 #include "FileOriginTest.h"
+#include "FileRequestTest.h"
 #include "FunctionBridgeTest.h"
 #include "HandlerTest.h"
 #include "MessageEventTest.h"
@@ -154,6 +155,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_publication_getters(vm, *document));
     TRY(check_web_frame(vm, *document));
     TRY(check_file_origins(vm, *document));
+    TRY(check_file_requests(vm, *document));
     TRY(check_callback_bridge(vm, *document));
     TRY(check_redaction_bridge(vm, *document));
     TRY(check_binary_bridge(vm, *document));

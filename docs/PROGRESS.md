@@ -9016,6 +9016,63 @@ remote-resource contracts remain open. The real Code-OSS entry's allowServiceWor
 blocker and workbench open/edit/save acceptance are unchanged. Ladybird is unmodified,
 Mite remains independent and the full product goal stays active.
 
+## 2026-11-08 — One-shot native chooser request ownership
+
+- Resume from pushed b027246, which accepted the weak native File origin component
+  and was concrete tested implementation progress. Preserve the full original goal
+  and VS Code priority. Answer the user's status question explicitly: no workbench
+  exists and the actual entry still has the worker privilege blocker.
+- Inspect the next trusted path handoff. A basename/content match or list of active
+  documents would not bind a delayed result to the original pending input. Add the
+  required native one-shot ownership layer before wiring a parent/helper transport.
+  This is still a private component; no public getPathForFile or native wire claim.
+- Add weak Page/input/Document request records, monotonic serial/document tickets and
+  original multiple mode. Sweep collected, inactive, adopted/rehosted targets; bound
+  pending pages to 64. Replacing the native sender clears requests without serial
+  reuse. Sender callbacks enqueue/capture only, without reentrant Page mutation.
+- Match Page/serial/document before consuming a result. Reject stale/foreign responses
+  without cancelling a newer request. Root a matching original target and consume
+  before callbacks; validate exact document metadata, byte-backed data, original
+  single/multiple mode and count/per-file/aggregate budgets. Invalid matching results
+  cancel only the original input. A native guard admits only its original input and
+  exact selected span before the real Page/FileList path runs in the origin scope.
+- Compose the pinned Page.cpp with exact request/close/delivery guard insertions,
+  preserving all other bytes and rejecting hash/missing/duplicate seam drift. Handle
+  missing weak targets without dereference. Without a sender the normal SDK/browser
+  input path remains unchanged and does not fabricate provenance. Share the three
+  byte/count limits between the existing Qt chooser and native helper policy.
+- Extend non-GUI real-engine tests with actual Page pending-target handling, positive
+  native path lookup from controlled metadata, null input, replay/old-new request,
+  foreign page/document, malformed fields, wrong path, single/count/per-file/aggregate
+  overflow, cancellation, observed inactivity, sender replacement, input adoption and
+  collected weak targets. The first foreign-realm fixture left an extra upstream test
+  factory context current and failed settings-frame verification; explicitly restore
+  that context and only accept the later complete passing suite.
+- Update the API/status/VS Code/upstream documentation and ADR 0148 with the exact
+  component acceptance and still-missing trusted transport/public API.
+
+Validation: local macOS Release build and complete actual-engine isolation suite pass,
+including all new native Page/ticket/payload cases. Focused hidden Qt-view/owned SDK
+helper selection regression passes real 4 MiB File.text/arrayBuffer bytes, basename
+privacy, cancel and navigation. No actual chooser paths cross a native message in
+this slice: metadata is provided by controlled C++ tests, and no public webUtils API
+is installed. Native 64-page concurrency and fresh Linux/Windows remain unverified.
+The actual prepared Code-OSS entry is re-run against the fresh runtime with an
+existing temporary user-data directory: exit 1 remains protocol privilege
+allowServiceWorkers (build/code-oss-ticket-entry.log), so no startup advancement is
+claimed from this component. Style/generated-adapter/unmodified-upstream/site-link/
+whitespace checks pass. No physical desktop input automation or broad GUI suite ran.
+
+Remaining: install the helper sender and owned native request/result control messages
+with preserved IDs; bind actual parent connection/page/canonical document and dialog
+lifecycle to the ticket; send actual accepted paths plus the exact bounded byte batch.
+Then validate File wrapper passage and implement public webUtils.getPathForFile.
+Keep generic DOM/data/IPC refusal, and audit real Code-OSS startup rather than infer
+launch from private file tests. The last actual-entry allowServiceWorkers blocker,
+workbench open/edit/save, process events/metrics, MessagePorts, worker/cache/resources,
+large-file/streaming performance and platform-complete original goal remain open.
+Ladybird is unmodified, Mite remains independent and the full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

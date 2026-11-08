@@ -423,3 +423,9 @@ checks and GC-safe weak entries/tombstones. Re-run check-firefly-isolation and t
 focused native file-input regression. Main-to-helper path delivery and the public
 webUtils API are still missing; this observer does not accept either. Do not add
 File/DOM values to general IPC or infer paths from script-visible properties.
+
+[Chooser request ownership](../architecture/0148-native-file-request-ownership.md)
+adds checked Page request/close/exact-target delivery seams. Revalidate original
+multiple mode, monotonic serials, weak target/document/page identity, invalid-result
+cancellation and preservation of ordinary SDK requests without a sender. The native
+request scope does not itself implement the parent/helper transport or public API.

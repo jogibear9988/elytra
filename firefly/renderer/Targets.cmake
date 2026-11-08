@@ -119,7 +119,8 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PrincipalCallbackTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileOriginTest.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileOriginTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileRequestTest.cpp")
 target_include_directories(firefly-isolation-probe
                            PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper")
 target_link_libraries(

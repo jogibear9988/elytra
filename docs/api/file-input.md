@@ -49,7 +49,9 @@ Destruction drops completion before closing the dialog so it cannot call a dead 
 This does **not** implement Electron's `webUtils.getPathForFile`. The pinned upstream
 File/SelectedFile interfaces do not retain the native source path in a File object.
 An internal [weak File/document provenance registry](../architecture/0147-native-file-provenance-registry.md)
-and checked native input hook now pass local real-engine tests. Actual trusted
+and checked native input hook now pass local real-engine tests. The subsequent
+[one-shot native request guard](../architecture/0148-native-file-request-ownership.md)
+also passes in-process Page/File delivery tests. Actual trusted
 chooser-to-helper path delivery and a narrowly validated File-object contextBridge
 path are still required before the public API can be implemented. Deriving it from File.name, input.value or arbitrary
 JavaScript properties would permit spoofing. No such inference is made here.
