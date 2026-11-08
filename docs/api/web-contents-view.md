@@ -104,7 +104,8 @@ notices. Ladybird/vendor code remains unmodified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on these production objects, then fails
-at missing desktopCapturer. Audit and implement the demanded native desktop-capture contract next, then
+at missing Notification. Metadata-only desktop source support is now implemented with separately documented
+acceptance limits. Implement the demanded notification contract next, then
 continue the actual main graph. Import progress is not a VS Code
 window or integrated browser acceptance.
 

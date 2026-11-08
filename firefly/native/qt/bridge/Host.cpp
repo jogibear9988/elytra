@@ -36,6 +36,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     api = host;
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
+    desktop_capture
+        = DesktopCapture::install_host(realm, *host, *context, [this](std::string data) {
+              enqueue(0, "desktop-capture-result", ByteString(data.data(), data.size()));
+          });
     install_clipboard_host(realm, *host);
     CrashReporting::install_host(realm, *host);
     Tracing::install_host(realm, *host, tracing);

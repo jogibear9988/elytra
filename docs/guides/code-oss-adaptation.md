@@ -314,7 +314,7 @@ reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/na
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
 slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents and next fails linking
-desktopCapturer. The [real LibJS utility payload slice](../api/utility-process.md) has six
+Notification. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -341,7 +341,7 @@ acceptance; fresh hosted execution is not inferred from local success.
 
 Local actual Protocol binary-frame/FIFO/snapshot/echo/disconnect and moved once-helper
 acceptance passes on Electron/Firefly. The real ready/main graph now passes the
-utilityProcess/safeStorage imports and fails at missing desktopCapturer. The real LibJS utility
+utilityProcess/safeStorage imports and fails at missing Notification. The real LibJS utility
 fork/parentPort payload implementation has six passing native boundary tests; local
 Firefly/Electron public lifecycle, payload and parent-reaping acceptance also passes. This does not run the actual Code-OSS utility services. They
 require authentication forwarding and utilityProcess.postMessage with transferred
@@ -380,7 +380,7 @@ minimal ready/command-line app fixture. It does not modify the user's Login
 keychain or accept production post-ready app lifecycle. Real Firefly/Electron
 comparison separately accepts pre-ready guards only; post-ready Electron crypto
 is unverified. The current actual ready graph passes safeStorage and next fails
-linking desktopCapturer. Native utility/renderer endpoint transfer, demanded auth
+linking Notification. Native utility/renderer endpoint transfer, demanded auth
 forwarding and actual Code-OSS shared-service execution remain required; no
 workbench is accepted. See [storage scope](../api/safe-storage.md), including the
 Firefly-specific ciphertext and unavailable migration/async/platform providers.
@@ -397,7 +397,9 @@ fallback; native Linux/XCB and Windows execution remain unverified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on the production objects. Its next
-missing export is desktopCapturer. Audit the demanded native desktop-capture contract and rerun the actual graph;
-no capture result is fabricated. Integrated BrowserView still
+missing export is Notification. The metadata-only desktop source and empty-image
+APIs are implemented with separate policy/controlled-host/preflight acceptance;
+valid OS enumeration and media binding remain unaccepted. Rerun the actual graph
+after genuine notification support. Integrated BrowserView still
 requires unsupported session/subframe/CDP services; native ports/authentication and
 a working VS Code window remain missing. See [view scope](../api/web-contents-view.md).

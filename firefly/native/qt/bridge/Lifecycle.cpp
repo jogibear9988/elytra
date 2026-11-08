@@ -68,6 +68,8 @@ void Bridge::Impl::stop()
     sandbox.stop();
     tracing.reset();
     stop_protocols();
+    if (desktop_capture)
+        desktop_capture->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())

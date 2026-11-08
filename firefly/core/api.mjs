@@ -14,6 +14,8 @@ import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
 import createViews from './views/index.mjs';
 import createWebPreferences from './window/preferences.mjs';
+import createNativeImages from './native-image/index.mjs';
+import createDesktopCapture from './desktop-capture/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -157,6 +159,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      capture.stop();
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
@@ -179,6 +182,15 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const images = createNativeImages(error, unsupported);
+  const capture = createDesktopCapture(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported,
+    images.createEmpty
+  );
   const utilities = createUtilityProcesses(
     native.utility,
     native,
@@ -237,6 +249,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    capture.stop();
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
@@ -655,6 +668,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       resolveReady();
       return;
     }
+    if (type === 'desktop-capture-result') {
+      capture.dispatch(JSON.parse(data));
+      return;
+    }
     if (type === 'screen-changed') {
       screens.changed();
       return;
@@ -764,6 +781,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     screen: screens.screen,
     clipboard,
     ClipboardItem,
-    nativeTheme: theme.nativeTheme
+    nativeTheme: theme.nativeTheme,
+    desktopCapturer: capture.desktopCapturer,
+    nativeImage: images.nativeImage
   };
 }

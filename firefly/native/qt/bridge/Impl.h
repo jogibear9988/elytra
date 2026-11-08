@@ -4,6 +4,7 @@
  * destroys windows and cancels the QObject context before releasing VM roots.
  */
 #pragma once
+#include "../../desktop-capture/Host.h"
 #include "../../menu/ApplicationMenu.h"
 #include "../../sandbox/policy/Policy.h"
 #include "../../tracing/Recorder.h"
@@ -134,6 +135,7 @@ struct Bridge::Impl {
     SandboxPolicy::Policy sandbox;
     RefPtr<Protocols::FileRoutes> protocols;
     RefPtr<Core::Timer> protocol_timer;
+    std::shared_ptr<DesktopCapture::Controller> desktop_capture;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

@@ -150,3 +150,10 @@ composition, stable contents identity, ownership/reparenting, explicit cleanup a
 the webContents registry. Shared offscreen Firefly/Electron functional acceptance
 and the same complete hidden production Cocoa fixture pass; on-screen/GPU/AX
 acceptance and native Linux/XCB/Windows execution remain unverified.
+
+The [desktopCapturer reference](desktop-capturer.md) describes asynchronous source
+metadata, explicit zero-thumbnail options, permission boundaries and request
+limits. Its macOS provider is implemented, while valid OS enumeration remains
+untested; policy/controlled-dispatcher and no-prompt preflight evidence are scoped
+separately. The [nativeImage reference](native-image.md) covers the verified
+empty-image subset; nonempty images and media capture remain unavailable.

@@ -201,6 +201,12 @@ if(BUILD_TESTING)
         NAME mite-cjs-reentry
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_reentry.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-desktop-capture-policy
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_desktop_capture_policy.py" --mite
+            "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")

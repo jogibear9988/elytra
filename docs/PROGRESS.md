@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 97
+Mite is a working native LibJS runtime; the current macOS Release build has 98
 validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -9793,6 +9793,68 @@ Validation: rebuilt native Release runtime; CJS reentry/namespace/classification
 and resolve-hook gates all pass (5/5, 0.90 seconds). The ordinary actual Code-OSS ZIP
 consumer remains accepted; Ladybird is untouched. Desktop capture implementation
 continues separately; the full goal and VS Code workbench remain incomplete.
+
+## 2026-11-08 — Native desktop source metadata and empty NativeImage
+
+- Continue after canonical CJS reentry fix47e084b. Implement desktopCapturer and
+  nativeImage main-process exports, not import-only placeholders. The real SCK
+  provider enumerates screen/window metadata with native CGDirectDisplayID/CGWindowID;
+  screen display_id matches existing AppKit/CoreGraphics screen identities. Platforms
+  without a provider reject explicitly. No pixel, screenshot or stream API is added.
+- Implement the demanded zero-thumbnail contract. Either zero dimension skips image
+  work; default/nonzero thumbnails and requested icons fail explicitly. Return real
+  empty NativeImage values, not fake nonempty images: zero bytes/size, measured data
+  URL/aspect ratio/scale factors/template behavior and empty transforms. Nonempty
+  codecs and native handle APIs remain explicitly unsupported.
+- Separate provider/C++ dispatcher/JS policy. The provider admits8 actual OS requests
+  process-wide, bounds1024 sources/name4096UTF8bytes/aggregate1MiB, and releases slots
+  only on the actual OS callback. JS30-second deadline/cancel never refunds an OSslot.
+  Callback blocks retain plain metadata/weak native state only, never VM/GC objects.
+- Marshal worker completion through the owner QObject under a posting/teardown
+  mutex, then through the established bridge busy-VM/job path. Monotonic IDs cannot
+  be reused; cancellation/exit removes delivery authority. Stop invalidates native
+  dispatch before receiver/VM teardown. JS bounds pending requests, rejects shutdown,
+  validates canonical IDs/complete metadata before filtering and rechecks reentrant
+  option-getter exits. Source strings grant no renderer media capability.
+- Verify raw ID semantics against primary Chromium source: the third component is
+  a native-window registry token, not a process-ownership flag. Raw SCK source IDs
+  therefore end:0; remove the earlier uncommitted own-process assumption and reject
+  nonzero fabricated tokens. No Chromium registry or upstream patch is introduced.
+- Node/Mite policy units pass readiness/options, metadata/image projection, malformed
+  IDs/duplicates/UTF8/count/aggregate bounds, provider errors, synchronous/reentrant
+  completion, getter reads, quota/deadline/late completion and shutdown. Safe actual
+  Electron probes measured only malformed-option rejection and empty-image behavior;
+  no valid Electron capture request or TCC prompt was invoked.
+- Exact production Host.cpp compiles with a controlled native completion peer.
+  Real worker threads/Qt queues prove owner-only delivery, data/errors/once-only,
+  strict IDs, quotas, cancellation, stop, receiver deletion and callbacks after VM
+  teardown. No OS provider is linked into this component acceptance executable.
+- Genuine provider compiles and actual no-prompt CGpreflight/native display probe
+  passes. Valid ScreenCaptureKit enumeration is implemented but UNTESTED: it may
+  prompt even with0x0 thumbnails. Add a clearly opt-in native metadata/display-ID
+  fixture, never included in default tests and never run here. No source/capture,
+  installed-app permission, image/media binding or native Linux/Windows acceptance
+  is claimed. Code-OSS session/display-media handler support is still missing.
+- Rebuild production and exact-object offscreen frontend. Actual indexed-NLS/local
+  desktop main graph now passes desktopCapturer/nativeImage imports and next fails
+  linking Notification (build/code-oss-desktop-capture-ready.log). Entry/app-ready
+  observations are not a workbench. Update API/matrices/status/roadmap and ADR0159.
+
+Validation: all98 runtime gates pass the full regression (31.94 seconds), including
+new policy and prior CJS reentry. Native no-prompt provider and controlled dispatcher
+component checks pass. Final five identity/affected/line-ending/generation gates
+pass (1.03 seconds), including the corrected raw-window registry field. Exact runtime
+and Firefly generation, maintained-source formatting, upstream and whitespace checks
+pass. Production/offscreen Release plus both component targets build and run their
+stated no-prompt scope. The site accepts279 pages /19,754 local links. The actual
+ready probe reaches Notification; source enumeration/capture remain unaccepted. No desktop input, valid capture enumeration, screenshot pixels,
+OS permission request or visible window tests were run.
+
+Remaining: Notification and subsequent demanded native main services; actual SCK
+source acceptance, nonempty NativeImage/thumbnails/icons, session/media/permission
+binding, utility/renderer port handoff, auth, File/open-edit-save, extension/PTY hosts,
+webviews/remote and native platform/packages/releases. The full goal stays active;
+Mite independent, Ladybird unchanged, VS Code workbench still unaccepted.
 
 ## Resume
 

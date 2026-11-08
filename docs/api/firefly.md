@@ -160,8 +160,9 @@ ERR_INVALID_ARG_TYPE, ERR_INVALID_ARG_VALUE, ERR_INVALID_URL, ERR_ABORTED,
 ERR_TIMED_OUT and ERR_FAILED. Messages, stack traces and detailed network error
 fields are not generally Electron-compatible.
 
-Dialogs, popup/context menus, accelerators, Tray, shell, nativeImage, broader session/partition services,
+Dialogs, popup/context menus, accelerators, Tray, shell, nonempty native images, broader session/partition services,
 auto-updates and production signed/notarized packages remain unimplemented.
+The [empty NativeImage subset](native-image.md) is separately implemented and tested.
 Experimental macOS bundles and a gated build workflow are described in the
 [release guide](../development/releases.md). Native Windows
 and Linux desktop support still require adapters and platform-specific validation.
