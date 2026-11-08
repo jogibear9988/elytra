@@ -125,6 +125,7 @@ def main():
         "check-firefly-power-save-host",
         "check-firefly-power-save-unsupported",
         "check-firefly-shell-host",
+        "check-firefly-fork",
         "check-firefly-shell-unavailable",
         "check-firefly-system-preferences-host",
         "check-firefly-system-preferences-unavailable",

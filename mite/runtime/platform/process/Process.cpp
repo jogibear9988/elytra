@@ -107,8 +107,11 @@ static char const* architecture()
 #endif
 }
 
-JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm& realm)
+JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(
+    JS::VM& vm, JS::Realm& realm, std::shared_ptr<ProcessExitState> exit_state)
 {
+    if (!exit_state)
+        exit_state = std::make_shared<ProcessExitState>();
     GC::Root process { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
     auto constant = JS::Attribute::Enumerable | JS::Attribute::Configurable;
     process->define_direct_property("platform"_utf16, text(vm, native_platform()), constant);
@@ -155,6 +158,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
 
     process->define_direct_property(
         "execPath"_utf16, text(vm, executable.data()), JS::default_attributes);
+    process->define_direct_property(
+        "execArgv"_utf16, TRY(JS::Array::create(realm, 0)), JS::default_attributes);
     process->define_direct_property("version"_utf16, text(vm, "v0.1.0"), JS::default_attributes);
     auto versions = JS::Object::create(realm, realm.intrinsics().object_prototype());
     versions->define_direct_property("mite"_utf16, text(vm, "0.1.0"), constant);
@@ -231,12 +236,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
         0, JS::default_attributes);
     host->define_native_function(
         realm, "exit"_utf16,
-        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32())
-                return vm.throw_completion<JS::TypeError>("Internal exit code must be int32"_utf16);
-            std::exit(vm.argument(0).as_i32());
+        [exit_state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (!vm.argument(0).is_int32() || !vm.argument(1).is_object())
+                return vm.throw_completion<JS::TypeError>("Invalid internal process exit"_utf16);
+            auto code = TRY(emit_process_exit(
+                vm, vm.argument(1).as_object(), *exit_state, vm.argument(0).as_i32(), false));
+            std::exit(code);
         },
-        1, JS::default_attributes);
+        2, JS::default_attributes);
     auto source
         = Utf16String::from_utf8(StringView(MITE_PROCESS_SOURCE, sizeof(MITE_PROCESS_SOURCE) - 1));
     auto parsed = JS::Script::parse(source, realm, "mite:process"sv);

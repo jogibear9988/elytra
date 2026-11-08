@@ -218,6 +218,10 @@
     "terminalEncoding.ts": {
       "upstream": "src/vs/base/node/terminalEncoding.ts",
       "sha256": "a2ad5ed2d2da5335c6a1d0aaf114902168c09efa5c330b0c359e951c928efc00"
+    },
+    "ipc-cp-node.ts": {
+      "upstream": "src/vs/base/parts/ipc/node/ipc.cp.ts",
+      "sha256": "5fbef7f123ed24eab82bddf8e9aeb361d21dbaf5d56eda16f94e2458c26bbb05"
     }
   }
 }

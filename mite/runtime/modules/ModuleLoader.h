@@ -28,7 +28,8 @@ class ModuleLoader {
 public:
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
 
-    JS::ThrowCompletionOr<void> install_globals(bool allow_process_signals = false);
+    JS::ThrowCompletionOr<void> install_globals(
+        bool allow_process_signals = false, bool fork_child = false);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Object>> builtin_exports(std::string const& name)
     {
@@ -152,6 +153,7 @@ private:
 
     static URL::URL path_to_url(std::filesystem::path const&);
 
+    bool m_fork_child { false };
     JS::VM& m_vm;
     JS::Realm& m_realm;
     EventLoop& m_event_loop;

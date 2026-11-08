@@ -30,6 +30,8 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
+#include <vector>
 
 static void write_text(FILE* stream, Utf16View text)
 {
@@ -87,6 +89,36 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite "
              "--version");
         return argc == 1 ? 1 : 0;
+    }
+
+    // Only the explicit internal role may attach inherited descriptor 3. The
+    // environment marker alone never turns an ordinary application into a child.
+    bool fork_child = argc > 1 && std::string_view(argv[1]) == "--mite-fork-child";
+    std::vector<char*> fork_arguments;
+    if (fork_child) {
+        auto* descriptor = std::getenv("MITE_FORK_CHANNEL");
+        if (argc < 3 || !descriptor || std::string_view(descriptor) != "3") {
+            fputs("mite: fork-child role requires a script and inherited channel 3\n", stderr);
+            return 9;
+        }
+        // Validate before reading the entry or creating a loop: otherwise a
+        // missing inherited fd can be reused by our own libuv wakeup pipe.
+        if (uv_guess_handle(3) != UV_NAMED_PIPE) {
+            fputs("mite: fork-child inherited channel is not a pipe\n", stderr);
+            return 9;
+        }
+        // Hidden bootstrap state is not application argv/environment or execArgv.
+        if (uv_os_unsetenv("MITE_FORK_CHANNEL")) {
+            fputs("mite: cannot retire fork bootstrap environment\n", stderr);
+            return 9;
+        }
+
+        fork_arguments.push_back(argv[0]);
+        for (int index = 2; index < argc; ++index)
+            fork_arguments.push_back(argv[index]);
+        fork_arguments.push_back(nullptr);
+        --argc;
+        argv = fork_arguments.data();
     }
 
     std::string filename;
@@ -166,7 +198,9 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     // Initialize the owned libuv loop before process queries: Windows libuv's
     // uv_os_getppid uses WinAPI pointers initialized by uv_loop_init.
     Mite::EventLoop event_loop(*vm, report_exception);
-    auto process_result = Mite::create_process(*vm, realm);
+
+    auto exit_state = std::make_shared<Mite::ProcessExitState>();
+    auto process_result = Mite::create_process(*vm, realm, exit_state);
     if (process_result.is_error()) {
         report_exception(process_result.error_value());
         vm->pop_execution_context();
@@ -193,6 +227,16 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     process->define_direct_property(
         "argv"_utf16, JS::Array::create_from(realm, args), JS::default_attributes);
 
+    if (filename == "[eval]") {
+        GC::RootVector<JS::Value> exec_args;
+        for (int index = 1; index <= 2; ++index)
+            exec_args.append(JS::PrimitiveString::create(*vm,
+                Utf16String::from_utf8_with_replacement_character(
+                    StringView(argv[index], strlen(argv[index])))));
+        process->define_direct_property(
+            "execArgv"_utf16, JS::Array::create_from(realm, exec_args), JS::default_attributes);
+    }
+
     auto installed = event_loop.install(realm);
     if (installed.is_error()) {
         report_exception(installed.error_value());
@@ -203,7 +247,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     auto entry_path
         = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
-    auto globals = modules.install_globals(hooks.allow_process_signals);
+    auto globals = modules.install_globals(hooks.allow_process_signals, fork_child);
     if (globals.is_error()) {
         report_exception(globals.error_value());
         vm->pop_execution_context();
@@ -300,8 +344,21 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
 
     if (hooks.exit_code.has_value())
         status = *hooks.exit_code;
+    bool pending_before_exit = event_loop.has_pending_work();
+    auto exit_notice = emit_process_exit(
+        *vm, *process, *exit_state, status, status != 0 || hooks.exit_code.has_value());
+    if (exit_notice.is_error()) {
+        report_exception(exit_notice.error_value());
+        status = 1;
+    } else {
+        status = hooks.exit_code.has_value() ? *hooks.exit_code : exit_notice.value();
+    }
+
     stop_host();
-    if ((status || hooks.terminate_pending_work_on_stop) && event_loop.has_pending_work()) {
+    if ((status || hooks.terminate_pending_work_on_stop || !pending_before_exit)
+        && event_loop.has_pending_work()) {
+        // Terminal callbacks cannot extend lifetime with new blocking work. Hosts
+        // already stopping with pending work retain their explicit stop policy.
         // Fatal termination must not wait for a blocking filesystem worker (e.g.
         // a FIFO with no writer). The OS reclaims requests and handles at exit.
         fflush(nullptr);

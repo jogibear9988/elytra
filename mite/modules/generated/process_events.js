@@ -23,6 +23,13 @@ function installProcessEvents(host, process) {
     "worker",
     "workerMessage"
   ]);
+  if (host.childIpc) {
+    reserved.delete("message");
+    reserved.delete("disconnect");
+  }
+  if (host.exitEvents === true) {
+    reserved.delete("exit");
+  }
   function isSignal(type) {
     return typeof type === "string" && Object.hasOwn(signals, type);
   }

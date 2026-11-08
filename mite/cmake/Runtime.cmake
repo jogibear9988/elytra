@@ -91,6 +91,7 @@ function(mite_add_runtime target root js_target)
         modules/PackageResolver
         # platform/process
         platform/process/Process
+        platform/process/Exit
         platform/process/Timing
         platform/process/Signals
         platform/process/ChildProcess

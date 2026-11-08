@@ -5,6 +5,8 @@
  * Native dependencies are supplied by the embedding loader. One factory call
  * constructs the shared builtin instance for one runtime/realm.
  */
+import createIpcChannel from './ipc-channel.mjs';
+
 export default function createChildProcessModule(host) {
   const native = host.native;
   const Buffer = host.Buffer;
@@ -212,12 +214,20 @@ export default function createChildProcessModule(host) {
       native.ref(children.get(this).id, -1, false);
     }
 
-    send() {
-      unsupported('ChildProcess IPC');
+    send(...args) {
+      const channel = children.get(this)?.ipc;
+      if (!channel) {
+        unsupported('ChildProcess IPC without a fork channel');
+      }
+      return channel.send(...args);
     }
 
     disconnect() {
-      unsupported('ChildProcess IPC');
+      const channel = children.get(this)?.ipc;
+      if (!channel) {
+        unsupported('ChildProcess IPC without a fork channel');
+      }
+      return channel.disconnect();
     }
 
     [Symbol.dispose]() {
@@ -227,7 +237,7 @@ export default function createChildProcessModule(host) {
     }
   }
 
-  function modes(value) {
+  function modes(value, ipc = false) {
     if (value === undefined) {
       value = 'pipe';
     }
@@ -240,11 +250,14 @@ export default function createChildProcessModule(host) {
     if (!Array.isArray(value)) {
       fail(TypeError, 'ERR_INVALID_ARG_VALUE', 'stdio must be an array or string');
     }
-    if (value.length > 3) {
+    if (value.length > (ipc ? 4 : 3)) {
       unsupported('Additional stdio descriptors or IPC');
     }
-    return Array.from({ length: 3 }, (_, index) => {
+    return Array.from({ length: ipc ? 4 : 3 }, (_, index) => {
       const mode = value[index] ?? 'pipe';
+      if (ipc && index === 3 && mode === 'ipc') {
+        return -3;
+      }
       if (mode === 'pipe') {
         return -1;
       }
@@ -261,7 +274,7 @@ export default function createChildProcessModule(host) {
     });
   }
 
-  function options(file, args, opts) {
+  function options(file, args, opts, ipc = false) {
     text(file, 'file');
     if (!file) {
       fail(TypeError, 'ERR_INVALID_ARG_VALUE', 'file must not be empty');
@@ -342,7 +355,7 @@ export default function createChildProcessModule(host) {
       publicArgs,
       env: entries,
       cwd,
-      stdio: modes(opts.stdio),
+      stdio: modes(opts.stdio, ipc),
       detached: !!opts.detached,
       windowsHide: !!opts.windowsHide,
       windowsVerbatimArguments: !!opts.windowsVerbatimArguments,
@@ -352,7 +365,11 @@ export default function createChildProcessModule(host) {
   }
 
   function spawn(file, args, opts) {
-    const spec = options(file, args, opts);
+    return spawnImpl(file, args, opts, false);
+  }
+
+  function spawnImpl(file, args, opts, ipc) {
+    const spec = options(file, args, opts, ipc);
     const child = new ChildProcess(token);
     const c = {
       id: null,
@@ -361,7 +378,9 @@ export default function createChildProcessModule(host) {
       settled: false,
       closed: false,
       streams: [],
-      timer: null
+      timer: null,
+      ipc: null,
+      ipcClosed: !ipc
     };
     children.set(child, c);
 
@@ -369,6 +388,7 @@ export default function createChildProcessModule(host) {
       if (
         c.processClosed &&
         c.settled &&
+        c.ipcClosed &&
         !c.closed &&
         c.streams.every((stream) => stream === null || stream.closed)
       ) {
@@ -400,6 +420,13 @@ export default function createChildProcessModule(host) {
       } else if (kind === 'processClose') {
         c.processClosed = true;
         maybeClose();
+      } else if (index === 3) {
+        if (c.ipc) {
+          c.ipc.receive(kind, value);
+        } else if (kind === 'pipeClose') {
+          c.ipcClosed = true;
+          maybeClose();
+        }
       } else {
         const stream = c.streams[index];
         if (!stream) {
@@ -436,6 +463,8 @@ export default function createChildProcessModule(host) {
     child.spawnargs = spec.publicArgs;
     c.failed = !!result.status;
     c.processClosed = !(result.handles & 8);
+    // Even failed launches expose a fork channel until its close notification is delivered.
+    c.ipcClosed = !ipc;
     c.streams = spec.stdio.map((mode, index) =>
       mode === -1 ? (index === 0 ? new Input(c) : new Output(c, index)) : null
     );
@@ -444,6 +473,39 @@ export default function createChildProcessModule(host) {
     for (const stream of c.streams) {
       if (stream) {
         stream.once('close', maybeClose);
+      }
+    }
+    if (ipc) {
+      c.ipc = createIpcChannel({
+        target: child,
+        Buffer,
+        tick,
+        systemError,
+        native: {
+          write: (bytes, callback) => native.ipcWrite(c.id, bytes, callback),
+
+          shutdown: (callback) => native.ipcShutdown(c.id, callback),
+
+          close: () => native.closePipe(c.id, 3),
+
+          ref: (value) => native.ref(c.id, 3, value)
+        },
+
+        onClosed() {
+          c.ipcClosed = true;
+          maybeClose();
+        }
+      });
+      if (result.status === 0) {
+        const status = native.read(c.id, 3, true);
+        if (status) {
+          tick(() => c.ipc.receive('pipeError', status));
+        }
+      } else if (result.handles & 16) {
+        native.closePipe(c.id, 3);
+      } else {
+        // Pipe initialization itself can fail before a native close callback exists.
+        tick(() => c.ipc.receive('pipeClose'));
       }
     }
     if (result.status) {
@@ -480,6 +542,107 @@ export default function createChildProcessModule(host) {
       }
     }
     return child;
+  }
+
+  /** Launch another LibJS runtime with one inherited JSON IPC descriptor, never Node/V8. */
+  function fork(modulePath, args, value) {
+    if (modulePath instanceof host.URL) {
+      modulePath = host.fileURLToPath(modulePath);
+    }
+    text(modulePath, 'modulePath');
+    if (!modulePath) {
+      fail(TypeError, 'ERR_INVALID_ARG_VALUE', 'modulePath must not be empty');
+    }
+    if (!Array.isArray(args)) {
+      if (args !== undefined && args !== null) {
+        value = args;
+      }
+      args = [];
+    }
+    if (value === undefined || value === null) {
+      value = {};
+    }
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'fork options must be an object');
+    }
+    const opts = { ...value };
+    const supported = new Set([
+      'cwd',
+      'env',
+      'execPath',
+      'execArgv',
+      'serialization',
+      'silent',
+      'stdio',
+      'detached',
+      'windowsHide',
+      'windowsVerbatimArguments',
+      'timeout',
+      'killSignal'
+    ]);
+    for (const name of Reflect.ownKeys(opts)) {
+      if (!supported.has(name)) {
+        unsupported('fork option ' + String(name));
+      }
+    }
+    if (opts.execPath !== undefined && opts.execPath !== host.process.execPath) {
+      unsupported('Foreign fork execPath');
+    }
+    // Parent eval source is never inherited; this subset has no inheritable engine flags.
+    const flags = opts.execArgv === undefined ? [] : opts.execArgv;
+    if (!Array.isArray(flags)) {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'fork execArgv must be an array');
+    }
+    for (const flag of flags) {
+      text(flag, 'execArgv');
+    }
+    if (flags.length) {
+      unsupported('fork engine flags');
+    }
+    if (opts.serialization !== undefined && opts.serialization !== 'json') {
+      unsupported('fork advanced serialization');
+    }
+    if (opts.silent !== undefined && typeof opts.silent !== 'boolean') {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'fork silent must be a boolean');
+    }
+    let stdio = opts.stdio;
+    if (stdio === undefined) {
+      stdio = opts.silent ? 'pipe' : 'inherit';
+    }
+    if (typeof stdio === 'string') {
+      if (!['pipe', 'ignore', 'inherit'].includes(stdio)) {
+        unsupported('fork stdio ' + stdio);
+      }
+      stdio = [stdio, stdio, stdio, 'ipc'];
+    } else if (Array.isArray(stdio)) {
+      stdio = stdio.slice();
+      if (stdio.length !== 4 || stdio[3] !== 'ipc' || stdio.slice(0, 3).includes('ipc')) {
+        unsupported('fork requires exactly one IPC descriptor at fd 3');
+      }
+    } else {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'fork stdio must be an array or string');
+    }
+    const selected = opts.env ?? host.process.env;
+    if (!selected || typeof selected !== 'object') {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'fork env must be an object');
+    }
+    const env = Object.create(null);
+    for (const key in selected) {
+      if ((host.platform === 'win32' ? key.toUpperCase() : key) !== 'MITE_FORK_CHANNEL') {
+        env[key] = selected[key];
+      }
+    }
+    env.MITE_FORK_CHANNEL = '3';
+    delete opts.execPath;
+    delete opts.execArgv;
+    delete opts.serialization;
+    delete opts.silent;
+    return spawnImpl(
+      host.process.execPath,
+      ['--mite-fork-child', modulePath, ...args],
+      { ...opts, stdio, env },
+      true
+    );
   }
 
   /** Collect bounded output while the native spawn/pipe lifecycle remains authoritative. */
@@ -702,5 +865,33 @@ export default function createChildProcessModule(host) {
 
   attachPromisify(execFile);
   attachPromisify(exec);
-  return { spawn, execFile, exec, ChildProcess };
+  if (host.childIpc) {
+    let channel;
+    const status = native.childIpcAttach(3, (kind, index, value) => channel.receive(kind, value));
+    if (status) {
+      throw systemError(status, 'IPC attach');
+    }
+    channel = createIpcChannel({
+      target: host.process,
+      Buffer,
+      tick,
+      systemError,
+      childMode: true,
+      native: {
+        write: (bytes, callback) => native.childIpcWrite(bytes, callback),
+
+        shutdown: (callback) => native.childIpcShutdown(callback),
+
+        close: () => native.childIpcClose(),
+
+        ref: (value) => native.childIpcRef(value)
+      }
+    });
+    const reading = native.childIpcRead(true);
+    if (reading) {
+      channel.close();
+      throw systemError(reading, 'IPC read');
+    }
+  }
+  return { spawn, fork, execFile, exec, ChildProcess };
 }

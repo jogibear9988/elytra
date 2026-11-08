@@ -188,6 +188,13 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_child_process.py"
                 --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-process-exit
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_exit.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-fork
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fork.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-cjs-namespace-gc
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_namespace_gc.py"

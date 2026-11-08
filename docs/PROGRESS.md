@@ -10157,6 +10157,78 @@ actual workbench/File/open-edit-save, extension/PTY, further session/media/image
 real notification/SCK/permission/physical event and visible launch acceptance,
 webviews/remote, native platforms/packages/releases. The full goal remains active.
 
+## 2026-11-08 — Genuine Mite fork/JSON IPC and synchronous process exit
+
+- Resume from pushed cf31e05 and actual missing child_process.fork import. Extend
+  Mite's existing libuv process/pipe service with a fourth duplex byte channel,
+  preserving ordinary three-slot stdio/process mask behavior. No Node/V8 runtime,
+  LibWeb/Firefly dependency or Ladybird source modification. Maintained ESM owns
+  JSON policy in a separate IPC module; native owns handles, bytes and callbacks.
+- Implement self-fork with inherited/default stdio, silent pipes, env/cwd/file URL/
+  argv snapshots, JSON send/completion/pressure, connected/channel, disconnect,
+  message/internalMessage and ref/unref. Wire frames cap at 1 MiB including newline;
+  64 writes/4 MiB backlog and 128 KiB pressure. Buffer 64 messages/4 MiB before a
+  listener and replay FIFO; child queues alone never manufacture an event-loop ref.
+  Foreign executables, engine flags, advanced serialization and handle transfer
+  fail explicitly. Additional IPC descriptors remain unavailable on ordinary spawn.
+- Add an explicit internal runtime role with descriptor 3 and environment marker.
+  Validate before file/VM/loop initialization can reuse a missing descriptor for
+  the loop's own wakeup pipe (caught by negative bootstrap tests). A marker alone
+  cannot install process IPC. Hide role/marker from child argv/execArgv/env; expose
+  truthful file/eval execArgv. Eager child initialization installs process.send and
+  admits message/disconnect events only under the private capability. parentPort
+  is absent: Node IPC cannot select Code-OSS's Firefly utility protocol by mistake.
+- Firefly routes that role into standalone Mite before any Qt/compositor/desktop
+  setup. Exact production application objects pass parent ready → same executable
+  child with deliberately invalid Qt plugin → native JSON snapshot reply → actual
+  child exit/reaping, with no desktop imports or utility capabilities in the child.
+  This batch is entirely windowless/offscreen, not a Cocoa/GPU acceptance claim.
+- Native pending write/shutdown callback roots retire before loop teardown; libuv
+  close/completion drains retained native storage without JS after VM retirement.
+  Independent child processes are not killed at parent VM teardown. Failed forks
+  retain a closing IPC facade with asynchronous EPIPE/CHANNEL_CLOSED; explicit
+  channel ref choices override automatic write/listener holds. Native EOF and
+  completed writes do not claim application receipt or perfect Node close timing.
+- Actual unchanged Code-OSS ipc.cp Client/Server demanded process.once('exit').
+  Implement one private native exit state shared by explicit and orderly exit,
+  before host teardown. It emits once, supports listener-selected code, immediate
+  nested exit and uncaught-listener failure. Preserve explicit host status and
+  existing pending-work stop policy; new blocking exit work cannot extend lifetime.
+  Timers/ticks are not driven. Node24 natural-exit Promise reactions differ: Mite
+  currently does not drain those; this intentional difference is documented.
+- Real Node/Mite self-child tests pass typed/base64 FIFO snapshots, 768 KiB pressure,
+  late listeners, spawn failure, callbacks, EOF/disconnect/errors, reference policy
+  and post-parent independent child survival. Controlled channel policy is labeled
+  separately. Eight real Node/Mite process-exit cases pass, alongside CLI marker/
+  inherited-fd rejection and ordinary-process capability denial. Both runtimes run
+  the new modern ESM fork-job example and print [2,4,6]. No native Windows/Linux
+  fork acceptance is claimed from these local macOS tests.
+- Vendor exact ipc.cp TypeScript source/license at the existing Code-OSS pin; the
+  unchanged compiled Client/Server passes under actual Node/Mite: 512 KiB VSBuffer/
+  base64, concurrent calls, queued sender, remote errors, events and natural child
+  exit. Verify 44 compiled dependencies including NLS. It is a real transport
+  component, not the full watcher or extension host. No source consumer is replaced.
+- Add API/ADR0165/example and update compatibility/current blockers. Wire standalone
+  fork/exit gates into CTest and same-executable Firefly acceptance into release and
+  Linux native batch (fresh hosted results pending). Final actual ready diagnostic
+  passes fork and next fails linking fs.watchFile in baseWatcher suspended-path
+  recovery (build/code-oss-fork-final-ready.log). Entry/app-ready are not a workbench.
+
+Validation: full 105-suite runtime regression passes (38.63 seconds). After the
+final bootstrap hardening, complete fork/reference/policy/capability checks pass.
+Exact-object Firefly target and production binaries rebuild, and registered
+check-firefly-fork passes. Actual pinned Code-OSS IPC component and eight exit
+cases pass. All 9 final focused process/IPC/dependency/generation/checkout gates
+pass (17.76 seconds). Maintained formatting, generation, upstream and whitespace
+checks pass. The site accepts 290 pages and 20,540 local links/resources/fragments. No visible desktop/window/input test ran.
+
+Remaining: native fs.watchFile/unwatchFile (uv_fs_poll, shared StatWatcher,
+zero/missing/reappearance Stats, interval/ref/listener cleanup), actual watcher/
+workbench/File/open-edit-save, native utility/renderer endpoint/auth handoff,
+extension/PTY, further media/session/images, actual permission/notification/SCK/
+physical-event/visible launch acceptance, webviews/remote and native platforms/
+packages/releases. The full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

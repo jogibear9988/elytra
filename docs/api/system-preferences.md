@@ -171,7 +171,7 @@ CI and release builds, with controlled/read-only macOS checks on release; fresh
 hosted execution requires its own evidence.
 
 The actual pinned Code-OSS local-desktop/NLS ready graph passes this export and
-next fails linking `child_process.fork`, reached through the main file-system
-provider → watcher client → Node IPC component. This is an import observation,
-not an accepted watcher, extension host, VS Code window or open/edit/save workflow.
-See [VS Code status](../compatibility/vscode.md).
+now also passes fork; it next fails linking fs.watchFile in the suspended-path
+watcher. The separate unchanged IPC Client/Server component passes genuine Mite
+fork/JSON messages. Neither gate accepts a complete watcher, extension host,
+VS Code window or open/edit/save workflow. See [VS Code status](../compatibility/vscode.md).

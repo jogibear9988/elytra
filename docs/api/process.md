@@ -167,11 +167,11 @@ child-management and uncatchable signals are deliberately excluded. No more than
 exceeding that bound throws ERR_MITE_SIGNAL_LIMIT until closes complete. A name
 absent from the host signal constants remains an ordinary custom event.
 
-Registering `beforeExit`, `exit`, `uncaughtException`, `uncaughtExceptionMonitor`,
-`unhandledRejection`, `rejectionHandled`, `warning`, `message`, `disconnect`,
-`multipleResolves`, `worker` or `workerMessage` throws
-ERR_MITE_UNSUPPORTED_PROCESS_EVENT. These require real lifecycle/rejection/IPC
-integration and are not simulated by an otherwise working emitter. process.kill
+Registering `beforeExit`, `uncaughtException`, `uncaughtExceptionMonitor`,
+`unhandledRejection`, `rejectionHandled`, `warning`, `multipleResolves`, `worker`
+or `workerMessage` throws
+ERR_MITE_UNSUPPORTED_PROCESS_EVENT. `message`/`disconnect` also reject outside
+an owned fork child. Other lifecycle/rejection paths require real integration and are not simulated by an otherwise working emitter. process.kill
 and arbitrary signal support remain absent. See
 [ADR 0104](../architecture/0104-process-events-signals.md).
 
@@ -202,3 +202,31 @@ boundaries/failure propagation; they are not OS measurements. The locked real
 time-span package exercises the native BigInt clock through the ordinary ESM/npm
 loader. Broader provider/platform/long-uptime/embedding coverage remains open.
 Baseline: [Node 24.15 process](https://nodejs.org/download/release/v24.15.0/docs/api/process.html).
+
+## Exit notification
+
+A synchronous exit event now runs once before orderly runtime/host teardown and
+before explicit process.exit. It receives the selected code, leaves ordinary
+undefined exitCode unchanged for a successful natural exit, and observes listener
+updates to exitCode. process.exit(undefined) clears a previously selected code;
+omitting the argument retains it. A nested process.exit immediately terminates
+without a second emission or remaining listener callbacks. Throwing listeners
+propagate; uncaught failures default to code 1.
+
+No timer, nextTick or asynchronous native work is driven after the terminal
+notification. Mite also does not drain new Promise reactions then; Node 24 can run
+those at natural (but not explicit) exit, an intentional current difference.
+New blocking work cannot extend terminal lifetime. Hosts already stopping with
+pending work retain their explicit pending-work policy. This is not beforeExit,
+rejection/exception recovery or a cancellable exit API.
+
+[Eight real Node/Mite exit cases](../../tooling/tests/test_process_exit.py) pass
+locally on macOS. Fresh Windows/Linux acceptance remains required. These callbacks
+are sufficient for the actual Code-OSS IPC client's child cleanup; they do not
+establish complete process lifecycle parity.
+
+`process.execArgv` now reports an empty array for file execution or the actual
+eval flag/source pair for -e/--eval. Internal fork role flags are absent. Fork-child
+message/disconnect events, send/connected/channel exist only with the owned child
+capability; ordinary processes cannot enable it by assigning public properties or
+an environment marker. process.parentPort is not installed by Node-style fork.

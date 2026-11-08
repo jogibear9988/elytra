@@ -123,7 +123,7 @@ queued cycles, quota reclamation, snapshots and reentrant ownership cases. The a
 pinned Code-OSS Protocol/once helper passes binary frames, echo, disconnect and main
 transfer using real compiled base services. That does not run its utility/shared
 process or renderer. The real ready graph now passes utilityProcess/safeStorage imports
-and fails at missing child_process.fork. This is not acceptance of Code-OSS utility execution;
+and fails at missing fs.watchFile. This is not acceptance of Code-OSS utility execution;
 [current Code-OSS status](../compatibility/vscode.md) tracks subsequent blockers.
 See [ADR 0154](../architecture/0154-main-message-port-ownership.md).
 

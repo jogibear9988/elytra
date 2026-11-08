@@ -181,3 +181,10 @@ The [systemPreferences reference](system-preferences.md) covers native typed sca
 defaults, passive notifications, callback ownership and read-only media status.
 It separates controlled tests, genuine read-only observations and isolated-suite/
 local-notification acceptance from physical events and permission requests.
+
+The [fork/JSON IPC contract](child-process.md#forkmodulepath-args-options) now
+covers real self-children, native write completion/backpressure, child process APIs,
+reference/disconnect/teardown rules and the runtime-only Firefly boundary. The
+[exit notification contract](process.md#exit-notification) describes synchronous
+cleanup and its remaining Node differences. Both have local actual runtime checks;
+platform/package and full Code-OSS acceptance remain separately scoped.

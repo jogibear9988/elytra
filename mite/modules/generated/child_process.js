@@ -1,6 +1,309 @@
 /* Generated from mite/modules/process/child-process.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// mite/modules/process/ipc-channel.mjs
+function createIpcChannel(config) {
+  const {
+    target,
+    Buffer,
+    tick,
+    native,
+    systemError,
+    childMode = false,
+    onClosed = () => {
+    }
+  } = config;
+  const writes = /* @__PURE__ */ new Set();
+  const messages = [];
+  let bytes = 0;
+  let messageBytes = 0;
+  let scheduled = false;
+  let incoming = Buffer.alloc(0);
+  let closed = false;
+  let disconnecting = false;
+  let shutting = false;
+  let announced = false;
+  let explicitRef = null;
+  function error(code, message, Type = Error) {
+    return Object.assign(new Type(message), { code });
+  }
+  function updateRef() {
+    if (closed) {
+      return;
+    }
+    const listeners = target.listenerCount("message") + target.listenerCount("disconnect");
+    native.ref(explicitRef ?? (writes.size > 0 || !childMode || listeners > 0));
+  }
+  function report(failure, callback) {
+    tick(() => {
+      if (callback) {
+        callback(failure);
+      } else {
+        target.emit("error", failure);
+      }
+    });
+  }
+  function removeHooks() {
+    if (closed && messages.length === 0) {
+      target.removeListener("newListener", listenerAdded);
+      target.removeListener("removeListener", listenerRemoved);
+    }
+  }
+  function schedule() {
+    if (scheduled) {
+      return;
+    }
+    scheduled = true;
+    tick(() => {
+      scheduled = false;
+      for (let index = 0; index < messages.length; ) {
+        const value = messages[index];
+        if (target.listenerCount(value.event) === 0) {
+          index++;
+          continue;
+        }
+        messages.splice(index, 1);
+        messageBytes -= value.bytes;
+        target.emit(value.event, value.message, void 0);
+      }
+      removeHooks();
+    });
+  }
+  function announce() {
+    if (announced) {
+      return;
+    }
+    announced = true;
+    target.connected = false;
+    target.channel = null;
+    tick(() => target.emit("disconnect"));
+  }
+  function close() {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    incoming = Buffer.alloc(0);
+    removeHooks();
+    native.close();
+    announce();
+  }
+  function drain() {
+    if (!disconnecting || closed || writes.size || shutting) {
+      return;
+    }
+    shutting = true;
+    const status = native.shutdown((status2) => {
+      if (status2 && !closed) {
+        const failure = systemError(status2, "shutdown");
+        if (failure.code !== "ENOTCONN" && failure.code !== "EPIPE") {
+          report(failure);
+        }
+      }
+      close();
+    });
+    if (status) {
+      close();
+    }
+  }
+  function completed(write, status) {
+    if (!writes.delete(write)) {
+      return;
+    }
+    bytes -= write.bytes;
+    const callback = write.callback;
+    write.callback = null;
+    if (status) {
+      report(systemError(status, "write"), callback);
+    } else if (callback) {
+      tick(() => callback(null));
+    }
+    updateRef();
+    drain();
+  }
+  function send(message, handle, options, callback) {
+    if (typeof handle === "function") {
+      callback = handle;
+      handle = void 0;
+      options = void 0;
+    } else if (typeof options === "function") {
+      callback = options;
+      options = void 0;
+    }
+    if (closed || disconnecting || !target.connected) {
+      report(
+        error("ERR_IPC_CHANNEL_CLOSED", "Channel closed"),
+        typeof callback === "function" ? callback : void 0
+      );
+      return false;
+    }
+    if (callback !== void 0 && typeof callback !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "IPC callback must be a function", TypeError);
+    }
+    if (handle !== void 0 && handle !== null) {
+      throw error("ERR_MITE_UNSUPPORTED_API", "IPC handle passing is not implemented");
+    }
+    if (options !== void 0 && (options === null || typeof options !== "object" || Array.isArray(options))) {
+      throw error("ERR_INVALID_ARG_TYPE", "IPC options must be an object", TypeError);
+    }
+    if (options && Reflect.ownKeys(options).length) {
+      throw error("ERR_MITE_UNSUPPORTED_API", "IPC send options are not implemented");
+    }
+    if (message === void 0) {
+      throw error("ERR_MISSING_ARGS", "IPC message is required", TypeError);
+    }
+    if (!["string", "number", "boolean", "object"].includes(typeof message)) {
+      throw error("ERR_INVALID_ARG_TYPE", "IPC message must be JSON data", TypeError);
+    }
+    const json = JSON.stringify(message);
+    if (json === void 0) {
+      throw error("ERR_INVALID_ARG_TYPE", "IPC message must serialize to JSON", TypeError);
+    }
+    const wire = Buffer.from(json + "\n", "utf8");
+    if (wire.byteLength > 1048576) {
+      throw error("ERR_IPC_CHANNEL_LIMIT", "IPC frame exceeds 1 MiB", RangeError);
+    }
+    if (closed || disconnecting || !target.connected) {
+      report(error("ERR_IPC_CHANNEL_CLOSED", "Channel closed"), callback);
+      return false;
+    }
+    if (writes.size >= 64 || bytes + wire.byteLength > 4194304) {
+      report(error("ERR_IPC_CHANNEL_LIMIT", "IPC write backlog exceeds its budget"), callback);
+      return false;
+    }
+    const write = { bytes: wire.byteLength, callback };
+    writes.add(write);
+    bytes += wire.byteLength;
+    updateRef();
+    const status = native.write(wire, (status2) => completed(write, status2));
+    if (status) {
+      completed(write, status);
+      return false;
+    }
+    return bytes < 131072;
+  }
+  function disconnect() {
+    if (closed || disconnecting || !target.connected) {
+      report(error("ERR_IPC_DISCONNECTED", "IPC channel is already disconnected"));
+      return;
+    }
+    target.connected = false;
+    disconnecting = true;
+    drain();
+  }
+  function receive(kind, value) {
+    if (kind === "pipeClose") {
+      if (!closed) {
+        closed = true;
+        incoming = Buffer.alloc(0);
+        removeHooks();
+        announce();
+      }
+      tick(onClosed);
+      return;
+    }
+    if (closed) {
+      return;
+    }
+    if (kind === "pipeError") {
+      report(systemError(value, "read"));
+      close();
+      return;
+    }
+    if (kind === "end") {
+      if (incoming.length) {
+        report(error("ERR_IPC_CHANNEL_DATA", "Incomplete IPC JSON frame"));
+      }
+      target.connected = false;
+      disconnecting = true;
+      drain();
+      return;
+    }
+    if (kind !== "data") {
+      return;
+    }
+    incoming = Buffer.concat([
+      incoming,
+      Buffer.from(value.buffer, value.byteOffset, value.byteLength)
+    ]);
+    while (!closed) {
+      const newline = incoming.indexOf(10);
+      if (newline === -1) {
+        if (incoming.length >= 1048576) {
+          report(error("ERR_IPC_CHANNEL_DATA", "IPC JSON frame exceeds budget"));
+          close();
+        }
+        return;
+      }
+      const frame = incoming.subarray(0, newline);
+      incoming = incoming.subarray(newline + 1);
+      let message;
+      try {
+        if (newline + 1 > 1048576) {
+          throw Error("IPC JSON frame exceeds budget");
+        }
+        const json = frame.toString("utf8");
+        if (!Buffer.from(json, "utf8").equals(frame)) {
+          throw Error("Invalid IPC UTF-8");
+        }
+        message = JSON.parse(json);
+      } catch {
+        report(error("ERR_IPC_CHANNEL_DATA", "Invalid IPC JSON frame"));
+        close();
+        return;
+      }
+      const internal = typeof message?.cmd === "string" && message.cmd.startsWith("NODE_");
+      if (messages.length >= 64 || messageBytes + frame.length + 1 > 4194304) {
+        report(error("ERR_IPC_CHANNEL_LIMIT", "IPC delivery backlog exceeds its budget"));
+        close();
+        return;
+      }
+      messages.push({
+        event: internal ? "internalMessage" : "message",
+        message,
+        bytes: frame.length + 1
+      });
+      messageBytes += frame.length + 1;
+      schedule();
+    }
+  }
+  function listenerAdded(name) {
+    if (name === "message" || name === "internalMessage") {
+      schedule();
+    }
+    if (name === "message" || name === "disconnect") {
+      if (!closed && childMode && explicitRef === null) {
+        native.ref(true);
+      }
+    }
+  }
+  function listenerRemoved(name) {
+    if (name === "message" || name === "disconnect") {
+      updateRef();
+    }
+  }
+  const channel = {
+    ref() {
+      explicitRef = true;
+      updateRef();
+    },
+    unref() {
+      explicitRef = false;
+      updateRef();
+    }
+  };
+  target.connected = true;
+  target.channel = channel;
+  target.on("newListener", listenerAdded);
+  target.on("removeListener", listenerRemoved);
+  if (childMode) {
+    target.send = send;
+    target.disconnect = disconnect;
+  }
+  updateRef();
+  return { send, disconnect, receive, close };
+}
+
 // mite/modules/process/child-process.mjs
 function createChildProcessModule(host) {
   const native = host.native;
@@ -180,11 +483,19 @@ function createChildProcessModule(host) {
     unref() {
       native.ref(children.get(this).id, -1, false);
     }
-    send() {
-      unsupported("ChildProcess IPC");
+    send(...args) {
+      const channel = children.get(this)?.ipc;
+      if (!channel) {
+        unsupported("ChildProcess IPC without a fork channel");
+      }
+      return channel.send(...args);
     }
     disconnect() {
-      unsupported("ChildProcess IPC");
+      const channel = children.get(this)?.ipc;
+      if (!channel) {
+        unsupported("ChildProcess IPC without a fork channel");
+      }
+      return channel.disconnect();
     }
     [Symbol.dispose]() {
       if (!this.killed) {
@@ -192,7 +503,7 @@ function createChildProcessModule(host) {
       }
     }
   }
-  function modes(value) {
+  function modes(value, ipc = false) {
     if (value === void 0) {
       value = "pipe";
     }
@@ -205,11 +516,14 @@ function createChildProcessModule(host) {
     if (!Array.isArray(value)) {
       fail(TypeError, "ERR_INVALID_ARG_VALUE", "stdio must be an array or string");
     }
-    if (value.length > 3) {
+    if (value.length > (ipc ? 4 : 3)) {
       unsupported("Additional stdio descriptors or IPC");
     }
-    return Array.from({ length: 3 }, (_, index) => {
+    return Array.from({ length: ipc ? 4 : 3 }, (_, index) => {
       const mode = value[index] ?? "pipe";
+      if (ipc && index === 3 && mode === "ipc") {
+        return -3;
+      }
       if (mode === "pipe") {
         return -1;
       }
@@ -225,7 +539,7 @@ function createChildProcessModule(host) {
       unsupported("stdio streams, IPC and nonstandard descriptors");
     });
   }
-  function options(file, args, opts) {
+  function options(file, args, opts, ipc = false) {
     text(file, "file");
     if (!file) {
       fail(TypeError, "ERR_INVALID_ARG_VALUE", "file must not be empty");
@@ -306,7 +620,7 @@ function createChildProcessModule(host) {
       publicArgs,
       env: entries,
       cwd,
-      stdio: modes(opts.stdio),
+      stdio: modes(opts.stdio, ipc),
       detached: !!opts.detached,
       windowsHide: !!opts.windowsHide,
       windowsVerbatimArguments: !!opts.windowsVerbatimArguments,
@@ -315,7 +629,10 @@ function createChildProcessModule(host) {
     };
   }
   function spawn(file, args, opts) {
-    const spec = options(file, args, opts);
+    return spawnImpl(file, args, opts, false);
+  }
+  function spawnImpl(file, args, opts, ipc) {
+    const spec = options(file, args, opts, ipc);
     const child = new ChildProcess(token);
     const c = {
       id: null,
@@ -324,11 +641,13 @@ function createChildProcessModule(host) {
       settled: false,
       closed: false,
       streams: [],
-      timer: null
+      timer: null,
+      ipc: null,
+      ipcClosed: !ipc
     };
     children.set(child, c);
     const maybeClose = () => {
-      if (c.processClosed && c.settled && !c.closed && c.streams.every((stream) => stream === null || stream.closed)) {
+      if (c.processClosed && c.settled && c.ipcClosed && !c.closed && c.streams.every((stream) => stream === null || stream.closed)) {
         c.closed = true;
         if (c.timer) {
           clearTimeout(c.timer);
@@ -355,6 +674,13 @@ function createChildProcessModule(host) {
       } else if (kind === "processClose") {
         c.processClosed = true;
         maybeClose();
+      } else if (index === 3) {
+        if (c.ipc) {
+          c.ipc.receive(kind, value);
+        } else if (kind === "pipeClose") {
+          c.ipcClosed = true;
+          maybeClose();
+        }
       } else {
         const stream = c.streams[index];
         if (!stream) {
@@ -388,6 +714,7 @@ function createChildProcessModule(host) {
     child.spawnargs = spec.publicArgs;
     c.failed = !!result.status;
     c.processClosed = !(result.handles & 8);
+    c.ipcClosed = !ipc;
     c.streams = spec.stdio.map(
       (mode, index) => mode === -1 ? index === 0 ? new Input(c) : new Output(c, index) : null
     );
@@ -396,6 +723,34 @@ function createChildProcessModule(host) {
     for (const stream of c.streams) {
       if (stream) {
         stream.once("close", maybeClose);
+      }
+    }
+    if (ipc) {
+      c.ipc = createIpcChannel({
+        target: child,
+        Buffer,
+        tick,
+        systemError,
+        native: {
+          write: (bytes, callback) => native.ipcWrite(c.id, bytes, callback),
+          shutdown: (callback) => native.ipcShutdown(c.id, callback),
+          close: () => native.closePipe(c.id, 3),
+          ref: (value) => native.ref(c.id, 3, value)
+        },
+        onClosed() {
+          c.ipcClosed = true;
+          maybeClose();
+        }
+      });
+      if (result.status === 0) {
+        const status = native.read(c.id, 3, true);
+        if (status) {
+          tick(() => c.ipc.receive("pipeError", status));
+        }
+      } else if (result.handles & 16) {
+        native.closePipe(c.id, 3);
+      } else {
+        tick(() => c.ipc.receive("pipeClose"));
       }
     }
     if (result.status) {
@@ -430,6 +785,104 @@ function createChildProcessModule(host) {
       }
     }
     return child;
+  }
+  function fork(modulePath, args, value) {
+    if (modulePath instanceof host.URL) {
+      modulePath = host.fileURLToPath(modulePath);
+    }
+    text(modulePath, "modulePath");
+    if (!modulePath) {
+      fail(TypeError, "ERR_INVALID_ARG_VALUE", "modulePath must not be empty");
+    }
+    if (!Array.isArray(args)) {
+      if (args !== void 0 && args !== null) {
+        value = args;
+      }
+      args = [];
+    }
+    if (value === void 0 || value === null) {
+      value = {};
+    }
+    if (typeof value !== "object" || Array.isArray(value)) {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "fork options must be an object");
+    }
+    const opts = { ...value };
+    const supported = /* @__PURE__ */ new Set([
+      "cwd",
+      "env",
+      "execPath",
+      "execArgv",
+      "serialization",
+      "silent",
+      "stdio",
+      "detached",
+      "windowsHide",
+      "windowsVerbatimArguments",
+      "timeout",
+      "killSignal"
+    ]);
+    for (const name of Reflect.ownKeys(opts)) {
+      if (!supported.has(name)) {
+        unsupported("fork option " + String(name));
+      }
+    }
+    if (opts.execPath !== void 0 && opts.execPath !== host.process.execPath) {
+      unsupported("Foreign fork execPath");
+    }
+    const flags = opts.execArgv === void 0 ? [] : opts.execArgv;
+    if (!Array.isArray(flags)) {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "fork execArgv must be an array");
+    }
+    for (const flag of flags) {
+      text(flag, "execArgv");
+    }
+    if (flags.length) {
+      unsupported("fork engine flags");
+    }
+    if (opts.serialization !== void 0 && opts.serialization !== "json") {
+      unsupported("fork advanced serialization");
+    }
+    if (opts.silent !== void 0 && typeof opts.silent !== "boolean") {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "fork silent must be a boolean");
+    }
+    let stdio = opts.stdio;
+    if (stdio === void 0) {
+      stdio = opts.silent ? "pipe" : "inherit";
+    }
+    if (typeof stdio === "string") {
+      if (!["pipe", "ignore", "inherit"].includes(stdio)) {
+        unsupported("fork stdio " + stdio);
+      }
+      stdio = [stdio, stdio, stdio, "ipc"];
+    } else if (Array.isArray(stdio)) {
+      stdio = stdio.slice();
+      if (stdio.length !== 4 || stdio[3] !== "ipc" || stdio.slice(0, 3).includes("ipc")) {
+        unsupported("fork requires exactly one IPC descriptor at fd 3");
+      }
+    } else {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "fork stdio must be an array or string");
+    }
+    const selected = opts.env ?? host.process.env;
+    if (!selected || typeof selected !== "object") {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "fork env must be an object");
+    }
+    const env = /* @__PURE__ */ Object.create(null);
+    for (const key in selected) {
+      if ((host.platform === "win32" ? key.toUpperCase() : key) !== "MITE_FORK_CHANNEL") {
+        env[key] = selected[key];
+      }
+    }
+    env.MITE_FORK_CHANNEL = "3";
+    delete opts.execPath;
+    delete opts.execArgv;
+    delete opts.serialization;
+    delete opts.silent;
+    return spawnImpl(
+      host.process.execPath,
+      ["--mite-fork-child", modulePath, ...args],
+      { ...opts, stdio, env },
+      true
+    );
   }
   function execFileImpl(file, args, opts, callback, displayCommand) {
     if (Array.isArray(args)) {
@@ -617,7 +1070,32 @@ ${values[1]}`);
   }
   attachPromisify(execFile);
   attachPromisify(exec);
-  return { spawn, execFile, exec, ChildProcess };
+  if (host.childIpc) {
+    let channel;
+    const status = native.childIpcAttach(3, (kind, index, value) => channel.receive(kind, value));
+    if (status) {
+      throw systemError(status, "IPC attach");
+    }
+    channel = createIpcChannel({
+      target: host.process,
+      Buffer,
+      tick,
+      systemError,
+      childMode: true,
+      native: {
+        write: (bytes, callback) => native.childIpcWrite(bytes, callback),
+        shutdown: (callback) => native.childIpcShutdown(callback),
+        close: () => native.childIpcClose(),
+        ref: (value) => native.childIpcRef(value)
+      }
+    });
+    const reading = native.childIpcRead(true);
+    if (reading) {
+      channel.close();
+      throw systemError(reading, "IPC read");
+    }
+  }
+  return { spawn, fork, execFile, exec, ChildProcess };
 }
 return createChildProcessModule;
 })()

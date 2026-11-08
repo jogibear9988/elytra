@@ -20,6 +20,15 @@ export default function installProcessEvents(host, process) {
     'worker',
     'workerMessage'
   ]);
+  // Only the runtime's validated inherited-channel role admits process IPC events.
+  if (host.childIpc) {
+    reserved.delete('message');
+    reserved.delete('disconnect');
+  }
+  // The native runtime installs a real once-only terminal emitter before granting this flag.
+  if (host.exitEvents === true) {
+    reserved.delete('exit');
+  }
 
   function isSignal(type) {
     return typeof type === 'string' && Object.hasOwn(signals, type);

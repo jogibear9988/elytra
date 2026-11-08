@@ -141,10 +141,10 @@ function installProcessModule(host, process) {
     }
   });
   process.exit = function exit(code) {
-    if (code !== void 0) {
+    if (arguments.length !== 0) {
       process.exitCode = code;
     }
-    host.exit(process.exitCode === void 0 ? 0 : process.exitCode);
+    host.exit(process.exitCode === void 0 ? 0 : process.exitCode, process);
   };
   installProcessTiming(host, process, invalid);
   return process;

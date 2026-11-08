@@ -113,10 +113,10 @@ export default function installProcessModule(host, process) {
   });
 
   process.exit = function exit(code) {
-    if (code !== undefined) {
+    if (arguments.length !== 0) {
       process.exitCode = code;
     }
-    host.exit(process.exitCode === undefined ? 0 : process.exitCode);
+    host.exit(process.exitCode === undefined ? 0 : process.exitCode, process);
   };
 
   installProcessTiming(host, process, invalid);

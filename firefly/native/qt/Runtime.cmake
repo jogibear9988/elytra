@@ -273,6 +273,20 @@ else()
     message(
         STATUS "Qt offscreen static plugin unavailable: headless Firefly view frontend disabled")
 endif()
+# Prefer the exact application objects with a test-only static platform plugin. Without that plugin,
+# hosted native/Xvfb acceptance supplies the desktop backend.
+set(fork_driver firefly)
+set(fork_driver_options)
+if(TARGET firefly-view-offscreen)
+    set(fork_driver firefly-view-offscreen)
+    list(APPEND fork_driver_options --offscreen)
+endif()
+add_custom_target(
+    check-firefly-fork
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly_fork.py"
+            --firefly "$<TARGET_FILE:${fork_driver}>" ${fork_driver_options}
+    DEPENDS ${fork_driver}
+    VERBATIM)
 add_custom_target(
     check-firefly-protocol-host
     COMMAND

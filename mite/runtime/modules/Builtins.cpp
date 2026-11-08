@@ -57,8 +57,8 @@ static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMon
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
 static constexpr std::string_view process_exports[] = { "nextTick", "cwd", "chdir", "env", "pid",
-    "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release",
-    "exit", "hrtime", "uptime", "cpuUsage", "stdout", "stderr" };
+    "ppid", "platform", "arch", "execPath", "execArgv", "argv", "argv0", "version", "versions",
+    "release", "exit", "hrtime", "uptime", "cpuUsage", "stdout", "stderr" };
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
@@ -117,7 +117,7 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
     "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual" };
 static constexpr std::string_view child_process_exports[]
-    = { "spawn", "execFile", "exec", "ChildProcess" };
+    = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
@@ -292,6 +292,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "child_process") {
+        host->define_direct_property(
+            "childIpc"_utf16, JS::Value(m_fork_child), JS::default_attributes);
         host->define_direct_property("native"_utf16,
             create_child_process_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
         host->define_direct_property(
@@ -527,8 +529,10 @@ JS::ThrowCompletionOr<void> ModuleLoader::register_host_filesystem(std::string c
     return register_host_module(name, *exports, std::move(names));
 }
 
-JS::ThrowCompletionOr<void> ModuleLoader::install_globals(bool allow_process_signals)
+JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
+    bool allow_process_signals, bool fork_child)
 {
+    m_fork_child = fork_child;
     // Portable EventTarget plus authored cancellation state; no LibWeb/Node host.
     auto parsed_globals = JS::Script::parse(
         Utf16String::from_utf8(
@@ -579,6 +583,10 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(bool allow_process_sig
         "performance"_utf16, TRY(perf_hooks->get("performance"_utf16)), JS::default_attributes);
     GC::Root native_signals { create_signal_host(m_realm, m_event_loop, allow_process_signals) };
     GC::Root signal_host { JS::Object::create(m_realm, nullptr) };
+    signal_host->define_direct_property(
+        "exitEvents"_utf16, JS::Value(true), JS::default_attributes);
+    signal_host->define_direct_property(
+        "childIpc"_utf16, JS::Value(m_fork_child), JS::default_attributes);
     auto events = TRY(builtin("events"));
     signal_host->define_direct_property(
         "EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
@@ -700,6 +708,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(bool allow_process_sig
     for (auto name : { "Headers"_utf16, "Request"_utf16, "Response"_utf16, "fetch"_utf16 })
         m_realm.global_object().define_direct_property(name, TRY(fetch_exports->get(name)),
             JS::Attribute::Writable | JS::Attribute::Configurable);
+    if (m_fork_child)
+        TRY(builtin("child_process"));
+
     return {};
 }
 

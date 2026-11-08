@@ -264,6 +264,14 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     if (!Mite::ignore_broken_pipe_signal())
         return Error::from_string_literal("Cannot configure Firefly broken-pipe signal policy");
+    // Node-style fork children run the shared standalone engine before any Qt,
+    // compositor, window, Firefly API or utility parentPort initialization.
+    if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--mite-fork-child") {
+        Mite::HostHooks hooks;
+        hooks.allow_process_signals = true;
+        return Mite::run(arguments.argc, arguments.argv, hooks);
+    }
+
     if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--firefly-utility")
         return Firefly::Utility::run(arguments.argc, arguments.argv);
     auto options = Firefly::startup_options(arguments.argc, arguments.argv);
