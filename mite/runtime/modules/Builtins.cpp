@@ -47,6 +47,10 @@ struct BuiltinDefinition {
     std::span<std::string_view const> exports;
 };
 
+static constexpr std::string_view assert_exports[] = { "AssertionError", "ok", "fail", "equal",
+    "notEqual", "deepEqual", "notDeepEqual", "deepStrictEqual", "notDeepStrictEqual", "strictEqual",
+    "notStrictEqual", "throws", "rejects", "doesNotThrow", "doesNotReject", "ifError", "match",
+    "doesNotMatch", "strict", "Assert", "CallTracker", "partialDeepStrictEqual" };
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
@@ -144,6 +148,8 @@ static constexpr BuiltinDefinition definitions[] = {
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
     { "fs/promises", {}, fs_promises_exports },
     { "buffer", { MITE_BUFFER_SOURCE, sizeof(MITE_BUFFER_SOURCE) - 1 }, buffer_exports },
+    { "assert", { MITE_ASSERT_SOURCE, sizeof(MITE_ASSERT_SOURCE) - 1 }, assert_exports },
+    { "assert/strict", {}, assert_exports },
     { "events", { MITE_EVENTS_SOURCE, sizeof(MITE_EVENTS_SOURCE) - 1 }, events_exports },
     { "process", {}, process_exports },
     { "path", { MITE_PATH_SOURCE, sizeof(MITE_PATH_SOURCE) - 1 }, path_exports },
@@ -170,6 +176,13 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::builtin(std::string con
     if (!definition)
         return error(
             "ERR_MITE_UNSUPPORTED_BUILTIN", "Builtin module is not implemented: node:" + name);
+    if (name == "assert/strict") {
+        auto root = TRY(builtin("assert"));
+        auto strict = TRY(root->get("strict"_utf16));
+        m_builtins.emplace(name, GC::Root<JS::Object> { strict.as_object() });
+        return strict.as_object();
+    }
+
     if (name == "timers") {
         GC::Root result { JS::Object::create(m_realm, m_realm.intrinsics().object_prototype()) };
         for (auto name : timers_exports) {

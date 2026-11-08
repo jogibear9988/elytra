@@ -109,7 +109,7 @@ function save(name, text, manifest) {
       manifest.sources[input] = digest(fs.readFileSync(path.join(repository, input)));
     }
   }
-  for (const name of ['string-decoder', 'stream', 'web-globals', 'fetch-data']) {
+  for (const name of ['string-decoder', 'stream', 'web-globals', 'fetch-data', 'assert']) {
     const result = await esbuild.build({
       absWorkingDir: root,
       entryPoints: [`${name}-entry.mjs`],
@@ -131,6 +131,49 @@ function save(name, text, manifest) {
           name: 'mite-builtins',
 
           setup(build) {
+            if (name === 'assert') {
+              // Compose only these audited legacy-provider NaN seams in memory.
+              // Package files stay unchanged; source/builder/output hashes and
+              // original notices remain in the normal reproducibility manifest.
+              build.onLoad(
+                {
+                  filter:
+                    /[\\/]node_modules[\\/]assert[\\/]build[\\/](?:assert\.js|internal[\\/]util[\\/]comparisons\.js)$/
+                },
+                (args) => {
+                  let contents = fs.readFileSync(args.path, 'utf8');
+                  const changes = args.path.endsWith('comparisons.js')
+                    ? [
+                        [
+                          'return val1 == val2;',
+                          'return val1 == val2 || (val1 !== val1 && val2 !== val2);'
+                        ]
+                      ]
+                    : [
+                        [
+                          'if (actual != expected) {',
+                          'if (actual != expected && !(actual !== actual && expected !== expected)) {'
+                        ],
+                        [
+                          'if (actual == expected) {',
+                          'if (actual == expected || (actual !== actual && expected !== expected)) {'
+                        ]
+                      ];
+                  for (const [before, after] of changes) {
+                    if (contents.split(before).length !== 2) {
+                      throw Error('Assert provider NaN seam changed: ' + args.path);
+                    }
+                    contents = contents.replace(before, after);
+                  }
+                  return { contents, loader: 'js' };
+                }
+              );
+              // The portable provider needs its own complete inspection/types
+              // implementation, rather than Mite's partial node:util facade.
+              build.onResolve({ filter: /^util$/ }, () => ({
+                path: path.join(root, 'node_modules/util/util.js')
+              }));
+            }
             if (name === 'fetch-data') {
               build.onResolve({ filter: /streams\.cjs$/ }, (args) => {
                 if (args.importer.replaceAll('\\', '/').endsWith('/fetch-blob/index.js')) {
@@ -171,14 +214,20 @@ function save(name, text, manifest) {
         const repositoryPath = path.relative(repository, file).split(path.sep).join('/');
         if (!input.startsWith('node_modules/') && !path.relative(root, file).startsWith('..')) {
           manifest.sources[repositoryPath] = digest(fs.readFileSync(file));
-        } else if (repositoryPath.startsWith('mite/runtime/bootstrap/')) {
+        } else if (
+          repositoryPath.startsWith('mite/runtime/bootstrap/') ||
+          repositoryPath.startsWith('mite/modules/')
+        ) {
           manifest.sources[repositoryPath] = digest(fs.readFileSync(file));
         } else if (!input.startsWith('node_modules/')) {
           throw Error('Unexpected portable adapter source: ' + input);
         }
         // Authored bootstrap inputs are already recorded with repository-relative
         // names above. Dependency-bundle paths stay within the build package.
-        if (repositoryPath.startsWith('mite/runtime/bootstrap/')) {
+        if (
+          repositoryPath.startsWith('mite/runtime/bootstrap/') ||
+          repositoryPath.startsWith('mite/modules/')
+        ) {
           return null;
         }
         const pkg = metadata(file);

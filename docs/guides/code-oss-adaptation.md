@@ -277,3 +277,21 @@ The actual ready/main graph now passes the zlib import and stops at unsupported
 node:assert. The bounded ready probe still exits 1; no workbench is accepted. See
 [node:zlib scope and bounds](../api/zlib.md). The previous NLS-only observation above
 remains the historical result for a runtime without this newer native slice.
+
+## Verify actual argument assertions
+
+The new node:assert slice provides real callable assertions, error metadata,
+equality and exception checks. Verify Code-OSS's unchanged main/CLI argument parser
+against the real compiled source tree:
+
+```sh
+node tooling/code_oss/probe-argv.mjs build/code-oss-local-nls build/release-mite/bin/mite
+python3 tooling/tests/test_assert.py --mite build/release-mite/bin/mite --host build/release-mite/bin/mite-embedded-host
+```
+
+Valid --goto values pass and malformed line/column input throws AssertionError under
+both Node and Mite. The rebuilt actual Firefly ready/main graph passes assert and
+now stops at unsupported node:readline. The bounded diagnostic still exits 1, with
+no accepted workbench. See the [assert contract](../api/assert.md) for partial API
+scope and explicit unsupported comparisons. Earlier blocker observations above
+remain historical results for older runtime builds.

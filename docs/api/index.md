@@ -121,3 +121,6 @@ browser FileList data, cancellation and the still-missing native path associatio
 
 The [node:zlib reference](zlib.md) covers bounded native raw/zlib/gzip Transform streams,
 ordered flush and convenience functions, with explicit unsupported features.
+
+The [assert reference](assert.md) covers callable/strict assertions, supported deep
+comparisons, error metadata and synchronous/asynchronous exception checks.

@@ -20,7 +20,7 @@
     "firefly/native/qt/app-regions.mjs": "1983284fb314ae1ff323fb2e03dbead8e96ec1adc4e272f2f1a7cb8755fa6d23",
     "tooling/runtime-js/build-firefly.mjs": "a2e6f477e548000460fbe12a7cb5afcdbdc1819269e11e0c4fcb6d7589a72edb",
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",
-    "tooling/runtime-js/package-lock.json": "3e08934fa22faf2343746949b8c3f3525353e3c36c0de3e419fc1855414d053c",
-    "tooling/runtime-js/package.json": "d1e19af69e87d342833a8eaef22d2b9f392d4524df7516e85701d4bfb7496e50"
+    "tooling/runtime-js/package-lock.json": "2627439297c427137b5cfbfb930a37df871dece824b61600407285abeaf68fd4",
+    "tooling/runtime-js/package.json": "52cd6eb6031e4db0163af66c40f64b067d34a5ce79a0ff9948ac17af86f96462"
   }
 }

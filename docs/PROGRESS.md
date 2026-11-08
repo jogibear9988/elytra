@@ -9222,6 +9222,61 @@ native platform packaging in the original goal. Zlib remains partial and fresh
 Linux/Windows acceptance is not claimed. Ladybird is unmodified, Mite independent,
 and the original full goal stays active.
 
+
+## 2026-11-08 — Portable node:assert and real Code-OSS CLI validation
+
+- Resume from pushed 0751d43 as concrete progress. Re-read spec/progress/current
+  source and actual ready failure. Audit Code-OSS's truthy CLI validation and package
+  assertion usage rather than bypassing the import or installing an inert function.
+- Pin assert 2.1.0 and all portable dependencies with source/license/integrity records.
+  Extend the existing generator's explicitly allowed authored ESM inputs and portable
+  bundle list. Bind internal util to the provider's full private portable types/
+  inspection implementation; no public node:util support is fabricated. The resulting
+  assertion bundle has no external runtime imports and carries all 37 package notices.
+- Add callable assert and shared strict/CJS/ESM aliases, real AssertionError metadata,
+  equality/deep structures and exception APIs. Keep known opaque/modern comparison
+  state and traversal/accessor cases explicitly unavailable, including negative
+  assertions, instead of reporting an unproven success. Preserve missing-argument
+  arity and existing validated identity behavior. Final metadata coverage catches
+  and fixes the provider's generatedMessage flag on automatic truthy failures;
+  callable/ok/strict identities remain shared and are rechecked.
+- Differential evidence catches the provider's older exception-mismatch contract.
+  Adapt constructor/RegExp/predicate mismatches to modern AssertionError while retaining
+  the original actual/expected values. Forward validators through a Proxy so their own
+  exceptions (even the same actual error) propagate unchanged. Preserve synchronous
+  throws in rejects; validate current-realm Promises and refuse other thenables.
+  Keep Assert/CallTracker/partialDeepStrictEqual and legacy fail overloads explicit.
+  Additional differential cases find obsolete loose NaN comparisons, including
+  false successful negative assertions. Compose three unique provider seams in
+  memory; retain installed package files/notices and normal input/builder/output
+  hash provenance. Modern scalar/nested NaN cases now match Node.
+- Add mite-assert with real Node/Mite/native-host GC comparisons, metadata, loose/
+  strict/deep collections, cycles/symbols, missing arguments, unwanted/missing errors,
+  validator identity and asynchronous paths. Add negative policy cases. Pin the actual
+  Code-OSS argvHelper.ts and run its unchanged compiled main/CLI parser on both hosts:
+  valid goto passes, invalid line/column syntax throws AssertionError.
+- Reproduce Firefly's manifest after the shared build lock changes; the first Firefly
+  build correctly refused its stale input hash, and the later regenerated build passes.
+  Update API reference, current matrix/status/guide/roadmap and ADR 0152.
+
+Validation: final standalone Mite and Firefly local Release builds pass. All 84
+enabled runtime gates pass again after the final generatedMessage and NaN fixes
+in the complete local CTest run (84.30 seconds). Actual pinned Code-OSS CLI positive/
+negative validation passes under Node/Mite. The final rebuilt Firefly ready/main
+graph advances past assert and reports unsupported node:readline, with app ready
+observed and no workbench accepted (build/code-oss-assert-final-ready.log).
+Unmodified-upstream, both generated-source integrity checks, exact runtime bundle
+reproduction, full maintained-source style and 263-page/18,593-local-link site checks
+pass. Whitespace checks pass. No desktop UI automation, editor/window/workbench
+acceptance or fresh native Linux/Windows result is claimed.
+
+Remaining: implement the actually demanded readline contract and continue the real
+main graph. Full workbench assets/window/preload/ports/File handoff and open/edit/save,
+extension/shared/PTY hosts, efficient file streaming, full webviews/remote and native
+platform packaging remain in the original goal. Assert is deliberately partial;
+current Node diagnostic and full comparison/constructor/foreign-realm parity remain
+open. Ladybird stays unmodified, Mite independent, and the full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

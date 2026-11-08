@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Pinned sources and build-only tooling for embedded portable runtime libraries",
   "dependencies": {
+    "assert": "2.1.0",
     "busboy": "1.6.0",
     "event-target-shim": "6.0.2",
     "fetch-blob": "3.2.0",

@@ -28,6 +28,7 @@ function(mite_add_runtime target root js_target)
         module
         perf_hooks
         events
+        assert
         process
         process_events
         path
