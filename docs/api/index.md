@@ -157,3 +157,8 @@ limits. Its macOS provider is implemented, while valid OS enumeration remains
 untested; policy/controlled-dispatcher and no-prompt preflight evidence are scoped
 separately. The [nativeImage reference](native-image.md) covers the verified
 empty-image subset; nonempty images and media capture remain unavailable.
+
+The [Notification reference](notification.md) covers owned generations, mutable
+text/button metadata, events, replacement/close policy and native scheduling
+limits. Node/Mite policy and bare-CLI read-only preflight evidence do not establish
+OS permission or delivery acceptance; valid notifications remain untested.

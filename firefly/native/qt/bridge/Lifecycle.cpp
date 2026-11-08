@@ -70,6 +70,8 @@ void Bridge::Impl::stop()
     stop_protocols();
     if (desktop_capture)
         desktop_capture->stop();
+    if (notifications)
+        notifications->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())

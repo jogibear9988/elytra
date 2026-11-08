@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 98
+Mite is a working native LibJS runtime; the current macOS Release build has 99
 validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -9855,6 +9855,82 @@ source acceptance, nonempty NativeImage/thumbnails/icons, session/media/permissi
 binding, utility/renderer port handoff, auth, File/open-edit-save, extension/PTY hosts,
 webviews/remote and native platform/packages/releases. The full goal stays active;
 Mite independent, Ladybird unchanged, VS Code workbench still unaccepted.
+
+## 2026-11-08 — Native Notification scheduling, response ownership and controlled provider acceptance
+
+- Resume from pushed b442141 and actual missing Notification import. Implement
+  main-only Notification/EventEmitter and native macOS UserNotifications provider,
+  not an import-only facade. Mite remains independent; other platforms explicitly
+  report unavailable. Constructor requires readiness; supported() is read-only
+  OS/bundle/delegate eligibility, false for bare CLI, never a permission grant.
+  Only show may ask authorization/schedule; actual OS delivery is still UNTESTED.
+- Own mutable title/body/silent/button actions in validated JS snapshots. Bound
+  UTF8 title4096/body65536/actioncount4/actiontext1024 and64 active generations with
+  monotonic positive INTMAX tokens. Unknown properties/options fail explicitly.
+  Show replaces its previous generation; retire before native close/user callbacks.
+  Version checks preserve reentrant show/close/exit and suppress stale support,
+  managed close and terminal callbacks. Native submission exceptions queue failed.
+- Native host validates JSON512KiB/options/text/actions and tokens before admission,
+  creates the provider lazily and queues even synchronous native callbacks to the
+  owner. No VM/realm/GC object crosses an OS queue. Retire terminal tokens before
+  cleanup; stop revokes receiver/pending state under the posting mutex, then calls
+  provider teardown outside the lock. Reuse existing busy-VM/job delivery plumbing.
+- Native provider coalesces settings/authorization, cancels waiting generations
+  before unnecessary permission requests, schedules actual UNNotificationRequest
+  content and routes real default/button/dismiss responses. Successful add callback
+  acknowledges request acceptance, not a visible banner. Managed close timing is
+  an explicit Firefly lifecycle difference; OS removal is best effort.
+- Native OS callback tickets are process-wide/bounded64 and release only on actual
+  completion. Close/stop removes pending/delivered IDs and late add removes its old
+  ID again. Per-provider UUID/request generations and unique action categories avoid
+  canceled requests acquiring new button labels. Serialize category read/merge/write
+  transactions and preserve foreign snapshot categories. Never replace a foreign
+  center delegate; remove only our own delegate/categories/requests on stop.
+- Shared Node/Mite policy passes readiness/options/byte limits, snapshots, payloads,
+  repeated generations, close/show/terminal/getter reentry, queued failures, quotas,
+  shutdown and late events. This is controlled-peer policy, not Electron/OS parity.
+- Exact production C++ host passes strict input checks and real worker-to-owner
+  event delivery with a controlled native provider: show dedup, action/click/close/
+  failed terminals, invalid payloads, quota, reused IDs, sync close/stop callbacks,
+  receiver deletion and completions after VM teardown. No OS provider is linked.
+- Add black-box state tests for the exact compiled Mac provider. Test-only Objective-C
+  peers intercept bundle/center singleton factories before any provider call and
+  never invoke their original implementations; real notification value objects are
+  retained. Controlled settings/auth/add/response queues prove coalescing, canceled
+  authorization, denial, acceptance, late add cleanup, native response mapping,
+  unique categories, queued cross-generation category/foreign ownership, and actual
+  callback-ticket lifetime. These do not establish OS authorization/UI delivery.
+- Actual bare native identity probe passes false without center access. No Electron
+  Notification operation is invoked: its lazy supported() can request permission.
+  Add API/ADR0160/status/compatibility docs. Refresh the modern notification example
+  to partial/manual-only, native accepted-vs-visible result, failed/closed handling
+  and bounded cleanup. Fresh Firefly/Electron catalog staging/syntax passes; apps
+  never launch. Current catalog6smoke/2manual/15blocked is source classification,
+  not new GUI acceptance; historical hosted counts remain unchanged.
+- Rebuild production/exact-object offscreen frontend. Actual local-desktop/indexed
+  NLS graph passes Notification and next fails linking powerMonitor
+  (build/code-oss-notification-ready.log). Entry/app-ready are not a workbench.
+  Audit next actual idle/battery/thermal/power/lock/shutdown requirements read-only;
+  no sleep, lock, power-source or OS preference changes are triggered.
+
+Validation: all99 runtime gates pass the full regression (30.03 seconds). Production
+and component targets compile; JS policy, controlled native host, exact controlled
+Mac provider state and bare preflight all pass. All5 final staged affected/line-ending/generation gates
+pass (1.01 seconds). Maintained-source formatting plus final example checks,
+runtime/Firefly generation, upstream and whitespace checks pass. The site accepts
+281 pages /19,897 local links. Final production/offscreen and all3 native component
+targets build and pass their stated scope. The final-code bounded ready diagnostic
+again reaches powerMonitor, with entry/app-ready observed and workbench unaccepted
+(build/code-oss-notification-final-ready.log). No actual authorization,
+OS notification, visible window, user-input automation or original OS-center call
+was run by the controlled tests.
+
+Remaining: powerMonitor and subsequent native main services/workbench; real signed
+OS notification permission/delivery/user action and SCK source acceptance; nonempty
+images, media/session binding, utility/renderer port handoff/auth, File/open-edit-save,
+extension/PTY hosts, webviews/remote and native platforms/packages/releases. The full
+original goal remains active, Ladybird unchanged, Mite independent and VS Code
+workbench unaccepted.
 
 ## Resume
 

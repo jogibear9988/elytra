@@ -207,6 +207,11 @@ if(BUILD_TESTING)
             "${Python3_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_desktop_capture_policy.py" --mite
             "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-notification-policy
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_notification_policy.py"
+            --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")

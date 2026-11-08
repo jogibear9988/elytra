@@ -164,11 +164,11 @@
       "title": "Notifications",
       "reference": "https://www.electronjs.org/docs/latest/tutorial/notifications",
       "apis": ["Notification.isSupported", "Notification.show"],
-      "firefly": "unsupported",
+      "firefly": "partial",
       "smoke": false,
       "actions": ["notify"],
       "preload": true,
-      "notes": "Requires OS notification permission. Nothing is posted during automated checks. Firefly Notification is absent.",
+      "notes": "Partial manual-only Notification API. Requires an eligible signed app bundle and OS permission; raw CLI support is false. Native acknowledgement does not verify visible delivery. Automated checks never post alerts; OS delivery and interaction remain unverified.",
       "platforms": []
     },
     {

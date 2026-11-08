@@ -1,31 +1,74 @@
 # Notifications
 
-**Firefly:** Unsupported in Firefly; the launcher fails explicitly before unsupported operations. Electron feature execution is manual/unverified.
+**Firefly: partial, manual-only example; actual OS delivery remains unverified.**
+The main-process Notification API and macOS UserNotifications provider are
+implemented. JavaScript policy and controlled native state/dispatcher tests pass,
+but those tests do not post system notifications. This example has no accepted
+platforms and remains excluded from feature smoke tests.
 
-Requires OS notification permission. Nothing is posted during automated checks. Firefly Notification is absent.
+For an actual macOS delivery attempt, use an eligible, properly signed `.app`
+bundle with stable application identity and OS notification permission. The bare
+Firefly command-line executable intentionally reports `Notification.isSupported()`
+as false. Its example button rejects before constructing or submitting a native
+notification. Linux/Windows notification providers remain unavailable.
 
-## Run
+## Build and stage
 
-Build the [example catalog](index.md#build-and-run), then run:
+Build the [example catalog](index.md#build-and-run) into a fresh directory:
 
 ```sh
-build/renderer/bin/firefly build/desktop-examples/notifications/main.mjs
+node tooling/build_electron_examples.mjs build/desktop-examples-notifications firefly
 ```
 
-For the explicit Electron comparison build:
+The staged UI can be opened with:
 
 ```sh
-build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron build/desktop-examples-reference/notifications/main.mjs
+build/renderer/bin/firefly build/desktop-examples-notifications/notifications/main.mjs
 ```
 
-This is reference code for a missing feature, not a successful Firefly demo.
-No automated feature success is reported. Read the platform/setup requirements
-before using the reference app; smoke mode is not a substitute for manual validation.
+This raw CLI launch is a staging/reference check, **not native notification
+acceptance**. Follow the [packaging guide](../guides/packaging.md) when preparing an
+eligible application bundle. Packaging alone does not verify OS delivery.
+
+A separate Electron reference tree can be staged explicitly:
+
+```sh
+node tooling/build_electron_examples.mjs build/desktop-examples-notifications-reference electron
+build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron build/desktop-examples-notifications-reference/notifications/main.mjs
+```
+
+The reference notification action is also manual and unverified. No Electron
+Notification support probe, permission request or delivery operation was run for
+this slice.
+
+## Request outcome
+
+Clicking **Show notification** checks support, installs `show` and `failed`
+listeners, then calls `show()`. No notification is posted during startup or
+`--smoke`. A successful action resolves only after native acknowledgement with:
+
+```js
+{ nativeRequestAccepted: true, osVisibility: 'unverified' }
+```
+
+The page displays that distinction explicitly. Firefly's `show` event acknowledges
+acceptance of the OS request; it does not prove that a banner appeared. A `failed`
+event, explicit close before acknowledgement or synchronous submission error
+rejects the action. The wait is bounded to ten seconds; timeout closes the owned
+request. One request can wait at a time, and another click retires the previous
+accepted notification. Closing the example window also requests cleanup.
+
+Native removal is best effort and cannot roll back an already displayed alert.
+OS permission flows, visible delivery, clicks/action buttons and notification
+preferences still require explicit manual acceptance. No feature success is
+inferred from constructing an object, starting the app or building the catalog.
 
 ## API connections
 
-- `Notification.isSupported` (not a supported Firefly desktop export)
-- `Notification.show` (not a supported Firefly desktop export)
+- [`Notification.isSupported()`](../api/notification.md#static-method-and-construction)
+- [`Notification.show()` / `close()`](../api/notification.md#show-and-close)
+- [`show` and `failed` events](../api/notification.md#events)
+- [Implemented scope and validation](../api/notification.md#platform-and-validation-scope)
 
 ## Source files
 
@@ -33,10 +76,6 @@ before using the reference app; smoke mode is not a substitute for manual valida
 - [main.mjs](../../examples/electron/notifications/main.mjs)
 - [renderer.mjs](../../examples/electron/notifications/renderer.mjs)
 
-## Operation and validation
-
-Click Show notification and grant OS permission if desired. Validate appearance, focus/click behavior and OS notification preferences manually. Merely constructing Notification does not prove display; tests do not post system notifications.
-
-## Reference and remaining work
-
-[Electron’s Notifications guide](https://www.electronjs.org/docs/latest/tutorial/notifications) is the API-design baseline. This page documents our own code and measured limits. Implement and validate the listed native Firefly APIs before changing this topic to supported.
+[Electron’s Notifications guide](https://www.electronjs.org/docs/latest/tutorial/notifications)
+is the reference for the broader platform integration. This example remains
+`partial`, `smoke: false`, with no platform feature-acceptance claim.

@@ -27,6 +27,7 @@ include("${FIREFLY_SOURCE_DIR}/mite/cmake/Runtime.cmake")
 mite_add_runtime(firefly-mite "${FIREFLY_SOURCE_DIR}" LibJS)
 include("${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/desktop-capture/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/notifications/Targets.cmake")
 add_custom_target(
     check-firefly-dependencies
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py" --check
@@ -190,6 +191,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Views.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../desktop-capture/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../notifications/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
@@ -220,6 +222,7 @@ target_link_libraries(
            firefly-runtime-paths
            firefly-screen-events
            firefly-desktop-capture
+           firefly-notifications
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config

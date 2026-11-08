@@ -6,6 +6,7 @@
 #pragma once
 #include "../../desktop-capture/Host.h"
 #include "../../menu/ApplicationMenu.h"
+#include "../../notifications/Host.h"
 #include "../../sandbox/policy/Policy.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
@@ -136,6 +137,7 @@ struct Bridge::Impl {
     RefPtr<Protocols::FileRoutes> protocols;
     RefPtr<Core::Timer> protocol_timer;
     std::shared_ptr<DesktopCapture::Controller> desktop_capture;
+    std::shared_ptr<Notifications::Controller> notifications;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

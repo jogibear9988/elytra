@@ -16,6 +16,7 @@ import createViews from './views/index.mjs';
 import createWebPreferences from './window/preferences.mjs';
 import createNativeImages from './native-image/index.mjs';
 import createDesktopCapture from './desktop-capture/index.mjs';
+import createNotifications from './notifications/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -159,6 +160,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      notifications.stop();
       capture.stop();
       channels.shutdown();
       utilities.shutdown();
@@ -182,6 +184,14 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const notifications = createNotifications(
+    native,
+    EventEmitter,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const images = createNativeImages(error, unsupported);
   const capture = createDesktopCapture(
     native,
@@ -249,6 +259,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    notifications.stop();
     capture.stop();
     channels.shutdown();
     utilities.shutdown();
@@ -668,6 +679,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       resolveReady();
       return;
     }
+    if (type === 'notification-result') {
+      notifications.dispatch(JSON.parse(data));
+      return;
+    }
     if (type === 'desktop-capture-result') {
       capture.dispatch(JSON.parse(data));
       return;
@@ -783,6 +798,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     ClipboardItem,
     nativeTheme: theme.nativeTheme,
     desktopCapturer: capture.desktopCapturer,
-    nativeImage: images.nativeImage
+    nativeImage: images.nativeImage,
+    Notification: notifications.Notification
   };
 }
