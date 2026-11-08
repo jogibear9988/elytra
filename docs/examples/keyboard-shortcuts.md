@@ -2,7 +2,7 @@
 
 **Firefly:** Unsupported in Firefly; the launcher fails explicitly before unsupported operations. Electron feature execution is manual/unverified.
 
-Native menu/global shortcut registration is manual and scoped to this process. Native Firefly shortcut APIs are absent.
+Native menu/global shortcut registration is manual and scoped to this process. A macOS globalShortcut subset is implemented; this combined example still requires unsupported menu accelerators.
 
 ## Run
 
@@ -25,7 +25,7 @@ before using the reference app; smoke mode is not a substitute for manual valida
 ## API connections
 
 - `Menu.buildFromTemplate` (partial application menus; accelerators/context menus remain unsupported)
-- `globalShortcut.register` (not a supported Firefly desktop export)
+- [`globalShortcut.register`](../api/global-shortcut.md) (partial macOS native API; complete example remains unaccepted)
 
 ## Source files
 

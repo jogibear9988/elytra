@@ -16,7 +16,7 @@ step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
 passes readline, MessageChannelMain, utilityProcess, safeStorage, WebContentsView and webContents imports, then reaches
-missing Electron globalShortcut. Real 30,000-line file and local OS-release platform-branch checks
+missing Electron dialog. Real 30,000-line file and local OS-release platform-branch checks
 pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
 local desktop experiment disables webviews, remote and engine caches; without it
 the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
@@ -30,14 +30,14 @@ The [utility-process payload slice](api/utility-process.md) now implements a rea
 same-executable LibJS fork and child process.parentPort. Six native boundary tests
 pass; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. Actual Code-OSS utility execution is not
 accepted: authentication forwarding and native utility/renderer event.ports handoff
-remain unsupported. The current static-import blocker is Electron globalShortcut.
+remain unsupported. The current static-import blocker is Electron dialog.
 
 The [safeStorage slice](api/safe-storage.md) now passes native OS-keychain and public
 facade tests on isolated macOS keychains, plus the unchanged compiled Code-OSS
 EncryptionMainService across two native processes (39 checked dependencies).
 Real Firefly/Electron comparison covers pre-ready guards only. Linux/Windows
 providers, async encryption and migration of Electron ciphertext remain unavailable.
-The actual ready graph now passes safeStorage and next requires Electron globalShortcut;
+The actual ready graph now passes safeStorage and next requires Electron dialog;
 no workbench or actual Code-OSS utility service is accepted by this component.
 
 The [WebContentsView composition slice](api/web-contents-view.md) passes a shared
@@ -46,13 +46,13 @@ batch: real pages/PIDs/viewport, native ordering/ownership/reparenting, detached
 navigation, registry and binary IPC/close. Seven policy groups and all 88 non-GUI
 runtime suites pass. On-screen/GPU/AX/performance and native Linux/XCB/Windows
 acceptance remain unverified. The actual main entry now passes the view/registry
-imports and next requires Electron globalShortcut. Integrated
+imports and next requires Electron dialog. Integrated
 Code-OSS browser preferences/services and a VS Code window remain unaccepted.
 
 The [native file writer](api/file-write-stream.md) now passes all seven focused
 Node/Mite groups and owned policy checks, including actual bytes, pressure and
 handle/close behavior. The actual ready/main graph passes its createWriteStream
-import and next fails linking Electron globalShortcut. This is import progress for the main graph. The unchanged compiled ZIP consumer
+import and next fails linking Electron dialog. This is import progress for the main graph. The unchanged compiled ZIP consumer
 now passes with genuine yazl and 34 verified dependencies, independently checked
 archive CRCs and exact extracted bytes. [CommonJS named export analysis](api/module.md#commonjs-named-exports-in-es-modules)
 passes local Node differential checks; extension installation/workbench acceptance
@@ -61,7 +61,7 @@ does not follow from the ZIP component.
 The [genuine shell exec slice](api/child-process.md#execcommand-options-callback)
 passes local Node/Mite differential/policy checks and the unchanged compiled
 Code-OSS terminal-encoding consumer with real locale charmap output. The actual
-prepared main graph now passes exec and next fails linking Electron globalShortcut.
+prepared main graph now passes exec and next fails linking Electron dialog.
 This does not accept desktop capture, terminal/PTY, process trees or a workbench;
 fresh native Linux/Windows shell execution remains unverified.
 
@@ -71,21 +71,21 @@ SCK enumeration is **not accepted yet**: default tests avoid permission prompts.
 The real dispatcher passes controlled worker/thread/cancel/shutdown tests, policy
 passes Node/Mite checks, and native no-prompt preflight passes. No image/media
 capture or Code-OSS display-media handler is accepted. The actual ready graph now
-passes both imports and next stops at Electron globalShortcut; no workbench follows.
+passes both imports and next stops at Electron dialog; no workbench follows.
 
 The [Notification slice](api/notification.md) implements native UserNotifications
 scheduling and owned event generations. Node/Mite policy, production dispatcher
 with controlled native events, exact macOS provider state with isolated system
 peers, and read-only bare-CLI identity preflight pass. None establishes real OS
 authorization, bundled delivery, visible alerts or user actions. The actual ready
-graph now passes Notification and next stops at Electron globalShortcut; no workbench follows.
+graph now passes Notification and next stops at Electron dialog; no workbench follows.
 
 The [powerMonitor slice](api/power-monitor.md) now supplies genuine macOS idle,
 thermal and power-source queries plus owned passive observations. All 100 runtime
 gates pass; the controlled native dispatcher, real-OS provider and public
 factory/host/provider component gates pass. No physical sleep, lock, power or
 shutdown transition was induced. The actual local-desktop/NLS ready diagnostic
-passes powerMonitor and next fails linking Electron globalShortcut. Entry/app-ready
+passes powerMonitor and next fails linking Electron dialog. Entry/app-ready
 observation still does not establish a workbench.
 
 The [powerSaveBlocker slice](api/power-save-blocker.md) now supplies native macOS
@@ -94,7 +94,7 @@ replacement. Genuine assertion creation/readback/downgrade/stop/shutdown passes
 locally, while controlled provider/Host tests cover failures, bounded ownership and
 VM cleanup. All101 runtime gates pass; no physical sleep behavior is accepted.
 The actual final-code ready diagnostic now passes powerSaveBlocker and next fails
-linking Electron globalShortcut. No Code-OSS workbench is accepted.
+linking Electron dialog. No Code-OSS workbench is accepted.
 
 The [native shell slice](api/shell.md) now implements main-only macOS URL/path
 launch, file reveal and OS Trash with asynchronous ownership. Shared Node/Mite
@@ -102,7 +102,7 @@ policy, exact Host/worker/GC/teardown checks and exact controlled provider/ticke
 checks pass. One genuine owned temporary Unicode file is trashed and restored from
 its exact returned destination with byte verification. Visible launch/activation/
 Finder selection remains unaccepted. All102 runtime gates pass. The actual final
-ready graph passes shell and next fails linking Electron globalShortcut; no workbench
+ready graph passes shell and next fails linking Electron dialog; no workbench
 is accepted. The release build and Linux renderer workflow now include non-GUI
 native service gates; fresh hosted outcomes remain separate evidence.
 
@@ -112,7 +112,7 @@ Shared policy and exact Host/provider gates pass; native queries match independe
 OS observations, and an isolated real defaults suite/local notification test passes
 write/readback/delivery/removal without changing personal preferences. All103
 runtime gates pass. The actual ready graph now passes systemPreferences and next
-fails linking Electron globalShortcut, after suspended-path recovery imports in baseWatcher. This
+fails linking Electron dialog, after suspended-path recovery imports in baseWatcher. This
 is not a running watcher, extension host or workbench. File polling and actual
 workspace/window acceptance remain required.
 
@@ -126,7 +126,7 @@ Server passes binary/base64, concurrent calls, remote errors, events and natural
 child exit with 44 compiled dependencies verified. An exact-production-object
 Firefly test also forks the same executable into plain Mite before Qt or desktop
 initialization, without utility parentPort, then reaps it. The current actual ready
-graph next fails linking Electron globalShortcut, after the suspended-path recovery imports. Neither
+graph next fails linking Electron dialog, after the suspended-path recovery imports. Neither
 component establishes a running watcher service, extension host or workbench.
 
 The [stat polling slice](api/stat-watcher.md) now passes real Node/Mite metadata,
@@ -137,14 +137,14 @@ resumption and disposal; 40 compiled dependencies are verified. This harness sup
 an abstract backend that reports the missing target, so it is not acceptance of
 Code-OSS's complete watcher service. Production and exact-object offscreen Firefly
 builds pass. The actual entry/app-ready diagnostic now gets past watchFile and
-fails linking Electron globalShortcut; no workbench/open-edit-save acceptance is claimed.
+fails linking Electron dialog; no workbench/open-edit-save acceptance is claimed.
 
 Native [filesystem events](api/event-watcher.md) and [canonical paths](api/realpath.md)
 now pass local Node/Mite component tests. The unchanged pinned Code-OSS
 nodejsWatcherLib passes real canonical paths, native create/update/delete,
 correlation/coalescing and disposal with 39 compiled dependencies verified. The
 actual local-desktop/NLS entry now passes both fs.watch and realpath imports and
-next fails linking Electron globalShortcut. This does not establish a running complete
+next fails linking Electron dialog. This does not establish a running complete
 watcher service, renderer workbench or workspace open/edit/save acceptance.
 
 The [desktop net slice](api/desktop-net.md) now provides genuine main/utility
@@ -158,7 +158,7 @@ The unchanged Code-OSS wake monitor passes with 32 verified compiled dependencie
 its actual nodeRequest consumer also passes POST/manual redirects/decompression/
 cancellation through the real net.request hook, with 61 compiled dependencies verified.
 The actual main entry/app-ready diagnostic now passes net and next fails linking
-globalShortcut. [Legacy URL parsing](api/url-legacy.md) and native
+dialog. [Legacy URL parsing](api/url-legacy.md) and native
 [WebCrypto randomness](api/crypto.md#webcrypto-randomness) are also implemented for
 the request graph; complete workbench/platform/session acceptance remains unproven.
 
@@ -170,6 +170,25 @@ positive child operations in child-authored code. The unchanged production princ
 guards still deny borrowed cross-realm calls. Local 113-suite runtime and complete
 headless helper checks pass. Fresh Windows/Linux hosted outcomes remain pending;
 this is not a claim of Windows desktop or Code-OSS workbench support.
+
+The [globalShortcut slice](api/global-shortcut.md) now passes six Node/Mite controlled
+policy groups, exact Host worker/GC/receiver/VM disposal and exact Carbon/TIS provider
+gates. One optional real OS test passes exclusive F19 ownership, release/reacquisition
+and shutdown without key injection. The original Code-OSS GlobalKeybindingsMainService
+passes reconciliation/events/conflicts/owned-only cleanup with a controlled registry
+and 64 verified dependencies through genuine Firefly imports. Public offscreen
+readiness/refusal and windowless Electron baseline pass. The real main-ready graph
+now passes globalShortcut and next fails linking dialog. Physical key delivery,
+Linux/Windows providers and the VS Code workbench remain unaccepted. All114 runtime
+gates pass, including the new policy and separately rechecked staged-byte checkout gate.
+
+Fresh native Linux runtime [run42519989240](https://github.com/jogibear9988/elytra/actions/runs/42519989240)
+passes all113 suites at8b58f5f. Native Windows [run42519989267](https://github.com/jogibear9988/elytra/actions/runs/42519989267)
+passes109/112: the remaining failures are a missing Node orphan-marker fixture,
+a truncated fs.watch event filename and a crashing Node HTTP default-errors oracle.
+The actual Mite fork main/lifetime/error gates and watcher/WriteStream GC gates pass
+there. These results do not establish native Windows desktop support or excuse the
+remaining failures.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
@@ -515,7 +534,7 @@ and later master changes.
 | Product / platform | Confirmed evidence | Remaining work |
 | --- | --- | --- |
 | Mite / macOS ARM64 | Current local 77 runtime/component suites including actual Code-OSS shared bootstrap/platform/cache-policy, pure native startup/launcher checks and synchronous resolve-hook/host-GC checks; earlier native package gate at 85557be | Full Node API coverage, older hosts and fresh production distribution |
-| Mite / native Linux x64 | All 78 enabled suites at f2e887b; [run 42393201428](https://github.com/jogibear9988/elytra/actions/runs/42393201428) | New native protocol component, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
+| Mite / native Linux x64 | All113 enabled suites at 8b58f5f (156.11 seconds); [run 42519989240](https://github.com/jogibear9988/elytra/actions/runs/42519989240) | New native protocol component, wider hosts/architectures and unsupported API coverage; different profiles need separate acceptance |
 | Mite / native Windows x64 | All 76 enabled suites at a56d183; [run 42391944810](https://github.com/jogibear9988/elytra/actions/runs/42391944810). Earlier oracle crashes remain undiagnosed | New protocol component, oracle crash diagnosis, full Windows API/error parity and distribution |
 | Firefly / macOS ARM64 | Native windows, documented preload/IPC and desktop-service subsets; packaged Designer edit/Monaco/window controls pass at 85557be in [run 42345882824](https://github.com/jogibear9988/elytra/actions/runs/42345882824) | Full Electron parity, signing/notarization, installers and older hosts |
 | Firefly / Linux x64 | Experimental Ubuntu 24.04 X11 app/screen/clipboard/kernel, portable CPU profile, stripped archive and extracted Designer edit/Monaco/HTML controls plus native host/preload alias pass at a56d183 in [run 42391944775](https://github.com/jogibear9988/elytra/actions/runs/42391944775) | Wider hosts/physical displays, Wayland, installer/update/signing and published Linux release; earlier SIGILL cause is not diagnosed |

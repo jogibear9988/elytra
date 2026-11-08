@@ -1,6 +1,6 @@
 /**
  * Keyboard shortcuts main-process reference. Native menu/global shortcut registration is
- * manual and scoped to this process. Native Firefly shortcut APIs are absent.
+ * manual and scoped to this process. Firefly global hotkeys are partial; this recipe still requires unsupported menu accelerators.
  */
 import { runExample } from '../shared/run.mjs';
 

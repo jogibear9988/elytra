@@ -266,6 +266,12 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME firefly-global-shortcut-policy
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_global_shortcut_policy.py" --mite
+            "$<TARGET_FILE:mite>")
+    add_test(
         NAME firefly-net-policy
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_firefly_net_policy.py"

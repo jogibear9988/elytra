@@ -2,7 +2,7 @@
 
 Mite and Firefly are early implementations. This reference describes the current
 public surface, not full Node.js or Electron compatibility. Native validation is
-macOS ARM64 and scoped native Mite gates: Linux passes 78 suites at f2e887b;
+macOS ARM64 and scoped native Mite gates: Linux passes113 suites at 8b58f5f;
 Windows passes 76 at a56d183. Firefly has tested macOS subsets and an experimental X11 app;
 Windows desktop remains unfinished. Experimental Ubuntu 24.04 x64 X11 stripped
 archive/Designer, screen integration and portable CPU-command gates pass at 197cd2a;
@@ -80,6 +80,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 ```
 
 ## Firefly
+
+The [globalShortcut reference](global-shortcut.md) covers native macOS hotkey ownership,
+accelerator parsing, callback lifetime, errors and unsupported platform/key families.
 
 The [desktop net reference](desktop-net.md) covers main/utility HTTP requests,
 native availability, cancellation and explicit session/proxy/platform boundaries.

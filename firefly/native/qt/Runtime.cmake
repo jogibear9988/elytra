@@ -33,6 +33,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/power-save-blocker/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/shell/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/system-preferences/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/net/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/global-shortcut/Targets.cmake")
 add_custom_target(
     check-firefly-dependencies
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py" --check
@@ -209,6 +210,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../shell/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../net/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../global-shortcut/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
@@ -245,6 +247,7 @@ target_link_libraries(
            firefly-shell
            firefly-system-preferences
            firefly-network-state
+           firefly-global-shortcut
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config
@@ -279,6 +282,14 @@ if(TARGET Qt6::QOffscreenIntegrationPlugin)
     add_dependencies(firefly-view-offscreen ladybird ${ladybird_helper_processes}
                      check-firefly-upstream)
     ladybird_check_skia_confinement(firefly-view-offscreen)
+    add_custom_target(
+        check-firefly-global-shortcut-public
+        COMMAND
+            "${CMAKE_COMMAND}" -E env QT_QPA_PLATFORM=offscreen
+            "$<TARGET_FILE:firefly-view-offscreen>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/global-shortcut/public.mjs"
+        DEPENDS firefly-view-offscreen
+        VERBATIM)
 else()
     message(
         STATUS "Qt offscreen static plugin unavailable: headless Firefly view frontend disabled")

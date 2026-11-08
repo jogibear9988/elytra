@@ -10503,6 +10503,78 @@ shortcuts, then continue workbench/open-edit-save, utility/renderer endpoint/aut
 extension/PTY, broader session/platform/packaging requirements. No VS Code workbench
 or native Windows desktop support is claimed. Full original goal remains active.
 
+## 2026-11-08 — Native globalShortcut ownership and Code-OSS continuation
+
+- Implement maintained ESM accelerator/callback ownership with native main-process
+  Host and genuine exclusive macOS Carbon hotkeys. Resolve printable characters
+  against the selected TIS Unicode keyboard layout, including punctuation layers;
+  no US fallback or application-local Qt emulation. Keep Mite independent and
+  Ladybird unmodified. Linux/Windows and offscreen admission fail explicitly.
+- Bound live/retired handles to64, use monotonic logical/native tokens, reject
+  physical duplicate chords and preserve inactive failed-cleanup ownership for retry.
+  Queue token-only notifications onto the owner thread with bounded repeat coalescing;
+  revoke before unregister, app/VM shutdown and Qt receiver destruction. The latter
+  fixes a lifetime gap identified during review and has a concrete regression case.
+- Retain failed-release tokens without callback roots. Retry each once before a
+  later admission/unregisterAll; block admission on persistent failure and guard
+  native-release reentry. Shared policy and exact native Host tests prove transient
+  failure recovery without stale callbacks or leaked native handles.
+- Six shared Node/Mite policy groups cover aliases, readiness, transaction rollback,
+  callback reentry/early events, quotas and disposal. Exact native Host tests pass
+  worker events, GC, stale delivery and receiver/controller/VM cleanup, including
+  outstanding registration at shutdown. Exact provider with controlled Carbon/TIS
+  peers covers selected layouts, exclusive flags, conflicts, reentry and failed cleanup.
+- One optional real OS ownership-only probe passes exclusive Ctrl+Alt+Shift+F19
+  admission, duplicate refusal, unregister/reacquire and stop/reacquire. No window,
+  keyboard injection, AX request or physical keypress acceptance. Public exact-object
+  offscreen readiness/query/refusal and windowless Electron baseline pass separately.
+- Pin unchanged original GlobalKeybindingsMainService source/license. Its actual
+  compiled consumer passes reconciliation, focused/current-command routing, conflicts
+  and owned-only lifecycle cleanup through the maintained factory's controlled registry
+  constructor seam. All64 compiled dependencies verify; genuine Firefly supplies the
+  Electron import graph. No fake Electron host module or actual OS event claim.
+- Actual local-desktop/NLS main-ready diagnostic now passes globalShortcut and next
+  fails linking Electron dialog. Preserve the default allowServiceWorkers refusal,
+  explicit local-desktop restrictions and lack of workbench/open-edit-save acceptance.
+  Update API, matrix, current blockers and ADR0171; keep combined menu-accelerator
+  example unsupported. Add controlled Host/provider/unavailable checks to release
+  validation and Linux renderer CI; the actual OS registration test remains opt-in.
+
+Validation: production Firefly and exact-object offscreen frontend rebuild. All114
+runtime gates pass: initial113/114 plus the checkout-byte gate after staging its new
+pinned source (the first run correctly rejected a file absent from the Git index).
+Native Host/provider/unavailable/public, real ownership-only, Electron baseline and
+original Code-OSS consumer pass. Logs: build/global-shortcut-{build,runtime,checkout,
+public,native,electron,consumer,ready}.log. Fresh 8b58f5f native Linux runtime run42519989240 subsequently completed all113
+suites (156.11 seconds). Windows runtime subsequently ended109/112: fork main/
+validation/lifetime/failure passed but the Node orphan-marker fixture was missing;
+fs.watch reported a truncated target filename (ts\\initial.txt). HTTP default-errors
+produced correct400/431 output in Mite but Node oracle exited3221226505 after400.
+Read-only upstream audit matches the watcher filename to libuv1.52.1 Windows
+uv__relative_path slicing: an8.3 watched-directory prefix differs from the expanded
+long child path. Upstream1.53.0 adds prefix validation and raw-relative fallback.
+An owned adapter can normalize the watched path before uv_fs_event_start; do not
+fabricate callbacks with basename/suffix stripping. Add real Windows short-alias/
+recursive path acceptance and retain original error paths. This remains an inference
+from source and diagnostics until native Windows proof.
+Job128851195280/run42519989267 has the exact diagnostics. Renderer jobs remained
+active and macOS packages pending when queried. Do not infer platform-wide green.
+
+Next dialog audit: actual DialogMainService needs async message/open/save with
+optional real BrowserWindow parent, original button indices and cancellation shapes.
+Startup main.ts also calls showMessageBoxSync before normal readiness. Reuse owned
+QObject lifecycle patterns, not HTML input byte snapshots: privileged dialogs return
+absolute files/directories and nonexistent save paths. On macOS use NSOpenPanel/
+NSSavePanel for mixed files+folders, multiselect and treatPackageAsDirectory; Qt public
+file modes cannot silently narrow those requests. Explicitly reject unsupported
+bookmarks/options. Keep sync warnings native/synchronous without recursively pumping
+LibJS callbacks. Validate controlled Host/provider first and batch visible acceptance.
+
+Remaining: implement genuine native dialogs and continue the actual main/workbench/
+workspace open-edit-save path, transferred utility/renderer endpoints/auth, extension/
+PTY and cross-platform/session/package deliverables. Physical shortcut delivery and
+live input-source remapping remain unaccepted. Full original product goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

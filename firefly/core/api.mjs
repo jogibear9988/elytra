@@ -22,6 +22,7 @@ import createPowerSaveBlocker from './power-save-blocker/index.mjs';
 import createShell from './shell/index.mjs';
 import createSystemPreferences from './system-preferences/index.mjs';
 import createNet from './net/index.mjs';
+import createGlobalShortcuts from './global-shortcut/index.mjs';
 
 export default function createFireflyApi(
   native,
@@ -175,6 +176,7 @@ export default function createFireflyApi(
       quitting = true;
       systemPreferencesService.stop();
       network.stop();
+      shortcuts.stop();
       desktopShell.stop();
       powerSave.stop();
       power.stop();
@@ -202,6 +204,14 @@ export default function createFireflyApi(
     }
   }
   const app = new App();
+  const shortcuts = createGlobalShortcuts(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported,
+    process.platform
+  );
   const network = createNet(
     native,
     () => ready,
@@ -303,6 +313,7 @@ export default function createFireflyApi(
     exited = true;
     systemPreferencesService.stop();
     network.stop();
+    shortcuts.stop();
     desktopShell.stop();
     powerSave.stop();
     power.stop();
@@ -735,6 +746,10 @@ export default function createFireflyApi(
       desktopShell.dispatch(JSON.parse(data));
       return;
     }
+    if (type === 'global-shortcut-event') {
+      shortcuts.dispatch(JSON.parse(data));
+      return;
+    }
     if (type === 'power-monitor-event') {
       power.dispatch(JSON.parse(data));
       return;
@@ -864,6 +879,7 @@ export default function createFireflyApi(
     powerSaveBlocker: powerSave.powerSaveBlocker,
     shell: desktopShell.shell,
     systemPreferences: systemPreferencesService.systemPreferences,
+    globalShortcut: shortcuts.globalShortcut,
     net: network.net
   };
 }

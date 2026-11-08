@@ -46,6 +46,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     power_monitor = PowerMonitor::install_host(realm, *host, *context, [this](std::string data) {
         enqueue(0, "power-monitor-event", ByteString(data.data(), data.size()));
     });
+    global_shortcuts
+        = GlobalShortcut::install_host(realm, *host, *context, [this](std::string data) {
+              enqueue(0, "global-shortcut-event", ByteString(data.data(), data.size()));
+          });
     power_save_blocker = PowerSaveBlocker::install_host(realm, *host);
     shell_service = Shell::install_host(realm, *host, *context, [this](std::string data) {
         enqueue(0, "shell-result", ByteString(data.data(), data.size()));

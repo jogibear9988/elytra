@@ -131,6 +131,8 @@ def main():
         "check-firefly-system-preferences-host",
         "check-firefly-system-preferences-unavailable",
         "check-firefly-network-state-unavailable",
+        "check-firefly-global-shortcut-host",
+        "check-firefly-global-shortcut-unavailable",
     ]
     if sys.platform == "darwin":
         native_services.extend(
@@ -143,6 +145,8 @@ def main():
                 "check-firefly-system-preferences-provider",
                 "check-firefly-system-preferences-read-only",
                 "check-firefly-network-state-provider",
+                "check-firefly-global-shortcut-provider",
+                "check-firefly-global-shortcut-public",
                 "check-firefly-net-native",
                 "check-firefly-net-transport",
             ]

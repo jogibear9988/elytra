@@ -72,6 +72,8 @@ void Bridge::Impl::stop()
         desktop_capture->stop();
     if (notifications)
         notifications->stop();
+    if (global_shortcuts)
+        global_shortcuts->stop();
     if (power_monitor)
         power_monitor->stop();
     if (power_save_blocker)

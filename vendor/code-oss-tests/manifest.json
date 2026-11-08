@@ -238,6 +238,10 @@
     "nodeRequestService.ts": {
       "upstream": "src/vs/platform/request/node/requestService.ts",
       "sha256": "3c6198704b1d7d72d62607cf302e721559d96265c5552549299dbcbe870d757b"
+    },
+    "globalKeybindingsMainService.ts": {
+      "upstream": "src/vs/platform/globalKeybindings/electron-main/globalKeybindingsMainService.ts",
+      "sha256": "db8c7c050e4792e739d949f0e00aaa6f4311f3c2da3d46c34fba7f639329c45d"
     }
   }
 }

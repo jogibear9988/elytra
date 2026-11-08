@@ -154,7 +154,7 @@ public:
                 "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
                 "safeStorage", "WebContentsView", "webContents", "desktopCapturer", "nativeImage",
                 "Notification", "powerMonitor", "powerSaveBlocker", "shell", "systemPreferences",
-                "net" };
+                "net", "globalShortcut" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)
