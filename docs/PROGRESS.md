@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 96
+Mite is a working native LibJS runtime; the current macOS Release build has 97
 validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -9776,6 +9776,23 @@ services and workbench; utility/renderer port handoff, auth, File/open-edit-save
 extension/PTY hosts, webviews/remote, native platforms/packages/releases. Preserve
 original source-edit and advanced-loader limitations. Mite remains independent,
 Ladybird unchanged and the full original goal active; no usable VS Code is claimed.
+
+## 2026-11-08 — Canonical module identity under reentrant CommonJS analysis
+
+- Review after 1c75f27 finds a real native abort: a registered resolve hook starts
+  import of the same CJS URL during reexport analysis; the nested load publishes a
+  module, then the outer load constructs a second record for that URL. The engine
+  correctly refuses competing module records. Recheck our canonical module cache
+  after analysis callbacks and return the record already published by reentry.
+- Add a real Node/Mite hook regression. Node24 rejects the measured flow with
+  ReferenceError; Mite intentionally retains its first namespace and its then-known
+  names. Verify all imports share one native namespace and the genuine default
+  CommonJS value, without a fatal engine abort. This is not full Node reentry parity.
+
+Validation: rebuilt native Release runtime; CJS reentry/namespace/classification/GC
+and resolve-hook gates all pass (5/5, 0.90 seconds). The ordinary actual Code-OSS ZIP
+consumer remains accepted; Ladybird is untouched. Desktop capture implementation
+continues separately; the full goal and VS Code workbench remain incomplete.
 
 ## Resume
 

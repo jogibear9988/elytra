@@ -317,6 +317,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
         }
 
         auto names = TRY(commonjs_export_names(path));
+        // Resolve hooks can start another import while source analysis is active.
+        // Reuse its canonical record instead of publishing two records for one URL.
+        if (auto found = m_modules.find(identity); found != m_modules.end())
+            return *found->second;
         auto quoted = AK::JsonValue(view(path_string(path))).serialized();
         std::string list = "[";
         std::string declarations;

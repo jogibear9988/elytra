@@ -98,6 +98,12 @@ syntax-detection, synchronous require(ESM), native-addon or loader-hook parity d
 not follow from these namespace checks. Fresh native Linux/Windows validation of
 this slice remains open.
 
+A resolve hook that recursively imports the very CommonJS URL currently being
+analyzed cannot publish a second native module record. Mite reuses the first
+namespace, whose names reflect the analysis available at its creation. Node24
+rejects the measured case with ReferenceError; Mite's stable first-record behavior
+is an intentional difference, not complete reentrant-analysis parity.
+
 The unchanged compiled Code-OSS ZIP writer now runs with genuine yazl dependencies;
 independent ZIP CRC/extracted-byte checks pass. This accepts that consumer, not
 extension installation or a complete VS Code workbench.
