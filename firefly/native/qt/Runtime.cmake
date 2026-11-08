@@ -236,6 +236,13 @@ add_custom_target(
     VERBATIM)
 
 add_custom_target(
+    check-firefly-preload-getters
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_preload_getters.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+
+add_custom_target(
     check-firefly-ipc-binary
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_binary.py"
             --firefly "$<TARGET_FILE:firefly>"
@@ -374,6 +381,7 @@ if(APPLE)
                 check-firefly-ipc-outbound
                 check-firefly-ipc-channel
                 check-firefly-ipc-binary
+                check-firefly-preload-getters
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

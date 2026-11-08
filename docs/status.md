@@ -86,6 +86,13 @@ and duplicate native handles are rejected in the runtime admission gate. Applica
 queues, history markers and pending/transport credit are bounded. MessagePorts,
 streaming, shared memory, broad clone types and fresh Linux/native Windows remain open.
 
+Trusted [contextBridge publication getters](api/context-bridge.md#trusted-getters-at-api-publication)
+now pass native and real helper/Electron snapshot tests. Source getter receivers,
+function/binary values, limits, GC, rollback, namespace collision, reentrant publish
+and revoke are covered. Page/IPC/result/callback accessors remain refused. This
+supports one part of Code-OSS's published metadata shape, not its actual process,
+zoom/file or port APIs and not the full unchanged preload/workbench.
+
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local
 macOS native/Node/Mite policy and actual public hidden-window acceptance pass,

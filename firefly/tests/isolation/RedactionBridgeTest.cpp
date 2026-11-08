@@ -93,7 +93,7 @@ ErrorOr<void> check_redaction_bridge(JS::VM& vm, Web::DOM::Document& document)
     TRY(check(uR"JS(
         contextBridge.exposeInMainWorld('__ffPrivateRedacted', privateModule);
         contextBridge.exposeInMainWorld('__ffRedaction', {
-            a:privateModule,b:privateModule,
+            a:privateModule,b:privateModule,get module(){return privateModule},
             get(){return {a:privateModule,b:privateModule}},
             async promised(){return privateModule},
             emit(cb){return cb({sender:privateModule,alias:privateModule,ports:[]}, {n:7})}
@@ -101,7 +101,7 @@ ErrorOr<void> check_redaction_bridge(JS::VM& vm, Web::DOM::Document& document)
         let blocked=0;
         for(const api of [privateModule.send,{send:privateModule.send},
             new Proxy(privateModule,{get(){redactionTraps++;throw 1}}),
-            {get sender(){redactionTraps++;throw 1}}]) {
+            Object.defineProperty({},'sender',{enumerable:true,get:new Proxy(()=>1,{apply(){redactionTraps++;throw 1}})})]) {
             try {contextBridge.exposeInMainWorld('__ffRedactionBad',api)}
             catch(e){if(e instanceof TypeError) ++blocked}
         }
@@ -112,7 +112,7 @@ ErrorOr<void> check_redaction_bridge(JS::VM& vm, Web::DOM::Document& document)
         globalThis.redactionEmpty=value=>Object.getPrototypeOf(value)===Object.prototype &&
             Reflect.ownKeys(value).length===0 && Object.isFrozen(value);
         const api=__ffRedaction, result=api.get();
-        redactionEmpty(__ffPrivateRedacted) && redactionEmpty(api.a) && api.a===api.b &&
+        redactionEmpty(__ffPrivateRedacted) && redactionEmpty(api.module) && redactionEmpty(api.a) && api.a===api.b &&
             redactionEmpty(result.a) && result.a===result.b &&
             api.emit((event,value)=>redactionEmpty(event.sender) && event.sender===event.alias &&
                 Object.isFrozen(event) && Array.isArray(event.ports) && event.ports.length===0 &&

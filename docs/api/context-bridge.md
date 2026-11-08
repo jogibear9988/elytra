@@ -85,8 +85,9 @@ itself is not frozen. This is a copied snapshot, not live shared object state.
 
 Supported data includes undefined, null, booleans, numbers, strings and plain
 objects/arrays with own data properties. Functions require validated source-world
-ownership. Accessors, proxies, bound functions, custom prototypes, symbols, DOM/native
-objects and promises embedded directly in an API graph are unsupported. Function
+ownership. Publication may read the trusted source getters described below. Proxies,
+bound functions, custom prototypes, symbols, DOM/native objects and promises embedded
+directly in an API graph remain unsupported. Function
 arguments/results pass through bounded data copies; document-supplied function arguments
 are proxied as described below, and a returned Promise is bridged.
 Page getters/proxies are rejected without running their traps. This stricter policy
@@ -104,6 +105,44 @@ function's ability to access its isolated closure is not privileged access to th
 main process. Use a fixed [ipcRenderer.invoke](ipc.md) action for that boundary;
 main-process imports expose app/BrowserWindow/ipcMain. executeInMainWorld and
 additional contextBridge methods are not implemented.
+
+## Trusted getters at API publication
+
+Own JavaScript getters in a preload API are evaluated once, synchronously, during
+exposeInMainWorld. The receiver is the owning source object. Their supported return
+values become ordinary copied properties in the frozen destination API; this is a
+snapshot, not a live property proxy. Repeated page reads do not execute the source
+getter. Changing the source value later does not change the published data.
+
+```js
+// preload.mjs
+const state = {env: {LABEL: 'initial'}};
+contextBridge.exposeInMainWorld('metadata', {
+  get env() { return {...state.env}; }
+});
+state.env.LABEL = 'later'; // metadata.env.LABEL in the document stays 'initial'.
+```
+
+Getters may return supported data, functions or binary views, subject to existing
+graph/function/binary limits. Aliases and cycles are retained. A setter-only
+property copies as undefined; setters are never invoked or exposed. Only ordinary
+JavaScript getter functions from the exact source realm are accepted. Native,
+foreign-realm, bound and Proxy getters reject without invoking their hooks. There
+are at most 64 getter calls per publication; graph and endpoint budgets still apply.
+
+Getter effects in the preload are real and are not rolled back. If a getter throws,
+returns an unsupported value, exceeds a budget or revokes the document/bridge,
+publication fails without installing the requested API; temporary function endpoints
+are revoked. Reentrant exposeInMainWorld during capture is refused. If the principal
+namespace appears while a getter runs, publication refuses to overwrite it. Previously
+published APIs and data remain subject to their own lifecycle.
+
+This opt-in applies **only to trusted API publication**. Getters in page arguments,
+function results, callbacks and IPC data still reject without running. This is a
+narrower policy than general Electron bridge copying. The real Electron reference
+confirms source getter snapshots, receivers, frozen copied data and failure rollback;
+Firefly's additional getter kinds/quota/reentry restrictions are tested separately.
+See [ADR 0143](../architecture/0143-trusted-publication-getters.md).
 
 ## Document callbacks
 

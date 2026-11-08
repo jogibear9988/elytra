@@ -387,3 +387,9 @@ callback forwarding uses the selected connection stub. Bootstrap consumers must
 include the canonical staged LibIPC/FireflyBootstrap.h declaration, not both the
 source and staged copies. Revalidate channel/hello unit gates and the production
 helper's reload/multiwindow handshake before accepting an upstream update.
+
+Trusted publication getters in [ADR 0143](../architecture/0143-trusted-publication-getters.md)
+add an explicit native reader to the existing snapshot engine. Revalidate ordinary
+own descriptors, getter function class/realm metadata, rooted key vectors and alias
+values across getter-triggered GC. Keep default snapshot paths getter-free and
+verify the publication collision/reentry/revocation controls and exact call budget.

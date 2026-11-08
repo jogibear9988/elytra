@@ -1,6 +1,6 @@
 /**
- * Captures bounded plain data and explicitly opted-in binary storage without invoking getters
- * or proxy hooks. Materialization owns destination values, never source VM pointers.
+ * Captures bounded data/binary graphs with no default hooks. Publication may supply an explicit
+ * trusted getter reader. Materialization owns destination values, never source VM pointers.
  */
 
 #include "serialization/BridgeData.h"
@@ -29,15 +29,18 @@ BridgeData BridgeData::from_string(Utf16View value)
 }
 
 ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits,
-    CaptureFunction functions, RedactObject redact)
+    CaptureFunction functions, RedactObject redact, ReadAccessor accessors)
 {
     // Root the whole source graph while the engine allocates key vectors. All
-    // traversed objects are exact engine classes, and ordinary descriptor reads
-    // never call getters or proxy/host hooks. No JS code runs during capture.
+    // traversed objects are exact engine classes and ordinary descriptor reads
+    // never call hooks. Only an explicitly supplied publication accessor reader
+    // executes JS. Retain visited values: getters can collect transient objects
+    // whose addresses are still keys in the alias table.
     auto root = GC::Root<JS::Value>::create(value, SourceLocation::current());
     GC::Root source_realm { source };
     BridgeData result;
     HashMap<JS::Object const*, size_t> seen;
+    GC::RootVector<JS::Value> source_values;
     size_t properties = 0;
     size_t units = 0;
     size_t binary_bytes = 0;
@@ -58,6 +61,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
 
         if (result.m_nodes.size() >= limits.values)
             return Error::from_string_literal("Bridge value budget exceeded");
+        source_values.append(input);
         Node node {};
         if (input.is_undefined()) {
         } else if (input.is_null())
@@ -216,15 +220,26 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
             TRY(charge_string(key_value.as_string().length_in_utf16_code_units()));
             auto key = key_value.as_string().utf16_string();
             auto descriptor = object.ordinary_get_own_property(key);
-            if (descriptor.is_error() || !descriptor.value().has_value()
-                || descriptor.value()->is_accessor_descriptor()
-                || !descriptor.value()->value.has_value())
-                return Error::from_string_literal("Bridge rejects accessor properties");
+            if (descriptor.is_error() || !descriptor.value().has_value())
+                return Error::from_string_literal("Bridge property changed during capture");
+            auto const& property = *descriptor.value();
+            JS::Value value = JS::js_undefined();
+            if (property.is_accessor_descriptor()) {
+                if (!accessors)
+                    return Error::from_string_literal("Bridge rejects accessor properties");
+                if (property.get.has_value() && *property.get)
+                    value = TRY(accessors(object, **property.get));
+            } else {
+                if (!property.value.has_value())
+                    return Error::from_string_literal("Bridge property has no value");
+                value = *property.value;
+            }
+
             if (result.m_nodes[index].kind == Kind::Array && key == "length"_utf16)
                 continue;
-            auto child = TRY(self(self, *descriptor.value()->value, depth + 1));
+            auto child = TRY(self(self, value, depth + 1));
             result.m_nodes[index].properties.append(
-                { move(key), child, descriptor.value()->enumerable.value_or(false) });
+                { move(key), child, property.enumerable.value_or(false) });
         }
 
         return index;

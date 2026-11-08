@@ -6,5 +6,5 @@
 namespace Firefly {
 class IsolatedWorld;
 ErrorOr<BridgeData> capture_to_principal(
-    IsolatedWorld&, JS::Value, BridgeData::CaptureFunction = {});
+    IsolatedWorld&, JS::Value, BridgeData::CaptureFunction = {}, BridgeData::ReadAccessor = {});
 }

@@ -41,5 +41,6 @@ private:
     Vector<NonnullRefPtr<FunctionBridge>> m_functions;
     size_t m_publications { 0 };
     bool m_revoked { false };
+    bool m_publishing { false };
 };
 }

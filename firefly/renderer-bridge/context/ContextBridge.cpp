@@ -9,6 +9,7 @@
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/RootVector.h>
+#include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibWeb/Bindings/HostDefined.h>
@@ -90,8 +91,9 @@ GC::Ref<JS::Object> ContextBridge::exports()
 
 JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
 {
-    if (m_revoked || !m_source || m_source->is_detached() || !m_source->is_executing()
-        || !m_document->is_fully_active() || vm.current_realm() != m_source->realm())
+    if (m_publishing || m_revoked || !m_source || m_source->is_detached()
+        || !m_source->is_executing() || !m_document->is_fully_active()
+        || vm.current_realm() != m_source->realm())
         return vm.throw_completion<JS::TypeError>(
             "Context bridge is revoked or called from another realm"sv);
     // Native function [[Realm]] is selected even when a foreign script calls
@@ -110,8 +112,14 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
     if (!vm.argument(0).is_string() || !vm.argument(0).as_string().length_in_utf16_code_units()
         || vm.argument(0).as_string().length_in_utf16_code_units() > 256 || m_publications >= 64)
         return vm.throw_completion<JS::TypeError>("Invalid or excessive bridge namespace"sv);
+    NonnullRefPtr source { *m_source };
+    GC::Root document { *m_document };
+    GC::Root source_realm { *source->realm() };
+    auto callbacks = m_callbacks;
+    m_publishing = true;
+    ScopeGuard publication([&] { m_publishing = false; });
     auto key = vm.argument(0).as_string().utf16_string();
-    auto& target = m_document->window()->principal_realm();
+    auto& target = document->window()->principal_realm();
     auto& global = target.global_object();
     auto existing = global.internal_get_own_property(key);
     if (existing.is_error())
@@ -128,19 +136,42 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
                 function->revoke();
     };
 
+    auto active
+        = [&] { return !m_revoked && !source->is_detached() && document->is_fully_active(); };
+    size_t getter_calls = 0;
     auto snapshot = capture_to_principal(
-        *m_source, vm.argument(1), [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
-            if (m_functions.size() + pending.size() >= 64)
+        *source, vm.argument(1),
+        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+            if (!active() || m_functions.size() + pending.size() >= 64)
                 return Error::from_string_literal("Bridge function budget exceeded");
-            auto exported
-                = TRY(FunctionBridge::create(*m_source, function, *m_document, m_callbacks));
+            auto exported = TRY(FunctionBridge::create(*source, function, *document, callbacks));
             size_t id = functions.size();
             pending.append(exported.owner);
             functions.append(exported.function);
             return id;
+        },
+        [&](JS::Object& receiver, JS::FunctionObject& getter) -> ErrorOr<JS::Value> {
+            auto id = getter.engine_class_id();
+            if (!active() || getter_calls >= 64
+                || (id != JS_LAYOUT_CLASS_ID_ECMASCRIPT_FUNCTION_OBJECT
+                    && id != JS_LAYOUT_CLASS_ID_ECMASCRIPT_FUNCTION_OBJECT_WITH_RARE_DATA)
+                || getter.realm() != source_realm.ptr())
+                return Error::from_string_literal("Unsupported or excessive source getter");
+            ++getter_calls;
+            GC::Root function { getter };
+            GC::Root object { receiver };
+            auto value = JS::call(vm, *function, JS::Value(object.ptr()));
+            if (value.is_error() || !active())
+                return Error::from_string_literal("Source getter rejected");
+            return value.release_value();
         });
-    if (snapshot.is_error())
+    if (snapshot.is_error() || !active())
         return vm.throw_completion<JS::TypeError>("Unsupported or excessive bridge API"sv);
+    // Getter side effects can create a principal property while capture runs.
+    // Never overwrite a namespace that appeared after the initial check.
+    auto collision = global.internal_get_own_property(key);
+    if (collision.is_error() || collision.value().has_value())
+        return vm.throw_completion<JS::TypeError>("Bridge namespace changed during publication"sv);
     auto value = snapshot.value().materialize(
         target,
         [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {

@@ -3,12 +3,13 @@
 #include "worlds/IsolatedWorld.h"
 
 namespace Firefly {
-ErrorOr<BridgeData> capture_to_principal(
-    IsolatedWorld& world, JS::Value value, BridgeData::CaptureFunction functions)
+ErrorOr<BridgeData> capture_to_principal(IsolatedWorld& world, JS::Value value,
+    BridgeData::CaptureFunction functions, BridgeData::ReadAccessor accessors)
 {
     if (world.is_detached())
         return Error::from_string_literal("Cannot snapshot a detached world");
-    return BridgeData::capture(value, *world.realm(), public_binary_limits(), move(functions),
-        [&](JS::Object& object) { return world.object_export_redacted(object); });
+    return BridgeData::capture(
+        value, *world.realm(), public_binary_limits(), move(functions),
+        [&](JS::Object& object) { return world.object_export_redacted(object); }, move(accessors));
 }
 }

@@ -11,6 +11,7 @@
 #include "NodeFilterTest.h"
 #include "PrincipalCallbackTest.h"
 #include "PromiseBridgeTest.h"
+#include "PublicationGetterTest.h"
 #include "RedactionBridgeTest.h"
 #include "WorldJobGuardTest.h"
 #include "worlds/IsolatedWorld.h"
@@ -146,6 +147,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_bridge_data(vm, principal, *second->realm()));
     TRY(check_function_bridge(vm, *document));
     TRY(check_context_bridge(vm, *document));
+    TRY(check_publication_getters(vm, *document));
     TRY(check_callback_bridge(vm, *document));
     TRY(check_redaction_bridge(vm, *document));
     TRY(check_binary_bridge(vm, *document));

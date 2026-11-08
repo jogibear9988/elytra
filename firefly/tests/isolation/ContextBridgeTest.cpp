@@ -76,7 +76,7 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     TRY(check(uR"JS(
         globalThis.apiTraps=0;
         const failures=[
-          {good:()=>1,get bad(){apiTraps++;throw 1}},
+          Object.defineProperty({good:()=>1},'bad',{enumerable:true,get:new Proxy(()=>1,{apply(){apiTraps++;throw 1}})}),
           {good:()=>1,bad:new Proxy({}, {ownKeys(){apiTraps++;throw 1},get(){apiTraps++;throw 1}})},
           {good:()=>1,bad:new Proxy(()=>1,{get(){apiTraps++;throw 1}})},
           {bad:(()=>1).bind(null)}, {bad:Object.create({})}, {bad:Symbol()}, {bad:1n}, {bad:Promise.resolve(1)},

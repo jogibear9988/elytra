@@ -1,0 +1,51 @@
+<!doctype html><meta charset="utf-8" /><title>Getter publication</title>
+<script>
+  (async () => {
+    try {
+      const api = getterApi,
+        p = api.process;
+      const descriptor = Object.getOwnPropertyDescriptor(p, 'env');
+      const first = p.env;
+      api.update();
+      let traps = 0,
+        denied = 0;
+      try {
+        api.echo({
+          get value() {
+            traps++;
+            throw 1;
+          }
+        });
+      } catch (e) {
+        if (e instanceof TypeError) denied++;
+      }
+      try {
+        api.result();
+      } catch (e) {
+        if (e instanceof TypeError) denied++;
+      }
+      const status = api.status();
+      const report = {
+        snapshot:
+          api.receiver === true &&
+          p.env === first &&
+          p.env.LABEL === 'initial' &&
+          p.platform === 'fixture' &&
+          p.arch === 'fixture-arch' &&
+          p.versions.engine === 'fixture' &&
+          p.type === 'renderer' &&
+          p.execPath === '/fixture/firefly',
+        descriptor: !descriptor.get && !descriptor.writable && !descriptor.configurable,
+        frozen: Object.isFrozen(p) && Object.isFrozen(p.env) && Object.isFrozen(p.versions),
+        calls: status.reads === 6 && status.sideEffects === 1 && status.failed,
+        rollback: typeof getterFailed === 'undefined',
+        strict: denied === 2 && traps === 0 && status.resultReads === 0,
+        function: api.action === api.alias && api.action() === 42,
+        isolation: typeof process === 'undefined' && typeof require === 'undefined'
+      };
+      await api.report(report);
+    } catch (error) {
+      await getterApi.report({ error: String(error) });
+    }
+  })();
+</script>

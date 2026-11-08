@@ -8740,6 +8740,52 @@ process/options/zoom/file and worker/cache/resource contracts. Next advance thos
 contracts and ports, keeping the full product goal active rather than declaring the
 first copied-buffer transport complete as the overall objective.
 
+## 2026-11-08 — Trusted source getter snapshots for Code-OSS API publication
+
+- Continue from pushed d0fe3c2, which made authoritative native binary IPC progress.
+  Inspect the actual pinned preload: its process metadata graph contains own getters
+  that previously caused exposeInMainWorld to reject. Prioritize that demanded
+  publication contract without claiming that missing process/worker APIs exist.
+- Add an explicit native accessor reader to snapshot capture, default disabled.
+  Supply it only for trusted API publication. Require exact source-realm ordinary
+  ECMAScript getters, preserve the source receiver, copy supported values/functions/
+  binary/cycles and expose frozen data properties rather than live page getters.
+  Setter-only fields copy undefined; setters never run. Native/foreign/Proxy/bound
+  getters refuse without hooks. Redact marked IPC modules before enumerating them.
+- Limit getter execution to 64 per publication alongside existing graph/function/
+  byte budgets. Root all visited source values so getter-triggered GC cannot invalidate
+  transient alias keys. Retain source/document/realm/registry during reentrant native
+  work. Refuse recursive publication, recheck liveness and a newly occupied principal
+  namespace, and revoke temporary function exports on failure. Getter effects in the
+  source are real and not rolled back. Other capture directions stay accessor-free.
+- Add actual-engine cases for one-time snapshots, source receiver, metadata values,
+  frozen descriptors, functions/aliases/cycles/binary, GC, throwing/unsupported values,
+  exact getter quota, foreign/native/Proxy/bound getters, strict page/result boundaries,
+  atomic function-budget rollback, namespace collision, recursive publish and revoke.
+  Extend module-redaction coverage to a source getter returning the private module.
+- Keep older no-trap tests meaningful by using genuinely refused Proxy getters;
+  ordinary source getters now have their own side-effect/error expectations.
+- Add one hidden production-helper getter batch with reload and an actual Electron
+  common reference. Check Code-OSS-shaped metadata, immutable snapshots after source
+  updates, descriptor/receiver semantics, returned functions, rollback and isolation.
+  Wire the helper gate into the macOS aggregate/Linux Xvfb path. Update detailed API,
+  compatibility/status/roadmap/upstream update guide and ADR 0143.
+
+Validation: local macOS Release build, actual native isolation and production-helper
+getter gate pass. Real Electron snapshot/descriptor/receiver/freeze/rollback reference
+passes, with Firefly-only strict direction checks separate. Final native rebuild,
+source style, generated JS freshness, unmodified upstream pin, built-site links and
+whitespace checks pass.
+Only focused hidden getter batches ran; no broad desktop suite or physical UI
+interaction. Fresh Linux/native Windows execution remain unverified; Ladybird stays
+unmodified. Full goal stays active.
+
+Remaining: no actual renderer process object is installed by this feature. Continue
+native sandbox process metadata and additionalArguments, real zoom/file APIs and
+MessagePorts, while resolving the known actual-entry allowServiceWorkers/worker/
+cache/resource requirements. No new actual Code-OSS preload/workbench launch is
+claimed; a real workbench open/edit/save milestone remains unaccepted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -1,6 +1,6 @@
 /**
- * Captures bounded plain data and explicitly opted-in binary storage without invoking getters
- * or proxy hooks. Materialization owns destination values, never source VM pointers.
+ * Captures bounded data/binary graphs with no default hooks. Publication may supply an explicit
+ * trusted getter reader. Materialization owns destination values, never source VM pointers.
  */
 
 #pragma once
@@ -25,8 +25,8 @@ public:
         size_t string_code_units { 65536 };
         size_t depth { 64 };
         size_t array_length { 4096 };
-        // Explicit opt-in. Public contextBridge uses BinaryPolicy; IPC stays
-        // byte-free until its native document channel is integrated.
+        // Explicit opt-in. Public realm/process bridges use BinaryPolicy;
+        // default data-only snapshots still refuse binary.
         size_t binary_bytes { 0 };
     };
 
@@ -36,13 +36,16 @@ public:
     using RedactObject = Function<bool(JS::Object&)>;
     // FrozenContainers deliberately leaves copied binary stores/views writable;
     // engine TypedArrays cannot be frozen. Strict Frozen still refuses binary.
+    // Only API publication supplies this trusted source-world reader. Default
+    // capture, page arguments, IPC and callback/result snapshots never run it.
+    using ReadAccessor = Function<ErrorOr<JS::Value>(JS::Object&, JS::FunctionObject&)>;
     enum class Materialization { Frozen, Mutable, FrozenContainers };
     using MaterializeFunction = Function<JS::ThrowCompletionOr<JS::Value>(size_t)>;
     // Native error replies must not enter or allocate in a busy JavaScript VM.
     static BridgeData from_string(Utf16View);
 
     static ErrorOr<BridgeData> capture(
-        JS::Value, JS::Realm&, Limits, CaptureFunction = {}, RedactObject = {});
+        JS::Value, JS::Realm&, Limits, CaptureFunction = {}, RedactObject = {}, ReadAccessor = {});
     // Versioned, data-only wire graph; validates bytes/schema/budgets before JS allocation.
     ErrorOr<ByteString> encode_wire(Limits) const;
 
