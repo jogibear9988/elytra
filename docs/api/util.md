@@ -107,7 +107,7 @@ console.log(await promisify(legacy)('ready'));
 | fs.read | {bytesRead, buffer}, preserving the supplied buffer |
 | fs.write | {bytesWritten, buffer}, preserving the byte/string input |
 | dns.lookup | {address, family}; an array of results with all:true |
-| child_process.execFile | {stdout, stderr}; the returned Promise immediately has .child; rejection errors retain .stdout/.stderr |
+| child_process.exec / execFile | {stdout, stderr}; the returned Promise immediately has .child; rejection errors retain .stdout/.stderr |
 | timers.setTimeout / global setTimeout | The existing timers/promises.setTimeout function, with value/options/cancellation/ref semantics |
 | timers.setImmediate / global setImmediate | The existing timers/promises.setImmediate function |
 

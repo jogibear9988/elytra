@@ -181,7 +181,7 @@ def main():
             observations
         )
         fixture.write_text(
-            "const cp=require('child_process');for(const options of [{shell:true},{signal:{}},{uid:0},{gid:0},{stdio:'ipc'},{stdio:['pipe','pipe','pipe','pipe']}]){let caught=false;try{cp.spawn('x',[],options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported process option accepted')}for(const name of ['exec','fork','spawnSync'])if(cp[name]!==undefined)throw Error('Unexpected process export');console.log('POLICY_OK');",
+            "const cp=require('child_process');for(const options of [{shell:true},{signal:{}},{uid:0},{gid:0},{stdio:'ipc'},{stdio:['pipe','pipe','pipe','pipe']}]){let caught=false;try{cp.spawn('x',[],options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported process option accepted')}for(const name of ['fork','spawnSync'])if(cp[name]!==undefined)throw Error('Unexpected process export');console.log('POLICY_OK');",
             encoding="utf-8",
         )
         result = subprocess.run(

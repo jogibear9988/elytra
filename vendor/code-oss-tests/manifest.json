@@ -214,6 +214,10 @@
     "zip.ts": {
       "upstream": "src/vs/base/node/zip.ts",
       "sha256": "7fbbe0c2c82064ffee0bad141087259f699c46040573150a22191d410217c39f"
+    },
+    "terminalEncoding.ts": {
+      "upstream": "src/vs/base/node/terminalEncoding.ts",
+      "sha256": "a2ad5ed2d2da5335c6a1d0aaf114902168c09efa5c330b0c359e951c928efc00"
     }
   }
 }

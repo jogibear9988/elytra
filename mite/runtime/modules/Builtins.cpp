@@ -116,7 +116,8 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
     "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual" };
-static constexpr std::string_view child_process_exports[] = { "spawn", "execFile", "ChildProcess" };
+static constexpr std::string_view child_process_exports[]
+    = { "spawn", "execFile", "exec", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };

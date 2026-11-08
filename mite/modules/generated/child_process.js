@@ -431,7 +431,7 @@ function createChildProcessModule(host) {
     }
     return child;
   }
-  function execFile(file, args, opts, callback) {
+  function execFileImpl(file, args, opts, callback, displayCommand) {
     if (Array.isArray(args)) {
       args = args.slice();
     } else if (args !== null && typeof args === "object") {
@@ -503,7 +503,7 @@ function createChildProcessModule(host) {
         callback(null, ...values);
         return;
       }
-      const command = args.length ? file + " " + args.join(" ") : file;
+      const command = displayCommand ?? (args.length ? file + " " + args.join(" ") : file);
       if (!failure) {
         failure = new Error(`Command failed: ${command}
 ${values[1]}`);
@@ -569,25 +569,55 @@ ${values[1]}`);
     }
     return child;
   }
-  Object.defineProperty(execFile, Symbol.for("nodejs.util.promisify.custom"), {
-    value: function(...args) {
-      let child;
-      const promise = new Promise((resolve, reject) => {
-        child = execFile(...args, (error, stdout, stderr) => {
-          if (error) {
-            error.stdout = stdout;
-            error.stderr = stderr;
-            reject(error);
-          } else {
-            resolve({ stdout, stderr });
-          }
-        });
-      });
-      promise.child = child;
-      return promise;
+  function execFile(file, args, opts, callback) {
+    return execFileImpl(file, args, opts, callback);
+  }
+  function exec(command, opts, callback) {
+    text(command, "command");
+    if (!command) {
+      fail(TypeError, "ERR_INVALID_ARG_VALUE", "command must not be empty");
     }
-  });
-  return { spawn, execFile, ChildProcess };
+    if (typeof opts === "function") {
+      callback = opts;
+      opts = void 0;
+    }
+    if (opts != null && (typeof opts !== "object" || Array.isArray(opts))) {
+      fail(TypeError, "ERR_INVALID_ARG_TYPE", "options must be an object");
+    }
+    const config = { ...opts };
+    const windows = host.platform === "win32";
+    const shell = typeof config.shell === "string" ? config.shell : windows ? host.process.env.comspec || "cmd.exe" : "/bin/sh";
+    const cmd = windows && /(?:^|[\\/])cmd(?:\.exe)?$/i.test(shell);
+    const args = shell === "" ? [] : cmd ? ["/d", "/s", "/c", `"${command}"`] : ["-c", command];
+    config.shell = false;
+    if (cmd) {
+      config.windowsVerbatimArguments = true;
+    }
+    return execFileImpl(shell || command, args, config, callback, command);
+  }
+  function attachPromisify(operation) {
+    Object.defineProperty(operation, Symbol.for("nodejs.util.promisify.custom"), {
+      value: function(...args) {
+        let child;
+        const promise = new Promise((resolve, reject) => {
+          child = operation(...args, (error, stdout, stderr) => {
+            if (error) {
+              error.stdout = stdout;
+              error.stderr = stderr;
+              reject(error);
+            } else {
+              resolve({ stdout, stderr });
+            }
+          });
+        });
+        promise.child = child;
+        return promise;
+      }
+    });
+  }
+  attachPromisify(execFile);
+  attachPromisify(exec);
+  return { spawn, execFile, exec, ChildProcess };
 }
 return createChildProcessModule;
 })()

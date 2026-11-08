@@ -483,7 +483,7 @@ export default function createChildProcessModule(host) {
   }
 
   /** Collect bounded output while the native spawn/pipe lifecycle remains authoritative. */
-  function execFile(file, args, opts, callback) {
+  function execFileImpl(file, args, opts, callback, displayCommand) {
     if (Array.isArray(args)) {
       args = args.slice();
     } else if (args !== null && typeof args === 'object') {
@@ -564,7 +564,7 @@ export default function createChildProcessModule(host) {
         callback(null, ...values);
         return;
       }
-      const command = args.length ? file + ' ' + args.join(' ') : file;
+      const command = displayCommand ?? (args.length ? file + ' ' + args.join(' ') : file);
       if (!failure) {
         failure = new Error(`Command failed: ${command}\n${values[1]}`);
         failure.code = code;
@@ -639,24 +639,68 @@ export default function createChildProcessModule(host) {
     return child;
   }
 
-  Object.defineProperty(execFile, Symbol.for('nodejs.util.promisify.custom'), {
-    value: function (...args) {
-      let child;
-      const promise = new Promise((resolve, reject) => {
-        child = execFile(...args, (error, stdout, stderr) => {
-          if (error) {
-            error.stdout = stdout;
-            error.stderr = stderr;
-            reject(error);
-          } else {
-            resolve({ stdout, stderr });
-          }
-        });
-      });
-      // The child remains available immediately for kill/events while output is collected.
-      promise.child = child;
-      return promise;
+  function execFile(file, args, opts, callback) {
+    return execFileImpl(file, args, opts, callback);
+  }
+
+  /** Execute the original command through a real OS shell, preserving shell syntax.
+   * Buffering, cancellation and native process/pipe retirement share execFile's
+   * implementation. Direct spawn/execFile remain shell-free in this subset.
+   */
+  function exec(command, opts, callback) {
+    text(command, 'command');
+    if (!command) {
+      fail(TypeError, 'ERR_INVALID_ARG_VALUE', 'command must not be empty');
     }
-  });
-  return { spawn, execFile, ChildProcess };
+    if (typeof opts === 'function') {
+      callback = opts;
+      opts = undefined;
+    }
+    if (opts != null && (typeof opts !== 'object' || Array.isArray(opts))) {
+      fail(TypeError, 'ERR_INVALID_ARG_TYPE', 'options must be an object');
+    }
+    const config = { ...opts };
+    const windows = host.platform === 'win32';
+    const shell =
+      typeof config.shell === 'string'
+        ? config.shell
+        : windows
+          ? host.process.env.comspec || 'cmd.exe'
+          : '/bin/sh';
+    // cmd.exe parses the entire quoted command itself. libuv must not add another
+    // argv quoting layer; other shells receive an unchanged single -c argument.
+    const cmd = windows && /(?:^|[\\/])cmd(?:\.exe)?$/i.test(shell);
+    const args = shell === '' ? [] : cmd ? ['/d', '/s', '/c', `"${command}"`] : ['-c', command];
+    config.shell = false;
+    if (cmd) {
+      config.windowsVerbatimArguments = true;
+    }
+    return execFileImpl(shell || command, args, config, callback, command);
+  }
+
+  function attachPromisify(operation) {
+    Object.defineProperty(operation, Symbol.for('nodejs.util.promisify.custom'), {
+      value: function (...args) {
+        let child;
+        const promise = new Promise((resolve, reject) => {
+          child = operation(...args, (error, stdout, stderr) => {
+            if (error) {
+              error.stdout = stdout;
+              error.stderr = stderr;
+              reject(error);
+            } else {
+              resolve({ stdout, stderr });
+            }
+          });
+        });
+        // Expose the actual native child immediately for kill/events during capture.
+        promise.child = child;
+        return promise;
+      }
+    });
+  }
+
+  attachPromisify(execFile);
+  attachPromisify(exec);
+  return { spawn, execFile, exec, ChildProcess };
 }

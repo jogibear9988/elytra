@@ -186,6 +186,12 @@ if(BUILD_TESTING)
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-exec
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-exec-gc
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_gc.py"
+                     --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-packages
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_packages.py"
                      --mite "$<TARGET_FILE:mite>")

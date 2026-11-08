@@ -7,7 +7,7 @@ disconnected-stdin finish and preserved write-EPIPE regression. Renderers do not
 receive this privileged API.
 
 ```js
-import {spawn, execFile, ChildProcess} from 'node:child_process';
+import {spawn, execFile, exec, ChildProcess} from 'node:child_process';
 ```
 
 require('child_process'), require('node:child_process'), the default ESM export and
@@ -33,9 +33,10 @@ are converted to strings. Prefer explicit string arguments in application code.
 | killSignal | Signal used by timeout; default SIGTERM |
 | windowsHide / windowsVerbatimArguments | Native libuv flags; their Windows behavior still requires native acceptance |
 
-Shell execution, IPC/additional stdio channels, stream-object stdio adoption,
-AbortSignal, uid/gid and serialization options fail with ERR_MITE_UNSUPPORTED_API.
-exec, fork and synchronous process APIs are absent. Direct construction
+The shell option on spawn/execFile, IPC/additional stdio channels, stream-object
+stdio adoption, AbortSignal, uid/gid and serialization options fail with
+ERR_MITE_UNSUPPORTED_API. The separate exec API below now runs a genuine shell;
+fork and synchronous process APIs remain absent. Direct construction
 with new ChildProcess is also explicitly unsupported; use spawn.
 
 ## Process and stream lifetime
@@ -115,9 +116,9 @@ matching the tested reference; omit the property to retain the default limit.
 
 cwd, env, timeout, killSignal, windowsHide and windowsVerbatimArguments use the
 native spawn machinery. Timeout zero disables the timer; values above 0x7fffffff
-fail explicitly. Shell execution, AbortSignal and privilege switching remain
-unsupported. exec, fork, synchronous variants and util.promisify integration are
-not implemented. Extra stdio/detached/argv0 behavior from spawn is not part of the
+fail explicitly. The shell option on execFile, AbortSignal and privilege switching
+remain unsupported. Use exec below for shell commands. fork and synchronous
+variants remain unavailable; execFile/exec custom promisify integration is supported. Extra stdio/detached/argv0 behavior from spawn is not part of the
 execFile contract; this API always creates the three capture/input pipes.
 
 ```js
@@ -128,6 +129,57 @@ const child = execFile('/path/to/tool', ['argument'], {maxBuffer: 65536},
   });
 child.stdin.end();
 ```
+
+## exec(command[, options][, callback])
+
+Run the original command through a genuine OS shell and collect stdout/stderr using
+the same bounded native process/pipe implementation as execFile. Shell parsing,
+quotes, pipes, redirection and expansion belong to that OS shell; Mite does not
+split or emulate shell commands. Direct spawn/execFile remain shell-free.
+
+```js
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const pending = promisify(exec)('printf "%s" "Grüße 🦋"');
+const { stdout, stderr } = await pending;
+console.log(stdout, stderr, pending.child.pid);
+```
+
+The command must be a nonempty string without NUL. Invalid/empty commands fail
+synchronously, matching the measured Node 24 baseline. exec(command, callback) and
+exec(command, options, callback) return the actual ChildProcess immediately.
+Callback/output/error/close semantics, encoding, maxBuffer, timeout, killSignal,
+cwd/env and capture limits follow execFile above. The error cmd is the original
+shell command. Omitting a callback still executes and enforces collection limits.
+
+A nonempty string shell option selects that shell. An empty string selects direct
+execution of the entire command as the executable name (no token splitting). Otherwise POSIX uses /bin/sh with -c;
+Windows source selects ComSpec/cmd.exe, using /d /s /c and native verbatim quoting
+for cmd.exe, or -c for another shell. A false/nonstring shell option still selects
+the exec default shell. Mite requires an object options argument and an object
+environment; Node's broader primitive/array coercions are not supplied.
+The Windows code path is implemented but native Windows shell acceptance is not
+established. Environment replacement and working-directory behavior remain actual
+native process behavior. No privilege switching, AbortSignal, fork/synchronous APIs,
+PTY, process-tree supervision or remote shell is supplied by this slice.
+
+Local macOS differential tests and owned policy checks pass. The actual embedded
+LibJS collector also runs during real delayed shell output and timeout; capture
+callbacks and complete stdout/stderr survive after application child references
+are dropped. This POSIX GC fixture does not accept Windows process replacement. The unchanged compiled
+Code-OSS terminal-encoding consumer also passes under actual Node/Mite: its real
+locale charmap command produces raw UTF-8 output with VSCODE_CLI_ENCODING unset,
+then normalizes it through the original compiled platform/consumer dependencies.
+This is neither terminal/PTY nor process-tree/workbench acceptance. Fresh native
+Linux/Windows exec execution remains unverified; prior spawn/execFile platform
+results do not promote this new shell path.
+
+Both exec and execFile have custom util.promisify implementations. Their returned
+Promise exposes the actual .child immediately, resolves with { stdout, stderr },
+and attaches stdout/stderr to rejection errors. The callback path still owns all
+native work and output/error policy. Existing execFile platform evidence below
+remains distinct from the new local-only exec gate.
 
 ## Examples and verification
 

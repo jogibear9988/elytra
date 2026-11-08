@@ -53,7 +53,9 @@ metadata, multipart uploads and body consumers.
 The [decompression reference](decompression.md) describes native Web Stream gzip/
 deflate decoding, automatic Fetch content handling, pressure and integrity limits.
 The [child-process reference](child-process.md) describes native spawn, pipes,
-process lifetime and remaining unsupported execution modes.
+process lifetime, bounded execFile/exec capture, genuine OS shells and custom
+promisified child/output results. The new exec slice has local macOS acceptance;
+fresh Linux/Windows shell execution remains unverified.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
 77 runtime/component suites including actual Code-OSS source bootstrap, platform/process,

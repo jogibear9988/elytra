@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 91
+Mite is a working native LibJS runtime; the current macOS Release build has 93
 validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -9658,6 +9658,60 @@ proper CommonJS named-export interoperability for ZIP; native utility/renderer p
 handoff, auth, File/open-edit-save, extension/PTY hosts, webviews/remote and platform
 packaging. No new native Linux/Windows acceptance or usable VS Code is claimed.
 The full original goal remains active.
+
+## 2026-11-08 — Genuine shell exec and unchanged Code-OSS terminal encoding
+
+- Resume from pushed 77304d0 and actual missing node:child_process exec import.
+  Add shared default/CommonJS/named exec over the native process backend. POSIX
+  passes the original command unchanged to /bin/sh -c; custom shells are actual
+  executables. Windows source uses ComSpec/cmd.exe /d /s /c with native verbatim
+  arguments; native Windows execution remains unverified, not inferred from macOS.
+- Reuse execFile's bounded capture, actual ChildProcess/stdio lifecycle, encodings,
+  timeouts/kill and callback settlement. Error cmd preserves the original command.
+  Direct spawn/execFile continue rejecting their unsupported shell option. Both
+  buffered functions expose custom promisify with immediate actual promise.child
+  and stdout/stderr on rejection, without a Node/V8 runtime dependency.
+- Compare real Node24.15 and Mite shells for Unicode/quoted arguments, pipelines,
+  cwd/env, custom shell, binary and stdin capture, nonzero exits, per-stream output
+  limits, timeout, callback/close order and promisification. Seventeen invalid calls
+  cannot execute a sentinel command. Actual oracle corrects the earlier audit:
+  empty commands throw synchronously. Explicit empty shell strings perform literal
+  direct execution (pwd succeeds; unsplit printf a fails ENOENT), also compared.
+- Pin unchanged MIT terminalEncoding.ts and verify three actual compiled dependencies.
+  Remove VSCODE_CLI_ENCODING in the probe environment to require the genuine command
+  branch. Both Node and Mite receive independently checked real locale charmap raw
+  output and normalize UTF-8 to utf8 in the unchanged Code-OSS consumer
+  (build/code-oss-exec-component.log). This is component, not PTY/workbench acceptance.
+- Force actual embedded LibJS collection during delayed real shell stdout/stderr and
+  a timeout after application ChildProcess references disappear. Complete output,
+  original-command timeout errors and callbacks survive; timeout replaces its shell
+  before killing the owned process, avoiding orphan descendants. POSIX fixture only.
+- Rebuild production/offscreen frontend; actual local-desktop/indexed-NLS ready
+  graph now passes exec and next fails linking desktopCapturer
+  (build/code-oss-exec-ready.log). Entry/app-ready observations do not accept a
+  workbench. Audit actual consumers: screen-source selection and macOS screen
+  permission use zero-thumbnail enumeration; source identity/permission/media binding
+  require genuine native implementation, never fabricated empty source success.
+- Update child-process/util APIs and compatibility/status/roadmap guides. Preserve
+  explicit coercion, AbortSignal, process supervision, platform and optional browser
+  limits. The separate real ZIP consumer still needs proper CommonJS named exports.
+
+Validation: Release runtime and production/offscreen builds pass. All 92 registered
+runtime gates pass in the full regression (34.19 seconds), including existing spawn,
+execFile/promisify, the new real-shell differential and line-ending/integrity tests.
+The additional actual embedded-host shell GC gate passes separately. All eight final
+staged affected gates pass (6.69 seconds), covering shell/GC, existing child/execFile/
+promisify, generated integrity and checkout line endings: all 93 registered runtime
+gates have acceptance. Maintained-source formatting, exact generated reproduction,
+upstream/whitespace checks and the site (275 pages / 19,466 local links) pass.
+Production/offscreen Release builds and the actual Code-OSS component/ready probes
+pass their stated diagnostic scope; no desktop input or visible window test ran.
+
+Remaining: real desktopCapturer and subsequent main/window/workbench acceptance;
+CommonJS named exports for ZIP; utility/renderer transferred endpoints, auth,
+File/open-edit-save, extension/PTY hosts, webviews/remote and native platforms/releases.
+No native Windows/Linux exec or VS Code workbench acceptance is claimed. Mite remains
+independent and Ladybird unmodified; the full original goal stays active.
 
 ## Resume
 
