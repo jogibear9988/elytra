@@ -13,6 +13,7 @@
 #include "../platform/DesktopServices.h"
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
+#include "../safe-storage/Host.h"
 #include "../theme/ThemeHost.h"
 #include "../utility/Bootstrap.h"
 #include "../utility/Host.h"
@@ -106,6 +107,16 @@ public:
             native->define_direct_property(
                 "utility"_utf16, Utility::create_host(vm, realm, jobs), JS::default_attributes);
             AppPaths::install_host(realm, *native, m_paths);
+            SafeStorage::install_host(
+                realm, *native, [&] { return locale_ready; },
+                [&] {
+                    QString profile;
+                    if (m_paths.get("userData", profile).has_value())
+                        return std::unique_ptr<SafeStorage::Backend> {};
+                    auto bytes = profile.toUtf8();
+                    return std::make_unique<SafeStorage::Backend>(
+                        std::string(bytes.data(), bytes.size()));
+                });
             Locale::install_host(
                 realm, *native, [&] { return locale_ready; },
                 [&] {
@@ -138,7 +149,8 @@ public:
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
-                "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess" };
+                "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
+                "safeStorage" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)

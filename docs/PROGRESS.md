@@ -9456,6 +9456,75 @@ and full native platforms/packaging. stdin/TTY/full stdio, full utility lifecycl
 reporting and true large-file transport remain unfinished. Ladybird stays unmodified,
 Mite independent and the full original goal stays active.
 
+## 2026-11-08 — OS-backed safeStorage and actual Code-OSS encryption service
+
+- Resume from pushed 96cd167 and the real missing safeStorage import. Audit exact
+  pinned EncryptionMainService and Electron 45.2.3 native/export contracts. Code-OSS
+  needs sync string-to-Buffer encryption, Buffer JSON persistence and decryption;
+  the newer Electron async encryption API is a separate unavailable contract.
+- Add maintained ESM main-only safeStorage and independently guarded native host.
+  Validate types/readiness/byte budgets and return actual Buffer ciphertext. Capture
+  the typed-array byte-length getter so a shadowed Buffer.length cannot turn a
+  nonempty invalid ciphertext into the empty-Buffer compatibility case. Preserve
+  UTF-8 replacement/NUL handling; refuse plaintext fallback, foreign ciphertext,
+  authentication failures and unavailable async operations explicitly.
+- Implement actual macOS OS-Keychain storage: a per-userData SHA-256 account owns a
+  random 32-byte key under a versioned Firefly service. Availability reads status/
+  existing key without creating; encryption lazily creates; decryption never
+  silently replaces a missing/corrupt key. Handle competing first writers by reading
+  the winning OS item. Validate key length/access and cleanse owned secret buffers.
+- Use native OpenSSL AES-256-GCM with fresh 12-byte nonces, 16-byte tags and authenticated
+  version/profile metadata. Bound UTF-8 plaintext to 1 MiB; accept/authenticate the
+  exact native maximum and reject overflow. No Node/V8 crypto or application-file
+  plaintext key substitute is introduced. The Firefly format intentionally differs
+  from Electron/Chromium; existing encrypted Electron data needs a future migration.
+- Investigate macOS UI policy in Apple/Chromium primary sources: legacy keychains
+  ignore per-query UI-denial controls. The production and test backends therefore
+  share a short serialized save/disable/restore scope for Security's process-global
+  interaction policy. Check restore failures and retry restoration on cleanup;
+  document that unrelated in-process credential consumers can temporarily see denial.
+  Do not permanently alter preferences or silently require unsigned-incompatible
+  Data Protection entitlements as a different implementation.
+- Keep explicit test-keychain injection inside separate native test executables,
+  absent from production Firefly. Real temporary-Keychain tests prove AES persistence,
+  nonce variation, binary/empty/max-size data, profile separation, all authenticated
+  regions, truncation, wrong keys, malformed stored keys and locked denial. Verify
+  zero key creation by availability/decryption and preservation of UI/search-list
+  state. No test opens/writes the user's Login keychain or launches windows.
+- Actual public-facade write/read/wrong-key phases pass across native process
+  restarts. Direct-native bypass tests prove independent guards; surrogate/invalid
+  UTF-8 replacement, type/Buffer/size checks and unsupported methods pass. Actual
+  Firefly/Electron pre-ready reference checks pass; post-ready Electron encryption
+  parity remains unverified, and unsafe interposition experiments were discarded.
+- Pin exact original EncryptionMainService/encryptionService sources with MIT notices
+  and hashes. Execute the unchanged compiled class with 39 verified dependencies:
+  real OS encryption, persisted Buffer JSON and decryption across two native
+  processes pass. Its explicitly minimal component lifecycle is not a full desktop
+  app acceptance. Actual main ready/import now advances to missing WebContentsView.
+- Add backend/public native gates and Linux hosted wiring (Linux tests only assert
+  truthful unavailable behavior until a real provider exists). Document API/ADR 0156
+  and refresh current support, Code-OSS priorities and reproduction commands.
+
+Validation: local Firefly and both native safe-storage probes build. Real native
+Keychain/AES-GCM, public isolated-Keychain phases and real Firefly/Electron pre-ready
+checks pass. The actual compiled Code-OSS encryption component passes write/read;
+actual ready graph reports missing WebContentsView with workbench unaccepted
+(build/code-oss-safe-storage-ready.log). The final 87-test runtime regression passes (90.28 seconds). The native utility,
+public-main-port and codec/GC regressions pass alongside both new storage gates.
+Final native tests additionally prove exact maximum-byte acceptance, both prior UI
+policy values and shadowed Buffer-length handling. Both generated adapters reproduce
+exactly; unmodified upstream, source integrity, full maintained-source style and
+whitespace checks pass. The documentation site check passes 272 pages / 19,241 local
+links. No fresh native Linux/Windows crypto or production Login-keychain acceptance
+is claimed.
+
+Remaining: actual post-ready/default-keychain packaged/signed app acceptance,
+Electron ciphertext migration/recovery, async encryption and native Linux/Windows
+providers. Continue real startup at WebContentsView and genuine native utility/
+renderer port handoff, auth forwarding, workbench/window/preload/File/open-edit-save,
+extension/PTY hosts, webviews/remote and platform packaging. Ladybird stays unmodified,
+Mite independent and the full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

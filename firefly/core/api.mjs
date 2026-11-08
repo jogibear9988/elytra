@@ -11,6 +11,7 @@ import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
 import createMessageChannels from './message-ports/index.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
+import createSafeStorage from './safe-storage/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -684,6 +685,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     ipcMain,
     MessageChannelMain: channels.MessageChannelMain,
     utilityProcess: utilities.utilityProcess,
+    safeStorage: createSafeStorage(native, app, error, unsupported),
     screen: screens.screen,
     clipboard,
     ClipboardItem,

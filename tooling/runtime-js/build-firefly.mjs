@@ -13,6 +13,7 @@ const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex'
 
 const entries = {
   'api.js': { source: 'firefly/core/api.mjs', eager: false },
+  'safe-storage.js': { source: 'firefly/core/safe-storage/index.mjs', eager: false },
   'utility-parent.js': { source: 'firefly/core/utility-process/parent-port.mjs', eager: false },
   'app-regions.js': { source: 'firefly/native/qt/app-regions.mjs', eager: true }
 };

@@ -25,6 +25,7 @@ add_custom_target(
     VERBATIM)
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/Runtime.cmake")
 mite_add_runtime(firefly-mite "${FIREFLY_SOURCE_DIR}" LibJS)
+include("${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Targets.cmake")
 add_custom_target(
     check-firefly-dependencies
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py" --check
@@ -116,6 +117,14 @@ set_property(
              "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-parent.js")
 configure_file("${CMAKE_CURRENT_LIST_DIR}/../utility/UtilityParentSource.h.in"
                "${CMAKE_BINARY_DIR}/firefly-generated/UtilityParentSource.h" @ONLY)
+file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/safe-storage.js"
+     FIREFLY_SAFE_STORAGE_SOURCE)
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/firefly/core/generated/safe-storage.js")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../safe-storage/SafeStorageSource.h.in"
+               "${CMAKE_BINARY_DIR}/firefly-generated/SafeStorageSource.h" @ONLY)
 file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/api.js" FIREFLY_API_SOURCE)
 set_property(
     DIRECTORY
@@ -166,6 +175,7 @@ add_executable(
     firefly
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
@@ -214,7 +224,8 @@ target_link_libraries(
             firefly-command-line
             firefly-sandbox-policy
             firefly-app-paths
-            firefly-locale)
+            firefly-locale
+            firefly-safe-storage)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
@@ -412,6 +423,8 @@ if(APPLE)
                 check-firefly-message-ports
                 check-firefly-message-port-lifetime
                 check-firefly-utility-process
+                check-firefly-safe-storage-backend
+                check-firefly-safe-storage-public
                 check-firefly-file-picker
                 check-firefly-file-input
                 check-firefly-preload-zoom
@@ -431,3 +444,20 @@ if(APPLE)
 endif()
 
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/utility-process/Targets.cmake")
+
+add_executable(
+    firefly-safe-storage-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/safe-storage/PublicProbe.cpp"
+                               "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp")
+target_include_directories(
+    firefly-safe-storage-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly"
+                                       "${CMAKE_BINARY_DIR}/firefly-generated")
+target_link_libraries(firefly-safe-storage-probe PRIVATE firefly-mite firefly-safe-storage)
+add_dependencies(firefly-safe-storage-probe check-firefly-js)
+
+add_custom_target(
+    check-firefly-safe-storage-public
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_safe_storage.py"
+            --probe "$<TARGET_FILE:firefly-safe-storage-probe>" --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly firefly-safe-storage-probe
+    WORKING_DIRECTORY "${FIREFLY_SOURCE_DIR}"
+    VERBATIM)

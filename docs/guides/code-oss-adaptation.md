@@ -313,8 +313,8 @@ platform or replacement filesystem/parser is used. The separate real-file fixtur
 reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
-slice below, it also passes MessageChannelMain/utilityProcess and next fails linking
-safeStorage. The [real LibJS utility payload slice](../api/utility-process.md) has six
+slice below, it also passes MessageChannelMain/utilityProcess/safeStorage and next fails linking
+WebContentsView. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -341,7 +341,7 @@ acceptance; fresh hosted execution is not inferred from local success.
 
 Local actual Protocol binary-frame/FIFO/snapshot/echo/disconnect and moved once-helper
 acceptance passes on Electron/Firefly. The real ready/main graph now passes the
-utilityProcess import and fails at missing safeStorage. The real LibJS utility
+utilityProcess/safeStorage imports and fails at missing WebContentsView. The real LibJS utility
 fork/parentPort payload implementation has six passing native boundary tests; local
 Firefly/Electron public lifecycle, payload and parent-reaping acceptance also passes. This does not run the actual Code-OSS utility services. They
 require authentication forwarding and utilityProcess.postMessage with transferred
@@ -363,3 +363,24 @@ It opens no windows and proves native child identity, args/env/cwd, binary snaps
 messaging, real stdout/stderr, final data/exit, fast failures and parent teardown.
 The POSIX headless fixture rejects malformed/truncated frames and an absent inherited
 channel before entry. These tests do not establish cross-process MessagePort transfer.
+
+## Verify the actual encryption service
+
+The unchanged compiled Code-OSS EncryptionMainService now passes real native
+safeStorage write/read across two OS processes. The runner verifies its original
+source pins and 39 compiled dependencies, including the actual platform/provider
+classification and Buffer JSON serialization:
+
+```sh
+node tooling/code_oss/probe-safe-storage.mjs build/code-oss-nls-final build/renderer/bin/firefly-safe-storage-probe --test-keychain '{directory}/test.keychain' --test-profile '{directory}/profile'
+```
+
+This host uses the production backend with an isolated temporary OS keychain and a
+minimal ready/command-line app fixture. It does not modify the user's Login
+keychain or accept production post-ready app lifecycle. Real Firefly/Electron
+comparison separately accepts pre-ready guards only; post-ready Electron crypto
+is unverified. The current actual ready graph passes safeStorage and next fails
+linking WebContentsView. Native utility/renderer endpoint transfer, demanded auth
+forwarding and actual Code-OSS shared-service execution remain required; no
+workbench is accepted. See [storage scope](../api/safe-storage.md), including the
+Firefly-specific ciphertext and unavailable migration/async/platform providers.

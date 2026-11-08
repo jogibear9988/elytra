@@ -202,6 +202,14 @@
     "ipc-mp-node.ts": {
       "upstream": "src/vs/base/parts/ipc/node/ipc.mp.ts",
       "sha256": "4caeceee7c2b06affa5a490183305efc86253d61ecdf9c3753f06ac64f599319"
+    },
+    "encryptionMainService.ts": {
+      "upstream": "src/vs/platform/encryption/electron-main/encryptionMainService.ts",
+      "sha256": "23cc938b313ac837db301e630a252f4edbdb16b7b6f59f8ae883a076b06991ab"
+    },
+    "encryptionService.ts": {
+      "upstream": "src/vs/platform/encryption/common/encryptionService.ts",
+      "sha256": "798e509416d1c4f50aaace24263bb48429376d6b560d9fc60540d7a49edc53c9"
     }
   }
 }

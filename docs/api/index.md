@@ -135,3 +135,7 @@ renderer and utility-process port delivery remains unavailable. The separate
 [utilityProcess reference](utility-process.md) documents the real LibJS child/payload
 implementation, six passing native boundary tests, local Firefly/Electron public lifecycle/payload acceptance and
 explicitly unsupported native port transfers/authentication forwarding.
+
+The [safeStorage reference](safe-storage.md) documents locally accepted macOS
+OS-keychain/AES-256-GCM storage, Buffer serialization, isolated-test evidence,
+Firefly-specific ciphertext and unavailable async/Linux/Windows providers.

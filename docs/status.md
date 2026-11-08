@@ -15,8 +15,8 @@ now completes the real entry import and observes app ready. The new --nls build
 step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
-passes readline, MessageChannelMain and utilityProcess imports, then reaches
-missing safeStorage. Real 30,000-line file and local OS-release platform-branch checks
+passes readline, MessageChannelMain, utilityProcess and safeStorage imports, then reaches
+missing WebContentsView. Real 30,000-line file and local OS-release platform-branch checks
 pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
 local desktop experiment disables webviews, remote and engine caches; without it
 the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
@@ -30,7 +30,15 @@ The [utility-process payload slice](api/utility-process.md) now implements a rea
 same-executable LibJS fork and child process.parentPort. Six native boundary tests
 pass; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. Actual Code-OSS utility execution is not
 accepted: authentication forwarding and native utility/renderer event.ports handoff
-remain unsupported. The current static-import blocker is safeStorage.
+remain unsupported. The current static-import blocker is WebContentsView.
+
+The [safeStorage slice](api/safe-storage.md) now passes native OS-keychain and public
+facade tests on isolated macOS keychains, plus the unchanged compiled Code-OSS
+EncryptionMainService across two native processes (39 checked dependencies).
+Real Firefly/Electron comparison covers pre-ready guards only. Linux/Windows
+providers, async encryption and migration of Electron ciphertext remain unavailable.
+The actual ready graph now passes safeStorage and next requires WebContentsView;
+no workbench or actual Code-OSS utility service is accepted by this component.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
