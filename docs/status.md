@@ -59,6 +59,13 @@ CSP, target revocation and reload. Other origins/credentials/preflight/workers a
 fresh platform acceptance remain open. This advances one startup prerequisite;
 the real entry still fails at allowServiceWorkers and no workbench is accepted.
 
+[Native app locale/languages](api/app-locale.md) now pass local macOS LibJS/native
+and public-host tests without windows: early preferred languages/country, regional
+locale after readiness and the actual selected engine language. Independent
+Foundation preferences verify distinct UI/region/application values, profile
+restoration and new-profile OS selection. Qt Linux differences, fresh hosted
+execution and native Windows desktop remain open; full Code-OSS NLS is unverified.
+
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local
 macOS native/Node/Mite policy and actual public hidden-window acceptance pass,

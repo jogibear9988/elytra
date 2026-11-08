@@ -12,6 +12,13 @@ add_library(firefly-sandbox-policy STATIC "${CMAKE_CURRENT_LIST_DIR}/../sandbox/
 add_library(firefly-command-line STATIC "${CMAKE_CURRENT_LIST_DIR}/../command-line/State.cpp")
 add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
 target_link_libraries(firefly-tracing PUBLIC Qt::Core)
+if(APPLE)
+    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleMac.mm")
+    target_link_libraries(firefly-locale PUBLIC Qt::Core "-framework Foundation")
+else()
+    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleLinux.cpp")
+    target_link_libraries(firefly-locale PUBLIC Qt::Core)
+endif()
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -163,6 +170,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/../sandbox/policy/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../command-line/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../app-paths/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../locale/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../command-line/EnginePolicy.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../protocol/RegistrationHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../window/Geometry.cpp"
@@ -187,7 +195,8 @@ target_link_libraries(
             firefly-tracing
             firefly-command-line
             firefly-sandbox-policy
-            firefly-app-paths)
+            firefly-app-paths
+            firefly-locale)
 if(NOT APPLE)
     target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
 endif()
@@ -199,6 +208,19 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_registration.py"
         --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly
+    VERBATIM)
+
+add_executable(firefly-locale-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/locale/NativeProbe.cpp"
+                                    "${CMAKE_CURRENT_LIST_DIR}/../locale/Host.cpp")
+target_include_directories(firefly-locale-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-locale-probe PRIVATE firefly-mite firefly-locale)
+add_custom_target(
+    check-firefly-app-locale
+    COMMAND "$<TARGET_FILE:firefly-locale-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/locale/native.mjs"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_app_locale.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly firefly-locale-probe
     VERBATIM)
 
 add_custom_target(
@@ -308,6 +330,7 @@ if(APPLE)
                 check-firefly-command-line
                 check-firefly-enable-sandbox
                 check-firefly-app-paths
+                check-firefly-app-locale
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

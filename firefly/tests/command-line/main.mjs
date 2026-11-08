@@ -59,6 +59,7 @@ try {
   check(line.hasSwitch('force-cpu-painting'), 'native CPU painting policy');
   check(JSON.stringify(process.argv) === JSON.stringify(original), 'process.argv mutated');
   await app.whenReady();
+  check(app.getLocale() === 'de-DE', 'application locale differs from renderer selection');
 
   fails(() => line.appendSwitch('lang', 'en'), 'ERR_FIREFLY_COMMAND_LINE_TOO_LATE');
 

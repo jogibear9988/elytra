@@ -1,11 +1,11 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "fe33646c8ef7c5b99423fff1fb59e92bcf302ea281c471b682c154e096882682",
+    "api.js": "d46535b8adc4ddeb7240c2e45c96e177afe04459a0c54beac4e4b244eca420cb",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
-    "firefly/core/api.mjs": "29448edb0700fe654b2cceb0f83c0715cd773dee33440cc23e487f67f0a0be66",
+    "firefly/core/api.mjs": "5eaf6a9c52a098153ad77347cc56fafa258d0e5a27612bccd5f1ba5103b8844a",
     "firefly/core/app/command-line.mjs": "2ab3004b6a7c8c9bd9dda2ebd2bc67226bb51c64b86fc290b4ce982ffab9bb45",
     "firefly/core/clipboard/index.mjs": "cb86410d470d9fe49db84b669cfb6814b9bdd624f9f6c3001f48c3c2bd0fae98",
     "firefly/core/crash/index.mjs": "2f7001fde2bbd72e744741f3d8aeb053486404df3a596d6e482762e85e8570c6",

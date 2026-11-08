@@ -11,6 +11,8 @@ public:
 
     void activate();
 
+    String locale() const;
+
     std::optional<Failure> apply(std::string_view, std::optional<std::string> const&, bool initial);
 
 private:

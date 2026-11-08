@@ -39,6 +39,7 @@ window/load/quit trace and the [example guide](../examples/lifecycle.md) to run 
 | [setPath(name, path)](app-paths.md#appsetpathname-directory) | undefined | Existing userData/sessionData/log directories; profile paths before readiness; independent crashDumps rules |
 | [getAppPath()](app-paths.md) | string | Actual entry directory |
 | [setAppLogsPath([path])](app-paths.md#appsetapplogspathdirectory) | undefined | Create and select native log directory |
+| [getPreferredSystemLanguages(), getSystemLocale(), getLocale(), getLocaleCountryCode()](app-locale.md) | string[] / string | Native OS preferences and selected engine language; application/system locale after readiness |
 | [commandLine](command-line.md) | Native singleton | Real launch-switch observation, before-ready lang changes and startup-only CPU painting |
 | [EventEmitter methods](#eventemitter-methods) | Depends on method | Supported emitter subset |
 | [Other Electron app members](#unsupported-electron-app-surface) | Unavailable | Not native implementations |

@@ -8351,6 +8351,54 @@ Validation: source audit only, no new runtime/GUI/service-worker support claim.
 Documentation/site link checks and git whitespace checks pass. Preserve unmodified
 upstream and the measured real-entry failure at allowServiceWorkers (exit 1).
 
+## 2026-11-08: Implement native locale APIs required by the Code-OSS bootstrap
+
+- Previous goal turn made concrete progress: 544e07a implements/tested simple
+  custom-protocol CORS and ad113bf records the worker gap/first-workbench priority;
+  both are pushed. Continue independent real bootstrap APIs while preserving the
+  full specification and exact unsupported worker/cache/remote-scheme boundary.
+- Add main app.getPreferredSystemLanguages/getLocaleCountryCode before readiness,
+  plus getSystemLocale/getLocale afterward. Native guards independently repeat
+  readiness/selector validation. Every array is fresh VM-owned data; no Node/V8,
+  renderer privileges or standalone Mite dependencies are added.
+- Use Foundation directly on macOS for current regional locale/country and the
+  original preferred-language order. On Linux, use existing Qt system data with
+  explicit fallback/name differences; POSIX C has an empty language/country list
+  and en-US-POSIX regional identity. Fresh Linux execution remains unverified.
+- The owned application previously inherited an empty platform language hook.
+  Supply native preferences through the existing public WebView hook, preserving
+  upstream supported-language filtering, stored profile selection and early --lang
+  policy. Expose the actual initialized engine's first language; do not fabricate
+  Chromium translation packs or claim exact Electron locale-string aliases.
+- Native no-GUI tests directly check malformed selectors, readiness, fresh arrays
+  and independent selected-language callbacks. Actual public Firefly host tests
+  compare a separate Foundation reference with isolated process-local AppleLanguages/
+  AppleLocale settings: fr-CA preference, en-FI region/FI country, de-DE and
+  sr-Latn-RS overrides, restoration of stored ja-JP and a fresh profile selecting
+  fr-CA. ESM/default/Electron alias/CommonJS identity, ready listener timing and
+  zero windows pass. The fixture writes no OS user defaults.
+- Add the required gate to the macOS aggregate and Linux Xvfb job, including Linux
+  fr_CA/C environment cases. Extend the existing single batched hidden command-line
+  test to tie app.getLocale to actual navigator.languages. No broad GUI suite ran.
+- Add ADR 0135 and detailed locale reference; update API indexes, compatibility,
+  current status, roadmap and Code-OSS priority inventory. Unsupported dynamic
+  notifications, UI translations, exact Chromium mapping and Windows stay explicit.
+
+Validation: local macOS Release build and check-firefly-app-locale pass, including
+all four public profile/override cases and direct native guards. The targeted
+check-firefly-command-line regression passes actual LibWeb language, compositor CPU
+argv and retained sandbox. Generated Firefly freshness, upstream pin, full source
+style and whitespace checks pass. Built documentation/link validation passes.
+The prepared real Code-OSS entry is re-run and still fails earlier at unsupported
+allowServiceWorkers (exit 1), recorded in build/code-oss-locale-entry.log; its NLS
+calls have not yet executed there. Full workbench/worker and fresh Linux/native
+Windows support are not claimed. The full goal remains active.
+
+Next continue the measured Code-OSS protocol/worker/cache/remote-scheme contracts
+and required main/preload/binary-event-port transport. Investigate a clearly scoped
+opt-in application adaptation only with explicit missing-feature failures, never
+an inert protocol flag or a successful-workbench claim from an import probe.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

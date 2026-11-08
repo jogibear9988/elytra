@@ -18,6 +18,14 @@ void EnginePolicy::activate()
         WebView::Application::settings().set_languages({ *m_requested_language });
 }
 
+String EnginePolicy::locale() const
+{
+    if (!m_active)
+        return {};
+    auto const& languages = WebView::Application::settings().languages();
+    return languages.is_empty() ? String {} : languages.first();
+}
+
 std::optional<Failure> EnginePolicy::apply(
     std::string_view name, std::optional<std::string> const& value, bool initial)
 {

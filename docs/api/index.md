@@ -83,7 +83,7 @@ access, separate facades and the remaining ASAR limitation.
 
 [Firefly desktop API](firefly.md) covers app lifecycle, native BrowserWindow,
 webContents, events and errors. Firefly embeds Mite in its main process and uses
-separate Ladybird renderer processes. Detailed entries: [app](app.md),
+separate Ladybird renderer processes. Detailed entries: [app](app.md) and [native locale/languages](app-locale.md),
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
 [preload/contextBridge](context-bridge.md), [ipcMain/ipcRenderer](ipc.md) and
 [screen](screen.md), [clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md)

@@ -10,7 +10,7 @@ and [renderer build guide](../development/renderer-build.md) record the acceptan
 
 Detailed contracts: [app](app.md), [BrowserWindow](browser-window.md),
 [webContents](web-contents.md), [IPC](ipc.md), [screen](screen.md) and
-[clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md), [contentTracing](content-tracing.md), [app.commandLine](command-line.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
+[clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md), [contentTracing](content-tracing.md), [app.commandLine](command-line.md), [app locales](app-locale.md). Start with the [desktop tutorial](../guides/first-desktop-app.md)
 or [Electron migration guide](../migration/from-electron.md).
 
 ## Application entry
@@ -42,6 +42,7 @@ app is an EventEmitter.
 | `app.whenReady()` | Shared Promise resolved at ready |
 | [app.enableSandbox()](app.md#appenablesandbox) | Before-ready native global requirement; boolean per-window sandbox:false is overridden |
 | [app paths](app-paths.md) | Real userData/sessionData profile selection, native path lookup, log-directory creation and getAppPath |
+| [app locale/languages](app-locale.md) | Native preferences/country and regional locale, plus actual selected engine language |
 | `app.quit()` | Request normal quit; cancellable before-quit, window close and will-quit |
 | `app.exit([exitCode = 0])` | Force exit without normal close cancellation; signed int32 code |
 

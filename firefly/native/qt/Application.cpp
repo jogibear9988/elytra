@@ -8,6 +8,8 @@
 #include "../command-line/EnginePolicy.h"
 #include "../command-line/Host.h"
 #include "../command-line/State.h"
+#include "../locale/Host.h"
+#include "../locale/Locale.h"
 #include "../platform/DesktopServices.h"
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
@@ -88,6 +90,7 @@ public:
             return 1;
         }
 
+        bool locale_ready = false;
         std::unique_ptr<Bridge> bridge;
         Mite::HostHooks hooks;
         hooks.allow_process_signals = true;
@@ -99,6 +102,14 @@ public:
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
             AppPaths::install_host(realm, *native, m_paths);
+            Locale::install_host(
+                realm, *native, [&] { return locale_ready; },
+                [&] {
+                    auto language = m_engine.locale();
+                    auto bytes = language.bytes_as_string_view();
+                    return QString::fromUtf8(
+                        bytes.characters_without_null_termination(), bytes.length());
+                });
             CommandLine::install_host(realm, *native, command_line);
             std::error_code error;
             auto entry = std::filesystem::absolute(argv[1], error).parent_path().string();
@@ -150,6 +161,7 @@ public:
             m_engine.activate();
             activate_theme_settings();
             command_line.seal();
+            locale_ready = true;
             bridge->ready();
             poll.start();
             auto status = m_loop->exec();
@@ -167,6 +179,19 @@ private:
     {
         browser.disable_sql_database = WebView::DisableSQLDatabase::No;
         browser.enable_content_blocker = WebView::EnableContentBlocker::No;
+    }
+
+    Vector<String> platform_preferred_languages() const override
+    {
+        Vector<String> languages;
+        for (auto const& language : Locale::preferred_languages()) {
+            auto bytes = language.toUtf8();
+            auto text = String::from_utf8(StringView(bytes.data(), bytes.size()));
+            if (!text.is_error())
+                languages.append(text.release_value());
+        }
+
+        return languages;
     }
 
     bool should_coordinate_browser_process() const override

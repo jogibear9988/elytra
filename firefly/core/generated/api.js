@@ -1484,6 +1484,24 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
       native.enableSandbox();
       sandboxRequired = true;
     }
+    getPreferredSystemLanguages() {
+      return native.appLocaleRead(0);
+    }
+    getSystemLocale() {
+      if (!ready) {
+        throw error("ERR_FIREFLY_NOT_READY", "getSystemLocale requires app readiness");
+      }
+      return native.appLocaleRead(1);
+    }
+    getLocale() {
+      if (!ready) {
+        throw error("ERR_FIREFLY_NOT_READY", "getLocale requires app readiness");
+      }
+      return native.appLocaleRead(2);
+    }
+    getLocaleCountryCode() {
+      return native.appLocaleRead(3);
+    }
     getPath(name) {
       if (typeof name !== "string") {
         throw error("ERR_INVALID_ARG_TYPE", "Path name must be a string");
