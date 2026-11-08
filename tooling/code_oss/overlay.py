@@ -8,8 +8,10 @@ from pathlib import Path
 
 if __package__:
     from .engine import adapt_engine
+    from .local_desktop import adapt_local, PATHS, OWNED, HELPER
 else:
     from engine import adapt_engine
+    from local_desktop import adapt_local, PATHS, OWNED, HELPER
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "vendor/code-oss-tests/manifest.json"
@@ -59,8 +61,10 @@ def adapt(name, data):
     return source.encode("utf-8")
 
 
-def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
+def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desktop=False):
     """Validate every input before creating a fresh, explicitly partial overlay."""
+    if local_desktop and not (libjs_cache and libjs_engine):
+        raise ValueError("Local desktop requires --libjs-cache and --libjs-engine")
     source = Path(source).resolve(strict=True)
     output = Path(output).absolute()
     target = output.resolve()
@@ -75,6 +79,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
         *FILES,
         *(["nodeCompileCache.ts"] if libjs_cache else []),
         *(["mainImpl.ts"] if libjs_engine else []),
+        *(PATHS if local_desktop else []),
         "LICENSE.txt",
     )
     for name in names:
@@ -95,6 +100,8 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
             patched = adapt_engine(original)
         else:
             patched = original
+        if local_desktop and (name == "mainImpl.ts" or name in PATHS):
+            patched = adapt_local(name, patched)
         planned[entry["upstream"]] = patched
         records.append(
             {
@@ -106,6 +113,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
     for enabled, owned, target in (
         (libjs_cache, CACHE_SOURCE, CACHE_TARGET),
         (libjs_engine, ENGINE_SOURCE, ENGINE_TARGET),
+        (local_desktop, OWNED, HELPER),
     ):
         if enabled:
             helper = (ROOT / owned).read_bytes()
@@ -136,6 +144,10 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False):
         report["adaptations"].append(
             "Separate audited implicit Chromium/Blink defaults from LibJS/LibWeb; refuse unsupported user engine/sandbox requests before mutations"
         )
+    if local_desktop:
+        report["adaptations"].append(
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources and engine caches; no workbench acceptance"
+        )
     output.mkdir(parents=True)
     for name, data in planned.items():
         destination = output / name
@@ -159,8 +171,19 @@ def main():
         action="store_true",
         help="Explicitly separate implicit Chromium tuning from LibJS and reject unsupported user engine options",
     )
+    parser.add_argument(
+        "--local-desktop",
+        action="store_true",
+        help="Prepare explicit limited local desktop experiment (requires cache and engine adaptations)",
+    )
     args = parser.parse_args()
-    prepare(args.source, args.output, libjs_cache=args.libjs_cache, libjs_engine=args.libjs_engine)
+    prepare(
+        args.source,
+        args.output,
+        libjs_cache=args.libjs_cache,
+        libjs_engine=args.libjs_engine,
+        local_desktop=args.local_desktop,
+    )
     print(f"Prepared audited Code-OSS overlay in {args.output}")
 
 

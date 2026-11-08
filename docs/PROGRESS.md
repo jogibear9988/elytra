@@ -9073,6 +9073,56 @@ workbench open/edit/save, process events/metrics, MessagePorts, worker/cache/res
 large-file/streaming performance and platform-complete original goal remain open.
 Ladybird is unmodified, Mite remains independent and the full goal stays active.
 
+
+## 2026-11-08 — Explicit local Code-OSS desktop experiment
+
+- Revalidate the prior status-only turn as no implementation progress. Resume from
+  pushed b562101 and inspect the uncommitted local-desktop draft, pinned sources,
+  current progress/spec and actual-entry logs. Keep the original full framework
+  goal and real Code-OSS workbench priority active.
+- Complete --local-desktop in the checked source overlay. Require the existing
+  cache/engine build adaptations and a separate truthful-LibJS runtime flag
+  ELYTRA_CODE_OSS_LOCAL_DESKTOP=1. Capture mode once, publish frozen limitations and
+  retain original inactive/Node/Electron behavior. Invalid runtime values reject.
+- Pin seven additional original application source files and preserve their license
+  headers. Keep only supported vscode-file privileges in this explicit mode; disable
+  the actual engine cache path. Reject browser/Electron webview factories, all main
+  webview methods, remote CLI/resolver/provider/request entry points. Omit disabled
+  native webview and managed remote protocol initialization rather than installing
+  fake working services. Remote resolver refusals remain Promise rejections.
+- Add exact-source/policy tests that reconstruct every original byte outside the
+  declared additions, reject drift/duplicate/missing seams before output, and run
+  the actual leaf policy/pinned scheme literal under Node and Mite. Test runtime
+  absent/0/1/invalid, frozen capture/status, original identity, scheme drift, cache
+  callback suppression, remote CLI and explicit feature/Promise failures. Register
+  the native non-GUI CTest mite-code-oss-local-desktop.
+- Add --firefly-ready to the real-source probe to observe the actual asynchronous
+  app ready branch for three seconds. It always exits 1 with workbenchAccepted:false;
+  an import or readiness is deliberately not a desktop pass. Update guide/status/
+  roadmap/compatibility and ADR 0149 with the precise opt-in scope.
+
+Validation: local Node/Mite policy and exact-source tests pass. A real compiled
+11,536-source tree with the actual prepared root production packages completes
+its entry import only in enabled mode; the real ready callback then reports missing
+generated src/nls.messages.json and unsupported node:zlib. The same tree with mode
+0 still rejects allowServiceWorkers. The first compile invocation referenced an
+absent dependency path and its prematurely attempted probes only proved missing
+output; correct the path and accept only the later completed compilation/probes.
+The final formatted-tree compilation passes and all three actual-entry assertions
+repeat on that output (build/code-oss-local-desktop-final-{0,1,1-ready}.log).
+The standalone Mite Release build and all six mite-code-oss-* CTests pass, including
+the new policy gate. The independent engine regression, full maintained-source style,
+unmodified-upstream, whitespace and 258-page/18,245-local-link site checks pass.
+No physical desktop input automation, actual
+workbench, service workflow or new native Linux/Windows acceptance is claimed.
+
+Remaining: generate genuine NLS assets and implement demanded node:zlib behavior;
+continue the actual ready/main module graph, then connect and accept the real local
+editor opening/editing/saving a file. Native File request transport/public webUtils,
+MessagePorts, worker/cache/resources, extension/shared/PTY hosts and native platform
+packaging remain part of the original goal. This experiment does not replace full
+webviews/remote requirements. Ladybird is unmodified and Mite remains independent.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

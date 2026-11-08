@@ -12,7 +12,8 @@ try {
     JSON.stringify({
       entryCompleted: true,
       cache: process._vscodeNodeCompileCacheStatus,
-      engine: process._vscodeLibJSEngineStatus
+      engine: process._vscodeLibJSEngineStatus,
+      localDesktop: process._vscodeLibJSLocalDesktopStatus
     })
   );
 } catch (error) {
@@ -21,7 +22,8 @@ try {
       entryCompleted: false,
       error: { name: error.name, code: error.code, message: error.message },
       cache: process._vscodeNodeCompileCacheStatus,
-      engine: process._vscodeLibJSEngineStatus
+      engine: process._vscodeLibJSEngineStatus,
+      localDesktop: process._vscodeLibJSLocalDesktopStatus
     })
   );
   process.exitCode = 1;
@@ -30,4 +32,18 @@ if (process.argv[3] === '--firefly') {
   // Explicit diagnostic shutdown: no successful desktop launch is inferred.
   const { app } = await import('firefly');
   app.exit(Number(process.exitCode ?? 0));
+}
+if (process.argv[3] === '--firefly-ready') {
+  // Let the real ready callback and asynchronous module graph run. This bounded
+  // observation deliberately cannot report workbench or desktop acceptance.
+  const { app } = await import('firefly');
+
+  app
+    .whenReady()
+    .then(() => console.log(JSON.stringify({ appReadyObserved: true, workbenchAccepted: false })));
+
+  setTimeout(() => {
+    console.log(JSON.stringify({ observationEnded: true, workbenchAccepted: false }));
+    app.exit(1);
+  }, 3000);
 }

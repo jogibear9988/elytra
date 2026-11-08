@@ -146,6 +146,34 @@
     "mainImpl.ts": {
       "upstream": "src/mainImpl.ts",
       "sha256": "1f3721ebfbe4d1307b97d9f15e801de90837a4ed997098fdbddba96b7e7af6f1"
+    },
+    "local-webview-browser.ts": {
+      "upstream": "src/vs/workbench/contrib/webview/browser/webviewService.ts",
+      "sha256": "bdff4e4d4fe0df9d9e9293f60736c0fb911e088cfdb5512ef13e7f9e05b5de7b"
+    },
+    "local-webview-electron.ts": {
+      "upstream": "src/vs/workbench/contrib/webview/electron-browser/webviewService.ts",
+      "sha256": "e257884593135288223204c18c253a867ea0c2bab8fb5a5adac0f7caf3d68a2e"
+    },
+    "local-remote-browser.ts": {
+      "upstream": "src/vs/platform/remote/browser/remoteAuthorityResolverService.ts",
+      "sha256": "6b3f2e4233c938c988f786e9846f42219f741b1e6aa6060ec1e9e044e98eba59"
+    },
+    "local-remote-electron.ts": {
+      "upstream": "src/vs/platform/remote/electron-browser/remoteAuthorityResolverService.ts",
+      "sha256": "aef2459bacd29bf0e9ba1362d2e967d8f7b9b047673d679eb9e9f3f95ff42df5"
+    },
+    "local-remote-loader.ts": {
+      "upstream": "src/vs/platform/remote/electron-browser/electronRemoteResourceLoader.ts",
+      "sha256": "77407a26cdb66498e02f54a4c6c005f2f62c287bd0fb839429d0a4a21de72657"
+    },
+    "local-webview-main.ts": {
+      "upstream": "src/vs/platform/webview/electron-main/webviewMainService.ts",
+      "sha256": "475472442989c293ec9082b15ff5e42984081cd80332a58dc958e1005d124278"
+    },
+    "local-app-main.ts": {
+      "upstream": "src/vs/code/electron-main/app.ts",
+      "sha256": "7197583f38f615473d4cbcc091077fa493a45a72a8eed45fe013c3c64e06e9be"
     }
   }
 }

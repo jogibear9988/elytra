@@ -7,8 +7,8 @@ Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 
 ## Current priority: first real workbench, then developer workflows
 
-Updated 2026-11-08. The real prepared entry now passes the simple custom-protocol
-CORS privilege and stops at allowServiceWorkers. This is not just a missing flag:
+Updated 2026-11-08. Without the new local desktop opt-in, the real prepared entry
+passes the simple custom-protocol CORS privilege and stops at allowServiceWorkers. This is not just a missing flag:
 Ladybird at Elytra's pinned revision refuses non-HTTP(S) service-worker registration
 in ServiceWorkerContainer::start_register; Job.cpp also rejects the unimplemented
 Run Service Worker step after fetching a new script. Firefly's current file channel
@@ -18,7 +18,7 @@ resource routing would need implementation before advertising this privilege.
 The Code-OSS main registration requests allowServiceWorkers specifically for
 vscode-webview, codeCache for vscode-webview and vscode-file, and secure/fetch/CORS
 on its nonstandard remote resource schemes. These are separate unresolved contracts.
-The engine overlay currently removes none of them. Do not treat the current simple
+The engine overlay alone removes none of them. Do not treat the current simple
 CORS slice as support for all these scheme declarations.
 
 Prioritize these concrete outcomes:
@@ -27,8 +27,12 @@ Prioritize these concrete outcomes:
    explicitly defer webviews/remote resources and engine-specific caches. Any such
    mode must be a separately documented opt-in application adaptation with visible
    limitations, preserved ordinary Electron behavior and refusal of unavailable
-   features. It is planned, not implemented. Otherwise implement the actual demanded
-   contract; do not silently remove privileges or report a fake worker/cache.
+   features. The [local desktop experiment](../guides/code-oss-adaptation.md#experimental-local-desktop)
+   is now implemented and locally policy-tested. With both build and runtime opt-ins,
+   the actual entry import completes and app ready is observed; asynchronous startup
+   then reports missing generated nls.messages.json and unsupported node:zlib. This is
+   not a workbench launch. Implement the actual remaining contracts; do not report a
+   fake worker/cache.
 2. **Build independent startup prerequisites now.** The pinned mainImpl next uses
    getPreferredSystemLanguages before readiness, getSystemLocale after readiness
    and getLocale for NLS. The [native locale slice](../api/app-locale.md) now passes
@@ -49,8 +53,8 @@ Prioritize these concrete outcomes:
 
 The pinned webview HTML has a disableServiceWorker option, but that alone is not a
 resource-loading fallback: it also skips the worker's host-resource messaging path.
-No usable webview fallback or adapted workbench mode has been established. Keep
-this an investigation item rather than a compatibility claim.
+No usable webview fallback or working adapted workbench has been established. The
+local desktop experiment rejects webview creation instead of claiming a fallback.
 
 Source evidence is the pinned Code-OSS mainImpl.ts, webviewElement.ts,
 pre/index.html and pre/service-worker.js, and the pinned Ladybird
@@ -81,7 +85,7 @@ from a future Code-OSS test.
 | Native environment identity | common/platform and common/process recognize native execution through versions.node | Explicit pinned source overlay also recognizes truthful versions.mite. Actual upstream modules, locale/env/cwd/timer checks and unadapted negative control pass locally on macOS; desktop/Electron detection remains open. [Adaptation guide](../guides/code-oss-adaptation.md) |
 | Earliest runtime bootstrap | main imports nodeCompileCache, whose static imports include node:module compile-cache APIs and node:v8 | Explicit --libjs-cache application overlay preserves ordinary upstream startup logic while disabling V8 caches and rejecting generation/measurements/waits. Actual cache branches pass locally; real full-source main.ts reaches mainImpl then standalone-Mite original-fs host-boundary failure. No desktop launch; public Node cache/V8 APIs remain absent. [Policy](../architecture/0106-code-oss-libjs-cache-policy.md) |
 | Shared Node bootstrap | bootstrap-node imports createRequire, registers SIGPIPE and sets cwd; exports portable configuration | Actual pinned module evaluates locally on macOS after type erasure in Node and Mite, including SIGPIPE/cwd and portable configuration. Source-mode gate only; exported loader hooks/global-search and packaged ASAR customization remain unverified/unsupported |
-| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, with the actual frozen root production dependencies, passes registerHooks/promisify and, with explicit --libjs-engine, passes the audited implicit Chromium defaults and fails at unsupported protocol privilege allowServiceWorkers (exit 1). Without that opt-in it still rejects the enable-features append. Implement the required real protocol contract next; protocol now supports origin registration and default-session file callbacks; command-line reads now work; incompatible Chromium feature switches and other app methods remain missing or partial; contentTracing has a tested native main-only subset; application menus now have a tested local native subset. No workbench/startup acceptance |
+| Main process startup | mainImpl imports original-fs, node:perf_hooks and Electron protocol/Menu/crashReporter/contentTracing | Real Firefly --electron-compat host probe now resolves raw FS and the implemented Electron alias, with the actual frozen root production dependencies, passes registerHooks/promisify and, with explicit --libjs-engine, passes the audited implicit Chromium defaults and fails at unsupported protocol privilege allowServiceWorkers (exit 1). Without that opt-in it still rejects the enable-features append. Implement the required real protocol contract next; protocol now supports origin registration and default-session file callbacks; command-line reads now work; incompatible Chromium feature switches and other app methods remain missing or partial; contentTracing has a tested native main-only subset; application menus now have a tested local native subset. The explicit --local-desktop + ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 experiment now passes the entry import and observes app ready, then reports missing generated NLS messages and unsupported node:zlib during asynchronous startup. Webviews/remote/cache are deliberately unavailable. No workbench/startup acceptance |
 | Locale/NLS prerequisites | mainImpl reads preferred system languages before ready, then regional/app locale | Native getPreferredSystemLanguages/getLocaleCountryCode and ready-guarded getSystemLocale/getLocale now pass local macOS no-window host/native tests with distinct Foundation/UI/application settings. Actual full Code-OSS still stops earlier at allowServiceWorkers; its NLS workflow and fresh Linux acceptance remain unverified. [Contract](../api/app-locale.md) |
 | Custom resource origins | mainImpl registers vscode-webview/vscode-file and remote resource schemes; protocolMainService serves authorized files and blocks direct file access | Internal actual LibURL/LibWebCommon custom origin/trust foundation passes local native tests; helpers remain empty by default; native parent/owned-helper configuration before bootstrap now passes local headless tests. Rust/native/DOM origin extraction now shares the canonical native policy, with strict local macOS and 1d033fe hosted Linux headless acceptance. Public [origin registration](../api/protocol.md) now passes local main/LibJS gates, and internal production-helper ESM/CSS/file loading passes. Public default-session file callbacks and automatic grants now load real custom windows/resources locally. Complete parsing, general handlers, partitions and additional privileges remain required. [ADR 0113](../architecture/0113-shared-rust-origin-policy.md) |
 | Preload and messaging | Preload uses send/invoke/on/once/removeListener, webFrame zoom, webUtils and port handoff | Bounded invoke/handle and renderer-to-main send/on events now have local macOS acceptance; main factory policy also passes Node/Mite and a real Electron positive send reference passes. Main-to-preload send/listener methods now also pass local macOS acceptance and the positive Electron reference, with real stalled-peer timeout retirement/reload. The bounded document-callback bridge now passes local native/production-helper tests (data payloads, identity, reentry and Promises); native IPC events now cross with the exact private sender module replaced by an empty object, and individual raw methods stay blocked. The 64 KiB contextBridge binary copy subset now passes local native and production-helper acceptance; the native raw process path now passes local early invoke/binary reply/bidirectional send, view geometry and reload acceptance, with bounded admission and history ordering. Native handle handoff checks epoch/document/PID and rejects unknown-realm/wrong-document/duplicate handoffs. Own trusted source publication getters now pass native and production-helper tests, including the metadata getter shape used here; restricted native sandbox process metadata and additionalArguments now have local helper/reference acceptance, including the argv/config IPC/userEnv merge shape. Need the remaining full preload graph, process events/metrics, port transfer and file access semantics (a bounded native HTML file-picker now passes local native-view/helper acceptance, but actual native path delivery and File bridge passage remain missing; a weak File/document registry, input hook and one-shot Page/input request guard now pass local native component tests); native webFrame factor/level zoom now has local helper/layout/reference acceptance, with revocation/sender checks |

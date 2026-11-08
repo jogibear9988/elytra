@@ -185,3 +185,51 @@ minimist integrity. It extracts the actual compiled parseCLIArgs function from
 pinned mainImpl.ts, preserving its algorithm, and compares 14 argument cases under
 Node and Mite using minimist 1.2.8. It does not simulate an application launch.
 See [ADR 0108](../architecture/0108-code-oss-root-dependencies.md).
+
+## Experimental local desktop
+
+This source adaptation is **not a working editor**. It is an explicit experiment
+for reaching the first local workbench while keeping webviews, remote resources
+and engine code caches unavailable. It does not implement service workers or
+change Ladybird. Normal Node/Electron execution retains the original branches.
+See [ADR 0149](../architecture/0149-code-oss-local-desktop.md).
+
+Prepare the pinned source and root production dependencies as above. Use fresh
+output paths (substitute the path of your completed dependency installation):
+
+```sh
+python3 tooling/code_oss/overlay.py --source build/code-oss-source --output build/code-oss-local-overlay --libjs-cache --libjs-engine --local-desktop
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-local-overlay --dependencies build/code-oss-dependencies --output build/code-oss-local
+mkdir -p build/code-oss-local-user-data
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs build/code-oss-local --firefly-ready --user-data-dir=build/code-oss-local-user-data
+python3 tooling/tests/test_code_oss_local_desktop.py --mite build/release-mite/bin/mite
+```
+
+The build option requires both earlier cache/engine options. The runtime flag is
+captured once from the truthful LibJS main/preload host. Missing/0 preserves the
+original path; invalid values reject on LibJS. Node/Electron ignores the flag.
+The enabled main host prints a notice and exposes a frozen diagnostic status
+process._vscodeLibJSLocalDesktopStatus. No Node/V8/Electron identity is invented.
+
+Only the original vscode-file registration remains, with the implemented standard,
+secure, fetch and CORS privileges. The source scheme declarations are checked
+against the audited contract before selecting it. Webview creation and main webview
+operations explicitly reject. Remote CLI, resolver and resource-provider entry points
+reject; managed remote protocol/channel initialization is omitted. Actual engine
+cache-path creation is disabled. This is a limitation of this application mode,
+not broader Electron API support. Full webviews/remote remain required later.
+
+Local macOS evidence: the actual compiled 11,536-source tree with prepared root
+production packages completes the entry import, and the real app ready callback
+runs. The following asynchronous initialization reports missing generated
+src/nls.messages.json and unsupported node:zlib. No workbench is opened. The
+--firefly-ready probe allows three seconds for that callback and always exits 1
+with workbenchAccepted:false; neither readiness nor an import pass proves desktop
+acceptance. The normal --firefly probe still exits immediately after the import.
+Without the runtime opt-in, the same tree still rejects allowServiceWorkers.
+
+The new native CTest is mite-code-oss-local-desktop. It verifies pinned fingerprints,
+original byte preservation outside declared changes, drift/duplicate/seam refusal,
+fresh output validation and real Node/Mite enabled/disabled/config/feature/CLI/cache
+policy behavior. These are component tests, not service/workbench or platform GUI
+acceptance. Fresh Linux/Windows runs remain required.
