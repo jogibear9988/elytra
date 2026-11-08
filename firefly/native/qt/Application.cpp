@@ -133,7 +133,7 @@ public:
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
-                "Menu", "MenuItem", "contentTracing" };
+                "Menu", "MenuItem", "contentTracing", "MessageChannelMain" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)

@@ -9333,6 +9333,63 @@ Full terminal/readline/ReadStream parity, efficient file transport, extension/sh
 PTY hosts, webviews/remote and native platform packaging remain in the original goal.
 Ladybird is unmodified, Mite independent and the full original goal stays active.
 
+## 2026-11-08 — Real main MessageChannelMain ownership and Code-OSS Protocol
+
+- Resume from pushed 7a8d112 and the actual missing MessageChannelMain failure.
+  With the user's explicit multi-agent authorization, split public differential
+  tests, pinned Code-OSS component acceptance and native lifetime review while
+  implementing the shared core. Keep one coherent reviewed commit.
+- Add maintained ESM main-realm connected MessagePortMain endpoints and export
+  MessageChannelMain from the actual Firefly/Electron-alias host. Use the existing
+  native BridgeData codec, start-gated asynchronous FIFO, copied binary aliases,
+  repeated ownership transfer, detached old wrappers and generation-checked jobs.
+  MessagePortMain is a returned type, not a fabricated exported constructor.
+- Bound endpoint count, message count, encoded endpoint/global queue bytes and
+  transfer-list length. Reject unsupported graphs/transfers explicitly. Preserve
+  accepted peer messages before close; document Firefly's deferred local close
+  difference. Stop channels on actual application exit/accepted quit.
+- Keep canonical records weak with scalar queue leases so unreachable cycles of
+  queued transferred wrappers collect and refund endpoint/wire budgets. Add a
+  genuine headless Mite/native-codec/GC probe, without QApplication or mock cloning.
+  Prove all 256 endpoint slots and near-global byte budget can be reclaimed.
+- Lifetime review catches throwing/reentrant inherited emitter hooks during transfer:
+  prepare wrappers first and revalidate ownership/generation/quotas before mutation.
+  Capture registration/own-slot primitives for the tested mutation cases. Reject
+  constructor shutdown reentry. Explicit close now retains the owner until its
+  deferred notification; a weak-only negative control loses that callback under GC.
+  This is not a claim against arbitrary privileged main intrinsic replacement.
+- Compare actual public Firefly/Electron 45.2.3 start/FIFO, snapshot/cycle/binary,
+  multi-hop transfer, detached owners, atomic rejection and close behavior. Add
+  actual main-only native acceptance gates to check-firefly and Linux hosted CI.
+- Pin the exact upstream ipc.mp.ts at Code-OSS revision
+  6531648f5ace8b77ae799262bdc97bf048461938 with its original notice/hash. Run its
+  unchanged Protocol and once helper with real compiled base services and public
+  channels: binary frames, copy isolation, FIFO, echo, disconnect and moved once
+  helper pass under both Firefly and Electron. No replacement Protocol is used.
+- Document the API, ownership/GC/quotas and ADR 0154, and refresh current support,
+  Code-OSS audit, implementation order and component reproduction commands.
+
+Validation: local Release Firefly and the new native lifetime probe build. Fresh
+public Firefly, genuine native codec/GC and actual Code-OSS Protocol probes pass;
+Electron differential positives also pass. Both new CMake gates pass. The rebuilt
+actual ready/main graph completes entry import and observes ready, then advances
+from missing MessageChannelMain to missing utilityProcess
+(build/code-oss-message-ports-final-ready.log). This is not workbench acceptance.
+The full 86-test runtime regression passes (82.81 seconds). Unmodified-upstream,
+both adapter-integrity checks, exact generated bundle reproduction and full maintained
+source style checks pass. Site build/check accepts 268 pages and 18,948 local links.
+Whitespace checks pass. No desktop input automation or fresh native Linux/Windows
+acceptance is claimed.
+
+Remaining: implement genuine utilityProcess/parentPort ownership and lifecycle,
+native authenticated process/document port handoff and renderer event.ports. The
+existing webContents.postMessage explicitly refuses rather than fabricating a
+handoff. Main-realm port success does not establish renderer, utility/shared process,
+zero-copy or large-file performance. Continue actual startup, workbench assets,
+window/preload/File/open-edit-save, extension/PTY hosts, webviews/remote and native
+Windows/Linux acceptance. Ladybird stays unmodified, Mite independent and the full
+original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

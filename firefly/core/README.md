@@ -3,8 +3,13 @@
 `api.mjs` is the maintained ESM factory for the main-process desktop API. Native
 services and the shared Mite builtin instances are injected explicitly.
 `ipc-main.mjs` owns request handlers, pending replies and sender snapshots; the API
-factory connects its cancellation to window/document lifecycle. Renderer
-publication and world ownership live in `../renderer-bridge`; window integration
+factory connects its cancellation to window/document lifecycle.
+`message-ports/index.mjs` owns main-realm endpoint identity, start-gated queues,
+transactional ownership moves and bounded weak-record/GC cleanup. It uses the
+injected native binary codec and real event loop; it does not fabricate renderer
+or utility-process endpoints. Native process/document handoff remains a separate
+required binding. See the [port contract](../../docs/api/message-channel-main.md).
+Renderer publication and world ownership live in `../renderer-bridge`; window integration
 and the ESM DOM app-region installer live in `../native/qt`.
 
 Native startup needs a synchronous factory before application modules run. The

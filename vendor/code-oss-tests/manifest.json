@@ -198,6 +198,10 @@
     "osReleaseInfo.ts": {
       "upstream": "src/vs/base/node/osReleaseInfo.ts",
       "sha256": "92bd70eae77e4daf979665cca257a0ee30f12a9a1f4a0bd2c66feccb2c7d51d7"
+    },
+    "ipc-mp-node.ts": {
+      "upstream": "src/vs/base/parts/ipc/node/ipc.mp.ts",
+      "sha256": "4caeceee7c2b06affa5a490183305efc86253d61ecdf9c3753f06ac64f599319"
     }
   }
 }

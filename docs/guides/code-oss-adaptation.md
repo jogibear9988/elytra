@@ -312,8 +312,34 @@ Linux execution can accept the Linux identifier-file branch. No injected fake
 platform or replacement filesystem/parser is used. The separate real-file fixture
 reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
 
-The rebuilt actual ready/main graph now passes readline and next fails linking
-MessageChannelMain. This makes genuine Electron main/renderer MessagePorts the next
-startup priority; exporting an inert constructor would not satisfy it. The bounded
-probe still exits 1, with no accepted workbench. See [readline](../api/readline.md)
-and [file streams](../api/file-read-stream.md) for explicit scope and limits.
+The rebuilt actual ready/main graph passes readline. With the main-realm port
+slice below, it also passes MessageChannelMain and next fails linking utilityProcess.
+Genuine utility-process/parentPort and native renderer handoff remain required;
+main-only channels cannot supply those connections. The bounded probe still exits 1,
+with no accepted workbench. See [readline](../api/readline.md) and
+[file streams](../api/file-read-stream.md) for explicit scope and limits.
+
+## Verify the actual MessagePort protocol
+
+The main-realm MessageChannelMain ownership core now supports real copied binary
+frames, start/FIFO, endpoint moves and disconnect. Run the actual pinned Code-OSS
+Protocol/once helper using its real compiled base services and public desktop ports:
+
+```sh
+node tooling/code_oss/probe-message-ports.mjs build/code-oss-local-nls build/renderer/bin/firefly
+python3 tooling/tests/test_message_ports.py --firefly build/renderer/bin/firefly
+cmake --build build/renderer --target check-firefly-message-port-lifetime --parallel 3
+```
+
+An optional final argument to probe-message-ports.mjs selects a real Electron binary
+for the same component comparison. The public runner also accepts --electron. The
+lifetime target uses actual Mite/LibJS GC and native BridgeData, without QApplication
+or windows. Both new gates are dependencies of check-firefly and hosted Linux native
+acceptance; fresh hosted execution is not inferred from local success.
+
+Local actual Protocol binary-frame/FIFO/snapshot/echo/disconnect and moved once-helper
+acceptance passes on Electron/Firefly. The real ready/main graph now fails at missing
+utilityProcess. Code-OSS actually needs utilityProcess.postMessage with transferred
+ports and process.parentPort, then webContents/ipcRenderer transfers with event.ports;
+none is supplied by the main-only core. No workbench is accepted. See the precise
+[port scope and bounds](../api/message-channel-main.md).

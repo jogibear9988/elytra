@@ -398,6 +398,8 @@ if(APPLE)
                 check-firefly-ipc-outbound
                 check-firefly-ipc-channel
                 check-firefly-ipc-binary
+                check-firefly-message-ports
+                check-firefly-message-port-lifetime
                 check-firefly-file-picker
                 check-firefly-file-input
                 check-firefly-preload-zoom

@@ -9,6 +9,7 @@ import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
+import createMessageChannels from './message-ports/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -17,6 +18,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     throw error('ERR_FIREFLY_UNSUPPORTED_API', `${name} is not implemented`);
   };
 
+  const channels = createMessageChannels(native, EventEmitter, error);
   const windows = new Map();
   let ready = false;
   let quitting = false;
@@ -147,6 +149,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      channels.shutdown();
       try {
         for (const win of [...windows.values()]) {
           native.destroyNow(win.id);
@@ -214,6 +217,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    channels.shutdown();
     app.emit('quit', event(), 0);
     native.quit();
   }
@@ -239,6 +243,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       this._title = '';
       this._pending = null;
       this._ipcFrame = null;
+    }
+
+    postMessage() {
+      unsupported('webContents.postMessage port/data delivery');
     }
 
     send(channel, ...args) {
@@ -663,6 +671,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     session,
     BrowserWindow,
     ipcMain,
+    MessageChannelMain: channels.MessageChannelMain,
     screen: screens.screen,
     clipboard,
     ClipboardItem,

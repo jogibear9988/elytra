@@ -1,6 +1,6 @@
 # Current support and tested examples
 
-Reviewed **2026-11-07** against the implementation, example catalog and completed
+Reviewed **2026-11-08** against the implementation, example catalog and completed
 native CI logs. Mite and Firefly remain partial implementations. A checked-in
 example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
@@ -15,12 +15,19 @@ now completes the real entry import and observes app ready. The new --nls build
 step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
-passes the readline import and reaches missing MessageChannelMain.
-Real 30,000-line file and local OS-release platform-branch checks pass; Linux file
-branch and fresh Windows/Linux execution remain unverified. The local desktop
-experiment disables webviews, remote and engine caches; without it the
-allowServiceWorkers blocker remains. No workbench
-open/edit/save acceptance is claimed.
+passes readline and the new MessageChannelMain import, then reaches missing
+utilityProcess. Real 30,000-line file and local OS-release platform-branch checks
+pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
+local desktop experiment disables webviews, remote and engine caches; without it
+the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
+is claimed.
+
+The [main-realm MessageChannelMain slice](api/message-channel-main.md) now passes
+local public Firefly/Electron binary/FIFO/transfer/close tests, actual native codec/
+GC ownership checks and the unchanged Code-OSS MessagePort Protocol component.
+These connected main endpoints do not provide utility-process or renderer handoff.
+Real utilityProcess.postMessage/process.parentPort and native webContents/
+ipcRenderer event.ports transfer remain the next required integration.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
@@ -111,8 +118,10 @@ copied-buffer acceptance: early preload
 invoke, asynchronous binary replies, Buffer normalization, bidirectional sends and
 64 KiB view graphs over the actual raw document channel. Unknown-realm, wrong-doc
 and duplicate native handles are rejected in the runtime admission gate. Application
-queues, history markers and pending/transport credit are bounded. MessagePorts,
-streaming, shared memory, broad clone types and fresh Linux/native Windows remain open.
+queues, history markers and pending/transport credit are bounded. Native renderer/
+utility MessagePort handoff, streaming, shared memory, broad clone types and fresh
+Linux/native Windows remain open; the separately tested main-realm port core above
+does not establish those native handoffs.
 
 Trusted [contextBridge publication getters](api/context-bridge.md#trusted-getters-at-api-publication)
 now pass native and real helper/Electron snapshot tests. Source getter receivers,
@@ -425,7 +434,7 @@ errors, overloads and intentional differences.
 | --- | --- |
 | app/window/webContents | Lifecycle/readiness, native windows, loading, geometry and selected controls/events; [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md) |
 | Secure preload/contextBridge | Bounded isolated top-level preload publication; authored ESM is bundled to supported CommonJS payloads; [contextBridge](api/context-bridge.md) |
-| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; full graph callbacks/source accessors/sync/ports/subframes remain unfinished; [IPC](api/ipc.md) |
+| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; main-realm MessageChannelMain binary queues/ownership transfers now pass separate public/native-GC/Code-OSS component gates; native renderer/utility port handoff, full graph callbacks/source accessors/sync/subframe IPC remain unfinished; [IPC](api/ipc.md), [main ports](api/message-channel-main.md) |
 | Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
 
 popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,

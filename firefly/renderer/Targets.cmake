@@ -98,6 +98,7 @@ target_include_directories(
 target_include_directories(firefly-isolated-world PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-isolated-world PUBLIC LibWeb LibJS LibGC LibCore LibURL AK)
 add_dependencies(firefly-isolated-world check-firefly-upstream)
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/message-ports/Targets.cmake")
 add_executable(
     firefly-isolation-probe
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/main.cpp"
