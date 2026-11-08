@@ -1,4 +1,5 @@
 import namedPromisify from '../core/promisify-results.mjs';
+import createReadStream from './read-stream.mjs';
 
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
@@ -737,6 +738,12 @@ export default function createFileSystemModule(host) {
       }
       this.emit('close');
       return this.#closePromise;
+    }
+
+    createReadStream(options) {
+      // Streams must await a native close already in progress, without changing
+      // the public close() Promise identity once fd retirement has begun.
+      return createReadStream(this, options, host, () => this.#closePromise ?? this.close());
     }
 
     read(...args) {

@@ -194,6 +194,10 @@
     "argvHelper.ts": {
       "upstream": "src/vs/platform/environment/node/argvHelper.ts",
       "sha256": "d98437c8859a5ac360d6238fcfd48651104b85db22d8fb0253b2200d7d8e2836"
+    },
+    "osReleaseInfo.ts": {
+      "upstream": "src/vs/base/node/osReleaseInfo.ts",
+      "sha256": "92bd70eae77e4daf979665cca257a0ee30f12a9a1f4a0bd2c66feccb2c7d51d7"
     }
   }
 }

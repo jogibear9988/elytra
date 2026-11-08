@@ -83,9 +83,9 @@ RFC7692-style context takeover, independent Python gzip/zlib/raw bytes in both
 directions (including input above the native step size), output caps, malformed and
 truncated input, native GC lifetime, read pressure, close and cancellation. The
 actual pinned Code-OSS ZlibDeflateStream/ZlibInflateStream classes also pass locally
-with real compiled VSBuffer/Emitter/Disposable/IPC dependencies. The real Code-OSS
-ready path advances from unsupported node:zlib to unsupported node:assert; no
-workbench or desktop workflow is accepted. See [ADR 0151](../architecture/0151-node-zlib-streams.md).
+with real compiled VSBuffer/Emitter/Disposable/IPC dependencies. The real Code-OSS ready path passes the zlib import; the
+[current target status](../compatibility/vscode.md) records subsequent blockers.
+No workbench or desktop workflow is accepted. See [ADR 0151](../architecture/0151-node-zlib-streams.md).
 
 The independent [Web Streams/Fetch decoder](decompression.md) retains its existing
 implementation and contract. Node zlib stream support does not add CompressionStream.

@@ -124,3 +124,7 @@ ordered flush and convenience functions, with explicit unsupported features.
 
 The [assert reference](assert.md) covers callable/strict assertions, supported deep
 comparisons, error metadata and synchronous/asynchronous exception checks.
+
+The [readline reference](readline.md) describes nonterminal UTF-8 line events and
+async iteration; [FileHandle read streams](file-read-stream.md) document bounded
+native file reads and descriptor ownership.

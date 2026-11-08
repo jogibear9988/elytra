@@ -9277,6 +9277,62 @@ platform packaging remain in the original goal. Assert is deliberately partial;
 current Node diagnostic and full comparison/constructor/foreign-realm parity remain
 open. Ladybird stays unmodified, Mite independent, and the full goal stays active.
 
+
+## 2026-11-08 — Nonterminal readline and bounded native FileHandle streams
+
+- Resume from pushed 8af2dbb as concrete progress; inspect spec/progress, actual
+  readline failure and Code-OSS's real osReleaseInfo.ts/server prompt usage. The Linux
+  path needs async line iteration over FileHandle.createReadStream, so implement a
+  real file-to-lines slice instead of a successful import with empty methods.
+- Add authored ESM UTF-8/CRLF parser, bounded queue iterator and EventEmitter interface.
+  Reuse actual StringDecoder, AbortSignal, scheduling and Node-compatible stream APIs.
+  Preserve elapsed split-CRLF timing/adjacent pairs, final nonempty text and the measured
+  Node incomplete-UTF-8-tail behavior. Support nonterminal lifecycle/prompt/question;
+  refuse TTY/completion/history/key/cursor/Promise APIs and unknown options explicitly.
+- Propagate consumer exceptions, handle reentrant pause/resume and retire pending
+  iterator reads on close/abort/error, including falsy error values. Input pressure
+  defers remaining text rather than collecting the entire source. Document bounds
+  and Mite's immediate iterator-return cleanup versus the observed Node 24 listener
+  retention. Closing the interface pauses but does not destroy the caller's input.
+- Add native FileHandle-to-Readable adaptation using existing bounded asynchronous
+  reads, positional ranges, encoding and real descriptor ownership. Retain the actual
+  handle through work, distinguish auto-close at EOF from explicit destruction and
+  wait for outstanding native reads before close. Keep public close semantics intact.
+- The first full suite catches changed idle-close Promise identity from a public
+  close-order adjustment. Restore that existing Node-compatible behavior and supply a
+  private callback to await any pending native close from the stream instead. The
+  filesystem regression and new manual/in-flight close cases pass after correction.
+- Additional pre-aborted signal tests expose synchronous Readable destruction before
+  callback initialization. Install the callback first and avoid attaching it to an
+  already destroyed stream. An intermediate duplicate declaration is rejected by
+  generation/integrity checks; fix it and accept only the later passing build/tests.
+- Add mite-readline and mite-code-oss-os-release. Real Node/Mite/native-host tests cover
+  framing/timing/events/questions/abort, iterator pressure/return, consumer exceptions,
+  encoded/ranged reads, ownership/destruction/manual close, 30,000 native file lines
+  and forced GC. Pin and compile the actual OS-release function with truthful platform
+  identity: the macOS early-return branch passes; native Linux file acceptance remains
+  open. Update API/status/matrix/guide/roadmap and ADR 0153.
+
+Validation: local standalone Mite and Firefly Release builds pass. After restoring
+public close behavior, the full 86-test runtime suite passes (84.61 seconds).
+The subsequently expanded pre/active-abort and encoded-file fixture passes under
+Node/Mite/native GC after the constructor fix. Final targeted affected/integrity
+checks all pass (five targeted gates, 6.98 seconds), including the filesystem
+regression, expanded stream abort/encoding/native-GC fixture and actual OS module.
+The final rebuilt Firefly ready/main graph passes readline and next fails linking
+missing MessageChannelMain (build/code-oss-readline-final-ready.log), with no accepted
+workbench/window/open-edit-save. Generated bundles reproduce exactly; upstream and
+both adapter-integrity checks, full maintained-source style, 266-page/18,801-local-link
+site checks and whitespace gates pass. No desktop input automation or
+fresh native Linux/Windows acceptance is claimed.
+
+Remaining: implement the real Electron MessageChannelMain/main-renderer MessagePort
+contracts, preserving binary data, endpoint/process identity and revocation. Continue
+actual startup and workbench assets/window/preload/File/open-edit-save acceptance.
+Full terminal/readline/ReadStream parity, efficient file transport, extension/shared/
+PTY hosts, webviews/remote and native platform packaging remain in the original goal.
+Ladybird is unmodified, Mite independent and the full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

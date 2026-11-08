@@ -8,9 +8,9 @@ and CommonJS require. Native handles, threads and OS calls stay in
 
 | Directory | Sources and responsibility |
 | --- | --- |
-| core | Events, buffers, lexical paths, process properties, URL and text facades |
+| core | Events, buffers, lexical paths, process properties, URL/text facades and nonterminal readline |
 | network | DNS overloads, [TCP socket/listener subsystems](network/net/README.md) and [HTTP client/server subsystems](network/http/README.md) |
-| filesystem | Filesystem overloads, callback/Promise adaptation and FileHandle lifetime |
+| filesystem | Filesystem overloads, callback/Promise adaptation, FileHandle lifetime and bounded native read streams |
 | compression | Native-backed zlib Transform streams, flush ordering, bounded convenience output and explicit option policy |
 | crypto | Assembly, OS entropy APIs, digest/HMAC lifecycle and byte adaptation |
 | process | ChildProcess streams, native completion and bounded execFile collection |

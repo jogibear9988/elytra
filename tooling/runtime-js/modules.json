@@ -21,5 +21,6 @@
   "https": "mite/modules/network/https.mjs",
   "fetch": "mite/runtime/bootstrap/fetch/index.mjs",
   "decompression": "mite/runtime/bootstrap/compression/decompression.mjs",
-  "zlib": "mite/modules/compression/zlib.mjs"
+  "zlib": "mite/modules/compression/zlib.mjs",
+  "readline": "mite/modules/core/readline/index.mjs"
 }

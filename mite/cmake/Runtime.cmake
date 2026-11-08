@@ -47,6 +47,7 @@ function(mite_add_runtime target root js_target)
         os
         crypto
         zlib
+        readline
         child_process
         timers_promises)
         string(TOUPPER "${module}" module_upper)

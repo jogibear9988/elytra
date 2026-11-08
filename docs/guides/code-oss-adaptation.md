@@ -295,3 +295,25 @@ now stops at unsupported node:readline. The bounded diagnostic still exits 1, wi
 no accepted workbench. See the [assert contract](../api/assert.md) for partial API
 scope and explicit unsupported comparisons. Earlier blocker observations above
 remain historical results for older runtime builds.
+
+## Read real file lines and inspect the next port blocker
+
+The native FileHandle stream and nonterminal readline slice now runs a real bounded
+file-to-lines workflow. Run the non-GUI acceptance and actual pinned OS-release module:
+
+```sh
+python3 tooling/tests/test_readline.py --mite build/release-mite/bin/mite --host build/release-mite/bin/mite-embedded-host
+python3 tooling/tests/test_code_oss_os_release.py --mite build/release-mite/bin/mite
+```
+
+The second gate uses the actual compiled module, truthful platform identity and real
+native filesystem. On macOS it accepts the early platform return; only a native
+Linux execution can accept the Linux identifier-file branch. No injected fake
+platform or replacement filesystem/parser is used. The separate real-file fixture
+reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
+
+The rebuilt actual ready/main graph now passes readline and next fails linking
+MessageChannelMain. This makes genuine Electron main/renderer MessagePorts the next
+startup priority; exporting an inert constructor would not satisfy it. The bounded
+probe still exits 1, with no accepted workbench. See [readline](../api/readline.md)
+and [file streams](../api/file-read-stream.md) for explicit scope and limits.

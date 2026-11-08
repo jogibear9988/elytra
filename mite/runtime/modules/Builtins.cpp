@@ -51,6 +51,8 @@ static constexpr std::string_view assert_exports[] = { "AssertionError", "ok", "
     "notEqual", "deepEqual", "notDeepEqual", "deepStrictEqual", "notDeepStrictEqual", "strictEqual",
     "notStrictEqual", "throws", "rejects", "doesNotThrow", "doesNotReject", "ifError", "match",
     "doesNotMatch", "strict", "Assert", "CallTracker", "partialDeepStrictEqual" };
+static constexpr std::string_view readline_exports[] = { "Interface", "createInterface",
+    "clearLine", "clearScreenDown", "cursorTo", "moveCursor", "emitKeypressEvents" };
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
@@ -128,6 +130,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "timers/promises", { MITE_TIMERS_PROMISES_SOURCE, sizeof(MITE_TIMERS_PROMISES_SOURCE) - 1 },
         timers_promises_exports },
     { "timers", {}, timers_exports },
+    { "readline", { MITE_READLINE_SOURCE, sizeof(MITE_READLINE_SOURCE) - 1 }, readline_exports },
     { "zlib", { MITE_ZLIB_SOURCE, sizeof(MITE_ZLIB_SOURCE) - 1 }, zlib_exports },
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
@@ -336,6 +339,18 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         }
     }
 
+    if (name == "readline") {
+        host->define_direct_property(
+            "events"_utf16, TRY(builtin("events")), JS::default_attributes);
+        host->define_direct_property(
+            "decoder"_utf16, TRY(builtin("string_decoder")), JS::default_attributes);
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
+        host->define_direct_property(
+            "tick"_utf16, TRY(m_process->get("nextTick"_utf16)), JS::default_attributes);
+        host->define_direct_property("schedule"_utf16,
+            TRY(m_realm.global_object().get("setImmediate"_utf16)), JS::default_attributes);
+    }
+
     if (name == "zlib") {
         host->define_direct_property("schedule"_utf16,
             TRY(m_realm.global_object().get("setImmediate"_utf16)), JS::default_attributes);
@@ -459,6 +474,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "fs") {
+        host->define_direct_property(
+            "stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
         host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
         auto url = TRY(builtin("url"));
         host->define_direct_property(

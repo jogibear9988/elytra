@@ -15,8 +15,11 @@ now completes the real entry import and observes app ready. The new --nls build
 step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
-reports unsupported node:readline. The local desktop experiment disables webviews,
-remote and engine caches; without it the allowServiceWorkers blocker remains. No workbench
+passes the readline import and reaches missing MessageChannelMain.
+Real 30,000-line file and local OS-release platform-branch checks pass; Linux file
+branch and fresh Windows/Linux execution remain unverified. The local desktop
+experiment disables webviews, remote and engine caches; without it the
+allowServiceWorkers blocker remains. No workbench
 open/edit/save acceptance is claimed.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,

@@ -209,6 +209,14 @@ if(BUILD_TESTING)
     add_test(NAME mite-assert
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_assert.py"
                      --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(NAME mite-readline
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_readline.py"
+                     --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
+        NAME mite-code-oss-os-release
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_os_release.py"
+            --mite "$<TARGET_FILE:mite>")
     add_test(
         NAME mite-code-oss-bootstrap
         COMMAND
