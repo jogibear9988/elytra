@@ -34,6 +34,8 @@ namespace WebView {
 class WebContentPage;
 }
 
+#include "native/ipc/bytes/Channel.h"
+
 namespace Firefly {
 class ChromeWindow;
 
@@ -60,6 +62,10 @@ struct Bridge::Impl {
         ByteString ipc_document {};
         ByteString ipc_realm {};
         u32 ipc_last { 0 };
+        RefPtr<Bytes::Channel> ipc_byte_channel {};
+        u64 ipc_byte_epoch { 0 };
+        bool ipc_byte_ready { false };
+        Optional<MonotonicTime> ipc_byte_deadline {};
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
         u32 ipc_outgoing_next { 0 };
@@ -78,6 +84,7 @@ struct Bridge::Impl {
     std::unordered_map<int, State> windows;
     int next_id { 1 };
     bool stopping { false };
+    u64 ipc_byte_next_epoch { 0 };
     size_t ipc_pending_count { 0 };
     size_t ipc_outgoing_count { 0 };
     RefPtr<Core::Timer> ipc_timer;
@@ -119,6 +126,9 @@ struct Bridge::Impl {
         bool success, ByteString const& wire);
 
     void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, NativeIpcKind);
+
+    void bind_ipc_channel(int, WebView::WebContentPage&, Web::HTML::CrossProcessId,
+        Web::HTML::CrossProcessId document);
 
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 

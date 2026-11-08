@@ -23,6 +23,8 @@
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/WebDriver/BiDi/BiDi.h>
+#include <WebContent/ConnectionFromClient.h>
+#include <WebContent/PageHost.h>
 #include <cstdio>
 #include <cstdlib>
 
@@ -204,6 +206,19 @@ void initialize()
     FileModules::set_enabled(true);
     session = new Session;
     session->jobs = make<WorldJobGuard>(Web::Bindings::main_thread_vm());
+    Bytes::set_ipc_receiver(
+        [](IPC::Stub& stub, IPC::TransportHandle handle, Bytes::IpcBinding binding) {
+            if (!session)
+                return;
+            auto found = session->worlds.find(binding.realm);
+            if (found == session->worlds.end())
+                return;
+            auto& connection = static_cast<WebContent::ConnectionFromClient&>(
+                static_cast<WebContentServerStub&>(stub));
+            auto page = connection.page_host().page(Web::PageId { binding.page });
+            if (page.has_value())
+                found->value.ipc->attach_channel(*page, move(handle), move(binding));
+        });
     apply({});
     session->sweep = Core::Timer::create_repeating(AK::Duration::from_milliseconds(10), [] {
         if (session)
@@ -265,6 +280,7 @@ void apply(Web::WebDriver::BiDiSessionState state)
 
 void shutdown()
 {
+    Bytes::set_ipc_receiver({});
     FileModules::set_enabled(false);
     Web::WebDriver::BiDi::set_event_sink({});
     if (!session)

@@ -96,13 +96,14 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcListeners.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcChannel.cpp"
         ${firefly_renderer_platform_sources})
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
                                                                 "${FIREFLY_SOURCE_DIR}/firefly")
     target_link_libraries(
         FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox LibURL
-                                         firefly-protocol-client)
+                                         firefly-protocol-client firefly-byte-channel)
     set_target_properties(
         FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                                    "${firefly_runtime_binary_dir}")

@@ -79,7 +79,9 @@ publication and sync/Promise results use the same exact native identity policy.
 Individual native IPC methods remain blocked. The 64 KiB contextBridge binary
 copy subset now passes local native and production-helper tests, with writable
 independent bytes and shared backing aliases. Process IPC remains byte-free until
-its native document channel is integrated. Full callback publication,
+application packet dispatch and replies use its native document channel. Handle
+handoff and epoch/document/PID readiness now pass a local production-helper
+reload/multiwindow batch; no public binary IPC feature is enabled by that gate. Full callback publication,
 binary/MessagePort delivery and fresh Linux/native Windows acceptance remain open.
 
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native

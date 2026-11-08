@@ -35,6 +35,13 @@ DOC_BODY = """    virtual void firefly_connect_document(IPC::TransportHandle han
         Firefly::Bytes::accept_document(*this, move(handle), page, ns, local, document_ns, document_local, move(navigation), move(url), epoch);
     }"""
 
+IPC_METHOD = "\n    [NotRouted] firefly_connect_ipc(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, u64 document_ns, u64 document_local, String realm, u64 epoch) =|\n"
+IPC_DECLARATION = "    virtual void firefly_connect_ipc(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, u64 document_ns, u64 document_local, String realm, u64 epoch) = 0;"
+IPC_BODY = """    virtual void firefly_connect_ipc(IPC::TransportHandle handle, u64 page, u64 ns, u64 local, u64 document_ns, u64 document_local, String realm, u64 epoch)
+    {
+        Firefly::Bytes::accept_ipc(*this, move(handle), page, ns, local, document_ns, document_local, move(realm), epoch);
+    }"""
+
 
 def extend(source):
     if (
@@ -43,14 +50,16 @@ def extend(source):
         or "firefly_connect_byte_channel" in source
         or "firefly_connect_navigation" in source
         or "firefly_connect_document" in source
+        or "firefly_connect_ipc" in source
     ):
         raise ValueError("Review pinned control endpoint layout")
-    result = INCLUDE + source[:-2] + METHOD + NAV_METHOD + DOC_METHOD + "}\n"
+    result = INCLUDE + source[:-2] + METHOD + NAV_METHOD + DOC_METHOD + IPC_METHOD + "}\n"
     assert (
         result.removeprefix(INCLUDE)
         .replace(METHOD, "")
         .replace(NAV_METHOD, "")
         .replace(DOC_METHOD, "")
+        .replace(IPC_METHOD, "")
         == source
     )
     return result
@@ -109,17 +118,19 @@ def main():
         before, after = message_ids(original_header.read_text()), message_ids(header)
         if (
             not before
-            or len(after) != len(before) + 3
+            or len(after) != len(before) + 4
             or any(after.get(name) != number for name, number in before.items())
             or after.get("FireflyConnectByteChannel") != max(before.values()) + 1
             or after.get("FireflyConnectNavigation") != max(before.values()) + 2
             or after.get("FireflyConnectDocument") != max(before.values()) + 3
+            or after.get("FireflyConnectIpc") != max(before.values()) + 4
         ):
             raise ValueError("Existing control message IDs changed")
         if (
             header.count(DECLARATION) != 1
             or header.count(NAV_DECLARATION) != 1
             or header.count(DOC_DECLARATION) != 1
+            or header.count(IPC_DECLARATION) != 1
             or not implementation.is_file()
         ):
             raise ValueError("Review owned control stub seam")
@@ -127,6 +138,7 @@ def main():
             header.replace(DECLARATION, BODY)
             .replace(NAV_DECLARATION, NAV_BODY)
             .replace(DOC_DECLARATION, DOC_BODY)
+            .replace(IPC_DECLARATION, IPC_BODY)
         )
         output.write_text(header)
         # A duplicate declaration must fail rather than gain another control route.

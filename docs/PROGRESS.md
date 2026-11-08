@@ -8630,6 +8630,54 @@ port handoff/streaming, while continuing demanded preload process/options/access
 and worker/cache/resource contracts. Do not substitute a text-encoded file transport,
 inert feature flags or a smaller success definition. Full goal stays active.
 
+## 2026-11-08 — Real document/preload raw-channel handoff and readiness
+
+- Continue from pushed d6343f1, which made authoritative contextBridge binary-copy
+  progress. Keep actual native binary IPC/Code-OSS and the full product goal active.
+- Append a separate trusted NotRouted application-IPC handle handoff to our generated
+  endpoint, preserving all 251 upstream and three previous owned message IDs.
+  Keep file-resource authority separate. Bootstrap forwarding stays in the shared
+  native IPC library; consumers use the canonical staged declaration only.
+- Create one real native channel pair after the authenticated canonical preload
+  Bind. Bind page/navigable/document/realm/epoch to the actual selected connection
+  and active configured world. Unknown/foreign/duplicate handoffs refuse admission;
+  there is no JavaScript handle/epoch/binding API. Retire failure until a fresh doc.
+- Exchange a raw 52-byte FIH1 hello containing epoch, actual helper PID and document/
+  navigable identities. Main compares the exact canonical binding and its real owned
+  helper PID before readiness. Unexpected packets/repeated hello close the channel;
+  no raw echo or application packet receiver is installed at this stage.
+- Close the channel on reset/navigation/crash/window/world teardown and unregister
+  the receiver at helper shutdown. Guard deferred close callbacks by epoch so an
+  old channel cannot clear the replacement. Add a 30-second missing-hello retirement
+  path; actual stalled-hello runtime acceptance remains pending.
+- Add a native non-GUI handshake probe with an independent little-endian byte vector,
+  NUL/high-bit fields and size/version/zero/truncation refusals. Keep the existing
+  raw channel/frame/credit/adversarial/fresh-child gate green.
+- Add a focused production-helper gate: two hidden windows load the same file,
+  the first reloads, and three distinct document bindings complete raw handshakes.
+  Check every observed helper PID against its live OS parent. Run existing public
+  IPC/contextBridge assertions and closure in that batch; always reap the group.
+  Wire the new gate into the macOS aggregate and Linux Xvfb workflow.
+- Update IPC/file-transfer/status/VS Code/roadmap/upstream-update docs and ADR 0141.
+  Public invoke/send/webContents.send still reject binary; no Base64/string-byte
+  transport, application packet dispatch or MessagePort claim is introduced.
+
+Validation: local macOS Release build, native handshake and complete existing byte
+channel/fresh-child suite pass. The actual production-helper reload/multiwindow
+handshake gate passes with real OS-parent checks. Final source style, generated
+adapter freshness, unmodified upstream pin, built-site links and whitespace checks
+pass. No broad UI suite or physical desktop interaction. Fresh hosted Linux and
+native Windows execution remain unverified; Ladybird remains unmodified.
+
+Next implement raw application packet kinds/FFB2 payloads, bounded early preload
+queueing, busy main-VM/history dispatch, canonical sender metadata and binary
+replies/ACK/timeouts/revocation on this actual bound channel. Add negative forged/
+duplicate handoff and real stalled-hello acceptance before admitting public binary
+calls. Then complete MessagePorts/streaming and demanded preload process/options/
+accessors/worker-cache resource contracts. The actual Code-OSS main entry's known
+allowServiceWorkers blocker is unchanged; no new workbench launch is claimed.
+Full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

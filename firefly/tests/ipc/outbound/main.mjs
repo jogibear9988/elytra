@@ -219,6 +219,16 @@ app
       await until(() => fs.existsSync(pauseFile + '.resumed'), 'test peer not resumed');
       await round();
     }
+    if (process.argv.includes('--binding-probe')) {
+      const other = new BrowserWindow({
+        show: false,
+        webPreferences: { preload: path.join(directory, 'preload.cjs') }
+      });
+      await other.loadFile(path.join(directory, 'page.html'));
+      // Keep both real helpers alive while the native observer checks their OS parents.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      other.destroy();
+    }
     window.webContents.send('close');
     await until(() => window.isDestroyed(), 'renderer close callback missing');
     console.log(

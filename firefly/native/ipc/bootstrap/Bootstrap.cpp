@@ -37,6 +37,18 @@ namespace {
     };
 
     NeverDestroyed<RefPtr<DocumentCallback>> document_receiver;
+
+    struct IpcCallback : RefCounted<IpcCallback> {
+        explicit IpcCallback(IpcReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        IpcReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<IpcCallback>> ipc_receiver;
+
 }
 
 void set_bootstrap_receiver(BootstrapReceiver callback)
@@ -88,4 +100,22 @@ void accept_document(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u64
     callback->callback(stub, move(handle),
         { { page, ns, local, move(navigation), move(url), epoch }, document_ns, document_local });
 }
+
+void set_ipc_receiver(IpcReceiver callback)
+{
+    ipc_receiver.get()
+        = callback ? adopt_ref(*new IpcCallback(move(callback))) : RefPtr<IpcCallback> {};
+}
+
+void accept_ipc(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u64 ns, u64 local,
+    u64 document_ns, u64 document_local, String realm, u64 epoch)
+{
+    auto callback = ipc_receiver.get();
+    if (!callback || !epoch || !ns || !local || !document_ns || !document_local || realm.is_empty()
+        || realm.bytes().size() > 1024)
+        return;
+    callback->callback(
+        stub, move(handle), { page, ns, local, document_ns, document_local, move(realm), epoch });
+}
+
 }

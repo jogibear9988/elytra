@@ -30,7 +30,12 @@ A [private native byte-channel component](../architecture/0100-native-byte-chann
 now passes local macOS transport and separate-child tests with raw bytes,
 acknowledgement credit and explicit queue limits. Its actual main/WebContent
 handoff, canonical document authorization and public bridge integration are still
-missing; existing public IPC support remains unchanged.
+missing at that component layer. The later [native document/preload channel
+handoff](../architecture/0141-native-preload-byte-channel-binding.md) now creates
+an actual production-helper endpoint after canonical preload Bind, verifies a raw
+epoch/document/navigable/PID handshake and replaces it on reload. Public application
+packet dispatch and binary IPC admission are still missing; existing public process
+IPC support remains unchanged.
 
 ## What Electron and Code-OSS actually establish
 
@@ -54,9 +59,10 @@ Benchmark Electron and Firefly with the same workload before comparing costs.
    isolated preload and main-process boundaries. Preserve exact byte ranges and
    isolation; never serialize bytes as JSON/base64. Keep payload/memory/pending
    budgets, hostile input checks and explicit errors. The same-process page/preload
-   copy milestone now passes. Next integrate the existing raw native byte channel
-   with canonical document/preload identity and bounded main-process dispatch;
-   retain the default string IPC binary refusal until that route is accepted.
+   copy milestone now passes. Native document/preload handle handoff and readiness
+   now pass a production-helper reload/multiwindow batch; next add native application
+   packet dispatch, early-call queueing, bounded main-VM admission and binary replies.
+   Retain the default string IPC binary refusal until that route is accepted.
    Bounded copied buffers are the first correctness milestone, not the final
    large-file transport.
 2. **Ports and streaming:** implement compatible port handoff and binary messages,

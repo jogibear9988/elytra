@@ -53,6 +53,17 @@ void Bridge::Impl::expire_ipc_events()
     auto now = MonotonicTime::now();
     for (auto& [id, window] : windows) {
         (void)id;
+        if (window.ipc_byte_deadline.has_value() && *window.ipc_byte_deadline <= now) {
+            window.ipc_byte_deadline.clear();
+            window.ipc_byte_ready = false;
+            if (window.ipc_byte_channel) {
+                window.ipc_byte_channel->close();
+                window.ipc_byte_channel = nullptr;
+            }
+
+            warnln("ERR_FIREFLY_IPC_BYTES: document channel handshake timed out");
+        }
+
         bool expired = false;
         for (auto const& [request, deadline] : window.ipc_outgoing) {
             (void)request;

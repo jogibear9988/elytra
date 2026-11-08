@@ -59,6 +59,11 @@ IpcEndpoint::~IpcEndpoint()
 
 void IpcEndpoint::revoke()
 {
+    if (m_byte_channel) {
+        m_byte_channel->close();
+        m_byte_channel = nullptr;
+    }
+
     pending_count -= m_pending.size();
     m_pending.clear();
     m_listeners.clear();

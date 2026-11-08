@@ -377,3 +377,13 @@ need the surviving parent's frozen global metadata fallback. Run the public cras
 reporter gate on relevant changes/hosted CI: real owned main/helper signals, recovery,
 PID ancestry, private modes and annotation separation must pass. An imported module
 or hand-written report fixture does not accept native capture.
+
+The native application IPC handoff in
+[ADR 0141](../architecture/0141-native-preload-byte-channel-binding.md) appends one
+NotRouted control message to the owned generated endpoint, independently of file
+resource grants. Keep all upstream IDs and previous owned message IDs unchanged.
+The generator checks that exactly four owned methods are appended and that native
+callback forwarding uses the selected connection stub. Bootstrap consumers must
+include the canonical staged LibIPC/FireflyBootstrap.h declaration, not both the
+source and staged copies. Revalidate channel/hello unit gates and the production
+helper's reload/multiwindow handshake before accepting an upstream update.

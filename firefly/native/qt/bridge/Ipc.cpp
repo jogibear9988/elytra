@@ -20,6 +20,14 @@ void Bridge::Impl::reset_ipc(int id)
     if (found == windows.end())
         return;
     auto& window = found->second;
+    if (window.ipc_byte_channel) {
+        window.ipc_byte_channel->close();
+        window.ipc_byte_channel = nullptr;
+    }
+
+    window.ipc_byte_epoch = 0;
+    window.ipc_byte_ready = false;
+    window.ipc_byte_deadline.clear();
     ipc_pending_count -= window.ipc_pending.size();
     window.ipc_pending.clear();
     ipc_outgoing_count -= window.ipc_outgoing.size();
@@ -122,12 +130,7 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
             && (window.ipc_document != actual_key || window.ipc_realm != caller))
             return;
         if (window.ipc_document != actual_key) {
-            ipc_pending_count -= window.ipc_pending.size();
-            window.ipc_pending.clear();
-            ipc_outgoing_count -= window.ipc_outgoing.size();
-            window.ipc_outgoing.clear();
-            window.ipc_outgoing_next = 0;
-            window.ipc_outgoing_failed = false;
+            reset_ipc(id);
             window.ipc_document = actual_key;
             window.ipc_realm = caller;
             window.ipc_last = 0;
@@ -136,8 +139,11 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
         if (window.ipc_realm != caller)
             return;
         // Control messages cannot consume invoke IDs or dispatch application listeners.
-        if (kind == NativeIpcKind::Bind)
+        if (kind == NativeIpcKind::Bind) {
+            bind_ipc_channel(id, page, navigable, actual.id());
             return;
+        }
+
         if (kind == NativeIpcKind::Ack) {
             if (wire->is_empty() && window.ipc_outgoing.erase(*request))
                 --ipc_outgoing_count;
