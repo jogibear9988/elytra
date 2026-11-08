@@ -12,6 +12,7 @@
 #include <AK/Vector.h>
 #include <AK/Weakable.h>
 #include <LibGC/Root.h>
+#include <LibGC/Weak.h>
 #include <LibJS/Runtime/Completion.h>
 #include <LibJS/Runtime/ExecutionContext.h>
 #include <LibWeb/Bindings/WrapperWorld.h>
@@ -40,18 +41,15 @@ public:
     JS::ThrowCompletionOr<JS::Value> run_async_frame(Function<JS::ThrowCompletionOr<JS::Value>()>);
 
     // Native capabilities must not be published wholesale through contextBridge.
-    void block_function_export(JS::FunctionObject& function)
-    {
-        m_nonexportable.append(GC::Root { function });
-    }
+    void block_function_export(JS::FunctionObject&);
 
-    bool function_export_blocked(JS::FunctionObject& function) const
-    {
-        for (auto const& entry : m_nonexportable)
-            if (entry.ptr() == &function)
-                return true;
-        return false;
-    }
+    bool function_export_blocked(JS::FunctionObject&) const;
+
+    // Redact only natively registered capability objects when copying to the
+    // principal realm. Weak entries neither retain modules nor match reused cells.
+    void redact_object_export(JS::Object&);
+
+    bool object_export_redacted(JS::Object&) const;
 
     bool is_executing() const
     {
@@ -94,6 +92,7 @@ private:
     OwnPtr<JS::ExecutionContext> m_context;
     Vector<Function<void()>> m_detach_hooks;
     Vector<GC::Root<JS::FunctionObject>> m_nonexportable;
+    Vector<GC::Weak<JS::Object>> m_redacted;
     size_t m_callback_depth { 0 };
     bool m_evaluating { false };
     bool m_detach_requested { false };

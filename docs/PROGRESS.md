@@ -8551,6 +8551,46 @@ safe full preload graph compatibility and binary/port transport while resolving
 actual worker/cache/resource requirements. HTTP/2/3 and website polish stay lower
 priority. Ladybird remains unmodified; full goal stays active.
 
+## 2026-11-08 — Native IPC module redaction for document event callbacks
+
+- Continue from the pushed callback slice (2be9b30), which made authoritative
+  implementation/test progress. Preserve the full active goal and VS Code priority.
+- Register the exact native ipcRenderer exports object weakly with its isolated
+  owner. Replace it with an empty ordinary data node only during contextBridge
+  source-to-document capture; keep graph aliases and destination-owned freezing.
+  Never inspect module methods, expandos, getters or private listener bookkeeping.
+- Centralize that policy for direct/nested publication, synchronous/Promise
+  results and callback arguments. Default raw IPC capture stays strict and
+  function-free. Individual native methods, copies containing them, proxy wrappers
+  and foreign-realm values still reject. Clear native metadata on detach.
+- Add actual LibJS/LibWeb checks for all those routes, exact object shape/prototype,
+  no getter execution, unchanged default capture and weak metadata collection.
+  Separate the weak-GC test's allocation frame from conservative native stack roots.
+- Extend the existing single hidden IPC batch with a direct document callback
+  registered through native once, native event.sender redaction, empty ports and
+  sync/Promise/private-module publication on reload. This admits the supported
+  event graph used by Code-OSS wrappers, without publishing the full preload.
+- Compare the actual Electron 45.2.3 reference: it removes IPC methods but copies own
+  EventEmitter bookkeeping and uses mutable function/callback results. Firefly uses
+  the documented empty module object and frozen data policy; reference tests assert
+  only the common absence of IPC methods, with strict Firefly assertions separate.
+  Update detailed APIs, compatibility/status/roadmap and ADR 0139.
+
+Validation: local macOS Release build and complete native isolation gate pass.
+Actual production-helper functional IPC batch and actual Electron common reference
+pass. Final source style, generated adapters, unmodified upstream pin, built-site
+links and whitespace checks pass. Only focused hidden IPC batches ran; no broad GUI
+suite or physical desktop interaction. Stalled-peer transport logic is unchanged;
+its prior full timeout/reload acceptance is not rerun. Fresh Linux/native Windows
+callback execution remain unverified; Ladybird remains unmodified.
+
+Remaining: the pinned Code-OSS preload still needs source-accessor publication,
+process/options, webFrame/webUtils and binary/port handoff contracts. Its main entry
+has the previously observed allowServiceWorkers blocker; no new actual workbench
+launch or startup-protocol change is claimed. Next prioritize the demanded binary/
+MessagePort transport and full preload graph alongside real worker/cache/resource
+requirements. Do not replace those contracts with inert flags. Full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

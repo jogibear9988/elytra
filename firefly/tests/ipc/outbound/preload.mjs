@@ -137,6 +137,24 @@ const pageListeners = new Set();
 let callbackReport = null;
 let callbackRuns = 0;
 contextBridge.exposeInMainWorld('pageEvents', {
+  privateModule: ipcRenderer,
+
+  module() {
+    return ipcRenderer;
+  },
+
+  async moduleAsync() {
+    return ipcRenderer;
+  },
+
+  onceRaw(callback) {
+    ipcRenderer.once('raw-page-event', callback);
+  },
+
+  rawResult(value) {
+    ipcRenderer.send('raw-page-result', value);
+  },
+
   onValue(callback) {
     pageListeners.add(callback);
   },

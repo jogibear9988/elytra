@@ -5,6 +5,7 @@
 
 #include "context/ContextBridge.h"
 #include "context/CallbackBridge.h"
+#include "context/Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/RootVector.h>
@@ -127,8 +128,8 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
                 function->revoke();
     };
 
-    auto snapshot = BridgeData::capture(vm.argument(1), *m_source->realm(), {},
-        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+    auto snapshot = capture_to_principal(
+        *m_source, vm.argument(1), [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
             if (m_functions.size() + pending.size() >= 64)
                 return Error::from_string_literal("Bridge function budget exceeded");
             auto exported

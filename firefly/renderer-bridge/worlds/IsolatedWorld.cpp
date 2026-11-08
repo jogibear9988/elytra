@@ -5,6 +5,7 @@
 
 #include "worlds/IsolatedWorld.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/WeakInlines.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/VM.h>
@@ -138,6 +139,36 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::run_async_frame(
     return execute(move(operation));
 }
 
+void IsolatedWorld::block_function_export(JS::FunctionObject& function)
+{
+    m_nonexportable.append(GC::Root { function });
+}
+
+bool IsolatedWorld::function_export_blocked(JS::FunctionObject& function) const
+{
+    for (auto const& entry : m_nonexportable)
+        if (entry.ptr() == &function)
+            return true;
+    return false;
+}
+
+void IsolatedWorld::redact_object_export(JS::Object& object)
+{
+    VERIFY(!is_detached() && &object.shape().realm() == realm());
+    VERIFY(object.engine_class_id() == JS_LAYOUT_CLASS_ID_OBJECT && !JS::host_class_of(object));
+    m_redacted.remove_all_matching([](auto const& entry) { return !entry.ptr(); });
+    if (!object_export_redacted(object))
+        m_redacted.append(GC::Weak { object });
+}
+
+bool IsolatedWorld::object_export_redacted(JS::Object& object) const
+{
+    for (auto const& entry : m_redacted)
+        if (entry.ptr().ptr() == &object)
+            return true;
+    return false;
+}
+
 void IsolatedWorld::detach()
 {
     if (!m_world || m_detaching)
@@ -159,6 +190,7 @@ void IsolatedWorld::detach()
         hook();
     m_world->detach();
     m_nonexportable.clear();
+    m_redacted.clear();
     m_context.clear();
     m_realm = nullptr;
     m_world = nullptr;

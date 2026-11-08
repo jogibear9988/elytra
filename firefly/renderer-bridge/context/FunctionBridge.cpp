@@ -6,6 +6,7 @@
 #include "context/FunctionBridge.h"
 #include "context/Boundary.h"
 #include "context/CallbackBridge.h"
+#include "context/Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/Array.h>
@@ -138,7 +139,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         return JS::js_undefined();
     }
 
-    auto data = BridgeData::capture(value, *m_source->realm(), {});
+    auto data = capture_to_principal(*m_source, value);
     if (data.is_error()) {
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
@@ -242,7 +243,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             return observe(vm, static_cast<JS::Promise&>(object), *target);
     }
 
-    auto output = BridgeData::capture(result_value, *source_realm, {});
+    auto output = capture_to_principal(*source, result_value);
     if (output.is_error())
         return error();
     auto answer = output.value().materialize(*target);

@@ -23,4 +23,25 @@
     pageEvents.offValue(listener);
   }
   pageEvents.onValue(listener);
+  let rawCalls = 0;
+  // Electron 45 also copies EventEmitter bookkeeping; Firefly drops all members.
+  const redactedModule = (value) =>
+    Object.getPrototypeOf(value) === Object.prototype &&
+    ['send', 'invoke', 'on', 'once', 'removeListener', 'removeAllListeners', 'off'].every(
+      (key) => !(key in value)
+    ) &&
+    (!stableIdentity || (Reflect.ownKeys(value).length === 0 && Object.isFrozen(value)));
+  pageEvents.onceRaw(async (event, value) => {
+    ++rawCalls;
+    const asyncModule = await pageEvents.moduleAsync();
+    pageEvents.rawResult({
+      calls: rawCalls,
+      n: value.n,
+      sender: redactedModule(event.sender),
+      ports: Array.isArray(event.ports) && event.ports.length === 0,
+      direct: redactedModule(pageEvents.privateModule),
+      result: redactedModule(pageEvents.module()),
+      asyncResult: redactedModule(asyncModule)
+    });
+  });
 </script>

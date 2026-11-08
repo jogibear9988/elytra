@@ -1,6 +1,7 @@
 /** Copy calls back to the principal world in a clean frame, with guarded Promise observation. */
 #include "Boundary.h"
 #include "CallbackBridge.h"
+#include "Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -85,7 +86,7 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::invoke(JS::VM& vm)
     for (size_t i = 0; i < vm.argument_count(); ++i)
         arguments.append(vm.argument(i));
     GC::Root array { JS::Array::create_from(*target, arguments.span()) };
-    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, {});
+    auto data = capture_to_principal(*world, JS::Value(array.ptr()));
     if (data.is_error())
         return error();
     auto copied = data.value().materialize(*source);

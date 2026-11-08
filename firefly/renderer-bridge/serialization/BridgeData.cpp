@@ -28,8 +28,8 @@ BridgeData BridgeData::from_string(Utf16View value)
     return result;
 }
 
-ErrorOr<BridgeData> BridgeData::capture(
-    JS::Value value, JS::Realm& source, Limits limits, CaptureFunction functions)
+ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits,
+    CaptureFunction functions, RedactObject redact)
 {
     // Root the whole source graph while the engine allocates key vectors. All
     // traversed objects are exact engine classes, and ordinary descriptor reads
@@ -161,6 +161,16 @@ ErrorOr<BridgeData> BridgeData::capture(
                 || (!array && object.engine_class_id() != JS_LAYOUT_CLASS_ID_OBJECT))
                 return Error::from_string_literal(
                     "Bridge accepts only source-realm plain data objects and arrays");
+            if (!array && redact && redact(object)) {
+                // Match exact native identity, never a user-visible tag or shape.
+                // Do not enumerate capability methods, accessors or expandos.
+                node.kind = Kind::Object;
+                auto index = result.m_nodes.size();
+                result.m_nodes.append(move(node));
+                seen.set(&object, index);
+                return index;
+            }
+
             auto* expected = array ? source.intrinsics().array_prototype().ptr()
                                    : source.intrinsics().object_prototype().ptr();
             if (object.prototype() != expected && (array || object.prototype()))

@@ -1,6 +1,8 @@
 # ADR 0138: Bounded document callbacks through contextBridge
 
 Status: accepted for the locally tested macOS native/production-helper subset.
+The later [ADR 0139](0139-private-ipc-module-redaction.md) supersedes the raw-module/event
+refusal below with exact native module redaction; other stated limits remain.
 
 ## Context
 

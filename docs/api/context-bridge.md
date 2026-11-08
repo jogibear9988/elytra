@@ -152,10 +152,23 @@ Promise continuations keep running. Late results cannot revive a revoked endpoin
 
 Callback arguments/results themselves must be supported data: higher-order function
 results, callable proxies/bound functions, binary values, ports and native objects
-remain unsupported. In particular, forwarding the raw IPC event (whose sender is
-the private ipcRenderer module) fails; use a payload wrapper as above. This does
-not yet support Code-OSS's unmodified full preload graph or every Electron bridge
-value. See [ADR 0138](../architecture/0138-document-callback-bridge.md).
+remain unsupported. The native ipcRenderer module is a specific exception: crossing
+from preload to document replaces that exact module with a frozen empty ordinary
+object, including event.sender, nested API values and synchronous/Promise results.
+No methods, expandos, getters or listener bookkeeping are copied from the module.
+An individual raw IPC method still rejects, as does a copied object containing one.
+Normal IPC serialization has no module-redaction exception. Prefer the narrow
+payload wrapper above even though the supported empty-port IPC event now crosses
+this boundary. This does not yet support Code-OSS's unchanged full preload graph
+(source accessors, process/options, webFrame/webUtils and ports remain outstanding).
+
+This follows [Electron's documented ipcRenderer boundary](https://www.electronjs.org/docs/latest/api/context-bridge#exposing-ipcrenderer).
+The actual Electron 45.2.3 positive fixture strips the IPC methods but retains own
+EventEmitter bookkeeping; Firefly deliberately drops that data too and freezes the
+empty destination object. Reference tests compare absence of IPC methods, with
+exact emptiness/freezing checked separately for Firefly. See
+[ADR 0138](../architecture/0138-document-callback-bridge.md) and
+[ADR 0139](../architecture/0139-private-ipc-module-redaction.md).
 
 ## Files, budgets and errors
 

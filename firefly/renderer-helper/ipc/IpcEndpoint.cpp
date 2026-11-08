@@ -84,6 +84,9 @@ GC::Ref<JS::Object> IpcEndpoint::exports()
         GC::Ptr<JS::Realm> { realm }) };
     m_owner->block_function_export(*send);
     result->define_direct_property("send"_utf16, send, JS::default_attributes);
+    // Electron 29+ drops the entire private module across contextBridge,
+    // including event.sender. Individual raw native methods remain blocked.
+    m_owner->redact_object_export(*result);
     m_exports = *result;
     auto method = [&](Utf16String name, ListenerOperation mode) {
         GC::Root function { JS::NativeFunction::create(

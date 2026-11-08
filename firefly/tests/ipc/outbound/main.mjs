@@ -22,6 +22,7 @@ app.on('window-all-closed', () => {});
 let window;
 let report;
 let callbackReport;
+let rawReport;
 let frame;
 const value = { count: 0 };
 value.self = value;
@@ -47,6 +48,11 @@ ipcMain.on('report', (event, data) => {
 
 ipcMain.on('callback-report', (_event, data) => {
   callbackReport = data;
+});
+
+ipcMain.on('raw-page-result', (event, data) => {
+  check(event.sender === window.webContents, 'raw callback result sender');
+  rawReport = data;
 });
 
 ipcMain.on('closed-by-listener', (event) => {
@@ -122,6 +128,20 @@ async function round() {
       cb.realm &&
       cb.page,
     'page callback identity/reentry/Promise: ' + JSON.stringify(callbackReport)
+  );
+  rawReport = null;
+  window.webContents.send('raw-page-event', { n: 17 });
+  window.webContents.send('raw-page-event', { n: 99 });
+  await until(() => rawReport, 'raw event callback report missing');
+  check(
+    rawReport.calls === 1 &&
+      rawReport.n === 17 &&
+      rawReport.sender &&
+      rawReport.ports &&
+      rawReport.direct &&
+      rawReport.result &&
+      rawReport.asyncResult,
+    'private module crossed document callback: ' + JSON.stringify(rawReport)
   );
   check(value.count === 0, 'renderer mutation reached main');
 }

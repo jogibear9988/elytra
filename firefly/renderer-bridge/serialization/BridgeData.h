@@ -31,12 +31,16 @@ public:
     };
 
     using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&)>;
+    // Native identity policy only: replace designated ordinary capability modules
+    // with empty data nodes before inspecting any properties. Never JS callbacks.
+    using RedactObject = Function<bool(JS::Object&)>;
     enum class Materialization { Frozen, Mutable };
     using MaterializeFunction = Function<JS::ThrowCompletionOr<JS::Value>(size_t)>;
     // Native error replies must not enter or allocate in a busy JavaScript VM.
     static BridgeData from_string(Utf16View);
 
-    static ErrorOr<BridgeData> capture(JS::Value, JS::Realm&, Limits, CaptureFunction = {});
+    static ErrorOr<BridgeData> capture(
+        JS::Value, JS::Realm&, Limits, CaptureFunction = {}, RedactObject = {});
     // Versioned, data-only wire graph; validates bytes/schema/budgets before JS allocation.
     ErrorOr<ByteString> encode_wire(Limits) const;
 

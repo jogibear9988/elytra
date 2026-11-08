@@ -222,10 +222,12 @@ reporting remain absent.
 
 These are trusted **preload** listener APIs. Document function arguments now pass
 through the bounded [contextBridge callback subset](context-bridge.md#document-callbacks).
-Wrap listeners to discard the private IPC event and pass application data only;
-raw event.sender/module forwarding remains refused. Code-OSS's full unchanged
-preload graph, binary values, ports and broader bridge contracts still need their
-own end-to-end acceptance.
+A directly registered document callback can now receive the supported IPC event:
+event.sender becomes a frozen empty ordinary object, with no private module methods
+or listener state; ports is still empty. Individual raw native method publication
+remains refused. Prefer narrow wrappers that pass only application data. Code-OSS's
+full unchanged preload graph, binary values, ports and broader bridge contracts
+still need their own end-to-end acceptance.
 
 ## Data and resource limits
 
