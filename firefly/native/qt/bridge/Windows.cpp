@@ -31,6 +31,7 @@ void Bridge::Impl::destroy(int id)
     if (found == windows.end() || found->second.closing)
         return;
     found->second.closing = true;
+    found->second.file_picker->cancel();
     found->second.window->hide();
     found->second.window->deleteLater();
 }
@@ -67,6 +68,13 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     }
 
     windows.emplace(id, State { window, view, false, false, false, false, {}, {}, move(preload) });
+    auto* file_picker
+        = new FilePicker(*window, [view](auto files) { view->file_picker_closed(move(files)); });
+    windows.at(id).file_picker = file_picker;
+    view->on_request_file_picker = [file_picker](auto const& accepted, auto multiple) {
+        file_picker->request(accepted, multiple);
+    };
+
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
         if (auto found = windows.find(id); found != windows.end())
             ipc_pending_count -= found->second.ipc_pending.size();
@@ -164,7 +172,8 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     auto region_start = move(view->on_load_start);
     auto region_finish = move(view->on_load_finish);
     view->on_close = [this, id] { enqueue(id, "close-request"); };
-    view->on_load_start = [this, id, region_start = move(region_start)] {
+    view->on_load_start = [this, id, file_picker, region_start = move(region_start)] {
+        file_picker->cancel();
         reset_ipc(id);
         if (region_start)
             region_start();
@@ -190,7 +199,8 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
         = [this, id](auto const& url) { enqueue(id, "url", url.serialize().to_byte_string()); };
     view->on_title_change
         = [this, id](auto const& title) { enqueue(id, "title", title.to_byte_string()); };
-    view->on_web_content_crashed = [this, id](auto) {
+    view->on_web_content_crashed = [this, id, file_picker](auto) {
+        file_picker->cancel();
         reset_ipc(id);
         enqueue(id, "crashed");
     };

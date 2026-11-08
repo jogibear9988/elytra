@@ -408,3 +408,10 @@ existing page-client browser zoom callback and parent view acknowledgement. Pres
 that path's native viewport/input/compositor scaling and revalidate factor/level
 conversion, document liveness after nested event-loop work and raw capability
 publication refusal. Run the native isolation and focused preload zoom gates.
+
+The [file-input adapter](../architecture/0146-bounded-native-file-input.md) attaches
+LibWebView's on_request_file_picker and returns the existing basename/byte SelectedFile
+variant. Revalidate request-page routing, cancelled/obsolete dialog completion,
+regular-file/count/byte limits, FileList creation and the actual helper File.text
+roundtrip. Do not replace names with absolute paths or infer File provenance from
+JavaScript-visible fields. Interactive platform sheets remain a separate acceptance.

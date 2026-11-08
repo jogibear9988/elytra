@@ -8900,6 +8900,67 @@ this independent preload API does not change that registration or claim a new
 workbench launch. Fresh Linux/native Windows execution remains unverified. Ladybird
 is unmodified, Mite remains independent, and the full product goal stays active.
 
+## 2026-11-08 — Real bounded native HTML file selection
+
+- Resume from pushed 3b8c87b, which accepted native webFrame zoom and was implementation
+  progress. Keep the original full goal and Code-OSS priority active.
+- Inspect the pinned Code-OSS webUtils.getPathForFile wrapper and real upstream file
+  plumbing. Find an earlier missing vertical prerequisite: Firefly does not attach
+  on_request_file_picker (the upstream browser Tab frontend does). SelectedFile carries
+  basename/data or descriptor and decode eagerly reads it; Rust-backed File exposes
+  no source-path field. Default contextBridge correctly refuses File/DOM objects.
+  Do not implement a fake filename/path method or broaden arbitrary DOM capture.
+- Add one owned nonmodal Qt file-input chooser per native Firefly window. Map advisory
+  accept extensions/MIME/audio-image-video groups with bounded filter work and an All
+  files choice. Use ExistingFile/ExistingFiles for single/multiple selection. Production
+  keeps Qt's platform-native dialog selection; only C++ probes supply hidden widgets.
+- Validate absolute/NUL-free/bounded native paths and open nonblocking, then fstat the
+  actual descriptor. Refuse directories/FIFOs/devices and read at most 4 MiB+1 to catch
+  growing inputs. Snapshot at most 16 files / 4 MiB each / 16 MiB aggregate, with empty
+  files allowed and all-or-nothing refusal. Send basename and bounded byte-backed
+  SelectedFile through the unchanged engine IPC/FileList path, never absolute names.
+  This avoids upstream descriptor decode's unbounded later read, not whole-file copies.
+- Cancel before explicit main load, engine load-start, helper crash or window close.
+  Invalidate active dialog identity before rejection, ignore stale finished signals,
+  cancel duplicate requests without data and drop completion before destruction so
+  a dead view cannot be called. Keep QObject ownership out of the Mite VM.
+- Add hidden real Qt widget dialog tests for accept/cancel/multiple mode/stale finish/
+  duplicate/destruction plus actual temporary binary/Unicode/empty/FIFO/directory/
+  missing/relative/NUL files and exact/overflow count/file/aggregate budgets.
+- Add a hidden actual Qt-view/owned upstream SDK helper gate: trusted native mouse
+  events activate the input, a real hidden chooser accepts a known file, unchanged
+  SelectedFile IPC creates browser File data, and the page verifies Unicode basename,
+  no parent path disclosure, File.text() and all File.arrayBuffer() bytes of a real
+  4 MiB exact-limit file with embedded NUL. Cancellation works; navigation dismisses
+  a third pending chooser and the new document has an empty FileList. The initial
+  probe URL-count guard was corrected to use raw_urls because SDK temporary profiles
+  can prepend a welcome URL. No inferred pass was recorded from that failed setup.
+- Wire both gates into the macOS aggregate and Linux Xvfb workflow. Document native
+  input limits/validation and missing provenance in the API/matrix/status/VS Code/
+  roadmap/upstream guide and ADR 0146. Keep getPathForFile absent rather than return
+  invented paths or claim negative-only API acceptance.
+
+Validation: macOS Release runtime and native probe builds pass. Hidden Qt chooser/
+filesystem policy gate and real native-view/SDK-helper 4 MiB text/binary/cancel/
+navigation gate pass. The latter directly exercises the underlying native view,
+not production-helper file selection, a complete JavaScript/Designer app or interactive
+platform sheets; those acceptance scopes remain open. Existing full public preload
+and actual Electron-reference regression passes three windows, source validation,
+exact 64 KiB source limit, first-script/nested API/Promises, subframe absence, reload
+and file-to-HTTP process replacement. Final style/generated adapter/upstream/site/
+whitespace checks accompany this commit. No physical desktop input automation ran;
+widget and view tests have DontShowOnScreen, and no broad GUI suite was launched.
+
+Remaining: retain selected-file paths through a separate trusted native provenance
+association bound to exact File/document identities; add explicit File-wrapper passage
+only where required, keeping ordinary data/IPC DOM refusal. Then implement the real
+webUtils.getPathForFile API, drop/clone provenance, production-helper/app acceptance,
+large/streamed file transport and measured overhead. Process events/metrics, MessagePorts,
+worker/cache/remote-resource contracts and real Code-OSS open/edit/save remain required.
+This prerequisite does not change the last actual-entry allowServiceWorkers blocker.
+Fresh hosted Linux/native Windows execution is unverified. Ladybird is unmodified,
+Mite remains independent and the full product goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

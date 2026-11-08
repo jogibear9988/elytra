@@ -9,6 +9,7 @@
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "TransportHooks.h"
+#include "native/file-picker/Picker.h"
 #include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
@@ -89,6 +90,7 @@ struct Bridge::Impl {
         bool ipc_outgoing_failed { false };
         u32 ipc_outgoing_next { 0 };
         std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
+        FilePicker* file_picker { nullptr };
     };
 
     JS::VM& vm;

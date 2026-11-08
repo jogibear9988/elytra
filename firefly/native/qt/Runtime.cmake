@@ -197,6 +197,7 @@ target_link_libraries(
             firefly-protocol-routes
             firefly-byte-channel
             firefly-preload-config
+            firefly-file-picker
             firefly-application-menu
             firefly-tracing
             firefly-command-line
@@ -397,6 +398,8 @@ if(APPLE)
                 check-firefly-ipc-outbound
                 check-firefly-ipc-channel
                 check-firefly-ipc-binary
+                check-firefly-file-picker
+                check-firefly-file-input
                 check-firefly-preload-zoom
                 check-firefly-preload-process
                 check-firefly-preload-getters

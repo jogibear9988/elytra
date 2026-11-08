@@ -85,6 +85,33 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 else()
     message(FATAL_ERROR "No native Firefly Qt presentation adapter for this platform")
 endif()
+add_library(firefly-file-picker STATIC "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Picker.cpp"
+                                       "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Snapshot.cpp")
+target_link_libraries(firefly-file-picker PUBLIC Qt::Widgets LibWebCommon LibCore LibIPC AK)
+add_executable(firefly-file-picker-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/file-picker/NativeProbe.cpp")
+target_include_directories(firefly-file-picker-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-file-picker-probe PRIVATE firefly-file-picker)
+add_custom_target(
+    check-firefly-file-picker
+    COMMAND "$<TARGET_FILE:firefly-file-picker-probe>"
+    DEPENDS firefly-file-picker-probe
+    VERBATIM)
+add_executable(firefly-file-input-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/file-picker/ViewProbe.cpp")
+target_include_directories(firefly-file-input-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-file-input-probe PRIVATE firefly-file-picker firefly-qt-view)
+target_compile_definitions(firefly-file-input-probe
+                           PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
+add_dependencies(firefly-file-input-probe ladybird ${ladybird_helper_processes}
+                 check-firefly-upstream)
+ladybird_check_skia_confinement(firefly-file-input-probe)
+add_custom_target(
+    check-firefly-file-input
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_file_picker.py"
+            --probe "$<TARGET_FILE:firefly-file-input-probe>"
+    DEPENDS firefly-file-input-probe
+    VERBATIM)
 add_executable(firefly-window-probe "${CMAKE_CURRENT_LIST_DIR}/WindowProbe.cpp")
 target_link_libraries(firefly-window-probe PRIVATE firefly-qt-view)
 target_compile_definitions(firefly-window-probe

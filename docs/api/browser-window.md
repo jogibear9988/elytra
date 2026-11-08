@@ -336,3 +336,6 @@ Validation: [Firefly runner](../../tooling/tests/test_firefly.py), including con
 registry, cancellation/destruction and unsupported options against the pinned
 Electron reference. Native Windows/Linux remain unverified. See the
 [compatibility matrix](../compatibility/firefly-0.1.md) for measured limits.
+
+Native HTML [file inputs](file-input.md) now have a bounded owned Qt chooser path.
+See its limits, lifecycle, helper validation and missing path/provenance APIs.

@@ -17,6 +17,12 @@ The later native [webFrame zoom slice](api/web-frame.md) passes local direct-eng
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
 real view zoom rather than CSS scaling; complete frame/file APIs remain missing.
 
+A bounded [native HTML file input](api/file-input.md) now has local hidden Qt chooser
+and actual native-view/helper File.text/basename/cancel/navigation acceptance. The
+BrowserWindow hook is wired; interactive platform sheets and complete application
+workflow remain unverified. webUtils.getPathForFile/provenance and efficient large
+file streaming remain missing.
+
 Local macOS Release now passes **77** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. That process slice also passes native
