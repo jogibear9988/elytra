@@ -17,29 +17,47 @@ namespace Firefly {
 JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::state(JS::VM& vm)
 {
     if (!vm.argument(0).is_int32())
-        return vm.throw_completion<JS::TypeError>("Invalid window ID"_utf16);
+        return vm.throw_completion<JS::TypeError>("Invalid web contents ID"_utf16);
     auto found = windows.find(vm.argument(0).as_i32());
     if (found == windows.end() || found->second.closing)
-        return vm.throw_completion<JS::Error>("BrowserWindow has been destroyed"_utf16);
+        return vm.throw_completion<JS::Error>("WebContents has been destroyed"_utf16);
     return &found->second;
 }
 
-void Bridge::Impl::destroy(int id)
+JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::window_state(JS::VM& vm)
+{
+    auto* current = TRY(state(vm));
+    if (current->kind != State::Kind::WindowMain || !current->window)
+        return vm.throw_completion<JS::TypeError>("ID does not identify a BrowserWindow"_utf16);
+    return current;
+}
+
+void Bridge::Impl::destroy(int id, bool immediate)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "destroy");
     auto found = windows.find(id);
-    if (found == windows.end() || found->second.closing)
+    if (found == windows.end() || found->second.kind != State::Kind::WindowMain
+        || (found->second.closing && !immediate))
         return;
-    found->second.closing = true;
-    found->second.file_picker->cancel();
-    found->second.window->hide();
-    found->second.window->deleteLater();
+    auto& current = found->second;
+    current.closing = true;
+    while (!current.child_ids.empty())
+        detach_view(id, current.child_ids.back());
+    if (current.file_picker)
+        current.file_picker->cancel();
+    current.window->hide();
+    if (immediate)
+        delete current.window;
+    else
+        current.window->deleteLater();
 }
 
 Optional<int> Bridge::Impl::create(int width, int height, QString const& title, bool show,
     bool frame, Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
+    if (stopping || windows.size() >= 256)
+        return {};
     auto id = next_id++;
     auto* window = new ChromeWindow(frame);
     window->setWindowTitle(title);
@@ -47,8 +65,12 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     auto* layout = new QVBoxLayout(window);
     layout->setContentsMargins(0, 0, 0, 0);
     application_menu->attach(*window);
-    auto* view = new Ladybird::WebContentView(window);
-    layout->addWidget(view);
+    auto* content = new QWidget(window);
+    layout->addWidget(content);
+    auto* content_layout = new QVBoxLayout(content);
+    content_layout->setContentsMargins(0, 0, 0, 0);
+    auto* view = new Ladybird::WebContentView(content);
+    content_layout->addWidget(view);
     window->observe(view);
     auto bounds = window_bounds(*window, false);
     auto size_bounds = use_content_size ? window_bounds(*window, true) : bounds;
@@ -67,17 +89,11 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
         }
     }
 
-    windows.emplace(id, State { window, view, false, false, false, false, {}, {}, move(preload) });
-    auto* file_picker
-        = new FilePicker(*window, [view](auto files) { view->file_picker_closed(move(files)); });
-    windows.at(id).file_picker = file_picker;
-    view->on_request_file_picker = [file_picker](auto const& accepted, auto multiple) {
-        file_picker->request(accepted, multiple);
-    };
+    windows.emplace(id, State { window, view, move(preload) });
+    windows.at(id).content_container = content;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
-        if (auto found = windows.find(id); found != windows.end())
-            ipc_pending_count -= found->second.ipc_pending.size();
+        reset_ipc(id);
         windows.erase(id);
         enqueue(id, "closed");
     });
@@ -169,69 +185,7 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
         timer->start();
     }
 
-    auto region_start = move(view->on_load_start);
-    auto region_finish = move(view->on_load_finish);
-    view->on_close = [this, id] { enqueue(id, "close-request"); };
-    view->on_load_start = [this, id, file_picker, region_start = move(region_start)] {
-        file_picker->cancel();
-        reset_ipc(id);
-        if (region_start)
-            region_start();
-        else
-            enqueue(id, "load-start");
-    };
-
-    view->on_load_finish = [this, id, region_finish = move(region_finish)](auto const& url) {
-        if (region_finish)
-            region_finish(url);
-        auto found = windows.find(id);
-        if (found == windows.end() || found->second.closing || found->second.failed
-            || !found->second.requested_url.has_value())
-            return;
-        auto& current = found->second;
-        if (current.pending && !current.requested_url->equals(url, URL::ExcludeFragment::Yes))
-            return;
-        current.pending = false;
-        enqueue(id, "loaded", url.serialize().to_byte_string());
-    };
-
-    view->on_url_change
-        = [this, id](auto const& url) { enqueue(id, "url", url.serialize().to_byte_string()); };
-    view->on_title_change
-        = [this, id](auto const& title) { enqueue(id, "title", title.to_byte_string()); };
-    view->on_web_content_crashed = [this, id, file_picker](auto) {
-        file_picker->cancel();
-        reset_ipc(id);
-        enqueue(id, "crashed");
-    };
-
-    view->on_network_request_started = [this, id](u64 request, auto const& url, auto const&,
-                                           auto const&, auto, auto, auto, bool navigation, auto) {
-        auto found = windows.find(id);
-        if (found != windows.end() && navigation && found->second.requested_url.has_value()
-            && url.equals(*found->second.requested_url, URL::ExcludeFragment::Yes))
-            found->second.navigation_requests.insert(request);
-    };
-
-    view->on_network_request_finished
-        = [this, id](u64 request, auto, auto const&, auto const& error) {
-              auto found = windows.find(id);
-              if (found == windows.end() || !found->second.navigation_requests.erase(request))
-                  return;
-              if (error.has_value()) {
-                  found->second.failed = true;
-                  found->second.pending = false;
-                  enqueue(id, "failed", Requests::network_error_to_string(*error));
-              }
-          };
-
-    QObject::connect(view, &Ladybird::WebContentView::ready_to_paint, context.get(), [this, id] {
-        auto found = windows.find(id);
-        if (found != windows.end() && !found->second.painted) {
-            found->second.painted = true;
-            enqueue(id, "paint");
-        }
-    });
+    setup_content_callbacks(id);
     if (show)
         window->show();
     return id;

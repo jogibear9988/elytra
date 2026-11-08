@@ -24,8 +24,10 @@
 #include <LibWebCommon/HTML/CrossProcessId.h>
 #include <QObject>
 #include <QString>
+#include <array>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace Ladybird {
 class WebContentView;
@@ -51,9 +53,27 @@ struct Bridge::Impl {
     };
 
     struct State {
-        // Qt owns the view through its parent window; destroyed removes this registry entry.
+        enum class Kind { WindowMain, ChildView };
+
+        State(ChromeWindow* host, Ladybird::WebContentView* content, Optional<Preload> script,
+            Kind content_kind = Kind::WindowMain)
+            : window(host)
+            , view(content)
+            , kind(content_kind)
+            , preload(move(script))
+        {
+        }
+
+        // Canonical content identity never changes when its QWidget is reparented.
+        // window is non-null only for WindowMain; child ownership is owner_id.
         ChromeWindow* window;
         Ladybird::WebContentView* view;
+        Kind kind;
+        QWidget* content_container {};
+        Optional<int> owner_id;
+        std::vector<int> child_ids;
+        std::array<int, 4> view_bounds { 0, 0, 0, 0 };
+        bool desired_visible { true };
         bool closing { false };
         // Navigation and first-paint bookkeeping are distinct from IPC document ownership.
         bool painted { false };
@@ -173,7 +193,25 @@ struct Bridge::Impl {
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);
 
-    void destroy(int);
+    JS::ThrowCompletionOr<State*> window_state(JS::VM&);
+
+    JS::ThrowCompletionOr<State*> view_state(JS::VM&, size_t argument = 0);
+
+    void destroy(int, bool immediate = false);
+
+    void close_contents(int, bool immediate = false);
+
+    Optional<int> create_view(Optional<Preload>);
+
+    void setup_content_callbacks(int);
+
+    void attach_view(int host_id, int child_id, size_t index);
+
+    void detach_view(int host_id, int child_id);
+
+    void restack_views(int host_id);
+
+    void install_views(JS::Object&);
 
     Optional<int> create(int width, int height, QString const& title, bool show, bool frame,
         Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y);
@@ -181,9 +219,10 @@ struct Bridge::Impl {
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);
 
-    JS::ThrowCompletionOr<Optional<Preload>> read_preload(JS::VM&);
+    JS::ThrowCompletionOr<Optional<Preload>> read_preload(
+        JS::VM&, size_t preload_argument = 5, size_t arguments_argument = 9);
 
-    JS::ThrowCompletionOr<JsonArray> read_process_arguments(JS::VM&);
+    JS::ThrowCompletionOr<JsonArray> read_process_arguments(JS::VM&, size_t argument = 9);
 
     JS::ThrowCompletionOr<PreloadProcess::Configuration> read_process_config(JS::VM&, JsonArray);
 

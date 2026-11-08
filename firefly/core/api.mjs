@@ -12,6 +12,8 @@ import createWindowGeometry from './window/geometry.mjs';
 import createMessageChannels from './message-ports/index.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
+import createViews from './views/index.mjs';
+import createWebPreferences from './window/preferences.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -22,10 +24,14 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
 
   const channels = createMessageChannels(native, EventEmitter, error);
   const windows = new Map();
+  const allContents = new Map();
+  const contentsToken = Symbol('WebContents constructor');
+  let views;
   let ready = false;
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const preferences = createWebPreferences(paths, () => sandboxRequired, error, unsupported);
   let resolveReady;
   const readyPromise = new Promise((resolve) => {
     resolveReady = resolve;
@@ -153,6 +159,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       quitting = true;
       channels.shutdown();
       utilities.shutdown();
+      views.shutdown();
+      allContents.clear();
       try {
         for (const win of [...windows.values()]) {
           native.destroyNow(win.id);
@@ -160,6 +168,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
           win._closing = false;
           windows.delete(win.id);
           win.webContents._reject(error('ERR_ABORTED', 'Application exiting'));
+          win.webContents.emit('destroyed');
           win.emit('closed');
         }
         app.emit('quit', event(), exitCode);
@@ -230,6 +239,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     exited = true;
     channels.shutdown();
     utilities.shutdown();
+    views.shutdown();
+    allContents.clear();
     app.emit('quit', event(), 0);
     native.quit();
   }
@@ -248,13 +259,18 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
   }
 
   class WebContents extends EventEmitter {
-    constructor(win) {
+    constructor(win, token) {
       super();
+      if (token !== contentsToken) {
+        throw error('ERR_ILLEGAL_CONSTRUCTOR', 'WebContents is created by its native owner');
+      }
+      Object.defineProperty(this, 'id', { value: win.id, enumerable: true });
       this._window = win;
       this._url = '';
       this._title = '';
       this._pending = null;
       this._ipcFrame = null;
+      allContents.set(win.id, this);
     }
 
     postMessage() {
@@ -269,7 +285,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
           'send requires a bounded channel and at most 64 arguments'
         );
       }
-      native.sendIpc(this._window.id, native.encodeIpc([channel, ...args]));
+      native.sendIpc(this.id, native.encodeIpc([channel, ...args]));
     }
 
     get mainFrame() {
@@ -289,11 +305,40 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
 
     getOSProcessId() {
       alive(this._window);
-      return native.pid(this._window.id);
+      return native.pid(this.id);
     }
 
     isDestroyed() {
       return this._window._destroyed;
+    }
+
+    getOwnerBrowserWindow() {
+      return BrowserWindow.fromWebContents(this);
+    }
+
+    focus() {
+      alive(this._window);
+      native.focusContents(this.id);
+    }
+
+    isFocused() {
+      alive(this._window);
+      return native.focusedContents() === this.id;
+    }
+
+    close(options = {}) {
+      if (this.isDestroyed() || this._window._closing) {
+        return;
+      }
+      if (!options || typeof options !== 'object' || Array.isArray(options)) {
+        throw error('ERR_INVALID_ARG_TYPE', 'webContents.close options must be an object');
+      }
+      for (const key of Object.keys(options)) {
+        if (key !== 'waitForBeforeUnload' || options[key] !== false) {
+          unsupported(`webContents.close ${key}`);
+        }
+      }
+      this._window.destroy();
     }
 
     loadURL(url, options) {
@@ -326,7 +371,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
         );
         this._pending = { resolve, reject, timer };
         try {
-          native.load(this._window.id, parsed.href);
+          native.load(this.id, parsed.href);
         } catch (e) {
           this._reject(e);
         }
@@ -381,47 +426,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
           unsupported(`BrowserWindow option ${key}`);
         }
       }
-      const prefs = options.webPreferences ?? {};
-      if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) {
-        throw error('ERR_INVALID_ARG_TYPE', 'webPreferences must be an object');
-      }
-      for (const key of Object.keys(prefs)) {
-        if (key === 'preload' || key === 'additionalArguments') {
-          continue;
-        }
-        if (!['contextIsolation', 'nodeIntegration', 'sandbox'].includes(key)) {
-          unsupported(`webPreferences.${key}`);
-        }
-        if (key === 'sandbox' && sandboxRequired && typeof prefs[key] === 'boolean') {
-          // Global enforcement overrides false without mutating caller preferences.
-          continue;
-        }
-        if (prefs[key] !== (key !== 'nodeIntegration')) {
-          unsupported(`webPreferences.${key}=${prefs[key]}`);
-        }
-      }
-      if (prefs.preload !== undefined) {
-        if (typeof prefs.preload !== 'string') {
-          throw error('ERR_INVALID_ARG_TYPE', 'preload must be a string');
-        }
-        if (!paths.isAbsolute(prefs.preload)) {
-          throw error('ERR_INVALID_ARG_VALUE', 'preload must be an absolute path');
-        }
-        if (paths.extname(prefs.preload) === '.mjs') {
-          unsupported('ES module preloads');
-        }
-      }
-      const additionalArguments =
-        prefs.additionalArguments === undefined ? [] : prefs.additionalArguments;
-      if (
-        !Array.isArray(additionalArguments) ||
-        additionalArguments.some((value) => typeof value !== 'string')
-      ) {
-        throw error('ERR_INVALID_ARG_TYPE', 'additionalArguments must be an array of strings');
-      }
-      if (additionalArguments.length > 64) {
-        throw error('ERR_INVALID_ARG_VALUE', 'additionalArguments exceeds 64 entries');
-      }
+      const prefs = preferences(options.webPreferences ?? {});
+      const additionalArguments = prefs.additionalArguments;
       const width = dimension(options.width ?? 800, 'width');
       const height = dimension(options.height ?? 600, 'height');
       const title = options.title ?? 'Firefly';
@@ -447,19 +453,29 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       this._destroyed = false;
       this._closing = false;
-      this.id = native.create(
-        width,
-        height,
-        title,
-        show,
-        frame,
-        prefs.preload,
-        useContentSize,
-        x,
-        y,
-        additionalArguments
-      );
-      this.webContents = new WebContents(this);
+      if (exited) {
+        throw error('ERR_FIREFLY_APP_EXITED', 'Application exited during window preparation');
+      }
+      Object.defineProperty(this, 'id', {
+        enumerable: true,
+        value: native.create(
+          width,
+          height,
+          title,
+          show,
+          frame,
+          prefs.preload,
+          useContentSize,
+          x,
+          y,
+          additionalArguments
+        )
+      });
+      this.webContents = new WebContents(this, contentsToken);
+      Object.defineProperty(this, 'contentView', {
+        value: views.contentView(this),
+        enumerable: true
+      });
       windows.set(this.id, this);
 
       this.once('closed', () => cancelIpc(this));
@@ -474,7 +490,20 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
 
     static fromWebContents(contents) {
-      return [...windows.values()].find((w) => w.webContents === contents) ?? null;
+      if (!contents || allContents.get(contents.id) !== contents) {
+        return null;
+      }
+      if (typeof native.ownerWindow === 'function') {
+        const owner = windows.get(native.ownerWindow(contents.id));
+        return owner && !owner._closing && !owner._destroyed ? owner : null;
+      }
+      // Projection-only policy hosts do not own widgets. Production queries the
+      // actual Qt parent above, rather than trusting only JS presentation metadata.
+      return (
+        [...windows.values()].find((win) => !win._closing && win.webContents === contents) ??
+        views.ownerOf(contents) ??
+        null
+      );
     }
 
     isDestroyed() {
@@ -579,6 +608,37 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
 
+  views = createViews(
+    native,
+    EventEmitter,
+    (owner) => new WebContents(owner, contentsToken),
+    preferences,
+    () => {
+      if (exited) {
+        throw error('ERR_FIREFLY_APP_EXITED', 'Application is exiting');
+      }
+      if (!ready) {
+        throw error('ERR_FIREFLY_NOT_READY', 'Cannot create a view before app readiness');
+      }
+    },
+    error,
+    unsupported
+  );
+
+  const webContents = {
+    fromId(id) {
+      return allContents.get(id) ?? undefined;
+    },
+
+    getAllWebContents() {
+      return [...allContents.values()].filter((contents) => !contents.isDestroyed());
+    },
+
+    getFocusedWebContents() {
+      return allContents.get(native.focusedContents()) ?? null;
+    }
+  };
+
   native.setHandler((id, type, data) => {
     if (type === 'menu-click') {
       menus.dispatch(id, JSON.parse(data));
@@ -603,7 +663,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       theme.changed();
       return;
     }
-    const win = windows.get(id);
+    const win = windows.get(id) ?? views.records.get(id);
     if (!win) {
       return;
     }
@@ -616,14 +676,24 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       dispatchIpc(win, typeof data === 'string' ? JSON.parse(data) : data);
       return;
     }
-    if (type === 'close-request') {
+    if (type === 'close-request' || type === 'contents-close-request') {
       return win._closeRequest();
     }
+    if (type === 'contents-destroyed') {
+      cancelIpc(win);
+      contents._reject(error('ERR_ABORTED', 'Web contents closed'));
+      allContents.delete(id);
+      views.destroyed(id);
+      return;
+    }
     if (type === 'closed') {
+      views.detachWindow(win);
+      allContents.delete(id);
       win._destroyed = true;
       win._closing = false;
       windows.delete(id);
       contents._reject(error('ERR_ABORTED', 'Window closed'));
+      contents.emit('destroyed');
       win.emit('closed');
       if (windows.size === 0) {
         if (quitting) {
@@ -650,12 +720,15 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       contents._url = data;
     } else if (type === 'title') {
       contents._title = data;
-      const e = event();
-      win.emit('page-title-updated', e, data, true);
-      if (!e.defaultPrevented && !win._closing) {
-        native.title(id, data);
+      contents.emit('page-title-updated', event(), data, true);
+      if (windows.has(id)) {
+        const e = event();
+        win.emit('page-title-updated', e, data, true);
+        if (!e.defaultPrevented && !win._closing) {
+          native.title(id, data);
+        }
       }
-    } else if (type === 'paint') {
+    } else if (type === 'paint' && windows.has(id)) {
       win.emit('ready-to-show');
     } else if (type === 'failed') {
       contents._reject(error('ERR_FAILED', data));
@@ -682,6 +755,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     protocol,
     session,
     BrowserWindow,
+    WebContentsView: views.WebContentsView,
+    webContents,
     ipcMain,
     MessageChannelMain: channels.MessageChannelMain,
     utilityProcess: utilities.utilityProcess,

@@ -9525,6 +9525,83 @@ renderer port handoff, auth forwarding, workbench/window/preload/File/open-edit-
 extension/PTY hosts, webviews/remote and platform packaging. Ladybird stays unmodified,
 Mite independent and the full original goal stays active.
 
+## 2026-11-08 — Real WebContentsView composition, registry and independent contents lifetime
+
+- Resume from pushed 85a65fb and the actual missing WebContentsView import. Audit
+  pinned Code-OSS: its main workbench still uses BrowserWindow; the demanded view
+  belongs to optional integrated browser panels and also imports webContents.
+  Implement genuine composition/ownership instead of an import-only constructor.
+- Share maintained isolation/preload preference validation between windows/views.
+  Expose WebContentsView, a real webContents registry, immutable contents/window IDs,
+  contents focus/owner/close and BrowserWindow.contentView composition. Keep main
+  window contents outside root.children, matching actual Electron 45 behavior.
+- Create actual detached Ladybird widgets under permanent native contents IDs.
+  Distinguish WindowMain/ChildView state; presentation changes never replace the
+  canonical view/document/renderer/channel identity. Put primary/extra widgets in a
+  content container below native menu chrome. Reparent the same widget and native
+  tree, keeping bounds, navigation, preloads and validated IPC intact.
+- Query actual Qt widget parents and child order for public owner/children getters;
+  native composition acceptance cannot pass using only JS ownership metadata. Order
+  and reparent native first, then commit JS bookkeeping. Refused native operations
+  preserve prior JS ownership. Detached owner lookup deliberately returns null
+  rather than Electron's observed retained-last-owner quirk.
+- Detach children before deleting a host. A host closes only its primary contents;
+  orphan views keep working until explicit webContents.close. Route native close/
+  load/title/crash/IPC events by permanent contents ID, independently of windows.
+  Close retires queues/counters/channels once, removes registry authority and emits
+  destroyed once. App shutdown releases all native views, including detached ones.
+- Move file-picker lifetime to the persistent widget, cancel on transfer and refuse
+  detached chooser requests. Keep frameless drag callbacks main-only and chrome
+  operations window-only. Check late shutdown after preference/emitter reentry and
+  in native creation. Bound child count64 / canonical contents256 and geometry;
+  preserve exact logical zero-area edge coordinates without Qt rectangle overflow.
+- Seven policy groups pass actual Node/Mite: bounds/receivers/refusals, native-failure
+  metadata atomicity, reparent/reorder/snapshots, destruction and shutdown reentry.
+  A real shared fixture loads distinct pages, validates renderer/preload identity,
+  requested viewports, native tree ownership/order and concurrent binary invokes,
+  then moves/detaches/reloads/closes views and destroys an old host with a surviving
+  child. Both Firefly and Electron pass; no fake browser/session service is used.
+- Static Qt initially exposes only Cocoa, so an offscreen request fails before app
+  startup. Compile app/adapters once as shared OBJECT files; a separate test frontend
+  adds the matching static offscreen plugin. Production/packagers do not include it.
+  Fix its clean-target helper/resource dependency, not just an already staged build.
+- The first actual offscreen constructor crashes because upstream macOS AX treats
+  synthetic Qt window IDs as NSView pointers. Generate an owned Cocoa-only adapter
+  with exact original source/header pins, license notices, byte restoration and
+  missing/duplicate/drift refusal. Cocoa behavior stays active; non-Cocoa skips AX.
+  Ladybird remains unmodified. The next run reaches real pages/IPC but catches stale
+  hidden viewports; call upstream's existing push_viewport_size after geometry/moves
+  and before navigation, preserving actual widget/device-scale geometry.
+- The complete fixture now passes offscreen and Electron. Run one additional hidden
+  production Cocoa batch for the actual backend: it also passes, with all windows
+  show:false and no input automation. Keep on-screen GPU/compositor/AX/performance
+  claims separate. Default test mode never falls back to the desktop; Linux hosted
+  testing selects production XCB/Xvfb explicitly and is still unverified locally.
+- Document API/ADR0157/current matrix and real startup priority. Adopting existing
+  contents, nested views, BaseWindow/View exports, custom sessions/subframe preloads,
+  background/radius styling, popup/CDP and actual Code-OSS BrowserView remain open.
+
+Validation: production and offscreen Release builds pass. All 88 non-GUI runtime
+gates pass (88.34 seconds). Shared real Firefly-offscreen/Electron and the one
+production Cocoa-hidden fixture pass real pages/PIDs/viewport/binary IPC/native
+composition and independent lifetimes. The actual prepared Code-OSS ready graph
+now passes both view exports and next stops at missing node:fs createWriteStream
+(build/code-oss-web-contents-view-ready.log), without an accepted workbench.
+Final CMake native-view/utility/public-main-port/codec-GC gates all pass. Native
+ownership queries validate actual Qt parents/order; six final affected source-policy/
+line-ending gates also pass (1.95 seconds). Both generated-source
+integrity gates and exact Firefly adapter reproduction pass; upstream remains
+unmodified, full maintained-source style and whitespace checks pass. The site
+build/check accepts 274 pages / 19,387 local links. Fresh Linux/XCB/Windows,
+on-screen/GPU/compositor/accessibility and performance acceptance remain open.
+
+Remaining: implement the actually demanded bounded native file-write stream, then
+continue real main startup/window/workbench acceptance. Complete integrated-browser
+session/subframe/popup/CDP and view styling/adoption/nesting only with real behavior.
+Native utility/renderer MessagePort handoff, auth forwarding, File/open-edit-save,
+extension/PTY hosts, webviews/remote and native platforms/packaging remain required.
+Mite is independent, Ladybird unmodified and the full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

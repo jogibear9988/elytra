@@ -139,3 +139,9 @@ explicitly unsupported native port transfers/authentication forwarding.
 The [safeStorage reference](safe-storage.md) documents locally accepted macOS
 OS-keychain/AES-256-GCM storage, Buffer serialization, isolated-test evidence,
 Firefly-specific ciphertext and unavailable async/Linux/Windows providers.
+
+The [WebContentsView reference](web-contents-view.md) covers native flat child-view
+composition, stable contents identity, ownership/reparenting, explicit cleanup and
+the webContents registry. Shared offscreen Firefly/Electron functional acceptance
+and the same complete hidden production Cocoa fixture pass; on-screen/GPU/AX
+acceptance and native Linux/XCB/Windows execution remain unverified.

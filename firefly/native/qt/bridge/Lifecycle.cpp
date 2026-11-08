@@ -29,7 +29,7 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
                 return;
             int window_id = 0;
             for (auto const& [id, state] : windows)
-                if (!state.closing && focused
+                if (state.kind == State::Kind::WindowMain && !state.closing && focused
                     && (focused == state.window || state.window->isAncestorOf(focused))) {
                     window_id = id;
                     break;
@@ -71,7 +71,7 @@ void Bridge::Impl::stop()
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())
-        delete windows.begin()->second.window;
+        close_contents(windows.begin()->first, true);
     context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.
     handler = nullptr;
     api = nullptr;

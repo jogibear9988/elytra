@@ -140,6 +140,10 @@ if(FIREFLY_BUILD_RUNTIME)
         endif()
     endforeach()
     add_dependencies(firefly stage-firefly-runtime-helper check-firefly-js)
+    # A clean build of the test frontend needs the same runtime helper/resources.
+    if(TARGET firefly-view-offscreen)
+        add_dependencies(firefly-view-offscreen stage-firefly-runtime-helper check-firefly-js)
+    endif()
 endif()
 
 # Real parent/owned-child configuration before the helper's first page script.

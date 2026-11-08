@@ -255,6 +255,10 @@ if(BUILD_TESTING)
             "${Python3_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_dependencies.py" --mite
             "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-view-policy
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_view_policy.py"
+                --mite "$<TARGET_FILE:mite>")
     add_test(NAME firefly-screen-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_screen.py"
                      --mite "$<TARGET_FILE:mite>")

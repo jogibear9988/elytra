@@ -138,7 +138,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            TRY(state(vm));
+            TRY(window_state(vm));
             destroy(vm.argument(0).as_i32());
             return JS::js_undefined();
         },
@@ -149,8 +149,13 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (!vm.argument(0).is_int32())
                 return vm.throw_completion<JS::TypeError>("Invalid window ID"_utf16);
             auto found = windows.find(vm.argument(0).as_i32());
-            if (found != windows.end())
-                delete found->second.window;
+            if (found != windows.end()) {
+                if (found->second.kind != State::Kind::WindowMain)
+                    return vm.throw_completion<JS::TypeError>(
+                        "ID does not identify a BrowserWindow"_utf16);
+                destroy(vm.argument(0).as_i32(), true);
+            }
+
             return JS::js_undefined();
         },
         1, JS::default_attributes);
@@ -194,6 +199,9 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (current->view->has_traversable())
                 current->view->traversable().for_each_hosting_page(
                     [this](auto& page) { configure_preloads(page); });
+            // A detached/hidden widget may not have delivered its resize event.
+            // Upstream pushes its actual dimensions with the current device scale.
+            current->view->push_viewport_size();
             current->view->load(*url);
             return JS::js_undefined();
         },
@@ -202,7 +210,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         host->define_native_function(
             realm, Utf16String::from_utf16(name),
             [this, action](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto* current = TRY(state(vm));
+                auto* current = TRY(window_state(vm));
                 action(*current->window);
                 return JS::js_undefined();
             },
@@ -226,7 +234,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "setWindowBounds"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* current = TRY(state(vm));
+            auto* current = TRY(window_state(vm));
             auto rect = QRect(TRY(vm.argument(1).to_i32(vm)), TRY(vm.argument(2).to_i32(vm)),
                 TRY(vm.argument(3).to_i32(vm)), TRY(vm.argument(4).to_i32(vm)));
             if (!set_window_bounds(*current->window, rect, vm.argument(5).to_boolean()))
@@ -238,7 +246,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "centerWindow"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!center_window(*TRY(state(vm))->window))
+            if (!center_window(*TRY(window_state(vm))->window))
                 return vm.throw_completion<JS::Error>("Native window is unavailable"_utf16);
             return JS::js_undefined();
         },
@@ -246,7 +254,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "windowBounds"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* current = TRY(state(vm));
+            auto* current = TRY(window_state(vm));
             auto bounds = window_bounds(*current->window, vm.argument(1).to_boolean());
             auto bytes
                 = QJsonDocument(QJsonObject { { "x", bounds.x() }, { "y", bounds.y() },
@@ -258,19 +266,19 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "visible"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(TRY(state(vm))->window->isVisible());
+            return JS::Value(TRY(window_state(vm))->window->isVisible());
         },
         1, JS::default_attributes);
     host->define_native_function(
         realm, "minimized"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(TRY(state(vm))->window->isMinimized());
+            return JS::Value(TRY(window_state(vm))->window->isMinimized());
         },
         1, JS::default_attributes);
     host->define_native_function(
         realm, "maximized"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(TRY(state(vm))->window->isMaximized());
+            return JS::Value(TRY(window_state(vm))->window->isMaximized());
         },
         1, JS::default_attributes);
     host->define_native_function(
@@ -282,7 +290,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "title"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* current = TRY(state(vm));
+            auto* current = TRY(window_state(vm));
             current->window->setWindowTitle(
                 qstring_from_utf16_string(TRY(vm.argument(1).to_utf16_string(vm))));
             return JS::js_undefined();
@@ -292,7 +300,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         realm, "titleText"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             return JS::PrimitiveString::create(
-                vm, utf16_string_from_qstring(TRY(state(vm))->window->windowTitle()));
+                vm, utf16_string_from_qstring(TRY(window_state(vm))->window->windowTitle()));
         },
         1, JS::default_attributes);
     host->define_native_function(
@@ -302,6 +310,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             return JS::js_undefined();
         },
         0, JS::default_attributes);
+    install_views(*host);
     return host;
 }
 }

@@ -150,7 +150,7 @@ public:
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
                 "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
-                "safeStorage" };
+                "safeStorage", "WebContentsView", "webContents" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)

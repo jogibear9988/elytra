@@ -24,10 +24,11 @@ JS::Completion Bridge::Impl::preload_error(JS::VM& vm, char const* code, StringV
     return JS::throw_completion(error);
 }
 
-JS::ThrowCompletionOr<Optional<Bridge::Impl::Preload>> Bridge::Impl::read_preload(JS::VM& vm)
+JS::ThrowCompletionOr<Optional<Bridge::Impl::Preload>> Bridge::Impl::read_preload(
+    JS::VM& vm, size_t preload_argument, size_t arguments_argument)
 {
-    auto arguments = TRY(read_process_arguments(vm));
-    auto value = vm.argument(5);
+    auto arguments = TRY(read_process_arguments(vm, arguments_argument));
+    auto value = vm.argument(preload_argument);
     if (value.is_undefined()) {
         if (!arguments.is_empty())
             return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",

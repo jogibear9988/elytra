@@ -313,8 +313,8 @@ platform or replacement filesystem/parser is used. The separate real-file fixtur
 reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
-slice below, it also passes MessageChannelMain/utilityProcess/safeStorage and next fails linking
-WebContentsView. The [real LibJS utility payload slice](../api/utility-process.md) has six
+slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents and next fails linking
+createWriteStream from node:fs. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -341,7 +341,7 @@ acceptance; fresh hosted execution is not inferred from local success.
 
 Local actual Protocol binary-frame/FIFO/snapshot/echo/disconnect and moved once-helper
 acceptance passes on Electron/Firefly. The real ready/main graph now passes the
-utilityProcess/safeStorage imports and fails at missing WebContentsView. The real LibJS utility
+utilityProcess/safeStorage imports and fails at missing node:fs createWriteStream. The real LibJS utility
 fork/parentPort payload implementation has six passing native boundary tests; local
 Firefly/Electron public lifecycle, payload and parent-reaping acceptance also passes. This does not run the actual Code-OSS utility services. They
 require authentication forwarding and utilityProcess.postMessage with transferred
@@ -380,7 +380,24 @@ minimal ready/command-line app fixture. It does not modify the user's Login
 keychain or accept production post-ready app lifecycle. Real Firefly/Electron
 comparison separately accepts pre-ready guards only; post-ready Electron crypto
 is unverified. The current actual ready graph passes safeStorage and next fails
-linking WebContentsView. Native utility/renderer endpoint transfer, demanded auth
+linking createWriteStream from node:fs. Native utility/renderer endpoint transfer, demanded auth
 forwarding and actual Code-OSS shared-service execution remain required; no
 workbench is accepted. See [storage scope](../api/safe-storage.md), including the
 Firefly-specific ciphertext and unavailable migration/async/platform providers.
+
+## Native child views and the next observed import
+
+The shared public WebContentsView fixture passes in Firefly's test-only offscreen
+frontend and Electron 45, and the same complete fixture passes in a hidden batch
+using the production Cocoa frontend. Real pages/PIDs, viewport changes, native
+ordering/ownership/reparenting, detached navigation, registry and binary IPC/close
+are accepted. No on-screen GPU/compositor, accessibility or performance claim is
+made. The static offscreen plugin is not shipped and supplies no production desktop
+fallback; native Linux/XCB and Windows execution remain unverified.
+
+The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
+passes WebContentsView/webContents imports on the production objects. Its next
+missing export is createWriteStream from node:fs. Implement a genuine bounded native
+writable file stream, then rerun the actual graph. Integrated BrowserView still
+requires unsupported session/subframe/CDP services; native ports/authentication and
+a working VS Code window remain missing. See [view scope](../api/web-contents-view.md).

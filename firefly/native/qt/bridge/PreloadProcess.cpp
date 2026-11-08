@@ -8,12 +8,12 @@
 #include <uv.h>
 
 namespace Firefly {
-JS::ThrowCompletionOr<JsonArray> Bridge::Impl::read_process_arguments(JS::VM& vm)
+JS::ThrowCompletionOr<JsonArray> Bridge::Impl::read_process_arguments(JS::VM& vm, size_t argument)
 {
     JsonArray arguments;
     size_t argument_bytes = 0;
     // Inspect exact array storage/descriptors; never invoke renderer-facing hooks.
-    auto input = vm.argument(9);
+    auto input = vm.argument(argument);
     if (!input.is_undefined()) {
         if (!input.is_object() || input.as_object().engine_class_id() != JS_LAYOUT_CLASS_ID_ARRAY
             || JS::host_class_of(input.as_object()) || &input.as_object().shape().realm() != &realm)

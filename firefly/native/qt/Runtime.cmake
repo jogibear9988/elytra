@@ -171,8 +171,8 @@ if(NOT APPLE)
         firefly-linux-desktop-services PUBLIC LibJS LibGC AK firefly-linux-environment
                                               firefly-x11-screen firefly-screen-events)
 endif()
-add_executable(
-    firefly
+add_library(
+    firefly-application OBJECT
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
@@ -186,6 +186,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Views.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
@@ -203,34 +204,57 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/WireValue.cpp")
-target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
-                                           "${FIREFLY_SOURCE_DIR}/firefly/native/ipc")
-target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
-target_compile_definitions(firefly
+target_include_directories(
+    firefly-application PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
+                                "${FIREFLY_SOURCE_DIR}/firefly/native/ipc")
+target_include_directories(firefly-application PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
+target_compile_definitions(firefly-application
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="${firefly_runtime_binary_dir}")
 target_link_libraries(
-    firefly
-    PRIVATE firefly-qt-view
-            firefly-mite
-            firefly-clipboard-protocol
-            firefly-runtime-paths
-            firefly-screen-events
-            firefly-protocol-routes
-            firefly-byte-channel
-            firefly-preload-config
-            firefly-file-picker
-            firefly-application-menu
-            firefly-tracing
-            firefly-command-line
-            firefly-sandbox-policy
-            firefly-app-paths
-            firefly-locale
-            firefly-safe-storage)
+    firefly-application
+    PUBLIC firefly-qt-view
+           firefly-mite
+           firefly-clipboard-protocol
+           firefly-runtime-paths
+           firefly-screen-events
+           firefly-protocol-routes
+           firefly-byte-channel
+           firefly-preload-config
+           firefly-file-picker
+           firefly-application-menu
+           firefly-tracing
+           firefly-command-line
+           firefly-sandbox-policy
+           firefly-app-paths
+           firefly-locale
+           firefly-safe-storage)
 if(NOT APPLE)
-    target_link_libraries(firefly PRIVATE firefly-linux-desktop-services firefly-x11-clipboard)
+    target_link_libraries(firefly-application PUBLIC firefly-linux-desktop-services
+                                                     firefly-x11-clipboard)
 endif()
+# Compile the application/adapters once. The offscreen acceptance frontend uses these exact objects;
+# its only extra code imports the test-only static Qt plugin.
+add_dependencies(firefly-application check-firefly-js check-firefly-upstream)
+add_executable(firefly)
+target_link_libraries(firefly PRIVATE firefly-application)
 add_dependencies(firefly ladybird ${ladybird_helper_processes} check-firefly-upstream)
 ladybird_check_skia_confinement(firefly)
+
+if(NOT TARGET Qt6::QOffscreenIntegrationPlugin)
+    find_package(Qt6QOffscreenIntegrationPlugin QUIET PATHS "${Qt6Gui_DIR}" NO_DEFAULT_PATH)
+endif()
+if(TARGET Qt6::QOffscreenIntegrationPlugin)
+    add_executable(firefly-view-offscreen
+                   "${FIREFLY_SOURCE_DIR}/firefly/tests/web-contents-view/OffscreenPlugin.cpp")
+    target_link_libraries(firefly-view-offscreen PRIVATE firefly-application
+                                                         Qt6::QOffscreenIntegrationPlugin)
+    add_dependencies(firefly-view-offscreen ladybird ${ladybird_helper_processes}
+                     check-firefly-upstream)
+    ladybird_check_skia_confinement(firefly-view-offscreen)
+else()
+    message(
+        STATUS "Qt offscreen static plugin unavailable: headless Firefly view frontend disabled")
+endif()
 add_custom_target(
     check-firefly-protocol-host
     COMMAND
@@ -423,6 +447,7 @@ if(APPLE)
                 check-firefly-message-ports
                 check-firefly-message-port-lifetime
                 check-firefly-utility-process
+                check-firefly-web-contents-view
                 check-firefly-safe-storage-backend
                 check-firefly-safe-storage-public
                 check-firefly-file-picker
@@ -461,3 +486,5 @@ add_custom_target(
     DEPENDS firefly firefly-safe-storage-probe
     WORKING_DIRECTORY "${FIREFLY_SOURCE_DIR}"
     VERBATIM)
+
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/web-contents-view/Targets.cmake")
