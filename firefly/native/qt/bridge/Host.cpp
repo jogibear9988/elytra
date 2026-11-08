@@ -50,6 +50,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     shell_service = Shell::install_host(realm, *host, *context, [this](std::string data) {
         enqueue(0, "shell-result", ByteString(data.data(), data.size()));
     });
+    system_preferences
+        = SystemPreferences::install_host(realm, *host, *context, [this](std::string data) {
+              enqueue(0, "preferences-notification", ByteString(data.data(), data.size()));
+          });
     install_clipboard_host(realm, *host);
     CrashReporting::install_host(realm, *host);
     Tracing::install_host(realm, *host, tracing);

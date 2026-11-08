@@ -31,6 +31,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/notifications/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/power-monitor/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/power-save-blocker/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/shell/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/system-preferences/Targets.cmake")
 add_custom_target(
     check-firefly-dependencies
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py" --check
@@ -198,6 +199,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../power-monitor/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../power-save-blocker/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../shell/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
@@ -232,6 +234,7 @@ target_link_libraries(
            firefly-power-monitor
            firefly-power-save-blocker
            firefly-shell
+           firefly-system-preferences
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config

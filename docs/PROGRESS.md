@@ -10092,6 +10092,71 @@ extension/PTY hosts, nonempty images/session/media and actual notification/SCK/
 launch/reveal acceptance, webviews/remote, native platforms/packages/releases.
 The full original goal remains active.
 
+## 2026-11-08 — Native scalar systemPreferences, passive observers and truthful media status
+
+- Continue from pushed1856629 and actual missing systemPreferences export. Implement
+  main-only pre-ready string/boolean get/setUserDefault, all3 native notification
+  families and read-only camera/microphone/screen status. Other types, posting,
+  permission requests, appearance/colors/accessibility/TouchID/EventEmitter APIs
+  explicitly fail. Native Windows/Linux providers remain unavailable.
+- Use real NSUserDefaults typed getters/setters; absent native string/bool values
+  follow those getters, not a simulated missing backend. Validate bounded scalar
+  JSON/Unicode types. Materialize QJsonValue copies before temporary containers
+  disappear: exact Host tests found and now guard the getter/setter reference
+  lifetime crash. The actual isolated-suite probe verifies writes/fresh store reads.
+- Observe local/distributed/workspace centers passively with0-based monotonic IDs,
+  string/null names, kind-bound removal and owned callback/token lifetime. Wrong
+  family/unknown removal is a documented no-op. Callbacks carry detached bounded
+  userInfo/name/NSString sender; nonstring senders follow Electron's empty string.
+  JSON data retains escaped NUL while identifiers/default values reject it.
+- Bound64 active subscriptions and early packets, userInfo64KiB/depth8/nodes1024,
+  text4096/stringdefault65536. Native queue bounds128 normal events globally and64
+  per observer; overflow/corrupt native data emits one terminal failure and retires
+  that subscription. Register before admission; failed start discards queued events.
+  JS callback roots clear before removal/stop; weak native workers never own VM/GC
+  values. Reentrant late admission receives another best-effort ID/family removal.
+- Native observer tickets are process-global64 and release only on successful
+  actual observer removal. Failed cleanup keeps inactive owned records and charged
+  capacity for bounded teardown retry, preventing unbounded host/cancel churn.
+  Stop revokes receiver/pending state under posting mutex, then native cleanup runs
+  outside it. Controller/receiver/VM retirement drops all queued/late authority.
+- Map AVFoundation authorization statuses directly. Screen preflight grants only
+  when known true; false reports unknown because denied versus not-yet-requested
+  is not distinguishable. Queries never request permission or grant renderer access.
+  Actual read-only values independently match OS frameworks, with passive observers
+  installed/removed; no physical/permission transition is induced.
+- Shared Node/Mite six-group policy and exact Host/controlled worker/real GC/queue/
+  teardown tests pass. Exact Mac provider with controlled defaults/centers/AV peers
+  passes typed metadata, snapshotting, failed removal quotas/recovery and late stop;
+  original OS writes/posts/permission methods never run in that controlled gate.
+- Separately run opt-in genuine native suite/local test: redirect only the defaults
+  factory to a real UUID-owned NSUserDefaults suite, write scalar values, synchronize,
+  read from fresh native store/provider and verify exact owned-domain cleanup. Post
+  one unique local notification only within the probe process, verifying real
+  delivery/unsubscribe/stop. No personal defaults, distributed/workspace posts,
+  permission requests or GUI operations; no cross-process durability claim.
+- Wire new non-GUI Host/unavailable gates into Linux/release and controlled/read-only
+  Mac gates into release; opt-in suite mutation stays outside defaults. Add API/
+  ADR0164/compatibility docs and refresh current source blockers. Actual final-code
+  Code-OSS ready graph passes systemPreferences and next fails linking fork from
+  child_process (build/code-oss-system-preferences-final-ready.log). The actual
+  static chain is main → diskFileSystemProvider → watcherClient → ipc.cp; its fork
+  call is lazy and has NOT executed. Entry/app-ready is not workbench acceptance.
+
+Validation: all103 runtime gates pass (33.02seconds). Controlled policy, actual
+native Host/provider, independent read-only probe, unavailable backend and isolated
+suite/local notification acceptance pass. Final production/exact-object offscreen
+frontend and component builds pass. Maintained formatting/generation, release-script
+syntax, upstream and whitespace checks pass. All13 final selected policy/
+generation/staged-checkout gates pass (3.05seconds); site accepts289 pages and
+20,462 local links/resources/fragments. Ladybird remains unmodified; Mite independent; no GUI test ran.
+
+Remaining: genuine Mite child_process.fork/JSON IPC and runtime-only Firefly child
+bootstrap for the watcher importer; native utility/renderer endpoint transfer/auth,
+actual workbench/File/open-edit-save, extension/PTY, further session/media/images,
+real notification/SCK/permission/physical event and visible launch acceptance,
+webviews/remote, native platforms/packages/releases. The full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

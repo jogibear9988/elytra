@@ -104,10 +104,10 @@ notices. Ladybird/vendor code remains unmodified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on these production objects, then fails
-at missing systemPreferences. Metadata-only desktop source support is now implemented with separately documented
+at missing child_process.fork. Metadata-only desktop source support is now implemented with separately documented
 acceptance limits. Notification, power and shell component gates now pass; real
 notification delivery and visible shell actions remain unaccepted. Continue the
-actual graph with preferences/media permissions. Import progress is not a VS Code
+actual graph with genuine Mite fork/JSON IPC. Import progress is not a VS Code
 window or integrated browser acceptance.
 
 No custom sessions, subframe preload integration, popups, background/radius styling,

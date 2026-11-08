@@ -176,3 +176,8 @@ The [shell reference](shell.md) covers native URL/path dispatch, file reveal,
 reversible OS Trash, promise/error differences and bounded asynchronous ownership.
 Actual macOS Trash/restore is accepted locally; visible launch/reveal remains
 unaccepted and native Windows/Linux providers are unavailable.
+
+The [systemPreferences reference](system-preferences.md) covers native typed scalar
+defaults, passive notifications, callback ownership and read-only media status.
+It separates controlled tests, genuine read-only observations and isolated-suite/
+local-notification acceptance from physical events and permission requests.

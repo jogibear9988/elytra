@@ -20,6 +20,7 @@ import createNotifications from './notifications/index.mjs';
 import createPowerMonitor from './power-monitor/index.mjs';
 import createPowerSaveBlocker from './power-save-blocker/index.mjs';
 import createShell from './shell/index.mjs';
+import createSystemPreferences from './system-preferences/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -163,6 +164,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      systemPreferencesService.stop();
       desktopShell.stop();
       powerSave.stop();
       power.stop();
@@ -190,6 +192,12 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const systemPreferencesService = createSystemPreferences(
+    native,
+    () => exited,
+    error,
+    unsupported
+  );
   const desktopShell = createShell(native, () => exited, error, unsupported);
   const powerSave = createPowerSaveBlocker(native, () => exited, error, unsupported);
   const power = createPowerMonitor(
@@ -275,6 +283,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    systemPreferencesService.stop();
     desktopShell.stop();
     powerSave.stop();
     power.stop();
@@ -699,6 +708,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       resolveReady();
       return;
     }
+    if (type === 'preferences-notification') {
+      systemPreferencesService.dispatch(JSON.parse(data));
+      return;
+    }
     if (type === 'shell-result') {
       desktopShell.dispatch(JSON.parse(data));
       return;
@@ -830,6 +843,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     Notification: notifications.Notification,
     powerMonitor: power.powerMonitor,
     powerSaveBlocker: powerSave.powerSaveBlocker,
-    shell: desktopShell.shell
+    shell: desktopShell.shell,
+    systemPreferences: systemPreferencesService.systemPreferences
   };
 }

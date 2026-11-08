@@ -215,3 +215,19 @@ spawning, bounded collection, cancellation and completion; options/platform limi
 above still apply. Local macOS Node/Mite tests execute real children and verify
 both successful and nonzero output paths; native Linux/Windows also pass the
 promisify gate at a56d183. See [current evidence](../status.md).
+
+## Current Code-OSS fork requirement
+
+`fork` and Node-style parent/child IPC are not implemented. The actual prepared
+Code-OSS ready graph next fails linking that named export through the main
+file-system provider, watcher client and `ipc.cp` module. This is a linking failure
+before the client's lazy child launch; it does not establish a running file
+watcher or extension host.
+
+The next slice needs a genuine Mite child runtime and bidirectional JSON messages,
+`ChildProcess.send`/`message`/`disconnect` and child `process.send`/`message`/
+`disconnect`, plus completion, pressure, EOF and ref/unref ownership. Existing
+Firefly `utilityProcess`/`process.parentPort` is a different protocol and cannot
+substitute for this Node API. In a Firefly parent, `process.execPath` identifies
+Firefly, so child startup also needs an explicit runtime-only entry before any
+GUI initialization. See [current milestones](../compatibility/vscode.md).

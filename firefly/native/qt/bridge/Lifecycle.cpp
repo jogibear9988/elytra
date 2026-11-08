@@ -78,6 +78,8 @@ void Bridge::Impl::stop()
         power_save_blocker->stop();
     if (shell_service)
         shell_service->stop();
+    if (system_preferences)
+        system_preferences->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())
