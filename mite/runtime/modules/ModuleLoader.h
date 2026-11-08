@@ -120,6 +120,14 @@ private:
     JS::ThrowCompletionOr<JS::Value> load_commonjs(
         std::filesystem::path const&, GC::Ptr<JS::Object> parent = nullptr, bool main = false);
 
+    JS::ThrowCompletionOr<std::vector<Utf16String>> commonjs_export_names(
+        std::filesystem::path const&, size_t depth = 0);
+
+    JS::ThrowCompletionOr<JS::Value> commonjs_namespace_snapshot(
+        std::filesystem::path const&, JS::Value names);
+
+    static std::string quote_export_name(Utf16String const&);
+
     GC::Ref<JS::NativeFunction> make_require(std::filesystem::path const&, GC::Ref<JS::Object>);
 
     JS::ThrowCompletionOr<GC::Ref<JS::Object>> make_commonjs_module(
@@ -155,6 +163,9 @@ private:
     GC::Root<JS::Object> m_filesystem_native;
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;
+    GC::Root<JS::Object> m_commonjs_lexer;
+    GC::Root<JS::Object> m_commonjs_esm_exports;
+    std::unordered_map<std::string, std::vector<Utf16String>> m_commonjs_export_names;
     GC::Root<JS::Module> m_builtin_bridge;
     GC::Root<JS::Module> m_host_bridge;
     std::unordered_map<std::string, HostModule> m_host_modules;

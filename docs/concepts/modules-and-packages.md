@@ -46,7 +46,7 @@ Unknown import attributes may fail in the engine before host-specific error shap
 
 CommonJS supports the wrapper, require, module.exports, relative/directory loading,
 require.resolve/cache/main, module metadata and cycles. ESM can consume a CommonJS
-module's default/module.exports value. Automatic named CommonJS export detection,
+module's default/module.exports value. Static CommonJS named exports now have a [tested partial contract](../api/module.md#commonjs-named-exports-in-es-modules).
 require.extensions and synchronous require(ESM) remain unsupported. Eval mode does
 not provide the full CommonJS file wrapper.
 

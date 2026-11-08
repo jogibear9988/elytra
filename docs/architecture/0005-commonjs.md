@@ -37,3 +37,5 @@ remain rooted in their identity cache, matching the intended long-lived ESM cach
 Current limitations: no CJS globals for CLI eval, no require.extensions hooks,
 no static named CJS export analysis, and no synchronous require of ESM. These are
 tracked compatibility gaps, not completed Node API coverage.
+
+The static named-export limitation above is superseded by [ADR 0158](0158-commonjs-namespace-analysis.md).

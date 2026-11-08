@@ -11,7 +11,7 @@ and compatibility matrices distinguish partial behavior from absent APIs.
 | Entry cannot be read | Verify cwd, filename, extension and native access; run from the repository root for its examples |
 | ESM syntax in a .js file fails | Set package.json type=module or use .mjs; syntax auto-detection is absent |
 | Module cannot be resolved | Inspect explicit relative extensions, package type/exports/imports and node_modules layout; reduce to one specifier |
-| Named CommonJS import is missing | Consume its default/module.exports value; static named CJS detection is unsupported |
+| Named CommonJS import is missing | Check whether its source uses a recognized static export pattern; computed names remain on the default/module.exports value. See the [namespace contract](../api/module.md#commonjs-named-exports-in-es-modules) |
 | A built-in property is undefined | Check the implemented export surface; whole-module Node parity is not promised |
 | Fetch/child_process/TLS mode rejects | Check the [Fetch](../api/fetch.md), [process](../api/child-process.md) or [TLS](../api/tls.md) partial contract; compression, execution modes and TLS options have explicit limits |
 | Console output is `[object Object]` | Node object inspection is absent; use an intentional JSON/string diagnostic |

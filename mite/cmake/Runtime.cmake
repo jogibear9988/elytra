@@ -50,8 +50,10 @@ function(mite_add_runtime target root js_target)
         zlib
         readline
         child_process
+        cjs-lexer
         timers_promises)
         string(TOUPPER "${module}" module_upper)
+        string(REPLACE "-" "_" module_upper "${module_upper}")
         file(READ "${root}/mite/modules/generated/${module}.js" "MITE_${module_upper}_SOURCE")
         set_property(
             DIRECTORY
@@ -82,6 +84,7 @@ function(mite_add_runtime target root js_target)
         modules/Builtins
         modules/HostModules
         modules/ModuleLoader
+        modules/CommonJSExports
         modules/ModuleUtilities
         modules/ResolveHooks
         modules/ModulePaths

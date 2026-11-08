@@ -180,9 +180,23 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_commonjs.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-cjs-namespaces
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_namespaces.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-child-process
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_child_process.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-cjs-namespace-gc
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_namespace_gc.py"
+            --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
+        NAME mite-cjs-lexer-policy
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_lexer_policy.py"
+            --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")

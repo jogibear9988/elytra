@@ -51,10 +51,56 @@ retained; no permanent synthetic-module root is added to the loader.
 | Native addon / synchronous require(ESM) | Existing explicit unsupported error |
 
 require.resolve options, require.extensions, global lookup folders, load hooks,
-automatic named CommonJS exports and synchronous require(ESM) remain unsupported.
+synchronous require(ESM) remain unsupported. Source-analyzed CommonJS named exports
+are described below.
 Native Windows current-drive rooted paths and trailing backslashes pass the
 678c85e native gate. Existing platform-specific loader limits,
 including UNC module URLs, still apply.
+
+## CommonJS named exports in ES modules
+
+Local macOS Node24.15 differential acceptance covers static/dynamic namespace imports
+from CommonJS files. Discovery uses pinned cjs-module-lexer 2.1.1's pure JavaScript
+provider on LibJS; it needs no Wasm, Node host or V8. A guarded build-time adapter
+retains already recognized names when a later unsupported getter appears, matching
+measured Node24 native-lexer behavior. Original dependency bytes, hashes and MIT
+notices remain preserved in the generated artifacts.
+
+```js
+// legacy.cjs: exports.answer = 42;
+import legacy, { answer } from './legacy.cjs';
+console.log(answer, legacy.answer);
+```
+
+Source analysis recognizes the provider's static assignment/property/transpiler
+patterns, including literal bracket names. Comments, strings, templates and regular
+expressions cannot fabricate exports; computed property names are not enumerated at
+runtime. Reexport analysis follows real CommonJS resolution, unions relative/package
+CommonJS names and breaks cycles without executing application modules. Builtin,
+JSON and ESM reexports do not automatically add names. Unresolved reexports do not
+invent names. A missing named import fails linking before CommonJS side effects.
+Reexport analysis has an explicit depth limit of 512.
+
+At evaluation, each namespace receives snapshots of recognized own properties from
+the actual completed CommonJS export value. A getter can run; a getter exception
+leaves that named value undefined, while own-property trap failures propagate.
+Unrecognized getters are never invoked merely to discover names. The default and
+'module.exports' markers reference the exact whole export value; CommonJS properties
+with those names cannot shadow the namespace markers. Function exports and relative
+cycles preserve real require/import object identity. Named snapshots do not change
+when the default object later mutates.
+
+Replacing require.cache[file].exports changes ordinary require results; the first
+ESM import retains the value produced by successful CommonJS evaluation. An actual
+cache deletion/reload refreshes that original value. Arbitrary source-file edits
+and resolver/cache-hook changes after analysis are not yet accepted. Full Node
+syntax-detection, synchronous require(ESM), native-addon or loader-hook parity does
+not follow from these namespace checks. Fresh native Linux/Windows validation of
+this slice remains open.
+
+The unchanged compiled Code-OSS ZIP writer now runs with genuine yazl dependencies;
+independent ZIP CRC/extracted-byte checks pass. This accepts that consumer, not
+extension installation or a complete VS Code workbench.
 
 ## isBuiltin(name)
 

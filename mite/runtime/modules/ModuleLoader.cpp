@@ -76,6 +76,7 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
           realm.global_object().get_without_side_effects("Promise"_utf16).as_object())
     , m_process(realm.global_object().get_without_side_effects("process"_utf16).as_object())
     , m_commonjs_cache(JS::Object::create(realm, nullptr))
+    , m_commonjs_esm_exports(JS::Object::create(realm, nullptr))
     , m_promisify_state(JS::Object::create(realm, nullptr))
 {
     m_vm.host_load_imported_module = [this](JS::ImportedModuleReferrer referrer,
@@ -307,19 +308,38 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
                         = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
                     auto name = std::u8string(
                         reinterpret_cast<char8_t const*>(bytes.characters()), bytes.length());
-                    return load_commonjs(fs::path(name));
+                    return commonjs_namespace_snapshot(fs::path(name), vm.argument(1));
                 },
-                1, "loadCommonJS"_utf16);
+                2, "loadCommonJS"_utf16);
             m_commonjs_bridge = JS::SyntheticModule::create_default_export_synthetic_module(
                 m_realm, bridge, "mite:internal/cjs")
                                     .ptr();
         }
 
+        auto names = TRY(commonjs_export_names(path));
         auto quoted = AK::JsonValue(view(path_string(path))).serialized();
-        auto shim = MUST(
-            String::formatted("import load from 'mite:internal/cjs'; const value = load({}); "
-                              "export {{ value as default, value as 'module.exports' }};",
-                quoted));
+        std::string list = "[";
+        std::string declarations;
+        std::string exports = "value as default, value as 'module.exports'";
+        size_t index = 0;
+        for (auto const& name : names) {
+            if (name == "default"_utf16 || name == "module.exports"_utf16)
+                continue;
+            auto quoted_name = quote_export_name(name);
+            if (index)
+                list += ',';
+            list += quoted_name;
+            auto binding = "named" + std::to_string(index);
+            declarations += "const " + binding + " = snapshot[" + std::to_string(index + 1) + "];";
+            exports += ", " + binding + " as " + quoted_name;
+            ++index;
+        }
+
+        list += ']';
+        auto shim = MUST(String::formatted(
+            "import load from 'mite:internal/cjs'; const snapshot = load({}, {}); "
+            "const value = snapshot[0]; {} export {{{}}};",
+            quoted, view(list), view(declarations), view(exports)));
         GC::Root metadata { m_vm.heap().allocate<ModuleSource>(identity) };
         auto parsed = JS::SourceTextModule::parse(
             Utf16String::from_utf8(shim), m_realm, view(identity), {}, metadata.ptr());
@@ -700,6 +720,14 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(
 
         auto cleanup = m_commonjs_cache->internal_delete(key);
         (void)cleanup;
+    }
+
+    if (!result.is_error() && !json) {
+        // ESM retains the exports produced by real evaluation. Later user changes
+        // to require.cache[file].exports affect require, not this original value.
+        GC::RootVector<JS::Value> original;
+        original.append(result.value());
+        m_commonjs_esm_exports->define_direct_property(key, original[0], JS::default_attributes);
     }
 
     return result;

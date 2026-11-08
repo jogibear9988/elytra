@@ -41,8 +41,9 @@ operation and does not validate arbitrary objects as callable constructors.
 The local differential gate compares module identity, instance/EventEmitter behavior,
 descriptors, static-parent preservation, getter propagation and observable failure
 side effects. It does not establish whole-package compatibility. The actual Code-OSS
-ZIP consumer now passes this dependency but remains blocked by named exports from
-a dynamically imported CommonJS package; it is not accepted by these tests.
+ZIP consumer now also passes with genuine yazl, source-analyzed CommonJS named
+exports and independent archive CRC/extracted-byte verification. The inherits
+tests alone do not establish that package acceptance.
 
 ```sh
 python3 tooling/tests/test_inherits.py --mite build/release-mite/bin/mite

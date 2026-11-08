@@ -52,9 +52,11 @@ Code-OSS browser preferences/services and a VS Code window remain unaccepted.
 The [native file writer](api/file-write-stream.md) now passes all seven focused
 Node/Mite groups and owned policy checks, including actual bytes, pressure and
 handle/close behavior. The actual ready/main graph passes its createWriteStream
-import and next fails linking desktopCapturer. This is import progress,
-not execution of Code-OSS shell consumers. The actual ZIP consumer remains blocked
-by CommonJS/ESM named exports from genuine yazl; it is not accepted yet.
+import and next fails linking desktopCapturer. This is import progress for the main graph. The unchanged compiled ZIP consumer
+now passes with genuine yazl and 34 verified dependencies, independently checked
+archive CRCs and exact extracted bytes. [CommonJS named export analysis](api/module.md#commonjs-named-exports-in-es-modules)
+passes local Node differential checks; extension installation/workbench acceptance
+does not follow from the ZIP component.
 
 The [genuine shell exec slice](api/child-process.md#execcommand-options-callback)
 passes local Node/Mite differential/policy checks and the unchanged compiled

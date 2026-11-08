@@ -1,7 +1,7 @@
 {
   "generator": "esbuild 0.25.12",
-  "builderSha256": "6e8202a00443a0ff82304eace9204ad1bf2dfc5860756078463fa35c131f44cc",
-  "lockSha256": "2627439297c427137b5cfbfb930a37df871dece824b61600407285abeaf68fd4",
+  "builderSha256": "fd3d1a461b9fcd5a2d6e833a7950bc81e15466e9dc256da5e04eff18f86e514e",
+  "lockSha256": "f3c81ea3dcb121b9a3f3e9688fd12cb6525804da30e86c2524d3666a0c74df30",
   "files": {
     "events.js": "ff0c002c9ae7345cb19af4f714e301d1972674d44cd93cce82695d0ecf38c63f",
     "process.js": "89a473f81ab8561bfe90aae24f03a72bc22d6949fa6d90d480a13ead6f174c07",
@@ -37,7 +37,9 @@
     "fetch-data.js": "bc315b15f6983dc70bfecb9646e59bca16892d41ed700526b8186fb618e6b0d1",
     "fetch-data.LICENSE.txt": "6170ed642e328feaba161e081af2a773f0e65e03d9d0c6b33ce9a7ded141df1c",
     "assert.js": "995adcc67dc76557179a101cdf70fa02a58f9957e6d1ae1035afce38feae5974",
-    "assert.LICENSE.txt": "2d67ddc32017e48def6ff2a11589e93142ef35af9c9722d8c82949e9b9352406"
+    "assert.LICENSE.txt": "2d67ddc32017e48def6ff2a11589e93142ef35af9c9722d8c82949e9b9352406",
+    "cjs-lexer.js": "b5574951e30fd77278eb3350bc707ba6365c83feae95859b45ceaa84f22c054a",
+    "cjs-lexer.LICENSE.txt": "7c4d73f29d72d2973dba0e32b211e4ba5de45aa76f60cf873d53746b792614dc"
   },
   "bundles": {
     "string-decoder": {
@@ -1151,6 +1153,33 @@
           ]
         }
       ]
+    },
+    "cjs-lexer": {
+      "imports": [],
+      "sources": [
+        {
+          "path": "cjs-lexer-entry.mjs",
+          "sha256": "f1304a2a68ce4969872ec468033241a2ff1f81363be51cb61c6733f2deac7b5a"
+        },
+        {
+          "path": "node_modules/cjs-module-lexer/lexer.js",
+          "sha256": "0d6ae6bdacb6a56581b61a5cfc1df9fcb72abd0097c15a4996fb2a7d02e27284"
+        }
+      ],
+      "packages": [
+        {
+          "name": "cjs-module-lexer",
+          "version": "2.1.1",
+          "license": "MIT",
+          "integrity": "sha512-+CmxIZ/L2vNcEfvNtLdU0ZQ6mbq3FZnwAP2PPTiKP+1QOoKwlKlPgb8UKV0Dds7QVaMnHm+FwSft2VB0s/SLjQ==",
+          "notices": [
+            {
+              "path": "node_modules/cjs-module-lexer/LICENSE",
+              "sha256": "6b0c1f98ec71a46b44276c4e5095822f33efaba2dfac61c17c24fe5d666ccaee"
+            }
+          ]
+        }
+      ]
     }
   },
   "sources": {
@@ -1222,6 +1251,7 @@
     "tooling/runtime-js/fetch-data-entry.mjs": "5d3072dfd282235d91c238fdc3ae1dc3cf7ec6e5291e818f16abfc3428848bbf",
     "tooling/runtime-js/fetch-data-globals.mjs": "d34f9c5241e7918f860a30be84b2a8e360ef18c378f19cf93c3523da2dc507a3",
     "mite/modules/core/assert/policy.mjs": "e67d12a43ab6516a104fc891b738e30a7259f2f7e7e0b13d5bc576e254995f14",
-    "tooling/runtime-js/assert-entry.mjs": "d7ccd57f4c9832f0f6216e02a05d30d0776d04271196604efb2ea8188c8ca0ae"
+    "tooling/runtime-js/assert-entry.mjs": "d7ccd57f4c9832f0f6216e02a05d30d0776d04271196604efb2ea8188c8ca0ae",
+    "tooling/runtime-js/cjs-lexer-entry.mjs": "f1304a2a68ce4969872ec468033241a2ff1f81363be51cb61c6733f2deac7b5a"
   }
 }

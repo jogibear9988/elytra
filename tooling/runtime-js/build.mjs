@@ -109,7 +109,14 @@ function save(name, text, manifest) {
       manifest.sources[input] = digest(fs.readFileSync(path.join(repository, input)));
     }
   }
-  for (const name of ['string-decoder', 'stream', 'web-globals', 'fetch-data', 'assert']) {
+  for (const name of [
+    'string-decoder',
+    'stream',
+    'web-globals',
+    'fetch-data',
+    'assert',
+    'cjs-lexer'
+  ]) {
     const result = await esbuild.build({
       absWorkingDir: root,
       entryPoints: [`${name}-entry.mjs`],
@@ -131,6 +138,25 @@ function save(name, text, manifest) {
           name: 'mite-builtins',
 
           setup(build) {
+            if (name === 'cjs-lexer') {
+              // Node 24's native lexer retains a name discovered by an assignment
+              // even if a later defineProperty installs an unsupported getter.
+              // Keep the pinned provider bytes intact; adapt only this exact filter.
+              build.onLoad(
+                { filter: /[\\/]node_modules[\\/]cjs-module-lexer[\\/]lexer\.js$/ },
+                (args) => {
+                  const contents = fs.readFileSync(args.path, 'utf8');
+                  const before = 'expt => expt !== undefined && !unsafeGetters.has(expt)';
+                  if (contents.split(before).length !== 2) {
+                    throw Error('CommonJS lexer getter seam changed');
+                  }
+                  return {
+                    contents: contents.replace(before, 'expt => expt !== undefined'),
+                    loader: 'js'
+                  };
+                }
+              );
+            }
             if (name === 'assert') {
               // Compose only these audited legacy-provider NaN seams in memory.
               // Package files stay unchanged; source/builder/output hashes and

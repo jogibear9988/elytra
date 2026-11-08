@@ -30,7 +30,7 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 93
+Mite is a working native LibJS runtime; the current macOS Release build has 96
 validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -9712,6 +9712,70 @@ CommonJS named exports for ZIP; utility/renderer transferred endpoints, auth,
 File/open-edit-save, extension/PTY hosts, webviews/remote and native platforms/releases.
 No native Windows/Linux exec or VS Code workbench acceptance is claimed. Mite remains
 independent and Ladybird unmodified; the full original goal stays active.
+
+## 2026-11-08 — Genuine CommonJS namespace analysis and Code-OSS ZIP acceptance
+
+- Resume from pushed 545a36e. Audit actual desktopCapturer consumers and native
+  providers: Code-OSS needs screen-source identity/permission and zero thumbnails;
+  even that Electron call can prompt. Native no-prompt preflight confirms existing
+  CoreGraphics IDs and ScreenCaptureKit availability only. Do not enumerate/capture
+  or fabricate sources. Additional actual missing imports/session handlers remain
+  real work; the main graph's desktopCapturer blocker is unchanged.
+- Implement the independent required CommonJS named-export slice that blocked the
+  genuine Code-OSS ZIP writer. Reuse pinned cjs-module-lexer2.1.1's pure JS parser
+  privately on LibJS; C++ owns metadata, resolution, cycles and snapshots. Preserve
+  package registry integrity, source hashes and MIT notices. No public parser
+  builtin, Wasm, Node/V8 runtime dependency or Ladybird modification is introduced.
+- Static analysis discovers names before application evaluation, follows actual
+  CommonJS reexports and skips unresolved/builtin/JSON/ESM targets. Publish direct
+  names before recursion; bound analysis depth512. Quote arbitrary generated names
+  as UTF-16 data, not identifiers. Link errors occur before CJS native side effects.
+- Snapshot recognized own values only when the genuine CommonJS module evaluates.
+  Getter errors become undefined; property-check traps propagate. Named slots retain
+  snapshots while default/module.exports markers share the actual whole export,
+  including function exports, cycles and marker collisions. Private original-export
+  storage preserves require.cache.exports replacement semantics and refreshes after
+  actual evaluation/reload. Root originals and captured values across arbitrary
+  getter code/GC; private lexer/parser/cache ownership is realm-local.
+- The first Node comparison catches a provider discrepancy: Node24 native discovery
+  retains prior recognized names even after unsupported getters; both upstream JS
+  provider2.1.1 and2.3.0 remove them. Apply one exact guarded build-time filter seam
+  without altering dependency files. Twenty-six actual Node/Mite namespace cases
+  validate getters, literal/computed classifications, quotes/newlines/injection text
+  and surrogate handling. No runtime enumeration broadens static detection.
+- Eight public workflows pass lexical false positives, snapshots, reexport chains/
+  cycles, cache replacement/reload and missing-export no-early-execution behavior.
+  Review finds failed reexport analysis retained incomplete metadata after invalid
+  package config. Add ScopeGuard rollback for every failure path and a real retry
+  workflow: repair config, import new query identity, receive the correct named value.
+- Actual embedded-host GC proves private original-only exports survive pre-import
+  collection, earlier ephemeral getter results survive later getter-triggered GC,
+  and the private parser/namespace cache remain alive. Update API/matrices/concepts/
+  troubleshooting and ADR0158 with supported behavior and remaining source-edit,
+  advanced hook/coercion/native-platform limits.
+- The unchanged compiled Code-OSS ZIP writer now passes under actual Node and Mite
+  with genuine yazl and34 verified compiled dependencies. Independent Python verifies
+  archive CRCs and exact binary/Unicode/NUL/empty/prefix contents; cancellation/open
+  errors and progress/finish/close paths pass (build/code-oss-cjs-zip.log). This is
+  real component acceptance, not extension installation or a workbench.
+
+Validation: all95 runtime gates pass the full regression (34.74 seconds), including
+namespace/classification and existing runtime/builtin/resolver/native services. The
+additional embedded GC gate passes. All13 final affected runtime/builtin/resolver/
+package/generation/line-ending gates pass (3.54 seconds); after explicit CMake GC
+registration, all3 CJS gates pass (1.01 seconds), with96 registered gates validated
+across the full regression and final affected reruns. Full maintained-source style
+plus final changed-source checks, generated runtime/Firefly reproduction, notices,
+upstream and whitespace checks pass. Production/offscreen builds pass; the shared
+lockfile change also regenerates Firefly's input manifest. The site accepts276 pages
+and19,541 local links. Final actual ready probe still reaches desktopCapturer with
+entry/app-ready observed and workbench unaccepted (build/code-oss-cjs-ready.log).
+
+Remaining: real desktopCapturer/permission/image/media binding, demanded main/window
+services and workbench; utility/renderer port handoff, auth, File/open-edit-save,
+extension/PTY hosts, webviews/remote, native platforms/packages/releases. Preserve
+original source-edit and advanced-loader limitations. Mite remains independent,
+Ladybird unchanged and the full original goal active; no usable VS Code is claimed.
 
 ## Resume
 

@@ -6,6 +6,7 @@
   "dependencies": {
     "assert": "2.1.0",
     "busboy": "1.6.0",
+    "cjs-module-lexer": "2.1.1",
     "event-target-shim": "6.0.2",
     "fetch-blob": "3.2.0",
     "readable-stream": "4.7.0",

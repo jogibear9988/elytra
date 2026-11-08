@@ -78,3 +78,9 @@ initialized before application modules. Stream's older private abort dependency
 retains its separate version. Authored bootstrap hashes use repository-relative
 names; dependency source hashes and complete notices remain bundle provenance.
 Package staging copies every verified portable bundle notice and its manifest.
+
+The private cjs-lexer bundle embeds cjs-module-lexer 2.1.1's synchronous pure-JS
+provider. It is not an application builtin and has no Wasm/Node runtime dependency.
+Its exact guarded unsafe-getter filter adaptation matches measured Node24 namespace
+behavior; the original installed file remains untouched. Generated source/license
+and package integrity records are checked like the other portable providers.

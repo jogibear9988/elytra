@@ -3,8 +3,8 @@
 Status: **partial, locally tested on macOS**. All seven focused Node/Mite
 native-file differential groups and the owned policy checks pass. The deliberate
 pre-aborted file-side-effect difference remains documented below. The actual
-compiled Code-OSS ZIP writer remains unaccepted: dynamic import of genuine yazl
-currently lacks its ZipFile named export in Mite's CommonJS/ESM namespace.
+compiled Code-OSS ZIP writer now passes with genuine yazl, source-analyzed
+CommonJS named exports and independent archive CRC/extracted-byte verification.
 util.inherits itself passes local differential acceptance. Fresh native Linux/Windows
 writer execution is unverified.
 
@@ -88,9 +88,8 @@ node tooling/code_oss/probe-write-stream.mjs build/code-oss-nls-final build/rele
 ```
 
 The second probe uses the unchanged compiled Code-OSS ZIP consumer and genuine
-packages, with independent archive CRC/extracted-byte verification. It is not yet
-passing under Mite because the genuine CommonJS package lacks its named ZipFile
-export in Mite's ESM namespace; no extension installation or Code-OSS startup advancement is
-claimed here. See [read streams](file-read-stream.md), [Writable](stream.md),
+packages, with 34 verified compiled dependencies and independent archive
+CRC/extracted-byte verification. It passes under actual Node and Mite. No extension
+installation or Code-OSS workbench startup acceptance is claimed here. See [read streams](file-read-stream.md), [Writable](stream.md),
 [filesystem APIs](../compatibility/mite-0.1.md) and the
 [Node 24.15 contract](https://nodejs.org/download/release/v24.15.0/docs/api/fs.html#fscreatewritestreampath-options).
