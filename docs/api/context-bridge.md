@@ -65,7 +65,7 @@ sources. No source is fetched by the document or installed as a document script.
 
 ## Sandboxed preload environment
 
-Only `require('firefly')`, exporting contextBridge and the bounded ipcRenderer subset, is implemented. Other modules,
+Only `require('firefly')`, exporting contextBridge, the bounded ipcRenderer subset and [webFrame zoom](web-frame.md), is implemented. Other modules,
 including node:fs, relative modules and electron, throw ERR_FIREFLY_UNSUPPORTED_API.
 A restricted [sandbox process](sandbox-process.md) supplies real renderer metadata,
 per-window additionalArguments and document-local environment copies. There is no

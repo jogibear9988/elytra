@@ -402,3 +402,9 @@ and unsupported-method export blocking. Re-run the native isolation gate and the
 focused production-helper process gate on relevant upstream changes. Do not add
 application arguments to the upstream helper command line or install process in the
 principal page/diagnostic realm. The manifest supplies both reported engine hashes.
+
+[Preload browser zoom](../architecture/0145-native-preload-web-frame-zoom.md) uses the
+existing page-client browser zoom callback and parent view acknowledgement. Preserve
+that path's native viewport/input/compositor scaling and revalidate factor/level
+conversion, document liveness after nested event-loop work and raw capability
+publication refusal. Run the native isolation and focused preload zoom gates.

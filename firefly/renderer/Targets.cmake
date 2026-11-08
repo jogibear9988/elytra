@@ -10,8 +10,10 @@ set_property(
     PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/vendor/ladybird.json")
 file(READ "${FIREFLY_SOURCE_DIR}/vendor/ladybird.json" firefly_process_manifest)
 string(JSON firefly_process_revision GET "${firefly_process_manifest}" revision)
-add_library(firefly-renderer-process STATIC
-            "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/preload/Process.cpp")
+add_library(
+    firefly-renderer-process STATIC
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/preload/Process.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/preload/WebFrame.cpp")
 target_include_directories(firefly-renderer-process
                            PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
 target_link_libraries(firefly-renderer-process PUBLIC firefly-preload-config LibWeb LibCore)
@@ -103,6 +105,7 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/ContextBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PublicationGetterTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PreloadProcessTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/WebFrameTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/CallbackBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/RedactionBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryBridgeTest.cpp"
@@ -115,8 +118,11 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PrincipalCallbackTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp")
-target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world firefly-preload-config
-                                                      LibMain)
+target_include_directories(firefly-isolation-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper")
+target_link_libraries(
+    firefly-isolation-probe PRIVATE firefly-renderer-process firefly-isolated-world
+                                    firefly-preload-config LibMain)
 ladybird_check_skia_confinement(firefly-isolation-probe)
 add_executable(
     firefly-wire-process-probe

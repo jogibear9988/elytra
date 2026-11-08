@@ -1,0 +1,11 @@
+<!doctype html><title>initial</title>
+<body>
+  <script>
+    const width = innerWidth,
+      dpr = devicePixelRatio;
+    document.title = 'viewport:' + width + ':' + dpr;
+    addEventListener('resize', () => {
+      if (innerWidth !== width || devicePixelRatio !== dpr) document.title = 'CHANGED';
+    });
+  </script>
+</body>

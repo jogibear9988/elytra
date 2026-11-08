@@ -1,0 +1,62 @@
+<!doctype html><meta charset="utf-8" /><title>Real zoom</title>
+<body style="margin: 0">
+  <script>
+    (async () => {
+      const api = zoomFixture;
+      const metrics = () => ({ width: innerWidth, dpr: devicePixelRatio });
+      const close = (a, b, tolerance = 0.00001) => Math.abs(a - b) < tolerance;
+      const assert = (value, message) => {
+        if (!value) throw Error(message);
+      };
+      try {
+        await api.ready();
+        const initial = metrics();
+        assert(close(api.initial, 2) && close(api.factor(), 1.44), 'early preload zoom');
+        assert(api.setFactor(1) === undefined, 'setter result');
+        const baseline = metrics();
+        assert(
+          close(initial.dpr / baseline.dpr, 1.44) && close(initial.width, baseline.width / 1.44, 3),
+          'initial layout ' + JSON.stringify({ initial, baseline })
+        );
+        for (const factor of [2, 0.75, 1.2, 1, ...(api.strict ? [0.3, 5, 1] : [])]) {
+          api.setFactor(factor);
+          const actual = metrics();
+          assert(
+            close(api.factor(), factor) && close(actual.dpr / baseline.dpr, factor),
+            'actual zoom factor ' + factor
+          );
+          assert(
+            close(actual.width, baseline.width / factor, 3),
+            'viewport zoom ' + JSON.stringify({ actual, baseline, factor })
+          );
+        }
+        api.setLevel(-1);
+        assert(close(api.level(), -1) && close(api.factor(), 1 / 1.2), 'negative level');
+        api.setLevel(0);
+        let errors = 0;
+        for (const value of api.strict ? [NaN, Infinity, 0, -1, 0.01, 10, '1', {}] : []) {
+          try {
+            api.setFactor(value);
+          } catch {
+            errors++;
+          }
+        }
+        assert(!api.strict || errors === 8, 'invalid zoom values');
+        assert(
+          typeof process === 'undefined' &&
+            typeof require === 'undefined' &&
+            typeof webFrame === 'undefined',
+          'page isolation'
+        );
+        await api.report({
+          ok: true,
+          denied: api.denied,
+          redacted: typeof zoomModule !== 'undefined' && Object.keys(zoomModule).length === 0,
+          factor: api.factor()
+        });
+      } catch (error) {
+        await api.report({ error: String(error) });
+      }
+    })();
+  </script>
+</body>

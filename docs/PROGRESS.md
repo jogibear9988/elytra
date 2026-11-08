@@ -8846,6 +8846,60 @@ actual worker/cache/resource contracts and a real workbench open/edit/save gate.
 Fresh Linux/native Windows execution of this slice remains unverified. Ladybird
 stays unmodified. The full goal stays active; this prerequisite is not VS Code launch.
 
+## 2026-11-08 — Native webFrame browser zoom for the Code-OSS preload
+
+- Resume from pushed 40c4d67, which completed native restricted process metadata and
+  additionalArguments. The preceding goal turn made tested/pushed implementation
+  progress; keep the full goal and real Code-OSS startup priority active.
+- Inspect the pinned main privilege registration and preload again. A first local
+  workbench adaptation cannot merely delete allowServiceWorkers/codeCache/remote
+  privileges: it needs explicit unavailable-feature paths. That mode remains planned.
+  Continue the independently demanded webFrame.setZoomLevel contract instead of
+  claiming an inert protocol flag or worker implementation.
+- Add a document-bound C++ webFrame preload capability with factor/level getters and
+  setters. Read native state and convert with powers/logarithms of 1.2. Route changes
+  through the existing upstream page-client/parent-view browser zoom handshake,
+  preserving viewport/input/compositor agreement without downstream Ladybird changes.
+- Require the live executing source realm and fully active original document. Capture
+  weak references; retain owner/document during calls and revalidate after the native
+  handshake's nested event loop. No parallel JS zoom preference or author CSS transform.
+  The upstream handshake's unresponsive-parent timeout remains unverified.
+- Reject nonnumeric primitives/objects without coercion and nonfinite/out-of-range
+  values explicitly. Use the native 0.3..5 factor range with documented partial
+  compatibility, and view/window scope rather than Chromium same-origin propagation.
+  Freeze the capability module, block raw native method publication and redact the
+  whole marked module; expose application-authored narrow wrappers instead.
+- Add non-GUI actual-engine validation for NaN/infinity/object/undefined/type inputs,
+  coercion-hook refusal, getters, freezing and native export denial. Add one focused
+  hidden production-helper fixture for early preload level 2, asynchronous config-IPC
+  source job setting, synchronous factor/level return values, actual viewport and DPR
+  changes, exact native factor boundaries, invalid values, isolation, redaction,
+  reload and a second same-origin window with sticky resize/zoom-change detection.
+- Initial hidden tests that waited on animation frames/timers did not report before
+  their deadline; synchronous metrics after the real parent acknowledgement now
+  prove the API's intended semantics without requiring visible render frames. The
+  actual Electron reference uses only supported numeric/layout/reload assertions;
+  native factor limits, validation and module/window policies remain Firefly-specific.
+- Wire the focused gate into the macOS aggregate/Linux Xvfb workflow. Update detailed
+  webFrame/preload API, compatibility/status/VS Code/roadmap/upstream notes and ADR 0145.
+
+Validation: native macOS Release build and complete real-engine isolation suite pass,
+including the new webFrame direct native cases. Production-helper early/config-IPC/
+viewport/DPR/factor/level/limits/isolation/reload/multiwindow gate passes. Actual
+Electron 45.2.3 numeric/layout/reload reference passes. Existing full public preload
+and Electron-reference regression passes source validation/exact 64 KiB boundary,
+restricted loader, first script/nested API/Promises, three windows, child-frame
+absence, reload and file-to-HTTP helper replacement. Final style/generated-adapter/
+unmodified-upstream/site-link/whitespace checks accompany this commit. Tests used
+focused hidden batches; no physical UI automation or broad desktop suite.
+
+Remaining: webUtils/file mapping, process events/metrics, MessagePorts, actual
+worker/cache/remote-resource contracts and the first real workbench open/edit/save
+milestone. The last real-entry probe at 40c4d67 still stops at allowServiceWorkers;
+this independent preload API does not change that registration or claim a new
+workbench launch. Fresh Linux/native Windows execution remains unverified. Ladybird
+is unmodified, Mite remains independent, and the full product goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

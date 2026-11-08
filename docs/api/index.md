@@ -112,3 +112,6 @@ messages and stack formatting are not generally identical to Node or Electron.
 
 The [sandbox preload process reference](sandbox-process.md) describes renderer identity,
 window argument/environment snapshots, limits and unsupported process capabilities.
+
+The [webFrame reference](web-frame.md) covers native isolated-preload browser zoom,
+factor/level conversion, rendering evidence and unsupported frame services.

@@ -9,6 +9,7 @@
 #include "ipc/IpcEndpoint.h"
 #include "loading/FileModules.h"
 #include "preload/Process.h"
+#include "preload/WebFrame.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/HashMap.h>
 #include <AK/JsonObject.h>
@@ -89,8 +90,8 @@ namespace {
         }
     }
 
-    void run_preload(
-        IsolatedWorld& world, ContextBridge& bridge, IpcEndpoint& ipc, Preload const& preload)
+    void run_preload(IsolatedWorld& world, ContextBridge& bridge, IpcEndpoint& ipc,
+        Web::DOM::Document& document, Preload const& preload)
     {
         auto& realm = *world.realm();
         auto& vm = realm.vm();
@@ -99,6 +100,7 @@ namespace {
         GC::Root imports { JS::Object::create(realm, nullptr) };
         imports->define_direct_property("contextBridge"_utf16, bridge.exports(), {});
         imports->define_direct_property("ipcRenderer"_utf16, ipc.exports(), {});
+        imports->define_direct_property("webFrame"_utf16, create_web_frame(world, document), {});
         VERIFY(MUST(imports->set_integrity_level(JS::Object::IntegrityLevel::Frozen)));
         GC::Root require { JS::NativeFunction::create(
             realm,
@@ -199,7 +201,7 @@ namespace {
             fail("Cannot create context bridge"sv);
         auto ipc = IpcEndpoint::create(*world, *document, *id);
         session->worlds.set(*id, World { world, bridge.value(), GC::Root { *document }, ipc });
-        run_preload(*world, *bridge.value(), *ipc, preload);
+        run_preload(*world, *bridge.value(), *ipc, *document, preload);
     }
 }
 

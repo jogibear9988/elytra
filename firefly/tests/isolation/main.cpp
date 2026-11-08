@@ -14,6 +14,7 @@
 #include "PromiseBridgeTest.h"
 #include "PublicationGetterTest.h"
 #include "RedactionBridgeTest.h"
+#include "WebFrameTest.h"
 #include "WorldJobGuardTest.h"
 #include "worlds/IsolatedWorld.h"
 #include <LibCore/EventLoop.h>
@@ -150,6 +151,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_function_bridge(vm, *document));
     TRY(check_context_bridge(vm, *document));
     TRY(check_publication_getters(vm, *document));
+    TRY(check_web_frame(vm, *document));
     TRY(check_callback_bridge(vm, *document));
     TRY(check_redaction_bridge(vm, *document));
     TRY(check_binary_bridge(vm, *document));

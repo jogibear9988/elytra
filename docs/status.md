@@ -13,6 +13,10 @@ native/helper and Electron-reference validation is recorded in
 the demanded allowServiceWorkers/worker/cache/resource contracts; no workbench
 open/edit/save acceptance is claimed.
 
+The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
+production-helper viewport/DPR/reload and Electron-reference checks. It implements
+real view zoom rather than CSS scaling; complete frame/file APIs remain missing.
+
 Local macOS Release now passes **77** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. That process slice also passes native
