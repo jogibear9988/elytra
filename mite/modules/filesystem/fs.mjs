@@ -2,6 +2,7 @@ import namedPromisify from '../core/promisify-results.mjs';
 import createReadStream from './read-stream.mjs';
 import createWriteStreams from './write-stream.mjs';
 import createStatWatchers from './stat-watcher.mjs';
+import createEventWatchers from './event-watcher.mjs';
 
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
@@ -290,6 +291,14 @@ export default function createFileSystemModule(host) {
         const buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
         return encoding ? buffer.toString(encoding) : buffer;
       };
+    } else if (op === 'realpath') {
+      const opts = options(argument);
+      const encoding = codec(opts.encoding === undefined ? 'utf8' : opts.encoding, true);
+
+      convert = (raw) => {
+        const buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        return encoding === 'buffer' ? buffer : buffer.toString(encoding || 'utf8');
+      };
     } else if (op === 'writeFile') {
       const opts = options(argument);
       const encoding = codec(opts.encoding) || 'utf8';
@@ -381,6 +390,7 @@ export default function createFileSystemModule(host) {
       }
       if (
         op === 'readFile' ||
+        op === 'realpath' ||
         op === 'stat' ||
         op === 'lstat' ||
         op === 'readdir' ||
@@ -397,8 +407,10 @@ export default function createFileSystemModule(host) {
 
   const fs = { constants, Stats, Dirent };
   Object.assign(fs, createStatWatchers(host, { path, nativePath, stats }));
+  Object.assign(fs, createEventWatchers(host, { path, nativePath }));
   for (const op of [
     'readFile',
+    'realpath',
     'writeFile',
     'access',
     'stat',
@@ -435,6 +447,14 @@ export default function createFileSystemModule(host) {
       };
     }
   }
+
+  // Both public forms use the platform canonicalizer; no JS symlink-walking fallback.
+  const realpathCallback = fs.realpath;
+  const realpathSync = fs.realpathSync;
+
+  fs.realpath.native = (...args) => realpathCallback(...args);
+
+  fs.realpathSync.native = (...args) => realpathSync(...args);
 
   fs.openSync = (path, flag, fileMode) => sync('open', path, { flags: flag, mode: fileMode });
 
@@ -848,6 +868,7 @@ export default function createFileSystemModule(host) {
   const promises = { constants };
   for (const op of [
     'readFile',
+    'realpath',
     'writeFile',
     'appendFile',
     'access',

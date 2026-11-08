@@ -10279,6 +10279,75 @@ PTY, further media/session/images and real permission/notification/SCK/physical
 acceptance, webviews/remote, native platforms/packages/releases. Fresh native
 Linux/Windows polling acceptance remains unverified. Full original goal stays active.
 
+## 2026-11-08 — Native filesystem events, canonical paths and Code-OSS watcher consumer
+
+- Resume pushed abf9e93 and the actual fs.watch static import blocker. Add genuine
+  C++ uv_fs_event ownership and maintained ESM FSWatcher policy, with individually
+  owned handles rather than StatWatcher path sharing. Reuse private watcher path/
+  genuineUV error helpers; previous stat polling keeps its behavior. Mite remains
+  independent of Node/V8/Firefly/LibWeb and Ladybird stays unmodified.
+- Preserve copied native filename bytes or null, supported Buffer encodings and
+  rename precedence when the OS supplies both masks. Native path/name limits and
+  separate 256 active/closing event handles bound ownership. Stop detaches roots
+  before native stop/close; retained storage survives real close. Runtime shutdown
+  drains native handles before VM retirement; ref/unref controls loop liveness.
+- Implement native macOS/Windows recursive flags, with actual macOS nested-relative-
+  filename acceptance. Linux recursion remains explicitly unsupported rather than
+  pretending uv_fs_event supplies Node's separate directory-tree implementation.
+  Private AbortSignal hooks resist public-listener mutation. Close emits once on
+  nextTick; native asynchronous error closes/emits error without ordinary close.
+  Unsupported non-null ignore filters fail explicitly; promise watching remains open.
+- Exact Code-OSS consumers also demand realpath. Implement native uv_fs_realpath in
+  the existing filesystem worker service, copying result bytes before request
+  cleanup. Add sync/callback/promises and stable .native entry points, using existing
+  path/Buffer/URL, encoding and callback-root ownership. Both ordinary/native forms
+  use the OS canonicalizer; Node's JS symlink-walking fallback/error details differ.
+- Actual Node/Mite event fixtures pass directory/file changes, fresh filename Buffers,
+  create/rename, recursive names, validation, pre/post-aborted signals, close/ref/
+  unref and externally driven process retention. Controlled production-factory
+  checks separately verify masks/null, reentry, native errors, stale callbacks and
+  admission rollback. Real native capacity/drain/shutdown and embedded collector
+  tests prove active roots, close/GC during callback and final reclamation.
+- Independent actual Node/Mite observations showed macOS appends can report rename
+  for directory AND direct-file watchers. Tests retain genuine target-file/event
+  assertions without inventing exact counts/classifications. Newly registered OS
+  streams get an owner-loop startup interval before mutations, including Node.
+- Canonical-path differential passes real symlinks, broken targets/loops, bytes/URLs,
+  encodings, asynchronous callbacks/errors and native entry points surviving public
+  wrapper replacement. Symlink-only tests explicitly report unavailable Windows
+  privilege; non-UTF8 filesystem names are explicitly skipped on this macOS volume
+  because the OS rejects creating them, not falsely reported as byte-name acceptance.
+- Vendor exact pinned nodejsWatcherLib.ts with license/hash. The unchanged actual
+  compiled consumer passes canonical path plus native create/update/delete,
+  correlation/coalescing and disposal under Node/Mite; verify 39 compiled dependencies.
+  This is the native event-consumer component, not the complete watcher service.
+- Inspect actual hosted runs for abf9e93 through the GitHub connector. Source/style,
+  Pages and pinned dependencies pass, but native Linux and macOS Release fail fresh
+  links: CommonJSExports.cpp references undefined JS::Value::to_object. Include
+  ValueInlines.h directly at the call site; recompilation/link succeeds and object
+  symbol inspection confirms that missing external is gone. This is our adapter
+  include fix, with no upstream change. Fresh hosted results remain pending.
+- Add API contracts/ADR0167 and update current compatibility/startup priorities. Real
+  local-desktop/NLS diagnostic reaches entry/app.ready, passes watch and realpath,
+  then fails linking Electron net. Its consumers need isOnline, fetch and request;
+  Mite HTTP/fetch alone does not establish Electron session/proxy/auth compatibility.
+
+Validation: all 110 runtime suites pass (37.61 seconds). Actual Code-OSS watcher
+consumer passes Node/Mite, alongside native GC/capacity and canonical-path gates.
+Production and exact-object offscreen Firefly rebuild; actual ready diagnostic
+identifies Electron net as next blocker. Runtime/Firefly generated adapters and
+unmodified upstream pin verify; maintained formatting and whitespace checks pass.
+After the inline include fix, all 11 focused CommonJS/filesystem/GC/checkout gates
+pass (4.79 seconds). API/site generation accepts 295 pages. No visible desktop/physical network test ran.
+Fresh native Linux/Windows event/realpath acceptance remains unverified; the previous
+hosted macOS Release/Linux runs failed before tests at the now-fixed inline link seam.
+
+Remaining: demanded Electron net behavior and actual main continuation, complete
+watcher service/workbench/workspace open/edit/save, native utility/renderer port/
+auth handoff, extension/PTY, wider session/media/image/permission acceptance,
+webviews/remote and native platform/package/release deliverables. Linux recursive
+watching, ignore filters and fs.promises.watch remain open. Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

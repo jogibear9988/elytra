@@ -4,8 +4,8 @@ Status: **partial, locally tested on macOS**. Mite polls real filesystem metadat
 through libuv. Node/Mite differential tests cover shared registrations, changes,
 delete/recreate history, initially missing paths, Stats/BigIntStats, validation,
 listener removal, reference ownership and natural exit. Fresh native Linux and
-Windows acceptance remains unverified. This does not implement fs.watch or
-fs.promises.watch, recursive directory watching or Code-OSS's complete watcher service.
+Windows acceptance remains unverified. Event-driven [fs.watch](event-watcher.md) is documented separately. This polling API
+does not implement fs.promises.watch, recursive watching or Code-OSS's complete watcher service.
 
 ```js
 import { watchFile, unwatchFile } from 'node:fs';

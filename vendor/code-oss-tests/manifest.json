@@ -226,6 +226,10 @@
     "baseWatcher.ts": {
       "upstream": "src/vs/platform/files/node/watcher/baseWatcher.ts",
       "sha256": "51b0a8992856b872bc29111d59377fe94277fb476456578fb812adf2192b2d45"
+    },
+    "nodejsWatcherLib.ts": {
+      "upstream": "src/vs/platform/files/node/watcher/nodejs/nodejsWatcherLib.ts",
+      "sha256": "57f0f9b08bf9588c1f00741d7a51e9327159df74077bd82fcdf8df5b6b29d464"
     }
   }
 }

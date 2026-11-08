@@ -202,6 +202,19 @@ if(BUILD_TESTING)
         NAME mite-stat-watcher-gc
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_stat_watcher_gc.py"
                 --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(NAME mite-realpath
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_realpath.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-event-watcher
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_event_watcher.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-event-watcher-lifetime
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_event_watcher_lifetime.py" --mite
+            "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
         NAME mite-cjs-namespace-gc
         COMMAND

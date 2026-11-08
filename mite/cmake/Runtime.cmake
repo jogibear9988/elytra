@@ -98,6 +98,7 @@ function(mite_add_runtime target root js_target)
         # platform/filesystem
         platform/filesystem/FileSystem
         platform/filesystem/StatWatcher
+        platform/filesystem/EventWatcher
         # platform/network
         platform/network/Network
         platform/network/DNS

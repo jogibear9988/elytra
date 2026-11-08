@@ -7,6 +7,7 @@
 #include "platform/filesystem/FileSystem.h"
 #include "core/EventLoop.h"
 #include "modules/ModulePaths.h"
+#include "platform/filesystem/EventWatcher.h"
 #include "platform/filesystem/StatSnapshot.h"
 #include "platform/filesystem/StatWatcher.h"
 #include <LibGC/CellAllocator.h>
@@ -275,7 +276,15 @@ namespace {
         int result = UV_ENOSYS;
         if (op == "access")
             result = uv_fs_access(nullptr, &call.value, path, request.mode, nullptr);
-        else if (op == "stat" || op == "lstat") {
+        else if (op == "realpath") {
+            result = uv_fs_realpath(nullptr, &call.value, path, nullptr);
+            // Copy canonical path bytes before uv_fs_req_cleanup releases ptr.
+            if (!result) {
+                auto* resolved = static_cast<unsigned char const*>(call.value.ptr);
+                request.data.assign(
+                    resolved, resolved + strlen(reinterpret_cast<char const*>(resolved)));
+            }
+        } else if (op == "stat" || op == "lstat") {
             result = op == "stat" ? uv_fs_stat(nullptr, &call.value, path, nullptr)
                                   : uv_fs_lstat(nullptr, &call.value, path, nullptr);
             if (!result)
@@ -402,7 +411,7 @@ namespace {
             return JS::Value(request.number);
         if (request.operation == "read")
             return byte_array(realm, request.data.data(), request.data.size());
-        if (request.operation == "readFile")
+        if (request.operation == "readFile" || request.operation == "realpath")
             return byte_array(realm, request.data.data(), request.data.size());
         if (request.operation == "mkdir" && !request.created.empty())
             return JS::Value(text(vm, request.created));
@@ -562,6 +571,7 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
         },
         2, JS::default_attributes);
     install_stat_watcher_host(realm, *host, loop);
+    install_event_watcher_host(realm, *host, loop);
     return host;
 }
 }

@@ -69,10 +69,11 @@ static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", 
     "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
     "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
     "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync",
-    "readdir", "readdirSync", "WriteStream", "createWriteStream", "watchFile", "unwatchFile" };
+    "readdir", "readdirSync", "WriteStream", "createWriteStream", "watchFile", "unwatchFile",
+    "watch", "realpath", "realpathSync" };
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
-          "mkdir", "rmdir", "unlink", "rename", "readdir" };
+          "mkdir", "rmdir", "unlink", "rename", "readdir", "realpath" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL",
           "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
@@ -478,6 +479,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "fs") {
+        host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
         host->define_direct_property(
             "stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
         host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
