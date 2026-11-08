@@ -108,9 +108,12 @@ performance claim.
 ## Missing native handoffs
 
 Only main-realm pairs/transfers are accepted. webContents.postMessage currently
-rejects explicitly. ipcRenderer.postMessage, DOM MessagePort handoff, utilityProcess,
-utility process.parentPort, native endpoint/process/document binding and
-cross-process event.ports delivery remain required work. No serializable public
+rejects explicitly. ipcRenderer.postMessage, DOM MessagePort handoff, native
+endpoint/process/document binding and cross-process event.ports delivery remain
+required work. A separate [utilityProcess payload slice](utility-process.md) now
+implements a real LibJS fork and process.parentPort; six native boundary tests pass,
+with local public Firefly/Electron lifecycle and binary payload acceptance passing. It explicitly refuses nonempty transfers
+and authentication forwarding, and does not provide a native port endpoint. No serializable public
 port IDs are offered as a substitute. Closed/destination/disconnected endpoint
 transfers are explicitly unavailable even where Electron accepts them.
 
@@ -119,7 +122,8 @@ without opening windows. A genuine headless Mite/native BridgeData probe covers 
 queued cycles, quota reclamation, snapshots and reentrant ownership cases. The actual
 pinned Code-OSS Protocol/once helper passes binary frames, echo, disconnect and main
 transfer using real compiled base services. That does not run its utility/shared
-process or renderer. The real ready graph now fails at missing utilityProcess;
+process or renderer. The real ready graph now passes the utilityProcess import
+and fails at missing safeStorage. This is not acceptance of Code-OSS utility execution;
 [current Code-OSS status](../compatibility/vscode.md) tracks subsequent blockers.
 See [ADR 0154](../architecture/0154-main-message-port-ownership.md).
 

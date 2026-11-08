@@ -199,6 +199,10 @@ if(BUILD_TESTING)
         NAME mite-process-timing
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_timing.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
+        NAME mite-process-stdio
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_stdio.py"
+                --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-perf-hooks
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_perf_hooks.py"
                      --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")

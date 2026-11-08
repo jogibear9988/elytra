@@ -14,6 +14,8 @@
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
 #include "../theme/ThemeHost.h"
+#include "../utility/Bootstrap.h"
+#include "../utility/Host.h"
 #include "ApiSource.h"
 #include "Bridge.h"
 #include "core/EventLoop.h"
@@ -101,6 +103,8 @@ public:
             bridge = std::make_unique<Bridge>(
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
+            native->define_direct_property(
+                "utility"_utf16, Utility::create_host(vm, realm, jobs), JS::default_attributes);
             AppPaths::install_host(realm, *native, m_paths);
             Locale::install_host(
                 realm, *native, [&] { return locale_ready; },
@@ -126,14 +130,15 @@ public:
             GC::Root paths { TRY(modules.builtin_exports("path")) };
             GC::Root urls { TRY(modules.builtin_exports("url")) };
             GC::Root files { TRY(modules.builtin_exports("fs")) };
+            GC::Root streams { TRY(modules.builtin_exports("stream")) };
             auto api = TRY(JS::call(vm, factory, JS::js_undefined(), JS::Value(native.ptr()),
                 TRY(events->get("EventEmitter"_utf16)), JS::Value(paths.ptr()),
-                JS::Value(urls.ptr()), JS::Value(files.ptr())));
+                JS::Value(urls.ptr()), JS::Value(files.ptr()), JS::Value(streams.ptr())));
             if (!api.is_object())
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
-                "Menu", "MenuItem", "contentTracing", "MessageChannelMain" };
+                "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)
@@ -246,6 +251,8 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     if (!Mite::ignore_broken_pipe_signal())
         return Error::from_string_literal("Cannot configure Firefly broken-pipe signal policy");
+    if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--firefly-utility")
+        return Firefly::Utility::run(arguments.argc, arguments.argv);
     auto options = Firefly::startup_options(arguments.argc, arguments.argv);
     if (options.help || !options.error.empty()) {
         outln("Usage: firefly [--electron-compat] <main.js> [arguments...]");

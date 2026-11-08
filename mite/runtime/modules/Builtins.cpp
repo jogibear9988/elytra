@@ -56,9 +56,9 @@ static constexpr std::string_view readline_exports[] = { "Interface", "createInt
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
-static constexpr std::string_view process_exports[]
-    = { "nextTick", "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath", "argv",
-          "argv0", "version", "versions", "release", "exit", "hrtime", "uptime", "cpuUsage" };
+static constexpr std::string_view process_exports[] = { "nextTick", "cwd", "chdir", "env", "pid",
+    "ppid", "platform", "arch", "execPath", "argv", "argv0", "version", "versions", "release",
+    "exit", "hrtime", "uptime", "cpuUsage", "stdout", "stderr" };
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
@@ -596,6 +596,23 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(bool allow_process_sig
     auto events_factory = TRY(m_vm.run(*events_script));
     GC::Root events_factory_root { events_factory.as_object() };
     TRY(JS::call(m_vm, events_factory, JS::js_undefined(), signal_host.ptr(), m_process.ptr()));
+    // process is cached before stream/fs are resolved: no recursive process construction.
+    GC::Root stdio_host { JS::Object::create(m_realm, nullptr) };
+    auto stdio_streams = TRY(builtin("stream"));
+    stdio_host->define_direct_property(
+        "Writable"_utf16, TRY(stdio_streams->get("Writable"_utf16)), JS::default_attributes);
+    stdio_host->define_direct_property("fs"_utf16, TRY(builtin("fs")), JS::default_attributes);
+    auto stdio_source = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_PROCESS_STDIO_SOURCE, sizeof(MITE_PROCESS_STDIO_SOURCE) - 1)),
+        m_realm, "mite:process-stdio"sv);
+    if (stdio_source.is_error())
+        return m_vm.throw_completion<JS::SyntaxError>(
+            stdio_source.error().first().to_utf16_string());
+    GC::Root stdio_script { stdio_source.release_value() };
+    auto stdio_factory = TRY(m_vm.run(*stdio_script));
+    GC::Root stdio_factory_root { stdio_factory.as_object() };
+    TRY(JS::call(m_vm, stdio_factory, JS::js_undefined(), stdio_host.ptr(), m_process.ptr()));
     auto parsed_fetch = JS::Script::parse(
         Utf16String::from_utf8(StringView(MITE_FETCH_SOURCE, sizeof(MITE_FETCH_SOURCE) - 1)),
         m_realm, "mite:fetch"sv);

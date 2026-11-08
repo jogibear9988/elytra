@@ -9390,6 +9390,72 @@ window/preload/File/open-edit-save, extension/PTY hosts, webviews/remote and nat
 Windows/Linux acceptance. Ladybird stays unmodified, Mite independent and the full
 original goal stays active.
 
+## 2026-11-08 — Real LibJS utility children, native payloads and process stdio
+
+- Resume from pushed c0c3734 and the observed utilityProcess import failure. Split
+  the native process/framing review, actual Electron/public tests and real Code-OSS
+  consumer audit across the explicitly authorized agents; integrate one genuine
+  child-to-parent vertical slice rather than an import-only constructor.
+- Fork the actual executable through libuv, deriving its path natively. A private
+  inherited duplex pipe binds the exact spawned child; no listening socket/public
+  port IDs, Node/V8 fallback or renderer process stands in for a utility. Enter its
+  Mite/LibJS runtime before Qt/desktop initialization. Preserve logical argv, actual
+  PID/parent PID, environment replacement and native working directory selection.
+- Add maintained ESM utilityProcess and child process.parentPort facades. Use actual
+  native BridgeData snapshots with binary aliases/cycles, pre-spawn/pre-listener
+  queuing, child {data,ports:[]} events and raw parent messages. Separate actual
+  stdout/stderr pipes from the framing channel; keep PID/exit/EOF ownership distinct.
+  Track kill state and terminate/reap live owned children on accepted app shutdown.
+- Bound native child count, frame size, pending write count/bytes, child message
+  queues and unconsumed output. Overflow destroys the output wrapper before a
+  termination request, so ignoring SIGTERM cannot grow that retained stream queue.
+  This is bounded output admission, not a true native pause/resume backpressure API.
+- Six real early-helper malformed/missing-channel tests expose an absent-fd hazard:
+  Mite/libuv can reuse fd 3 for its own wakeup pipe before initialization. Validate
+  the inherited pipe before runtime creation; the formerly hanging no-fd negative
+  control now rejects before entry. Idempotent spawn announcement also prevents a
+  rapid exit overtaking the startup timer and later resurrecting a retired PID.
+- Public differential tests expose missing Mite stdout/stderr: genuine messages
+  already arrive, but the child throws before its echo while writing output. Add
+  independent Writable adapters using existing asynchronous native fs.write on
+  borrowed fd 1/2. Handle partial writes and zero progress; never close the borrowed
+  descriptors when wrappers end/destroy. Add named stdout/stderr exports; exclude
+  explicitly unsupported stdin from fixed named exports so process imports work.
+- Actual Node/Mite stdio tests pass raw 64 KiB binary/UTF-8 output, callbacks/EOF,
+  named import identity, actual three-byte short writes, descriptor survival after
+  wrapper retirement and zero-progress EIO. Review native completion GC roots and
+  deferred callback ownership; no new Firefly/LibWeb dependency is added to Mite.
+- Actual Firefly/Electron 45.2.3 public tests pass genuine runtime identity (Mite
+  without Node/Electron spoofing), queued binary graphs, args/env/cwd/stdio, final
+  messages/natural exit 7, kill/noops and eight rapid failed module entries. Separate
+  parent teardown observes a live owned child before app.exit and proves it absent,
+  including native reaping rather than merely zombie state, before test cleanup.
+- Refuse native MessagePort transfers, engine flags, unsigned library loading,
+  authentication forwarding, service naming/metrics and unknown options explicitly.
+  Pinning a named export does not accept Code-OSS utility startup: its actual shared
+  process requires these native transfers and authentication behavior. Document the
+  utility contract, ADR 0155, Mite stdio and refreshed support/priority matrix.
+
+Validation: local standalone Mite and Firefly Release builds pass. The actual public
+Firefly/Electron utility suite and live-child reaping fixture pass; all six genuine
+headless native frame boundaries pass. New Node/Mite stdio fixtures pass. Actual
+ready/main Code-OSS import observes ready and now stops at missing safeStorage,
+not utilityProcess (build/code-oss-utility-final-ready.log). This does not establish a Code-OSS fork, service handshake or
+workbench. The final full 87-test runtime suite passes (91.19 seconds), including the new
+stdio gate. The final CMake utility/public-main-port/native-GC gates pass, and the
+actual Code-OSS Protocol still passes on the final Firefly binary. Both generated
+adapters reproduce exactly; upstream, source integrity, full maintained-source style,
+270-page/19,098-local-link site and whitespace checks pass. No desktop input
+or window automation is used; no fresh native Linux/Windows acceptance is claimed.
+
+Remaining: continue real startup at safeStorage; connect the existing port ownership
+core to native utility and renderer endpoints with identity, atomic transfer and
+revocation. Run actual bootstrap-fork/shared-process services with demanded auth,
+then workbench/window/preload/File/open-edit-save, extension/PTY hosts, webviews/remote
+and full native platforms/packaging. stdin/TTY/full stdio, full utility lifecycle/crash
+reporting and true large-file transport remain unfinished. Ladybird stays unmodified,
+Mite independent and the full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

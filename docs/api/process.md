@@ -33,6 +33,7 @@ console.log(hrtime.bigint() - start, cpuUsage(before));
 | `hrtime([previous])`, `hrtime.bigint()` | Monotonic native elapsed-time samples |
 | `uptime()` | Fractional seconds since runtime load/bootstrap |
 | `cpuUsage([previous])` | Process-wide user/system CPU microseconds |
+| `stdout`, `stderr` | Writable wrappers around native borrowed descriptor 1/2; async copied fs writes |
 | EventEmitter methods | Custom events, listener order/removal/once and explicit native signal subset below |
 
 Timing methods are shared between global process, CommonJS and named ESM exports.
@@ -40,6 +41,29 @@ Runtime/process identity is not an OS sandbox: main-process code is privileged.
 Environment access retains platform-specific casing and OS rules. Enumeration,
 modification and exit semantics are scoped by existing runtime tests; full Node
 process property/descriptors/error-message parity is not certified.
+
+## Standard output
+
+process.stdout and process.stderr are real Writable streams using borrowed native
+OS descriptors 1 and 2. They are shared by global/default/CommonJS and named process
+exports. Strings use ordinary Writable UTF-8/encoding conversion; binary writes
+preserve bytes. The async native fs.write path completes short writes before
+invoking the caller's callback. Pending filesystem work keeps the Mite event loop
+alive during ordinary completion. These are available in Mite and Firefly main/
+utility runtimes; no Node/V8 runtime or utility-only output shim is involved.
+
+Writable backpressure and write callbacks apply. There is no TTY detection, terminal
+control, synchronous Node stdio behavior, ref/unref or stdin implementation.
+Reading process.stdin explicitly throws ERR_MITE_UNSUPPORTED_API; it is not a named
+ESM export. Native filesystem chunk limits still apply. end()/destroy() retire the
+wrapper but never close the embedding process's descriptors. A write already
+submitted to native fs may still complete after destroy. This is ordinary Writable
+retirement, not Node's special non-ending stdio contract. process.exit() remains
+immediate and can truncate pending writes; await callbacks for required output.
+Local macOS raw-pipe/UTF-8/short-write/callback/borrowed-fd acceptance passes on
+actual Node and rebuilt Mite. The runner verifies exact bytes and native process
+EOF, plus write-after-wrapper-retirement and zero-progress failure. Fresh Windows/
+Linux stdio acceptance and full Node stdio parity remain unverified.
 
 ## process.hrtime([previous])
 
@@ -158,7 +182,7 @@ path, not the full Code-OSS main entry or desktop application.
 
 ## Limits, example and validation
 
-Process lifecycle/rejection events, stdio streams, broader signals, per-thread CPU usage,
+Process lifecycle/rejection events, stdin/full stdio semantics, broader signals, per-thread CPU usage,
 memory/resource reports and broader performance profiling remain unfinished.
 [node:perf_hooks](perf-hooks.md) now supplies native now/timeOrigin only. Absent members
 produce ordinary API/import errors; they do not return fabricated measurements.

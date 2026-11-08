@@ -313,8 +313,10 @@ platform or replacement filesystem/parser is used. The separate real-file fixtur
 reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
-slice below, it also passes MessageChannelMain and next fails linking utilityProcess.
-Genuine utility-process/parentPort and native renderer handoff remain required;
+slice below, it also passes MessageChannelMain/utilityProcess and next fails linking
+safeStorage. The [real LibJS utility payload slice](../api/utility-process.md) has six
+passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
+utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
 with no accepted workbench. See [readline](../api/readline.md) and
 [file streams](../api/file-read-stream.md) for explicit scope and limits.
@@ -338,8 +340,26 @@ or windows. Both new gates are dependencies of check-firefly and hosted Linux na
 acceptance; fresh hosted execution is not inferred from local success.
 
 Local actual Protocol binary-frame/FIFO/snapshot/echo/disconnect and moved once-helper
-acceptance passes on Electron/Firefly. The real ready/main graph now fails at missing
-utilityProcess. Code-OSS actually needs utilityProcess.postMessage with transferred
-ports and process.parentPort, then webContents/ipcRenderer transfers with event.ports;
-none is supplied by the main-only core. No workbench is accepted. See the precise
+acceptance passes on Electron/Firefly. The real ready/main graph now passes the
+utilityProcess import and fails at missing safeStorage. The real LibJS utility
+fork/parentPort payload implementation has six passing native boundary tests; local
+Firefly/Electron public lifecycle, payload and parent-reaping acceptance also passes. This does not run the actual Code-OSS utility services. They
+require authentication forwarding and utilityProcess.postMessage with transferred
+ports, then webContents/ipcRenderer transfers with event.ports; these native endpoint
+handoffs remain unsupported. No workbench is accepted. See the precise
 [port scope and bounds](../api/message-channel-main.md).
+
+
+## Verify real utility children
+
+```sh
+python3 tooling/tests/test_utility_process.py --firefly build/renderer/bin/firefly
+python3 firefly/tests/utility-process/frame-boundaries.py --firefly build/renderer/bin/firefly
+cmake --build build/renderer --target check-firefly-utility-process --parallel 3
+```
+
+The public runner optionally accepts --electron with an actual Electron binary.
+It opens no windows and proves native child identity, args/env/cwd, binary snapshot
+messaging, real stdout/stderr, final data/exit, fast failures and parent teardown.
+The POSIX headless fixture rejects malformed/truncated frames and an absent inherited
+channel before entry. These tests do not establish cross-process MessagePort transfer.

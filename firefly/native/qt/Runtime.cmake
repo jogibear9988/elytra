@@ -107,6 +107,15 @@ add_custom_target(
             "${FIREFLY_SOURCE_DIR}/firefly/tests/tracing/policy.mjs"
     DEPENDS firefly-tracing-probe firefly-protocol-registration-probe
     VERBATIM)
+file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-parent.js"
+     FIREFLY_UTILITY_PARENT_SOURCE)
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-parent.js")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../utility/UtilityParentSource.h.in"
+               "${CMAKE_BINARY_DIR}/firefly-generated/UtilityParentSource.h" @ONLY)
 file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/api.js" FIREFLY_API_SOURCE)
 set_property(
     DIRECTORY
@@ -156,6 +165,8 @@ endif()
 add_executable(
     firefly
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
@@ -400,6 +411,7 @@ if(APPLE)
                 check-firefly-ipc-binary
                 check-firefly-message-ports
                 check-firefly-message-port-lifetime
+                check-firefly-utility-process
                 check-firefly-file-picker
                 check-firefly-file-input
                 check-firefly-preload-zoom
@@ -417,3 +429,5 @@ if(APPLE)
                 firefly-geometry-probe
         USES_TERMINAL VERBATIM)
 endif()
+
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/utility-process/Targets.cmake")

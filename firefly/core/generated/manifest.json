@@ -1,11 +1,12 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "f6ddd63760ec129fe4a685c90c14a30957a52e215003a1ff49c042d46e394d31",
+    "api.js": "ab658fefdae20ed84dd2fad667536e9c6c4f35def2972867b752fc80c184048b",
+    "utility-parent.js": "49413f8484e3e21991be052054516711614538a7a1964fccaec8f177adcb9b6c",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
-    "firefly/core/api.mjs": "946d4dcb2de6e3c9fd54a393d1a12b5f505855af5d143b54c2648fe5844fa518",
+    "firefly/core/api.mjs": "577b1eb376ea7d5cbf5c0b379ce0cff26ae4d8661d1066017c8fa4bbe6c96f72",
     "firefly/core/app/command-line.mjs": "2ab3004b6a7c8c9bd9dda2ebd2bc67226bb51c64b86fc290b4ce982ffab9bb45",
     "firefly/core/clipboard/index.mjs": "cb86410d470d9fe49db84b669cfb6814b9bdd624f9f6c3001f48c3c2bd0fae98",
     "firefly/core/crash/index.mjs": "2f7001fde2bbd72e744741f3d8aeb053486404df3a596d6e482762e85e8570c6",
@@ -17,9 +18,11 @@
     "firefly/core/screen/index.mjs": "8520b379fe29fc484f1960108fa2bed3f0f0cbd609f2f19dba57e42dfd0cf342",
     "firefly/core/theme/index.mjs": "6981ff6c676fdb82714f8a61dee5fe571b23a12fce1cfed74af927404e2d91ec",
     "firefly/core/tracing/index.mjs": "128b00acf259f501f0617d377af9e783ed4189648a233d085cb7e1061b0f9536",
+    "firefly/core/utility-process/index.mjs": "d5dccd1089fc38770358e1de67b2f64c1d2356009e8ffdbe7234e78943a35a8c",
+    "firefly/core/utility-process/parent-port.mjs": "208205f4e8ffc759e2f47692141a6e0853a12c77f182fe8f0b1a7369e7ffd43f",
     "firefly/core/window/geometry.mjs": "993793d2787a09ab8719ab99c28623889dcf6dbadbb4adbc0e017ee5721d1e28",
     "firefly/native/qt/app-regions.mjs": "1983284fb314ae1ff323fb2e03dbead8e96ec1adc4e272f2f1a7cb8755fa6d23",
-    "tooling/runtime-js/build-firefly.mjs": "a2e6f477e548000460fbe12a7cb5afcdbdc1819269e11e0c4fcb6d7589a72edb",
+    "tooling/runtime-js/build-firefly.mjs": "a45aca7daad1747312331f7b4623591bc2f9d8a21a851419404c38306d73d782",
     "tooling/runtime-js/factories.mjs": "80a6bcb7b32dd499c7d8c1042a9b0e4ba91c1256502711d00d5d684fb59ed392",
     "tooling/runtime-js/package-lock.json": "2627439297c427137b5cfbfb930a37df871dece824b61600407285abeaf68fd4",
     "tooling/runtime-js/package.json": "52cd6eb6031e4db0163af66c40f64b067d34a5ce79a0ff9948ac17af86f96462"

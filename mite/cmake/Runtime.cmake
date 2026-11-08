@@ -31,6 +31,7 @@ function(mite_add_runtime target root js_target)
         assert
         process
         process_events
+        process_stdio
         path
         module
         buffer

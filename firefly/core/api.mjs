@@ -10,8 +10,9 @@ import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
 import createMessageChannels from './message-ports/index.mjs';
+import createUtilityProcesses from './utility-process/index.mjs';
 
-export default function createFireflyApi(native, EventEmitter, paths, urls, files) {
+export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
 
   const unsupported = (name) => {
@@ -150,6 +151,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       exited = true;
       quitting = true;
       channels.shutdown();
+      utilities.shutdown();
       try {
         for (const win of [...windows.values()]) {
           native.destroyNow(win.id);
@@ -167,6 +169,14 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const utilities = createUtilityProcesses(
+    native.utility,
+    native,
+    EventEmitter,
+    streams?.Readable,
+    app,
+    paths
+  );
   Object.defineProperty(app, 'commandLine', {
     enumerable: true,
     value: createCommandLine(native, error, unsupported)
@@ -218,6 +228,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
     exited = true;
     channels.shutdown();
+    utilities.shutdown();
     app.emit('quit', event(), 0);
     native.quit();
   }
@@ -672,6 +683,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     BrowserWindow,
     ipcMain,
     MessageChannelMain: channels.MessageChannelMain,
+    utilityProcess: utilities.utilityProcess,
     screen: screens.screen,
     clipboard,
     ClipboardItem,

@@ -131,4 +131,7 @@ native file reads and descriptor ownership.
 
 The [MessageChannelMain reference](message-channel-main.md) covers connected main
 ports, copied binary data, queued ownership transfer and GC/resource bounds. Native
-renderer and utility-process port delivery remains unavailable.
+renderer and utility-process port delivery remains unavailable. The separate
+[utilityProcess reference](utility-process.md) documents the real LibJS child/payload
+implementation, six passing native boundary tests, local Firefly/Electron public lifecycle/payload acceptance and
+explicitly unsupported native port transfers/authentication forwarding.

@@ -1,6 +1,7 @@
 {
   "events": "mite/modules/core/events.mjs",
   "process": "mite/modules/core/process.mjs",
+  "process_stdio": "mite/modules/core/process-stdio.mjs",
   "process_events": "mite/modules/core/process-events.mjs",
   "path": "mite/modules/core/path.mjs",
   "module": "mite/modules/core/module.mjs",

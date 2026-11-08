@@ -15,8 +15,8 @@ now completes the real entry import and observes app ready. The new --nls build
 step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
-passes readline and the new MessageChannelMain import, then reaches missing
-utilityProcess. Real 30,000-line file and local OS-release platform-branch checks
+passes readline, MessageChannelMain and utilityProcess imports, then reaches
+missing safeStorage. Real 30,000-line file and local OS-release platform-branch checks
 pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
 local desktop experiment disables webviews, remote and engine caches; without it
 the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
@@ -26,8 +26,11 @@ The [main-realm MessageChannelMain slice](api/message-channel-main.md) now passe
 local public Firefly/Electron binary/FIFO/transfer/close tests, actual native codec/
 GC ownership checks and the unchanged Code-OSS MessagePort Protocol component.
 These connected main endpoints do not provide utility-process or renderer handoff.
-Real utilityProcess.postMessage/process.parentPort and native webContents/
-ipcRenderer event.ports transfer remain the next required integration.
+The [utility-process payload slice](api/utility-process.md) now implements a real
+same-executable LibJS fork and child process.parentPort. Six native boundary tests
+pass; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. Actual Code-OSS utility execution is not
+accepted: authentication forwarding and native utility/renderer event.ports handoff
+remain unsupported. The current static-import blocker is safeStorage.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
@@ -434,7 +437,7 @@ errors, overloads and intentional differences.
 | --- | --- |
 | app/window/webContents | Lifecycle/readiness, native windows, loading, geometry and selected controls/events; [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md) |
 | Secure preload/contextBridge | Bounded isolated top-level preload publication; authored ESM is bundled to supported CommonJS payloads; [contextBridge](api/context-bridge.md) |
-| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; main-realm MessageChannelMain binary queues/ownership transfers now pass separate public/native-GC/Code-OSS component gates; native renderer/utility port handoff, full graph callbacks/source accessors/sync/subframe IPC remain unfinished; [IPC](api/ipc.md), [main ports](api/message-channel-main.md) |
+| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; main-realm MessageChannelMain binary queues/ownership transfers now pass separate public/native-GC/Code-OSS component gates; real utility fork/parentPort payload implementation has six native boundary tests with local public Firefly/Electron acceptance passing; native renderer/utility port handoff, full graph callbacks/source accessors/sync/subframe IPC remain unfinished; [IPC](api/ipc.md), [main ports](api/message-channel-main.md) |
 | Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
 
 popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,
