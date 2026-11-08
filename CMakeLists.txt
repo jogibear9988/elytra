@@ -195,6 +195,14 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fork.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-stat-watcher
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_stat_watcher.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-stat-watcher-gc
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_stat_watcher_gc.py"
+                --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
         NAME mite-cjs-namespace-gc
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_cjs_namespace_gc.py"

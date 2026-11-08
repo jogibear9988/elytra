@@ -69,7 +69,7 @@ static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", 
     "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
     "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
     "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync",
-    "readdir", "readdirSync", "WriteStream", "createWriteStream" };
+    "readdir", "readdirSync", "WriteStream", "createWriteStream", "watchFile", "unwatchFile" };
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
           "mkdir", "rmdir", "unlink", "rename", "readdir" };

@@ -52,6 +52,8 @@ The [Blob/File/FormData reference](blob-formdata.md) covers immutable bytes, fil
 metadata, multipart uploads and body consumers.
 The [decompression reference](decompression.md) describes native Web Stream gzip/
 deflate decoding, automatic Fetch content handling, pressure and integrity limits.
+The [stat watcher reference](stat-watcher.md) covers native file polling, missing-path
+recovery, shared registrations and reference ownership.
 The [child-process reference](child-process.md) describes native spawn, pipes,
 process lifetime, bounded execFile/exec capture, genuine OS shells and custom
 promisified child/output results. The new exec slice has local macOS acceptance;

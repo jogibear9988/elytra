@@ -7,6 +7,8 @@
 #include "platform/filesystem/FileSystem.h"
 #include "core/EventLoop.h"
 #include "modules/ModulePaths.h"
+#include "platform/filesystem/StatSnapshot.h"
+#include "platform/filesystem/StatWatcher.h"
 #include <LibGC/CellAllocator.h>
 #include <LibGC/Function.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -406,35 +408,7 @@ namespace {
             return JS::Value(text(vm, request.created));
         if (request.operation == "stat" || request.operation == "lstat"
             || request.operation == "fstat") {
-            auto object = JS::Object::create(realm, nullptr);
-#define FIELD(name)                                                                                \
-    object->define_direct_property(                                                                \
-        #name##_utf16, text(vm, std::to_string(request.stat.st_##name)), JS::default_attributes)
-            FIELD(dev);
-            FIELD(mode);
-            FIELD(nlink);
-            FIELD(uid);
-            FIELD(gid);
-            FIELD(rdev);
-            FIELD(blksize);
-            FIELD(ino);
-            FIELD(size);
-            FIELD(blocks);
-#undef FIELD
-            auto time = [&](auto name, uv_timespec_t value) {
-                auto entry = JS::Object::create(realm, nullptr);
-                entry->define_direct_property("seconds"_utf16,
-                    text(vm, std::to_string(value.tv_sec)), JS::default_attributes);
-                entry->define_direct_property("nanos"_utf16,
-                    JS::Value(static_cast<double>(value.tv_nsec)), JS::default_attributes);
-                object->define_direct_property(name, entry, JS::default_attributes);
-            };
-
-            time("atime"_utf16, request.stat.st_atim);
-            time("mtime"_utf16, request.stat.st_mtim);
-            time("ctime"_utf16, request.stat.st_ctim);
-            time("birthtime"_utf16, request.stat.st_birthtim);
-            return JS::Value(object);
+            return JS::Value(make_stat_snapshot(realm, request.stat));
         }
 
         if (request.operation == "readdir") {
@@ -587,6 +561,7 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
             return JS::js_undefined();
         },
         2, JS::default_attributes);
+    install_stat_watcher_host(realm, *host, loop);
     return host;
 }
 }

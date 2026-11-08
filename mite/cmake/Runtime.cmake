@@ -97,6 +97,7 @@ function(mite_add_runtime target root js_target)
         platform/process/ChildProcess
         # platform/filesystem
         platform/filesystem/FileSystem
+        platform/filesystem/StatWatcher
         # platform/network
         platform/network/Network
         platform/network/DNS

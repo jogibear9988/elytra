@@ -1,6 +1,7 @@
 import namedPromisify from '../core/promisify-results.mjs';
 import createReadStream from './read-stream.mjs';
 import createWriteStreams from './write-stream.mjs';
+import createStatWatchers from './stat-watcher.mjs';
 
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
@@ -395,6 +396,7 @@ export default function createFileSystemModule(host) {
   }
 
   const fs = { constants, Stats, Dirent };
+  Object.assign(fs, createStatWatchers(host, { path, nativePath, stats }));
   for (const op of [
     'readFile',
     'writeFile',

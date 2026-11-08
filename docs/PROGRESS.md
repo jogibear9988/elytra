@@ -10229,6 +10229,56 @@ extension/PTY, further media/session/images, actual permission/notification/SCK/
 physical-event/visible launch acceptance, webviews/remote and native platforms/
 packages/releases. The full original goal remains active.
 
+## 2026-11-08 — Native stat polling and actual Code-OSS missing-path recovery
+
+- Resume pushed 272cc3f and implement the actual fs.watchFile/unwatchFile import
+  required by the pinned baseWatcher. C++ owns genuine uv_fs_poll handles; maintained
+  ESM owns shared absolute-path registrations, first-options policy, EventEmitter
+  lifecycle and reference counts. No Node/V8 host, Firefly/LibWeb dependency in Mite,
+  or Ladybird modification. Extract only the existing native stat projection into
+  a shared lossless header; existing fs Stats conversion remains authoritative.
+- Support actual metadata changes, initially missing zero/epoch Stats, suppressed
+  repeated errors, deletion/reappearance with last-real previous history, BigIntStats,
+  file URLs, uint32 intervals including zero, listener-specific/all removal and
+  deferred stop. Match measured Node24 exact-true bigint, truthy persistent and
+  Buffer rejection during path resolution; later registrations share first options.
+- Bound native active plus closing watchers to 256. Stop removes lookup and callback
+  roots before uv_close, retaining native Watch/service storage through real close
+  completion and outstanding internal stat work. Admission errors preserve UV errno.
+  Shutdown retires all active roots; unref controls liveness independently of GC.
+- Real Node/Mite differential gates pass baseline/change/delete/recreate, missing,
+  BigIntStats, validation, shared and duplicate listeners, references and natural
+  exit. Separately labeled factory policy checks admission rollback/early delivery,
+  listener/native reentry and stale callbacks. Genuine Mite capacity test proves
+  closing handles still count, native drain restores admission, and 256 unreferenced
+  active watches survive until orderly VM teardown without leaking native state.
+- Actual embedded LibJS collection proves callback/watcher rooting while active,
+  unwatch/GC inside a live native callback and final reclamation after close. The
+  initial GC fixture accidentally retained its inspected WeakRef targets in a
+  top-level-await frame; move active inspection into a completed helper frame,
+  preserving the same final BOTH-collected assertion. No production leak was found.
+- Vendor exact pinned baseWatcher.ts with its license/hash. Unchanged compiled
+  suspension/recovery logic passes under Node/Mite at its actual 5007ms interval:
+  real missing target, correlated ADDED event, resumed watch and stop/disposal.
+  Verify 40 compiled dependencies. Harness supplies its abstract backend to report
+  a missing target; this is not the complete Code-OSS watcher service.
+- Add API contract/ADR0166, CTest differential/GC gates and refresh current startup
+  blockers. The actual local-desktop/NLS entry still reaches app.ready and now
+  passes watchFile, then fails linking the next missing export fs.watch. No window,
+  renderer workbench or open/edit/save acceptance is inferred from that diagnostic.
+
+Validation: all 107 runtime suites pass (39.70 seconds), including genuine new
+polling/policy/capacity/GC tests. Pinned Code-OSS recovery component passes under
+Node/Mite. Runtime/Firefly generated adapters and unmodified upstream pin verify;
+maintained source formatting and whitespace checks pass. Final production and exact-object offscreen Firefly binaries rebuild. Site accepts 292 pages
+and 20,679 local links/resources/fragments. No visible desktop test ran.
+
+Remaining: native fs.watch and actual watcher/main continuation, workbench and
+workspace open/edit/save, native utility/renderer endpoint/auth handoff, extension/
+PTY, further media/session/images and real permission/notification/SCK/physical
+acceptance, webviews/remote, native platforms/packages/releases. Fresh native
+Linux/Windows polling acceptance remains unverified. Full original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

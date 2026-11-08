@@ -222,6 +222,10 @@
     "ipc-cp-node.ts": {
       "upstream": "src/vs/base/parts/ipc/node/ipc.cp.ts",
       "sha256": "5fbef7f123ed24eab82bddf8e9aeb361d21dbaf5d56eda16f94e2458c26bbb05"
+    },
+    "baseWatcher.ts": {
+      "upstream": "src/vs/platform/files/node/watcher/baseWatcher.ts",
+      "sha256": "51b0a8992856b872bc29111d59377fe94277fb476456578fb812adf2192b2d45"
     }
   }
 }
