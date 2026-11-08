@@ -18,6 +18,7 @@ import createNativeImages from './native-image/index.mjs';
 import createDesktopCapture from './desktop-capture/index.mjs';
 import createNotifications from './notifications/index.mjs';
 import createPowerMonitor from './power-monitor/index.mjs';
+import createPowerSaveBlocker from './power-save-blocker/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -161,6 +162,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      powerSave.stop();
       power.stop();
       notifications.stop();
       capture.stop();
@@ -186,6 +188,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const powerSave = createPowerSaveBlocker(native, () => exited, error, unsupported);
   const power = createPowerMonitor(
     native,
     EventEmitter,
@@ -269,6 +272,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    powerSave.stop();
     power.stop();
     notifications.stop();
     capture.stop();
@@ -816,6 +820,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     desktopCapturer: capture.desktopCapturer,
     nativeImage: images.nativeImage,
     Notification: notifications.Notification,
-    powerMonitor: power.powerMonitor
+    powerMonitor: power.powerMonitor,
+    powerSaveBlocker: powerSave.powerSaveBlocker
   };
 }

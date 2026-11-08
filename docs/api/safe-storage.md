@@ -85,7 +85,7 @@ Code-OSS service passes persisted Buffer serialization and error handling across
 native processes. Its component host supplies a minimal ready lifecycle; this is
 not acceptance of the full production post-ready app or Electron OS crypto.
 The actual main graph now passes safeStorage import and next fails at
-powerMonitor. Native utility/renderer MessagePort handoff and demanded utility
+shell. Native utility/renderer MessagePort handoff and demanded utility
 authentication forwarding remain separate requirements; no workbench is accepted.
 
 See [ADR 0156](../architecture/0156-os-backed-safe-storage.md),

@@ -9977,6 +9977,57 @@ SCK platform acceptance, nonempty images/media/session binding, native utility/
 renderer endpoint handoff/auth, actual workbench/File/open-edit-save, extension/PTY,
 webviews/remote and native platforms/packages/releases. The full goal remains active.
 
+## 2026-11-08 — Owned native powerSaveBlocker assertions and real OS readback
+
+- Continue from pushed ef80dd5 and actual missing powerSaveBlocker export. Implement
+  main-only pre-ready start/stop/isStarted with Electron's two types, valid zero ID,
+  signed-int32 unknown IDs and display-over-app precedence. Strict validation,
+  negative-zero rejection and native error propagation precede mutation. IDs are
+  per-host monotonic and active logical requests bounded64, not a JS shadow registry.
+- The native macOS provider uses genuine IOPM NoIdleSleep/NoDisplaySleep assertions.
+  Acquire replacements before releasing previous protection. Failed creation or
+  release preserves logical state; failed rollback retains one extra known ID and
+  prevents new allocations until cleanup succeeds. Bound native ownership to two
+  IDs, including under100 repeated failed promotions. Shutdown revokes logical
+  ownership permanently and releases only owned assertions; persistent native
+  failure has bounded destructor retries, not a false cleanup guarantee.
+- Native host is lazy and VM-independent: imports/unknown queries create no provider
+  or assertion. Controller teardown revokes state before VM retirement. Malformed
+  native admission shuts the service; JS malformed snapshots similarly revoke and
+  request cleanup. Exit/reentry cannot publish stale success or prevent the rest of
+  application teardown. No readiness guard: Electron permits these calls pre-ready.
+  Synchronous OS error reporting differs from Electron's asynchronous backend.
+- Shared Node/Mite policy passes five groups, including native-method getter exit,
+  late admission cleanup, malformed results and shutdown failure. Exact Host/real
+  Mite factory controlled-provider fixture passes strict IDs, UTF8 failures, real GC,
+  lazy admission and controller/VM retirement with an outstanding request. Exact
+  Mac provider fixture passes ownership/precedence/failure transactions with
+  executable-owned IOPM symbols; original OS functions are never called there.
+- Separately run the opt-in genuine native probe once: actual assertion create,
+  aggregate, promote, downgrade, stop and shutdown all pass native process-record
+  readback, with zero matching assertions after cleanup (0.14seconds). It neither
+  triggers sleep/lock nor changes power preferences or UI. Physical idle/display,
+  lid-close, forced sleep and native Linux/Windows behavior remain unaccepted.
+  Unsupported-provider standalone compile/run passes explicit unavailable starts
+  and unknown-ID false; it is not native Windows/Linux acceptance.
+- Add API/ADR0162/compatibility docs and refresh current startup references, including
+  old API-page blocker text. Final production/exact-object offscreen build passes.
+  The real pinned Code-OSS local-desktop/NLS ready graph passes powerSaveBlocker,
+  then fails linking shell (build/code-oss-power-save-final-ready.log). Entry and
+  app-ready are observed; no workbench follows.
+
+Validation: all101 runtime gates pass (37.28seconds). After the final exit guard,
+focused shared Node/Mite policy passes and all11 selected policy/generation/checkout
+checks pass (2.38seconds). Controlled native provider and exact Host gates pass;
+actual OS assertion lifecycle/readback passes independently. Maintained formatting,
+runtime/Firefly generation, upstream and whitespace checks pass. Website accepts285 generated pages and20,176 local links/resources/fragments. No GUI acceptance or physical power transition
+was performed. Ladybird stays unmodified; Mite remains independent.
+
+Remaining: genuine shell and subsequent native main services, actual workbench and
+File/open-edit-save, utility/renderer endpoint handoff/auth, extension/PTY hosts,
+nonempty images/media/session and real notification/SCK acceptance, webviews/remote,
+native Windows/Linux packages and releases. The full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

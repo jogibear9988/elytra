@@ -22,8 +22,8 @@ app.whenReady().then(() => {
 ```
 
 These APIs observe state; they do not suspend the computer, block sleep, change
-power settings, lock the screen or synthesize user activity. `powerSaveBlocker`
-is a separate, unavailable service.
+power settings, lock the screen or synthesize user activity. [`powerSaveBlocker`](power-save-blocker.md)
+is the separate native inhibition service.
 
 ## Queries
 

@@ -106,7 +106,7 @@ These implementation bounds and error codes are not Electron API guarantees.
 ## Remaining Code-OSS requirements
 
 The fresh actual ready/main probe completes its entry and reaches app ready, then
-stops at the next missing static export, powerMonitor. Resolving utilityProcess at
+stops at the next missing static export, shell. Resolving utilityProcess at
 import time does not demonstrate that Code-OSS has forked a utility child.
 
 The actual pinned utility wrapper first sends configuration, then expects genuine

@@ -167,3 +167,7 @@ The [powerMonitor reference](power-monitor.md) documents native read-only querie
 capability-gated passive events, listener/epoch ownership and conservative unknown
 states. Node/Mite policy and local macOS query/start-stop evidence do not certify
 physical power/session transitions; shutdown cancellation remains unsupported.
+
+The [powerSaveBlocker reference](power-save-blocker.md) documents owned native
+sleep/display inhibition requests, precedence, transactional failures, bounded
+IDs and shutdown cleanup, separately from passive powerMonitor observations.

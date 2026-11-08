@@ -74,6 +74,8 @@ void Bridge::Impl::stop()
         notifications->stop();
     if (power_monitor)
         power_monitor->stop();
+    if (power_save_blocker)
+        power_save_blocker->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())

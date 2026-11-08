@@ -7,6 +7,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/native/screen/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/desktop-capture/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/notifications/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/power-monitor/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/native/power-save-blocker/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ProcessMonitor.cmake")
 set(firefly_qt_sources
     ChromeStyle
