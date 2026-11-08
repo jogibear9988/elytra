@@ -1,6 +1,6 @@
 /**
- * Owns TCP handles, reads/writes and connection lifecycle. Byte storage stays native while
- * work is pending; JS callbacks are dispatched through the runtime event loop.
+ * Owns TCP/local-pipe handles, reads/writes and connection lifecycle. Byte storage stays native
+ * while work is pending; JS callbacks are dispatched through the runtime event loop.
  */
 
 #pragma once

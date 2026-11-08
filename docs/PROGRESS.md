@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 124 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 125 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -10995,6 +10995,78 @@ Remaining: local IPC transport, actual main/workbench/open-edit-save, native
 utility/renderer port transfer/authentication, extension host/PTY/workers, Windows
 watcher/oracle CI repair, native dialog/platform/packaging/releases and real policy
 change acceptance/providers. Full original goal remains active.
+
+
+## 2026-11-09 — Native local streams unblock the Code-OSS instance claim
+
+- Extend the existing standalone native network owner with typed TCP/pipe handles.
+  Real uv_pipe_init(ipc=0), bind2/connect2 with NO_TRUNCATE and inherited accepted
+  transport kind share byte ownership, reads/writes/shutdown, flow control, ref/unref
+  and uv_close completion. Paths retain strict UTF-8 storage through connect; no
+  manual unlink, TCP substitution, descriptor transfer or Ladybird modification.
+- Preserve normal final close callbacks while revoking socket callbacks during VM
+  shutdown, draining native requests before releasing storage. Limit shared active
+  and closing handles to 4096, reject exhausted IDs/admission with native ENOSPC
+  instead of a fatal assertion, and preserve code/errno for TCP and pipe admission.
+  Encoded path quota is 32 KiB; shorter platform limits fail without truncation.
+- Maintained ESM supports path/string/options overloads and negative numeric pipe
+  names, bypasses DNS/TCP attempt events, retains shared cancellation/stream state,
+  and keeps accepted pipe identity. Socket address is {}, IP properties undefined;
+  Server.address retains the supplied path after close and failed binds like Node.
+  TCP-only tuning is a no-op on pipes. Listener port/path precedence follows the
+  Node reference independently of client path precedence. Empty/NUL/malformed UTF-16 paths reject;
+  abstract names and readableAll/writableAll remain explicitly unsupported.
+- Add genuine Node/Mite OS-endpoint differential gates: both overloads transfer
+  3 MiB binary data over Unicode/space-containing paths with half-close and
+  cork/drain pressure, existing listener and
+  regular-file collisions preserve ownership, missing/stale/oversized endpoints
+  preserve ENOENT/ECONNREFUSED/EADDRINUSE/EINVAL and do not truncate/unlink. Close
+  waits for accepted peers and unref exits naturally. Pre/immediate listen/connect
+  abort and established binary connection abort preserve cause, cancel events and
+  release owned endpoints/peers and waiting close. Node transient pre-abort path
+  creation and socket-state quirks are not overclaimed. Independent Python AF_UNIX
+  clients exercise both runtimes. A native Win32 independent-client branch exists
+  but is not evidence of Windows execution. Mite policy verifies malformed paths,
+  unsupported permission options, 4096 admission/closing quota and post-close reuse.
+- The unchanged pinned Code-OSS ipc.net input and 41 compiled dependencies are
+  verified before real separate-process channel execution. Mite/Mite, Mite/Node
+  and Node/Mite exchange VSBuffer payloads above 256 KiB, client identity, a second
+  framed request/reply and disposal; no controlled transport or protocol substitute.
+- Rebuild production Firefly and exact-object offscreen app. The actual adapted
+  local-desktop/NLS/policy main-ready graph now passes ipc.net.serve/main.claimInstance
+  and reaches CodeApplication.configureSession. Its first current failure is missing
+  session.defaultSession.setPermissionRequestHandler; the error-reporting path then
+  also calls unsupported Error.captureStackTrace. Entry import and app ready remain
+  observed, not a workbench or open/edit/save pass. All desktop probes are offscreen
+  with isolated profiles; no visible GUI test or user preference mutation.
+- Update API, compatibility/adaptation docs and ADR 0177. Keep Windows/Linux pipe
+  execution, real policy changes/providers, renderer/utility endpoint transfer and
+  complete editor workflows explicitly unaccepted.
+
+Validation: Release CLI/embedded host and both Firefly targets build. All 125 runtime
+CTest suites pass (38.08 seconds), including existing TCP/HTTP/TLS consumers and the
+new pipe gate; the final bounded-admission policy and original IPC consumer also
+pass separately. Formatting passes for 261 Python, 883 JS/web/config, 497 native and
+64 CMake files. The generated site passes 311 pages and 22,022 local links/resources.
+Logs: build/local-ipc-{release-final-build,renderer-final-build,runtime-final,pipes-final,
+consumer-final,code-oss-final,style,site}.log.
+
+Next audit: LibWebCommon's UI permission prompt carries a top-level origin but
+omits the authenticated requesting document identity; the earlier
+WebContentPage.did_request_permission route still has that identity and upstream
+trust/permissions-policy/user-activation checks. Cached PermissionManager decisions
+can bypass the prompt, so request-only callback wiring cannot enforce Electron's
+check handler. Build an owned source adapter at the authoritative document boundary
+and preserve OS microphone/notification authorization. Clipboard has separate
+activation/native transport gates; pointer lock, camera/local fonts and display
+media have distinct absent capabilities at this pin. Implement genuine session
+request/check enforcement tied to owned renderer/session/document/origin identities,
+then re-run the actual pinned startup. Do not merely store inert
+handlers to skip the security boundary. Remaining full-goal requirements still
+include workbench/open-edit-save, extension host/PTY/workers, native port transfer,
+platform/packaging/release acceptance and the previously recorded Windows CI repairs.
+The original goal remains active.
+
 
 ## Resume
 

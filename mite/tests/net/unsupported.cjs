@@ -2,7 +2,6 @@ const { Socket, Server } = require('node:net');
 const calls = [
   () => new Socket({ fd: 1 }),
   () => new Socket({ blockList: {} }),
-  () => new Socket().connect('/tmp/mite-unix-socket'),
   () => new Socket().connect({ port: 80, host: '127.0.0.1', localAddress: '127.0.0.1' }),
   () => new Socket().connect({ port: 80, host: '127.0.0.1', signal: {} }),
   () => new Server({ blockList: {} }),

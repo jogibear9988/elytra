@@ -108,7 +108,7 @@ def main():
     passed = (
         result.returncode == 0
         and not result.stderr
-        and result.stdout == "ERR_MITE_UNSUPPORTED_API\n" * 8
+        and result.stdout == "ERR_MITE_UNSUPPORTED_API\n" * 7
     )
     print(f"{'PASS' if passed else 'FAIL'} explicit unsupported socket APIs")
     if not passed:

@@ -315,7 +315,7 @@ reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/na
 The rebuilt actual ready/main graph passes readline. With the main-realm port
 slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents,
 native filesystem watchers and the protocol service. The explicit native policy
-package adaptation below advances startup further to local IPC sockets. The [real LibJS utility payload slice](../api/utility-process.md) has six
+package adaptation below advances startup through local IPC to session permission configuration. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -401,7 +401,7 @@ The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports and the protocol service on the production
 objects. Native fs.watchFile/fs.watch have separate local acceptance. The explicit
 policy package adaptation below uses a genuine native provider instead of loading
-the package's V8 helper/Node addon; startup then reaches local IPC sockets. The metadata-only desktop source and empty-image
+the package's V8 helper/Node addon; startup now passes local IPC and reaches session permission configuration. The metadata-only desktop source and empty-image
 APIs are implemented with separate policy/controlled-host/preflight acceptance;
 valid OS enumeration and media binding remain unaccepted. Notification and genuine read-only macOS powerMonitor component gates now pass;
 physical power transitions and actual OS notification delivery remain unaccepted.
@@ -438,7 +438,22 @@ Windows/Linux providers are unavailable; actual MDM change delivery is unaccepte
 General .node/N-API and Error.captureStackTrace remain unsupported.
 
 With this explicit package adaptation and the local-desktop/NLS mode, the actual
-main-ready diagnostic advances to ipc.net.serve in main.claimInstance and rejects
-local Unix sockets/named pipes. It still does not display an accepted workbench or
-open/edit/save a workspace. Local IPC transport and the other
-[current Code-OSS requirements](../compatibility/vscode.md) remain outstanding.
+main-ready diagnostic passes ipc.net.serve/main.claimInstance and reaches
+CodeApplication.configureSession. It fails at the missing
+session.defaultSession.setPermissionRequestHandler. An accepted workbench and
+open/edit/save remain outstanding; see the
+[current Code-OSS requirements](../compatibility/vscode.md).
+
+## Local IPC channel acceptance
+
+```sh
+node tooling/code_oss/probe-local-ipc.mjs build/code-oss-policy build/release-mite/bin/mite
+```
+
+The probe verifies the unchanged pinned ipc.net.ts input and 41 compiled dependency
+outputs. It runs genuine channel framing, client context and VSBuffer request/reply
+in separate OS processes for Mite/Mite, Mite/Node and Node/Mite. The binary payload
+exceeds 256 KiB; both channel and listener dispose naturally. Local macOS passes.
+This is distinct from Firefly utility/renderer endpoint transfer and does not
+establish native Windows/Linux pipe execution or a workbench launch. See
+[the local stream contract](../api/net.md#local-streams).

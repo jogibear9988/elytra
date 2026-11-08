@@ -10,7 +10,11 @@ export default function createConnectionAttempts(host, policy, sockets, socketEv
 
   function handle(socket) {
     const state = sockets.get(socket);
-    const id = native.create((type, value) => {
+    const create = state.pipePath === undefined ? native.create : native.createPipe;
+    if (typeof create !== 'function') {
+      policy.unsupported('native local-pipe transport');
+    }
+    const id = create.call(native, (type, value) => {
       if (state.id === id) {
         socketEvent(socket, type, value);
       }
@@ -85,6 +89,12 @@ export default function createConnectionAttempts(host, policy, sockets, socketEv
   function connectFailure(socket, status) {
     const state = sockets.get(socket);
     clearAttempt(state);
+    if (state.pipePath !== undefined) {
+      // Pipes have no DNS/family retries or TCP connectionAttempt events.
+      socket.connecting = false;
+      socket.destroy(systemError(status, 'connect', state.pipePath));
+      return;
+    }
     const failure = systemError(status, 'connect', state.host, state.port);
     state.failures.push(failure);
     socket.emit('connectionAttemptFailed', state.host, state.port, state.family, failure);

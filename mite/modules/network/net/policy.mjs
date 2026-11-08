@@ -1,5 +1,5 @@
 /**
- * TCP argument/error and AbortSignal policy shared by sockets and listeners.
+ * TCP/local-pipe argument/error and AbortSignal policy shared by sockets and listeners.
  * The host provides native address validation and branded cancellation hooks;
  * these private helpers perform no I/O and never become application exports.
  */
@@ -73,8 +73,10 @@ export default function createNetworkPolicy(host) {
     let result;
     if (list[0] !== null && typeof list[0] === 'object') {
       result = { ...list[0] };
-    } else if (typeof list[0] === 'string' && Number.isNaN(Number(list[0]))) {
-      unsupported('Unix sockets and named pipes');
+    } else if (typeof list[0] === 'string' && !(Number(list[0]) >= 0)) {
+      // Node treats negative numeric strings as pipe names too. Positive
+      // numeric strings retain the TCP port overload.
+      result = { path: list[0], backlog: list[1] };
     } else {
       result = {
         port: list[0],
@@ -83,6 +85,30 @@ export default function createNetworkPolicy(host) {
       };
     }
     return [result, callback];
+  }
+
+  function pipePath(value) {
+    if (typeof value !== 'string') {
+      throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'path must be a string');
+    }
+    if (!value.length || value.includes('\0')) {
+      throw error(TypeError, 'ERR_INVALID_ARG_VALUE', 'path must be nonempty and contain no NUL');
+    }
+    // Native paths are strict UTF-8. Reject malformed UTF-16 rather than replacing
+    // a lone surrogate and accidentally binding a different filesystem name.
+    for (let index = 0; index < value.length; ++index) {
+      const unit = value.charCodeAt(index);
+      if (unit >= 0xdc00 && unit <= 0xdfff) {
+        throw error(TypeError, 'ERR_INVALID_ARG_VALUE', 'path contains an unpaired surrogate');
+      }
+      if (unit >= 0xd800 && unit <= 0xdbff) {
+        const next = value.charCodeAt(++index);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) {
+          throw error(TypeError, 'ERR_INVALID_ARG_VALUE', 'path contains an unpaired surrogate');
+        }
+      }
+    }
+    return value;
   }
 
   function hostname(value, fallback) {
@@ -99,13 +125,15 @@ export default function createNetworkPolicy(host) {
     const e = error(
       Error,
       info.code,
-      `${syscall} ${info.code}: ${info.message}${address === undefined ? '' : ` ${address}:${port}`}`
+      `${syscall} ${info.code}: ${info.message}${address === undefined ? '' : ` ${address}${port === undefined || port === -1 ? '' : ':' + port}`}`
     );
     e.errno = status;
     e.syscall = syscall;
     if (address !== undefined) {
       e.address = address;
-      e.port = port;
+      if (port !== undefined) {
+        e.port = port;
+      }
     }
     return e;
   }
@@ -119,6 +147,7 @@ export default function createNetworkPolicy(host) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   };

@@ -1,6 +1,6 @@
 # node:net
 
-Status: partial native IPv4/IPv6 TCP implementation, using Mite's libuv loop and
+Status: partial native IPv4/IPv6 TCP and local stream implementation, using Mite's libuv loop and
 portable Duplex streams. This is independent of Firefly and LibWeb. Local acceptance
 is macOS ARM64; hosted platform gates remain required for each changed slice. See
 [the compatibility matrix](../compatibility/mite-0.1.md) for platform evidence.
@@ -40,11 +40,13 @@ listener receives a Socket. signal belongs in listen options, not createServer.
 
 `connect(options[, callback])` / `createConnection(options[, callback])` return a
 new Socket. `socket.connect(options[, callback])` or
-`socket.connect(port[, host][, callback])` return the existing Socket. The callback
+`socket.connect(port[, host][, callback])` and
+`socket.connect(path[, callback])` return the existing Socket. The callback
 is a one-time connect listener. Attach an error listener before asynchronous work.
 
 | Option | Supported behavior |
 | --- | --- |
+| path | Local Unix socket path or Windows named-pipe name; bypasses DNS/TCP |
 | port | Numeric or numeric-string TCP port, 0–65535 |
 | host | Numeric address or hostname; default localhost |
 | family | 0, 4 or 6; IPv4/IPv6 string aliases supported |
@@ -65,6 +67,41 @@ connectionAttemptTimeout, connect, ready, data, end, drain, timeout, error and c
 Accept/connect order across different sockets is not fixed. Observe close to know
 native teardown has completed. A failed connection can report a system error or
 an aggregate of failed attempts; full Happy Eyeballs equivalence is not claimed.
+
+## Local streams
+
+Use `createConnection(path[, callback])` or `createConnection({ path })` to connect,
+and `server.listen(path[, backlog][, callback])` or `server.listen({ path, backlog,
+signal })` to listen. Paths use native libuv pipes with descriptor passing disabled.
+Negative numeric strings are path names; nonnegative numeric strings retain the
+TCP port overload. Client `path` takes precedence over `port`. On listeners,
+a numeric/string `port` selects TCP first; explicitly supplied null/undefined
+ports select TCP port 0. A numeric-only `path` without a port rejects rather than
+binding an unexpected local name.
+
+Local sockets share Duplex byte streaming, write-before-connect, backpressure,
+half-close, timeouts, ref/unref, cancellation and close waiting. DNS lookup and TCP
+connection-attempt events do not run. `setNoDelay` and `setKeepAlive` return the
+Socket and perform no TCP operation. Socket address metadata is an empty object;
+IP/port/family properties are undefined. A Server retains its original path from
+`address()`, including after close or a failed bind, matching the Node reference.
+
+Existing socket names and ordinary files are never automatically removed on a
+failed bind. A successfully owned Unix listener is cleaned up by libuv on close.
+`EADDRINUSE`, `ENOENT` and stale-endpoint `ECONNREFUSED` remain native errors. An
+application may explicitly inspect and unlink its stale endpoint before retrying;
+Mite does not make that ownership decision. Native permissions follow the process
+umask or Windows default security descriptor. `readableAll`/`writableAll` are
+explicitly unsupported.
+
+Paths must be nonempty strings without NUL or unpaired UTF-16 surrogates. Abstract
+Unix socket names are unsupported. Names are not silently truncated to fit a
+native address. Mite additionally caps encoded paths at 32 KiB and shares a
+4096-handle budget between TCP and local streams, including closing handles.
+Exhaustion fails with ENOSPC; capacity returns only after native close. Platform
+limits and permission errors still apply. Native Windows
+and Linux acceptance for this new transport remains required; the implementation
+alone is not platform acceptance. See [the architecture decision](../architecture/0177-local-stream-endpoints.md).
 
 ## Streams, options and closure
 
@@ -93,7 +130,8 @@ owner thread with normal tick/Promise checkpoints.
 port (default 0), host (default ::), backlog (default 511), ipv6Only and signal.
 Listen startup and listening notification are asynchronous. The callback is a
 one-time listening listener. For an assigned ephemeral port, inspect address()
-after listening; it returns null before startup or after shutdown.
+after listening; TCP returns null before startup or after shutdown. Local listeners
+retain the supplied path as described above.
 
 `server.close([callback])` stops accepting and waits for accepted sockets to close.
 The close event/callback is therefore delayed by active clients. Calling close
@@ -135,8 +173,9 @@ abort events do not close native resources; actual controller abort still does.
   listener. Mite releases it on failure. The test asserts both results separately.
 - Synthetic abort event cancellation differs intentionally, as described in the
   [cancellation contract](abort.md). Full event ordering/text/stack parity is absent.
-- Unix sockets/named pipes, descriptor adoption, local bind options, BlockList,
-  reusePort, resetAndDestroy, connection-limit/drop policies and TLS are absent.
+- Descriptor adoption/passing, abstract Unix sockets, local TCP bind options,
+  BlockList, reusePort, resetAndDestroy and connection-limit/drop policies are absent.
+  TLS has a separate partial [client implementation](tls.md).
 - Final connection attempts rely on OS deadlines; default IPv6 listen lacks a full
   IPv4 fallback policy. Native byte snapshots add copying overhead. Complete
   accepted-socket option and all platform/kernel failure combinations are unverified.

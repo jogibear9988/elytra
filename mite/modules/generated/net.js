@@ -58,8 +58,8 @@ function createNetworkPolicy(host) {
     let result;
     if (list[0] !== null && typeof list[0] === "object") {
       result = { ...list[0] };
-    } else if (typeof list[0] === "string" && Number.isNaN(Number(list[0]))) {
-      unsupported("Unix sockets and named pipes");
+    } else if (typeof list[0] === "string" && !(Number(list[0]) >= 0)) {
+      result = { path: list[0], backlog: list[1] };
     } else {
       result = {
         port: list[0],
@@ -68,6 +68,27 @@ function createNetworkPolicy(host) {
       };
     }
     return [result, callback];
+  }
+  function pipePath(value) {
+    if (typeof value !== "string") {
+      throw error(TypeError, "ERR_INVALID_ARG_TYPE", "path must be a string");
+    }
+    if (!value.length || value.includes("\0")) {
+      throw error(TypeError, "ERR_INVALID_ARG_VALUE", "path must be nonempty and contain no NUL");
+    }
+    for (let index = 0; index < value.length; ++index) {
+      const unit = value.charCodeAt(index);
+      if (unit >= 56320 && unit <= 57343) {
+        throw error(TypeError, "ERR_INVALID_ARG_VALUE", "path contains an unpaired surrogate");
+      }
+      if (unit >= 55296 && unit <= 56319) {
+        const next = value.charCodeAt(++index);
+        if (!(next >= 56320 && next <= 57343)) {
+          throw error(TypeError, "ERR_INVALID_ARG_VALUE", "path contains an unpaired surrogate");
+        }
+      }
+    }
+    return value;
   }
   function hostname(value, fallback) {
     value = value || fallback;
@@ -81,13 +102,15 @@ function createNetworkPolicy(host) {
     const e = error(
       Error,
       info.code,
-      `${syscall} ${info.code}: ${info.message}${address === void 0 ? "" : ` ${address}:${port2}`}`
+      `${syscall} ${info.code}: ${info.message}${address === void 0 ? "" : ` ${address}${port2 === void 0 || port2 === -1 ? "" : ":" + port2}`}`
     );
     e.errno = status;
     e.syscall = syscall;
     if (address !== void 0) {
       e.address = address;
-      e.port = port2;
+      if (port2 !== void 0) {
+        e.port = port2;
+      }
     }
     return e;
   }
@@ -100,6 +123,7 @@ function createNetworkPolicy(host) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   };
@@ -112,7 +136,11 @@ function createConnectionAttempts(host, policy, sockets, socketEvent) {
   const { error, systemError } = policy;
   function handle(socket) {
     const state = sockets.get(socket);
-    const id = native.create((type, value) => {
+    const create = state.pipePath === void 0 ? native.create : native.createPipe;
+    if (typeof create !== "function") {
+      policy.unsupported("native local-pipe transport");
+    }
+    const id = create.call(native, (type, value) => {
       if (state.id === id) {
         socketEvent(socket, type, value);
       }
@@ -183,6 +211,11 @@ function createConnectionAttempts(host, policy, sockets, socketEvent) {
   function connectFailure(socket, status) {
     const state = sockets.get(socket);
     clearAttempt(state);
+    if (state.pipePath !== void 0) {
+      socket.connecting = false;
+      socket.destroy(systemError(status, "connect", state.pipePath));
+      return;
+    }
     const failure = systemError(status, "connect", state.host, state.port);
     state.failures.push(failure);
     socket.emit("connectionAttemptFailed", state.host, state.port, state.family, failure);
@@ -224,6 +257,7 @@ function createSockets(host, policy) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   } = policy;
@@ -321,6 +355,7 @@ function createSockets(host, policy) {
         decodeStrings: true
       });
       const state = {
+        pipePath: void 0,
         addresses: [],
         failures: [],
         attemptTimer: null,
@@ -372,10 +407,30 @@ function createSockets(host, policy) {
         unsupported("Reconnecting a destroyed Socket");
       }
       const [opts, cb] = options(args);
-      for (const key of ["path", "fd", "localAddress", "localPort", "signal"]) {
+      for (const key of ["fd", "localAddress", "localPort", "signal"]) {
         if (opts[key] !== void 0) {
           unsupported(`connect option ${key}`);
         }
+      }
+      if (opts.path !== void 0) {
+        const path = pipePath(opts.path);
+        if (cb) {
+          this.once("connect", cb);
+        }
+        state.pipePath = path;
+        this.connecting = true;
+        handle(this);
+        const generation = state.id;
+        tick(() => {
+          if (this.destroyed || state.id !== generation) {
+            return;
+          }
+          const status = native.connectPipe(generation, path);
+          if (status && !this.destroyed && state.id === generation) {
+            connectFailure(this, status);
+          }
+        });
+        return this;
       }
       const targetPort = port(opts.port);
       const targetHost = hostname(opts.host, "localhost");
@@ -635,7 +690,7 @@ function createSockets(host, policy) {
       const state = sockets.get(this);
       state.noDelay = !!value;
       const id = state.id;
-      if (id !== null) {
+      if (id !== null && state.pipePath === void 0) {
         native.option(id, 0, !!value, 0);
       }
       return this;
@@ -648,7 +703,7 @@ function createSockets(host, policy) {
       state.keepAlive = !!value;
       state.keepAliveInitialDelay = delay;
       const id = state.id;
-      if (id !== null) {
+      if (id !== null && state.pipePath === void 0) {
         native.option(
           id,
           1,
@@ -699,10 +754,11 @@ function createSockets(host, policy) {
       }
     }
   }
-  function accepted(id, opts) {
+  function accepted(id, opts, path) {
     const socket = new Socket(opts);
     const state = sockets.get(socket);
     state.id = id;
+    state.pipePath = path;
     state.connected = true;
     native.setCallback(id, (type, value) => socketEvent(socket, type, value));
     if (opts.noDelay !== void 0) {
@@ -744,6 +800,7 @@ function createServers(host, policy, accepted) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   } = policy;
@@ -773,6 +830,7 @@ function createServers(host, policy, accepted) {
       }
       servers.set(this, {
         id: null,
+        path: void 0,
         connections: /* @__PURE__ */ new Set(),
         closing: false,
         opts: { ...opts },
@@ -793,14 +851,26 @@ function createServers(host, policy, accepted) {
         throw error(Error, "ERR_SERVER_ALREADY_LISTEN", "Listen called more than once");
       }
       const [opts, callback] = options(args);
-      for (const key of ["path", "fd", "handle", "reusePort"]) {
+      for (const key of ["fd", "handle", "reusePort", "readableAll", "writableAll"]) {
         if (opts[key] !== void 0) {
           unsupported(`listen option ${key}`);
         }
       }
       const signal = validateSignal(opts.signal);
-      const listenPort = port(opts.port ?? 0);
-      const listenHost = hostname(opts.host, "::");
+      const tcp = typeof opts.port === "number" || typeof opts.port === "string" || "port" in opts && (opts.port === void 0 || opts.port === null);
+      let path;
+      if (!tcp && "path" in opts) {
+        path = pipePath(opts.path);
+        if (Number(path) >= 0) {
+          throw error(
+            TypeError,
+            "ERR_INVALID_ARG_VALUE",
+            "path must identify a pipe, not a numeric port"
+          );
+        }
+      }
+      const listenPort = path === void 0 ? port(opts.port ?? 0) : -1;
+      const listenHost = path === void 0 ? hostname(opts.host, "::") : void 0;
       const backlog = opts.backlog === void 0 ? 511 : Number(opts.backlog);
       if (!Number.isInteger(backlog) || backlog < 1 || backlog > 2147483647) {
         throw error(RangeError, "ERR_OUT_OF_RANGE", "Invalid backlog");
@@ -809,7 +879,12 @@ function createServers(host, policy, accepted) {
         this.once("listening", callback);
       }
       state.closing = false;
-      const id = native.create((type, value) => {
+      state.path = path;
+      const create = path === void 0 ? native.create : native.createPipe;
+      if (typeof create !== "function") {
+        unsupported("native local-pipe transport");
+      }
+      const id = create.call(native, (type, value) => {
         if (state.id !== id) {
           return;
         }
@@ -819,7 +894,7 @@ function createServers(host, policy, accepted) {
         } else if (type === "error") {
           this.emit("error", systemError(value, "accept"));
         } else if (type === "connection") {
-          const socket = accepted(value, state.opts);
+          const socket = accepted(value, state.opts, state.path);
           state.connections.add(socket);
           socket.once("close", () => {
             state.connections.delete(socket);
@@ -851,22 +926,26 @@ function createServers(host, policy, accepted) {
         if (state.id !== id || state.closing) {
           return;
         }
-        const status = native.listen(id, address, listenPort, backlog, !!opts.ipv6Only);
+        const status = path === void 0 ? native.listen(id, address, listenPort, backlog, !!opts.ipv6Only) : native.listenPipe(id, path, backlog);
         if (status) {
           releaseSignal(state);
           native.close(id);
           state.id = null;
-          tick(() => this.emit("error", systemError(status, "listen", address, listenPort)));
+          tick(
+            () => this.emit("error", systemError(status, "listen", path ?? address, listenPort))
+          );
         } else {
           this.listening = true;
           tick(() => {
-            if (this.listening) {
+            if (this.listening && state.id === id) {
               this.emit("listening");
             }
           });
         }
       };
-      if (ip(listenHost)) {
+      if (path !== void 0) {
+        tick(() => bind(path));
+      } else if (ip(listenHost)) {
         tick(() => bind(listenHost));
       } else {
         dnsLookup(listenHost, (err, address) => {
@@ -886,8 +965,11 @@ function createServers(host, policy, accepted) {
       return this;
     }
     address() {
-      const id = servers.get(this).id;
-      return this.listening && id !== null ? native.address(id, false) : null;
+      const state = servers.get(this);
+      if (state.path !== void 0) {
+        return state.path;
+      }
+      return this.listening && state.id !== null ? native.address(state.id, false) : null;
     }
     close(callback) {
       const state = servers.get(this);

@@ -17,6 +17,7 @@ export default function createServers(host, policy, accepted) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   } = policy;
@@ -50,6 +51,7 @@ export default function createServers(host, policy, accepted) {
       }
       servers.set(this, {
         id: null,
+        path: undefined,
         connections: new Set(),
         closing: false,
         opts: { ...opts },
@@ -71,14 +73,34 @@ export default function createServers(host, policy, accepted) {
         throw error(Error, 'ERR_SERVER_ALREADY_LISTEN', 'Listen called more than once');
       }
       const [opts, callback] = options(args);
-      for (const key of ['path', 'fd', 'handle', 'reusePort']) {
+      for (const key of ['fd', 'handle', 'reusePort', 'readableAll', 'writableAll']) {
         if (opts[key] !== undefined) {
           unsupported(`listen option ${key}`);
         }
       }
       const signal = validateSignal(opts.signal);
-      const listenPort = port(opts.port ?? 0);
-      const listenHost = hostname(opts.host, '::');
+      // Server.listen chooses its numeric/string port overload before path.
+      // This differs from Socket.connect, where an explicit path takes priority.
+      // An explicitly null/undefined port also requests an ephemeral TCP port.
+      const tcp =
+        typeof opts.port === 'number' ||
+        typeof opts.port === 'string' ||
+        ('port' in opts && (opts.port === undefined || opts.port === null));
+      let path;
+      if (!tcp && 'path' in opts) {
+        path = pipePath(opts.path);
+        // Node's server pipe-name branch excludes numeric-only strings. Do not
+        // silently turn options.path into a port or bind an unintended endpoint.
+        if (Number(path) >= 0) {
+          throw error(
+            TypeError,
+            'ERR_INVALID_ARG_VALUE',
+            'path must identify a pipe, not a numeric port'
+          );
+        }
+      }
+      const listenPort = path === undefined ? port(opts.port ?? 0) : -1;
+      const listenHost = path === undefined ? hostname(opts.host, '::') : undefined;
       const backlog = opts.backlog === undefined ? 511 : Number(opts.backlog);
       if (!Number.isInteger(backlog) || backlog < 1 || backlog > 2147483647) {
         throw error(RangeError, 'ERR_OUT_OF_RANGE', 'Invalid backlog');
@@ -87,7 +109,12 @@ export default function createServers(host, policy, accepted) {
         this.once('listening', callback);
       }
       state.closing = false;
-      const id = native.create((type, value) => {
+      state.path = path;
+      const create = path === undefined ? native.create : native.createPipe;
+      if (typeof create !== 'function') {
+        unsupported('native local-pipe transport');
+      }
+      const id = create.call(native, (type, value) => {
         if (state.id !== id) {
           return;
         }
@@ -97,7 +124,7 @@ export default function createServers(host, policy, accepted) {
         } else if (type === 'error') {
           this.emit('error', systemError(value, 'accept'));
         } else if (type === 'connection') {
-          const socket = accepted(value, state.opts);
+          const socket = accepted(value, state.opts, state.path);
           state.connections.add(socket);
 
           socket.once('close', () => {
@@ -134,25 +161,32 @@ export default function createServers(host, policy, accepted) {
         if (state.id !== id || state.closing) {
           return;
         }
-        const status = native.listen(id, address, listenPort, backlog, !!opts.ipv6Only);
+        const status =
+          path === undefined
+            ? native.listen(id, address, listenPort, backlog, !!opts.ipv6Only)
+            : native.listenPipe(id, path, backlog);
         if (status) {
           releaseSignal(state);
           native.close(id);
           state.id = null;
 
-          tick(() => this.emit('error', systemError(status, 'listen', address, listenPort)));
+          tick(() =>
+            this.emit('error', systemError(status, 'listen', path ?? address, listenPort))
+          );
         } else {
           this.listening = true;
 
           tick(() => {
-            if (this.listening) {
+            if (this.listening && state.id === id) {
               this.emit('listening');
             }
           });
         }
       };
 
-      if (ip(listenHost)) {
+      if (path !== undefined) {
+        tick(() => bind(path));
+      } else if (ip(listenHost)) {
         // Match asynchronous listen startup and let a pre-aborted signal close
         // the allocated transport before binding or delivering listening.
         tick(() => bind(listenHost));
@@ -175,8 +209,13 @@ export default function createServers(host, policy, accepted) {
     }
 
     address() {
-      const id = servers.get(this).id;
-      return this.listening && id !== null ? native.address(id, false) : null;
+      const state = servers.get(this);
+      // Node retains the requested pipe name even after a failed bind or close;
+      // TCP addresses instead require an active listening native handle.
+      if (state.path !== undefined) {
+        return state.path;
+      }
+      return this.listening && state.id !== null ? native.address(state.id, false) : null;
     }
 
     close(callback) {

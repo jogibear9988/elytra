@@ -191,7 +191,8 @@ await pipeline(
   ref/unref, addresses and selected options. OS hostname lookup/custom lookup and
   partial family retry are available. Socket construction/createConnection and
   Server.listen accept AbortSignal; see the [TCP reference](net.md).
-  Unix sockets and complete retry parity remain open.
+  Local Unix streams now pass macOS differential and unchanged Code-OSS IPC acceptance;
+  Windows named-pipe/Linux execution and complete TCP retry parity remain unverified.
 - `node:tls`: partial native TLS 1.2/1.3 client streams with certificate/hostname
   validation, custom/default anchors, ALPN and cancellation; see [TLS](tls.md).
   TLS servers and full option parity remain open; global Fetch has a separate

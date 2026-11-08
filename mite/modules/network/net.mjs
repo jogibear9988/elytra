@@ -1,5 +1,5 @@
 /**
- * Assemble one realm-local TCP builtin from private validation, connection,
+ * Assemble one realm-local TCP/local-pipe builtin from private validation, connection,
  * socket-stream and listener policies. Public ESM/CJS aliases share the same
  * constructors and functions; native I/O remains in the embedding adapter.
  */

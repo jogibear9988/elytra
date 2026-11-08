@@ -47,9 +47,10 @@ replace definitions and dispose through the actual extension, with 46 compiled
 dependencies and the conditional package adapter verified. No injected initial
 snapshots, preference writes or visible GUI tests are used.
 
-The actual adapted Code-OSS main now advances to ipc.net.serve during claimInstance
-and rejects local Unix sockets/named pipes in node:net. Implement genuine local IPC
-transport next, including ownership and exact socket errors. A workbench and
+At this slice the adapted Code-OSS main advanced to ipc.net.serve during claimInstance
+and rejected local Unix sockets/named pipes. The subsequent
+[local stream slice](0177-local-stream-endpoints.md) supplies that transport; see
+[the current Code-OSS status](../compatibility/vscode.md) for the latest startup blocker. A workbench and
 workspace open/edit/save remain unaccepted. Real MDM event delivery, Windows registry
 observation and any future Linux backend still need implementation/acceptance.
 

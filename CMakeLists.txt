@@ -549,6 +549,9 @@ if(BUILD_TESTING)
     add_test(NAME mite-net
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net.py" --mite
                      "$<TARGET_FILE:mite>")
+    add_test(NAME mite-net-pipes
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net_pipes.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(
         NAME mite-net-addresses
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net_addresses.py"

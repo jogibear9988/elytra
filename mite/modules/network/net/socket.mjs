@@ -1,5 +1,5 @@
 /**
- * A Duplex owns its native TCP handle, byte pressure, abort subscription and
+ * A Duplex owns its native TCP or local-pipe handle, byte pressure, abort subscription and
  * close/error ordering. Accepted and outbound sockets use the same constructor
  * and WeakMap; accepted native IDs are supplied only by the private server seam.
  */
@@ -21,6 +21,7 @@ export default function createSockets(host, policy) {
     port,
     ip,
     options,
+    pipePath,
     hostname,
     systemError
   } = policy;
@@ -124,6 +125,7 @@ export default function createSockets(host, policy) {
         decodeStrings: true
       });
       const state = {
+        pipePath: undefined,
         addresses: [],
         failures: [],
         attemptTimer: null,
@@ -180,10 +182,34 @@ export default function createSockets(host, policy) {
         unsupported('Reconnecting a destroyed Socket');
       }
       const [opts, cb] = options(args);
-      for (const key of ['path', 'fd', 'localAddress', 'localPort', 'signal']) {
+      for (const key of ['fd', 'localAddress', 'localPort', 'signal']) {
         if (opts[key] !== undefined) {
           unsupported(`connect option ${key}`);
         }
+      }
+      if (opts.path !== undefined) {
+        const path = pipePath(opts.path);
+        if (cb) {
+          this.once('connect', cb);
+        }
+        state.pipePath = path;
+        this.connecting = true;
+        handle(this);
+        const generation = state.id;
+        // Admission is asynchronous, letting pre-aborted sockets close their
+        // handle before the OS sees the endpoint. Preserve the normal callback
+        // and Duplex write-before-connect path once libuv reports connection.
+        tick(() => {
+          if (this.destroyed || state.id !== generation) {
+            return;
+          }
+          const status = native.connectPipe(generation, path);
+          if (status && !this.destroyed && state.id === generation) {
+            connectFailure(this, status);
+          }
+        });
+
+        return this;
       }
       const targetPort = port(opts.port);
       const targetHost = hostname(opts.host, 'localhost');
@@ -476,7 +502,7 @@ export default function createSockets(host, policy) {
       const state = sockets.get(this);
       state.noDelay = !!value;
       const id = state.id;
-      if (id !== null) {
+      if (id !== null && state.pipePath === undefined) {
         native.option(id, 0, !!value, 0);
       }
       return this;
@@ -490,7 +516,7 @@ export default function createSockets(host, policy) {
       state.keepAlive = !!value;
       state.keepAliveInitialDelay = delay;
       const id = state.id;
-      if (id !== null) {
+      if (id !== null && state.pipePath === undefined) {
         native.option(
           id,
           1,
@@ -547,10 +573,11 @@ export default function createSockets(host, policy) {
     }
   }
 
-  function accepted(id, opts) {
+  function accepted(id, opts, path) {
     const socket = new Socket(opts);
     const state = sockets.get(socket);
     state.id = id;
+    state.pipePath = path;
     state.connected = true;
 
     native.setCallback(id, (type, value) => socketEvent(socket, type, value));
