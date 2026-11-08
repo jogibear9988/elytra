@@ -6,10 +6,6 @@
 class QObject;
 
 namespace Firefly {
-void defer_theme_settings();
-
-void activate_theme_settings();
-
 void install_theme_host(JS::Realm&, JS::Object&, std::function<void()>);
 
 void watch_system_theme(QObject&, std::function<void()>);

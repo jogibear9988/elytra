@@ -80,7 +80,9 @@ check(
 );
 let state = JSON.parse(native.state(checkbox.commandId));
 check(state.bar && state.label === 'Unicode 世界', 'native label/tree');
-if (process.platform === 'darwin') {
+if (process.argv.includes('--offscreen')) {
+  check(state.platform === 'offscreen' && !state.native, 'explicit offscreen menu tree only');
+} else if (process.platform === 'darwin') {
   check(state.native, 'real native macOS menu bar');
 }
 check(native.trigger(checkbox.commandId), 'native QAction missing');
@@ -90,7 +92,7 @@ check(
   'native checkbox callback/state'
 );
 checkbox.enabled = false;
-native.trigger(checkbox.commandId);
+check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
 await delay();
 check(
   calls === 1 && !JSON.parse(native.state(checkbox.commandId)).enabled,
@@ -98,7 +100,7 @@ check(
 );
 checkbox.enabled = true;
 checkbox.visible = false;
-native.trigger(checkbox.commandId);
+check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
 await delay();
 check(calls === 1, 'hidden action called');
 checkbox.visible = true;
@@ -106,14 +108,22 @@ checkbox.label = 'Updated';
 checkbox.checked = false;
 check(JSON.parse(native.state(checkbox.commandId)).label === 'Updated', 'native property update');
 native.attachWindow();
-native.trigger(checkbox.commandId);
+check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
 await delay();
 check(calls === 2 && checkbox.checked, 'new window/native tree');
-native.trigger(quit.commandId);
-await delay();
+check(native.trigger(quit.commandId), 'native quit QAction missing');
+// Wait for the actual QAction -> native queue -> LibJS role dispatch, rather than
+// assuming that one timer turn is enough on a loaded release builder.
+const quitDeadline = Date.now() + 2000;
+while (quits === 0 && Date.now() < quitDeadline) {
+  await delay();
+}
+if (quits !== 1) {
+  console.error('native quit diagnostics', native.state(quit.commandId));
+}
 check(quits === 1, 'native quit role dispatch');
 // A queued native selection must not call a replacement application menu.
-native.trigger(checkbox.commandId);
+check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
 Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Replacement', submenu: [] }]));
 await delay();
 check(calls === 2, 'stale generation called');

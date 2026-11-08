@@ -16,6 +16,7 @@
 #include <QMenu>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <cstdio>
 
 namespace {
 QAction* find(QWidget& widget, int command)
@@ -43,9 +44,21 @@ int main(int argc, char** argv)
     Mite::EventLoop* jobs = nullptr;
     GC::Root<JS::FunctionObject> handler;
     bool stopped = false;
+    unsigned pending = 0, emissions = 0, deliveries = 0, triggers = 0, native_signals = 0;
+    int last_generation = 0, last_command = 0;
+    auto diagnostic = [&] {
+        fprintf(stderr,
+            "Native menu generation=%d command=%d triggers=%u native_signals=%u emissions=%u "
+            "deliveries=%u pending=%u stopped=%d\n",
+            last_generation, last_command, triggers, native_signals, emissions, deliveries, pending,
+            stopped);
+    };
+
     std::function<void(QByteArray)> enqueue;
     enqueue = [&](QByteArray wire) {
+        ++pending;
         QTimer::singleShot(1, &app, [&, wire] {
+            --pending;
             if (stopped || !handler)
                 return;
             if (jobs->is_busy()) {
@@ -53,18 +66,24 @@ int main(int argc, char** argv)
                 return;
             }
 
+            ++deliveries;
             jobs->dispatch([&] {
                 return JS::call(*vm, *handler, JS::js_undefined(),
                     JS::PrimitiveString::create(
                         *vm, Utf16String::from_utf8(StringView(wire.data(), wire.size()))));
             });
-            if (jobs->status())
+            if (jobs->status()) {
+                diagnostic();
                 app.exit(jobs->status());
+            }
         });
     };
 
     Firefly::ApplicationMenu menu(
         app, [&](int generation, int command, bool checked, QWidget*, int modifiers) {
+            ++emissions;
+            last_generation = generation;
+            last_command = command;
             enqueue(
                 QJsonDocument(QJsonObject { { "generation", generation }, { "command", command },
                                   { "checked", checked }, { "modifiers", modifiers } })
@@ -95,7 +114,11 @@ int main(int argc, char** argv)
                 auto* action = find(*menu.bar(), vm.argument(0).as_i32());
                 if (!action)
                     return JS::Value(false);
+                ++triggers;
+                auto connection = QObject::connect(
+                    action, &QAction::triggered, &app, [&](bool) { ++native_signals; });
                 action->trigger();
+                QObject::disconnect(connection);
                 return JS::Value(true);
             },
             1, JS::default_attributes);
@@ -106,11 +129,16 @@ int main(int argc, char** argv)
                 auto* action = bar && vm.argument(0).is_int32()
                     ? find(*bar, vm.argument(0).as_i32())
                     : nullptr;
-                QJsonObject state { { "bar", bar != nullptr },
-                    { "native", bar && bar->isNativeMenuBar() },
+                QJsonObject state { { "platform", QGuiApplication::platformName() },
+                    { "bar", bar != nullptr }, { "native", bar && bar->isNativeMenuBar() },
                     { "checked", action && action->isChecked() },
                     { "enabled", action && action->isEnabled() },
-                    { "visible", action && action->isVisible() } };
+                    { "visible", action && action->isVisible() }, { "generation", last_generation },
+                    { "command", last_command }, { "triggers", static_cast<int>(triggers) },
+                    { "native_signals", static_cast<int>(native_signals) },
+                    { "emissions", static_cast<int>(emissions) },
+                    { "deliveries", static_cast<int>(deliveries) },
+                    { "pending", static_cast<int>(pending) } };
                 if (action)
                     state.insert("label", action->text());
                 auto wire = QJsonDocument(state).toJson(QJsonDocument::Compact);
@@ -136,14 +164,17 @@ int main(int argc, char** argv)
         poll.setInterval(1);
         QObject::connect(&poll, &QTimer::timeout, [&] {
             loop.pump_once();
-            if (loop.status() || !loop.is_alive())
+            if (loop.status() || (!loop.is_alive() && pending == 0))
                 app.exit(loop.status());
         });
         loop.pump_once();
-        if (loop.status() || !loop.is_alive())
+        if (loop.status() || (!loop.is_alive() && pending == 0))
             return loop.status();
         poll.start();
-        QTimer::singleShot(10000, &app, [&] { app.exit(124); });
+        QTimer::singleShot(10000, &app, [&] {
+            diagnostic();
+            app.exit(124);
+        });
         return app.exec();
     };
 
@@ -153,5 +184,8 @@ int main(int argc, char** argv)
         handler = nullptr;
     };
 
-    return Mite::run(argc, argv, hooks);
+    auto result = Mite::run(argc, argv, hooks);
+    if (result)
+        diagnostic();
+    return result;
 }

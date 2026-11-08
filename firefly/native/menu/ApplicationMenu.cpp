@@ -111,12 +111,16 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
         if (type == "submenu") {
             auto* menu = new QMenu(node.value("label").toString(), &target);
             action = menu->menuAction();
+            action->setMenuRole(QAction::NoRole);
             target.addAction(action);
             populate(*menu, node.value("submenu").toArray(),
                 enabled && node.value("enabled").toBool(),
                 visible && node.value("visible").toBool());
         } else {
             action = new QAction(node.value("label").toString(), &target);
+            // Set before insertion: Cocoa may infer and merge roles as soon as
+            // an action enters a menu, based on translated labels such as Quit.
+            action->setMenuRole(QAction::NoRole);
             action->setSeparator(type == "separator");
             action->setCheckable(type == "checkbox");
             action->setChecked(node.value("checked").toBool());
@@ -149,8 +153,6 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
         }
 
         action->setData(node.value("command").toInt());
-        action->setMenuRole(
-            QAction::NoRole); // Do not infer Quit/About behavior from translated labels.
         action->setEnabled(enabled && node.value("enabled").toBool());
         action->setVisible(visible && node.value("visible").toBool());
     }

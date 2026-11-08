@@ -131,6 +131,7 @@ def main():
         "check-firefly-system-preferences-host",
         "check-firefly-system-preferences-unavailable",
         "check-firefly-network-state-unavailable",
+        "check-firefly-theme-settings",
         "check-firefly-global-shortcut-host",
         "check-firefly-global-shortcut-unavailable",
     ]

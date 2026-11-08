@@ -1,44 +1,15 @@
 /** Reuse upstream application preferences and Qt interface theming without patching Ladybird. */
 #include "ThemeHost.h"
 #include "ThemeMac.h"
+#include "ThemeSettings.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/ValueInlines.h>
-#include <LibWebView/Application.h>
 #include <QJsonDocument>
 #include <UI/Qt/SystemAppearance.h>
 
 namespace Firefly {
-namespace {
-    bool settings_ready { true };
-    Optional<WebView::ThemePreference> pending_source;
-
-    void apply_settings(WebView::ThemePreference preference)
-    {
-        auto& settings = WebView::Application::settings();
-        auto appearance = settings.appearance();
-        appearance.interface_theme = preference;
-        appearance.website_color_scheme = preference;
-        settings.set_appearance(appearance);
-    }
-}
-
-void defer_theme_settings()
-{
-    settings_ready = false;
-    // nativeTheme.themeSource starts at system on each main-process launch.
-    // Do not inherit a previous launch's explicit override from persisted prefs.
-    pending_source = WebView::ThemePreference::System;
-}
-
-void activate_theme_settings()
-{
-    settings_ready = true;
-    if (pending_source.has_value())
-        apply_settings(*pending_source);
-}
-
 void install_theme_host(JS::Realm& realm, JS::Object& host, std::function<void()> changed)
 {
     host.define_native_function(
@@ -62,9 +33,7 @@ void install_theme_host(JS::Realm& realm, JS::Object& host, std::function<void()
                 preference = WebView::ThemePreference::Light;
             else if (value != u"system"sv)
                 return vm.throw_completion<JS::TypeError>("Invalid theme source"_utf16);
-            pending_source = preference;
-            if (settings_ready)
-                apply_settings(preference);
+            set_theme_settings_source(preference);
             Ladybird::SystemAppearance::the().apply_interface_theme(preference);
             changed();
             return JS::js_undefined();

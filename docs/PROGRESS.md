@@ -10670,6 +10670,40 @@ but failed native.mjs:114 quit-role dispatch; alpha publication was skipped. Pre
 real theme/native-menu semantics while repairing these gates; do not add no-op export
 stubs or weaken assertions. No platform/release success is inferred. Full original goal stays active.
 
+## 2026-11-08 — Restore portable theme startup and deterministic menu dispatch gate
+
+- Repair the observed Linux link failure by moving actual deferred theme preference
+  lifecycle into platform-neutral ThemeSettings.cpp/.h, compiled for every desktop
+  runtime. It lazily resolves real WebView profile settings, applies interface and
+  website color preference together, preserves unrelated fields and resets each
+  launch toSystem. Mac themeSetSource delegates to that shared state. Linux still
+  explicitly lacks nativeTheme/accessibility APIs; no no-op stubs or invented support.
+- Add a pure native probe backed by genuine isolated WebView::Settings and persisted
+  JSON: no early profile access, last pending selection wins, live changes, launch
+  reset and independent-field preservation/reload pass. Link actual AK/Core/URL
+  requirements explicitly and wire the gate into release and Linux renderer CI.
+- Repair the macOS release menu gate's fixed-time assumption: require actual QAction
+  lookup, wait with a bounded deadline for quits, retain exact quits===1, and report
+  generation/command/trigger/signal/emission/delivery/pending counts on failure. Keep
+  pending queued callbacks alive in the embedding driver. Set NoRole before menu
+  insertion so Cocoa cannot infer a role before our managed role dispatch applies.
+- Add an exact-source offscreen frontend for the menu probe. Its explicit --offscreen
+  branch verifies actual offscreen platform/non-native bar; the existing default
+  macOS native-menu assertion is unchanged and still requires hosted Cocoa acceptance.
+  This allows local queued-role/lifetime testing without desktop menu/UI interaction.
+
+Validation: real theme-settings lifecycle probe and complete menu QAction/LibJS
+callback/role/state/stale-generation gate pass locally offscreen. Production Firefly
+rebuilds; upstream remains unmodified. Logs: build/theme-menu-repair.log. The first
+new menu build caught Qt's reserved signals macro in a diagnostic variable; rename
+it native_signals. The first offscreen execution correctly rejected the default
+native-menu claim; add a separate explicit offscreen contract rather than relaxing
+that native assertion. No visible windows or system preference changes were made.
+
+Remaining: fresh Linux link/runtime and hosted macOS native-menu/release validation;
+continue genuine GPU policy reporting and real Code-OSS main/workbench progress.
+No Windows desktop, alpha publication or usable Code-OSS claim. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

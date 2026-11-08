@@ -68,6 +68,16 @@ add_executable(firefly-menu-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/menu/Nati
                                   "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp")
 target_link_libraries(firefly-menu-probe PRIVATE firefly-mite firefly-application-menu)
 target_include_directories(firefly-menu-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+add_executable(firefly-theme-settings-probe "${CMAKE_CURRENT_LIST_DIR}/../theme/SettingsProbe.cpp"
+                                            "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeSettings.cpp")
+target_include_directories(firefly-theme-settings-probe
+                           PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../theme")
+target_link_libraries(firefly-theme-settings-probe PRIVATE LibWebView LibCore LibURL AK)
+add_custom_target(
+    check-firefly-theme-settings
+    COMMAND "$<TARGET_FILE:firefly-theme-settings-probe>"
+    DEPENDS firefly-theme-settings-probe
+    VERBATIM)
 add_custom_target(
     check-firefly-menu
     COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
@@ -189,6 +199,7 @@ endif()
 add_library(
     firefly-application OBJECT
     "${CMAKE_CURRENT_LIST_DIR}/Application.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
@@ -284,6 +295,24 @@ if(TARGET Qt6::QOffscreenIntegrationPlugin)
     add_dependencies(firefly-view-offscreen ladybird ${ladybird_helper_processes}
                      check-firefly-upstream)
     ladybird_check_skia_confinement(firefly-view-offscreen)
+    add_executable(
+        firefly-menu-offscreen-probe
+        "${FIREFLY_SOURCE_DIR}/firefly/tests/menu/NativeProbe.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
+        "${FIREFLY_SOURCE_DIR}/firefly/tests/web-contents-view/OffscreenPlugin.cpp")
+    target_include_directories(firefly-menu-offscreen-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+    target_link_libraries(
+        firefly-menu-offscreen-probe PRIVATE firefly-mite firefly-application-menu
+                                             Qt6::QOffscreenIntegrationPlugin)
+    add_custom_target(
+        check-firefly-menu-offscreen
+        COMMAND
+            "${CMAKE_COMMAND}" -E env QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic
+            "$<TARGET_FILE:firefly-menu-offscreen-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/menu/native.mjs" --offscreen
+        DEPENDS firefly-menu-offscreen-probe
+        VERBATIM)
+
     add_custom_target(
         check-firefly-global-shortcut-public
         COMMAND

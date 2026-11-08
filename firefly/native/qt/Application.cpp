@@ -14,7 +14,7 @@
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
 #include "../safe-storage/Host.h"
-#include "../theme/ThemeHost.h"
+#include "../theme/ThemeSettings.h"
 #include "../utility/Bootstrap.h"
 #include "../utility/Host.h"
 #include "ApiSource.h"
