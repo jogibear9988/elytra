@@ -577,11 +577,11 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
     const contents = win.webContents;
     if (type === 'ipc-send') {
-      dispatchIpcEvent(win, JSON.parse(data));
+      dispatchIpcEvent(win, typeof data === 'string' ? JSON.parse(data) : data);
       return;
     }
     if (type === 'ipc-invoke') {
-      dispatchIpc(win, JSON.parse(data));
+      dispatchIpc(win, typeof data === 'string' ? JSON.parse(data) : data);
       return;
     }
     if (type === 'close-request') {

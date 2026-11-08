@@ -3,6 +3,10 @@
 Status: accepted for locally tested macOS handle handoff/readiness only. Public
 application packet routing and binary IPC remain unimplemented.
 
+The later [ADR 0142](0142-public-raw-binary-ipc.md) adds public application packet
+routing and binary IPC; the remaining-transport paragraphs below describe this
+decision's original acceptance scope.
+
 ## Context
 
 Native raw byte transport and contextBridge binary copies already work separately.

@@ -1,9 +1,16 @@
 /** Authenticate canonical IPC senders and reserve/release native request budgets. */
 #include "Impl.h"
+#include "Value.h"
 #include "core/EventLoop.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
+#include "serialization/WireValue.h"
 #include <AK/JsonObject.h>
 #include <LibCore/Promise.h>
+#include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/Intrinsics.h>
+#include <LibJS/Runtime/VM.h>
+#include <LibJS/Runtime/ValueInlines.h>
 #include <LibWebView/CanonicalDocument.h>
 #include <LibWebView/CanonicalNavigable.h>
 #include <LibWebView/CanonicalTraversable.h>
@@ -25,6 +32,10 @@ void Bridge::Impl::reset_ipc(int id)
         window.ipc_byte_channel = nullptr;
     }
 
+    for (auto& probe : window.ipc_admission_probes)
+        probe->close();
+    window.ipc_admission_probes.clear();
+    window.ipc_byte_queue.clear();
     window.ipc_byte_epoch = 0;
     window.ipc_byte_ready = false;
     window.ipc_byte_deadline.clear();
@@ -37,6 +48,9 @@ void Bridge::Impl::reset_ipc(int id)
     window.ipc_document = {};
     window.ipc_realm = {};
     window.ipc_last = 0;
+    window.ipc_control_last = 0;
+    window.ipc_packets.clear();
+    window.ipc_refused.clear();
 }
 
 ByteString Bridge::Impl::active_ipc_document(State const& window)
@@ -53,52 +67,19 @@ bool Bridge::Impl::ipc_current(int id, ByteString const& document, ByteString co
         && found->second.ipc_realm == realm_id && active_ipc_document(found->second) == document;
 }
 
-void Bridge::Impl::dispatch_ipc(
-    int id, ByteString document, ByteString realm_id, ByteString data, u32 request, bool event)
+void Bridge::Impl::send_ipc_reply(int id, ByteString const& document, ByteString const& realm_id,
+    u32 request, bool success, ByteString const& wire)
 {
-    if (stopping || !ipc_current(id, document, realm_id))
-        return;
-    if (jobs.is_busy()) {
-        QTimer::singleShot(1, context.get(),
-            [this, id, document = move(document), realm_id = move(realm_id), data = move(data),
-                request, event] { dispatch_ipc(id, document, realm_id, data, request, event); });
-        return;
-    }
-
-    if (event) {
-        // Keep the native quota reserved through history ordering and VM-busy
-        // retries. Release before callbacks, which may close/navigate the window.
-        if (!windows.at(id).ipc_pending.erase(request))
-            return;
-        --ipc_pending_count;
-    }
-
-    deliver(id, event ? "ipc-send" : "ipc-invoke", data);
-    if (event && ipc_current(id, document, realm_id)) {
-        auto wire = MUST(BridgeData::from_string(u""sv).encode_wire({}));
-        send_ipc_reply(windows.at(id), document, realm_id, request, true, wire);
-    }
-}
-
-// This sends native data only: it is also safe while the Mite VM is busy.
-void Bridge::Impl::send_ipc_reply(State& window, ByteString const& document,
-    ByteString const& realm_id, u32 request, bool success, ByteString const& wire)
-{
-    JsonObject data;
-    data.set("document"sv, MUST(String::from_utf8(document.view())));
-    data.set("realm"sv, MUST(String::from_utf8(realm_id.view())));
-    data.set("request"sv, request);
-    data.set("success"sv, success);
-    data.set("wire"sv, MUST(String::from_utf8(wire.view())));
-    auto& page = window.view->page();
-    page.async_run_webdriver_bidi_command(
-        0, page.traversable().id(), "firefly.ipc.reply.v1"sv, move(data));
+    if (ipc_current(id, document, realm_id))
+        queue_ipc_packet(id, ApplicationIpc::Kind::Reply, request, success, wire);
 }
 
 void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossProcessId navigable,
     JsonValue params, NativeIpcKind kind)
 {
-    if (stopping || !params.is_object() || params.as_object().size() != 4)
+    if ((kind != NativeIpcKind::Bind && kind != NativeIpcKind::Invoke
+            && kind != NativeIpcKind::Event)
+        || stopping || !params.is_object() || params.as_object().size() != 4)
         return;
     auto const& data = params.as_object();
     auto document = data.get_string("document"sv), realm_id = data.get_string("realm"sv),
@@ -106,7 +87,7 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
     auto request = data.get_u32("request"sv);
     if (!document.has_value() || document->bytes().size() > 64 || !realm_id.has_value()
         || realm_id->is_empty() || realm_id->bytes().size() > 1024 || !wire.has_value()
-        || wire->bytes().size() > 128 * 1024 || !request.has_value()
+        || !wire->is_empty() || !request.has_value()
         || (*request == 0 && kind != NativeIpcKind::Bind))
         return;
     auto canonical = page.hosted_navigable(navigable);
@@ -126,9 +107,6 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
         auto caller = realm_id->to_byte_string();
         if (kind == NativeIpcKind::Bind && (*request != 0 || !wire->is_empty()))
             return;
-        if (kind == NativeIpcKind::Ack
-            && (window.ipc_document != actual_key || window.ipc_realm != caller))
-            return;
         if (window.ipc_document != actual_key) {
             reset_ipc(id);
             window.ipc_document = actual_key;
@@ -138,64 +116,179 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
 
         if (window.ipc_realm != caller)
             return;
-        // Control messages cannot consume invoke IDs or dispatch application listeners.
+        // Bind establishes the endpoint; request markers join raw payloads below.
         if (kind == NativeIpcKind::Bind) {
             bind_ipc_channel(id, page, navigable, actual.id());
             return;
         }
 
-        if (kind == NativeIpcKind::Ack) {
-            if (wire->is_empty() && window.ipc_outgoing.erase(*request))
-                --ipc_outgoing_count;
+        if (*request <= window.ipc_control_last)
             return;
-        }
-
-        if (*request <= window.ipc_last)
-            return;
+        window.ipc_control_last = *request;
         bool event = kind == NativeIpcKind::Event;
-        window.ipc_last = *request;
-        if (event && BridgeData::decode_wire(wire->bytes_as_string_view(), {}).is_error()) {
-            // Untrusted malformed events must not throw through the main VM's
-            // EventEmitter dispatch. Validate before application-code admission.
-            auto error = MUST(BridgeData::from_string(u"Invalid IPC event data"sv).encode_wire({}));
-            send_ipc_reply(window, actual_key, caller, *request, false, error);
+        if (!admit_ipc_half(id, *request, true, event))
             return;
-        }
-
-        if (window.ipc_pending.size() >= 16 || ipc_pending_count >= 64) {
-            // Refuse an authenticated request promptly without reserving another
-            // main-process slot. Never run an application handler over budget.
-            auto wire = MUST(
-                BridgeData::from_string(u"IPC pending request budget exceeded"sv).encode_wire({}));
-            send_ipc_reply(window, actual_key, caller, *request, false, wire);
-            return;
-        }
-
-        window.ipc_pending.insert(*request);
-        ++ipc_pending_count;
-        // History API updates are enqueued natively before the IPC envelope
-        // arrives, but their canonical URL need not have been applied yet.
-        // Sample metadata after those history steps, never from page data or
-        // by guessing how many Qt event-loop turns will be sufficient.
+        window.ipc_packets.at(*request).marker = true;
+        auto doc = window.ipc_document, realm_id = window.ipc_realm;
         page.traversable().append_history_queue_steps(
-            [this, lifetime = QPointer<QObject>(context.get()), id, document = actual_key,
-                realm_id = caller, params = move(params), request = *request,
-                event](NonnullRefPtr<Core::Promise<Empty>> completion) mutable {
-                if (lifetime && !stopping && ipc_current(id, document, realm_id)) {
-                    auto& window = windows.at(id);
-                    params.as_object().set("url"sv,
-                        window.view->page().traversable().active_document_url().serialize());
-                    auto encoded = params.serialized().to_byte_string();
-                    QTimer::singleShot(0, context.get(),
-                        [this, id, document = move(document), realm_id = move(realm_id),
-                            data = move(encoded), request,
-                            event] { dispatch_ipc(id, document, realm_id, data, request, event); });
+            [this, lifetime = QPointer<QObject>(context.get()), id, doc, realm_id,
+                request = *request](NonnullRefPtr<Core::Promise<Empty>> complete) {
+                if (lifetime && !stopping && ipc_current(id, doc, realm_id)) {
+                    auto& state = windows.at(id);
+                    auto found = state.ipc_packets.find(request);
+                    if (found != state.ipc_packets.end()) {
+                        found->second.history = true;
+                        found->second.url = state.view->page()
+                                                .traversable()
+                                                .active_document_url()
+                                                .serialize()
+                                                .to_byte_string();
+                        ready_ipc_packet(id, request);
+                    }
                 }
-                // Releasing the queue must not wait for application JS or a
-                // handler reply, including after navigation/host destruction.
-                completion->resolve({});
+
+                complete->resolve({});
             });
         return;
+    }
+}
+
+void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
+{
+    auto& window = windows.at(id);
+    auto decoded = ApplicationIpc::decode_message(bytes);
+    if (decoded.is_error() || decoded.value().epoch != epoch) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    auto const& packet = decoded.value();
+    if (packet.kind == ApplicationIpc::Kind::Ack) {
+        if (window.ipc_outgoing.erase(packet.request))
+            --ipc_outgoing_count;
+        return;
+    }
+
+    if ((packet.kind != ApplicationIpc::Kind::Invoke && packet.kind != ApplicationIpc::Kind::Send)
+        || packet.request <= window.ipc_last) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    window.ipc_last = packet.request;
+    auto wire = ByteString(
+        StringView(reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size()));
+    if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error()) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    bool event = packet.kind == ApplicationIpc::Kind::Send;
+    if (!admit_ipc_half(id, packet.request, false, event))
+        return;
+    auto& pending = window.ipc_packets.at(packet.request);
+    pending.payload = true;
+    pending.wire = move(wire);
+    ready_ipc_packet(id, packet.request);
+}
+
+bool Bridge::Impl::admit_ipc_half(int id, u32 request, bool marker, bool event)
+{
+    auto& window = windows.at(id);
+    if (auto refused = window.ipc_refused.find(request); refused != window.ipc_refused.end()) {
+        if (refused->second != marker)
+            window.ipc_refused.erase(refused);
+        return false;
+    }
+
+    auto found = window.ipc_packets.find(request);
+    if (found != window.ipc_packets.end()) {
+        if (found->second.event != event
+            || (marker ? found->second.marker : found->second.payload)) {
+            retire_ipc_channel(id);
+            return false;
+        }
+
+        return true;
+    }
+
+    if (window.ipc_pending.size() >= 16 || ipc_pending_count >= 64) {
+        if (window.ipc_refused.size() >= 16) {
+            retire_ipc_channel(id);
+            return false;
+        }
+
+        window.ipc_refused.emplace(request, marker);
+        auto error = MUST(
+            BridgeData::from_string(u"IPC pending request budget exceeded"sv).encode_wire({}));
+        send_ipc_reply(id, window.ipc_document, window.ipc_realm, request, false, error);
+        return false;
+    }
+
+    window.ipc_pending.insert(request);
+    ++ipc_pending_count;
+    window.ipc_packets.emplace(request,
+        State::RawRequest {
+            .event = event, .deadline = MonotonicTime::now() + AK::Duration::from_seconds(30) });
+    return true;
+}
+
+void Bridge::Impl::ready_ipc_packet(int id, u32 request)
+{
+    auto& window = windows.at(id);
+    auto found = window.ipc_packets.find(request);
+    if (found == window.ipc_packets.end() || !found->second.marker || !found->second.payload
+        || !found->second.history)
+        return;
+    auto packet = move(found->second);
+    window.ipc_packets.erase(found);
+    QTimer::singleShot(0, context.get(),
+        [this, id, doc = window.ipc_document, realm_id = window.ipc_realm, request,
+            event = packet.event, wire = move(packet.wire), url = move(packet.url)] {
+            dispatch_ipc_packet(id, doc, realm_id, request, event, wire, url);
+        });
+}
+
+void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString realm_id,
+    u32 request, bool event, ByteString wire, ByteString url)
+{
+    if (stopping || !ipc_current(id, document, realm_id) || !handler)
+        return;
+    if (jobs.is_busy()) {
+        QTimer::singleShot(1, context.get(),
+            [this, id, document, realm_id, request, event, wire = move(wire), url = move(url)] {
+                dispatch_ipc_packet(id, document, realm_id, request, event, wire, url);
+            });
+        return;
+    }
+
+    auto& window = windows.at(id);
+    if (!window.ipc_pending.contains(request))
+        return;
+    if (event) {
+        window.ipc_pending.erase(request);
+        --ipc_pending_count;
+    }
+
+    jobs.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+        GC::Root data { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
+        data->define_direct_property(
+            "document"_utf16, BridgeDetail::text(vm, document), JS::default_attributes);
+        data->define_direct_property(
+            "realm"_utf16, BridgeDetail::text(vm, realm_id), JS::default_attributes);
+        data->define_direct_property("request"_utf16, JS::Value(request), JS::default_attributes);
+        data->define_direct_property(
+            "url"_utf16, BridgeDetail::text(vm, url), JS::default_attributes);
+        data->define_direct_property(
+            "wire"_utf16, TRY(wire_value(realm, wire)), JS::default_attributes);
+        return JS::call(vm, *handler, JS::js_undefined(), JS::Value(id),
+            BridgeDetail::text(vm, event ? "ipc-send"sv : "ipc-invoke"sv), data.ptr());
+    });
+    if (jobs.status())
+        gui.quit(jobs.status());
+    if (event && ipc_current(id, document, realm_id)) {
+        auto ack = MUST(BridgeData::from_string(u""sv).encode_wire({}));
+        send_ipc_reply(id, document, realm_id, request, true, ack);
     }
 }
 }

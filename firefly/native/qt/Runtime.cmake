@@ -179,7 +179,8 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/../window/FrameGeometry.cpp"
     ${firefly_native_services}
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/WireValue.cpp")
 target_include_directories(firefly PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
                                            "${FIREFLY_SOURCE_DIR}/firefly/native/ipc")
 target_include_directories(firefly PRIVATE "${CMAKE_BINARY_DIR}/firefly-generated")
@@ -231,6 +232,13 @@ add_custom_target(
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_channel_binding.py"
         --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+
+add_custom_target(
+    check-firefly-ipc-binary
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_binary.py"
+            --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly
     VERBATIM)
 
@@ -365,6 +373,7 @@ if(APPLE)
                 check-firefly-ipc-events
                 check-firefly-ipc-outbound
                 check-firefly-ipc-channel
+                check-firefly-ipc-binary
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

@@ -11,7 +11,9 @@
 #include "../ChromeWindow.h"
 #include "Impl.h"
 #include "Value.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
+#include "serialization/WireValue.h"
 #include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -57,28 +59,25 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(
         realm, "encodeIpc"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto graph = BridgeData::capture(vm.argument(0), realm, {});
+            auto graph = BridgeData::capture(vm.argument(0), realm, public_binary_limits());
             if (graph.is_error())
-                return preload_error(
-                    vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC accepts bounded plain data only"sv);
-            auto encoded = graph.value().encode_wire({});
-            if (encoded.is_error() || encoded.value().length() > 128 * 1024)
+                return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION",
+                    "IPC accepts bounded data and binary copies only"sv);
+            auto encoded = graph.value().encode_wire(public_binary_limits());
+            if (encoded.is_error() || encoded.value().length() > ApplicationIpc::wire_limit)
                 return preload_error(
                     vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC data budget exceeded"sv);
-            return text(vm, encoded.value());
+            return wire_value(realm, encoded.value());
         },
         1, JS::default_attributes);
     host->define_native_function(
         realm, "decodeIpc"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string())
+            auto wire = wire_bytes(vm.argument(0), realm);
+            if (wire.is_error())
                 return preload_error(
-                    vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire data"sv);
-            auto wire = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            if (wire.length() > 128 * 1024)
-                return preload_error(
-                    vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC data budget exceeded"sv);
-            auto graph = BridgeData::decode_wire(wire, {});
+                    vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire bytes"sv);
+            auto graph = BridgeData::decode_wire(wire.value().view(), public_binary_limits());
             if (graph.is_error())
                 return preload_error(
                     vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire graph"sv);
@@ -93,7 +92,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (!vm.argument(0).is_int32() || !vm.argument(1).is_string()
                 || !vm.argument(2).is_string() || !vm.argument(3).is_number()
-                || !vm.argument(4).is_boolean() || !vm.argument(5).is_string())
+                || !vm.argument(4).is_boolean())
                 return JS::js_undefined();
             auto id = vm.argument(0).as_i32();
             auto request = TRY(vm.argument(3).to_u32(vm));
@@ -105,10 +104,13 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (!window.ipc_pending.erase(request))
                 return JS::js_undefined();
             --ipc_pending_count;
-            auto wire = MUST(vm.argument(5).as_string().utf16_string_view().to_byte_string());
-            if (wire.length() > 128 * 1024)
+            auto wire = wire_bytes(vm.argument(5), realm);
+            if (wire.is_error()) {
+                retire_ipc_channel(id);
                 return JS::js_undefined();
-            send_ipc_reply(window, doc, caller, request, vm.argument(4).as_bool(), wire);
+            }
+
+            send_ipc_reply(id, doc, caller, request, vm.argument(4).as_bool(), wire.value());
             return JS::js_undefined();
         },
         6, JS::default_attributes);

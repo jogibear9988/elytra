@@ -5,37 +5,39 @@ The future paths below are design requirements, not usable Firefly APIs today.
 
 ## Current boundary
 
-Firefly [request/reply and bidirectional plain-data event IPC](../api/ipc.md) copy bounded plain-data graphs with a
-128 KiB encoded request/reply limit. Typed arrays, Buffer, ArrayBuffer, Blob/File,
-MessagePorts and transferable objects are unsupported across that process boundary.
-The [contextBridge binary subset](../api/context-bridge.md#binary-copies-between-document-and-preload)
-now copies ArrayBuffer/typed arrays/DataView between the document and isolated
-preload, with a 64 KiB total complete-backing-store budget, exact offsets/backing
-aliases and writable independent binary storage inside frozen plain containers.
-Publication, sync/Promise results and callback directions pass local native and
-actual production-helper tests. This same-process realm support is not yet
-end-to-end binary IPC to main. Do not encode a large file as JSON, number arrays or base64 to
-work around these limits. No file-transfer performance has been measured yet.
+Firefly [request/reply and bidirectional event IPC](../api/ipc.md) now copy supported
+fixed ArrayBuffer/typed arrays/DataView between page, isolated preload and main.
+Buffer values normalize to Uint8Array. The budget is 64 KiB of distinct complete
+backing stores per graph, with a 128 KiB native application frame (20 bytes of
+header plus the encoded graph). Views keep offsets and backing aliases in Firefly;
+recipients own independent writable bytes. ContextBridge freezes plain containers,
+not binary storage. Shared/resizable/detached storage, File/Blob, MessagePorts and
+transfers remain unsupported. Actual public macOS tests and an Electron common
+reference pass; broader platform/performance evidence remains open.
+
+Native payloads use the document-bound byte channel, not JSON number arrays or
+Base64. A separate native request marker retains history/sender ordering. Pending
+admission, native frame credit and unsent queues are bounded; navigation/closure
+revoke the channel. [ADR 0142](../architecture/0142-public-raw-binary-ipc.md) describes
+this first copied-buffer process path. It is not yet a large-file streaming API.
+No file-transfer throughput/latency, shared-memory or zero-copy claim follows.
 
 An [internal native buffer/view snapshot and wire slice](../architecture/0099-bounded-native-binary-wire.md)
 now passes local macOS separate-process tests, with raw binary attachments and
 explicit byte budgets. It preserves typed-array/DataView offsets and backing
-aliases with one copy of each complete backing store. This does not enable public
-IPC/Buffer workflows to main, streaming or shared storage. The later bounded
-contextBridge publication/call subset now uses native copies within the renderer.
+aliases with one copy of each complete backing store. The later public IPC
+integration now uses this raw format through the actual native document channel. Streaming and shared storage remain unfinished.
 Full backing storage is visible in a cloned view; use a dedicated range when
 limiting exposed bytes. No throughput/latency or zero-copy claim follows from this.
 
 A [private native byte-channel component](../architecture/0100-native-byte-channel.md)
 now passes local macOS transport and separate-child tests with raw bytes,
 acknowledgement credit and explicit queue limits. Its actual main/WebContent
-handoff, canonical document authorization and public bridge integration are still
-missing at that component layer. The later [native document/preload channel
-handoff](../architecture/0141-native-preload-byte-channel-binding.md) now creates
-an actual production-helper endpoint after canonical preload Bind, verifies a raw
-epoch/document/navigable/PID handshake and replaces it on reload. Public application
-packet dispatch and binary IPC admission are still missing; existing public process
-IPC support remains unchanged.
+handoff, canonical document authorization and public bridge integration are
+now covered by the later document/preload channel handoff and application packet
+integration. Real OS-parent and epoch/document checks, reload/multiwindow rebinding
+and native unknown-realm/wrong-document/duplicate-handle refusal are included in
+the focused production-helper gate. This still does not establish port/stream APIs.
 
 ## What Electron and Code-OSS actually establish
 
@@ -59,10 +61,10 @@ Benchmark Electron and Firefly with the same workload before comparing costs.
    isolated preload and main-process boundaries. Preserve exact byte ranges and
    isolation; never serialize bytes as JSON/base64. Keep payload/memory/pending
    budgets, hostile input checks and explicit errors. The same-process page/preload
-   copy milestone now passes. Native document/preload handle handoff and readiness
-   now pass a production-helper reload/multiwindow batch; next add native application
-   packet dispatch, early-call queueing, bounded main-VM admission and binary replies.
-   Retain the default string IPC binary refusal until that route is accepted.
+   copy and actual native process IPC milestones now pass locally, including early
+   preload queueing, bounded main-VM admission, native history ordering and replies.
+   Broaden adversarial runtime coverage and native platform acceptance as the port/
+   streaming route is implemented.
    Bounded copied buffers are the first correctness milestone, not the final
    large-file transport.
 2. **Ports and streaming:** implement compatible port handoff and binary messages,

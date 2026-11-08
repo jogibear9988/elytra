@@ -56,6 +56,7 @@ add_library(
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/worlds/IsolatedWorld.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeData.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/BridgeWire.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/serialization/WireValue.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/context/FunctionBridge.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/context/Boundary.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/context/Snapshot.cpp"
@@ -74,6 +75,7 @@ add_library(
 target_include_directories(
     firefly-isolated-world PUBLIC "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
                                   "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries")
+target_include_directories(firefly-isolated-world PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-isolated-world PUBLIC LibWeb LibJS LibGC LibCore LibURL AK)
 add_dependencies(firefly-isolated-world check-firefly-upstream)
 add_executable(

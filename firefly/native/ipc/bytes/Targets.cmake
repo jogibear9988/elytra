@@ -2,7 +2,8 @@
 add_library(
     firefly-byte-channel STATIC
     "${CMAKE_CURRENT_LIST_DIR}/Channel.cpp" "${CMAKE_CURRENT_LIST_DIR}/Packet.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../application/Handshake.cpp")
+    "${CMAKE_CURRENT_LIST_DIR}/../application/Handshake.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../application/Message.cpp")
 target_include_directories(firefly-byte-channel PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-byte-channel PUBLIC LibIPC LibCore AK)
 add_executable(

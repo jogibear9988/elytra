@@ -1,6 +1,7 @@
 /** Document-owned invoke/send capability with shared request/event budgets and explicit teardown.
  */
 #pragma once
+#include "native/ipc/application/Message.h"
 #include "native/ipc/bytes/Channel.h"
 #include "worlds/IsolatedWorld.h"
 #include <AK/HashMap.h>
@@ -36,23 +37,28 @@ public:
 
     void expire();
 
-    void receive(
-        WebContent::PageClient&, Web::HTML::CrossProcessId, JsonValue const&, bool event = false);
-
 private:
     IpcEndpoint(IsolatedWorld&, Web::DOM::Document&, String);
 
     JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&, bool event = false);
 
-    void settle(u32, bool, String const&);
+    void settle(u32, bool, ByteString const&);
 
     enum class ListenerOperation { On, Once, Remove, RemoveAll };
 
     JS::ThrowCompletionOr<JS::Value> listen(JS::VM&, ListenerOperation);
 
-    void receive_event(u32, String);
+    void receive_event(u32, ByteString);
 
     void control(String const& kind, u32 request);
+
+    bool send_packet(ApplicationIpc::Kind, u32, bool, ByteString const&);
+
+    void flush_packets();
+
+    void receive_packet(ReadonlyBytes);
+
+    void retire_channel();
 
     struct Listener {
         Utf16String channel;
@@ -70,6 +76,7 @@ private:
     struct Pending {
         GC::Root<JS::PromiseCapability> capability;
         MonotonicTime deadline;
+        bool settling { false };
     };
 
     RefPtr<IsolatedWorld> m_owner;
@@ -78,6 +85,16 @@ private:
     HashMap<u32, Pending> m_pending;
     RefPtr<Bytes::Channel> m_byte_channel;
     u64 m_byte_epoch { 0 };
+    bool m_byte_failed { false };
+
+    struct QueuedPacket {
+        ApplicationIpc::Kind kind;
+        u32 request;
+        bool success;
+        ByteString wire;
+    };
+
+    Vector<QueuedPacket> m_byte_queue;
     u32 m_next { 0 };
 };
 }

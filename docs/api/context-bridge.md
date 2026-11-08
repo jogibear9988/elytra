@@ -196,11 +196,11 @@ fixture but copies view backing stores separately. Firefly deliberately preserve
 backing aliases within the graph; reference assertions distinguish this behavior.
 See [ADR 0140](../architecture/0140-context-bridge-binary-copies.md).
 
-This is a same-process realm boundary. Public ipcRenderer.invoke/send and
-webContents.send **still reject binary values**. Their existing string transport
-has not been replaced by the document-bound native byte channel. MessagePorts,
-large-file streaming, shared memory and zero-copy remain unfinished; do not route
-large files through JSON/Base64 to work around this distinction.
+This realm boundary now connects to the bounded [native binary IPC subset](ipc.md#data-and-resource-limits):
+ipcRenderer.invoke/send and webContents.send copy the supported buffers/views over
+the document-bound raw byte channel. The same 64 KiB distinct backing-store budget
+applies at each crossing. MessagePorts, large-file streaming, shared memory and
+zero-copy remain unfinished.
 
 ## Files, budgets and errors
 

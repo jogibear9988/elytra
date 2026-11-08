@@ -1,6 +1,7 @@
 /** Realm-owned listeners and native event credit; no principal-world callback or raw host export.
  */
 #include "IpcEndpoint.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
 #include <AK/NumericLimits.h>
@@ -90,7 +91,7 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::listen(JS::VM& vm, ListenerOperati
     return m_exports.ptr();
 }
 
-void IpcEndpoint::receive_event(u32 request, String wire)
+void IpcEndpoint::receive_event(u32 request, ByteString wire)
 {
     if (m_owner && m_owner->is_executing()) {
         // Core can be pumped by native work while a source frame is active.
@@ -104,14 +105,15 @@ void IpcEndpoint::receive_event(u32 request, String wire)
 
     VERIFY(m_incoming_pending);
     --m_incoming_pending;
-    if (!m_owner || m_owner->is_detached() || !m_document || !m_document->is_fully_active())
+    if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document
+        || !m_document->is_fully_active())
         return;
     auto owner = m_owner;
     Web::HTML::TemporaryExecutionContext context(m_document->relevant_settings_object());
     auto result = owner->run_async_frame([&]() -> JS::ThrowCompletionOr<JS::Value> {
         auto& realm = *owner->realm();
         auto& vm = realm.vm();
-        auto decoded = BridgeData::decode_wire(wire.bytes_as_string_view(), {});
+        auto decoded = BridgeData::decode_wire(wire.view(), public_binary_limits());
         if (decoded.is_error())
             return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"sv);
         auto copied
@@ -156,6 +158,6 @@ void IpcEndpoint::receive_event(u32 request, String wire)
         warnln("ERR_FIREFLY_IPC_LISTENER: renderer event dispatch failed");
     // Application exceptions do not retain credit. This acknowledges transport
     // dispatch, never the result of a listener or its returned Promise.
-    control("firefly.ipc.ack.v1"_string, request);
+    send_packet(ApplicationIpc::Kind::Ack, request, false, {});
 }
 }

@@ -32,9 +32,10 @@ contextBridge.exposeInMainWorld('desktop', {
   async check() {
     return report(async () => {
       phase = 'raw capability publication';
+      contextBridge.exposeInMainWorld('rawIpc', ipcRenderer);
       let denied = false;
       try {
-        contextBridge.exposeInMainWorld('rawIpc', ipcRenderer);
+        contextBridge.exposeInMainWorld('rawSend', { send: ipcRenderer.send });
       } catch {
         denied = true;
       }
@@ -64,7 +65,7 @@ contextBridge.exposeInMainWorld('desktop', {
         proxy,
         () => 1,
         document,
-        new Uint8Array(1),
+        new Uint8Array(65537),
         'x'.repeat(65537)
       ]) {
         await rejects(() => ipcRenderer.invoke('ping', value), 'ERR_FIREFLY_IPC_SERIALIZATION');

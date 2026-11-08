@@ -8678,6 +8678,68 @@ accessors/worker-cache resource contracts. The actual Code-OSS main entry's know
 allowServiceWorkers blocker is unchanged; no new workbench launch is claimed.
 Full goal stays active.
 
+## 2026-11-08 — Public raw binary IPC with native request/history correlation
+
+- Resume the paused uncommitted application-transport implementation; the previous
+  accepted handoff is pushed as 1eb2581. Keep the full goal and VS Code priority.
+- Send all ordinary/binary application payloads over the actual bound native channel,
+  using FIM1 kind/epoch/request frames and raw FFB2 graph attachments. No byte-to-UTF-8,
+  Base64 or JSON number-array transport. Public invoke/reply and both send directions
+  now use the bounded 64 KiB distinct-complete-backing copy policy; Buffer normalizes
+  to Uint8Array, with cycles/view geometry/backing aliases and independent storage.
+- Retain a native empty-wire control marker on the original history/control connection.
+  Join marker, raw payload and completed canonical history step before main dispatch.
+  This handles either arrival order and keeps app-supplied URLs out of sender identity.
+  Capture native metadata in a destination-owned object and private byte view; native
+  wire extraction reads slots without getters and rejects foreign/invalid storage.
+- Reserve 16/document and 64/host admission credit on the first half; keep it through
+  history and VM-busy retries. Bound refused counterpart IDs and expire missing halves
+  at 30 seconds. Bound native early preload/unsent queues to 48 frames with underlying
+  byte transport credit 16. Drop expired unsent requests/events at flush. No source
+  JS pointers remain in native packet buffers. Existing source pending limits remain.
+- Preserve application ACK quotas, deadlines and document/epoch revocation. Deferrals
+  retain at most one settlement per pending helper request; transport retirement rejects
+  pending calls and cannot publish a delayed success. Close/clear old queues and native
+  budgets; stale close callbacks cannot clear replacement endpoints. Disable old text
+  application payload/reply dispatch as an alternate transport path.
+- Add a modern ESM binary fixture with an invoke during preload before handle arrival,
+  asynchronous binary replies, main Buffer, 64 KiB views/cycles/aliases/offsets, sends
+  both ways, caller mutation and reload. The real Electron common reference passes;
+  backing alias guarantees across contextBridge remain separate Firefly assertions.
+- Extend native frame probes with an independent application-header vector, flags,
+  kind/identity/truncation and exact/overflow sizes. Native isolation now checks raw
+  private wire byte preservation, foreign realm refusal and trap-free slot extraction.
+- Add explicit parent-only diagnostic handoff observers: unknown realm, wrong document
+  and duplicate correct handle must each close without hello/app data. Actual helper
+  reload/multiwindow test passes all three cases for each document and checks live OS
+  parent PIDs. Default apps allocate no diagnostic observers or page binding capability.
+- Fix a stale regression expectation from ADR 0139: whole ipcRenderer publication
+  must become inert empty data, while individual raw methods still reject. Check that
+  in the principal page and source separately. Change the previous Uint8Array refusal
+  case to real over-budget storage now that bounded binary input is supported.
+- Wire the binary gate into native macOS aggregate and Linux Xvfb. Update detailed API,
+  file transport, compatibility/status/roadmap, historical ADR links and ADR 0142.
+
+Validation: local macOS Release build, native raw frame/channel/real-child gates and
+complete actual-engine isolation gate pass. Public binary Firefly and actual Electron
+common-contract fixtures pass. Full existing public request/reply regression passes,
+including source traps/quota/recovery, navigation, stale replies, closure, real helper
+crash/replacement and actual 30-second request deadline. Send event/history gate passes.
+Full outgoing gate passes its actual OS-verified SIGSTOP/SIGCONT timeout retirement and
+fresh-document recovery. Runtime admission rejects all nine unknown-realm/wrong-doc/
+duplicate handles across three document epochs/two hidden windows. Final source style,
+generated JS, unmodified upstream pin, built-site link and whitespace checks pass.
+Only focused hidden batches ran; no broad desktop suite or physical UI automation.
+
+Remaining: actual stalled-hello fault injection and broader compromised-process testing,
+MessagePort handoff/streaming, larger-file transport and performance evidence. Fresh
+hosted Linux and native Windows execution remain unverified. Ladybird is unmodified;
+Mite remains independent. No new Code-OSS workbench launch is claimed: its actual entry
+still has the known allowServiceWorkers blocker and needs complete preload accessors/
+process/options/zoom/file and worker/cache/resource contracts. Next advance those demanded
+contracts and ports, keeping the full product goal active rather than declaring the
+first copied-buffer transport complete as the overall objective.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

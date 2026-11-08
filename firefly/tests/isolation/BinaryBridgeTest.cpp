@@ -2,6 +2,7 @@
 #include "BinaryBridgeTest.h"
 #include "context/ContextBridge.h"
 #include "serialization/BinaryPolicy.h"
+#include "serialization/WireValue.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16StringBuilder.h>
@@ -110,6 +111,27 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
     checkpoint();
     TRY(check(u"delete Uint8Array.prototype.then;binaryThenRejected && binaryThenTraps===0"sv));
 
+    auto graph = TRY(Firefly::BridgeData::capture(
+        source->realm()->global_object().get_without_side_effects("binaryPrivate"_utf16),
+        *source->realm(), Firefly::public_binary_limits()));
+    auto raw = TRY(graph.encode_wire(Firefly::public_binary_limits()));
+    auto raw_value = Firefly::wire_value(target, raw);
+    if (raw_value.is_error())
+        return Error::from_string_literal("Cannot allocate private IPC wire");
+    auto root = GC::Root<JS::Value>::create(raw_value.value(), SourceLocation::current());
+    target.global_object().define_direct_property(
+        "__ffWire"_utf16, raw_value.value(), JS::default_attributes);
+    TRY(check(uR"JS(
+        globalThis.wireTraps=0;
+        for(const key of ['buffer','byteLength','byteOffset','length','constructor'])
+            Object.defineProperty(__ffWire,key,{get(){wireTraps++;throw 1}});
+        Object.setPrototypeOf(__ffWire,new Proxy({}, {get(){wireTraps++;throw 1}}));
+        true;
+    )JS"sv));
+    if (TRY(Firefly::wire_bytes(raw_value.value(), target)) != raw
+        || !Firefly::wire_bytes(raw_value.value(), *source->realm()).is_error())
+        return Error::from_string_literal("Private byte wire lost bytes/realm isolation");
+    TRY(check(u"wireTraps===0"sv));
     source->detach();
     TRY(check(uR"JS(
         let revoked=false;try{__ffBinary.echo(new Uint8Array([1]))}catch(e){revoked=e instanceof TypeError}

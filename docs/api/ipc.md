@@ -85,8 +85,8 @@ A partial asynchronous renderer-to-main event path is implemented. Use only in t
 configured isolated top-level preload. It returns undefined immediately; it has no
 application reply Promise. Validation, unsupported data, inactive callers and local
 pending exhaustion **throw synchronously**, using the corresponding error codes
-below. The data types and budgets are the same as invoke; binary data/ports are
-still unavailable. For example, wrap a fixed channel in a narrow preload action:
+below. Data types and budgets match invoke, including the bounded binary subset;
+ports remain unavailable. For example, wrap a fixed channel in a narrow preload action:
 
 ```js
 // main
@@ -226,30 +226,38 @@ A directly registered document callback can now receive the supported IPC event:
 event.sender becomes a frozen empty ordinary object, with no private module methods
 or listener state; ports is still empty. Individual raw native method publication
 remains refused. Prefer narrow wrappers that pass only application data. Code-OSS's
-full unchanged preload graph, binary values, ports and broader bridge contracts
+full unchanged preload graph, ports and broader bridge contracts
 still need their own end-to-end acceptance.
 
 ## Data and resource limits
 
-Supported values: undefined, null, booleans, numbers (including NaN, infinities and
-negative zero), UTF-16 strings, plain objects and arrays. Copies preserve cycles,
-shared references and array holes. Receiving code gets its own mutable objects;
-mutating one does not change the sender's values.
+Supported values include undefined, null, booleans, numbers (including NaN,
+infinities and negative zero), UTF-16 strings, plain objects/arrays, fixed ordinary
+ArrayBuffer, typed arrays and DataView. Native IPC copies preserve cycles, shared
+references, array holes and view type/offset/length/backing aliases. A Buffer
+normalizes to Uint8Array. Each recipient owns writable independent storage; no
+source storage is shared or detached. Custom binary prototypes/expandos are omitted.
 
-Binary IPC, MessagePorts and efficient disk-backed file/stream access are now
-prioritized for the [Code-OSS target](../compatibility/vscode.md). See the
-[file transport plan](../guides/file-transfer.md). The new same-process
-[contextBridge binary subset](context-bridge.md#binary-copies-between-document-and-preload)
-does not change this process IPC boundary or its limits below. The native raw byte
-channel now has a tested document/preload handle handoff and readiness handshake
-([ADR 0141](../architecture/0141-native-preload-byte-channel-binding.md)); application
-packet routing, main dispatch and binary replies still need integration. No zero-copy
-or File transfer support is claimed.
+The aggregate binary budget is **64 KiB of distinct complete backing stores per
+graph**, even when sending only a small view. Shared, detached, resizable and
+out-of-bounds storage is refused. Functions, accessors, proxies, symbols, host/DOM
+objects, Date, Map/Set, File/Blob, transferable objects and other special classes
+remain unsupported. Data capture rejects getters/proxies without running their
+traps; binary slots are read directly without constructor/iterator/getter hooks.
 
-Functions, accessors, proxies, symbols, host/DOM objects, typed arrays, Buffer,
-Date, Map/Set, transferable objects and other special classes are unsupported.
-Capture rejects getters/proxies without executing their traps. Return a small
-plain-data representation when using those types.
+Both plain and binary application messages use the same document-bound native
+byte channel and its sequenced frames, with a bounded early-preload queue. Graph
+metadata is versioned; binary attachments remain raw bytes. There is no Base64,
+JSON number-array or UTF-8 conversion of those bytes. A separate native control
+marker orders renderer requests after history updates; main joins marker, payload
+and native history metadata before calling application code. Sender identities and
+URLs never come from the application graph. Reply/event delivery also checks the
+native epoch and direction. Old string reply/event payloads cannot reopen that path.
+
+[ADR 0142](../architecture/0142-public-raw-binary-ipc.md) records framing, bounded
+admission/queues, timeout/revocation and acceptance. This is a copied-buffer API,
+not MessagePort handoff, file streaming, shared memory or a zero-copy guarantee.
+See the [file transport plan](../guides/file-transfer.md) for the remaining path.
 
 | Resource | Current limit |
 | --- | --- |
@@ -257,7 +265,9 @@ plain-data representation when using those types.
 | Arguments | At most 64 after the channel |
 | Graph | 4096 values, 4096 properties, depth 64, array length 4096 |
 | All graph strings/keys | 65536 UTF-16 code units |
-| Encoded request or reply | 128 KiB |
+| Application frame / graph payload | 128 KiB including the 20-byte application header / at most 131052 bytes of encoded graph |
+| Distinct binary backing storage | 64 KiB per graph |
+| Native unsent frame queue | At most 48 per document/direction, in addition to the byte-channel credit of 16 |
 | Pending invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
 | Request deadline | 30 seconds; intentionally bounded alpha policy |
 
@@ -314,3 +324,13 @@ cmake --build build/renderer --target check-firefly-ipc-outbound --parallel 3
 
 Local macOS Release passes. Linux CI requires this gate; fresh hosted execution and
 native Windows desktop remain open. See [ADR 0137](../architecture/0137-main-to-preload-events.md).
+
+The [raw binary fixture](../../tooling/tests/test_ipc_binary.py) adds an early preload
+invoke before handle arrival, asynchronous binary replies, main Buffer normalization,
+bidirectional sends, 64 KiB view/cycle/backing graphs, source mutation and reload.
+The actual Electron reference checks common behavior; Firefly's exact backing
+alias preservation across contextBridge remains a separately scoped assertion.
+Native probes check fixed application framing, byte limits and private wire extraction
+without property hooks. The document-channel batch also sends real unknown-realm,
+wrong-document and duplicate native handles and requires each to be closed without
+an application packet. These local macOS tests are not general platform certification.

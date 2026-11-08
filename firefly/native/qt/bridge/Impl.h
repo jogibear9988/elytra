@@ -34,6 +34,7 @@ namespace WebView {
 class WebContentPage;
 }
 
+#include "native/ipc/application/Message.h"
 #include "native/ipc/bytes/Channel.h"
 
 namespace Firefly {
@@ -62,9 +63,25 @@ struct Bridge::Impl {
         ByteString ipc_document {};
         ByteString ipc_realm {};
         u32 ipc_last { 0 };
+        u32 ipc_control_last { 0 };
+
+        struct RawRequest {
+            bool event { false };
+            bool marker { false };
+            bool payload { false };
+            bool history { false };
+            ByteString wire {};
+            ByteString url {};
+            MonotonicTime deadline {};
+        };
+
+        std::unordered_map<u32, RawRequest> ipc_packets {};
+        std::unordered_map<u32, bool> ipc_refused {};
         RefPtr<Bytes::Channel> ipc_byte_channel {};
         u64 ipc_byte_epoch { 0 };
         bool ipc_byte_ready { false };
+        Vector<ByteString> ipc_byte_queue {};
+        Vector<RefPtr<Bytes::Channel>> ipc_admission_probes {};
         Optional<MonotonicTime> ipc_byte_deadline {};
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
@@ -119,16 +136,31 @@ struct Bridge::Impl {
 
     bool ipc_current(int, ByteString const& document, ByteString const& realm_id);
 
-    void dispatch_ipc(
-        int, ByteString document, ByteString realm_id, ByteString data, u32 request, bool event);
-
-    void send_ipc_reply(State&, ByteString const& document, ByteString const& realm_id, u32 request,
+    void send_ipc_reply(int, ByteString const& document, ByteString const& realm_id, u32 request,
         bool success, ByteString const& wire);
 
     void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, NativeIpcKind);
 
     void bind_ipc_channel(int, WebView::WebContentPage&, Web::HTML::CrossProcessId,
         Web::HTML::CrossProcessId document);
+
+    void probe_ipc_handoff(int, WebView::WebContentPage&, Web::HTML::CrossProcessId,
+        Web::HTML::CrossProcessId document, u64 epoch, ByteString realm_id, u8 scenario);
+
+    void retire_ipc_channel(int);
+
+    bool queue_ipc_packet(int, ApplicationIpc::Kind, u32, bool, ByteString const&);
+
+    void flush_ipc_packets(int, u64 epoch);
+
+    void receive_ipc_packet(int, u64 epoch, ReadonlyBytes);
+
+    bool admit_ipc_half(int, u32 request, bool marker, bool event);
+
+    void ready_ipc_packet(int, u32 request);
+
+    void dispatch_ipc_packet(int, ByteString document, ByteString realm_id, u32 request, bool event,
+        ByteString wire, ByteString url);
 
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 

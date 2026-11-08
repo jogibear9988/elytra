@@ -2,6 +2,10 @@
 
 Status: accepted for the locally tested macOS native/production-helper subset.
 
+The later [ADR 0142](0142-public-raw-binary-ipc.md) adds public application packet
+routing and binary IPC; the remaining-transport paragraphs below describe this
+decision's original acceptance scope.
+
 ## Context
 
 Code-OSS needs Uint8Array messages, including the page/preload boundary before

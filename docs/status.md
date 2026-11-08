@@ -78,11 +78,13 @@ now cross to document callbacks with sender redacted to a frozen empty object;
 publication and sync/Promise results use the same exact native identity policy.
 Individual native IPC methods remain blocked. The 64 KiB contextBridge binary
 copy subset now passes local native and production-helper tests, with writable
-independent bytes and shared backing aliases. Process IPC remains byte-free until
-application packet dispatch and replies use its native document channel. Handle
-handoff and epoch/document/PID readiness now pass a local production-helper
-reload/multiwindow batch; no public binary IPC feature is enabled by that gate. Full callback publication,
-binary/MessagePort delivery and fresh Linux/native Windows acceptance remain open.
+independent bytes and shared backing aliases. Native process IPC now passes local
+copied-buffer acceptance: early preload
+invoke, asynchronous binary replies, Buffer normalization, bidirectional sends and
+64 KiB view graphs over the actual raw document channel. Unknown-realm, wrong-doc
+and duplicate native handles are rejected in the runtime admission gate. Application
+queues, history markers and pending/transport credit are bounded. MessagePorts,
+streaming, shared memory, broad clone types and fresh Linux/native Windows remain open.
 
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local

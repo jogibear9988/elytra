@@ -294,20 +294,11 @@ void shutdown()
 }
 
 namespace Firefly::RendererSession {
-bool receive_ipc_reply(WebContent::PageClient& page, u64, Web::HTML::CrossProcessId navigable,
-    String const& name, JsonValue const& params)
+bool receive_ipc_reply(
+    WebContent::PageClient&, u64, Web::HTML::CrossProcessId, String const& name, JsonValue const&)
 {
-    if (!name.starts_with_bytes("firefly.ipc."sv))
-        return false;
-    if (!name.is_one_of("firefly.ipc.reply.v1"sv, "firefly.ipc.event.v1"sv) || !session
-        || !params.is_object())
-        return true;
-    auto realm = params.as_object().get_string("realm"sv);
-    if (!realm.has_value() || realm->bytes().size() > 1024)
-        return true;
-    auto found = session->worlds.find(*realm);
-    if (found != session->worlds.end())
-        found->value.ipc->receive(page, navigable, params, name == "firefly.ipc.event.v1"sv);
-    return true;
+    // App payloads now require the bound raw channel. Never reopen the old text
+    // reply/event path as a way around its epoch, direction and framing checks.
+    return name.starts_with_bytes("firefly.ipc."sv);
 }
 }

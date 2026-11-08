@@ -36,6 +36,7 @@ def main():
         )
         env = environment(str(root / "environment"))
         env["FIREFLY_IPC_BYTES_DIAGNOSTIC"] = "1"
+        env["FIREFLY_IPC_BYTES_DIAGNOSTIC_ADMISSION"] = "1"
         process = subprocess.Popen(
             [str(args.firefly.resolve()), str(root / "main.mjs"), "--binding-probe"],
             env=env,
@@ -44,6 +45,7 @@ def main():
             stderr=subprocess.PIPE,
         )
         records = []
+        rejected = []
         output = {"stdout": bytearray(), "stderr": bytearray()}
         lines = {"stdout": "", "stderr": ""}
         checked_pids = set()
@@ -63,6 +65,12 @@ def main():
                         lines[key.data] += data.decode("utf-8", errors="replace")
                         while "\n" in lines[key.data]:
                             line, lines[key.data] = lines[key.data].split("\n", 1)
+                            negative = re.fullmatch(
+                                r"FIREFLY_IPC_BYTES_REJECTED window=(\d+) epoch=(\d+) case=(\d+)",
+                                line,
+                            )
+                            if negative:
+                                rejected.append(tuple(map(int, negative.groups())))
                             match = READY.fullmatch(line)
                             if not match:
                                 continue
@@ -84,10 +92,17 @@ def main():
             assert b"PASS public main-to-renderer events:" in output["stdout"], output
             assert b"VERIFICATION FAILED" not in output["stderr"], output
             assert b"ERR_FIREFLY_IPC_BYTES" not in output["stderr"], output
+            assert b"BAD_HANDOFF_ACCEPTED" not in output["stderr"], output
             assert len(records) == 3, (records, output)
             assert records[0][0] == records[1][0] and records[2][0] != records[0][0], records
             assert records[0][1] < records[1][1] < records[2][1], records
             assert len({record[3:] for record in records}) == 3, records
+            for window, epoch, *_ in records:
+                assert {case for w, e, case in rejected if w == window and e == epoch} == {
+                    0,
+                    1,
+                    2,
+                }, (records, rejected, output)
             print(
                 "PASS native document IPC channel: real owned helper PID, exact epoch/document handshake, reload/multiwindow rebinding and teardown"
             )

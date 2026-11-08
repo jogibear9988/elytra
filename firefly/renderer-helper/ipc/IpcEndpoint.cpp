@@ -1,8 +1,10 @@
 /** Preload-only invoke/event endpoint. Own Promise roots or private event credit until
  * settlement, timeout or document revocation; accept bounded data graphs only. */
 #include "IpcEndpoint.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
+#include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -17,13 +19,8 @@
 
 namespace Firefly {
 namespace {
-    constexpr size_t wire_limit = 128 * 1024;
+    constexpr size_t wire_limit = ApplicationIpc::wire_limit;
     size_t pending_count;
-
-    String document_key(Web::DOM::Document const& doc)
-    {
-        return MUST(String::formatted("{}:{}", doc.id().namespace_id, doc.id().local_id));
-    }
 
     GC::Ref<JS::Error> ipc_error(JS::Realm& realm, Utf16View message, Utf16View code)
     {
@@ -64,6 +61,8 @@ void IpcEndpoint::revoke()
         m_byte_channel = nullptr;
     }
 
+    m_byte_failed = true;
+    m_byte_queue.clear();
     pending_count -= m_pending.size();
     m_pending.clear();
     m_listeners.clear();
@@ -127,8 +126,8 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         return capability->promise();
     };
 
-    if (!m_owner || m_owner->is_detached() || !m_owner->is_executing() || m_owner->realm() != &realm
-        || !m_document->is_fully_active())
+    if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_owner->is_executing()
+        || m_owner->realm() != &realm || !m_document->is_fully_active())
         return reject(u"IPC document is no longer active"sv, u"ERR_FIREFLY_IPC_REVOKED"sv);
     if (!vm.argument(0).is_string()
         || vm.argument(0).as_string().utf16_string_view().length_in_code_units() > 256
@@ -140,11 +139,11 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
     GC::Root args { TRY(JS::Array::create(realm, vm.argument_count())) };
     for (size_t i = 0; i < vm.argument_count(); ++i)
         args->define_direct_property(i, vm.argument(i), JS::default_attributes);
-    auto captured = BridgeData::capture(JS::Value(args.ptr()), realm, {});
+    auto captured = BridgeData::capture(JS::Value(args.ptr()), realm, public_binary_limits());
     if (captured.is_error())
         return reject(
             u"IPC arguments are not supported data"sv, u"ERR_FIREFLY_IPC_SERIALIZATION"sv);
-    auto encoded = captured.value().encode_wire({});
+    auto encoded = captured.value().encode_wire(public_binary_limits());
     if (encoded.is_error() || encoded.value().length() > wire_limit)
         return reject(u"IPC data budget exceeded"sv, u"ERR_FIREFLY_IPC_SERIALIZATION"sv);
     auto* navigable = m_document->navigable().ptr();
@@ -157,22 +156,36 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         Pending {
             GC::Root { capability.ptr() }, MonotonicTime::now() + AK::Duration::from_seconds(30) });
     ++pending_count;
-    JsonObject envelope;
-    envelope.set("document"sv, document_key(*m_document));
-    envelope.set("realm"sv, m_realm);
-    envelope.set("request"sv, id);
-    envelope.set("wire"sv, MUST(String::from_utf8(encoded.value().view())));
-    // The event kind travels through the reserved native transport seam, never
-    // as caller-supplied sender/permission metadata. The private ACK owns credit.
-    page->webdriver_bidi_event(navigable->id(),
-        event ? "firefly.ipc.send.v1"_string : "firefly.ipc.invoke.v1"_string, move(envelope));
+    // This marker shares the native connection with history updates. The graph
+    // itself stays on the raw channel; main joins both halves before dispatch.
+    control(event ? "firefly.ipc.send.v1"_string : "firefly.ipc.invoke.v1"_string, id);
+    if (!send_packet(event ? ApplicationIpc::Kind::Send : ApplicationIpc::Kind::Invoke, id, false,
+            encoded.value())) {
+        if (m_pending.remove(id))
+            --pending_count;
+        return reject(u"IPC document channel is retired"sv, u"ERR_FIREFLY_IPC_REVOKED"sv);
+    }
+
     if (event)
         return JS::js_undefined();
     return capability->promise();
 }
 
-void IpcEndpoint::settle(u32 id, bool success, String const& wire)
+void IpcEndpoint::settle(u32 id, bool success, ByteString const& wire)
 {
+    auto found = m_pending.find(id);
+    if (found == m_pending.end() || found->value.settling)
+        return;
+    if (m_owner && m_owner->is_executing()) {
+        found->value.settling = true;
+        Core::deferred_invoke([self = NonnullRefPtr { *this }, id, success, wire] {
+            if (auto found = self->m_pending.find(id); found != self->m_pending.end())
+                found->value.settling = false;
+            self->settle(id, success, wire);
+        });
+        return;
+    }
+
     auto pending = m_pending.take(id);
     if (!pending.has_value())
         return;
@@ -192,8 +205,12 @@ void IpcEndpoint::settle(u32 id, bool success, String const& wire)
     auto result = owner->run_async_frame([&]() -> JS::ThrowCompletionOr<JS::Value> {
         auto& realm = *owner->realm();
         auto& vm = realm.vm();
-        auto decoded = wire.bytes().size() <= wire_limit
-            ? BridgeData::decode_wire(wire.bytes_as_string_view(), {})
+        if (m_byte_failed)
+            success = false;
+        auto decoded = m_byte_failed
+            ? ErrorOr<BridgeData> { BridgeData::from_string(u"IPC document channel closed"sv) }
+            : wire.length() <= wire_limit
+            ? BridgeData::decode_wire(wire.view(), public_binary_limits())
             : ErrorOr<BridgeData> { Error::from_string_literal("IPC reply too large") };
         JS::Value value;
         if (decoded.is_error()) {
@@ -217,43 +234,6 @@ void IpcEndpoint::settle(u32 id, bool success, String const& wire)
         warnln("Firefly IPC reply settlement rejected");
 }
 
-void IpcEndpoint::receive(WebContent::PageClient& page, Web::HTML::CrossProcessId navigable,
-    JsonValue const& params, bool event)
-{
-    if (!m_document || !m_owner || m_owner->is_detached() || !m_document->is_fully_active()
-        || !params.is_object())
-        return;
-    auto nav = m_document->navigable();
-    if (!nav || nav->id() != navigable || &nav->page() != &page.page())
-        return;
-    auto const& data = params.as_object();
-    if (data.size() != (event ? 4u : 5u))
-        return;
-    auto doc = data.get_string("document"sv), realm = data.get_string("realm"sv),
-         wire = data.get_string("wire"sv);
-    auto request = data.get_u32("request"sv);
-    auto success = data.get_bool("success"sv);
-    if (!doc.has_value() || *doc != document_key(*m_document) || !realm.has_value()
-        || *realm != m_realm || !request.has_value() || !*request || !wire.has_value()
-        || wire->bytes().size() > wire_limit || (!event && !success.has_value()))
-        return;
-    if (event) {
-        if (*request <= m_incoming_last)
-            return;
-        m_incoming_last = *request;
-        if (m_incoming_pending >= 16) {
-            warnln("ERR_FIREFLY_IPC_SEND: renderer event queue exhausted");
-            control("firefly.ipc.ack.v1"_string, *request);
-            return;
-        }
-
-        ++m_incoming_pending;
-        receive_event(*request, *wire);
-    } else {
-        settle(*request, *success, *wire);
-    }
-}
-
 void IpcEndpoint::expire()
 {
     Vector<u32> expired;
@@ -269,7 +249,7 @@ void IpcEndpoint::expire()
     }
     // Construct a native graph so timeout handling does not depend on wire bytes.
     auto encoded = MUST(BridgeData::from_string(u"IPC request timed out"sv).encode_wire({}));
-    auto wire = MUST(String::from_utf8(encoded.view()));
+    auto wire = encoded;
     for (auto id : expired)
         settle(id, false, wire);
 }

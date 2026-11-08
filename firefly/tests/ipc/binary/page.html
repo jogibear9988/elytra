@@ -1,0 +1,48 @@
+<!doctype html><meta charset="utf-8" /><title>Binary process IPC</title>
+<script>
+  const limited = true;
+  binary.binaryFromMain(async (event, value) => {
+    try {
+      const early = await binary.earlyBinary();
+      const main =
+        value instanceof Uint8Array && value[0] === 255 && value[1] === 128 && value[2] === 0;
+      value[0] = 9;
+      const b = new ArrayBuffer(65536),
+        bytes = new Uint8Array(b);
+      bytes[5] = 128;
+      bytes[65535] = 255;
+      const view = new Uint8Array(b, 5, 17),
+        data = new DataView(b, 3, 23),
+        graph = { b, view, alias: view, data };
+      graph.self = graph;
+      const echo = await binary.invokeBinary(graph);
+      const received = new Promise((resolve) =>
+        binary.binaryFromPage((_event, result) => resolve(result))
+      );
+      binary.sendBinary(graph);
+      bytes[5] = 77;
+      const sent = await received;
+      const valid = (copy) =>
+        copy.self === copy &&
+        copy.view === copy.alias &&
+        copy.view instanceof Uint8Array &&
+        copy.data instanceof DataView &&
+        copy.view.byteOffset === 5 &&
+        copy.data.byteOffset === 3 &&
+        copy.view.length === 17 &&
+        copy.data.byteLength === 23 &&
+        copy.view[0] === 128 &&
+        new Uint8Array(copy.b)[65535] === 255 &&
+        (!limited || (copy.view.buffer === copy.b && copy.data.buffer === copy.b));
+      binary.processBinaryResult({
+        early:
+          early instanceof Uint8Array && early[0] === 0 && early[1] === 128 && early[2] === 255,
+        main,
+        invoke: valid(echo),
+        send: valid(sent) && bytes[5] === 77
+      });
+    } catch (error) {
+      binary.processBinaryResult({ error: String(error) });
+    }
+  });
+</script>
