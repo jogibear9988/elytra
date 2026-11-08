@@ -65,7 +65,7 @@ sources. No source is fetched by the document or installed as a document script.
 
 ## Sandboxed preload environment
 
-Only `require('firefly')`, exporting contextBridge, is implemented. Other modules,
+Only `require('firefly')`, exporting contextBridge and the bounded ipcRenderer subset, is implemented. Other modules,
 including node:fs, relative modules and electron, throw ERR_FIREFLY_UNSUPPORTED_API.
 There is no Mite/Node process, Buffer or filesystem loader. The CommonJS wrapper
 provides module, exports, __filename and __dirname; this is not a full Node module
@@ -87,7 +87,8 @@ Supported data includes undefined, null, booleans, numbers, strings and plain
 objects/arrays with own data properties. Functions require validated source-world
 ownership. Accessors, proxies, bound functions, custom prototypes, symbols, DOM/native
 objects and promises embedded directly in an API graph are unsupported. Function
-arguments/results pass through bounded data copies; a returned Promise is bridged.
+arguments/results pass through bounded data copies; document-supplied function arguments
+are proxied as described below, and a returned Promise is bridged.
 Page getters/proxies are rejected without running their traps. This stricter policy
 and bounded graphs are intentional differences from general Electron value support.
 
@@ -103,6 +104,58 @@ function's ability to access its isolated closure is not privileged access to th
 main process. Use a fixed [ipcRenderer.invoke](ipc.md) action for that boundary;
 main-process imports expose app/BrowserWindow/ipcMain. executeInMainWorld and
 additional contextBridge methods are not implemented.
+
+## Document callbacks
+
+A document can pass its ordinary functions to an exported API, including functions
+nested in plain data graphs. The preload receives frozen, revocable proxies.
+Calls copy/freeze data into the document realm; synchronous data and native Promise
+results copy back. The callback receives undefined as its receiver (ordinary sloppy
+JavaScript receiver conversion still applies). Errors become destination-owned
+TypeErrors; foreign exception contents, getters and privileged source stack frames
+are not exposed. Promise observation bypasses user then/constructor/species hooks.
+
+Keep IPC events inside the preload and pass only the application payload:
+
+```js
+// preload.mjs
+import {contextBridge, ipcRenderer} from 'firefly';
+const listeners = new Set();
+ipcRenderer.on('value', (_event, value) => {
+  for (const callback of listeners) callback(value);
+});
+contextBridge.exposeInMainWorld('values', {
+  on(callback) { listeners.add(callback); },
+  off(callback) { listeners.delete(callback); }
+});
+```
+
+```js
+// document
+const listener = value => console.log(value);
+values.on(listener);
+values.off(listener);
+```
+
+Firefly preserves proxy identity for the same live document function across exported
+methods, enabling this on/off pattern. The cache is weak: unreferenced proxies are
+collectable. This identity guarantee and frozen callback input are Firefly behavior;
+the tested Electron reference requires application-managed subscription identities
+or per-subscription disposal instead of relying on identity across methods.
+
+There are at most 64 live callback endpoints and 64 pending callback Promises per
+document registry, 64 arguments per call, and 32 nested callback/API entries.
+Invalid argument capture rolls back newly created proxies. Delivery commits before
+application code runs, so its effects survive a later application exception.
+Navigation/detach revokes proxies and rejects pending bridges; unrelated principal
+Promise continuations keep running. Late results cannot revive a revoked endpoint.
+
+Callback arguments/results themselves must be supported data: higher-order function
+results, callable proxies/bound functions, binary values, ports and native objects
+remain unsupported. In particular, forwarding the raw IPC event (whose sender is
+the private ipcRenderer module) fails; use a payload wrapper as above. This does
+not yet support Code-OSS's unmodified full preload graph or every Electron bridge
+value. See [ADR 0138](../architecture/0138-document-callback-bridge.md).
 
 ## Files, budgets and errors
 
@@ -129,7 +182,13 @@ process replacement. Firefly-specific tests cover invalid paths/files, exact 64 
 acceptance, restricted CommonJS metadata, getter rejection and fail-closed syntax/
 throw behavior. Native SDK/helper gates separately exercise reentry, graph rollback
 and detached callback/Promise revocation. Packaged tests use the production helper.
-These scoped tests are not a complete security review or platform certification.
+The [native callback gate](../../firefly/tests/isolation/CallbackBridgeTest.cpp)
+checks identity, weak GC, capture rollback, bounded reentry, exact callback/Promise
+limits, clean stacks, sanitized failures and detach. The
+[public IPC batch](../../tooling/tests/test_ipc_outbound.py) also verifies real
+document subscriptions, Promise results and API reentry through the production
+helper, with a separate Electron common-contract reference. These scoped tests
+are not a complete security review or platform certification.
 
 See [security](../guides/security.md), [compatibility](../compatibility/firefly-0.1.md)
 and [ADR 0068](../architecture/0068-public-commonjs-preload.md).

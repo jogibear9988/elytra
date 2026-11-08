@@ -99,7 +99,7 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
         (()=>{
             let traps=0, rejected=0;
             const bad=[new Proxy({}, {ownKeys(){traps++;throw 1}}),
-                {get x(){traps++;throw 1}}, ()=>1, document];
+                {get x(){traps++;throw 1}}, new Proxy(()=>1,{get(){traps++;throw 1}}), document];
             for(const x of bad)try{bridgeCall(x)}catch(e){
                 if(e instanceof TypeError && e.message==='Firefly bridge call rejected')rejected++;
             }

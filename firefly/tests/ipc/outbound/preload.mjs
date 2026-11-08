@@ -130,3 +130,36 @@ ipcRenderer.on('cleanup', () => {
 });
 
 ipcRenderer.removeAllListeners('cleanup');
+
+// Strip the privileged IPC event before calling a document-supplied function.
+// Sharing proxy identity across onValue/offValue makes ordinary unsubscription work.
+const pageListeners = new Set();
+let callbackReport = null;
+let callbackRuns = 0;
+contextBridge.exposeInMainWorld('pageEvents', {
+  onValue(callback) {
+    pageListeners.add(callback);
+  },
+
+  offValue(callback) {
+    pageListeners.delete(callback);
+  },
+
+  echo(value) {
+    return value;
+  }
+});
+
+ipcRenderer.on('page-value', (_event, value) => {
+  for (const callback of Array.from(pageListeners)) {
+    ++callbackRuns;
+
+    callback(value).then((result) => {
+      callbackReport = result;
+    });
+  }
+});
+
+ipcRenderer.once('callback-report', () => {
+  ipcRenderer.send('callback-report', { callbackReport, callbackRuns });
+});

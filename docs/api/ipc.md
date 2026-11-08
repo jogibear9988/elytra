@@ -220,11 +220,12 @@ including error, are ignored by this renderer subset; it is not a full EventEmit
 implementation. Introspection/prepend methods and complete exception/DOM event
 reporting remain absent.
 
-These are trusted **preload** listener APIs. General page-function arguments through
-contextBridge and Code-OSS's full published callback API remain incomplete; adding
-these listeners does not establish that the actual workbench preload can publish
-all of its APIs unchanged. Binary values, ports and broader bridge contracts still
-need their own end-to-end acceptance.
+These are trusted **preload** listener APIs. Document function arguments now pass
+through the bounded [contextBridge callback subset](context-bridge.md#document-callbacks).
+Wrap listeners to discard the private IPC event and pass application data only;
+raw event.sender/module forwarding remains refused. Code-OSS's full unchanged
+preload graph, binary values, ports and broader bridge contracts still need their
+own end-to-end acceptance.
 
 ## Data and resource limits
 

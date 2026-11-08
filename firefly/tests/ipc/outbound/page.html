@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Native event target</title>
+<script>
+  // Electron does not retain callback identity across distinct exported methods.
+  const stableIdentity = true;
+  let calls = 0;
+  async function listener(value) {
+    ++calls;
+    if (stableIdentity) pageEvents.offValue(listener);
+    const reentry = pageEvents.echo({ n: value.n + 1 });
+    await Promise.resolve();
+    return {
+      calls,
+      n: reentry.n,
+      frozen: Object.isFrozen(value),
+      realm: Object.getPrototypeOf(value) === Object.prototype,
+      page: document.title === 'Native event target'
+    };
+  }
+  if (stableIdentity) {
+    pageEvents.onValue(listener);
+    pageEvents.offValue(listener);
+  }
+  pageEvents.onValue(listener);
+</script>

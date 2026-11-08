@@ -1,4 +1,5 @@
 #include "BridgeDataTest.h"
+#include "CallbackBridgeTest.h"
 #include "ContextBridgeTest.h"
 #include "CustomEventTest.h"
 #include "ErrorEventTest.h"
@@ -143,6 +144,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_bridge_data(vm, principal, *second->realm()));
     TRY(check_function_bridge(vm, *document));
     TRY(check_context_bridge(vm, *document));
+    TRY(check_callback_bridge(vm, *document));
     TRY(check_promise_bridge(vm, *document));
     TRY(check_world_job_guard(vm, *document));
     TRY(check_handlers(vm, *document));

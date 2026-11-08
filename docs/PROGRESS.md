@@ -8511,6 +8511,46 @@ transport with the same native sender/document/revocation rules. Continue the re
 Code-OSS entry as protocol worker/cache/remote-scheme contracts are resolved; do
 not replace those features with inert flags or a narrowed completion claim.
 
+## 2026-11-08 — Bounded contextBridge document callbacks (VS Code prerequisite)
+
+- Share a weak per-document callback registry across exported APIs. Ordinary page
+  function arguments now become frozen, revocable isolated proxies, with graph
+  aliases and stable live identity across subscription/removal methods. Roll back
+  new proxies on failed capture; commit before executing application code.
+- Copy/freeze data both ways and bridge actual callback Promise results with direct
+  engine observation. Remove privileged frames and install principal HTML callback
+  settings; page Promise jobs remain independent of isolated-world cancellation.
+- Bound live callback endpoints and aggregate pending callback Promises to 64 each,
+  arguments to 64 and nested callback/API entries to 32. Permit controlled API
+  reentry through fresh source frames, keeping general recursive evaluation refused.
+- Keep pending endpoints revocable after JS proxy GC. Do not execute JS in GC-driven
+  native destructors. Teardown releases callback roots and rejects pending bridges.
+- Add actual-engine tests for identity/aliases, frozen realm-owned data, clean stacks,
+  hostile getters/errors/Promise hooks, rollback, weak GC, repeated endpoint budgets,
+  exact pending quota/recovery, nested calls, outer-turn microtask ordering and
+  detach with surviving page jobs.
+- Extend the existing hidden public IPC batch with document subscriptions, on/off
+  identity, API reentry and Promise results after reload. Keep the positive Electron
+  comparison scoped: Electron differs in cross-method proxy identity and callback
+  input mutability. Update detailed bridge/IPC/API status and ADR 0138.
+
+Validation: local macOS Release firefly build and complete native isolation gate
+pass. Actual hidden production-helper callback/IPC functional batch and actual
+Electron common-contract reference pass. Existing stalled-peer transport logic is
+unchanged; its full timeout stress gate was accepted in the previous slice and is
+not rerun for this bridge-only change. No broad UI suite or physical desktop
+interaction. Final source style, generated-adapter freshness, unmodified upstream
+pin, built-site links and whitespace checks pass. Fresh Linux and native Windows
+callback execution remain unverified.
+
+Remaining: raw IPC event/module forwarding, higher-order returned functions, binary
+values and MessagePorts remain refused; the unmodified Code-OSS preload/workbench
+is not accepted. Its real entry still has the previously observed allowServiceWorkers
+blocker; this callback slice does not change protocol registration. Next prioritize
+safe full preload graph compatibility and binary/port transport while resolving
+actual worker/cache/resource requirements. HTTP/2/3 and website polish stay lower
+priority. Ladybird remains unmodified; full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -4,6 +4,7 @@
  */
 
 #pragma once
+#include "context/CallbackBridge.h"
 #include "worlds/IsolatedWorld.h"
 #include <AK/HashMap.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -26,7 +27,8 @@ struct FunctionExport {
 class FunctionBridge final : public RefCounted<FunctionBridge> {
 public:
     AK_ALLOC_WITH_KMALLOC;
-    static ErrorOr<FunctionExport> create(IsolatedWorld&, JS::FunctionObject&, Web::DOM::Document&);
+    static ErrorOr<FunctionExport> create(
+        IsolatedWorld&, JS::FunctionObject&, Web::DOM::Document&, RefPtr<CallbackRegistry> = {});
 
     ~FunctionBridge();
 
@@ -43,7 +45,8 @@ public:
     }
 
 private:
-    FunctionBridge(IsolatedWorld&, JS::FunctionObject&, Web::DOM::Document&);
+    FunctionBridge(IsolatedWorld&, JS::FunctionObject&, Web::DOM::Document&, CallbackRegistry&,
+        bool own_registry);
 
     JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&);
 
@@ -58,6 +61,8 @@ private:
     GC::Root<JS::FunctionObject> m_function;
     GC::Root<Web::DOM::Document> m_document;
     bool m_revoked { false };
-    bool m_calling { false };
+    RefPtr<CallbackRegistry> m_callbacks;
+    bool m_own_registry { false };
+    size_t m_call_depth { 0 };
 };
 }

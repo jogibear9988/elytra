@@ -4,6 +4,8 @@
  */
 
 #include "context/FunctionBridge.h"
+#include "context/Boundary.h"
+#include "context/CallbackBridge.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/Array.h>
@@ -30,53 +32,18 @@ struct FunctionBridge::Pending : public RefCounted<Pending> {
 
 FunctionBridge::~FunctionBridge() = default;
 
-static GC::Ref<JS::TypeError> bridge_error(JS::Realm& target, Utf16View message)
-{
-    auto& vm = target.vm();
-    // Capture no caller/source frames, including revoke during a source call.
-    vm.save_execution_context_stack();
-    ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
-    auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
-    context->realm = &target;
-    vm.push_execution_context(*context);
-    ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
-    return JS::TypeError::create(target, message);
-}
-
-static void settle_target(
-    JS::PromiseCapability& capability, JS::Realm& target, JS::Value value, bool reject)
-{
-    auto& vm = target.vm();
-    auto root = GC::Root<JS::Value>::create(value, SourceLocation::current());
-    // Approved copied values and sanitized errors belong to target continuations,
-    // not to the source job's cancellation generation. Never inherit its frames
-    // when built-in settlement enqueues the target's Promise reactions.
-    vm.save_execution_context_stack();
-    ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
-    auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
-    context->realm = &target;
-    vm.push_execution_context(*context);
-    ScopeGuard pop([&] { VERIFY(vm.pop_execution_context() == context.ptr()); });
-    auto function = reject ? capability.reject() : capability.resolve();
-    MUST(JS::call(vm, *function, JS::js_undefined(), value));
-}
-
-static void reject_pending(JS::PromiseCapability& capability, JS::Realm& target)
-{
-    GC::Root error { bridge_error(target, u"Firefly bridge promise rejected"sv) };
-    settle_target(capability, target, error.ptr(), true);
-}
-
-FunctionBridge::FunctionBridge(
-    IsolatedWorld& source, JS::FunctionObject& function, Web::DOM::Document& document)
+FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& function,
+    Web::DOM::Document& document, CallbackRegistry& callbacks, bool own_registry)
     : m_source(source)
     , m_function(function)
     , m_document(document)
+    , m_callbacks(callbacks)
+    , m_own_registry(own_registry)
 {
 }
 
-ErrorOr<FunctionExport> FunctionBridge::create(
-    IsolatedWorld& source, JS::FunctionObject& function, Web::DOM::Document& document)
+ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::FunctionObject& function,
+    Web::DOM::Document& document, RefPtr<CallbackRegistry> callbacks)
 {
     // FunctionObject::realm() is a native field read. Callable proxies/bound
     // functions have no own realm and are rejected without invoking their hooks.
@@ -86,7 +53,11 @@ ErrorOr<FunctionExport> FunctionBridge::create(
             != &document.window()->principal_realm())
         return Error::from_string_literal(
             "Function export requires its live source world and exact document");
-    auto owner = adopt_ref(*new FunctionBridge(source, function, document));
+    bool own_registry = !callbacks;
+    if (!callbacks)
+        callbacks = TRY(CallbackRegistry::create(source, document));
+    auto owner
+        = adopt_ref(*new FunctionBridge(source, function, document, *callbacks, own_registry));
     auto& target = document.window()->principal_realm();
     // The first create parameter selects a VM for allocation, not [[Realm]].
     // Set the optional realm explicitly to keep constructor/error paths in target.
@@ -113,9 +84,12 @@ void FunctionBridge::revoke()
     m_function = nullptr;
     m_document = nullptr;
     m_source.clear();
+    if (m_callbacks && m_own_registry)
+        m_callbacks->revoke();
+    m_callbacks.clear();
     auto pending = move(m_pending);
     for (auto& entry : pending)
-        reject_pending(*entry.value->capability, *entry.value->target);
+        Boundary::reject(*entry.value->capability, *entry.value->target);
 }
 
 JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
@@ -124,7 +98,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
     GC::Root source_promise { promise };
     if (m_pending.size() >= 64 || m_next_id == NumericLimits<u64>::max())
         return JS::throw_completion(
-            bridge_error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
+            Boundary::error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
     GC::Root capability { TRY(
         JS::new_promise_capability(vm, target.intrinsics().promise_constructor())) };
     u64 id = ++m_next_id;
@@ -142,32 +116,6 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
     return capability->promise();
 }
 
-// Promise resolving functions perform Get(value, "then"). Refuse a polluted
-// target prototype before that publication point, so no caller getter/thenable
-// can steal a still-pending settlement from the revocation registry.
-static bool safe_to_resolve(JS::Value value)
-{
-    if (!value.is_object())
-        return true;
-    auto const* object = &value.as_object();
-    for (size_t depth = 0; object && depth < 64; ++depth, object = object->prototype()) {
-        auto id = object->engine_class_id();
-        if (JS::host_class_of(*object)
-            || (id != JS_LAYOUT_CLASS_ID_OBJECT && id != JS_LAYOUT_CLASS_ID_ARRAY
-                && id != JS_LAYOUT_CLASS_ID_OBJECT_PROTOTYPE
-                && id != JS_LAYOUT_CLASS_ID_ARRAY_PROTOTYPE))
-            return false;
-        auto descriptor = object->ordinary_get_own_property("then"_utf16);
-        if (descriptor.is_error())
-            return false;
-        if (descriptor.value().has_value())
-            return descriptor.value()->is_data_descriptor() && descriptor.value()->value.has_value()
-                && !descriptor.value()->value->is_function();
-    }
-
-    return !object;
-}
-
 JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, JS::Value value)
 {
     NonnullRefPtr protect { *this };
@@ -181,31 +129,31 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
     record.target = nullptr;
     if (m_revoked || m_source->is_detached() || !m_document->is_fully_active()) {
         revoke();
-        reject_pending(*capability, *target);
+        Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     if (!fulfilled) {
-        reject_pending(*capability, *target);
+        Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     auto data = BridgeData::capture(value, *m_source->realm(), {});
     if (data.is_error()) {
-        reject_pending(*capability, *target);
+        Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     auto copied = data.value().materialize(*target);
-    if (copied.is_error() || !safe_to_resolve(copied.value()) || m_revoked
+    if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || m_revoked
         || m_source->is_detached() || !m_document->is_fully_active()) {
         if (!m_revoked && (m_source->is_detached() || !m_document->is_fully_active()))
             revoke();
-        reject_pending(*capability, *target);
+        Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
-    settle_target(*capability, *target, copied.release_value(), false);
+    Boundary::settle(*capability, *target, copied.release_value(), false);
     return JS::js_undefined();
 }
 
@@ -213,7 +161,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
 {
     auto error = [&]() {
         return JS::throw_completion(
-            bridge_error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
+            Boundary::error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
     };
 
     if (m_revoked)
@@ -223,8 +171,10 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
         return error();
     }
 
-    if (m_calling || m_pending.size() >= 64 || vm.argument_count() > 64
-        || vm.current_realm() != &m_document->window()->principal_realm())
+    if (m_call_depth >= 32 || m_pending.size() >= 64 || vm.argument_count() > 64
+        || vm.current_realm() != &m_document->window()->principal_realm()
+        || !Boundary::caller_is(vm, m_document->window()->principal_realm())
+        || (m_source->is_executing() && !m_callbacks->principal_depth))
         return error();
     NonnullRefPtr protect { *this };
     NonnullRefPtr source { *m_source };
@@ -232,23 +182,49 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     GC::Root target { *vm.current_realm() };
     GC::Root source_realm { *source->realm() };
     GC::Root document { *m_document };
-    m_calling = true;
-    ScopeGuard done([&] { m_calling = false; });
+    auto callbacks = m_callbacks;
+    ++m_call_depth;
+    ScopeGuard done([&] { --m_call_depth; });
     GC::RootVector<JS::Value> arguments;
     for (size_t i = 0; i < vm.argument_count(); ++i)
         arguments.append(vm.argument(i));
     GC::Root array { JS::Array::create_from(*target, arguments.span()) };
-    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, {});
+    GC::RootVector<JS::Value> functions;
+    Vector<RefPtr<CallbackEndpoint>> created;
+    bool committed = false;
+    ScopeGuard rollback([&] {
+        if (!committed)
+            for (auto& callback : created)
+                callbacks->discard(*callback);
+    });
+    auto data = BridgeData::capture(
+        JS::Value(array.ptr()), *target, {}, [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+            auto exported = TRY(callbacks->proxy(function));
+            auto id = functions.size();
+            functions.append(exported.function);
+            if (exported.created)
+                created.append(move(exported.created));
+            return id;
+        });
     if (data.is_error())
         return error();
-    auto copied = data.value().materialize(*source_realm);
+    auto copied = data.value().materialize(
+        *source_realm, [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
+            VERIFY(index < functions.size());
+            return functions[index];
+        });
     if (copied.is_error())
         return error();
     auto copied_root = GC::Root<JS::Value>::create(copied.value(), SourceLocation::current());
     GC::RootVector<JS::Value> source_arguments;
     for (size_t i = 0; i < arguments.size(); ++i)
         source_arguments.append(copied.value().as_object().get_without_side_effects(i));
-    auto result = source->call(*function, source_arguments.span());
+    // Application code may retain callbacks before throwing. Commit ownership
+    // at argument delivery, not after its result is known.
+    committed = true;
+    auto result = source->is_executing()
+        ? source->call_from_callback(*function, source_arguments.span())
+        : source->call(*function, source_arguments.span());
     // Never inspect or stringify an exception supplied by the source world.
     // Recheck revocation after the source call, including native reentrant hooks.
     if (m_revoked || source->is_detached() || !document->is_fully_active()) {

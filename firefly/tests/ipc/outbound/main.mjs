@@ -21,6 +21,7 @@ app.on('window-all-closed', () => {});
 
 let window;
 let report;
+let callbackReport;
 let frame;
 const value = { count: 0 };
 value.self = value;
@@ -42,6 +43,10 @@ ipcMain.on('report', (event, data) => {
   );
   frame = event.senderFrame;
   report = data;
+});
+
+ipcMain.on('callback-report', (_event, data) => {
+  callbackReport = data;
 });
 
 ipcMain.on('closed-by-listener', (event) => {
@@ -99,6 +104,24 @@ async function round() {
       (reference || (report.invalid === 3 && report.blocked)) &&
       report.trace === 'a0,b0,once0,a1,later1,duplicate,middle',
     'listener order/removal/snapshot: ' + JSON.stringify(report)
+  );
+  callbackReport = null;
+  window.webContents.send('page-value', { n: 4 });
+  if (!reference) {
+    window.webContents.send('page-value', { n: 10 });
+  }
+  window.webContents.send('callback-report');
+  await until(() => callbackReport, 'page callback report missing');
+  const cb = callbackReport.callbackReport;
+  check(
+    callbackReport.callbackRuns === 1 &&
+      cb &&
+      cb.calls === 1 &&
+      cb.n === 5 &&
+      (reference || cb.frozen) &&
+      cb.realm &&
+      cb.page,
+    'page callback identity/reentry/Promise: ' + JSON.stringify(callbackReport)
   );
   check(value.count === 0, 'renderer mutation reached main');
 }

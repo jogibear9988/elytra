@@ -114,6 +114,24 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call(
     return execute([&] { return JS::call(m_vm, function, JS::js_undefined(), arguments); });
 }
 
+JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call_from_callback(
+    JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments)
+{
+    if (!m_evaluating || is_detached() || function.realm() != realm() || m_callback_depth >= 32)
+        return m_vm.throw_completion<JS::Error>("Invalid nested callback entry"_utf16);
+    NonnullRefPtr protect { *this };
+    GC::Root protect_function { function };
+    auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
+    context->realm = realm();
+    ++m_callback_depth;
+    m_vm.push_execution_context(*context);
+    ScopeGuard pop([&] {
+        VERIFY(m_vm.pop_execution_context() == context.ptr());
+        --m_callback_depth;
+    });
+    return JS::call(m_vm, function, JS::js_undefined(), arguments);
+}
+
 JS::ThrowCompletionOr<JS::Value> IsolatedWorld::run_async_frame(
     Function<JS::ThrowCompletionOr<JS::Value>()> operation)
 {

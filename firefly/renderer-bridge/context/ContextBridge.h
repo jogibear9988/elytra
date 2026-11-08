@@ -21,17 +21,22 @@ public:
 
     void revoke();
 
+    size_t callback_count();
+
+    size_t callback_proxy_count();
+
     size_t function_count() const
     {
         return m_functions.size();
     }
 
 private:
-    ContextBridge(IsolatedWorld&, Web::DOM::Document&);
+    ContextBridge(IsolatedWorld&, Web::DOM::Document&, CallbackRegistry&);
 
     JS::ThrowCompletionOr<JS::Value> expose(JS::VM&);
 
     RefPtr<IsolatedWorld> m_source;
+    RefPtr<CallbackRegistry> m_callbacks;
     GC::Root<Web::DOM::Document> m_document;
     Vector<NonnullRefPtr<FunctionBridge>> m_functions;
     size_t m_publications { 0 };

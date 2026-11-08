@@ -4,6 +4,7 @@
  */
 
 #include "context/ContextBridge.h"
+#include "context/CallbackBridge.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/RootVector.h>
@@ -14,8 +15,10 @@
 #include <LibWeb/HTML/Window.h>
 
 namespace Firefly {
-ContextBridge::ContextBridge(IsolatedWorld& source, Web::DOM::Document& document)
+ContextBridge::ContextBridge(
+    IsolatedWorld& source, Web::DOM::Document& document, CallbackRegistry& callbacks)
     : m_source(source)
+    , m_callbacks(callbacks)
     , m_document(document)
 {
 }
@@ -27,7 +30,8 @@ ErrorOr<NonnullRefPtr<ContextBridge>> ContextBridge::create(
         || Web::Bindings::host_defined_of(*source.realm()).principal_realm.ptr()
             != &document.window()->principal_realm())
         return Error::from_string_literal("Context bridge requires its own live document");
-    auto owner = adopt_ref(*new ContextBridge(source, document));
+    auto callbacks = TRY(CallbackRegistry::create(source, document));
+    auto owner = adopt_ref(*new ContextBridge(source, document, *callbacks));
     source.add_detach_hook([weak = owner->make_weak_ptr()] {
         if (auto owner = weak.strong_ref())
             owner->revoke();
@@ -48,8 +52,20 @@ void ContextBridge::revoke()
     for (auto& function : m_functions)
         function->revoke();
     m_functions.clear();
+    m_callbacks->revoke();
+    m_callbacks.clear();
     m_document = nullptr;
     m_source.clear();
+}
+
+size_t ContextBridge::callback_count()
+{
+    return m_callbacks ? m_callbacks->size() : 0;
+}
+
+size_t ContextBridge::callback_proxy_count()
+{
+    return m_callbacks ? m_callbacks->proxy_count() : 0;
 }
 
 GC::Ref<JS::Object> ContextBridge::exports()
@@ -115,7 +131,8 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
         [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
             if (m_functions.size() + pending.size() >= 64)
                 return Error::from_string_literal("Bridge function budget exceeded");
-            auto exported = TRY(FunctionBridge::create(*m_source, function, *m_document));
+            auto exported
+                = TRY(FunctionBridge::create(*m_source, function, *m_document, m_callbacks));
             size_t id = functions.size();
             pending.append(exported.owner);
             functions.append(exported.function);

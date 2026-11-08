@@ -72,8 +72,9 @@ cloned data, native sender/history, reload, bounded credit and listener-driven w
 teardown. The common positive contract also passes real Electron; main policy passes
 Node/Mite without windows. Main-to-preload send/listeners now also pass local macOS
 bind/clone/order/removal/quota/reload/close checks and a real stopped-renderer timeout
-and recovery test. A positive Electron reference passes. Full callback publication,
-binary/MessagePort delivery and fresh Linux/native Windows acceptance remain open.
+and recovery test. A positive Electron reference passes. Bounded document callback arguments, stable on/off identity, API reentry and Promise
+results now pass local native and production-helper acceptance; raw IPC event/module
+forwarding, full callback publication and binary/MessagePort delivery and fresh Linux/native Windows acceptance remain open.
 
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local
@@ -379,7 +380,7 @@ errors, overloads and intentional differences.
 | --- | --- |
 | app/window/webContents | Lifecycle/readiness, native windows, loading, geometry and selected controls/events; [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md) |
 | Secure preload/contextBridge | Bounded isolated top-level preload publication; authored ESM is bundled to supported CommonJS payloads; [contextBridge](api/context-bridge.md) |
-| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; full bridge callbacks/sync/ports/subframes remain unfinished; [IPC](api/ipc.md) |
+| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; raw-event/full graph callbacks/sync/ports/subframes remain unfinished; [IPC](api/ipc.md) |
 | Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
 
 popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,

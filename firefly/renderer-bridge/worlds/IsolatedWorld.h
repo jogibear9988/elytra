@@ -78,6 +78,11 @@ public:
     }
 
 private:
+    friend class FunctionBridge;
+    // Only a validated principal callback scope may request this nested entry.
+    JS::ThrowCompletionOr<JS::Value> call_from_callback(
+        JS::FunctionObject&, ReadonlySpan<JS::Value>);
+
     JS::ThrowCompletionOr<JS::Value> execute(Function<JS::ThrowCompletionOr<JS::Value>()>);
 
     IsolatedWorld(
@@ -89,6 +94,7 @@ private:
     OwnPtr<JS::ExecutionContext> m_context;
     Vector<Function<void()>> m_detach_hooks;
     Vector<GC::Root<JS::FunctionObject>> m_nonexportable;
+    size_t m_callback_depth { 0 };
     bool m_evaluating { false };
     bool m_detach_requested { false };
     bool m_detaching { false };

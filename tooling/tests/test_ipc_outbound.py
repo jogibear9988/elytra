@@ -97,12 +97,13 @@ def main():
         root = Path(directory)
         shutil.copytree(ROOT / "firefly/tests/ipc/outbound", root, dirs_exist_ok=True)
         if args.electron:
-            for name in ["main.mjs", "preload.mjs"]:
+            for name in ["main.mjs", "preload.mjs", "page.html"]:
                 source = root / name
                 source.write_text(
                     source.read_text()
                     .replace("from 'firefly'", "from 'electron'")
                     .replace("const limited = true;", "const limited = false;")
+                    .replace("const stableIdentity = true;", "const stableIdentity = false;")
                 )
         subprocess.run(
             [
@@ -112,9 +113,6 @@ def main():
                 str(root / "preload.cjs"),
             ],
             check=True,
-        )
-        (root / "page.html").write_text(
-            '<!doctype html><meta charset="utf-8"><title>Native event target</title>'
         )
         if args.electron:
             result = run(
