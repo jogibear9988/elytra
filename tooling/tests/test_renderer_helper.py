@@ -6,8 +6,17 @@ import _support  # Shared build-helper import path for standalone test CLIs.
 import argparse
 import re
 from pathlib import Path
-from test_renderer import ROOT, run
+from test_renderer import ROOT, run as run_renderer
 from check_renderer_hooks import EXPECTED_COUNTS, HOOKS, verify_text
+
+
+def run(probe, *args):
+    """Identify each real fixture before launch so a timeout retains its stage in CI logs."""
+    print(
+        f"CHECK renderer helper {Path(str(args[-1])).name} {' '.join(map(str, args[:-1]))}",
+        flush=True,
+    )
+    return run_renderer(probe, *args)
 
 
 def pid_of(result):
@@ -44,7 +53,25 @@ def main():
     pid_of(missing_api)
     assert "CONTEXT_API_MISSING" in missing_api.stdout, missing_api
     context_api = run(probe, "--headless=manual", (fixture / "context-api.html").as_uri())
-    pid_of(context_api)
+    context_pid = pid_of(context_api)
+    context_created = [
+        int(n)
+        for n in re.findall(
+            rf"FIREFLY_WORLD_CREATED pid={context_pid} count=(\d+)", context_api.stderr
+        )
+    ]
+    context_destroyed = [
+        int(n)
+        for n in re.findall(
+            rf"FIREFLY_WORLD_DESTROYED pid={context_pid} count=(\d+)", context_api.stderr
+        )
+    ]
+    assert (
+        context_created
+        and max(context_created) >= 3
+        and context_destroyed
+        and max(context_destroyed) >= 2
+    ), context_api
     frame = run(probe, "--headless=text", (fixture / "frame.html").as_uri())
     pid_of(frame)
     assert "FRAME_WORLD_OK" in frame.stdout, frame

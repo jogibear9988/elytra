@@ -1,6 +1,9 @@
 /** Actual native events retain callbacks until close; explicit collector runs inside dispatch. */
 import fs from 'node:fs';
-if (typeof globalThis.collectHostGarbage !== 'function') {
+if (
+  typeof globalThis.collectHostGarbage !== 'function' ||
+  typeof globalThis.collectHostGarbageAtIdle !== 'function'
+) {
   throw Error('Require actual embedded collector host');
 }
 
@@ -61,7 +64,7 @@ fs.appendFileSync('gc-event.txt', '-changed');
 await installed.completed;
 for (let attempt = 0; attempt < 12; attempt++) {
   await turn();
-  collectHostGarbage();
+  await collectHostGarbageAtIdle();
 }
 check(
   calls === 1 &&

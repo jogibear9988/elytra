@@ -162,6 +162,15 @@ globalShortcut. [Legacy URL parsing](api/url-legacy.md) and native
 [WebCrypto randomness](api/crypto.md#webcrypto-randomness) are also implemented for
 the request graph; complete workbench/platform/session acceptance remains unproven.
 
+The following portability/verification repair addresses observed hosted failures:
+raw Windows fork/utility fd3 requests overlapped I/O; crash-directory admission uses
+native UTF-8 paths without POSIX-only stat; final embedded GC ownership checks run
+between VM turns while retaining in-callback collection; and preload fixtures execute
+positive child operations in child-authored code. The unchanged production principal
+guards still deny borrowed cross-realm calls. Local 113-suite runtime and complete
+headless helper checks pass. Fresh Windows/Linux hosted outcomes remain pending;
+this is not a claim of Windows desktop or Code-OSS workbench support.
+
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
 real view zoom rather than CSS scaling; complete frame/file APIs remain missing.

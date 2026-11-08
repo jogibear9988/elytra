@@ -11,12 +11,9 @@
         if (frame.contentWindow.location.href !== 'about:srcdoc') return;
         const childDocument = frame.contentDocument;
         const ChildTypeError = frame.contentWindow.TypeError;
-        const argument = new frame.contentWindow.Object();
-        argument.mode = 'remove-self-job';
-        argument.kind = kinds[completed];
         let rejected = false,
           fulfilled = false;
-        frame.contentWindow.__fireflyFunctionProbe(argument).then(
+        frame.contentWindow.startRemovingSourceJob(kinds[completed]).then(
           () => {
             fulfilled = true;
           },
@@ -45,7 +42,10 @@
           } else next();
         }, 100);
       };
-      frame.srcdoc = '<!doctype html><p>in-flight child</p>';
+      frame.srcdoc = `<!doctype html><p>in-flight child</p><script>
+        globalThis.startRemovingSourceJob = kind =>
+          __fireflyFunctionProbe({mode:'remove-self-job',kind});
+      <\/script>`;
       document.body.append(frame);
     }
     next();

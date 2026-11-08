@@ -89,6 +89,15 @@ native initialization. It returns undefined. Invalid paths or changing the path
 after initialization throw ERR_INVALID_ARG_VALUE. These methods do not require app
 readiness. Other implemented names follow the separate [application path contract](app-paths.md).
 
+Directory admission uses native UTF-8 filesystem paths and a read-only existing-
+directory check. On Windows, a fully absolute drive/UNC path is required; drive-
+relative and root-relative names are rejected. Directory symlinks follow the same
+admission policy as the former stat check. This does not establish ownership or
+private permissions: the supported POSIX report store verifies its opened descriptor.
+The portable directory probe passes locally on macOS; fresh Windows validation is
+pending, and Windows crash capture remains unavailable.
+
+
 The report directory is private (0700 on supported POSIX systems), saved text is
 read-only (0400), and raw main records remain locked while their owner lives. A clean
 exit removes its raw pending record. After a fatal main signal, the next start in

@@ -4,6 +4,7 @@
 import _support
 
 import argparse
+from contextlib import contextmanager
 import json
 from pathlib import Path
 import os
@@ -11,8 +12,28 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+@contextmanager
+def execution_directory():
+    directory = tempfile.mkdtemp(prefix="mite-shell-exec-")
+    try:
+        yield directory
+    finally:
+        # Killing cmd does not kill its bounded Python grandchild. Let that
+        # timed child release its cwd after functional acceptance; never kill a tree.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                shutil.rmtree(directory)
+                break
+            except PermissionError:
+                if sys.platform != "win32" or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
 
 
 def main():
@@ -24,7 +45,7 @@ def main():
         parser.error("Node is required for genuine exec differential tests")
     for name in ["main", "validation"]:
         observations = []
-        with tempfile.TemporaryDirectory(prefix="mite-shell-exec-") as directory:
+        with execution_directory() as directory:
             work = Path(directory) / "cwd with spaces ä文"
             work.mkdir()
             for executable in [args.node, str(args.mite.resolve())]:

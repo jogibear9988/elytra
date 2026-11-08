@@ -4,7 +4,11 @@
     (async () => {
       try {
         const frame = document.createElement('iframe');
-        const loaded = new Promise((resolve) => (frame.onload = resolve));
+        const loaded = new Promise((resolve) => {
+          frame.onload = () => {
+            if (frame.contentWindow.location.href === 'about:srcdoc') resolve();
+          };
+        });
         frame.srcdoc = '<!doctype html><title>unprivileged child</title>';
         document.body.append(frame);
         await loaded;

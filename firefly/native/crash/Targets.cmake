@@ -17,10 +17,23 @@ firefly_replace_source(LibWebView "Libraries/LibWebView/CrashReport.cpp"
                        "${crash_output}/CrashReport.cpp")
 firefly_replace_source(LibWebView "Libraries/LibWebView/CrashReportStore.cpp"
                        "${crash_output}/CrashReportStore.cpp")
-target_sources(LibWebView PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Reporter.cpp")
+target_sources(LibWebView PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Reporter.cpp"
+                                  "${CMAKE_CURRENT_LIST_DIR}/DirectoryPolicy.cpp")
 add_custom_target(
     check-firefly-crash-hooks
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_crash_hooks.py" --output
             "${crash_output}"
     VERBATIM)
 add_dependencies(LibWebView check-firefly-crash-hooks)
+
+# Pure native policy acceptance; no Qt application, capture handler or user files.
+add_executable(
+    firefly-crash-directory-probe
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/crash/DirectoryPolicyProbe.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/DirectoryPolicy.cpp")
+target_include_directories(firefly-crash-directory-probe PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
+add_custom_target(
+    check-firefly-crash-directory
+    COMMAND "$<TARGET_FILE:firefly-crash-directory-probe>"
+    DEPENDS firefly-crash-directory-probe
+    VERBATIM)

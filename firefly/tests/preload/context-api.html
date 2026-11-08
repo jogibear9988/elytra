@@ -35,20 +35,37 @@
     if (!earlyContextApi) return;
     const frame = document.createElement('iframe');
     frame.onload = () => {
+      if (frame.contentWindow.location.href !== 'about:srcdoc') return;
       const api = frame.contentWindow.__fireflyContextApiProbe,
-        Type = frame.contentWindow.TypeError;
-      if (!api || !Object.isFrozen(api.nested) || api.nested.echo('ok') !== 'ok')
+        Type = frame.contentWindow.TypeError,
+        retained = frame.contentWindow.callRetainedContextApi,
+        pending = frame.contentWindow.pendingContextApiResult;
+      if (
+        !api ||
+        !Object.isFrozen(api.nested) ||
+        !frame.contentWindow.contextApiFrameReady ||
+        typeof retained !== 'function' ||
+        retained() !== 42
+      )
         throw Error('Frame API unavailable');
-      const retained = api.nested.echo;
+      // Borrowing an endpoint into another principal must fail even while its document lives.
+      let borrowedDenied = false;
+      try {
+        api.nested.echo('parent principal');
+      } catch (error) {
+        borrowedDenied = error instanceof Type;
+      }
+      if (!borrowedDenied) throw Error('Cross-principal API call was accepted');
       let rejected = false;
-      api.pending().catch((error) => {
+      // The operation originated in the child; its continuation belongs to this live parent.
+      pending.catch((error) => {
         if (!(error instanceof Type)) throw Error('Wrong rejection realm');
         rejected = true;
       });
       frame.remove();
       let denied = false;
       try {
-        retained(1);
+        retained();
       } catch (error) {
         denied = error instanceof Type;
       }
@@ -60,7 +77,15 @@
         window.close();
       }, 30);
     };
-    frame.srcdoc = '<!doctype html><title>frame</title>';
+    frame.srcdoc = `<!doctype html><title>frame</title><script>
+      const api = globalThis.__fireflyContextApiProbe;
+      if (!api || !Object.isFrozen(api.nested) || api.nested.echo('ok') !== 'ok')
+        throw Error('Child-principal API unavailable');
+      // This ordinary author function always calls the endpoint from the child's principal.
+      globalThis.callRetainedContextApi = () => api.nested.echo(42);
+      globalThis.pendingContextApiResult = api.pending();
+      globalThis.contextApiFrameReady = true;
+    <\/script>`;
     document.body.append(frame);
   };
 </script>

@@ -37,11 +37,12 @@
       frame.onload = () => {
         if (frame.contentWindow.location.href !== 'about:srcdoc') return;
         valid = valid && frame.contentWindow.frameProof;
-        const stale = frame.contentWindow.__fireflyFunctionProbe;
+        const stale = frame.contentWindow.callRetainedProbe;
+        valid = valid && stale().answer === 2;
         frame.remove();
         let denied = false;
         try {
-          stale({ n: 1 });
+          stale();
         } catch (e) {
           denied = e.message === 'Firefly bridge call rejected';
         }
@@ -65,6 +66,7 @@ window.frameProof=window.name==='FIREFLY_WORLD_READY:'+location.href &&
  (()=>{const r=__fireflyFunctionProbe({n:41});return r.answer===42 && r.ownThis &&
  r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
  __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})();
+window.callRetainedProbe=()=>__fireflyFunctionProbe({n:1});
 <\/script>`;
       document.body.append(frame);
     }

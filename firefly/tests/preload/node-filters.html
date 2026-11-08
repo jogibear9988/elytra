@@ -38,11 +38,9 @@
       const child = frame.contentDocument;
       const childWindow = frame.contentWindow;
       const ChildTypeError = childWindow.TypeError;
-      const argument = new childWindow.Object();
-      argument.mode = 'remove-self-filter';
       let denied = false;
       try {
-        childWindow.__fireflyFunctionProbe(argument);
+        childWindow.runRemovingSourceFilter();
       } catch (error) {
         denied = error instanceof ChildTypeError;
       }
@@ -60,7 +58,10 @@
         if (ok) setTimeout(() => window.close(), 100);
       }, 100);
     };
-    frame.srcdoc = '<!doctype html><p>filter child</p>';
+    frame.srcdoc = `<!doctype html><p>filter child</p><script>
+      globalThis.runRemovingSourceFilter = () =>
+        __fireflyFunctionProbe({mode:'remove-self-filter'});
+    <\/script>`;
     document.body.append(frame);
   </script>
 </body>

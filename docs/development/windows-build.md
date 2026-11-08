@@ -31,6 +31,24 @@ unchanged. The next Windows run passed source/submodule checkout and native comp
 environment setup and reached CMake dependency configuration. This proves those
 setup stages only, not a working Windows Mite binary or Firefly application.
 
+## Current repair snapshot — 2026-11-08
+
+The d5de3d9 native runtime run compiled and passed 103 of 109 enabled suites, with
+six failures; it is not a green baseline. Its renderer build failed in our crash
+Reporter adapter because Core::System::stat is unavailable on Windows. The current
+repair uses portable native UTF-8 path admission and requests overlapped child
+handles for raw duplex fd3 IPC, retaining raw framing rather than enabling libuv
+handle-transfer framing.
+
+The test repairs preserve functional assertions: canonical working directories
+avoid Node's short/long path alias mismatch, cleanup retries wait only for the
+already bounded shell descendant, watcher diagnostics retain actual native event
+names, and final reclamation still requires both weak references to disappear.
+Collection for final ownership checks now runs in the embedding driver between
+VM turns; synchronous collection remains inside active callbacks/pending I/O.
+These paths pass local macOS checks, but Windows reruns must confirm the fixes.
+They do not establish native Windows Firefly windows, crash capture or packaging.
+
 ## Run and inspect
 
 Push implementation changes directly to master as requested, or use Actions →

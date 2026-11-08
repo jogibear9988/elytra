@@ -10,9 +10,7 @@
       const childDocument = frame.contentDocument;
       // The native source function queues jobs while this parent JS turn is still
       // running. Remove its document before the next microtask checkpoint/sweep.
-      const argument = new frame.contentWindow.Object();
-      argument.mode = 'queue-jobs';
-      const scheduled = frame.contentWindow.__fireflyFunctionProbe(argument);
+      const scheduled = frame.contentWindow.scheduleSourceJobs();
       frame.remove();
       Promise.resolve().then(() => {
         setTimeout(() => {
@@ -25,6 +23,8 @@
         }, 50);
       });
     };
-    frame.srcdoc = '<!doctype html><p>job guard child</p>';
+    frame.srcdoc = `<!doctype html><p>job guard child</p><script>
+      globalThis.scheduleSourceJobs = () => __fireflyFunctionProbe({mode:'queue-jobs'});
+    <\/script>`;
   </script>
 </body>

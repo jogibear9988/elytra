@@ -6,7 +6,10 @@
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/Intrinsics.h>
 #include <LibJS/Runtime/Object.h>
+#include <LibJS/Runtime/PromiseCapability.h>
+#include <LibJS/Runtime/PromiseConstructor.h>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -40,6 +43,7 @@ static int run_host(int argc, char** argv)
     }
 #endif
     GC::Root<JS::FunctionObject> pulse;
+    GC::Root<JS::PromiseCapability> idle_collection;
     JS::VM* owner_vm = nullptr;
     bool initialized = false;
     size_t pump_count = 0;
@@ -153,6 +157,15 @@ static int run_host(int argc, char** argv)
                 return JS::js_undefined();
             },
             0, JS::default_attributes);
+        realm.global_object().define_native_function(
+            realm, "collectHostGarbageAtIdle"_utf16,
+            [&idle_collection, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!idle_collection)
+                    idle_collection = TRY(JS::new_promise_capability(
+                        vm, realm.intrinsics().promise_constructor().ptr()));
+                return idle_collection->promise();
+            },
+            0, JS::default_attributes);
         realm.global_object().define_direct_property(
             "embeddedHost"_utf16, host, JS::default_attributes);
         return {};
@@ -167,6 +180,17 @@ static int run_host(int argc, char** argv)
             ++pump_count;
             if (loop.pump_once())
                 break;
+            if (idle_collection) {
+                // Collect only after pump_once has unwound native dispatch frames.
+                // Conservative Windows stack scanning must not mistake stale callback
+                // slots in those frames for application ownership after close.
+                owner_vm->heap().collect_garbage();
+                GC::Root resolving { idle_collection->resolve() };
+                idle_collection = nullptr;
+                loop.dispatch(
+                    [&]() { return JS::call(*owner_vm, *resolving, JS::js_undefined()); });
+            }
+
             if (!delivered && std::chrono::steady_clock::now() >= until) {
                 delivered = true;
                 if (pulse) {
@@ -176,14 +200,15 @@ static int run_host(int argc, char** argv)
                 }
             }
 
-            if (!delivered || loop.is_alive())
+            if (!delivered || idle_collection || loop.is_alive())
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } while (!delivered || loop.is_alive());
+        } while (!delivered || idle_collection || loop.is_alive());
         return loop.status();
     };
 
     hooks.shutdown = [&] {
         pulse = nullptr;
+        idle_collection = nullptr;
         owner_vm = nullptr;
         fputs("HOST_SHUTDOWN\n", stderr);
         fflush(stderr);

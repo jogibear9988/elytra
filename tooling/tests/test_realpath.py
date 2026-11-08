@@ -22,7 +22,7 @@ def main():
     if not args.node:
         parser.error("Node is required")
     with tempfile.TemporaryDirectory(prefix="mite-realpath-") as directory:
-        work = Path(directory)
+        work = Path(directory).resolve()
         target = work / "target"
         target.mkdir()
         (target / "child.txt").write_text("canonical bytes")

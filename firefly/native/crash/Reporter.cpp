@@ -1,6 +1,7 @@
 /** Reuse upstream signal-safe capture/private storage; publish immutable application metadata once.
  */
 #include "Reporter.h"
+#include "DirectoryPolicy.h"
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
 #include <AK/LexicalPath.h>
@@ -8,11 +9,9 @@
 #include <AK/ThreadID.h>
 #include <AK/Utf8View.h>
 #include <LibCore/StandardPaths.h>
-#include <LibCore/System.h>
 #include <LibWebView/CrashReport.h>
 #include <LibWebView/CrashReportStore.h>
 #include <atomic>
-#include <sys/stat.h>
 
 namespace Firefly::CrashReporting {
 namespace {
@@ -133,12 +132,19 @@ ByteString directory()
 ErrorOr<void> set_directory(StringView path)
 {
     verify_owner();
-    if (attempted || path.is_empty() || path.length() > 32768 || path.contains('\0')
-        || !LexicalPath::is_absolute_path(path))
+    if (attempted)
         return Error::from_errno(EINVAL);
-    auto info = TRY(Core::System::stat(path));
-    if (!S_ISDIR(info.st_mode))
-        return Error::from_errno(ENOTDIR);
+    auto error = validate_report_directory(
+        std::string_view(path.characters_without_null_termination(), path.length()));
+    if (error) {
+        // Windows system-category values are Win32 codes, not errno. Translate
+        // only when the standard library provides a portable generic condition.
+        auto condition = error.default_error_condition();
+        if (condition.category() == std::generic_category())
+            return Error::from_errno(condition.value());
+        return Error::from_string_literal("Cannot inspect crash report directory");
+    }
+
     requested_directory.get() = ByteString(path);
     return {};
 }

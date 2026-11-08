@@ -24,7 +24,12 @@ child.on('disconnect', () => events.push('disconnect'));
 child.on('close', () => events.push('close'));
 
 child.on('exit', (code, signal) => {
-  check(code === 0 && signal === null, 'Natural child exit');
+  check(
+    code === 0 && signal === null,
+    `Natural child exit: code=${code} signal=${signal} received=${received.length} ` +
+      `callbacks=${callbacks.length} events=${events.join(',')} ` +
+      `childError=${Buffer.concat(err).toString().slice(-4096)}`
+  );
   events.push('exit');
 });
 

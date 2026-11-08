@@ -434,6 +434,13 @@ GC::Ref<JS::Object> create_host(
                         break;
                     handles[i].flags = static_cast<uv_stdio_flags>(
                         UV_CREATE_PIPE | UV_WRITABLE_PIPE | (i == 3 ? UV_READABLE_PIPE : 0));
+#ifdef _WIN32
+                    // Preserve our raw framing while allowing concurrent child reads/writes.
+                    // ipc=1 would also select overlapped I/O, but adds Node handle framing.
+                    if (i == 3)
+                        handles[i].flags
+                            = static_cast<uv_stdio_flags>(handles[i].flags | UV_NONBLOCK_PIPE);
+#endif
                     handles[i].data.stream = endpoint->pipes[i].stream();
                 } else if (modes[static_cast<size_t>(i)] == "inherit") {
                     handles[i].flags = UV_INHERIT_FD;

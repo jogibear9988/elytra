@@ -12,12 +12,15 @@ function check(value, message) {
 
 const sleep = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function wait(test, message) {
+async function wait(test, message, diagnostics) {
   const deadline = Date.now() + 3500;
   while (!test() && Date.now() < deadline) {
     await sleep();
   }
-  check(test(), message);
+  check(
+    test(),
+    diagnostics ? `${message}; native events=${JSON.stringify(diagnostics())}` : message
+  );
 }
 
 const directory = path.resolve('events');
@@ -40,10 +43,13 @@ check(
   'Genuine FSWatcher'
 );
 check(watcher.ref() === watcher && watcher.unref() === watcher, 'Chainable native references');
+// Let the newly registered OS directory stream enter its owner loop before mutation.
+await sleep(50);
 fs.appendFileSync(initial, '-changed');
 await wait(
   () => events.some((event) => event.name === null || event.name === 'initial.txt'),
-  'Real directory append produces a native target event'
+  'Real directory append produces a native target event',
+  () => events
 );
 fs.writeFileSync(path.join(directory, 'created.txt'), 'created');
 await wait(

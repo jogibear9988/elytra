@@ -413,6 +413,12 @@ GC::Ref<JS::Object> create_child_process_host(JS::VM& vm, JS::Realm& realm, Even
                         | (i == 3        ? UV_READABLE_PIPE | UV_WRITABLE_PIPE
                                 : i == 0 ? UV_READABLE_PIPE
                                          : UV_WRITABLE_PIPE));
+#ifdef _WIN32
+                    // Raw duplex IPC needs an overlapped child handle: synchronous
+                    // Windows handles can serialize a pending read against writes.
+                    if (i == 3)
+                        entry.flags = static_cast<uv_stdio_flags>(entry.flags | UV_NONBLOCK_PIPE);
+#endif
                     entry.data.stream = pipe.stream();
                 } else if (mode == -2)
                     entry.flags = UV_IGNORE;

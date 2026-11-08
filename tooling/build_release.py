@@ -117,6 +117,7 @@ def main():
     # power assertions: exercise controlled dispatch/providers plus read-only OS
     # observations before the separate desktop/package acceptance batch.
     native_services = [
+        "check-firefly-crash-directory",
         "check-firefly-desktop-capture-host",
         "check-firefly-desktop-capture-provider",
         "check-firefly-notification-host",

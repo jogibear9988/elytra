@@ -52,10 +52,7 @@
         frame.onload = () => {
           if (frame.contentWindow.location.href !== 'about:srcdoc') return;
           const child = frame.contentDocument;
-          const argument = new frame.contentWindow.Object();
-          argument.mode = 'remove-self-listener';
-          argument.kind = kinds[completed];
-          frame.contentWindow.__fireflyFunctionProbe(argument);
+          frame.contentWindow.installRemovingSourceListener(kinds[completed]);
           child.dispatchEvent(new frame.contentWindow.Event('firefly-inflight'));
           setTimeout(() => {
             if (
@@ -72,7 +69,10 @@
             } else next();
           }, 100);
         };
-        frame.srcdoc = '<!doctype html><p>in-flight listener</p>';
+        frame.srcdoc = `<!doctype html><p>in-flight listener</p><script>
+          globalThis.installRemovingSourceListener = kind =>
+            __fireflyFunctionProbe({mode:'remove-self-listener',kind});
+        <\/script>`;
         document.body.append(frame);
       }
       next();

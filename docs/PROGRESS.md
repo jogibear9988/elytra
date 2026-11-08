@@ -10444,6 +10444,65 @@ save; transferred utility/renderer endpoints/auth, extension/PTY, session/proxy/
 WebCrypto-subtle and wider media/permission/platform/package deliverables. Initial
 net is macOS/stateless only; full original product goal remains active.
 
+## 2026-11-08 — Repair observed native CI portability and fixture boundaries
+
+- Resume pushed 0ed30b5 and the observed d5de3d9 hosted failures. Request
+  UV_NONBLOCK_PIPE specifically for Windows raw duplex fd3 in Mite fork and Firefly
+  utility spawn. libuv's actual Windows implementation otherwise creates a
+  synchronous child handle when ipc=false; pending reads can block writes. Retain
+  raw framing/ipc=false rather than enabling handle-transfer framing. Add bounded
+  child stderr/exit/received/write-callback diagnostics to the fork acceptance.
+  Actual Windows duplex confirmation remains pending the next hosted run.
+- Replace our Reporter's unavailable-on-Windows Core::System::stat call with a
+  portable UTF-8/native-path admission helper. Require fully absolute existing
+  directories, preserve directory-symlink policy, reject malformed UTF-8/NUL/limits,
+  and translate only generic error conditions to errno. No creation/canonicalization/
+  permission changes in admission; final report-store descriptor security is
+  unchanged. Pure native owned filesystem probe passes locally. Wire it into
+  release validation and Windows renderer CI; Windows capture remains unsupported.
+- Canonicalize the realpath runner cwd: the Windows failure was in Node itself,
+  comparing ordinary/native paths with short/long Windows aliases. Keep all API
+  assertions. Retry only bounded Windows exec directory cleanup after functional
+  comparison; killing cmd can leave its already bounded Python descendant holding
+  cwd briefly. Do not kill process trees or extend operation timeouts.
+- Give the first directory watch the same owner-loop startup turn as the existing
+  file/buffer phases; retain target-event assertions and print actual native names
+  on failure. Add test-only collectHostGarbageAtIdle: real collection occurs in the
+  embedding driver after pump_once unwinds native dispatch frames, then resolves
+  the rooted promise. Keep immediate collection during pending writes/live callbacks
+  and BOTH final WeakRef reclamation assertions. This diagnoses conservative native
+  stack retention without weakening the tests or changing production GC.
+- The first full local headless batch passed repaired context-api and exposed the
+  same parent/child-principal mistake in jobs. Audit all preload fixtures together:
+  positive calls/arguments now originate in srcdoc-authored child wrappers; all11
+  iframe load sites wait for about:srcdoc. Separate borrowed-parent negatives remain.
+  The same child wrapper must work while live and reject after removal, including
+  70-cycle cases. Retain surviving-parent Promise observation and independent page
+  behavior. Fix jobs/async-frames/listeners/handlers/node-filters and strengthen
+  frame/cycles/process coverage. No production boundary/principal guard is relaxed.
+- The final complete actual headless helper batch passes every context, job, timer,
+  observer, listener, handler, CustomEvent/ErrorEvent/MessageEvent, traversal and
+  revocation gate, including sandbox/resource/source-drift checks. Static author/
+  embedded script parsing also passes. No repeated visible desktop/window tests ran;
+  unrelated Fontconfig/Metal warnings were not treated as the cause of bridge errors.
+- Add ADR0170 and update crash/Windows/current-support documentation. These are
+  locally accepted repairs and proposed Windows fixes, not fresh hosted platform
+  acceptance. Native platform CI and the macOS package/release outcome still need
+  follow-through; actual Code-OSS main startup next requires globalShortcut.
+
+Validation: all 113 standalone runtime suites pass (35.06 seconds). New idle-GC
+watcher/WriteStream gates, genuine Node/Mite realpath/exec/event/fork behavior and
+owned portable crash-directory probe pass locally. Production/actual renderer
+helpers rebuild. The complete sandboxed headless helper batch passes after the
+fixture audit. Maintained formatting, upstream pin and whitespace checks pass;
+site generation is verified before commit. Ladybird remains unmodified.
+
+Remaining: confirm fresh Windows/Linux CI and macOS packages/releases, investigate
+any remaining failures using actual native diagnostics, implement genuine global
+shortcuts, then continue workbench/open-edit-save, utility/renderer endpoint/auth,
+extension/PTY, broader session/platform/packaging requirements. No VS Code workbench
+or native Windows desktop support is claimed. Full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

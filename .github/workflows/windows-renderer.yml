@@ -95,6 +95,8 @@ jobs:
       - name: Native bounded protocol file bodies and separate-process streaming
         shell: pwsh
         run: |
+          cmake --build build/windows-renderer --target check-firefly-crash-directory --parallel 3 2>&1 | Tee-Object build/windows-renderer-crash-directory.log
+          if ($LASTEXITCODE) { throw 'Native crash-directory admission failed' }
           cmake --build build/windows-renderer --target check-firefly-protocol-files --parallel 3 2>&1 | Tee-Object build/windows-renderer-protocol-files.log
           if ($LASTEXITCODE) { throw 'Native protocol file-body acceptance failed' }
       - name: Native custom protocol origins and trust without a GUI

@@ -3,7 +3,10 @@ import fs from 'node:fs';
 import { open } from 'node:fs/promises';
 import { check } from './support.mjs';
 
-check(typeof collectHostGarbage === 'function', 'Requires actual embedded LibJS collector');
+check(
+  typeof collectHostGarbage === 'function' && typeof collectHostGarbageAtIdle === 'function',
+  'Requires actual embedded LibJS collectors'
+);
 const originalWrite = fs.write;
 const phasesByFd = new Map();
 
@@ -169,7 +172,7 @@ try {
     try {
       for (let turn = 0; turn < 8; ++turn) {
         await nextTurn();
-        collectHostGarbage();
+        await collectHostGarbageAtIdle();
       }
       check(
         state.handle.deref() === undefined && state.stream.deref() === undefined,
