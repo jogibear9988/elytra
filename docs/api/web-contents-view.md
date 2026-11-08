@@ -104,8 +104,8 @@ notices. Ladybird/vendor code remains unmodified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on these production objects, then fails
-at missing node:fs createWriteStream. Implement that real bounded writable file
-stream next, then continue the actual main graph. Import progress is not a VS Code
+at missing node:child_process exec. Implement genuine shell execution next,
+then continue the actual main graph. Import progress is not a VS Code
 window or integrated browser acceptance.
 
 No custom sessions, subframe preload integration, popups, background/radius styling,

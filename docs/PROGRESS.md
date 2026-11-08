@@ -30,8 +30,8 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 77
-passing CTests, and native Linux/Windows CLI baselines have passed hosted CI.
+Mite is a working native LibJS runtime; the current macOS Release build has 91
+validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
 
@@ -9601,6 +9601,63 @@ session/subframe/popup/CDP and view styling/adoption/nesting only with real beha
 Native utility/renderer MessagePort handoff, auth forwarding, File/open-edit-save,
 extension/PTY hosts, webviews/remote and native platforms/packaging remain required.
 Mite is independent, Ladybird unmodified and the full original goal stays active.
+
+## 2026-11-08 — Bounded native WriteStream and actual next Code-OSS startup blocker
+
+- Resume from pushed 223dbdd and the actual missing fs.createWriteStream export.
+  Implement maintained ESM WriteStream/createWriteStream and FileHandle writer
+  factories over real asynchronous native open/write/close, never whole-file
+  buffering or a Node runtime. CommonJS/default/named exports share the API.
+- Split actual native requests at 64 KiB; continue short writes with correct
+  positions/counts, bound zero-progress/EAGAIN retries and preserve Writable queue,
+  UTF-8 byte pressure, callbacks, drain, finish and close. Numeric descriptors are
+  not wrapped in a second native owner. Explicit destruction closes even when
+  autoClose:false; ordinary finish with that option preserves the descriptor.
+- FileHandle writers hold a lease spanning queued operations. Public handle.close
+  gracefully ends attached writers; queued writes drain before native retirement.
+  Destruction waits for the complete pending partial-write loop, releases its lease
+  before awaiting native close, and prevents new leases after closing begins.
+- Seven shared Node24.15/Mite real-file workflows pass exact observations and bytes:
+  pressure/events/binary queues, flags/offsets/append/URL/mode, raw/handle ownership,
+  queued handle close, errors/abort and explicit close. Record one deliberate
+  difference: pre-aborted Mite paths never open/create/truncate; Node may create an
+  empty target after its close event. The runner permits only that exact file delta.
+- Validate 28 invalid/unsupported option configurations without create/truncate.
+  Unknown/custom-fs/flush options fail explicitly. An internal factory test forces
+  genuine seven-byte OS writes across more than 10,000 requests and checks positions,
+  request bounds and exact bytes. Separate simulated zero/EAGAIN tests prove bounded
+  retry failure and actual descriptor retirement; these are not native error parity.
+- Existing embedded LibJS host forces GC while native writes are pending, after
+  application references disappear. End and queued manual-close cases pass callback
+  survival, single descriptor retirement, weak reclamation/reused-fd safety and
+  independent verification of two 8 MiB+3-byte files. No desktop test is needed.
+- Pin unchanged MIT Code-OSS zip.ts and add a probe using the actual compiled consumer,
+  verified dependencies and genuine yazl. Implement the demanded util.inherits with
+  Node differential valid/invalid/prototype/descriptor/side-effect coverage. Node ZIP
+  reference plus independent Python CRC/extracted bytes pass. Mite ZIP remains
+  unaccepted: dynamic CommonJS import does not expose genuine yazl.ZipFile. Preserve
+  the consumer/package unchanged; fix the loader in a later coherent slice.
+- Rebuild production and its exact-object offscreen frontend. Actual indexed-NLS
+  Code-OSS main/ready graph now passes createWriteStream and next fails linking
+  node:child_process exec (build/code-oss-write-stream-ready.log). Entry and app-ready
+  observations are not workbench acceptance. Update API/status/roadmap documentation.
+
+Validation: Release runtime and production/offscreen builds pass; writer differential,
+policy, real partial-write, simulated retry, native-GC and util.inherits gates pass.
+The first full 90-test regression passes 89; only the checkout line-ending gate
+requires staging the newly added sources before its git checkout-index operation.
+After staging, all six final affected gates pass, including checkout line endings,
+filesystem, writer, writer GC, inherits and generated integrity (2.93 seconds).
+Together with the full regression, all 91 registered runtime gates have acceptance.
+Full maintained-source style/whitespace and upstream/generation checks pass; the site
+accepts 275 pages and 19,463 local links. Production/offscreen builds pass and the
+actual ready probe reports the next exec linking failure. Ladybird remains unchanged.
+
+Remaining: genuine shell exec and next actual startup/window/workbench blockers;
+proper CommonJS named-export interoperability for ZIP; native utility/renderer port
+handoff, auth, File/open-edit-save, extension/PTY hosts, webviews/remote and platform
+packaging. No new native Linux/Windows acceptance or usable VS Code is claimed.
+The full original goal remains active.
 
 ## Resume
 

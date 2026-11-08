@@ -61,8 +61,10 @@ can be abandoned. Tests distinguish this from graceful server/window closure.
 
 Use pipeline or writable completion callbacks rather than enqueueing unbounded
 chunks. The pinned readable-stream adapter provides stream primitives with host
-Buffer/events/process integration. Filesystem createReadStream/createWriteStream,
-Web Streams and complete AbortSignal integration are not currently available.
+Buffer/events/process integration. Bounded [FileHandle read streams](../api/file-read-stream.md)
+and [native write streams](../api/file-write-stream.md), plus the documented
+[Web Streams subset](../api/web-streams.md), have separate ownership and cancellation
+contracts. Path-based fs.createReadStream and complete AbortSignal parity remain open.
 The runnable [stream example](../../examples/mite-stream/pipeline.mjs) uses supported
 in-memory streams; it does not imply filesystem streaming support.
 

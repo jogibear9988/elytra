@@ -16,7 +16,7 @@ step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
 passes readline, MessageChannelMain, utilityProcess, safeStorage, WebContentsView and webContents imports, then reaches
-missing node:fs createWriteStream. Real 30,000-line file and local OS-release platform-branch checks
+missing node:child_process exec. Real 30,000-line file and local OS-release platform-branch checks
 pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
 local desktop experiment disables webviews, remote and engine caches; without it
 the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
@@ -30,14 +30,14 @@ The [utility-process payload slice](api/utility-process.md) now implements a rea
 same-executable LibJS fork and child process.parentPort. Six native boundary tests
 pass; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. Actual Code-OSS utility execution is not
 accepted: authentication forwarding and native utility/renderer event.ports handoff
-remain unsupported. The current static-import blocker is node:fs createWriteStream.
+remain unsupported. The current static-import blocker is node:child_process exec.
 
 The [safeStorage slice](api/safe-storage.md) now passes native OS-keychain and public
 facade tests on isolated macOS keychains, plus the unchanged compiled Code-OSS
 EncryptionMainService across two native processes (39 checked dependencies).
 Real Firefly/Electron comparison covers pre-ready guards only. Linux/Windows
 providers, async encryption and migration of Electron ciphertext remain unavailable.
-The actual ready graph now passes safeStorage and next requires node:fs createWriteStream;
+The actual ready graph now passes safeStorage and next requires node:child_process exec;
 no workbench or actual Code-OSS utility service is accepted by this component.
 
 The [WebContentsView composition slice](api/web-contents-view.md) passes a shared
@@ -46,8 +46,15 @@ batch: real pages/PIDs/viewport, native ordering/ownership/reparenting, detached
 navigation, registry and binary IPC/close. Seven policy groups and all 88 non-GUI
 runtime suites pass. On-screen/GPU/AX/performance and native Linux/XCB/Windows
 acceptance remain unverified. The actual main entry now passes the view/registry
-imports and next requires a real bounded node:fs createWriteStream. Integrated
+imports and next requires node:child_process exec. Integrated
 Code-OSS browser preferences/services and a VS Code window remain unaccepted.
+
+The [native file writer](api/file-write-stream.md) now passes all seven focused
+Node/Mite groups and owned policy checks, including actual bytes, pressure and
+handle/close behavior. The actual ready/main graph passes its createWriteStream
+import and next fails linking exec from node:child_process. This is import progress,
+not execution of Code-OSS shell consumers. The actual ZIP consumer remains blocked
+by CommonJS/ESM named exports from genuine yazl; it is not accepted yet.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements

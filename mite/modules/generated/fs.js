@@ -111,6 +111,190 @@ function createReadStream(handle, value, host, closeHandle) {
   return stream;
 }
 
+// mite/modules/filesystem/write-stream.mjs
+function createWriteStreams(fs, host, validate, acquireHandle) {
+  const fail = (code, message) => {
+    throw Object.assign(new TypeError(message), { code });
+  };
+  class WriteStream extends host.stream.Writable {
+    constructor(filename, options = {}) {
+      if (typeof options === "string") {
+        options = { encoding: options };
+      }
+      if (!options || typeof options !== "object") {
+        fail("ERR_INVALID_ARG_TYPE", "options must be an object or encoding");
+      }
+      for (const key of Object.keys(options)) {
+        if (![
+          "encoding",
+          "flags",
+          "mode",
+          "fd",
+          "start",
+          "highWaterMark",
+          "autoClose",
+          "emitClose",
+          "signal"
+        ].includes(key)) {
+          fail("ERR_MITE_UNSUPPORTED_API", `WriteStream option ${key} is not implemented`);
+        }
+      }
+      for (const key of ["autoClose", "emitClose"]) {
+        if (options[key] !== void 0 && typeof options[key] !== "boolean") {
+          fail("ERR_INVALID_ARG_TYPE", `${key} must be a boolean`);
+        }
+      }
+      if (options.encoding !== void 0 && (typeof options.encoding !== "string" || !host.Buffer.isEncoding(options.encoding))) {
+        fail("ERR_INVALID_ARG_VALUE", "Unknown file stream encoding");
+      }
+      let position = options.start;
+      if (position !== void 0 && (!Number.isSafeInteger(position) || position < 0)) {
+        fail("ERR_OUT_OF_RANGE", "start must be a nonnegative safe integer");
+      }
+      const supplied = options.fd !== void 0 && options.fd !== null;
+      const pathname = supplied ? void 0 : validate.path(filename);
+      const flags = validate.flags(options.flags, "w");
+      const mode = validate.mode(options.mode, 438);
+      const handle = supplied && typeof options.fd === "object" ? options.fd : void 0;
+      if (supplied && !handle && (!Number.isInteger(options.fd) || options.fd < 0)) {
+        fail("ERR_INVALID_ARG_TYPE", "fd must be a nonnegative descriptor or FileHandle");
+      }
+      const lease = handle ? acquireHandle(handle) : void 0;
+      let fd = supplied ? handle ? handle.fd : options.fd : null;
+      let bytes = 0;
+      let writing;
+      let stream;
+      const onHandleClose = () => stream?.close();
+      const preAborted = options.signal?.aborted === true;
+      try {
+        super({
+          highWaterMark: options.highWaterMark ?? 16384,
+          defaultEncoding: options.encoding ?? "utf8",
+          autoDestroy: options.autoClose !== false,
+          emitClose: options.emitClose,
+          signal: options.signal,
+          construct(callback) {
+            if (supplied || preAborted) {
+              callback();
+              return;
+            }
+            fs.open(pathname, flags, mode, (error, opened) => {
+              if (error) {
+                callback(error);
+                return;
+              }
+              fd = opened;
+              this.emit("open", fd);
+              this.emit("ready");
+              callback();
+            });
+          },
+          write(chunk, encoding, callback) {
+            writing = (async () => {
+              let offset = 0;
+              let retries = 0;
+              while (offset < chunk.length) {
+                const length = Math.min(65536, chunk.length - offset);
+                let count;
+                try {
+                  count = handle ? (await handle.write(chunk, offset, length, position ?? null)).bytesWritten : await new Promise((resolve, reject) => {
+                    fs.write(
+                      fd,
+                      chunk,
+                      offset,
+                      length,
+                      position ?? null,
+                      (error, written) => error ? reject(error) : resolve(written)
+                    );
+                  });
+                } catch (error) {
+                  if (error.code !== "EAGAIN") {
+                    throw error;
+                  }
+                  count = 0;
+                }
+                if (count === 0) {
+                  if (++retries > 5) {
+                    throw Object.assign(new Error("File write made no progress"), {
+                      code: "ERR_SYSTEM_ERROR"
+                    });
+                  }
+                  await new Promise((resolve) => setTimeout(resolve, 0));
+                  continue;
+                }
+                retries = 0;
+                bytes += count;
+                offset += count;
+                if (position !== void 0) {
+                  position += count;
+                }
+              }
+            })();
+            writing.then(() => callback(), callback);
+          },
+          destroy(error, callback) {
+            handle?.removeListener("close", onHandleClose);
+            Promise.resolve(writing).catch(() => {
+            }).then(async () => {
+              lease?.release();
+              if (fd !== null) {
+                if (lease) {
+                  await lease.close();
+                } else {
+                  await new Promise((resolve, reject) => {
+                    fs.close(fd, (failure) => failure ? reject(failure) : resolve());
+                  });
+                }
+              }
+            }).then(
+              () => {
+                fd = null;
+                callback(error);
+              },
+              (failure) => {
+                fd = null;
+                callback(error ?? failure);
+              }
+            );
+          }
+        });
+      } catch (error) {
+        lease?.release();
+        throw error;
+      }
+      stream = this;
+      Object.defineProperties(this, {
+        fd: { get: () => fd },
+        path: { value: pathname },
+        pending: { get: () => fd === null },
+        bytesWritten: { get: () => bytes }
+      });
+      if (handle && !this.destroyed) {
+        handle.on("close", onHandleClose);
+      }
+    }
+    close(callback) {
+      if (callback) {
+        if (this.closed) {
+          queueMicrotask(callback);
+        } else {
+          this.once("close", callback);
+        }
+      }
+      if (this.writableFinished) {
+        this.destroy();
+      } else {
+        this.once("finish", () => this.destroy());
+        this.end();
+      }
+    }
+  }
+  return {
+    WriteStream,
+    createWriteStream: (filename, options) => new WriteStream(filename, options)
+  };
+}
+
 // mite/modules/filesystem/fs.mjs
 function createFileSystemModule(host) {
   const native = host.native;
@@ -677,6 +861,7 @@ function createFileSystemModule(host) {
     );
   }
   const handleToken = Symbol("FileHandle constructor");
+  const writeLeases = /* @__PURE__ */ new WeakMap();
   class FileHandle extends host.EventEmitter {
     #fd;
     #owner;
@@ -692,6 +877,26 @@ function createFileSystemModule(host) {
       }
       this.#fd = fd;
       this.#owner = native.own(fd);
+      writeLeases.set(this, () => {
+        if (this.#fd < 0 || this.#closing) {
+          fail("EBADF", "file closed", Error);
+        }
+        ++this.#active;
+        let released = false;
+        return {
+          release: () => {
+            if (released) {
+              return;
+            }
+            released = true;
+            --this.#active;
+            if (this.#closing && this.#active === 0) {
+              this.#startClose();
+            }
+          },
+          close: () => this.#closePromise ?? this.close()
+        };
+      });
     }
     get fd() {
       return this.#fd;
@@ -747,6 +952,9 @@ function createFileSystemModule(host) {
     createReadStream(options2) {
       return createReadStream(this, options2, host, () => this.#closePromise ?? this.close());
     }
+    createWriteStream(options2) {
+      return fs.createWriteStream(void 0, { ...options2, fd: this });
+    }
     read(...args) {
       return this.#run(
         "read",
@@ -799,6 +1007,16 @@ function createFileSystemModule(host) {
       return this.close();
     }
   }
+  Object.assign(
+    fs,
+    createWriteStreams(fs, host, { path, flags, mode }, (handle) => {
+      const acquire = writeLeases.get(handle);
+      if (!acquire) {
+        fail("ERR_INVALID_ARG_TYPE", "fd must be a FileHandle");
+      }
+      return acquire();
+    })
+  );
   const promises = { constants };
   for (const op of [
     "readFile",

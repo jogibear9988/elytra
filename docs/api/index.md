@@ -127,7 +127,10 @@ comparisons, error metadata and synchronous/asynchronous exception checks.
 
 The [readline reference](readline.md) describes nonterminal UTF-8 line events and
 async iteration; [FileHandle read streams](file-read-stream.md) document bounded
-native file reads and descriptor ownership.
+native file reads and descriptor ownership. The separate [file write-stream
+reference](file-write-stream.md) documents native output, pressure/close/handle
+ownership and explicit abort limitations; all seven local Node/Mite differential
+groups and owned policy checks pass.
 
 The [MessageChannelMain reference](message-channel-main.md) covers connected main
 ports, copied binary data, queued ownership transfer and GC/resource bounds. Native

@@ -24,7 +24,9 @@ The method returns a Node-compatible Readable subset supporting async iteration,
 pipe and the existing data/error/end/close/destroy contract. bytesRead reports the
 number of delivered file bytes; path is undefined for a descriptor-backed stream.
 Full fs.ReadStream constructor/instance/field/method identity and path-based
-fs.createReadStream/fs.createWriteStream are not implemented by this slice.
+fs.createReadStream are not implemented by this slice. The separate
+[write-stream implementation](file-write-stream.md) now supplies fs.createWriteStream
+and FileHandle.createWriteStream, with its own validation and limits.
 
 Options are encoding, start, end, highWaterMark, autoClose, emitClose and signal.
 A string option selects encoding. start/end are nonnegative safe integers; end is

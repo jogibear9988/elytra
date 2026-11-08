@@ -69,14 +69,15 @@ static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", 
     "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
     "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
     "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync",
-    "readdir", "readdirSync" };
+    "readdir", "readdirSync", "WriteStream", "createWriteStream" };
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
           "mkdir", "rmdir", "unlink", "rename", "readdir" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL",
           "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
-static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder", "promisify" };
+static constexpr std::string_view util_exports[]
+    = { "TextEncoder", "TextDecoder", "promisify", "inherits" };
 static constexpr std::string_view module_exports[]
     = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };

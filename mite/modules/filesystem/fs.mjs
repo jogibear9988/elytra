@@ -1,5 +1,6 @@
 import namedPromisify from '../core/promisify-results.mjs';
 import createReadStream from './read-stream.mjs';
+import createWriteStreams from './write-stream.mjs';
 
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
@@ -666,6 +667,7 @@ export default function createFileSystemModule(host) {
   }
 
   const handleToken = Symbol('FileHandle constructor');
+  const writeLeases = new WeakMap();
   /** Keep descriptors alive through in-flight operations; close waits for outstanding references. */
   class FileHandle extends host.EventEmitter {
     #fd;
@@ -683,6 +685,28 @@ export default function createFileSystemModule(host) {
       }
       this.#fd = fd;
       this.#owner = native.own(fd);
+
+      writeLeases.set(this, () => {
+        if (this.#fd < 0 || this.#closing) {
+          fail('EBADF', 'file closed', Error);
+        }
+        ++this.#active;
+        let released = false;
+        return {
+          release: () => {
+            if (released) {
+              return;
+            }
+            released = true;
+            --this.#active;
+            if (this.#closing && this.#active === 0) {
+              this.#startClose();
+            }
+          },
+
+          close: () => this.#closePromise ?? this.close()
+        };
+      });
     }
 
     get fd() {
@@ -746,6 +770,10 @@ export default function createFileSystemModule(host) {
       return createReadStream(this, options, host, () => this.#closePromise ?? this.close());
     }
 
+    createWriteStream(options) {
+      return fs.createWriteStream(undefined, { ...options, fd: this });
+    }
+
     read(...args) {
       return this.#run(
         'read',
@@ -805,6 +833,16 @@ export default function createFileSystemModule(host) {
       return this.close();
     }
   }
+  Object.assign(
+    fs,
+    createWriteStreams(fs, host, { path, flags, mode }, (handle) => {
+      const acquire = writeLeases.get(handle);
+      if (!acquire) {
+        fail('ERR_INVALID_ARG_TYPE', 'fd must be a FileHandle');
+      }
+      return acquire();
+    })
+  );
   const promises = { constants };
   for (const op of [
     'readFile',

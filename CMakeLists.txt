@@ -162,6 +162,9 @@ if(BUILD_TESTING)
         NAME mite-module-paths
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_paths.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-util-inherits
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_inherits.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-util-promisify
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_promisify.py"
                      --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
@@ -412,6 +415,17 @@ if(BUILD_TESTING)
     add_test(NAME mite-filesystem
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fs.py" --mite
                      "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-file-write-stream
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_file_write_stream.py"
+            --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-file-write-stream-gc
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_file_write_stream_gc.py" --host
+            "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-buffer
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_buffer.py"
                      --mite "$<TARGET_FILE:mite>")

@@ -53,6 +53,30 @@ function createPromisify(state) {
   return promisify;
 }
 
+// mite/modules/core/inherits.mjs
+function inherits(ctor, superCtor) {
+  function invalid(name) {
+    throw Object.assign(new TypeError(`${name} is not a supported inheritance target`), {
+      code: "ERR_INVALID_ARG_TYPE"
+    });
+  }
+  if (ctor === null || ctor === void 0) {
+    invalid("ctor");
+  }
+  if (superCtor === null || superCtor === void 0) {
+    invalid("superCtor");
+  }
+  if (superCtor.prototype === void 0) {
+    invalid("superCtor.prototype");
+  }
+  Object.defineProperty(ctor, "super_", {
+    value: superCtor,
+    writable: true,
+    configurable: true
+  });
+  Object.setPrototypeOf(ctor.prototype, superCtor.prototype);
+}
+
 // mite/modules/core/util.mjs
 function createEncodingModule(host) {
   const native = host.native;
@@ -159,7 +183,7 @@ function createEncodingModule(host) {
       enumerable: true
     });
   }
-  return { TextEncoder, TextDecoder, promisify };
+  return { TextEncoder, TextDecoder, promisify, inherits };
 }
 return createEncodingModule;
 })()

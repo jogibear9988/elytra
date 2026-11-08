@@ -1,12 +1,52 @@
 # node:util
 
-Status: partial. Shared TextEncoder/TextDecoder classes and promisify are
-implemented. The Promise adaptation has local macOS ARM64 Node 24.15 differential,
+Status: partial. Shared TextEncoder/TextDecoder classes, promisify and inherits are
+implemented. inherits passes local Node 24.15/Mite differential acceptance; fresh
+Linux/Windows execution for that addition is unverified. The Promise adaptation has local macOS ARM64 Node 24.15 differential,
 real filesystem/DNS/child/timer and forced embedded-host GC acceptance. Native
 Linux/Windows validation passes at a56d183 in
 [Linux run 42391944791](https://github.com/jogibear9988/elytra/actions/runs/42391944791)
 and [Windows run 42391944810](https://github.com/jogibear9988/elytra/actions/runs/42391944810). Other util APIs are
 not supplied merely because the module imports successfully.
+
+## inherits(ctor, superCtor)
+
+The legacy constructor helper installs the parent's instance prototype above the
+existing child prototype. Existing child methods and its constructor property
+survive. A writable/configurable, non-enumerable ctor.super_ stores superCtor.
+The constructor's static prototype is unchanged; static properties are not copied.
+Use modern class extends for new code; this API serves real CommonJS dependencies.
+
+```js
+import { inherits } from 'node:util';
+import { EventEmitter } from 'node:events';
+
+function LegacyEmitter() {
+  EventEmitter.call(this);
+}
+inherits(LegacyEmitter, EventEmitter);
+const emitter = new LegacyEmitter();
+emitter.on('ready', () => console.log('ready'));
+emitter.emit('ready');
+```
+
+Like the Node reference, this deliberately permits object-like constructor records
+where ordinary property/prototype operations succeed. Missing/null constructors
+or an undefined parent prototype throw ERR_INVALID_ARG_TYPE. Other invalid targets,
+nonextensible prototypes and descriptor failures propagate ordinary TypeErrors;
+getter exceptions propagate unchanged. A failed prototype mutation can leave the
+already installed super_ property. This helper is not an atomic class-construction
+operation and does not validate arbitrary objects as callable constructors.
+
+The local differential gate compares module identity, instance/EventEmitter behavior,
+descriptors, static-parent preservation, getter propagation and observable failure
+side effects. It does not establish whole-package compatibility. The actual Code-OSS
+ZIP consumer now passes this dependency but remains blocked by named exports from
+a dynamically imported CommonJS package; it is not accepted by these tests.
+
+```sh
+python3 tooling/tests/test_inherits.py --mite build/release-mite/bin/mite
+```
 
 ## promisify(original)
 

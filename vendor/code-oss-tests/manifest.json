@@ -210,6 +210,10 @@
     "encryptionService.ts": {
       "upstream": "src/vs/platform/encryption/common/encryptionService.ts",
       "sha256": "798e509416d1c4f50aaace24263bb48429376d6b560d9fc60540d7a49edc53c9"
+    },
+    "zip.ts": {
+      "upstream": "src/vs/base/node/zip.ts",
+      "sha256": "7fbbe0c2c82064ffee0bad141087259f699c46040573150a22191d410217c39f"
     }
   }
 }

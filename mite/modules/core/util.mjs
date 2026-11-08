@@ -1,4 +1,5 @@
 import createPromisify from './promisify.mjs';
+import inherits from './inherits.mjs';
 
 /**
  * TextEncoder and stateful TextDecoder facades. Native conversion owns codec state and byte-
@@ -127,5 +128,5 @@ export default function createEncodingModule(host) {
       enumerable: true
     });
   }
-  return { TextEncoder, TextDecoder, promisify };
+  return { TextEncoder, TextDecoder, promisify, inherits };
 }
