@@ -15,6 +15,7 @@ const entries = {
   'api.js': { source: 'firefly/core/api.mjs', eager: false },
   'safe-storage.js': { source: 'firefly/core/safe-storage/index.mjs', eager: false },
   'utility-parent.js': { source: 'firefly/core/utility-process/parent-port.mjs', eager: false },
+  'utility-net.js': { source: 'firefly/core/net/utility.mjs', eager: false },
   'app-regions.js': { source: 'firefly/native/qt/app-regions.mjs', eager: true }
 };
 const manifest = { generator: `esbuild ${esbuild.version}`, files: {}, sources: {} };

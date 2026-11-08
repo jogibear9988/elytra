@@ -44,6 +44,16 @@ namespace {
         return static_cast<size_t>(size);
     }
 
+    JS::Completion web_crypto_error(JS::VM& vm, char const* code, char const* message)
+    {
+        auto error = JS::Error::create(
+            vm.realm(), Utf16String::from_utf8(StringView(message, strlen(message))));
+        error->define_direct_property("code"_utf16,
+            JS::PrimitiveString::create(vm, Utf16String::from_utf8(StringView(code, strlen(code)))),
+            JS::default_attributes);
+        return JS::throw_completion(error);
+    }
+
     struct RandomRequest {
         std::vector<unsigned char> bytes;
         int status { 0 };
@@ -55,6 +65,50 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm& realm, EventLoop& loo
     GC::Root host { JS::Object::create(realm, nullptr) };
     host->define_direct_property("hmac"_utf16, create_hmac_host(realm), JS::default_attributes);
     host->define_direct_property("hash"_utf16, create_hash_host(realm), JS::default_attributes);
+    host->define_native_function(
+        realm, "webRandomFill"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto value = vm.argument(0);
+            if (!value.is_object() || !is<JS::TypedArrayBase>(value.as_object()))
+                return web_crypto_error(
+                    vm, "ERR_MITE_WEB_CRYPTO_TYPE", "Expected an integer TypedArray");
+            auto& array = static_cast<JS::TypedArrayBase&>(value.as_object());
+            switch (array.kind()) {
+            case JS::TypedArrayBase::Kind::Int8Array:
+            case JS::TypedArrayBase::Kind::Uint8Array:
+            case JS::TypedArrayBase::Kind::Uint8ClampedArray:
+            case JS::TypedArrayBase::Kind::Int16Array:
+            case JS::TypedArrayBase::Kind::Uint16Array:
+            case JS::TypedArrayBase::Kind::Int32Array:
+            case JS::TypedArrayBase::Kind::Uint32Array:
+            case JS::TypedArrayBase::Kind::BigInt64Array:
+            case JS::TypedArrayBase::Kind::BigUint64Array:
+                break;
+            default:
+                return web_crypto_error(
+                    vm, "ERR_MITE_WEB_CRYPTO_TYPE", "Expected an integer TypedArray");
+            }
+
+            auto witness = JS::make_typed_array_with_buffer_witness_record(
+                array, JS::ArrayBuffer::Order::SeqCst);
+            // Detached and resized-out-of-bounds integer views have zero exposed length in Node.
+            if (JS::is_typed_array_out_of_bounds(witness))
+                return value;
+            auto size = JS::typed_array_byte_length(witness);
+            if (size > 65536)
+                return web_crypto_error(
+                    vm, "ERR_MITE_WEB_CRYPTO_QUOTA", "Random values exceed 65536 bytes");
+            if (size) {
+                std::vector<unsigned char> bytes(size);
+                if (auto status = uv_random(nullptr, nullptr, bytes.data(), size, 0, nullptr);
+                    status)
+                    return JS::throw_completion(entropy_error(vm, status));
+                array.viewed_array_buffer()->overwrite(array.byte_offset(), bytes.data(), size);
+            }
+
+            return value;
+        },
+        1, JS::default_attributes);
     host->define_native_function(
         realm, "random"_utf16,
         [&realm, &loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

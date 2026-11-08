@@ -89,15 +89,18 @@ process.parentPort.on('message', () => console.log('UNEXPECTED_MESSAGE'));
             finally:
                 parent.close()
                 child.close()
-        process = subprocess.run(
-            [str(binary), "--firefly-utility", str(entry)],
-            capture_output=True,
-            timeout=15,
-        )
-        assert process.returncode != 0, process
-        assert b"BOUNDARY_ENTRY" not in process.stdout, process
-        assert b"Missing inherited utility channel" in process.stderr, process
-        print("PASS utility missing fd rejected before entry")
+        for role in ["--firefly-utility", "--firefly-utility-electron"]:
+            process = subprocess.run(
+                [str(binary), role, str(entry)],
+                env={**os.environ, "QT_QPA_PLATFORM": "elytra-no-gui"},
+                capture_output=True,
+                timeout=15,
+            )
+            assert process.returncode != 0, process
+            assert b"BOUNDARY_ENTRY" not in process.stdout, process
+            assert b"Missing inherited utility channel" in process.stderr, process
+            assert b"platform plugin" not in process.stderr.lower(), process
+            print("PASS utility missing fd rejected before entry", role)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,32 @@
+{
+  "project": "Node.js",
+  "version": "v24.15.0",
+  "license": "MIT",
+  "sources": [
+    {
+      "path": "url.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/url.js",
+      "sha256": "0a53e0c4e8bfb5946380577bf9d5ae9c227ad54ae738f5bd5e4a5e8682921f38"
+    },
+    {
+      "path": "internal-url.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/internal/url.js",
+      "sha256": "7b4994b278b4b67517999b94184a4c61259e5d6e6870ae76b9944456164f0cad"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/LICENSE",
+      "sha256": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18"
+    },
+    {
+      "path": "querystring.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/querystring.js",
+      "sha256": "513ace4440c97fcaf3da958598be85f136eb044c6045b06dcac945395c4a7b56"
+    },
+    {
+      "path": "internal-querystring.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/internal/querystring.js",
+      "sha256": "92d0cbd561d7cce93936b083d56d2a41063d177f3aa6772ae2c1871f160163d1"
+    }
+  ]
+}

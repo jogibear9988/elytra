@@ -104,8 +104,8 @@ public:
             bridge = std::make_unique<Bridge>(
                 vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
             GC::Root native { bridge->exports() };
-            native->define_direct_property(
-                "utility"_utf16, Utility::create_host(vm, realm, jobs), JS::default_attributes);
+            native->define_direct_property("utility"_utf16,
+                Utility::create_host(vm, realm, jobs, electron_compat), JS::default_attributes);
             AppPaths::install_host(realm, *native, m_paths);
             SafeStorage::install_host(
                 realm, *native, [&] { return locale_ready; },
@@ -142,16 +142,19 @@ public:
             GC::Root urls { TRY(modules.builtin_exports("url")) };
             GC::Root files { TRY(modules.builtin_exports("fs")) };
             GC::Root streams { TRY(modules.builtin_exports("stream")) };
+            GC::Root transport { TRY(modules.web_transport()) };
             auto api = TRY(JS::call(vm, factory, JS::js_undefined(), JS::Value(native.ptr()),
                 TRY(events->get("EventEmitter"_utf16)), JS::Value(paths.ptr()),
-                JS::Value(urls.ptr()), JS::Value(files.ptr()), JS::Value(streams.ptr())));
+                JS::Value(urls.ptr()), JS::Value(files.ptr()), JS::Value(streams.ptr()),
+                JS::Value(transport.ptr())));
             if (!api.is_object())
                 return vm.throw_completion<JS::Error>("Firefly API factory failed"_utf16);
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
                 "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
                 "safeStorage", "WebContentsView", "webContents", "desktopCapturer", "nativeImage",
-                "Notification", "powerMonitor", "powerSaveBlocker", "shell", "systemPreferences" };
+                "Notification", "powerMonitor", "powerSaveBlocker", "shell", "systemPreferences",
+                "net" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)
@@ -274,6 +277,8 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 
     if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--firefly-utility")
         return Firefly::Utility::run(arguments.argc, arguments.argv);
+    if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--firefly-utility-electron")
+        return Firefly::Utility::run(arguments.argc, arguments.argv, true);
     auto options = Firefly::startup_options(arguments.argc, arguments.argv);
     if (options.help || !options.error.empty()) {
         outln("Usage: firefly [--electron-compat] <main.js> [arguments...]");

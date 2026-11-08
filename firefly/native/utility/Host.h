@@ -7,7 +7,8 @@ class EventLoop;
 }
 
 namespace Firefly::Utility {
-GC::Ref<JS::Object> create_host(JS::VM&, JS::Realm&, Mite::EventLoop&);
+GC::Ref<JS::Object> create_host(
+    JS::VM&, JS::Realm&, Mite::EventLoop&, bool electron_compat = false);
 
 JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_parent_host(
     JS::VM&, JS::Realm&, Mite::EventLoop&, int fd = 3);

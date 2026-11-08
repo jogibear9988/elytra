@@ -170,7 +170,7 @@ def main():
             ), result
         unsupported = root / "unsupported.cjs"
         unsupported.write_text(
-            "const crypto=require('crypto');for(const key of ['createSecretKey','randomFillSync','webcrypto']){if(crypto[key]!==undefined)throw Error('Unexpected crypto surface');}try{crypto.createSecretKey('key');throw Error('Unsupported KeyObject creation succeeded')}catch(error){if(!(error instanceof TypeError))throw error;}console.log('UNSUPPORTED_CRYPTO_REJECTED');"
+            "const crypto=require('crypto');if(crypto.webcrypto!==globalThis.crypto||typeof crypto.getRandomValues!=='function')throw Error('Missing shared WebCrypto entropy surface');for(const key of ['createSecretKey','randomFillSync']){if(crypto[key]!==undefined)throw Error('Unexpected crypto surface');}try{crypto.createSecretKey('key');throw Error('Unsupported KeyObject creation succeeded')}catch(error){if(!(error instanceof TypeError))throw error;}console.log('UNSUPPORTED_CRYPTO_REJECTED');"
         )
         result = subprocess.run(
             [args.mite, str(unsupported)], capture_output=True, text=True, timeout=10

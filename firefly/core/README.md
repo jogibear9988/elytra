@@ -12,6 +12,9 @@ required binding. See the [port contract](../../docs/api/message-channel-main.md
 `utility-process/` owns real child lifecycle and parentPort payload policy; its
 native spawn/framing/bootstrap adapter lives in `../native/utility`. Neither this
 payload path nor the local main port core supplies native endpoint transfers.
+`net/` owns main/utility networking policy over captured private Mite transports;
+its native availability/proxy owner is `../native/platform/NetworkState*`. The
+initial transport is stateless; browser sessions/proxies remain separate work.
 Renderer publication and world ownership live in `../renderer-bridge`; window integration
 and the ESM DOM app-region installer live in `../native/qt`.
 

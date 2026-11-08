@@ -6,6 +6,7 @@
 #pragma once
 #include "../../desktop-capture/Host.h"
 #include "../../menu/ApplicationMenu.h"
+#include "../../net/Host.h"
 #include "../../notifications/Host.h"
 #include "../../power-monitor/Host.h"
 #include "../../power-save-blocker/Host.h"
@@ -146,6 +147,7 @@ struct Bridge::Impl {
     std::shared_ptr<PowerSaveBlocker::Controller> power_save_blocker;
     std::shared_ptr<Shell::Controller> shell_service;
     std::shared_ptr<SystemPreferences::Controller> system_preferences;
+    std::shared_ptr<NetworkState> network_state;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

@@ -230,6 +230,14 @@
     "nodejsWatcherLib.ts": {
       "upstream": "src/vs/platform/files/node/watcher/nodejs/nodejsWatcherLib.ts",
       "sha256": "57f0f9b08bf9588c1f00741d7a51e9327159df74077bd82fcdf8df5b6b29d464"
+    },
+    "agentHostWakeNetworkMonitor.ts": {
+      "upstream": "src/vs/platform/agentHost/common/agentHostWakeNetworkMonitor.ts",
+      "sha256": "02331d17924f7b0e989df367e13e1e81231056af125e252f46059863e8c46d30"
+    },
+    "nodeRequestService.ts": {
+      "upstream": "src/vs/platform/request/node/requestService.ts",
+      "sha256": "3c6198704b1d7d72d62607cf302e721559d96265c5552549299dbcbe870d757b"
     }
   }
 }

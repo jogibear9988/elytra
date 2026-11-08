@@ -1,0 +1,2 @@
+#pragma once
+inline constexpr char FIREFLY_UTILITY_NET_SOURCE[] = R"FIREFLY_JS(@FIREFLY_UTILITY_NET_SOURCE@)FIREFLY_JS";

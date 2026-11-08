@@ -4,7 +4,8 @@
  */
 import createRandomApi from './random.mjs';
 import createDigestApi from './digest.mjs';
+import createWebCrypto from './web-crypto.mjs';
 
 export default function createCryptoModule(host) {
-  return { ...createRandomApi(host), ...createDigestApi(host) };
+  return { ...createRandomApi(host), ...createDigestApi(host), ...createWebCrypto(host) };
 }

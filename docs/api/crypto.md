@@ -12,9 +12,44 @@ import {randomBytes, randomUUID, randomInt, createHash, Hash, createHmac, Hmac, 
 
 CommonJS require('crypto') and require('node:crypto') return the same module.
 ESM named exports refer to the same functions, and its default export is that
-module. These eight exports are the current public surface. The
+module. WebCrypto randomness is also exposed as described below. The
 [Node 24.15 crypto reference](https://nodejs.org/download/release/v24.15.0/docs/api/crypto.html)
 is the compatibility baseline; it also contains many APIs Mite does not implement.
+
+## WebCrypto randomness
+
+Global crypto and node:crypto.webcrypto refer to the same realm-local Crypto object.
+The global property is a read-only, configurable getter. Global Crypto is an illegal
+constructor; forged receivers fail ERR_INVALID_THIS. crypto.randomUUID() returns
+native random version-4 UUIDs. It is separate from the existing Node randomUUID
+options API. node:crypto.getRandomValues is callable unbound; the WebCrypto method
+requires its genuine receiver.
+
+crypto.getRandomValues(view) fills and returns the exact integer TypedArray supplied,
+including Buffer, signed/unsigned integer and BigInt views. It respects the native
+view's byte offset and length, including shared backing. The limit is 65,536 bytes
+per call; larger views throw a real QuotaExceededError DOMException (code22).
+Float arrays, DataView, proxies and forged views throw TypeMismatchError (code17).
+Detached and resized out-of-bounds integer views are zero-length no-ops, matching
+the observed Node24 behavior. Entropy comes from synchronous native uv_random;
+Math.random and public view-property getters cannot replace that operation.
+
+Native intrinsic validation deliberately ignores shadowed byteLength/buffer
+accessors on genuine views. Node24 consults some public properties; this stronger
+Mite validation is a separately tested difference, not a shared-parity claim.
+crypto.subtle throws ERR_MITE_UNSUPPORTED_API: digest/key/signature/encryption methods
+through WebCrypto are not implemented. The existing node:crypto hash/HMAC methods
+below remain separate APIs. New randomness gates pass locally on macOS; fresh native
+Linux/Windows acceptance remains unverified.
+
+```js
+const bytes = crypto.getRandomValues(new Uint8Array(32));
+console.log(bytes.length, crypto.randomUUID());
+```
+
+```sh
+python3 tooling/tests/test_web_crypto.py --mite build/release-mite/bin/mite
+```
 
 ## randomBytes(size[, callback])
 
@@ -255,7 +290,7 @@ differ between executions. See [modules](../concepts/modules-and-packages.md) an
 ## Unsupported APIs and verification
 
 randomFill, ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, getHashes
-and Web Crypto are absent. Calling an absent property fails as an ordinary JS
+and WebCrypto subtle algorithms are absent. Calling an absent property fails as an ordinary JS
 TypeError; importing an absent named export fails during module loading. There is
 no fallback to Node/V8. Do not treat incremental hashing as encryption or password
 storage support.

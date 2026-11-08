@@ -36,6 +36,10 @@ public:
         return builtin(name);
     }
 
+    // Original transport primitives for trusted embeddings, captured before application
+    // code can replace globals. This object is never a public JavaScript builtin.
+    JS::ThrowCompletionOr<GC::Ref<JS::Object>> web_transport();
+
     // Trusted native hosts register exports before application entry execution.
     // Only this loader/realm gains the module; Node builtins cannot be replaced.
     JS::ThrowCompletionOr<void> register_host_module(std::string const& name,
@@ -176,6 +180,10 @@ private:
     GC::Root<JS::Object> m_abort_hooks;
     GC::Root<JS::Object> m_web_streams;
     GC::Root<JS::Object> m_web_stream_state;
+    GC::Root<JS::Object> m_web_transport;
+    GC::Root<JS::Object> m_web_crypto;
+    std::unordered_map<std::string, GC::Root<JS::Object>> m_transport_dependencies;
+    bool m_transport_captured {};
     GC::Root<JS::Object> m_http_client_hooks;
     GC::Root<JS::Object> m_tls_client_hooks;
     GC::Root<JS::Object> m_resolve_hook_dispatcher;

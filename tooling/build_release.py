@@ -129,6 +129,7 @@ def main():
         "check-firefly-shell-unavailable",
         "check-firefly-system-preferences-host",
         "check-firefly-system-preferences-unavailable",
+        "check-firefly-network-state-unavailable",
     ]
     if sys.platform == "darwin":
         native_services.extend(
@@ -140,6 +141,9 @@ def main():
                 "check-firefly-shell-provider",
                 "check-firefly-system-preferences-provider",
                 "check-firefly-system-preferences-read-only",
+                "check-firefly-network-state-provider",
+                "check-firefly-net-native",
+                "check-firefly-net-transport",
             ]
         )
     run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)

@@ -31,6 +31,7 @@
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/ValueInlines.h>
 #include <LibJS/SyntheticModule.h>
 #include <algorithm>
 #include <cstdio>
@@ -75,8 +76,8 @@ static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
           "mkdir", "rmdir", "unlink", "rename", "readdir", "realpath" };
 static constexpr std::string_view url_exports[]
-    = { "URL", "URLSearchParams", "fileURLToPath", "fileURLToPathBuffer", "pathToFileURL",
-          "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
+    = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
+          "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[]
     = { "TextEncoder", "TextDecoder", "promisify", "inherits" };
 static constexpr std::string_view module_exports[]
@@ -116,7 +117,7 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual" };
+    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
@@ -371,6 +372,8 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "crypto") {
+        host->define_direct_property("DOMException"_utf16,
+            TRY(m_realm.global_object().get("DOMException"_utf16)), JS::default_attributes);
         host->define_direct_property(
             "stream"_utf16, TRY(builtin("stream")), JS::default_attributes);
         host->define_direct_property(
@@ -677,6 +680,12 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
                 && module != "node:crypto")
                 return error(
                     "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
+            if (m_transport_captured) {
+                auto found = m_transport_dependencies.find(module);
+                VERIFY(found != m_transport_dependencies.end());
+                return found->second.ptr();
+            }
+
             return TRY(builtin(module.substr(5)));
         },
         1, JS::default_attributes);
@@ -707,13 +716,80 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     auto fetch_globals = TRY(JS::call(m_vm, *fetch_factory, JS::js_undefined(), fetch_host.ptr()));
     VERIFY(fetch_globals.is_object());
     GC::Root fetch_exports { fetch_globals.as_object() };
+    // Preserve original networking classes/functions for native embedding services.
+    // Public fetch and module exports remain writable without replacing this capability.
+    GC::Root transport { JS::Object::create(m_realm, nullptr) };
+    auto capture = [&](auto name, JS::Value value) {
+        transport->define_direct_property(name, value, JS::Attribute::Enumerable);
+    };
+
+    for (auto name : { "Headers"_utf16, "Request"_utf16, "Response"_utf16, "fetch"_utf16 })
+        capture(name, TRY(fetch_exports->get(name)));
+    for (auto name : { "AbortController"_utf16, "AbortSignal"_utf16 })
+        capture(name, TRY(m_realm.global_object().get(name)));
+    for (auto name : { "ReadableStream"_utf16, "TransformStream"_utf16 })
+        capture(name, TRY(m_web_streams->get(name)));
+    for (auto name : { "Readable"_utf16, "Writable"_utf16 })
+        capture(name, TRY(stdio_streams->get(name)));
+    auto event_exports = TRY(builtin("events"));
+    capture("EventEmitter"_utf16, TRY(event_exports->get("EventEmitter"_utf16)));
+    capture("Buffer"_utf16, constructor);
+    capture("URL"_utf16, TRY(url->get("URL"_utf16)));
+    capture("abortHooks"_utf16, m_abort_hooks.ptr());
+    m_web_transport = transport;
     for (auto name : { "Headers"_utf16, "Request"_utf16, "Response"_utf16, "fetch"_utf16 })
         m_realm.global_object().define_direct_property(name, TRY(fetch_exports->get(name)),
             JS::Attribute::Writable | JS::Attribute::Configurable);
+    GC::Root cryptography { TRY(builtin("crypto")) };
+    auto webcrypto = TRY(cryptography->get("webcrypto"_utf16));
+    VERIFY(webcrypto.is_object());
+    m_web_crypto = webcrypto.as_object();
+    GC::Root crypto_getter { JS::NativeFunction::create(
+        m_realm, [this](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return m_web_crypto.ptr(); },
+        0, "get crypto"_utf16) };
+    m_realm.global_object().define_direct_accessor("crypto"_utf16, crypto_getter.ptr(), nullptr,
+        JS::Attribute::Enumerable | JS::Attribute::Configurable);
+    m_realm.global_object().define_direct_property("Crypto"_utf16,
+        TRY(webcrypto.as_object().get("constructor"_utf16)),
+        JS::Attribute::Writable | JS::Attribute::Configurable);
     if (m_fork_child)
         TRY(builtin("child_process"));
 
     return {};
+}
+
+JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::web_transport()
+{
+    if (!m_web_transport)
+        return error("ERR_MITE_GLOBALS_NOT_INITIALIZED", "Transport globals are not initialized");
+    if (!m_transport_captured) {
+        // Embeddings request this before application entry. Snapshot the small native
+        // transport surface instead of consulting mutable public module fields later.
+        // Standalone Headers/Response programs retain lazy socket-module construction.
+        for (auto const* name : { "http", "https", "crypto" }) {
+            GC::Root module { TRY(builtin(name)) };
+            GC::Root facade { JS::Object::create(m_realm, nullptr) };
+            auto key = std::string_view(name) == "crypto" ? "randomBytes"_utf16 : "request"_utf16;
+            facade->define_direct_property(key, TRY(module->get(key)), JS::Attribute::Enumerable);
+            m_transport_dependencies.insert_or_assign(std::string("node:") + name, facade);
+        }
+
+        GC::Root streams { TRY(builtin("stream")) };
+        GC::Root facade { JS::Object::create(m_realm, nullptr) };
+        for (auto name : { "Readable"_utf16, "Writable"_utf16 }) {
+            auto constructor = TRY(streams->get(name));
+            GC::Root owner { TRY(constructor.to_object(m_vm)) };
+            GC::Root operations { JS::Object::create(m_realm, nullptr) };
+            operations->define_direct_property(
+                "toWeb"_utf16, TRY(owner->get("toWeb"_utf16)), JS::Attribute::Enumerable);
+            facade->define_direct_property(name, operations.ptr(), JS::Attribute::Enumerable);
+        }
+
+        m_transport_dependencies.insert_or_assign("node:stream", facade);
+        m_transport_captured = true;
+    }
+
+    return GC::Ref<JS::Object> { *m_web_transport };
 }
 
 JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::builtin_module(std::string const& name)

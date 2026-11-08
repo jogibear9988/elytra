@@ -24,6 +24,8 @@ Mite runs independently of Firefly, Qt and LibWeb.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
+The [legacy URL reference](url-legacy.md) describes source-pinned parse/Url, native
+IDNA and query/format behavior alongside the WHATWG constructors.
 The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and the
 fixed process runtime timeOrigin; timeline/profiling APIs remain absent.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
@@ -78,6 +80,9 @@ console.log(createHash('sha256').update('hello').digest('hex'));
 ```
 
 ## Firefly
+
+The [desktop net reference](desktop-net.md) covers main/utility HTTP requests,
+native availability, cancellation and explicit session/proxy/platform boundaries.
 
 The partial [protocol API](protocol.md) now publishes application scheme origin
 registration through the [custom-origin foundation](../architecture/0111-custom-protocol-origins.md)

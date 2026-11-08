@@ -171,7 +171,7 @@ CI and release builds, with controlled/read-only macOS checks on release; fresh
 hosted execution requires its own evidence.
 
 The actual pinned Code-OSS local-desktop/NLS ready graph passes this export and
-now also passes fork; it next fails linking Electron net in the suspended-path
+now also passes fork; it next fails linking Electron globalShortcut in the suspended-path
 watcher. The separate unchanged IPC Client/Server component passes genuine Mite
 fork/JSON messages. Neither gate accepts a complete watcher, extension host,
 VS Code window or open/edit/save workflow. See [VS Code status](../compatibility/vscode.md).

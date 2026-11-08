@@ -80,6 +80,8 @@ void Bridge::Impl::stop()
         shell_service->stop();
     if (system_preferences)
         system_preferences->stop();
+    if (network_state)
+        network_state->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())

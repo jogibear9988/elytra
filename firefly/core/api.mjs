@@ -21,8 +21,17 @@ import createPowerMonitor from './power-monitor/index.mjs';
 import createPowerSaveBlocker from './power-save-blocker/index.mjs';
 import createShell from './shell/index.mjs';
 import createSystemPreferences from './system-preferences/index.mjs';
+import createNet from './net/index.mjs';
 
-export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
+export default function createFireflyApi(
+  native,
+  EventEmitter,
+  paths,
+  urls,
+  files,
+  streams,
+  transport
+) {
   const error = (code, message) => Object.assign(new Error(message), { code });
 
   const unsupported = (name) => {
@@ -165,6 +174,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       exited = true;
       quitting = true;
       systemPreferencesService.stop();
+      network.stop();
       desktopShell.stop();
       powerSave.stop();
       power.stop();
@@ -192,6 +202,14 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const network = createNet(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported,
+    transport
+  );
   const systemPreferencesService = createSystemPreferences(
     native,
     () => exited,
@@ -284,6 +302,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
     exited = true;
     systemPreferencesService.stop();
+    network.stop();
     desktopShell.stop();
     powerSave.stop();
     power.stop();
@@ -844,6 +863,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     powerMonitor: power.powerMonitor,
     powerSaveBlocker: powerSave.powerSaveBlocker,
     shell: desktopShell.shell,
-    systemPreferences: systemPreferencesService.systemPreferences
+    systemPreferences: systemPreferencesService.systemPreferences,
+    net: network.net
   };
 }

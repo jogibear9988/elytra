@@ -265,8 +265,19 @@ if(BUILD_TESTING)
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-net-policy
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_firefly_net_policy.py"
+            --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-url-legacy
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_url_legacy.py"
+                     --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-web-crypto
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_crypto.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-gc
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_gc.py"

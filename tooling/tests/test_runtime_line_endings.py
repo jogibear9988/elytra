@@ -34,6 +34,10 @@ def main():
             for name, record in compatibility["files"].items()
         }
     )
+    legacy_url = json.loads((ROOT / "vendor/node-url/manifest.json").read_text())
+    expected.update(
+        {"vendor/node-url/" + source["path"]: source["sha256"] for source in legacy_url["sources"]}
+    )
     attributes = subprocess.check_output(
         ["git", "check-attr", "eol", "--", *expected], cwd=ROOT, text=True
     )

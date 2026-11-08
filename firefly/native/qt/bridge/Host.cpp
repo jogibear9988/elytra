@@ -55,6 +55,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
               enqueue(0, "preferences-notification", ByteString(data.data(), data.size()));
           });
     install_clipboard_host(realm, *host);
+    network_state = Network::install_host(realm, *host);
     CrashReporting::install_host(realm, *host);
     Tracing::install_host(realm, *host, tracing);
     SandboxPolicy::install_host(realm, *host, sandbox, [] {

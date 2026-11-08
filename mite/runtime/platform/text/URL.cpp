@@ -238,6 +238,39 @@ GC::Ref<JS::Object> create_url_host(JS::Realm& realm)
             return host.has_value() ? text(vm, host->serialize()) : JS::js_null();
         },
         1, JS::default_attributes);
+    // Legacy url.parse uses UTS #46 domain conversion without WHATWG's IPv4
+    // parser. In particular, 127.1 and fullwidth numeric labels retain their
+    // original domain structure rather than becoming 127.0.0.1.
+    host->define_native_function(
+        realm, "asciiDomain"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto input = TRY(argument(vm, 0));
+            auto encoded = MUST(input.utf16_view().to_utf8());
+            auto bytes = encoded.bytes_as_string_view();
+            if (bytes.length() > 1048576)
+                return text(vm, ""sv);
+            UErrorCode status = U_ZERO_ERROR;
+            auto* idna = uidna_openUTS46(
+                UIDNA_CHECK_BIDI | UIDNA_CHECK_CONTEXTJ | UIDNA_NONTRANSITIONAL_TO_ASCII, &status);
+            if (U_FAILURE(status))
+                return vm.throw_completion<JS::Error>("Cannot initialize IDNA conversion"_utf16);
+            std::vector<char> output(bytes.length() * 4 + 64);
+            UIDNAInfo info = UIDNA_INFO_INITIALIZER;
+            auto count = uidna_nameToASCII_UTF8(idna, bytes.characters_without_null_termination(),
+                static_cast<int32_t>(bytes.length()), output.data(),
+                static_cast<int32_t>(output.size()), &info, &status);
+            uidna_close(idna);
+            // Node's non-strict domain conversion permits DNS-length limits,
+            // empty labels and hyphen placements; contextual/disallowed/punycode
+            // and bidi failures remain invalid. No numeric-address parsing runs.
+            constexpr uint32_t permitted = UIDNA_ERROR_EMPTY_LABEL | UIDNA_ERROR_LABEL_TOO_LONG
+                | UIDNA_ERROR_DOMAIN_NAME_TOO_LONG | UIDNA_ERROR_LEADING_HYPHEN
+                | UIDNA_ERROR_TRAILING_HYPHEN | UIDNA_ERROR_HYPHEN_3_4;
+            if (U_FAILURE(status) || (info.errors & ~permitted))
+                return text(vm, ""sv);
+            return text(vm, StringView(output.data(), static_cast<size_t>(count)));
+        },
+        1, JS::default_attributes);
     host->define_native_function(
         realm, "unicodeHost"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

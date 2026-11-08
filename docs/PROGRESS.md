@@ -10348,6 +10348,102 @@ auth handoff, extension/PTY, wider session/media/image/permission acceptance,
 webviews/remote and native platform/package/release deliverables. Linux recursive
 watching, ignore filters and fs.promises.watch remain open. Full original goal stays active.
 
+## 2026-11-08 — Native desktop net, utility transport and actual Code-OSS requests
+
+- Resume pushed d5de3d9 and actual missing net export. Add maintained net policy over
+  real Mite HTTP/verified TLS, not a Node/V8/Chromium host or raw node:http alias.
+  Native macOS NetworkState uses passive NWPathMonitor and bounded actual system-
+  proxy/PAC/WPAD snapshots. Initial state is explicitly pending; unavailable and
+  malformed observations fail rather than inventing offline/proxy-free state.
+- Native callbacks retain weak mutex-protected state, no VM/Qt pointer. Stop is
+  idempotent. Exact controlled provider tests cover initial/worker/status/late-stop
+  behavior and proxy enable/scoped/supplemental/unknown/type/depth/byte limits;
+  genuine read-only native query and unavailable-provider gates pass. No network
+  settings, permissions or physical transitions are changed/tested.
+- Add private ModuleLoader.web_transport capability capturing original Fetch classes,
+  stream adapters, cancellation and native HTTP/HTTPS/crypto dependencies before
+  application entry. Public global fetch and module-field replacement cannot swap
+  the embedding transport. Standalone Headers-only programs retain lazy networking.
+  This general embedding hook adds no Firefly/LibWeb dependency to Mite.
+- Implement net.fetch with genuine response bodies, metadata/clones/header guards,
+  manual per-hop proxy checks, cancellation through body EOF/cancel, 64 exchange
+  slots, HTTP(S), decoding and redirects. Strip credentials on any origin change,
+  including ports. Electron45 reference actually forwarded explicit Authorization
+  in these cases; Firefly intentionally retains stricter stripping. Redirected body
+  replay, sessions/cookies/auth cache/shared cache/custom schemes/interception and
+  proxy execution remain explicitly unsupported; do not claim defaultSession parity.
+- Implement real buffered ClientRequest Writable uploads (16 MiB/64 retained requests),
+  headers/write/end/abort, response Readable streams, redirect modes/synchronous
+  followRedirect and lifecycle. Match actual Code-OSS agent:null as unspecified;
+  reject custom agents/disabled TLS verification. Preserve actual status/headers/
+  Set-Cookie; unavailable raw HTTP metadata/progress/chunked uploads fail explicitly.
+  Shutdown uses captured internal cleanup, survives public destroy replacement and
+  independently retires remaining exchanges/provider even after a throwing hook.
+- Share policy with genuine utility roles before Qt/desktop startup. Register only
+  owned net export, not main desktop APIs. Explicit parent Electron alias mode uses
+  a private utility selector; both selectors reject missing fd3 before VM/GUI setup,
+  strip internal args and preserve existing utility payload behavior. Stop JavaScript
+  bodies while realm is alive, then retire passive native state. Plain Mite/fork
+  children receive no Firefly net capability.
+- Exact public main/utility and native Host/factory tests pass owned independent
+  HTTP peers: POST/upload bytes, gzip, redirect credentials, pending/header/body abort,
+  request callbacks, response pause/resume and public-global/module mutation isolation.
+  Real owned TLS rejects selfsigned cert before HTTP. Separately, an optional actual
+  HTTPS GET to example.com succeeds with default verification and nonempty body;
+  it remains outside default CI, with no trust-store changes or custom CA override.
+- Actual unchanged Code-OSS nodeRequest demanded legacy url.parse. Add Node24.15-
+  derived maintained parse/Url/prototype format/parseHost, full MIT notices and exact
+  upstream URL/query/license hashes. Preserve ports/numeric hosts/relative/auth/query
+  semantics instead of wrapping WHATWG URL. New private ICU domain conversion avoids
+  IPv4 normalization without changing existing WHATWG/domain helpers. All64 actual
+  Node/Mite cases pass, including malformed UTF-16/percent/UTF8: extra tests found and
+  fixed real raw-surrogate query differences. Resolve/module-format/deprecation
+  behavior remains explicitly scoped. LF checkout rules protect all pinned bytes;
+  upstream license whitespace is preserved verbatim, not silently reformatted.
+- The next request dependency needed global crypto. Implement real WebCrypto
+  getRandomValues/randomUUID using existing native OS uv_random and intrinsic integer
+  view validation. Global crypto/Crypto and node:crypto.webcrypto/getRandomValues
+  identities/receiver/DOMException/quota/offset/detached/OOB/shared/randomness cases
+  pass Node/Mite; stronger shadowed-property validation is tested separately.
+  subtle algorithms remain explicitly unsupported. Update two old crypto fixtures
+  for the new public surface/host dependencies, preserving entropy rejection/error
+  proofs rather than weakening them. New implementation remains standalone LibJS.
+- Pin unchanged Code-OSS AgentHostWakeNetworkMonitor and nodeRequest sources/licenses.
+  Actual wake/sleep consumer lifecycle passes real native status with32 compiled
+  dependencies verified. Actual request consumer passes POST, manual secure redirects,
+  decompression, stream adaptation and cancellation over real net.request, with61
+  compiled dependencies verified. Neither establishes complete session/proxy/request
+  service, extension host or workbench acceptance.
+- Add API contracts/ADRs0168/0169 and registered native/policy/release gates. Final actual
+  local-desktop/NLS ready diagnostic passes net and next fails linking globalShortcut.
+  Its constructor import alone is not a global-key registration; genuine native hotkey
+  ownership/callback/cleanup is the next main-startup API task.
+- Inspect real hosted d5de3d9 runs: Linux Mite passes all110 suites, proving the earlier
+  inline link fix. Style/Pages/dependency jobs pass; macOS Release is still running.
+  Windows runtime has6 failures (fork duplex hang, short/long realpath fixture alias,
+  event startup/reclamation, exec cleanup, WriteStream reclamation); Windows renderer
+  fails our Reporter.cpp's POSIX stat call. Linux renderer fails context-api.html's
+  cross-principal borrowed bridge call. Read-only audits identify follow-ups: Windows
+  UV_NONBLOCK_PIPE for raw duplex fd3, portable crash path admission, canonical test
+  cwd/bounded cleanup and shallow-driver GC diagnostics, child-realm authored bridge
+  acceptance/revocation tests. Do not weaken guards or claim these platforms green.
+
+Validation: complete 113-suite runtime regression passes (34.31 seconds). All new
+WebCrypto/64 legacy URL cases and6 controlled networking groups pass; exact native
+provider/unavailable/Host and registered main/utility loopback gates pass. Production
+and exact-object offscreen Firefly rebuild. Both actual pinned Code-OSS net consumers
+pass; separate utility lifecycle/parent-exit and all malformed/missing-fd boundary
+checks pass. Final main-ready diagnostic records globalShortcut, not a workbench.
+Runtime/Firefly generation and unmodified Ladybird pin verify; expanded Windows LF
+checkout verification passes. Site accepts299 pages. No visible desktop, permissions,
+physical network transitions or system configuration changes occurred.
+
+Remaining: repair observed Windows/Linux renderer/runtime CI and verify fresh hosted
+runs/releases; genuine globalShortcut and actual main/workbench/workspace open-edit-
+save; transferred utility/renderer endpoints/auth, extension/PTY, session/proxy/cache/
+WebCrypto-subtle and wider media/permission/platform/package deliverables. Initial
+net is macOS/stateless only; full original product goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

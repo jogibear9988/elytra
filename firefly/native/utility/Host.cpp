@@ -382,13 +382,14 @@ namespace {
     }
 }
 
-GC::Ref<JS::Object> create_host(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& loop)
+GC::Ref<JS::Object> create_host(
+    JS::VM& vm, JS::Realm& realm, Mite::EventLoop& loop, bool electron_compat)
 {
     auto owner = service(vm, realm, loop, false);
     GC::Root host { JS::Object::create(realm, nullptr) };
     host->define_native_function(
         realm, "spawn"_utf16,
-        [owner, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        [owner, &realm, electron_compat](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (owner->stopped)
                 return vm.throw_completion<JS::Error>("Utility service stopped"sv);
             if (!vm.argument(1).is_function())
@@ -417,7 +418,9 @@ GC::Ref<JS::Object> create_host(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& l
                 || entry.empty())
                 return vm.throw_completion<JS::Error>(
                     "Utility process unavailable or limit exceeded"sv);
-            args.insert(args.begin(), { file, "--firefly-utility", entry });
+            args.insert(args.begin(),
+                { file, electron_compat ? "--firefly-utility-electron" : "--firefly-utility",
+                    entry });
             auto arguments = pointers(args), environment = pointers(env);
             auto* endpoint = new Endpoint { *owner, owner->next_id++,
                 GC::Root { vm.argument(1).as_function() } };

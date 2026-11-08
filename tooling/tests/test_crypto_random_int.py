@@ -105,7 +105,9 @@ const space=2**48,range=10,limit=space-space%range;
 function bytes(n){const a=new Uint8Array(6);for(let i=5;i>=0;i--){a[i]=n%256;n=Math.floor(n/256)}return a;}
 let pending=[],reads=0,values=[space-1,limit,limit-1];
 const token={failure:true};
-const api=factory({Buffer,stream:{Transform:function(){}},native:{random(size,callback){
+let unusedEntropyCalls=0;
+function unusedEntropy(){unusedEntropyCalls++;throw Error('Unrelated entropy peer used by integer-random fixture')}
+const api=factory({Buffer,DOMException,stream:{Transform:function(){}},native:{webRandomFill:unusedEntropy,uuid:unusedEntropy,random(size,callback){
  assert.equal(size,6);reads++;
  const value=values.shift();assert.notEqual(value,undefined);
  if(callback)pending.push(()=>callback(value===token?token:undefined,value===token?undefined:bytes(value)));
@@ -118,6 +120,7 @@ assert.equal(calls,0);pending.shift()();assert.equal(calls,0);pending.shift()();
 assert.equal(result,-5);assert.equal(calls,1);
 values=[token];api.randomInt(5,e=>{assert.equal(e,token);calls++});pending.shift()();assert.equal(calls,2);
 assert.equal(pending.length,0);assert.equal(values.length,0);
+assert.equal(unusedEntropyCalls,0);
 console.log(JSON.stringify({rejection:true,errorIdentity:true}));
 """.replace("SOURCE", json.dumps(str(ROOT / "mite/modules/generated/crypto.js")))
     with tempfile.TemporaryDirectory(prefix="mite-random-int-") as directory:

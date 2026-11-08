@@ -32,6 +32,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/power-monitor/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/power-save-blocker/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/shell/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/system-preferences/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/net/Targets.cmake")
 add_custom_target(
     check-firefly-dependencies
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/firefly_dependencies.py" --check
@@ -123,6 +124,13 @@ set_property(
              "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-parent.js")
 configure_file("${CMAKE_CURRENT_LIST_DIR}/../utility/UtilityParentSource.h.in"
                "${CMAKE_BINARY_DIR}/firefly-generated/UtilityParentSource.h" @ONLY)
+file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-net.js" FIREFLY_UTILITY_NET_SOURCE)
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/firefly/core/generated/utility-net.js")
+configure_file("${CMAKE_CURRENT_LIST_DIR}/../net/UtilitySource.h.in"
+               "${CMAKE_BINARY_DIR}/firefly-generated/UtilityNetSource.h" @ONLY)
 file(READ "${FIREFLY_SOURCE_DIR}/firefly/core/generated/safe-storage.js"
      FIREFLY_SAFE_STORAGE_SOURCE)
 set_property(
@@ -200,6 +208,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../power-save-blocker/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../shell/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../net/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../clipboard/ClipboardHost.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../crash/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../menu/Host.cpp"
@@ -235,6 +244,7 @@ target_link_libraries(
            firefly-power-save-blocker
            firefly-shell
            firefly-system-preferences
+           firefly-network-state
            firefly-protocol-routes
            firefly-byte-channel
            firefly-preload-config
@@ -287,6 +297,16 @@ add_custom_target(
             --firefly "$<TARGET_FILE:${fork_driver}>" ${fork_driver_options}
     DEPENDS ${fork_driver}
     VERBATIM)
+if(APPLE)
+    add_custom_target(
+        check-firefly-net-transport
+        COMMAND
+            "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_firefly_net.py"
+            --firefly "$<TARGET_FILE:${fork_driver}>" ${fork_driver_options} --native-probe
+            "$<TARGET_FILE:firefly-net-native-probe>"
+        DEPENDS ${fork_driver} firefly-net-native-probe
+        VERBATIM)
+endif()
 add_custom_target(
     check-firefly-protocol-host
     COMMAND

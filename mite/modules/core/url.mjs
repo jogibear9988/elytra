@@ -5,6 +5,8 @@
  * Native dependencies are supplied by the embedding loader. One factory call
  * constructs the shared builtin instance for one runtime/realm.
  */
+import createLegacyUrl from './legacy-url.mjs';
+
 export default function createUrlModule(host) {
   const native = host.native;
   const urls = new WeakMap();
@@ -526,6 +528,7 @@ export default function createUrlModule(host) {
   }
 
   return {
+    ...createLegacyUrl(native),
     URL,
     URLSearchParams,
     fileURLToPath,

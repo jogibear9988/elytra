@@ -1,6 +1,8 @@
 /** Install the trusted inherited-channel facade in a real LibJS utility process. */
 #include "Bootstrap.h"
+#include "../net/Host.h"
 #include "Host.h"
+#include "UtilityNetSource.h"
 #include "UtilityParentSource.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
@@ -18,7 +20,7 @@
 #include <vector>
 
 namespace Firefly::Utility {
-int run(int argc, char** argv)
+int run(int argc, char** argv, bool electron_compat)
 {
     // Check before Mite/libuv creates its own wakeup descriptors. Otherwise an
     // absent fd 3 could be reused internally and mistaken for the parent pipe.
@@ -33,9 +35,27 @@ int run(int argc, char** argv)
     arguments.push_back(nullptr);
     Mite::HostHooks hooks;
     hooks.allow_process_signals = true;
-    hooks.initialize = [](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
+    std::shared_ptr<NetworkState> network_state;
+    GC::Root<JS::Object> network_service;
+    JS::VM* owner_vm {};
+    hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {
+        owner_vm = &vm;
         GC::Root native { TRY(create_parent_host(vm, realm, jobs, 3)) };
+        network_state = Network::install_host(realm, *native);
+        GC::Root transport { TRY(modules.web_transport()) };
+        auto net_factory = TRY(modules.run_eval(FIREFLY_UTILITY_NET_SOURCE));
+        GC::Root net_factory_root { net_factory.as_object() };
+        auto service
+            = TRY(JS::call(vm, net_factory, JS::js_undefined(), native.ptr(), transport.ptr()));
+        VERIFY(service.is_object());
+        network_service = service.as_object();
+        GC::Root exports { JS::Object::create(realm, nullptr) };
+        exports->define_direct_property(
+            "net"_utf16, TRY(network_service->get("net"_utf16)), JS::default_attributes);
+        TRY(modules.register_host_module("firefly", *exports, { "net" }));
+        if (electron_compat)
+            TRY(modules.register_host_module("electron", *exports, { "net" }));
         GC::Root codec { JS::Object::create(realm, nullptr) };
         codec->define_native_function(
             realm, "encodeIpc"_utf16,
@@ -77,6 +97,24 @@ int run(int argc, char** argv)
         process.as_object().define_direct_property(
             "execArgv"_utf16, TRY(JS::Array::create(realm, 0)), JS::default_attributes);
         return {};
+    };
+
+    hooks.shutdown = [&] {
+        // Revoke HTTP bodies while the realm is alive, then retire passive OS state.
+        if (network_service && owner_vm) {
+            auto stop = network_service->get("stop"_utf16);
+            if (!stop.is_error()) {
+                auto completion = JS::call(*owner_vm, stop.value(), network_service.ptr());
+                if (completion.is_error())
+                    fputs("Utility network shutdown failed\n", stderr);
+            }
+        }
+
+        network_service = nullptr;
+        if (network_state)
+            network_state->stop();
+        network_state.reset();
+        owner_vm = nullptr;
     };
 
     return Mite::run(static_cast<int>(arguments.size()) - 1, arguments.data(), hooks);
