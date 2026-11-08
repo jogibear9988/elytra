@@ -2,6 +2,7 @@
  * abort/flow control. */
 #include "Response.h"
 #include "native/protocol/files/FilePacket.h"
+#include "native/protocol/files/ResponseHead.h"
 #include <AK/WeakPtr.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
@@ -178,16 +179,29 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
     if (!m_head.has_value()) {
         if (packet.kind != Kind::Metadata)
             return reject();
-        auto head = Protocols::decode_file_response_head(
-            { reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size() });
+        StringView text { reinterpret_cast<char const*>(packet.payload.data()),
+            packet.payload.size() };
+        auto head = Protocols::decode_stream_response_head(text);
+        if (head.is_error()) {
+            // Legacy descriptor responses keep their original exact wire schema.
+            auto file = Protocols::decode_file_response_head(text);
+            if (file.is_error())
+                return reject();
+            auto value = file.release_value();
+            head = Protocols::StreamResponseHead { value.request, 200, value.content_length,
+                value.head, value.head, move(value.headers) };
+        }
+
         if (head.is_error() || head.value().request != m_request
-            || head.value().content_length > m_maximum_length
+            || (head.value().content_length.has_value()
+                && *head.value().content_length > m_maximum_length)
             || head.value().head != (m_params->request()->method() == "HEAD"sv))
             return reject();
         m_head = head.release_value();
         auto response = Infrastructure::Response::create();
-        response->set_status(200);
-        response->set_status_message("OK");
+        response->set_status(m_head->status);
+        // Custom handlers do not invent a status phrase absent from the wire.
+        response->set_status_message(m_head->status == 200 ? "OK" : "");
         response->url_list().append(m_params->request()->current_url());
         for (auto const& header : m_head->headers)
             response->header_list()->append(header);
@@ -202,7 +216,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
             return {};
         }
 
-        if (!m_head->head) {
+        if (!m_head->body_null) {
             m_channel = Engine::FetchByteChannel::create(
                 { .low = Protocols::file_chunk_limit / 2, .high = Protocols::file_chunk_limit },
                 m_gate->create_channel_sink());
@@ -220,8 +234,10 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
     }
 
     if (packet.kind == Kind::Chunk) {
-        if (m_head->head || !m_channel || packet.offset != m_received
-            || packet.payload.size() > m_head->content_length - m_received
+        if (m_head->body_null || !m_channel || packet.offset != m_received
+            || packet.payload.size() > m_maximum_length - m_received
+            || (m_head->content_length.has_value()
+                && packet.payload.size() > *m_head->content_length - m_received)
             || packet.payload.size() > m_requested || packet.payload.size() > m_allowance)
             return reject();
         m_received += packet.payload.size();
@@ -236,7 +252,9 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
     }
 
     if (packet.kind != Kind::Complete || packet.offset != m_received
-        || m_received != (m_head->head ? 0 : m_head->content_length))
+        || (m_head->body_null && m_received)
+        || (!m_head->body_null && m_head->content_length.has_value()
+            && m_received != *m_head->content_length))
         return reject();
     m_finished = true;
     m_gate->detach_transport();

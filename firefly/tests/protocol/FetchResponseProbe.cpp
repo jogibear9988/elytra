@@ -86,7 +86,7 @@ struct Fetch {
     RefPtr<Receiver> receiver;
     GC::Root<Web::Fetch::Fetching::PendingResponse> pending;
 
-    explicit Fetch(bool head = false)
+    explicit Fetch(bool head = false, u64 maximum_length = Protocols::file_size_limit)
         : params(make_params(*controller, head))
     {
         auto shared = state;
@@ -103,7 +103,8 @@ struct Fetch {
                         ++shared->credit_returns;
                     },
                 .cancel = [shared] { ++shared->cancellations; },
-            }));
+            },
+            maximum_length));
         pending = receiver->pending();
         state->receiver = receiver->make_weak_ptr();
         receiver->when_loaded([shared](auto response) { shared->response = move(response); });
@@ -234,6 +235,78 @@ ErrorOr<void> transfer(JS::Realm& realm, StringView path)
     outln("PASS actual file jobs through LibWeb PendingResponse/ReadableStream: {} bytes, bounded "
           "credit and GC",
         received);
+    return {};
+}
+
+// Exercise real LibWeb responses with modern metadata, not a JavaScript mock.
+ErrorOr<void> streamed_responses(JS::Realm& realm)
+{
+    for (auto status : { 200, 404, 500 }) {
+        Fetch fetch;
+        Protocols::StreamResponseHead head { 7, static_cast<u16>(status), {}, false, false,
+            { { "Content-Type", "application/octet-stream" } } };
+        auto encoded = TRY(Protocols::encode_stream_response_head(head));
+        TRY(fetch.send(Kind::Metadata, 0, encoded.bytes()));
+        GC::Root stream_body { body(realm, fetch) };
+        TRY(check(fetch.state->response->status() == status
+                && !fetch.state->response->body()->length().has_value(),
+            "Unknown-length response lost status or gained a guessed length"sv));
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        Array<u8, 3> bytes { 0, 255, 17 };
+        TRY(fetch.send(Kind::Chunk, 0, bytes));
+        realm.vm().heap().collect_garbage();
+        GC::Root chunk { read(realm, *reader) };
+        TRY(check(chunk->settled && !chunk->errored && chunk->bytes.bytes() == bytes.span(),
+            "Modern binary body was altered"sv));
+        TRY(fetch.send(Kind::Complete, bytes.size()));
+        GC::Root end { read(realm, *reader) };
+        TRY(check(end->closed && fetch.receiver->finished() && !fetch.state->cancellations,
+            "Unknown-length EOF did not close the actual stream"sv));
+    }
+
+    for (auto status : { 204, 205, 304 }) {
+        Fetch fetch;
+        Protocols::StreamResponseHead head { 7, static_cast<u16>(status), {}, false, true, {} };
+        auto encoded = TRY(Protocols::encode_stream_response_head(head));
+        TRY(fetch.send(Kind::Metadata, 0, encoded.bytes()));
+        TRY(fetch.send(Kind::Complete, 0));
+        pump();
+        TRY(check(fetch.state->response && fetch.state->response->status() == status
+                && !fetch.state->response->body().has_value() && !fetch.state->credit,
+            "Bodyless modern status requested credit or created a body"sv));
+    }
+
+    {
+        Fetch fetch;
+        Protocols::StreamResponseHead head { 7, 200, 4, false, false, {} };
+        auto encoded = TRY(Protocols::encode_stream_response_head(head));
+        TRY(fetch.send(Kind::Metadata, 0, encoded.bytes()));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        TRY(check(fetch.send(Kind::Complete, 0).is_error(),
+            "Premature modern declared-length EOF was accepted"sv));
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.state->cancellations == 1,
+            "Modern length mismatch left the body pending"sv));
+    }
+
+    {
+        Fetch fetch(false, 2);
+        Protocols::StreamResponseHead head { 7, 200, {}, false, false, {} };
+        auto encoded = TRY(Protocols::encode_stream_response_head(head));
+        TRY(fetch.send(Kind::Metadata, 0, encoded.bytes()));
+        GC::Root stream_body { body(realm, fetch) };
+        GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+        Array<u8, 3> bytes { 1, 2, 3 };
+        TRY(check(fetch.send(Kind::Chunk, 0, bytes).is_error(),
+            "Unknown-length response bypassed native navigation/body size budget"sv));
+        GC::Root result { read(realm, *reader) };
+        TRY(check(result->errored && fetch.state->cancellations == 1,
+            "Unknown-length body budget refusal left the stream pending"sv));
+    }
+
+    outln("PASS modern LibWeb status/binary/unknown-length EOF/GC/bodyless/length-mismatch "
+          "responses");
     return {};
 }
 
@@ -399,6 +472,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
         TRY(transfer(realm, arguments.strings[1]));
         TRY(controls(realm));
+        TRY(streamed_responses(realm));
     }
 
     TRY(check_fetch_dispatch(realm, *document, arguments.strings[1]));

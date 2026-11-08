@@ -154,6 +154,29 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             ]).then(()=>channelResult='ok',e=>channelResult='error:'+e.message);
         )JS"sv));
         TRY(wait_script(realm, u"channelResult==='ok'"sv));
+    } else if (mode == "stream"sv) {
+        TRY(run(realm, uR"JS(
+            globalThis.channelResult='pending';
+            Promise.all([
+                fetch('app://bundle/body').then(async r=>{
+                    if(r.status!==404 || r.headers.get('content-type')!=='application/octet-stream' || r.headers.has('content-length') || r.headers.has('set-cookie')) throw Error('stream headers');
+                    const reader=r.body.getReader();
+                    let offset=0;
+                    for (;;) {
+                        const item=await reader.read();
+                        if(item.done) break;
+                        if(item.value.length>65536 || !item.value.every((v,i)=>v===(((offset+i)*37+11)&255))) throw Error('stream bytes');
+                        offset+=item.value.length;
+                    }
+                    if(offset!==4194323) throw Error('stream EOF');
+                }),
+                fetch('app://bundle/body',{method:'HEAD'}).then(async r=>{
+                    if(r.status!==404 || r.headers.get('content-length')!=='4194323' || (await r.arrayBuffer()).byteLength!==0) throw Error('stream HEAD');
+                }),
+                fetch('app://bundle/denied').then(()=>{throw Error('unauthorized')},()=>{})
+            ]).then(()=>channelResult='ok',e=>channelResult='error:'+e.message);
+        )JS"sv));
+        TRY(wait_script(realm, u"channelResult==='ok'"sv));
     } else if (mode == "quota"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
@@ -304,6 +327,46 @@ ErrorOr<void> parent(StringView path, StringView mode)
         TRY(until([&] { return state->bad || state->closed; }, mode == "silence"sv ? 40 : 20));
         if (state->bad || state->calls != 1)
             return Error::from_string_literal("Malformed-response native control failed");
+    } else if (mode == "stream"sv) {
+        size_t calls = 0, pulls = 0, cancellations = 0;
+        auto server = TRY(P::FileServer::create_responses(move(peer->transport), 101,
+            [&](P::FileServer::AuthorizationRequest request,
+                P::FileServer::ResponseCompletion complete) {
+                ++calls;
+                if (request.url != "app://bundle/body"sv) {
+                    (void)complete(Error::from_errno(EACCES));
+                    return;
+                }
+
+                P::StreamResponseHead head { request.id, 404, {}, request.head, request.head,
+                    { { "Content-Type", "application/octet-stream" },
+                        { "Set-Cookie", "fixture=private" } } };
+                if (request.head) {
+                    head.content_length = 4194323;
+                    head.headers.append({ "Content-Length", "4194323" });
+                }
+
+                P::AuthorizedStream stream { move(head),
+                    [&, offset = u64 { 0 }](size_t maximum, P::StreamCompletion complete) mutable {
+                        ++pulls;
+                        auto count = min<u64>(maximum, 4194323 - offset);
+                        auto bytes = MUST(ByteBuffer::create_uninitialized(count));
+                        for (size_t i = 0; i < count; ++i)
+                            bytes[i] = static_cast<u8>((offset + i) * 37 + 11);
+                        offset += count;
+                        Core::deferred_invoke([complete = move(complete), bytes = move(bytes),
+                                                  done = offset == 4194323]() mutable {
+                            (void)complete(P::StreamChunk { move(bytes), done });
+                        });
+                    },
+                    [&] { ++cancellations; } };
+                (void)complete(P::FileServer::AuthorizedResponse { move(stream) });
+            }));
+        ScopeGuard close = [&] { server->revoke(); };
+        TRY(until([&] { return server->is_revoked(); }));
+        if (server->pending() || server->files() || calls != 3 || pulls < 65 || cancellations != 1)
+            return Error::from_string_literal(
+                "Modern channel lost body credit/HEAD cancellation/quota cleanup");
     } else {
         size_t calls = 0;
         auto server = TRY(P::FileServer::create(
@@ -352,7 +415,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     IPC::HandleBroker::install(make<IPC::LocalHandleBroker>());
 #endif
     if (arguments.argc != 3
-        || !arguments.strings[1].is_one_of("body"sv, "quota"sv, "scope"sv, "abort"sv,
+        || !arguments.strings[1].is_one_of("body"sv, "stream"sv, "quota"sv, "scope"sv, "abort"sv,
             "abort-early"sv, "reader-cancel"sv, "revoke"sv, "drop"sv, "peerloss"sv, "malformed"sv,
             "epoch"sv, "future"sv, "silence"sv))
         return Error::from_string_literal(

@@ -30,8 +30,9 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the current macOS Release build has 99
-validated CTest gates (full regression plus final affected-gate reruns), and native Linux/Windows CLI baselines have passed hosted CI.
+Mite is a working native LibJS runtime; the latest local macOS Release runtime
+validation has 117 passing CTest suites. Native Linux/Windows CLI baselines have
+passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
 
@@ -10776,6 +10777,53 @@ workspace open-edit-save and utility/renderer endpoints/auth, extension/PTY, wor
 Windows watcher/oracle CI repairs, native dialog acceptance and platform/releases.
 Physical GPU/backend telemetry and broader process notifications remain unaccepted.
 Full original goal stays active.
+
+
+## 2026-11-08 — Credit-paced modern response transport foundation
+
+- Preserve legacy file-response framing and the existing public file callback API.
+  Add separate exact stream metadata with status 200..599, ordered byte-valued headers,
+  optional length, HEAD/null-body rules, framing/header/size budgets and strict
+  integral numeric fields. No path or native descriptor enters renderer metadata.
+- Extend the real native resource server with asynchronous producers. Keep process
+  admission leases through body completion; require actual consumer credit, at most
+  one outstanding pull, and check the original pull maximum as well as later credit.
+  Stage returned chunks behind transport backpressure; verify declared length/EOF,
+  unknown total-size limit and stale per-pull generations. Detach state before
+  reentrant cancellation; cancel unread HEAD/null-body producers without pulling.
+- Adapt actual LibWeb PendingResponse/body channels to modern and unchanged legacy
+  schemas. Preserve CORS and upstream forbidden-header filtering. Unknown lengths
+  remain unknown; enforce received offsets and native navigation/body size budgets.
+  Modern status phrases are not carried by this internal transport.
+- Add a private maintained ESM response controller using captured genuine Request,
+  Response and stream primitives. Demand-only reads, bounded copied chunks, owned
+  AbortController, late-body cancellation, positive generations,64 pending responses,
+  64-header/32-KiB metadata/64-GiB body limits and explicit 1-MiB source-chunk refusal.
+  Keep this internal: no new public protocol methods or standalone Mite fetch change.
+- Add actual native producer/metadata and Node/Mite controller gates. Extend genuine
+  two-process JavaScript fetch acceptance with a 4-MiB binary 404 unknown-length body,
+  HEAD and denial; extend real LibWeb tests with 404/500, null statuses, GC, length
+  mismatch and unknown-length budget refusal. No visible desktop test is required.
+
+Validation: all 117 runtime suites pass (20.76 seconds). Production Firefly builds;
+all 14 new native producer modes, metadata schema, actual LibWeb responses, modern/
+legacy JavaScript process-channel, native navigation and existing 23-mode file-server
+regression pass. Whole-source formatting passes (254 Python, 859 JS/web/config,
+484 native and 64 CMake files). Site build and 307 pages/21,729 local link checks
+pass. Logs: build/protocol-stream-{runtime,final-build,acceptance,server-regression,
+style,site}.log. No visible GUI tests. Fresh hosted platform acceptance remains open.
+Initial quota fixture incorrectly expected a ninth per-request refusal; correct it
+to the existing whole-channel revocation contract, keeping eight native admissions,
+zero body pulls and eight producer cancellations. No production quota relaxation.
+First compile caught a move-only stream copy and was corrected.
+
+Remaining: connect the public default-session handler registry and VM/native body
+bindings; enforce builtin-file interception for all authenticated owned page and
+navigation scopes BEFORE native file access. Main net.fetch dispatch/bypass, public
+handler/remote consumer acceptance, actual Code-OSS workbench/open-edit-save, platform
+and release requirements stay outstanding. Code-OSS still stops at protocol.handle;
+this transport foundation does not claim a working editor. See ADR 0174.
+Full original goal active.
 
 ## Resume
 

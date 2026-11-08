@@ -29,6 +29,24 @@ ErrorOr<NonnullRefPtr<FileServer>> FileServer::create_async(NonnullOwnPtr<IPC::T
 {
     if (!authorize)
         return Error::from_string_literal("File service requires native authorization");
+    return create_responses(
+        move(transport), epoch,
+        [authorize = move(authorize)](AuthorizationRequest request, ResponseCompletion complete) {
+            authorize(move(request), [complete = move(complete)](ErrorOr<AuthorizedFile> result) {
+                if (result.is_error())
+                    return complete(result.release_error());
+                return complete(AuthorizedResponse { result.release_value() });
+            });
+        },
+        move(cancel), move(failed));
+}
+
+ErrorOr<NonnullRefPtr<FileServer>> FileServer::create_responses(
+    NonnullOwnPtr<IPC::Transport> transport, u64 epoch, AuthorizeResponseAsync authorize,
+    CancelAuthorization cancel, AuthorizationFailed failed)
+{
+    if (!authorize)
+        return Error::from_string_literal("Resource service requires native authorization");
     auto files = TRY(FileRequests::create(epoch));
     auto server = adopt_ref(*new FileServer(epoch, move(files),
         adopt_ref(*new Callbacks(move(authorize), move(cancel), move(failed)))));
@@ -85,7 +103,9 @@ void FileServer::revoke()
             cancelled[count++] = entry.key;
     auto callbacks = m_callbacks;
     m_files->revoke();
-    m_jobs.clear();
+    // Detach the entire map before producer cancellation can reenter this owner.
+    auto jobs = move(m_jobs);
+    m_jobs = {};
     if (m_channel)
         m_channel->close();
     // Retain the callback owner through reentry; all service state is terminal first.
@@ -116,6 +136,7 @@ void FileServer::receive(ReadonlyBytes bytes)
         m_admitting = true;
         ScopeGuard admission = [&] { m_admitting = false; };
         Job job;
+        job.head = packet.kind == FileRequestKind::Head;
         auto now = MonotonicTime::now();
         job.deadline = now + AK::Duration::from_seconds(30);
         auto admitted
@@ -143,10 +164,16 @@ void FileServer::receive(ReadonlyBytes bytes)
                 ByteString { reinterpret_cast<char const*>(packet.url.data()), packet.url.size() },
                 packet.kind == FileRequestKind::Head };
             callbacks->start(
-                move(request), [weak, id, thread = m_thread](ErrorOr<AuthorizedFile> result) {
+                move(request), [weak, id, thread = m_thread](ErrorOr<AuthorizedResponse> result) {
                     VERIFY(thread == AK::ThreadID::current());
                     if (auto self = weak.strong_ref())
                         return self->authorize(id, move(result));
+                    if (!result.is_error() && result.value().has<AuthorizedStream>()) {
+                        auto stream = move(result.release_value().get<AuthorizedStream>());
+                        if (stream.cancel)
+                            stream.cancel();
+                    }
+
                     return false;
                 });
         }
@@ -165,6 +192,7 @@ void FileServer::receive(ReadonlyBytes bytes)
                 bool authorizing = exchange(found->value.authorizing, false);
                 found->value.cancelled = true;
                 found->value.metadata = {};
+                auto producer = move(found->value.producer);
                 auto callbacks = m_callbacks;
                 if (authorizing && callbacks->cancel)
                     callbacks->cancel(packet.request);
@@ -182,9 +210,13 @@ void FileServer::receive(ReadonlyBytes bytes)
     schedule();
 }
 
-bool FileServer::authorize(u32 request, ErrorOr<AuthorizedFile> result)
+bool FileServer::authorize(u32 request, ErrorOr<AuthorizedResponse> result)
 {
     VERIFY(m_thread == AK::ThreadID::current());
+    // Even a stale application's returned body must relinquish its reader.
+    RefPtr<Producer> producer;
+    if (!result.is_error() && result.value().has<AuthorizedStream>())
+        producer = adopt_ref(*new Producer(move(result.value().get<AuthorizedStream>())));
     if (!is_open())
         return false;
     auto found = m_jobs.find(request);
@@ -201,8 +233,21 @@ bool FileServer::authorize(u32 request, ErrorOr<AuthorizedFile> result)
     if (result.is_error()) {
         m_files->cancel(m_epoch, request);
         job.cancelled = true;
+    } else if (producer) {
+        auto& response = producer->response;
+        auto encoded = encode_stream_response_head(response.head);
+        if (response.head.request != request || response.head.head != job.head
+            || (!response.head.body_null && !response.pull) || encoded.is_error()) {
+            m_files->cancel(m_epoch, request);
+            job.cancelled = true;
+        } else {
+            job.head_or_empty = response.head.body_null;
+            job.length = response.head.content_length;
+            job.metadata = encoded.release_value().to_byte_buffer();
+            job.producer = move(producer);
+        }
     } else {
-        auto file = result.release_value();
+        auto file = result.release_value().get<AuthorizedFile>();
         auto metadata = m_files->authorize(m_epoch, request, file.path, file.headers, now);
         if (metadata.is_error()) {
             job.cancelled = true;
@@ -257,10 +302,10 @@ void FileServer::pump()
     Optional<u32> after, first;
     for (auto const& entry : m_jobs) {
         auto const& job = entry.value;
-        if (job.authorizing && !job.cancelled)
+        if ((job.authorizing || job.pulling) && !job.cancelled)
             continue;
-        if (!(job.cancelled || job.complete || !job.headers_sent || job.head_or_empty
-                || job.credit))
+        if (!(job.cancelled || job.complete || !job.ready_chunk.is_empty() || !job.headers_sent
+                || job.head_or_empty || job.credit))
             continue;
         if (!first.has_value() || entry.key < *first)
             first = entry.key;
@@ -273,17 +318,44 @@ void FileServer::pump()
         return; // All producers are paused by the consumers' body credit.
     m_last_pumped = *id;
     auto& job = m_jobs.find(*id)->value;
-    if (job.cancelled || job.complete) {
+    if (!job.cancelled && !job.ready_chunk.is_empty()) {
+        auto bytes = move(job.ready_chunk);
+        if (!send(FilePacketKind::Chunk, *id, job.offset - bytes.size(), bytes))
+            return;
+    } else if (job.cancelled || job.complete) {
         auto kind = job.cancelled ? FilePacketKind::Cancel : FilePacketKind::Complete;
         auto offset = job.cancelled ? 0 : job.offset;
         if (!send(kind, *id, offset))
             return;
+        // Retire state and quota before any reader cancellation callback reentry.
+        auto producer = move(job.producer);
+        if (producer && job.complete && !job.head_or_empty)
+            producer->response.cancel = {};
+        m_files->cancel(m_epoch, *id);
         m_jobs.remove(*id);
     } else if (!job.headers_sent) {
         if (!send(FilePacketKind::Metadata, *id, 0, job.metadata))
             return;
         job.headers_sent = true;
         job.metadata = {};
+    } else if (job.producer) {
+        if (job.head_or_empty) {
+            job.complete = true;
+        } else {
+            job.pulling = true;
+            auto generation = ++job.pull_generation;
+            auto producer = job.producer;
+            auto weak = make_weak_ptr();
+            auto maximum = static_cast<size_t>(job.credit);
+            job.pull_maximum = maximum;
+            producer->response.pull(maximum,
+                [weak, request = *id, generation, thread = m_thread](ErrorOr<StreamChunk> result) {
+                    VERIFY(thread == AK::ThreadID::current());
+                    if (auto self = weak.strong_ref())
+                        return self->produced(request, generation, move(result));
+                    return false;
+                });
+        }
     } else {
         auto chunk = m_files->pull(m_epoch, *id,
             job.head_or_empty ? 1 : static_cast<size_t>(job.credit), MonotonicTime::now());
@@ -302,6 +374,45 @@ void FileServer::pump()
     }
 
     schedule(); // One frame/chunk per task; round-robin across active requests.
+}
+
+bool FileServer::produced(u32 request, u64 generation, ErrorOr<StreamChunk> result)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    if (!is_open())
+        return false;
+    auto found = m_jobs.find(request);
+    if (found == m_jobs.end() || found->value.cancelled || !found->value.pulling
+        || found->value.pull_generation != generation)
+        return false;
+    auto& job = found->value;
+    job.pulling = false;
+    if (MonotonicTime::now() >= job.deadline) {
+        revoke();
+        return false;
+    }
+
+    if (result.is_error()) {
+        job.cancelled = true;
+    } else {
+        auto chunk = result.release_value();
+        auto count = chunk.bytes.size();
+        if (count > job.pull_maximum || count > job.credit || count > file_chunk_limit
+            || count > file_size_limit - job.offset
+            || (job.length.has_value() && count > *job.length - job.offset)
+            || (!count && !chunk.complete)
+            || (chunk.complete && job.length.has_value() && job.offset + count != *job.length)) {
+            job.cancelled = true;
+        } else {
+            job.offset += count;
+            job.credit -= count;
+            job.complete = chunk.complete;
+            job.ready_chunk = move(chunk.bytes);
+        }
+    }
+
+    schedule();
+    return true;
 }
 
 void FileServer::expire()

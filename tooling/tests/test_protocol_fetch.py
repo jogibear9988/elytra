@@ -26,6 +26,10 @@ def main():
         assert result.returncode == 0, result
         assert f"{length} bytes, bounded credit and GC" in result.stdout, result
         assert "FetchController abort before/after headers" in result.stdout, result
+        assert (
+            "modern LibWeb status/binary/unknown-length EOF/GC/bodyless/length-mismatch"
+            in result.stdout
+        ), result
         assert "JavaScript fetch/arrayBuffer through native scheme seam" in result.stdout, result
         assert "VERIFICATION FAILED" not in result.stderr, result
         print(result.stdout.strip())

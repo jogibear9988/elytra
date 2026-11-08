@@ -18,6 +18,7 @@ def main():
         path.write_bytes((pattern * (length // 256 + 1))[:length])
         for mode in [
             "body",
+            "stream",
             "quota",
             "scope",
             "abort",

@@ -3,13 +3,30 @@
 #include "FilePacket.h"
 #include "FileRequests.h"
 #include "RequestPacket.h"
+#include "StreamResponseHead.h"
 #include "native/ipc/bytes/Channel.h"
+#include <AK/Variant.h>
 #include <LibCore/Timer.h>
 
 namespace Firefly::Protocols {
 struct AuthorizedFile {
     ByteString path;
     Vector<HTTP::Header> headers;
+};
+
+// Application bodies use the same bounded native channel as descriptor-backed
+// files, but production is asynchronous and happens only on consumer credit.
+struct StreamChunk {
+    ByteBuffer bytes;
+    bool complete { false };
+};
+
+using StreamCompletion = Function<bool(ErrorOr<StreamChunk>)>;
+
+struct AuthorizedStream {
+    StreamResponseHead head;
+    Function<void(size_t maximum, StreamCompletion)> pull;
+    Function<void()> cancel;
 };
 
 class FileServer final : public RefCounted<FileServer>, public Weakable<FileServer> {
@@ -35,6 +52,12 @@ public:
     static ErrorOr<NonnullRefPtr<FileServer>> create_async(NonnullOwnPtr<IPC::Transport>, u64 epoch,
         AuthorizeAsync, CancelAuthorization = {}, AuthorizationFailed = {});
 
+    using AuthorizedResponse = Variant<AuthorizedFile, AuthorizedStream>;
+    using ResponseCompletion = Function<bool(ErrorOr<AuthorizedResponse>)>;
+    using AuthorizeResponseAsync = Function<void(AuthorizationRequest, ResponseCompletion)>;
+    static ErrorOr<NonnullRefPtr<FileServer>> create_responses(NonnullOwnPtr<IPC::Transport>,
+        u64 epoch, AuthorizeResponseAsync, CancelAuthorization = {}, AuthorizationFailed = {});
+
     ~FileServer();
 
     void revoke();
@@ -57,10 +80,32 @@ public:
     }
 
 private:
+    struct Producer : RefCounted<Producer> {
+        explicit Producer(AuthorizedStream response)
+            : response(move(response))
+        {
+        }
+
+        ~Producer()
+        {
+            if (response.cancel)
+                response.cancel();
+        }
+
+        AuthorizedStream response;
+    };
+
     struct Job {
         ByteBuffer metadata;
+        ByteBuffer ready_chunk;
+        RefPtr<Producer> producer;
+        Optional<u64> length;
         u64 credit { 0 };
         u64 offset { 0 };
+        u64 pull_generation { 0 };
+        size_t pull_maximum { 0 };
+        bool pulling { false };
+        bool head { false };
         bool authorizing { true };
         bool headers_sent { false };
         bool complete { false };
@@ -70,21 +115,24 @@ private:
     };
 
     struct Callbacks : RefCounted<Callbacks> {
-        Callbacks(AuthorizeAsync start, CancelAuthorization cancel, AuthorizationFailed failed)
+        Callbacks(
+            AuthorizeResponseAsync start, CancelAuthorization cancel, AuthorizationFailed failed)
             : start(move(start))
             , cancel(move(cancel))
             , failed(move(failed))
         {
         }
 
-        AuthorizeAsync start;
+        AuthorizeResponseAsync start;
         CancelAuthorization cancel;
         AuthorizationFailed failed;
     };
 
     FileServer(u64 epoch, NonnullRefPtr<FileRequests>, NonnullRefPtr<Callbacks>);
 
-    bool authorize(u32 request, ErrorOr<AuthorizedFile>);
+    bool authorize(u32 request, ErrorOr<AuthorizedResponse>);
+
+    bool produced(u32 request, u64 generation, ErrorOr<StreamChunk>);
 
     void receive(ReadonlyBytes);
 

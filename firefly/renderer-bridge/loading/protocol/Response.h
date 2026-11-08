@@ -1,6 +1,6 @@
 /** Adapt framed file responses to real LibWeb pending responses and bounded body streams. */
 #pragma once
-#include "native/protocol/files/ResponseHead.h"
+#include "native/protocol/files/StreamResponseHead.h"
 #include <AK/Function.h>
 #include <AK/ThreadID.h>
 #include <AK/Weakable.h>
@@ -73,7 +73,7 @@ private:
     NonnullRefPtr<Web::Fetch::Engine::FetchBodyDeliveryGate> m_gate;
     RefPtr<Web::Fetch::Engine::FetchByteChannel> m_channel;
     RefPtr<Transport> m_transport;
-    Optional<Protocols::ResponseHead> m_head;
+    Optional<Protocols::StreamResponseHead> m_head;
     RefPtr<CallbackOwner> m_callbacks;
     u64 const m_epoch;
     u32 const m_request;

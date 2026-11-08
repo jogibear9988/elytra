@@ -187,11 +187,18 @@ ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED. Requested unsupported capabilities use
 ERR_FIREFLY_UNSUPPORTED_API. File-open failures and explicit denial reject loadURL
 with ERR_FAILED; pending loads cancelled by window/app lifecycle use ERR_ABORTED.
 
-handle/unhandle, net.fetch, protocol interception, custom partitions, broader
+handle/unhandle, net.fetch protocol dispatch, protocol interception, custom partitions, broader
 request fields/privileges and in-place document rebinding remain unavailable. The
-pinned Code-OSS entry still needs additional privileges/APIs. Without the engine
-overlay it rejects Chromium enable-features; the explicit LibJS engine overlay
-advances to unsupported protocol privilege allowServiceWorkers. No workbench launch follows from this subset.
+pinned Code-OSS entry still needs additional privileges/APIs. Its explicit local
+desktop adaptation currently reaches ProtocolMainService and stops at missing
+defaultSession.protocol.handle; its ordinary file-denial handler must be enforced
+before any native file access. No workbench launch follows from this subset.
+
+Internal streamed-response transport now supports status, binary bodies, unknown
+lengths, consumer credit and cancellation, with native/LibWeb component validation.
+It is not yet connected to public handler registration. See
+[ADR 0174](../architecture/0174-streamed-protocol-responses.md) for the integration
+boundaries and remaining work.
 
 ## Validation
 
