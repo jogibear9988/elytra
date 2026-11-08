@@ -42,10 +42,13 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
             metadata.set("modifiers"sv, modifiers);
             enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
         });
+    ipc_timer = Core::Timer::create_repeating(
+        AK::Duration::from_seconds(1), [this] { expire_ipc_events(); });
+    ipc_timer->start();
     initialize_protocols();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
-    set_native_ipc_handler([this](auto& page, auto navigable, auto params, bool event) {
-        receive_ipc(page, navigable, move(params), event);
+    set_native_ipc_handler([this](auto& page, auto navigable, auto params, NativeIpcKind kind) {
+        receive_ipc(page, navigable, move(params), kind);
     });
 }
 
@@ -61,6 +64,7 @@ void Bridge::Impl::stop()
     stopping = true;
     set_preload_configurator({});
     set_native_ipc_handler({});
+    ipc_timer->stop();
     sandbox.stop();
     tracing.reset();
     stop_protocols();

@@ -68,8 +68,17 @@ bool receive_native_ipc(WebView::WebContentPage& page, Web::HTML::CrossProcessId
 {
     if (!name.starts_with_bytes("firefly.ipc."sv))
         return false;
-    if (name.is_one_of("firefly.ipc.invoke.v1"sv, "firefly.ipc.send.v1"sv) && handler.get())
-        handler.get()(page, navigable, move(params), name == "firefly.ipc.send.v1"sv);
+    if (handler.get()) {
+        if (name == "firefly.ipc.invoke.v1"sv)
+            handler.get()(page, navigable, move(params), NativeIpcKind::Invoke);
+        else if (name == "firefly.ipc.send.v1"sv)
+            handler.get()(page, navigable, move(params), NativeIpcKind::Event);
+        else if (name == "firefly.ipc.bind.v1"sv)
+            handler.get()(page, navigable, move(params), NativeIpcKind::Bind);
+        else if (name == "firefly.ipc.ack.v1"sv)
+            handler.get()(page, navigable, move(params), NativeIpcKind::Ack);
+    }
+
     return true;
 }
 }

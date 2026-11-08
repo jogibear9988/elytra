@@ -22,6 +22,10 @@ void Bridge::Impl::reset_ipc(int id)
     auto& window = found->second;
     ipc_pending_count -= window.ipc_pending.size();
     window.ipc_pending.clear();
+    ipc_outgoing_count -= window.ipc_outgoing.size();
+    window.ipc_outgoing.clear();
+    window.ipc_outgoing_next = 0;
+    window.ipc_outgoing_failed = false;
     window.ipc_document = {};
     window.ipc_realm = {};
     window.ipc_last = 0;
@@ -84,7 +88,7 @@ void Bridge::Impl::send_ipc_reply(State& window, ByteString const& document,
 }
 
 void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossProcessId navigable,
-    JsonValue params, bool event)
+    JsonValue params, NativeIpcKind kind)
 {
     if (stopping || !params.is_object() || params.as_object().size() != 4)
         return;
@@ -94,7 +98,8 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
     auto request = data.get_u32("request"sv);
     if (!document.has_value() || document->bytes().size() > 64 || !realm_id.has_value()
         || realm_id->is_empty() || realm_id->bytes().size() > 1024 || !wire.has_value()
-        || wire->bytes().size() > 128 * 1024 || !request.has_value() || *request == 0)
+        || wire->bytes().size() > 128 * 1024 || !request.has_value()
+        || (*request == 0 && kind != NativeIpcKind::Bind))
         return;
     auto canonical = page.hosted_navigable(navigable);
     if (!canonical.has_value() || !canonical->is_top_level_traversable()
@@ -111,16 +116,37 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
         if (active_ipc_document(window) != actual_key)
             return;
         auto caller = realm_id->to_byte_string();
+        if (kind == NativeIpcKind::Bind && (*request != 0 || !wire->is_empty()))
+            return;
+        if (kind == NativeIpcKind::Ack
+            && (window.ipc_document != actual_key || window.ipc_realm != caller))
+            return;
         if (window.ipc_document != actual_key) {
             ipc_pending_count -= window.ipc_pending.size();
             window.ipc_pending.clear();
+            ipc_outgoing_count -= window.ipc_outgoing.size();
+            window.ipc_outgoing.clear();
+            window.ipc_outgoing_next = 0;
+            window.ipc_outgoing_failed = false;
             window.ipc_document = actual_key;
             window.ipc_realm = caller;
             window.ipc_last = 0;
         }
 
-        if (window.ipc_realm != caller || *request <= window.ipc_last)
+        if (window.ipc_realm != caller)
             return;
+        // Control messages cannot consume invoke IDs or dispatch application listeners.
+        if (kind == NativeIpcKind::Bind)
+            return;
+        if (kind == NativeIpcKind::Ack) {
+            if (wire->is_empty() && window.ipc_outgoing.erase(*request))
+                --ipc_outgoing_count;
+            return;
+        }
+
+        if (*request <= window.ipc_last)
+            return;
+        bool event = kind == NativeIpcKind::Event;
         window.ipc_last = *request;
         if (event && BridgeData::decode_wire(wire->bytes_as_string_view(), {}).is_error()) {
             // Untrusted malformed events must not throw through the main VM's

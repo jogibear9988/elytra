@@ -283,14 +283,15 @@ bool receive_ipc_reply(WebContent::PageClient& page, u64, Web::HTML::CrossProces
 {
     if (!name.starts_with_bytes("firefly.ipc."sv))
         return false;
-    if (name != "firefly.ipc.reply.v1"sv || !session || !params.is_object())
+    if (!name.is_one_of("firefly.ipc.reply.v1"sv, "firefly.ipc.event.v1"sv) || !session
+        || !params.is_object())
         return true;
     auto realm = params.as_object().get_string("realm"sv);
     if (!realm.has_value() || realm->bytes().size() > 1024)
         return true;
     auto found = session->worlds.find(*realm);
     if (found != session->worlds.end())
-        found->value.ipc->receive(page, navigable, params);
+        found->value.ipc->receive(page, navigable, params, name == "firefly.ipc.event.v1"sv);
     return true;
 }
 }

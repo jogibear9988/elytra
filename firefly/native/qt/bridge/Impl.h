@@ -8,11 +8,14 @@
 #include "../../sandbox/policy/Policy.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
+#include "TransportHooks.h"
 #include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
 #include <AK/String.h>
+#include <AK/Time.h>
+#include <LibCore/Timer.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Object.h>
@@ -58,6 +61,9 @@ struct Bridge::Impl {
         ByteString ipc_realm {};
         u32 ipc_last { 0 };
         std::unordered_set<u32> ipc_pending {};
+        bool ipc_outgoing_failed { false };
+        u32 ipc_outgoing_next { 0 };
+        std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
     };
 
     JS::VM& vm;
@@ -73,6 +79,8 @@ struct Bridge::Impl {
     int next_id { 1 };
     bool stopping { false };
     size_t ipc_pending_count { 0 };
+    size_t ipc_outgoing_count { 0 };
+    RefPtr<Core::Timer> ipc_timer;
     std::unique_ptr<ApplicationMenu> application_menu;
     Tracing::Recorder tracing;
     SandboxPolicy::Policy sandbox;
@@ -110,7 +118,11 @@ struct Bridge::Impl {
     void send_ipc_reply(State&, ByteString const& document, ByteString const& realm_id, u32 request,
         bool success, ByteString const& wire);
 
-    void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, bool event);
+    void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, NativeIpcKind);
+
+    JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
+
+    void expire_ipc_events();
 
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);

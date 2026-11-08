@@ -159,6 +159,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/OutboundIpc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
@@ -221,6 +222,13 @@ add_custom_target(
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_events.py"
             --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly firefly-protocol-registration-probe
+    VERBATIM)
+
+add_custom_target(
+    check-firefly-ipc-outbound
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_outbound.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
     VERBATIM)
 
 add_custom_target(
@@ -329,6 +337,8 @@ if(APPLE)
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_events.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_outbound.py"
+                --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly
                 check-firefly-protocol-origins
                 check-firefly-protocol-files
@@ -343,6 +353,7 @@ if(APPLE)
                 check-firefly-app-paths
                 check-firefly-app-locale
                 check-firefly-ipc-events
+                check-firefly-ipc-outbound
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

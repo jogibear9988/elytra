@@ -8452,6 +8452,65 @@ with exact sender/document revocation. Continue the real Code-OSS entry as proto
 worker/cache/remote-scheme contracts are resolved; keep Ladybird unmodified and the
 explicit missing-feature boundary intact.
 
+## 2026-11-08: Deliver main-to-preload events with native binding and retired timeout credit
+
+- Previous goal turn made progress: e469c9e adds/tested real renderer-to-main send
+  events and is pushed. Continue the Code-OSS preload/IPC priority with the other
+  direction, retaining the full original specification and unmodified upstream.
+- Add webContents.send and isolated ipcRenderer.on/once/removeListener/
+  removeAllListeners, with addListener/off aliases. Native exports announce their
+  owned document/realm before any application message; main can send to a loaded
+  preload without requiring an initial application invoke/send. Bind/ACK control
+  kinds remain reserved and cannot enter application dispatch or bind via an ACK.
+- Capture/validate bounded plain-data arguments; record the native document/realm
+  at send time and refuse stale/duplicate receiver IDs. Outgoing events have
+  separate 16-document/64-host ACK credit and monotonic IDs. The receiver bounds
+  deferred messages to 16 and enters a fresh isolated frame instead of recursing
+  into an active one. Navigation/closure reclaim all pending state.
+- Keep at most 64 source-realm listener registrations per document. Return the
+  native module for chaining, preserve alias identity/receiver, snapshot listeners
+  for removal/addition ordering, remove once before calling, share one mutable
+  destination copy and stop after world/document revocation. event.sender is the
+  private module and ports is empty; no port transfer or complete DOM Event parity.
+  Block raw listener publication and clear exported module/listener roots at detach.
+- Native ACKs release transport credit, not application results. Listener failures
+  log explicit helper diagnostics and release credit; return values/Promises are
+  not serialized/awaited. Full EventEmitter/DOM exception behavior remains partial.
+- Retire a document's outgoing endpoint after a missing 30-second ACK. Merely
+  freeing/replenishing credit to a stalled peer would grow the native transport
+  queue. Further sends throw ERR_FIREFLY_IPC_REVOKED until a fresh document; late
+  ACKs cannot revive it. Existing queued effects are not rolled back.
+- Batch actual production-helper acceptance in one hidden window: first main send,
+  cycles/aliases/UTF-16/mutability, listener receiver/event/alias/order/once/removal/
+  additions, validation, listener-root and outgoing-queue limits, ACK recovery,
+  native document replacement and listener-driven closure. OS-check the actual
+  owned renderer PPID before SIGSTOP; a real timeout retires it, SIGCONT/reload
+  admits a new working document. Always reap the owned process group.
+- Run a separate real Electron common positive fixture. Keep strict Firefly type
+  errors/limits separate: actual Electron differs in send clone-error handling and
+  inherited listener coercion. Keep the reference alive through final window
+  destruction assertions. Positive listener/clone/order/reload/close parity passes.
+- Require check-firefly-ipc-outbound in macOS aggregate and Linux Xvfb, with the
+  Electron positive reference in the macOS aggregate. Provide an explicit quick
+  functional-only developer rerun; required CI retains the real stalled-peer test.
+  Update detailed IPC/webContents/API, matrices/status/roadmap/file guide and ADR 0137.
+
+Validation: local macOS Release build, full outgoing public gate (including actual
+30-second stopped-peer retirement/reload), real Electron positive reference and
+incoming-event regression pass. Final typed-listener selector/alias build and
+quick functional rerun pass; Node/Mite geometry-policy regression remains green.
+Source style, generated JS freshness, upstream pin, built-site link and whitespace
+checks pass. Only targeted hidden IPC batches ran, without broad desktop suites or
+physical UI automation. Fresh Linux and native Windows desktop remain unverified.
+The actual prepared Code-OSS entry is re-run and still stops at allowServiceWorkers
+(exit 1), logged in build/code-oss-outbound-entry.log. No workbench or general
+page-callback/MessagePort/binary support is claimed. Full goal remains active.
+
+Next complete demanded contextBridge callback forwarding and public binary/port
+transport with the same native sender/document/revocation rules. Continue the real
+Code-OSS entry as protocol worker/cache/remote-scheme contracts are resolved; do
+not replace those features with inert flags or a narrowed completion claim.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

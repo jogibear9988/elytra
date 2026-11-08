@@ -4,8 +4,9 @@ Status: partial, validated on native macOS ARM64. Firefly implements asynchronou
 `ipcRenderer.invoke` with `ipcMain.handle`, `handleOnce` and `removeHandler`. This
 is request/reply IPC between separate Mite and Ladybird processes. A new local
 macOS subset also supports ipcRenderer.send to ipcMain event listeners, described
-below. Main-to-renderer events, synchronous IPC, MessagePorts, subframe IPC and full
-structured clone remain unfinished. [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+below. Main-to-renderer webContents.send and isolated-preload listener methods
+also have local macOS acceptance. Synchronous IPC, MessagePorts, subframe IPC and
+full structured clone remain unfinished. [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 includes this subset at `19ad113`; Alpha 1 predates it. The relocated experimental
 Linux X11 application also passes a scoped invoke/preload fixture at that source.
 
@@ -135,9 +136,95 @@ EventEmitter dispatch. Neither path treats malformed renderer input as an applic
 listener exception.
 
 This does not implement event.reply, event.returnValue, webContents ipc-message
-listeners, webContents.send or ipcRenderer.on/once/off. SenderFrame remains the
-limited document-bound snapshot above. Use invoke for a supported application reply;
-never infer ports or a main-to-renderer channel from the private ACK.
+listeners. SenderFrame remains the limited document-bound snapshot above. Use
+invoke for a supported document-bound application reply; the private ACK itself
+still supplies no application reply channel.
+
+## webContents.send(channel, ...args)
+
+Returns undefined. Send a bounded plain-data event to the configured top-level
+isolated preload of that webContents. The native preload service announces its
+current document/realm endpoint independently of application invoke/send calls.
+After the real document has loaded, main can send the first application message.
+A missing, unbound or inactive preload throws ERR_FIREFLY_IPC_NOT_READY; this subset
+does not queue messages for a future document. A destroyed owner uses the existing
+webContents lifecycle errors. Invalid channel/argument counts throw
+ERR_INVALID_ARG_TYPE; unsupported graphs/budget overflow use
+ERR_FIREFLY_IPC_SERIALIZATION. All are synchronous.
+
+```js
+// main, after the owned window has loaded its document
+window.webContents.send('editor:theme', {name: 'dark'});
+
+// isolated preload; register before main sends
+ipcRenderer.on('editor:theme', (_event, theme) => {
+  applyThemeToApplication(theme);
+});
+```
+
+Messages capture the native current document and realm **at the send call**. Native
+routing refuses duplicates/stale document identities and never retargets queued
+messages to a replacement document. This is not event.reply: a later explicit
+webContents.send call targets the then-current document, rather than the document
+that caused an earlier event. Use invoke's document-bound reply where appropriate.
+No arbitrary JavaScript execution is added to the page.
+
+Outgoing main events have a separate 16-per-document / 64-per-host outstanding
+budget, shared across channels. Exhaustion throws ERR_FIREFLY_IPC_LIMIT. A private
+ACK releases credit after synchronous listener dispatch, including an event with
+no listener or a throwing listener. ACKs neither serialize listener results nor
+wait for returned Promises. The receiver also bounds deferred messages to 16 when
+its world is executing another frame; delivery waits for a fresh isolated frame.
+
+If an ACK is missing for 30 seconds, a native timer retires that document's outgoing
+endpoint, releases its reservations and logs ERR_FIREFLY_IPC_SEND. Further sends
+throw ERR_FIREFLY_IPC_REVOKED until a **new document** is loaded. Credit is not
+repeatedly replenished to a stalled peer, which would allow native transport queues
+to grow. The deadline cannot interrupt blocked JavaScript or undo messages already
+queued at the peer. Navigation/closure also reclaims outstanding state. There is
+no application-visible delivery receipt, retry operation or performance guarantee.
+
+## Isolated-preload event listeners
+
+| Method | Contract | Return |
+| --- | --- | --- |
+| on(channel, listener) | Add in registration order | ipcRenderer |
+| addListener(channel, listener) | Alias of on, including function identity | ipcRenderer |
+| once(channel, listener) | Remove before calling once | ipcRenderer |
+| removeListener(channel, listener) | Remove the latest matching registration; no-op if absent | ipcRenderer |
+| off(channel, listener) | Alias of removeListener | ipcRenderer |
+| removeAllListeners([channel]) | Remove that channel or every registration | ipcRenderer |
+
+Only callable listeners belonging to the owning isolated realm are accepted.
+Invalid channel/function types throw ERR_INVALID_ARG_TYPE; foreign-realm callbacks
+throw ERR_FIREFLY_IPC_SERIALIZATION; inactive/revoked endpoints throw
+ERR_FIREFLY_IPC_REVOKED. At most 64 registrations per document, across all channels;
+adding another throws ERR_FIREFLY_IPC_LIMIT. Removal releases the roots immediately.
+The document/session teardown clears listeners and the exported module object.
+
+Listeners receive (event, ...args), with this === ipcRenderer. event.sender is that
+same private module object and event.ports is a fresh empty array. No ports are
+transferred. The event is a limited plain object, not complete DOM/Event parity.
+Do not forward it as an application payload. Raw native listener methods are blocked
+from contextBridge publication, just like send/invoke. Use fixed preload handlers
+and publish only appropriate application data/actions.
+
+Arguments are copied into the destination realm as mutable data, preserving
+cycles/aliases/UTF-16. All listeners for one event share that destination copy;
+mutations do not affect main. Dispatch snapshots registrations: removing a listener
+during a callback does not remove it from the current snapshot, and additions wait
+for the next event. Reentrant document/world revocation stops subsequent callbacks.
+Listener errors stop that dispatch, produce ERR_FIREFLY_IPC_LISTENER diagnostics
+and release credit. Returned values/Promises are ignored. Unhandled channels,
+including error, are ignored by this renderer subset; it is not a full EventEmitter
+implementation. Introspection/prepend methods and complete exception/DOM event
+reporting remain absent.
+
+These are trusted **preload** listener APIs. General page-function arguments through
+contextBridge and Code-OSS's full published callback API remain incomplete; adding
+these listeners does not establish that the actual workbench preload can publish
+all of its APIs unchanged. Binary values, ports and broader bridge contracts still
+need their own end-to-end acceptance.
 
 ## Data and resource limits
 
@@ -200,6 +287,22 @@ cmake --build build/renderer --target check-firefly-ipc-events --parallel 3
 
 Local macOS Release passes. Linux CI requires the gate under Xvfb; fresh hosted
 acceptance and native Windows desktop remain open. sendSync, postMessage,
-webContents.send, renderer event listeners, frame/port routing and Electron's full
-structured-clone type set remain unsupported. Missing methods fail as ordinary
+frame/port routing and Electron's full structured-clone type set remain unsupported. Missing methods fail as ordinary
 JavaScript API errors. See [ADR 0136](../architecture/0136-renderer-to-main-events.md).
+
+check-firefly-ipc-outbound batches main-to-renderer acceptance without requiring a
+first application message from preload: clone/order/once/aliases/removal, strict
+validation, listener roots/queue budgets, credit recovery, native sender/document
+replacement and listener-driven close. A real owned renderer is OS-verified and
+SIGSTOPed, then resumed: a real 30-second ACK timeout retires the endpoint, further
+sends fail and a fresh document works. The fixture always reaps its owned process
+group. A separate Electron positive reference covers the common listener/clone/
+order/reload/close contract; strict argument errors, quotas, diagnostics and timeout
+retirement remain Firefly differences. The incoming-event gate remains green.
+
+```sh
+cmake --build build/renderer --target check-firefly-ipc-outbound --parallel 3
+```
+
+Local macOS Release passes. Linux CI requires this gate; fresh hosted execution and
+native Windows desktop remain open. See [ADR 0137](../architecture/0137-main-to-preload-events.md).

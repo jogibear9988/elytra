@@ -95,6 +95,7 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/PreloadSession.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcListeners.cpp"
         ${firefly_renderer_platform_sources})
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"

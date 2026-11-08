@@ -1679,6 +1679,16 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
       this._pending = null;
       this._ipcFrame = null;
     }
+    send(channel, ...args) {
+      alive(this._window);
+      if (typeof channel !== "string" || channel.length > 256 || args.length > 64) {
+        throw error(
+          "ERR_INVALID_ARG_TYPE",
+          "send requires a bounded channel and at most 64 arguments"
+        );
+      }
+      native.sendIpc(this._window.id, native.encodeIpc([channel, ...args]));
+    }
     get mainFrame() {
       alive(this._window);
       return this._ipcFrame;

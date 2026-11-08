@@ -2,8 +2,9 @@
 
 Availability: the main-process object at BrowserWindow.webContents. Partial native
 macOS ARM64 implementation; an EventEmitter associated with the owning window.
-It observes a separate Ladybird WebContent process. General script execution and
-one-way messaging remain unavailable; [IPC](ipc.md) provides preload request/reply.
+It observes a separate Ladybird WebContent process. General script execution
+remains unavailable; [IPC](ipc.md) provides preload
+request/reply and bounded bidirectional events.
 
 ## Member index
 
@@ -14,6 +15,7 @@ one-way messaging remain unavailable; [IPC](ipc.md) provides preload request/rep
 | [getURL()](#contentsgeturl) | string | Observe the current URL |
 | [getTitle()](#contentsgettitle) | string | Observe the document title |
 | [getOSProcessId()](#contentsgetosprocessid) | number | Query the native renderer PID |
+| [send(channel, ...args)](ipc.md#webcontentssendchannel-args) | undefined | Native current-document event to isolated preload |
 | [isDestroyed()](#contentsisdestroyed) | boolean | Observe owner destruction |
 
 Access through window.webContents; it is not exported as a standalone constructor.
@@ -179,10 +181,11 @@ provide reference implementations but explicitly remain blocked in Firefly.
 
 ## Unsupported surface and evidence
 
-executeJavaScript, send, openDevTools, session, general frame APIs and the wider
-WebContents event/method surface are absent. The public isolated
+executeJavaScript, openDevTools, broader session methods, general frame APIs and the
+wider WebContents event/method surface are absent. The public isolated
 [preload/contextBridge subset](context-bridge.md) is implemented separately;
-[ipcMain/ipcRenderer](ipc.md) supports bounded invoke/handle request/reply. Read [security](../guides/security.md)
+[ipcMain/ipcRenderer](ipc.md) supports bounded invoke/handle request/reply and
+plain-data events in both directions. Binary/port IPC and full structured clone remain open. Read [security](../guides/security.md)
 and [Electron migration](../migration/from-electron.md).
 
 Implementation: [api.mjs](../../firefly/core/api.mjs).

@@ -147,9 +147,9 @@ differs from Chromium and must be checked with the actual application.
 
 Public [preload/contextBridge](context-bridge.md) supports bounded CommonJS source
 and frozen data/function publication in a separate realm. [IPC](ipc.md) now supports
-invoke/handle request/reply and renderer-to-main send events with native sender
-validation and bounded plain data. Main-to-renderer events and binary/port IPC remain
-unfinished. Native SDK/helper tests exercise selected boundaries; they do not
+invoke/handle request/reply and plain-data events in both directions with native
+sender/document checks. Main-to-preload listener methods have local macOS acceptance;
+full callback publication, binary/port IPC and full structured clone remain unfinished. Native SDK/helper tests exercise selected boundaries; they do not
 prove a complete security audit. Do not expose native privileges to page content.
 
 ## Errors and unsupported features

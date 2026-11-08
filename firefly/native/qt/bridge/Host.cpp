@@ -86,6 +86,9 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         },
         1, JS::default_attributes);
     host->define_native_function(
+        realm, "sendIpc"_utf16, [this](JS::VM& vm) { return send_ipc_event(vm); }, 2,
+        JS::default_attributes);
+    host->define_native_function(
         realm, "replyIpc"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (!vm.argument(0).is_int32() || !vm.argument(1).is_string()

@@ -61,12 +61,16 @@ void IpcEndpoint::revoke()
 {
     pending_count -= m_pending.size();
     m_pending.clear();
+    m_listeners.clear();
+    m_exports = nullptr;
     m_document = nullptr;
     m_owner = nullptr;
 }
 
 GC::Ref<JS::Object> IpcEndpoint::exports()
 {
+    if (m_exports)
+        return *m_exports;
     auto& realm = *m_owner->realm();
     GC::Root result { JS::Object::create(realm, nullptr) };
     NonnullRefPtr owner { *this };
@@ -80,6 +84,24 @@ GC::Ref<JS::Object> IpcEndpoint::exports()
         GC::Ptr<JS::Realm> { realm }) };
     m_owner->block_function_export(*send);
     result->define_direct_property("send"_utf16, send, JS::default_attributes);
+    m_exports = *result;
+    auto method = [&](Utf16String name, ListenerOperation mode) {
+        GC::Root function { JS::NativeFunction::create(
+            realm, [owner, mode](JS::VM& vm) { return owner->listen(vm, mode); },
+            mode == ListenerOperation::RemoveAll ? 1 : 2, name, GC::Ptr<JS::Realm> { realm }) };
+        m_owner->block_function_export(*function);
+        result->define_direct_property(name, function, JS::default_attributes);
+    };
+
+    method("on"_utf16, ListenerOperation::On);
+    method("once"_utf16, ListenerOperation::Once);
+    method("removeListener"_utf16, ListenerOperation::Remove);
+    method("removeAllListeners"_utf16, ListenerOperation::RemoveAll);
+    result->define_direct_property(
+        "addListener"_utf16, result->get_without_side_effects("on"_utf16), JS::default_attributes);
+    result->define_direct_property("off"_utf16,
+        result->get_without_side_effects("removeListener"_utf16), JS::default_attributes);
+    control("firefly.ipc.bind.v1"_string, 0);
     return *result;
 }
 
@@ -187,8 +209,8 @@ void IpcEndpoint::settle(u32 id, bool success, String const& wire)
         warnln("Firefly IPC reply settlement rejected");
 }
 
-void IpcEndpoint::receive(
-    WebContent::PageClient& page, Web::HTML::CrossProcessId navigable, JsonValue const& params)
+void IpcEndpoint::receive(WebContent::PageClient& page, Web::HTML::CrossProcessId navigable,
+    JsonValue const& params, bool event)
 {
     if (!m_document || !m_owner || m_owner->is_detached() || !m_document->is_fully_active()
         || !params.is_object())
@@ -197,16 +219,31 @@ void IpcEndpoint::receive(
     if (!nav || nav->id() != navigable || &nav->page() != &page.page())
         return;
     auto const& data = params.as_object();
-    if (data.size() != 5)
+    if (data.size() != (event ? 4u : 5u))
         return;
     auto doc = data.get_string("document"sv), realm = data.get_string("realm"sv),
          wire = data.get_string("wire"sv);
     auto request = data.get_u32("request"sv);
     auto success = data.get_bool("success"sv);
     if (!doc.has_value() || *doc != document_key(*m_document) || !realm.has_value()
-        || *realm != m_realm || !request.has_value() || !success.has_value() || !wire.has_value())
+        || *realm != m_realm || !request.has_value() || !*request || !wire.has_value()
+        || wire->bytes().size() > wire_limit || (!event && !success.has_value()))
         return;
-    settle(*request, *success, *wire);
+    if (event) {
+        if (*request <= m_incoming_last)
+            return;
+        m_incoming_last = *request;
+        if (m_incoming_pending >= 16) {
+            warnln("ERR_FIREFLY_IPC_SEND: renderer event queue exhausted");
+            control("firefly.ipc.ack.v1"_string, *request);
+            return;
+        }
+
+        ++m_incoming_pending;
+        receive_event(*request, *wire);
+    } else {
+        settle(*request, *success, *wire);
+    }
 }
 
 void IpcEndpoint::expire()
