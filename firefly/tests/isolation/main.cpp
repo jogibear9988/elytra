@@ -9,6 +9,7 @@
 #include "HandlerTest.h"
 #include "MessageEventTest.h"
 #include "NodeFilterTest.h"
+#include "PreloadProcessTest.h"
 #include "PrincipalCallbackTest.h"
 #include "PromiseBridgeTest.h"
 #include "PublicationGetterTest.h"
@@ -42,6 +43,7 @@ static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16V
 
 ErrorOr<int> ladybird_main(Main::Arguments)
 {
+    TRY(check_preload_process_configuration());
     TRY(check_file_module_policy());
     auto& loop = Core::EventLoop::initialize_for_current_thread();
     (void)loop;

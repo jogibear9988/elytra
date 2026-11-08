@@ -393,3 +393,12 @@ add an explicit native reader to the existing snapshot engine. Revalidate ordina
 own descriptors, getter function class/realm metadata, rooted key vectors and alias
 values across getter-triggered GC. Keep default snapshot paths getter-free and
 verify the publication collision/reentry/revocation controls and exact call budget.
+
+The [sandbox process metadata adapter](../architecture/0144-sandbox-process-metadata.md)
+captures the helper executable before upstream sandbox initialization and constructs
+only document-local data in the product isolated realm. Preserve native PID/execPath,
+exact argument/environment schema budgets, own data properties (including __proto__)
+and unsupported-method export blocking. Re-run the native isolation gate and the
+focused production-helper process gate on relevant upstream changes. Do not add
+application arguments to the upstream helper command line or install process in the
+principal page/diagnostic realm. The manifest supplies both reported engine hashes.

@@ -8,6 +8,7 @@
 #include "context/ContextBridge.h"
 #include "ipc/IpcEndpoint.h"
 #include "loading/FileModules.h"
+#include "preload/Process.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/HashMap.h>
 #include <AK/JsonObject.h>
@@ -39,6 +40,7 @@ namespace {
         String filename;
         String dirname;
         bool electron_compat { false };
+        PreloadProcess::Configuration process;
     };
 
     struct World {
@@ -92,6 +94,8 @@ namespace {
     {
         auto& realm = *world.realm();
         auto& vm = realm.vm();
+        if (PreloadProcess::install(world, preload.process).is_error())
+            fail("Cannot install sandbox process data"sv);
         GC::Root imports { JS::Object::create(realm, nullptr) };
         imports->define_direct_property("contextBridge"_utf16, bridge.exports(), {});
         imports->define_direct_property("ipcRenderer"_utf16, ipc.exports(), {});
@@ -239,7 +243,7 @@ void apply(Web::WebDriver::BiDiSessionState state)
         || !state.network_navigable_cache_behavior.is_empty() || state.preload_scripts.size() > 16)
         fail("Unsupported preload service configuration"sv);
     HashMap<String, Preload> sources;
-    size_t total = 0;
+    size_t total = 0, process_total = 0;
     for (auto const& script : state.preload_scripts) {
         if (script.id != "firefly.preload.v1"sv || !script.contexts.has_value()
             || script.contexts->size() != 1 || script.function_declaration.bytes().size() > 65536
@@ -250,19 +254,28 @@ void apply(Web::WebDriver::BiDiSessionState state)
         auto filename = script.arguments.as_object().get_string("filename"sv),
              dirname = script.arguments.as_object().get_string("dirname"sv);
         auto electron_compat = script.arguments.as_object().get_bool("electronCompat"sv);
+        auto process_data = script.arguments.as_object().get("process"sv);
+        if (!process_data.has_value())
+            fail("Missing preload process metadata"sv);
+        auto process = PreloadProcess::decode(*process_data);
+        if (process.is_error())
+            fail("Invalid preload process metadata"sv);
+        process_total += process.value().bytes;
+        if (process_total > 1024 * 1024)
+            fail("Preload process metadata budget exceeded"sv);
         if (handle.is_empty() || handle.bytes().size() > 1024 || sources.contains(handle)
             || !filename.has_value() || !dirname.has_value() || filename->contains('\0')
             || dirname->contains('\0') || filename->bytes().size() > 4096
             || dirname->bytes().size() > 4096
-            || (script.arguments.as_object().size() != 2
-                && (script.arguments.as_object().size() != 3 || !electron_compat.has_value())))
+            || (script.arguments.as_object().size() != 3
+                && (script.arguments.as_object().size() != 4 || !electron_compat.has_value())))
             fail("Invalid preload metadata"sv);
         total += script.function_declaration.bytes().size();
         if (total > 1024 * 1024)
             fail("Preload source budget exceeded"sv);
         sources.set(handle,
             Preload { script.function_declaration, *filename, *dirname,
-                electron_compat.value_or(false) });
+                electron_compat.value_or(false), process.release_value() });
     }
 
     session->sources = move(sources);

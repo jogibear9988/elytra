@@ -67,7 +67,9 @@ sources. No source is fetched by the document or installed as a document script.
 
 Only `require('firefly')`, exporting contextBridge and the bounded ipcRenderer subset, is implemented. Other modules,
 including node:fs, relative modules and electron, throw ERR_FIREFLY_UNSUPPORTED_API.
-There is no Mite/Node process, Buffer or filesystem loader. The CommonJS wrapper
+A restricted [sandbox process](sandbox-process.md) supplies real renderer metadata,
+per-window additionalArguments and document-local environment copies. There is no
+Mite/Node process capability, Buffer or filesystem loader. The CommonJS wrapper
 provides module, exports, __filename and __dirname; this is not a full Node module
 implementation. Direct ES module preload paths (.mjs) explicitly reject; bundle authored ESM first. Bundle dependencies
 into a single CommonJS preload when they do not require unsupported capabilities.

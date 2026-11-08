@@ -26,9 +26,15 @@ JS::Completion Bridge::Impl::preload_error(JS::VM& vm, char const* code, StringV
 
 JS::ThrowCompletionOr<Optional<Bridge::Impl::Preload>> Bridge::Impl::read_preload(JS::VM& vm)
 {
+    auto arguments = TRY(read_process_arguments(vm));
     auto value = vm.argument(5);
-    if (value.is_undefined())
+    if (value.is_undefined()) {
+        if (!arguments.is_empty())
+            return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+                "additionalArguments requires a configured preload"sv);
         return Optional<Preload> {};
+    }
+
     if (!value.is_string())
         return preload_error(vm, "ERR_INVALID_ARG_TYPE", "preload must be a string"sv);
     auto encoded = value.as_string().utf16_string_view().to_byte_string();
@@ -61,21 +67,24 @@ JS::ThrowCompletionOr<Optional<Bridge::Impl::Preload>> Bridge::Impl::read_preloa
     if (source.is_error())
         return preload_error(
             vm, "ERR_FIREFLY_PRELOAD_READ_FAILED", "Preload must be valid UTF-8"sv);
+    auto process = TRY(read_process_config(vm, move(arguments)));
+    size_t process_total = process.bytes;
     size_t total = count, configured = 1;
     for (auto const& [id, state] : windows)
         if (state.preload.has_value()) {
             total += state.preload->source.bytes().size();
+            process_total += state.preload->process.bytes;
             ++configured;
         }
 
-    if (total > 1024 * 1024 || configured > 16)
+    if (total > 1024 * 1024 || process_total > 1024 * 1024 || configured > 16)
         return preload_error(
             vm, "ERR_FIREFLY_PRELOAD_TOO_LARGE", "Preload window/source budget exceeded"sv);
     auto filename = Mite::ModulePaths::path_string(path);
     auto dirname = Mite::ModulePaths::path_string(path.parent_path());
     return Optional<Preload> { Preload { source.release_value(),
         MUST(String::from_utf8(StringView(filename.data(), filename.size()))),
-        MUST(String::from_utf8(StringView(dirname.data(), dirname.size()))) } };
+        MUST(String::from_utf8(StringView(dirname.data(), dirname.size()))), move(process) } };
 }
 
 void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
@@ -91,6 +100,7 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
         JsonObject metadata;
         metadata.set("filename"sv, preload.filename);
         metadata.set("dirname"sv, preload.dirname);
+        metadata.set("process"sv, PreloadProcess::encode(preload.process));
         if (electron_compat)
             metadata.set("electronCompat"sv, true);
         state.preload_scripts.append({ "firefly.preload.v1"_string, preload.source, move(metadata),

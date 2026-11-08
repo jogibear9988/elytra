@@ -8786,6 +8786,66 @@ MessagePorts, while resolving the known actual-entry allowServiceWorkers/worker/
 cache/resource requirements. No new actual Code-OSS preload/workbench launch is
 claimed; a real workbench open/edit/save milestone remains unaccepted.
 
+## 2026-11-08 — Native sandbox process snapshots and window arguments
+
+- Resume from pushed 2f28123. The preceding status-only turn made no implementation
+  progress; revalidate the failed in-flight process build and fix its actual native
+  compile errors rather than restarting from a claimed success. Keep the full goal
+  and real Code-OSS launch priority active.
+- Add bounded webPreferences.additionalArguments through the real native constructor
+  and per-window preload metadata. Read exact native own array entries, enforce
+  strict Unicode/NUL/argument count/bytes, require a preload for nonempty arguments,
+  and snapshot the main OS environment at construction. Preserve caller mutation
+  isolation. Keep app arguments out of the upstream helper OS command line.
+- Add a pure AK versioned process configuration decoder shared by main/helper, with
+  independent helper schema/type/count/byte validation. Bound process content to
+  64 KiB/window and 1 MiB across 16 windows, separate from existing source limits.
+  Supply pinned engine hashes from the manifest and track configure-time changes.
+- Capture the actual helper executable before upstream sandbox bootstrap. Install
+  only in each product top-level isolated preload: actual PID/platform/architecture,
+  helper execPath, renderer flags, truthful framework/engine versions and fresh
+  mutable document-local argv/env containers. Reload restores the original window
+  snapshot. No Node/V8/Electron spoofing or Mite/LibWeb dependency inversion.
+- Explicitly reject demanded but unimplemented process.on/getProcessMemoryInfo;
+  block their raw native functions from bridge publication. Keep the principal,
+  child-frame, initial blank and diagnostic worlds free of this process object.
+- Add native schema roundtrip, exact/overflow argument/environment quotas, type,
+  version, NUL, Unicode and __proto__ cases. Add a hidden two-window/reload public
+  gate using the real Code-OSS argv/config IPC/userEnv merge shape. Check live OS
+  parent/helper PID independently, actual executable/identity, local mutation,
+  getter publication, unsupported methods and page/frame isolation.
+- The first public gate found AK's default UTF-16 conversion allowed lonely
+  surrogates; use explicit AllowLonelySurrogates::No and verify rejection. The
+  measured Electron macOS reference does not equate execPath/argv[0], reorders
+  switches/positionals and drops empty arguments. Keep its shared nonempty values/
+  multiplicity assertions separate from Firefly's exact logical argv contract.
+- Update the existing preload/sandbox regressions to require the restricted source
+  process while retaining absence in the principal. Wire the new gate into the
+  macOS aggregate and hosted Linux Xvfb workflow. Add detailed sandbox process API,
+  current status/matrix/VS Code/roadmap/upgrade notes and ADR 0144. Correct stale
+  VS Code binary transport statements superseded by the raw IPC slice.
+
+Validation: local macOS Release build and complete actual-engine isolation gate
+pass, including native metadata limits. Actual production-helper process gate and
+Electron 45.2.3 common reference pass. Existing full public preload/reference gate
+passes first-script/nested frozen APIs/Promises, three windows, child-frame refusal,
+reload and file-to-HTTP process replacement; source validation/exact 64 KiB boundary/
+restricted loader/accessor and syntax/throw failure controls pass. Global sandbox
+regression passes actual owned-helper kernel enforcement and isolation, including
+late-call refusal. Only focused hidden batches ran; no physical UI automation or
+broad desktop suite. Source style, generated adapters, upstream and built-site checks
+are recorded with this commit's final validation.
+
+Re-run the actual prepared Code-OSS entry from build/code-oss-engine-final with an
+existing temporary user-data directory: exit 1 remains the real allowServiceWorkers
+unsupported privilege (build/code-oss-process-entry.log). An older diagnostic output
+had stale engine-option handling, and running without an existing user-data directory
+stopped at setPath validation; neither was treated as workbench acceptance.
+Remaining: demanded process events/metrics, zoom/file APIs and MessagePorts, then
+actual worker/cache/resource contracts and a real workbench open/edit/save gate.
+Fresh Linux/native Windows execution of this slice remains unverified. Ladybird
+stays unmodified. The full goal stays active; this prerequisite is not VS Code launch.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

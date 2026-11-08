@@ -83,8 +83,10 @@ This uses real pinned upstream cache/static dependency modules, checks the actua
 status/logging branches, explicit refusals, no fabricated files/statistics and
 unchanged originals. [ADR 0106](../architecture/0106-code-oss-libjs-cache-policy.md)
 records the policy. Mite's public node:v8/Node cache APIs remain unavailable.
-The workbench, desktop identity/API, transitive bootstrap and public binary/event/
-port transport remain unfinished.
+The workbench, complete desktop identity/API, transitive bootstrap and public
+port/stream transport remain unfinished. Later native document-channel gates now
+prove bounded public binary/event IPC; [sandbox process](../api/sandbox-process.md)
+also has local argv/config IPC/environment acceptance. These do not prove a launch.
 
 ## Separate implicit Chromium defaults explicitly
 

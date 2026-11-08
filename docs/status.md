@@ -6,6 +6,13 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
+The 2026-11-08 sandbox process slice adds actual renderer identity, per-window
+additionalArguments/environment snapshots and fresh document-local copies. Local
+native/helper and Electron-reference validation is recorded in
+[sandbox process](api/sandbox-process.md). Full Code-OSS startup remains blocked by
+the demanded allowServiceWorkers/worker/cache/resource contracts; no workbench
+open/edit/save acceptance is claimed.
+
 Local macOS Release now passes **77** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and
 embedded-host ownership/GC checks. That process slice also passes native

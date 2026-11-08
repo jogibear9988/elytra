@@ -1791,7 +1791,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
         throw error("ERR_INVALID_ARG_TYPE", "webPreferences must be an object");
       }
       for (const key of Object.keys(prefs)) {
-        if (key === "preload") {
+        if (key === "preload" || key === "additionalArguments") {
           continue;
         }
         if (!["contextIsolation", "nodeIntegration", "sandbox"].includes(key)) {
@@ -1814,6 +1814,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
         if (paths.extname(prefs.preload) === ".mjs") {
           unsupported("ES module preloads");
         }
+      }
+      const additionalArguments = prefs.additionalArguments === void 0 ? [] : prefs.additionalArguments;
+      if (!Array.isArray(additionalArguments) || additionalArguments.some((value) => typeof value !== "string")) {
+        throw error("ERR_INVALID_ARG_TYPE", "additionalArguments must be an array of strings");
+      }
+      if (additionalArguments.length > 64) {
+        throw error("ERR_INVALID_ARG_VALUE", "additionalArguments exceeds 64 entries");
       }
       const width = dimension(options.width ?? 800, "width");
       const height = dimension(options.height ?? 600, "height");
@@ -1846,7 +1853,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
         prefs.preload,
         useContentSize,
         x,
-        y
+        y,
+        additionalArguments
       );
       this.webContents = new WebContents(this);
       windows.set(this.id, this);

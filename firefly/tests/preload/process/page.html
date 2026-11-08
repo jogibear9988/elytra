@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8" /><title>Sandbox process</title>
+<body>
+  <script>
+    (async () => {
+      try {
+        const frame = document.createElement('iframe');
+        const loaded = new Promise((resolve) => (frame.onload = resolve));
+        frame.srcdoc = '<!doctype html><title>unprivileged child</title>';
+        document.body.append(frame);
+        await loaded;
+        const api = processFixture;
+        await api.report({
+          platform: api.platform,
+          arch: api.arch,
+          pid: api.pid,
+          execPath: api.execPath,
+          version: api.version,
+          versions: api.versions,
+          argv: api.argv,
+          originalEnv: api.originalEnv,
+          flags: api.flags,
+          unsupported: api.unsupported,
+          nativeExportDenied: api.nativeExportDenied,
+          pageIsolation:
+            typeof process === 'undefined' &&
+            typeof require === 'undefined' &&
+            typeof Buffer === 'undefined',
+          frameIsolation:
+            typeof frame.contentWindow.process === 'undefined' &&
+            typeof frame.contentWindow.require === 'undefined'
+        });
+      } catch (error) {
+        await processFixture.report({ error: String(error) });
+      }
+    })();
+  </script>
+</body>

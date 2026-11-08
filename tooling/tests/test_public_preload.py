@@ -102,7 +102,7 @@ let denied=false;try{require('node:fs')}catch(e){denied=e.code==='ERR_FIREFLY_UN
 contextBridge.exposeInMainWorld('checked',{
  denied,receiver:this===module.exports,args:arguments.length,
  metadata:__filename.endsWith('boundary.cjs')&&__dirname.length>0,
- clean:typeof process==='undefined'&&typeof Buffer==='undefined',
+ clean:process.sandboxed===true&&process.type==='renderer'&&typeof process.binding==='undefined'&&typeof Buffer==='undefined',
  getter(value){return value.secret}
 });
 """

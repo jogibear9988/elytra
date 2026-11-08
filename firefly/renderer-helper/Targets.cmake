@@ -22,8 +22,15 @@ add_executable(
     ${firefly_renderer_platform_sources})
 add_dependencies(FireflyWebContent check-firefly-upstream check-firefly-renderer-hooks)
 target_include_directories(FireflyWebContent PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
-target_link_libraries(FireflyWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox
-                                                LibURL firefly-byte-channel firefly-protocol-client)
+target_link_libraries(
+    FireflyWebContent
+    PRIVATE webcontentservice
+            firefly-isolated-world
+            LibSandbox
+            LibURL
+            firefly-byte-channel
+            firefly-protocol-client
+            firefly-renderer-process)
 set_target_properties(
     FireflyWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                         "${firefly_helper_binary_dir}")
@@ -102,8 +109,14 @@ if(FIREFLY_BUILD_RUNTIME)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
                                                                 "${FIREFLY_SOURCE_DIR}/firefly")
     target_link_libraries(
-        FireflyRuntimeWebContent PRIVATE webcontentservice firefly-isolated-world LibSandbox LibURL
-                                         firefly-protocol-client firefly-byte-channel)
+        FireflyRuntimeWebContent
+        PRIVATE webcontentservice
+                firefly-isolated-world
+                LibSandbox
+                LibURL
+                firefly-protocol-client
+                firefly-byte-channel
+                firefly-renderer-process)
     set_target_properties(
         FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                                    "${firefly_runtime_binary_dir}")

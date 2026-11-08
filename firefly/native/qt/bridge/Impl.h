@@ -36,6 +36,7 @@ class WebContentPage;
 
 #include "native/ipc/application/Message.h"
 #include "native/ipc/bytes/Channel.h"
+#include "native/preload/ProcessConfig.h"
 
 namespace Firefly {
 class ChromeWindow;
@@ -45,6 +46,7 @@ struct Bridge::Impl {
         String source;
         String filename;
         String dirname;
+        PreloadProcess::Configuration process;
     };
 
     struct State {
@@ -178,6 +180,10 @@ struct Bridge::Impl {
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);
 
     JS::ThrowCompletionOr<Optional<Preload>> read_preload(JS::VM&);
+
+    JS::ThrowCompletionOr<JsonArray> read_process_arguments(JS::VM&);
+
+    JS::ThrowCompletionOr<PreloadProcess::Configuration> read_process_config(JS::VM&, JsonArray);
 
     void configure_preloads(WebView::WebContentPage&);
 

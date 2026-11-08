@@ -7,6 +7,7 @@
 // setup. Rename only its entry and VM-initialization call inside the composition.
 #include "RendererSession.h"
 #include "native/protocol/OriginConfig.h"
+#include "preload/Process.h"
 #include "resources/Session.h"
 #include <LibCore/System.h>
 #include <LibMain/Main.h>
@@ -34,6 +35,7 @@ void firefly_initialize_renderer_vm(HTML::AgentType type)
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+    TRY(Firefly::PreloadProcess::prepare());
     auto filtered = TRY(Firefly::Protocols::consume_origin_configuration(arguments.strings));
     // Read-only startup evidence while this internal protocol path is under
     // development. No page/preload command can set or replace this policy.

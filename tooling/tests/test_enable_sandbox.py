@@ -48,7 +48,7 @@ def main():
         root = Path(directory)
         (root / "index.html").write_text("""<!doctype html><title>PENDING</title><script>
 const api = globalThis.sandboxFixture;
-if (api?.isolated && api.mainMissing && api.processMissing && Object.isFrozen(api)
+if (api?.isolated && api.mainMissing && api.processRestricted && Object.isFrozen(api)
     && typeof process === 'undefined' && typeof require === 'undefined'
     && typeof __fireflyContextBridge === 'undefined') document.title = 'SANDBOX_OVERRIDE_OK';
 </script>""")

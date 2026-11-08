@@ -134,7 +134,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                     "Window geometry exceeds native coordinates"_utf16);
             return JS::Value(*id);
         },
-        9, JS::default_attributes);
+        10, JS::default_attributes);
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

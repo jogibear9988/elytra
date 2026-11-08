@@ -109,3 +109,6 @@ app.on('window-all-closed', () => app.quit());
 Absent methods fail with ordinary JavaScript API/import errors. Implemented APIs
 reject unsupported options rather than returning success placeholders. Error
 messages and stack formatting are not generally identical to Node or Electron.
+
+The [sandbox preload process reference](sandbox-process.md) describes renderer identity,
+window argument/environment snapshots, limits and unsupported process capabilities.

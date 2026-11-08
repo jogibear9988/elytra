@@ -162,6 +162,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/IpcChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/OutboundIpc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
@@ -195,6 +196,7 @@ target_link_libraries(
             firefly-screen-events
             firefly-protocol-routes
             firefly-byte-channel
+            firefly-preload-config
             firefly-application-menu
             firefly-tracing
             firefly-command-line
@@ -232,6 +234,13 @@ add_custom_target(
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_channel_binding.py"
         --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+
+add_custom_target(
+    check-firefly-preload-process
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_preload_process.py"
+            --firefly "$<TARGET_FILE:firefly>"
     DEPENDS firefly
     VERBATIM)
 
@@ -381,6 +390,7 @@ if(APPLE)
                 check-firefly-ipc-outbound
                 check-firefly-ipc-channel
                 check-firefly-ipc-binary
+                check-firefly-preload-process
                 check-firefly-preload-getters
                 check-firefly-crash-reporter
                 check-firefly-public-protocol

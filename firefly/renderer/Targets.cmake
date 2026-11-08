@@ -1,5 +1,22 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
+add_library(firefly-preload-config STATIC
+            "${FIREFLY_SOURCE_DIR}/firefly/native/preload/ProcessConfig.cpp")
+target_link_libraries(firefly-preload-config PUBLIC AK)
+target_include_directories(firefly-preload-config PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/vendor/ladybird.json")
+file(READ "${FIREFLY_SOURCE_DIR}/vendor/ladybird.json" firefly_process_manifest)
+string(JSON firefly_process_revision GET "${firefly_process_manifest}" revision)
+add_library(firefly-renderer-process STATIC
+            "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/preload/Process.cpp")
+target_include_directories(firefly-renderer-process
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+target_link_libraries(firefly-renderer-process PUBLIC firefly-preload-config LibWeb LibCore)
+target_compile_definitions(firefly-renderer-process
+                           PRIVATE FIREFLY_LIBJS_REVISION="${firefly_process_revision}")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/bootstrap/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/ExecutionContextAdapter.cmake")
 mite_adapt_execution_context("${FIREFLY_SOURCE_DIR}")
@@ -85,6 +102,7 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FunctionBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/ContextBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PublicationGetterTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PreloadProcessTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/CallbackBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/RedactionBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryBridgeTest.cpp"
@@ -97,7 +115,8 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PrincipalCallbackTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp")
-target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world LibMain)
+target_link_libraries(firefly-isolation-probe PRIVATE firefly-isolated-world firefly-preload-config
+                                                      LibMain)
 ladybird_check_skia_confinement(firefly-isolation-probe)
 add_executable(
     firefly-wire-process-probe
@@ -105,7 +124,8 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BridgeWireTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryWireTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryViewTest.cpp")
-target_link_libraries(firefly-wire-process-probe PRIVATE firefly-isolated-world LibMain)
+target_link_libraries(firefly-wire-process-probe PRIVATE firefly-isolated-world
+                                                         firefly-preload-config LibMain)
 ladybird_check_skia_confinement(firefly-wire-process-probe)
 add_custom_target(
     check-firefly-wire
