@@ -8326,6 +8326,31 @@ architectural blocker, then continue demanded protocol handlers/main APIs. Binar
 event/port IPC, workbench files and auxiliary hosts follow the actual Code-OSS path;
 HTTP/2/3, unrelated example breadth and website polish stay below that priority.
 
+## 2026-11-08: Separate first-workbench work from the audited worker execution gap
+
+- CORS slice 544e07a is committed and pushed to master. Keep the full goal active.
+- Inspect the actual pinned Code-OSS mainImpl/webview HTML/script/element and pinned
+  Ladybird service-worker container/job implementation. Non-HTTP(S) registration
+  is rejected; new-script jobs explicitly reject unimplemented Run Service Worker.
+  Code-OSS requests worker capability for vscode-webview, code caches for both
+  local schemes and privileges on nonstandard remote schemes. These are independent
+  gaps, not booleans that can truthfully be accepted without implementation.
+- The existing webview disableServiceWorker option skips host-resource worker
+  messaging too; no usable fallback is established. No source adaptation added.
+- Refine the first-workbench priority: investigate a separately explicit limited
+  application mode before spending the entire first-launch path on full webviews;
+  preserve ordinary Electron behavior and explicit missing-feature failures. This
+  mode is planned, not implemented, and full webview/workflow support remains due.
+- Prioritize independently required native locale methods next (preferred system
+  languages before ready; system/app locale afterward), then demanded protocol/
+  preload/binary-event-port IPC/window services from actual execution. First
+  milestone requires a real local editor and file open/edit/save, with extension/
+  terminal/webview workflows and native platform acceptance tracked separately.
+
+Validation: source audit only, no new runtime/GUI/service-worker support claim.
+Documentation/site link checks and git whitespace checks pass. Preserve unmodified
+upstream and the measured real-entry failure at allowServiceWorkers (exit 1).
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

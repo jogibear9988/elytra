@@ -5,6 +5,57 @@ Status: **not supported**. Requested as a priority compatibility target on
 successful launch, complete dependency inventory or percentage-complete estimate.
 Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 
+## Current priority: first real workbench, then developer workflows
+
+Updated 2026-11-08. The real prepared entry now passes the simple custom-protocol
+CORS privilege and stops at allowServiceWorkers. This is not just a missing flag:
+Ladybird at Elytra's pinned revision refuses non-HTTP(S) service-worker registration
+in ServiceWorkerContainer::start_register; Job.cpp also rejects the unimplemented
+Run Service Worker step after fetching a new script. Firefly's current file channel
+intentionally refuses worker/frame clients. Both engine execution and secure worker
+resource routing would need implementation before advertising this privilege.
+
+The Code-OSS main registration requests allowServiceWorkers specifically for
+vscode-webview, codeCache for vscode-webview and vscode-file, and secure/fetch/CORS
+on its nonstandard remote resource schemes. These are separate unresolved contracts.
+The engine overlay currently removes none of them. Do not treat the current simple
+CORS slice as support for all these scheme declarations.
+
+Prioritize these concrete outcomes:
+
+1. **Unblock main startup honestly.** Audit whether the first local workbench can
+   explicitly defer webviews/remote resources and engine-specific caches. Any such
+   mode must be a separately documented opt-in application adaptation with visible
+   limitations, preserved ordinary Electron behavior and refusal of unavailable
+   features. It is planned, not implemented. Otherwise implement the actual demanded
+   contract; do not silently remove privileges or report a fake worker/cache.
+2. **Build independent startup prerequisites now.** The pinned mainImpl next uses
+   getPreferredSystemLanguages before readiness, getSystemLocale after readiness
+   and getLocale for NLS. These APIs are currently absent. Implement real native
+   language/locale semantics and tests while the worker architecture is assessed.
+   Continue the actual entry after each resolved blocker instead of implementing
+   unrelated Electron examples.
+3. **Connect the real workbench.** Prioritize secure preload/event IPC and public
+   binary MessagePorts, file protocol/interception and demanded window services.
+   Preserve native sender/document identity, revocation and bounded file streaming.
+   Require a real editor opening/editing/saving a local file before declaring the
+   first workbench milestone accepted.
+4. **Complete developer workflows.** Add extension/shared/PTY hosts, watching,
+   terminal/Git/tasks and webviews with their actual worker/resource requirements.
+   A limited first workbench must keep these missing features explicit. Require
+   the same workflow evidence separately for native packaged platforms.
+
+The pinned webview HTML has a disableServiceWorker option, but that alone is not a
+resource-loading fallback: it also skips the worker's host-resource messaging path.
+No usable webview fallback or adapted workbench mode has been established. Keep
+this an investigation item rather than a compatibility claim.
+
+Source evidence is the pinned Code-OSS mainImpl.ts, webviewElement.ts,
+pre/index.html and pre/service-worker.js, and the pinned Ladybird
+Libraries/LibWeb/ServiceWorker/{ServiceWorkerContainer,Job}.cpp. This paragraph is
+source inspection; no new service-worker execution test or workbench launch is
+claimed. HTTP/2/3, website polish and unrelated example breadth remain lower priority.
+
 ## Audited reference
 
 Inspect Microsoft Code-OSS commit
