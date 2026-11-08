@@ -15,6 +15,12 @@ export default function createMainIpc(native, EventEmitter, error) {
   }
 
   class IpcMain extends EventEmitter {
+    constructor() {
+      super();
+      // Electron treats an unhandled IPC channel named error as an ordinary event.
+      this.on('error', () => {});
+    }
+
     handle(channel, listener) {
       this._register(channel, listener, false);
     }
@@ -49,6 +55,46 @@ export default function createMainIpc(native, EventEmitter, error) {
       }
     }
     window.webContents._ipcFrame = null;
+  }
+
+  /** Shared native-bound sender identity for invoke handlers and event listeners. */
+  function senderEvent(window, data) {
+    let frame = window.webContents._ipcFrame;
+    if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
+      frame = {
+        _document: data.document,
+        _realm: data.realm,
+        url: data.url,
+
+        isDestroyed() {
+          return window.isDestroyed() || window.webContents._ipcFrame !== frame;
+        }
+      };
+      window.webContents._ipcFrame = frame;
+    }
+    // Same-document URL changes retain the endpoint, but must not retain an old URL.
+    frame.url = data.url;
+    return { sender: window.webContents, senderFrame: frame };
+  }
+
+  function dispatchEvent(window, data) {
+    let args;
+    let channel;
+    try {
+      args = native.decodeIpc(data.wire);
+      if (!Array.isArray(args) || args.length < 1 || args.length > 65) {
+        throw Error('Invalid IPC event arguments');
+      }
+      channel = channelName(args.shift());
+    } catch {
+      // A valid graph can still be an invalid argument envelope. Reject it
+      // before EventEmitter; application listener failures remain outside this guard.
+      console.warn('ERR_FIREFLY_IPC_SERIALIZATION: invalid event arguments');
+      return;
+    }
+    // EventEmitter supplies registration order, once-before-call removal and
+    // listener exception behavior. Return values never become invoke replies.
+    ipcMain.emit(channel, senderEvent(window, data), ...args);
   }
 
   /** Native code supplies document identity and URL; payload arguments never identify senders. */
@@ -96,25 +142,10 @@ export default function createMainIpc(native, EventEmitter, error) {
         finish(false, `No handler registered for '${channel}'`);
         return;
       }
-      let frame = window.webContents._ipcFrame;
-      if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
-        frame = {
-          _document: data.document,
-          _realm: data.realm,
-          url: data.url,
-
-          isDestroyed() {
-            return window.isDestroyed() || window.webContents._ipcFrame !== frame;
-          }
-        };
-        window.webContents._ipcFrame = frame;
-      }
-      // Same-document URL changes retain the endpoint, but must not retain an old URL.
-      frame.url = data.url;
       if (record.once) {
         ipcHandlers.delete(channel);
       }
-      const event = { sender: window.webContents, senderFrame: frame };
+      const event = senderEvent(window, data);
       const result = Reflect.apply(record.listener, undefined, [event, ...args]);
 
       Promise.resolve(result).then(
@@ -140,5 +171,5 @@ export default function createMainIpc(native, EventEmitter, error) {
     }
   }
 
-  return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc };
+  return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc, dispatchEvent };
 }

@@ -104,12 +104,13 @@ struct Bridge::Impl {
 
     bool ipc_current(int, ByteString const& document, ByteString const& realm_id);
 
-    void dispatch_ipc(int, ByteString document, ByteString realm_id, ByteString data);
+    void dispatch_ipc(
+        int, ByteString document, ByteString realm_id, ByteString data, u32 request, bool event);
 
     void send_ipc_reply(State&, ByteString const& document, ByteString const& realm_id, u32 request,
         bool success, ByteString const& wire);
 
-    void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue);
+    void receive_ipc(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, bool event);
 
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);

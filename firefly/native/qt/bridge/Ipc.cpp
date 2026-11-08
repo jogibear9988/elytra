@@ -41,19 +41,31 @@ bool Bridge::Impl::ipc_current(int id, ByteString const& document, ByteString co
         && found->second.ipc_realm == realm_id && active_ipc_document(found->second) == document;
 }
 
-void Bridge::Impl::dispatch_ipc(int id, ByteString document, ByteString realm_id, ByteString data)
+void Bridge::Impl::dispatch_ipc(
+    int id, ByteString document, ByteString realm_id, ByteString data, u32 request, bool event)
 {
     if (stopping || !ipc_current(id, document, realm_id))
         return;
     if (jobs.is_busy()) {
         QTimer::singleShot(1, context.get(),
-            [this, id, document = move(document), realm_id = move(realm_id), data = move(data)] {
-                dispatch_ipc(id, document, realm_id, data);
-            });
+            [this, id, document = move(document), realm_id = move(realm_id), data = move(data),
+                request, event] { dispatch_ipc(id, document, realm_id, data, request, event); });
         return;
     }
 
-    deliver(id, "ipc-invoke", data);
+    if (event) {
+        // Keep the native quota reserved through history ordering and VM-busy
+        // retries. Release before callbacks, which may close/navigate the window.
+        if (!windows.at(id).ipc_pending.erase(request))
+            return;
+        --ipc_pending_count;
+    }
+
+    deliver(id, event ? "ipc-send" : "ipc-invoke", data);
+    if (event && ipc_current(id, document, realm_id)) {
+        auto wire = MUST(BridgeData::from_string(u""sv).encode_wire({}));
+        send_ipc_reply(windows.at(id), document, realm_id, request, true, wire);
+    }
 }
 
 // This sends native data only: it is also safe while the Mite VM is busy.
@@ -71,8 +83,8 @@ void Bridge::Impl::send_ipc_reply(State& window, ByteString const& document,
         0, page.traversable().id(), "firefly.ipc.reply.v1"sv, move(data));
 }
 
-void Bridge::Impl::receive_ipc(
-    WebView::WebContentPage& page, Web::HTML::CrossProcessId navigable, JsonValue params)
+void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossProcessId navigable,
+    JsonValue params, bool event)
 {
     if (stopping || !params.is_object() || params.as_object().size() != 4)
         return;
@@ -110,6 +122,14 @@ void Bridge::Impl::receive_ipc(
         if (window.ipc_realm != caller || *request <= window.ipc_last)
             return;
         window.ipc_last = *request;
+        if (event && BridgeData::decode_wire(wire->bytes_as_string_view(), {}).is_error()) {
+            // Untrusted malformed events must not throw through the main VM's
+            // EventEmitter dispatch. Validate before application-code admission.
+            auto error = MUST(BridgeData::from_string(u"Invalid IPC event data"sv).encode_wire({}));
+            send_ipc_reply(window, actual_key, caller, *request, false, error);
+            return;
+        }
+
         if (window.ipc_pending.size() >= 16 || ipc_pending_count >= 64) {
             // Refuse an authenticated request promptly without reserving another
             // main-process slot. Never run an application handler over budget.
@@ -127,8 +147,8 @@ void Bridge::Impl::receive_ipc(
         // by guessing how many Qt event-loop turns will be sufficient.
         page.traversable().append_history_queue_steps(
             [this, lifetime = QPointer<QObject>(context.get()), id, document = actual_key,
-                realm_id = caller,
-                params = move(params)](NonnullRefPtr<Core::Promise<Empty>> completion) mutable {
+                realm_id = caller, params = move(params), request = *request,
+                event](NonnullRefPtr<Core::Promise<Empty>> completion) mutable {
                 if (lifetime && !stopping && ipc_current(id, document, realm_id)) {
                     auto& window = windows.at(id);
                     params.as_object().set("url"sv,
@@ -136,7 +156,8 @@ void Bridge::Impl::receive_ipc(
                     auto encoded = params.serialized().to_byte_string();
                     QTimer::singleShot(0, context.get(),
                         [this, id, document = move(document), realm_id = move(realm_id),
-                            data = move(encoded)] { dispatch_ipc(id, document, realm_id, data); });
+                            data = move(encoded), request,
+                            event] { dispatch_ipc(id, document, realm_id, data, request, event); });
                 }
                 // Releasing the queue must not wait for application JS or a
                 // handler reply, including after navigation/host destruction.

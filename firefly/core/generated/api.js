@@ -920,6 +920,11 @@ function createMainIpc(native, EventEmitter, error) {
     return channel;
   }
   class IpcMain extends EventEmitter {
+    constructor() {
+      super();
+      this.on("error", () => {
+      });
+    }
     handle(channel, listener) {
       this._register(channel, listener, false);
     }
@@ -949,6 +954,37 @@ function createMainIpc(native, EventEmitter, error) {
       }
     }
     window.webContents._ipcFrame = null;
+  }
+  function senderEvent(window, data) {
+    let frame = window.webContents._ipcFrame;
+    if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
+      frame = {
+        _document: data.document,
+        _realm: data.realm,
+        url: data.url,
+        isDestroyed() {
+          return window.isDestroyed() || window.webContents._ipcFrame !== frame;
+        }
+      };
+      window.webContents._ipcFrame = frame;
+    }
+    frame.url = data.url;
+    return { sender: window.webContents, senderFrame: frame };
+  }
+  function dispatchEvent(window, data) {
+    let args;
+    let channel;
+    try {
+      args = native.decodeIpc(data.wire);
+      if (!Array.isArray(args) || args.length < 1 || args.length > 65) {
+        throw Error("Invalid IPC event arguments");
+      }
+      channel = channelName(args.shift());
+    } catch {
+      console.warn("ERR_FIREFLY_IPC_SERIALIZATION: invalid event arguments");
+      return;
+    }
+    ipcMain.emit(channel, senderEvent(window, data), ...args);
   }
   function dispatchIpc(window, data) {
     const key = `${window.id}/${data.document}/${data.request}`;
@@ -992,23 +1028,10 @@ function createMainIpc(native, EventEmitter, error) {
         finish(false, `No handler registered for '${channel}'`);
         return;
       }
-      let frame = window.webContents._ipcFrame;
-      if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
-        frame = {
-          _document: data.document,
-          _realm: data.realm,
-          url: data.url,
-          isDestroyed() {
-            return window.isDestroyed() || window.webContents._ipcFrame !== frame;
-          }
-        };
-        window.webContents._ipcFrame = frame;
-      }
-      frame.url = data.url;
       if (record.once) {
         ipcHandlers.delete(channel);
       }
-      const event = { sender: window.webContents, senderFrame: frame };
+      const event = senderEvent(window, data);
       const result = Reflect.apply(record.listener, void 0, [event, ...args]);
       Promise.resolve(result).then(
         (value) => finish(true, value),
@@ -1034,7 +1057,7 @@ function createMainIpc(native, EventEmitter, error) {
       finish(false, message);
     }
   }
-  return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc };
+  return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc, dispatchEvent };
 }
 
 // firefly/core/screen/index.mjs
@@ -1622,7 +1645,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
   const {
     ipcMain,
     cancel: cancelIpc,
-    dispatch: dispatchIpc
+    dispatch: dispatchIpc,
+    dispatchEvent: dispatchIpcEvent
   } = createMainIpc(native, EventEmitter, error);
   function finishQuit() {
     const e = event();
@@ -1940,6 +1964,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files) {
       return;
     }
     const contents = win.webContents;
+    if (type === "ipc-send") {
+      dispatchIpcEvent(win, JSON.parse(data));
+      return;
+    }
     if (type === "ipc-invoke") {
       dispatchIpc(win, JSON.parse(data));
       return;

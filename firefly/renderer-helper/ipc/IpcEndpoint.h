@@ -1,5 +1,5 @@
-/** Document-owned IPC capability, with per-endpoint and process request budgets and explicit
- * teardown. */
+/** Document-owned invoke/send capability with shared request/event budgets and explicit teardown.
+ */
 #pragma once
 #include "worlds/IsolatedWorld.h"
 #include <AK/HashMap.h>
@@ -35,7 +35,7 @@ public:
 private:
     IpcEndpoint(IsolatedWorld&, Web::DOM::Document&, String);
 
-    JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&);
+    JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&, bool event = false);
 
     void settle(u32, bool, String const&);
 

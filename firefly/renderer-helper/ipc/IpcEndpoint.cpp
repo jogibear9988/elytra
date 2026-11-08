@@ -1,5 +1,5 @@
-/** Preload-only request/reply endpoint. Own Promise roots until settlement, timeout or document
- * revocation; accept bounded data graphs only. */
+/** Preload-only invoke/event endpoint. Own Promise roots or private event credit until
+ * settlement, timeout or document revocation; accept bounded data graphs only. */
 #include "IpcEndpoint.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
@@ -75,16 +75,24 @@ GC::Ref<JS::Object> IpcEndpoint::exports()
         GC::Ptr<JS::Realm> { realm }) };
     m_owner->block_function_export(*invoke);
     result->define_direct_property("invoke"_utf16, invoke, JS::default_attributes);
+    GC::Root send { JS::NativeFunction::create(
+        realm, [owner](JS::VM& vm) { return owner->invoke(vm, true); }, 1, "send"_utf16,
+        GC::Ptr<JS::Realm> { realm }) };
+    m_owner->block_function_export(*send);
+    result->define_direct_property("send"_utf16, send, JS::default_attributes);
     return *result;
 }
 
-JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm)
+JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
 {
     auto& realm = *vm.current_realm();
-    GC::Root capability { TRY(
-        JS::new_promise_capability(vm, realm.intrinsics().promise_constructor())) };
+    GC::Root<JS::PromiseCapability> capability;
+    if (!event)
+        capability = TRY(JS::new_promise_capability(vm, realm.intrinsics().promise_constructor()));
     auto reject = [&](Utf16View message, Utf16View code) -> JS::ThrowCompletionOr<JS::Value> {
         GC::Root error { ipc_error(realm, message, code) };
+        if (event)
+            return JS::throw_completion(error.ptr());
         TRY(JS::call(vm, *capability->reject(), JS::js_undefined(), error.ptr()));
         return capability->promise();
     };
@@ -117,14 +125,19 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm)
     u32 id = ++m_next;
     m_pending.set(id,
         Pending {
-            GC::Root { *capability }, MonotonicTime::now() + AK::Duration::from_seconds(30) });
+            GC::Root { capability.ptr() }, MonotonicTime::now() + AK::Duration::from_seconds(30) });
     ++pending_count;
     JsonObject envelope;
     envelope.set("document"sv, document_key(*m_document));
     envelope.set("realm"sv, m_realm);
     envelope.set("request"sv, id);
     envelope.set("wire"sv, MUST(String::from_utf8(encoded.value().view())));
-    page->webdriver_bidi_event(navigable->id(), "firefly.ipc.invoke.v1"_string, move(envelope));
+    // The event kind travels through the reserved native transport seam, never
+    // as caller-supplied sender/permission metadata. The private ACK owns credit.
+    page->webdriver_bidi_event(navigable->id(),
+        event ? "firefly.ipc.send.v1"_string : "firefly.ipc.invoke.v1"_string, move(envelope));
+    if (event)
+        return JS::js_undefined();
     return capability->promise();
 }
 
@@ -134,6 +147,14 @@ void IpcEndpoint::settle(u32 id, bool success, String const& wire)
     if (!pending.has_value())
         return;
     --pending_count;
+    if (!pending->capability) {
+        // send has no application-visible reply Promise. Report asynchronous
+        // admission/timeout failures explicitly and release its private credit.
+        if (!success)
+            warnln("ERR_FIREFLY_IPC_SEND: asynchronous event admission/delivery failed");
+        return;
+    }
+
     if (!m_owner || m_owner->is_detached() || !m_document->is_fully_active())
         return;
     auto owner = m_owner;

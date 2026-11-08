@@ -215,6 +215,15 @@ add_executable(firefly-locale-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/locale/
 target_include_directories(firefly-locale-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-locale-probe PRIVATE firefly-mite firefly-locale)
 add_custom_target(
+    check-firefly-ipc-events
+    COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/ipc/events/policy.mjs"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_events.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly firefly-protocol-registration-probe
+    VERBATIM)
+
+add_custom_target(
     check-firefly-app-locale
     COMMAND "$<TARGET_FILE:firefly-locale-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/locale/native.mjs"
@@ -318,6 +327,8 @@ if(APPLE)
             --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_public_ipc.py"
                 --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_ipc_events.py"
+                --firefly "$<TARGET_FILE:firefly>" --electron "${FIREFLY_ELECTRON_REFERENCE}"
         DEPENDS firefly
                 check-firefly-protocol-origins
                 check-firefly-protocol-files
@@ -331,6 +342,7 @@ if(APPLE)
                 check-firefly-enable-sandbox
                 check-firefly-app-paths
                 check-firefly-app-locale
+                check-firefly-ipc-events
                 check-firefly-crash-reporter
                 check-firefly-public-protocol
                 check-firefly-protocol-renderer

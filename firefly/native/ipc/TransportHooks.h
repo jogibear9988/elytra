@@ -14,7 +14,7 @@ class WebContentPage;
 
 namespace Firefly {
 using NativeIpcHandler
-    = Function<void(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue)>;
+    = Function<void(WebView::WebContentPage&, Web::HTML::CrossProcessId, JsonValue, bool event)>;
 WEBVIEW_API void set_native_ipc_handler(NativeIpcHandler);
 
 using NativeNavigationHandler

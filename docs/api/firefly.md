@@ -147,7 +147,9 @@ differs from Chromium and must be checked with the actual application.
 
 Public [preload/contextBridge](context-bridge.md) supports bounded CommonJS source
 and frozen data/function publication in a separate realm. [IPC](ipc.md) now supports
-invoke/handle request/reply with native sender validation and bounded plain data. Native SDK/helper tests exercise selected boundaries; they do not
+invoke/handle request/reply and renderer-to-main send events with native sender
+validation and bounded plain data. Main-to-renderer events and binary/port IPC remain
+unfinished. Native SDK/helper tests exercise selected boundaries; they do not
 prove a complete security audit. Do not expose native privileges to page content.
 
 ## Errors and unsupported features
@@ -158,7 +160,7 @@ ERR_INVALID_ARG_TYPE, ERR_INVALID_ARG_VALUE, ERR_INVALID_URL, ERR_ABORTED,
 ERR_TIMED_OUT and ERR_FAILED. Messages, stack traces and detailed network error
 fields are not generally Electron-compatible.
 
-Dialogs, popup/context menus, accelerators, Tray, shell, nativeImage, session,
+Dialogs, popup/context menus, accelerators, Tray, shell, nativeImage, broader session/partition services,
 auto-updates and production signed/notarized packages remain unimplemented.
 Experimental macOS bundles and a gated build workflow are described in the
 [release guide](../development/releases.md). Native Windows

@@ -68,8 +68,8 @@ bool receive_native_ipc(WebView::WebContentPage& page, Web::HTML::CrossProcessId
 {
     if (!name.starts_with_bytes("firefly.ipc."sv))
         return false;
-    if (name == "firefly.ipc.invoke.v1"sv && handler.get())
-        handler.get()(page, navigable, move(params));
+    if (name.is_one_of("firefly.ipc.invoke.v1"sv, "firefly.ipc.send.v1"sv) && handler.get())
+        handler.get()(page, navigable, move(params), name == "firefly.ipc.send.v1"sv);
     return true;
 }
 }

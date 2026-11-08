@@ -5,7 +5,7 @@ The future paths below are design requirements, not usable Firefly APIs today.
 
 ## Current boundary
 
-Firefly [request/reply IPC](../api/ipc.md) copies bounded plain-data graphs with a
+Firefly [request/reply and renderer-to-main event IPC](../api/ipc.md) copy bounded plain-data graphs with a
 128 KiB encoded request/reply limit. Typed arrays, Buffer, ArrayBuffer, Blob/File,
 MessagePorts and transferable objects are unsupported. The isolated contextBridge
 has its own capture/publication restrictions; adding a wire type alone is not

@@ -202,7 +202,8 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
   const {
     ipcMain,
     cancel: cancelIpc,
-    dispatch: dispatchIpc
+    dispatch: dispatchIpc,
+    dispatchEvent: dispatchIpcEvent
   } = createMainIpc(native, EventEmitter, error);
 
   function finishQuit() {
@@ -564,6 +565,10 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     const contents = win.webContents;
+    if (type === 'ipc-send') {
+      dispatchIpcEvent(win, JSON.parse(data));
+      return;
+    }
     if (type === 'ipc-invoke') {
       dispatchIpc(win, JSON.parse(data));
       return;

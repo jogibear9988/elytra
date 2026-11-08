@@ -8399,6 +8399,59 @@ and required main/preload/binary-event-port transport. Investigate a clearly sco
 opt-in application adaptation only with explicit missing-feature failures, never
 an inert protocol flag or a successful-workbench claim from an import probe.
 
+## 2026-11-08: Add real renderer-to-main send events for the Code-OSS preload
+
+- Previous goal turn made progress: c94e5de implements/tested native locale APIs
+  and is pushed. Keep the full goal active and prioritize actual Code-OSS startup,
+  preload/events/ports and native file transport instead of unrelated example work.
+- Inspect actual pinned sandbox preload: it explicitly forwards send/invoke/on/
+  once/removeListener. Public binary routing still needs document-bound native
+  endpoints; take the missing public send prerequisite first without pretending
+  that the existing internal byte channel enables public binary/port APIs.
+- Add actual preload ipcRenderer.send -> main ipcMain event listeners. Share
+  trap-free capture, bounds, monotonic IDs and native canonical document/realm/
+  window ownership with invoke. Carry event kind through the reserved native route,
+  never a caller-provided sender/permission field. Return undefined; local invalid
+  data/inactive callers/quota exhaustion throw synchronously.
+- Reuse native history ordering and reserve quota while main VM dispatch is busy.
+  Events and invokes share 16/64/64 limits. Keep private ACK-only endpoint records
+  without reply Promises; release before main listeners, revalidate before native
+  ACK and reclaim on navigation/closure. Later admission/deadline refusal is an
+  explicit helper diagnostic; there is no application delivery receipt/reply.
+- Main events use the real EventEmitter order/once/removal/receiver semantics and
+  shared senderFrame snapshot. Ignore listener results, preserve application
+  exceptions, and add Electron's default no-op error-channel listener. Validate
+  graphs natively; refuse malformed argument envelopes before EventEmitter rather
+  than turning hostile renderer data into a main listener exception. Block raw
+  send publication through contextBridge; publish fixed actions instead.
+- Add no-GUI Node/Mite factory checks for order, once/reentrancy, receiver/removal,
+  sender/history/revocation, malformed envelopes and listener exception behavior.
+  Batch public acceptance in one hidden window with reloads: early sends, invokes,
+  cycles/UTF-16/mutability, trap-free synchronous rejection, raw publication refusal,
+  native history/sender, 16-event limit/credit recovery and listener-driven teardown.
+- Run a separate real Electron positive event fixture. Use a ready continuation
+  rather than awaiting app.whenReady at top-level ESM, and trap fixture errors to
+  exit instead of allowing modal error dialogs. Its positive early/order/clone/
+  sender/reload/close contract passes; Firefly quotas and per-document snapshots
+  remain separate differences. No broad desktop suite or physical UI automation.
+- Require the new public/native-policy gate in the macOS aggregate and Linux Xvfb
+  job; include the positive Electron reference in the macOS aggregate. Add ADR 0136
+  and update detailed IPC/API, compatibility, status, roadmap and file-transfer docs.
+
+Validation: local macOS Release build and check-firefly-ipc-events pass. Main
+policy also passes directly in Node and actual Mite, including the final malformed-
+argument guard; positive actual Electron reference passes. Final source style,
+generated JS freshness, upstream pin, built-site links and whitespace checks pass.
+No main-to-renderer, binary, MessagePort, subframe or sync IPC support is claimed.
+Fresh hosted Linux execution and native Windows desktop remain open. Full Code-OSS
+still stops earlier at unsupported worker/cache/remote-scheme contracts; this is a
+real public prerequisite, not a workbench launch. Full original goal remains active.
+
+Next implement main-to-renderer events/listeners and public binary/port delivery
+with exact sender/document revocation. Continue the real Code-OSS entry as protocol
+worker/cache/remote-scheme contracts are resolved; keep Ladybird unmodified and the
+explicit missing-feature boundary intact.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

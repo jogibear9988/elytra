@@ -66,6 +66,13 @@ Foundation preferences verify distinct UI/region/application values, profile
 restoration and new-profile OS selection. Qt Linux differences, fresh hosted
 execution and native Windows desktop remain open; full Code-OSS NLS is unverified.
 
+[Renderer-to-main send events](api/ipc.md#ipcrenderersendchannel-args-and-ipcmain-events)
+now pass local macOS production-helper acceptance: early messages, order/once,
+cloned data, native sender/history, reload, bounded credit and listener-driven window
+teardown. The common positive contract also passes real Electron; main policy passes
+Node/Mite without windows. Main-to-renderer listeners and binary/MessagePort delivery
+remain required for Code-OSS; fresh Linux/native Windows acceptance stays separate.
+
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native
 renderer sandbox policy and overrides boolean per-window sandbox:false. Local
 macOS native/Node/Mite policy and actual public hidden-window acceptance pass,
@@ -370,7 +377,7 @@ errors, overloads and intentional differences.
 | --- | --- |
 | app/window/webContents | Lifecycle/readiness, native windows, loading, geometry and selected controls/events; [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md) |
 | Secure preload/contextBridge | Bounded isolated top-level preload publication; authored ESM is bundled to supported CommonJS payloads; [contextBridge](api/context-bridge.md) |
-| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; one-way/sync/ports/subframes unfinished; [IPC](api/ipc.md) |
+| IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-renderer/sync/ports/subframes unfinished; [IPC](api/ipc.md) |
 | Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
 
 popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,

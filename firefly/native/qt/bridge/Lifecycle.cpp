@@ -44,8 +44,8 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
         });
     initialize_protocols();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
-    set_native_ipc_handler([this](auto& page, auto navigable, auto params) {
-        receive_ipc(page, navigable, move(params));
+    set_native_ipc_handler([this](auto& page, auto navigable, auto params, bool event) {
+        receive_ipc(page, navigable, move(params), event);
     });
 }
 
