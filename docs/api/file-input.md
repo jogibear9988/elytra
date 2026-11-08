@@ -48,8 +48,10 @@ Destruction drops completion before closing the dialog so it cannot call a dead 
 
 This does **not** implement Electron's `webUtils.getPathForFile`. The pinned upstream
 File/SelectedFile interfaces do not retain the native source path in a File object.
-That API needs a separate native provenance association and a narrowly validated
-File-object contextBridge path. Deriving it from File.name, input.value or arbitrary
+An internal [weak File/document provenance registry](../architecture/0147-native-file-provenance-registry.md)
+and checked native input hook now pass local real-engine tests. Actual trusted
+chooser-to-helper path delivery and a narrowly validated File-object contextBridge
+path are still required before the public API can be implemented. Deriving it from File.name, input.value or arbitrary
 JavaScript properties would permit spoofing. No such inference is made here.
 
 Directory upload, drag/drop provenance, general main-process dialog APIs, File clone

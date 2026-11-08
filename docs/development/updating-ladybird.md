@@ -415,3 +415,11 @@ variant. Revalidate request-page routing, cancelled/obsolete dialog completion,
 regular-file/count/byte limits, FileList creation and the actual helper File.text
 roundtrip. Do not replace names with absolute paths or infer File provenance from
 JavaScript-visible fields. Interactive platform sheets remain a separate acceptance.
+
+The [native File provenance registry](../architecture/0147-native-file-provenance-registry.md)
+uses a fingerprinted HTMLInputElement composition with one FileList root and one
+post-creation notification. Preserve the native File/document/selected-span identity
+checks and GC-safe weak entries/tombstones. Re-run check-firefly-isolation and the
+focused native file-input regression. Main-to-helper path delivery and the public
+webUtils API are still missing; this observer does not accept either. Do not add
+File/DOM values to general IPC or infer paths from script-visible properties.

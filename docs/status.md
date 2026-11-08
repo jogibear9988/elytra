@@ -20,8 +20,9 @@ real view zoom rather than CSS scaling; complete frame/file APIs remain missing.
 A bounded [native HTML file input](api/file-input.md) now has local hidden Qt chooser
 and actual native-view/helper File.text/basename/cancel/navigation acceptance. The
 BrowserWindow hook is wired; interactive platform sheets and complete application
-workflow remain unverified. webUtils.getPathForFile/provenance and efficient large
-file streaming remain missing.
+workflow remain unverified. An internal weak File/document origin registry now
+passes native identity/GC/limit tests; actual path delivery, public
+webUtils.getPathForFile and efficient large-file streaming remain missing.
 
 Local macOS Release now passes **77** runtime/component suites, adding custom process events
 and restricted native signal subscriptions with real owned-child delivery and

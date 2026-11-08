@@ -49,6 +49,7 @@ add_custom_target(
 add_dependencies(firefly-renderer-probe check-firefly-upstream)
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CallbackTargets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/files/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/crash/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/bytes/Targets.cmake")
@@ -117,11 +118,12 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/MessageEventTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PrincipalCallbackTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/NodeFilterTest.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileModulePolicyTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/FileOriginTest.cpp")
 target_include_directories(firefly-isolation-probe
                            PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper")
 target_link_libraries(
-    firefly-isolation-probe PRIVATE firefly-renderer-process firefly-isolated-world
+    firefly-isolation-probe PRIVATE LibIPC firefly-renderer-process firefly-isolated-world
                                     firefly-preload-config LibMain)
 ladybird_check_skia_confinement(firefly-isolation-probe)
 add_executable(

@@ -8961,6 +8961,61 @@ This prerequisite does not change the last actual-entry allowServiceWorkers bloc
 Fresh hosted Linux/native Windows execution is unverified. Ladybird is unmodified,
 Mite remains independent and the full product goal stays active.
 
+## 2026-11-08 — Weak native input File provenance component
+
+- Resume from pushed ecf161d, which added the real bounded native picker and was
+  tested implementation progress. Preserve the original full goal and Code-OSS priority.
+- Add the internal native File/document origin association required before a real
+  webUtils.getPathForFile implementation. Keep it distinct from ordinary bridge data,
+  JavaScript-visible names, file-body copies and filesystem access. Public API and
+  trusted main-to-helper path delivery remain missing; this is a native component.
+- Supply a versioned synchronous native Selection scope: bounded canonical nonzero
+  u64:u64 document IDs, path/span count, absolute NUL-free UTF-8 paths, per-path/total
+  budgets and matching native basenames. Refuse nested scopes, duplicate IDs, malformed
+  identifiers and schema drift. Bind only the exact span element and native File name
+  to the actual fully active document identity; copied value-equivalent spans cannot
+  consume another selection's metadata. Never upgrade an unavailable native File later.
+- Store exact Rust File-cell and Document identities in weak references. Source
+  inactivation releases paths while keeping weak negative File tombstones, so surviving
+  native Files cannot become apparently unobserved after reactivation. Collected Files
+  release slots. Bound records to 1,024 and path content to 1 MiB/helper. Quota refusal
+  marks the document unavailable; a bounded weak failure ledger and sticky ambiguity
+  for missing identities prevent refusal/GC from turning lost records into synthetic
+  Files. Failure-ledger overflow refuses all lookup. Cleanup is native-only.
+- Add a fingerprinted owned composition of HTMLInputElement.cpp with a FileList root
+  and one post-creation observer. Retain current File/document while recording. Preserve
+  every other upstream byte and the Rust File ABI; missing/duplicate/version drift
+  checks fail closed. LibWeb owns the single exported native registry; SDK tests link
+  their actual direct LibIPC dependency for SelectedFile lifetime operations.
+- Extend the actual-engine isolation gate with real HTMLInputElement::did_select_files
+  FileList/File creation using controlled native test metadata. Verify Unicode path
+  association, same-name/data noninheritance, wrong span and created name, missing/wrong
+  document metadata, no upgrade, schema/path/identity/type/version/nesting refusal,
+  inactivity/reactivation, weak GC, exact 1,024-entry and 1 MiB path limits and overflow.
+  These native metadata inputs are not evidence of an OS chooser path handoff.
+- Update native input/VS Code/current status/roadmap/upstream notes and ADR 0147 with
+  this precise component scope and the remaining controller/bridge/public API work.
+
+Validation: local macOS Release runtime/native-view probe builds and complete actual
+LibWeb/LibJS isolation suite pass, including the new component's exact boundary and
+negative cases. The one focused hidden Qt-view/owned upstream SDK helper regression
+still passes real 4 MiB File.text/arrayBuffer bytes, basename privacy, cancellation
+and navigation. No public path API, production chooser-to-helper metadata handoff,
+physical desktop input automation or broad GUI suite is claimed. Final style,
+generated-adapter, unmodified upstream, site/link and whitespace gates accompany
+this commit. Fresh hosted Linux/native Windows execution remains unverified.
+
+Remaining: capture original document/page selection identity when the native dialog
+opens and deliver accepted paths together with the exact selected byte batch over
+trusted native control IPC. Validate connection/page/document, cancellation, stale
+navigation, subframes and replay. Then implement narrowly validated File-wrapper
+argument passage and the actual webUtils.getPathForFile API; ordinary DOM/data/IPC
+capture must keep refusing File values. Drops/clones, large-file/streaming transport,
+performance evidence, process events/metrics, MessagePorts and actual worker/cache/
+remote-resource contracts remain open. The real Code-OSS entry's allowServiceWorkers
+blocker and workbench open/edit/save acceptance are unchanged. Ladybird is unmodified,
+Mite remains independent and the full product goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
