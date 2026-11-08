@@ -192,6 +192,10 @@ jobs:
         run: |
           build/linux-renderer/bin/firefly-linux-environment-probe
           python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly --check-guard
+      - name: Native desktop service ownership and explicit unavailable providers without a display
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-desktop-capture-host check-firefly-desktop-capture-provider check-firefly-notification-host check-firefly-notification-provider check-firefly-power-monitor-host check-firefly-power-save-host check-firefly-power-save-unsupported check-firefly-shell-host check-firefly-shell-unavailable --parallel 3 2>&1 | tee build/linux-renderer-native-services.log
       - name: Actual Mite app, LibWeb/preload/IPC, clipboard and live renderer kernel state
         env:
           QT_QPA_PLATFORM: xcb

@@ -10028,6 +10028,70 @@ File/open-edit-save, utility/renderer endpoint handoff/auth, extension/PTY hosts
 nonempty images/media/session and real notification/SCK acceptance, webviews/remote,
 native Windows/Linux packages and releases. The full original goal remains active.
 
+## 2026-11-08 — Owned native shell dispatch, reversible Trash and non-GUI service gates
+
+- Continue from pushed f6f9b03 and actual missing shell import. Implement main-only
+  macOS showItemInFolder/openExternal/openPath/trashItem using NSWorkspace and
+  NSFileManager, never command interpolation or permanent-delete fallback. No
+  readiness guard. Unsupported beep/shortcuts/options and native Linux/Windows
+  providers fail explicitly; visible app/browser/Finder behavior is UNACCEPTED.
+- Validate primitive receivers/options/text, NUL, lone UTF16 surrogates and UTF8
+  budgets (path32768/URL65536). Capture absolute paths before asynchronous work,
+  preserving dot segments and symlinks. Foundation file URLs can expose canonically
+  equivalent decomposed Unicode; exact-provider tests compare native URL and
+  canonical full-path equivalence without losing spaces, percent or hash names.
+- Own64 pending delivery IDs, monotonically increasing positive INTMAX. Register
+  before admission; synchronous callback delivery waits until admission succeeds,
+  while a synchronous admission throw rejects. Only ordinary completed OS openPath
+  errors resolve a message; unavailable/admission/quota/data/exit errors reject.
+  Corrupt current results retire only that request. Shutdown revokes delivery and
+  rejects every promise; cancellation never claims to undo an OS launch/Trash move.
+- Native host strictly validates512KiB JSON snapshots/keys and request IDs, queues
+  plain bounded native results to the Qt owner, retires delivery before JS and
+  revokes receiver/notify under the posting mutex before stopping the provider
+  outside it. Normalize sync reveal errors as well as async results before LibJS
+  conversion. No OS callback carries a VM/realm/GC root.
+- Native provider uses actual launch configuration/handler preflight and a utility
+  worker for Trash. A process-global64 ticket budget releases only on real native
+  completion, including callbacks after stop/VM teardown; canceled delivery does
+  not refund unfinished OS work. No fake timeout or delete fallback.
+- Shared Node/Mite policy passes six groups including mixed success/error and
+  malformed-surrogate records, option/native getter reentry, early callback/throw,
+  quota/recovery and stop. Exact native Host passes real factory/worker owner-thread
+  dispatch, strict validation, sync/async malformed results, actual GC, quotas and
+  controller/receiver/VM disposal. Exact Mac provider passes controlled URL/config/
+  error/worker/ticket tests without original launch/reveal/trash calls. Actual
+  unavailable backend passes explicit failure and permanent stop without Qt/OS UI.
+- Run opt-in genuine native Trash once: create a unique owned temporary Unicode
+  file, move it via the production provider, capture that operation's exact native
+  destination, restore it and verify bytes (0.19seconds). No Trash enumeration or
+  unrelated file is touched; no application, browser or Finder is opened.
+- Wire controlled/read-only desktop-capture/Notification/power/shell gates into
+  the release builder and Linux renderer workflow. Run the entire corresponding
+  macOS selection locally; fresh hosted/Linux outcomes remain UNVERIFIED. Permission requests,
+  visible launch, genuine Trash and real power-assertion probes are not
+  dependencies of that non-GUI selection.
+- Add API/ADR0163/compatibility docs and refresh current blockers across guides/API
+  pages/status/roadmap. Production/exact-object offscreen frontend builds. The real
+  pinned Code-OSS local-desktop/NLS ready graph passes shell, then fails linking
+  systemPreferences (build/code-oss-shell-final-ready.log). Entry/app-ready observed;
+  no Code-OSS workbench or open/edit/save acceptance.
+
+Validation: all102 runtime gates pass (35.20seconds). Six shared policy groups,
+controlled native Host/provider, unavailable backend and independent actual owned
+Trash/restoration pass. The newly wired release native service selection passes
+locally with production/exact-object frontend rebuild. Maintained formatting,
+Python release-script syntax, runtime/Firefly generation, upstream and whitespace
+checks pass. All12 final selected policy/generation/staged-checkout gates pass
+(3.09seconds), and the site accepts287 pages /20,319 local links/resources/fragments. No GUI tests or
+permission prompts run. Ladybird remains unmodified and Mite independent.
+
+Remaining: systemPreferences/media permissions and later main services, native
+utility/renderer endpoint transfer/auth, real workbench/File/open-edit-save,
+extension/PTY hosts, nonempty images/session/media and actual notification/SCK/
+launch/reveal acceptance, webviews/remote, native platforms/packages/releases.
+The full original goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

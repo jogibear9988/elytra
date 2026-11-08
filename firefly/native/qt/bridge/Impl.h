@@ -10,6 +10,7 @@
 #include "../../power-monitor/Host.h"
 #include "../../power-save-blocker/Host.h"
 #include "../../sandbox/policy/Policy.h"
+#include "../../shell/Host.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "TransportHooks.h"
@@ -142,6 +143,7 @@ struct Bridge::Impl {
     std::shared_ptr<Notifications::Controller> notifications;
     std::shared_ptr<PowerMonitor::Controller> power_monitor;
     std::shared_ptr<PowerSaveBlocker::Controller> power_save_blocker;
+    std::shared_ptr<Shell::Controller> shell_service;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

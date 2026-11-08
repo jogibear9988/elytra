@@ -151,7 +151,7 @@ public:
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
                 "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
                 "safeStorage", "WebContentsView", "webContents", "desktopCapturer", "nativeImage",
-                "Notification", "powerMonitor", "powerSaveBlocker" };
+                "Notification", "powerMonitor", "powerSaveBlocker", "shell" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)

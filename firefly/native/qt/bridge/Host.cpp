@@ -47,6 +47,9 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         enqueue(0, "power-monitor-event", ByteString(data.data(), data.size()));
     });
     power_save_blocker = PowerSaveBlocker::install_host(realm, *host);
+    shell_service = Shell::install_host(realm, *host, *context, [this](std::string data) {
+        enqueue(0, "shell-result", ByteString(data.data(), data.size()));
+    });
     install_clipboard_host(realm, *host);
     CrashReporting::install_host(realm, *host);
     Tracing::install_host(realm, *host, tracing);

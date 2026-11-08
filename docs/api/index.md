@@ -171,3 +171,8 @@ physical power/session transitions; shutdown cancellation remains unsupported.
 The [powerSaveBlocker reference](power-save-blocker.md) documents owned native
 sleep/display inhibition requests, precedence, transactional failures, bounded
 IDs and shutdown cleanup, separately from passive powerMonitor observations.
+
+The [shell reference](shell.md) covers native URL/path dispatch, file reveal,
+reversible OS Trash, promise/error differences and bounded asynchronous ownership.
+Actual macOS Trash/restore is accepted locally; visible launch/reveal remains
+unaccepted and native Windows/Linux providers are unavailable.

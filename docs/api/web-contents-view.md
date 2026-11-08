@@ -104,9 +104,10 @@ notices. Ladybird/vendor code remains unmodified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
 passes WebContentsView/webContents imports on these production objects, then fails
-at missing shell. Metadata-only desktop source support is now implemented with separately documented
-acceptance limits. Implement the demanded notification contract next, then
-continue the actual main graph. Import progress is not a VS Code
+at missing systemPreferences. Metadata-only desktop source support is now implemented with separately documented
+acceptance limits. Notification, power and shell component gates now pass; real
+notification delivery and visible shell actions remain unaccepted. Continue the
+actual graph with preferences/media permissions. Import progress is not a VS Code
 window or integrated browser acceptance.
 
 No custom sessions, subframe preload integration, popups, background/radius styling,

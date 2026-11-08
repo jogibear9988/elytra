@@ -1,0 +1,7 @@
+if(APPLE)
+    add_library(firefly-shell STATIC "${CMAKE_CURRENT_LIST_DIR}/ProviderMac.mm")
+    target_compile_options(firefly-shell PRIVATE -fobjc-arc)
+    target_link_libraries(firefly-shell PUBLIC "-framework AppKit" "-framework Foundation")
+else()
+    add_library(firefly-shell STATIC "${CMAKE_CURRENT_LIST_DIR}/ProviderUnsupported.cpp")
+endif()

@@ -113,6 +113,31 @@ def main():
         args.jobs,
         *renderer_options,
     )
+    # No visible windows, authorization prompts, real launch/trash operations or
+    # power assertions: exercise controlled dispatch/providers plus read-only OS
+    # observations before the separate desktop/package acceptance batch.
+    native_services = [
+        "check-firefly-desktop-capture-host",
+        "check-firefly-desktop-capture-provider",
+        "check-firefly-notification-host",
+        "check-firefly-notification-provider",
+        "check-firefly-power-monitor-host",
+        "check-firefly-power-save-host",
+        "check-firefly-power-save-unsupported",
+        "check-firefly-shell-host",
+        "check-firefly-shell-unavailable",
+    ]
+    if sys.platform == "darwin":
+        native_services.extend(
+            [
+                "check-firefly-notification-provider-state",
+                "check-firefly-power-provider",
+                "check-firefly-power-monitor-public",
+                "check-firefly-power-save-blocker-provider",
+                "check-firefly-shell-provider",
+            ]
+        )
+    run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)
     run(sys.executable, "tooling/bootstrap_electron.py")
     run(
         "cmake",

@@ -16,7 +16,7 @@ step generates 34,273 matching indexed English messages and removes the catalog
 read failure. The new native node:zlib slice passes actual Code-OSS compression
 classes, and the assert slice passes real CLI validation. Asynchronous startup now
 passes readline, MessageChannelMain, utilityProcess, safeStorage, WebContentsView and webContents imports, then reaches
-missing shell. Real 30,000-line file and local OS-release platform-branch checks
+missing systemPreferences. Real 30,000-line file and local OS-release platform-branch checks
 pass; Linux file branch and fresh Windows/Linux execution remain unverified. The
 local desktop experiment disables webviews, remote and engine caches; without it
 the allowServiceWorkers blocker remains. No workbench/open/edit/save acceptance
@@ -30,14 +30,14 @@ The [utility-process payload slice](api/utility-process.md) now implements a rea
 same-executable LibJS fork and child process.parentPort. Six native boundary tests
 pass; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. Actual Code-OSS utility execution is not
 accepted: authentication forwarding and native utility/renderer event.ports handoff
-remain unsupported. The current static-import blocker is shell.
+remain unsupported. The current static-import blocker is systemPreferences.
 
 The [safeStorage slice](api/safe-storage.md) now passes native OS-keychain and public
 facade tests on isolated macOS keychains, plus the unchanged compiled Code-OSS
 EncryptionMainService across two native processes (39 checked dependencies).
 Real Firefly/Electron comparison covers pre-ready guards only. Linux/Windows
 providers, async encryption and migration of Electron ciphertext remain unavailable.
-The actual ready graph now passes safeStorage and next requires shell;
+The actual ready graph now passes safeStorage and next requires systemPreferences;
 no workbench or actual Code-OSS utility service is accepted by this component.
 
 The [WebContentsView composition slice](api/web-contents-view.md) passes a shared
@@ -46,13 +46,13 @@ batch: real pages/PIDs/viewport, native ordering/ownership/reparenting, detached
 navigation, registry and binary IPC/close. Seven policy groups and all 88 non-GUI
 runtime suites pass. On-screen/GPU/AX/performance and native Linux/XCB/Windows
 acceptance remain unverified. The actual main entry now passes the view/registry
-imports and next requires shell. Integrated
+imports and next requires systemPreferences. Integrated
 Code-OSS browser preferences/services and a VS Code window remain unaccepted.
 
 The [native file writer](api/file-write-stream.md) now passes all seven focused
 Node/Mite groups and owned policy checks, including actual bytes, pressure and
 handle/close behavior. The actual ready/main graph passes its createWriteStream
-import and next fails linking shell. This is import progress for the main graph. The unchanged compiled ZIP consumer
+import and next fails linking systemPreferences. This is import progress for the main graph. The unchanged compiled ZIP consumer
 now passes with genuine yazl and 34 verified dependencies, independently checked
 archive CRCs and exact extracted bytes. [CommonJS named export analysis](api/module.md#commonjs-named-exports-in-es-modules)
 passes local Node differential checks; extension installation/workbench acceptance
@@ -61,7 +61,7 @@ does not follow from the ZIP component.
 The [genuine shell exec slice](api/child-process.md#execcommand-options-callback)
 passes local Node/Mite differential/policy checks and the unchanged compiled
 Code-OSS terminal-encoding consumer with real locale charmap output. The actual
-prepared main graph now passes exec and next fails linking shell.
+prepared main graph now passes exec and next fails linking systemPreferences.
 This does not accept desktop capture, terminal/PTY, process trees or a workbench;
 fresh native Linux/Windows shell execution remains unverified.
 
@@ -71,21 +71,21 @@ SCK enumeration is **not accepted yet**: default tests avoid permission prompts.
 The real dispatcher passes controlled worker/thread/cancel/shutdown tests, policy
 passes Node/Mite checks, and native no-prompt preflight passes. No image/media
 capture or Code-OSS display-media handler is accepted. The actual ready graph now
-passes both imports and next stops at shell; no workbench follows.
+passes both imports and next stops at systemPreferences; no workbench follows.
 
 The [Notification slice](api/notification.md) implements native UserNotifications
 scheduling and owned event generations. Node/Mite policy, production dispatcher
 with controlled native events, exact macOS provider state with isolated system
 peers, and read-only bare-CLI identity preflight pass. None establishes real OS
 authorization, bundled delivery, visible alerts or user actions. The actual ready
-graph now passes Notification and next stops at shell; no workbench follows.
+graph now passes Notification and next stops at systemPreferences; no workbench follows.
 
 The [powerMonitor slice](api/power-monitor.md) now supplies genuine macOS idle,
 thermal and power-source queries plus owned passive observations. All 100 runtime
 gates pass; the controlled native dispatcher, real-OS provider and public
 factory/host/provider component gates pass. No physical sleep, lock, power or
 shutdown transition was induced. The actual local-desktop/NLS ready diagnostic
-passes powerMonitor and next fails linking shell. Entry/app-ready
+passes powerMonitor and next fails linking systemPreferences. Entry/app-ready
 observation still does not establish a workbench.
 
 The [powerSaveBlocker slice](api/power-save-blocker.md) now supplies native macOS
@@ -94,7 +94,17 @@ replacement. Genuine assertion creation/readback/downgrade/stop/shutdown passes
 locally, while controlled provider/Host tests cover failures, bounded ownership and
 VM cleanup. All101 runtime gates pass; no physical sleep behavior is accepted.
 The actual final-code ready diagnostic now passes powerSaveBlocker and next fails
-linking shell. No Code-OSS workbench is accepted.
+linking systemPreferences. No Code-OSS workbench is accepted.
+
+The [native shell slice](api/shell.md) now implements main-only macOS URL/path
+launch, file reveal and OS Trash with asynchronous ownership. Shared Node/Mite
+policy, exact Host/worker/GC/teardown checks and exact controlled provider/ticket
+checks pass. One genuine owned temporary Unicode file is trashed and restored from
+its exact returned destination with byte verification. Visible launch/activation/
+Finder selection remains unaccepted. All102 runtime gates pass. The actual final
+ready graph passes shell and next fails linking systemPreferences; no workbench
+is accepted. The release build and Linux renderer workflow now include non-GUI
+native service gates; fresh hosted outcomes remain separate evidence.
 
 The later native [webFrame zoom slice](api/web-frame.md) passes local direct-engine,
 production-helper viewport/DPR/reload and Electron-reference checks. It implements
@@ -502,10 +512,12 @@ errors, overloads and intentional differences.
 | app/window/webContents | Lifecycle/readiness, native windows, loading, geometry and selected controls/events; [app](api/app.md), [BrowserWindow](api/browser-window.md), [webContents](api/web-contents.md) |
 | Secure preload/contextBridge | Bounded isolated top-level preload publication; authored ESM is bundled to supported CommonJS payloads; [contextBridge](api/context-bridge.md) |
 | IPC | Asynchronous invoke/handle/handleOnce/removeHandler with sender checks; renderer-to-main send/on events now pass local macOS acceptance; main-to-preload send/listeners also pass locally; bounded bridge callbacks now pass local native/public acceptance; main-realm MessageChannelMain binary queues/ownership transfers now pass separate public/native-GC/Code-OSS component gates; real utility fork/parentPort payload implementation has six native boundary tests with local public Firefly/Electron acceptance passing; native renderer/utility port handoff, full graph callbacks/source accessors/sync/subframe IPC remain unfinished; [IPC](api/ipc.md), [main ports](api/message-channel-main.md) |
-| Desktop services | Partial macOS clipboard, screen and nativeTheme; scoped X11 clipboard; new Linux screen wiring awaits native acceptance; [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md) |
+| Desktop services | Partial macOS clipboard, screen, nativeTheme, Notification, passive powerMonitor, powerSaveBlocker and shell; scoped X11 clipboard; new Linux screen wiring awaits native acceptance. Each contract separates component tests from actual OS/UI acceptance: [clipboard](api/clipboard.md), [screen](api/screen.md), [nativeTheme](api/native-theme.md), [notifications](api/notification.md), [power monitoring](api/power-monitor.md), [power inhibition](api/power-save-blocker.md), [shell](api/shell.md) |
 
-popup menus/accelerators/broader menu roles, dialog, Tray, shell, nativeImage, session/permission/protocol control,
-notifications, global shortcuts, auto-updates and most Electron APIs remain absent.
+Popup menus/accelerators/broader menu roles, dialog, Tray, global shortcuts and
+auto-updates remain absent. Nonempty NativeImage, broader session/permission/protocol
+control, actual notification delivery and visible shell launch/reveal remain
+unaccepted or unfinished; see each contract for implemented subsets.
 Renderer Node integration is rejected; privileged Mite APIs stay in the main process.
 
 ## Documentation currency

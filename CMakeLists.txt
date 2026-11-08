@@ -224,6 +224,10 @@ if(BUILD_TESTING)
             "${Python3_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_power_save_blocker_policy.py" --mite
             "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-shell-policy
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_shell_policy.py"
+                --mite "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")
