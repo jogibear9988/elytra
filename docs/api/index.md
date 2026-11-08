@@ -162,3 +162,8 @@ The [Notification reference](notification.md) covers owned generations, mutable
 text/button metadata, events, replacement/close policy and native scheduling
 limits. Node/Mite policy and bare-CLI read-only preflight evidence do not establish
 OS permission or delivery acceptance; valid notifications remain untested.
+
+The [powerMonitor reference](power-monitor.md) documents native read-only queries,
+capability-gated passive events, listener/epoch ownership and conservative unknown
+states. Node/Mite policy and local macOS query/start-stop evidence do not certify
+physical power/session transitions; shutdown cancellation remains unsupported.

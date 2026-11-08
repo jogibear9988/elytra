@@ -7,6 +7,7 @@
 #include "../../desktop-capture/Host.h"
 #include "../../menu/ApplicationMenu.h"
 #include "../../notifications/Host.h"
+#include "../../power-monitor/Host.h"
 #include "../../sandbox/policy/Policy.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
@@ -138,6 +139,7 @@ struct Bridge::Impl {
     RefPtr<Core::Timer> protocol_timer;
     std::shared_ptr<DesktopCapture::Controller> desktop_capture;
     std::shared_ptr<Notifications::Controller> notifications;
+    std::shared_ptr<PowerMonitor::Controller> power_monitor;
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

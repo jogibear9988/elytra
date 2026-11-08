@@ -72,6 +72,8 @@ void Bridge::Impl::stop()
         desktop_capture->stop();
     if (notifications)
         notifications->stop();
+    if (power_monitor)
+        power_monitor->stop();
     if (application_menu)
         application_menu->stop();
     while (!windows.empty())

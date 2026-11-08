@@ -9932,6 +9932,51 @@ extension/PTY hosts, webviews/remote and native platforms/packages/releases. The
 original goal remains active, Ladybird unchanged, Mite independent and VS Code
 workbench unaccepted.
 
+## 2026-11-08 — Native passive power queries and owned observation epochs
+
+- Implement main-process powerMonitor with genuine macOS idle/session, thermal,
+  battery/AC and internal CPU-limit observations. Maintained ESM, native dispatcher
+  and platform provider remain separate; Mite independent, Ladybird unmodified.
+  Missing session information yields unknown; unavailable data never becomes AC,
+  nominal temperature or a fabricated 100-percent CPU limit.
+- Passive AppKit/Foundation/distributed/IOKit observations use no power acknowledgement
+  hook, assertion, preference change or synthesized input. Shutdown observation has
+  no inhibition: preventDefault fails explicitly. Native Windows/Linux providers
+  remain unavailable; actual physical-transition delivery is UNTESTED.
+- Seal native capabilities once per host. Supported pre-ready listeners defer native
+  registration; first/last listeners own one monotonic epoch. Validate query and
+  event schemas; stale callbacks/stops cannot affect replacements. Failed starts
+  roll back, exit revokes delivery before cleanup, and cleanup failure cannot stop
+  other app shutdown. Bound reentry exhaustion revokes the epoch and clears inert
+  listeners; a fresh later subscription recovers.
+- Native callbacks carry weak plain state to the Qt owner, never JS/GC objects.
+  The exact dispatcher passes worker delivery, cached-capability validation,
+  native query errors/Unicode, reused/stale epochs, failed startup, receiver deletion
+  and VM retirement with controlled providers. OS provider observers/sources are
+  released on the main thread before their state expires.
+- Genuine native read-only queries compare against OS framework observations;
+  passive observers start/stop twice. The production factory/host/OS component
+  passes queries, two subscription epochs and real GC with a minimal ready context.
+  This is not desktop lifecycle or induced sleep/lock/battery/thermal acceptance.
+- Add API contract, ADR0161, compatibility entry and refresh current VS Code/status/
+  roadmap/adaptation blockers. The actual final-code local-desktop/NLS diagnostic
+  passes powerMonitor and next fails linking powerSaveBlocker. Entry and app-ready
+  observed, no workbench accepted (build/code-oss-power-monitor-final-ready.log).
+
+Validation: all100 runtime gates pass (32.20 seconds). After the final reentry/exit
+cleanup fixes, shared Node/Mite policy passes seven groups and all10 selected
+policy/generation/checkout gates pass (3.35 seconds). Production and exact-object
+non-GUI frontend rebuild, native dispatcher, real provider and public native
+component gates pass. Site accepts283 pages /20,036 local links; runtime/Firefly
+bundle integrity, maintained formatting, upstream pin and whitespace checks pass.
+No desktop input, physical power transition, permission prompt or visible window
+was used by this slice.
+
+Remaining: owned powerSaveBlocker/native main continuation; real notification and
+SCK platform acceptance, nonempty images/media/session binding, native utility/
+renderer endpoint handoff/auth, actual workbench/File/open-edit-save, extension/PTY,
+webviews/remote and native platforms/packages/releases. The full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

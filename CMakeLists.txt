@@ -212,6 +212,12 @@ if(BUILD_TESTING)
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_notification_policy.py"
             --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-power-monitor-policy
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_power_monitor_policy.py" --mite
+            "$<TARGET_FILE:mite>")
     add_test(NAME mite-exec-file
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_exec_file.py"
                      --mite "$<TARGET_FILE:mite>")

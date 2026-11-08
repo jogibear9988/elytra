@@ -17,6 +17,7 @@ import createWebPreferences from './window/preferences.mjs';
 import createNativeImages from './native-image/index.mjs';
 import createDesktopCapture from './desktop-capture/index.mjs';
 import createNotifications from './notifications/index.mjs';
+import createPowerMonitor from './power-monitor/index.mjs';
 
 export default function createFireflyApi(native, EventEmitter, paths, urls, files, streams) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -160,6 +161,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       }
       exited = true;
       quitting = true;
+      power.stop();
       notifications.stop();
       capture.stop();
       channels.shutdown();
@@ -184,6 +186,14 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     }
   }
   const app = new App();
+  const power = createPowerMonitor(
+    native,
+    EventEmitter,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const notifications = createNotifications(
     native,
     EventEmitter,
@@ -259,6 +269,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
       return;
     }
     exited = true;
+    power.stop();
     notifications.stop();
     capture.stop();
     channels.shutdown();
@@ -675,8 +686,13 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     if (type === 'ready') {
       ready = true;
       screens.ready();
+      power.ready();
       app.emit('ready');
       resolveReady();
+      return;
+    }
+    if (type === 'power-monitor-event') {
+      power.dispatch(JSON.parse(data));
       return;
     }
     if (type === 'notification-result') {
@@ -799,6 +815,7 @@ export default function createFireflyApi(native, EventEmitter, paths, urls, file
     nativeTheme: theme.nativeTheme,
     desktopCapturer: capture.desktopCapturer,
     nativeImage: images.nativeImage,
-    Notification: notifications.Notification
+    Notification: notifications.Notification,
+    powerMonitor: power.powerMonitor
   };
 }
