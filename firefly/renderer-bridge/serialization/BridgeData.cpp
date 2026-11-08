@@ -341,7 +341,13 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
     }
 
     for (auto value : values) {
-        if (integrity == Materialization::Frozen && value.is_object()
+        bool binary = value.is_object()
+            && (JS::TypedArrayBase::is_engine_class_of(value.as_object())
+                || JS::DataView::is_engine_class_of(value.as_object())
+                || value.as_object().engine_class_id() == JS_LAYOUT_CLASS_ID_ARRAY_BUFFER);
+        if (value.is_object()
+            && (integrity == Materialization::Frozen
+                || (integrity == Materialization::FrozenContainers && !binary))
             && !TRY(value.as_object().set_integrity_level(JS::Object::IntegrityLevel::Frozen)))
             return destination.vm().throw_completion<JS::TypeError>("Cannot freeze bridge data"sv);
     }

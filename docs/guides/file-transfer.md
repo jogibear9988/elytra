@@ -7,16 +7,22 @@ The future paths below are design requirements, not usable Firefly APIs today.
 
 Firefly [request/reply and bidirectional plain-data event IPC](../api/ipc.md) copy bounded plain-data graphs with a
 128 KiB encoded request/reply limit. Typed arrays, Buffer, ArrayBuffer, Blob/File,
-MessagePorts and transferable objects are unsupported. The isolated contextBridge
-has its own capture/publication restrictions; adding a wire type alone is not
-end-to-end support. Do not encode a large file as JSON, number arrays or base64 to
+MessagePorts and transferable objects are unsupported across that process boundary.
+The [contextBridge binary subset](../api/context-bridge.md#binary-copies-between-document-and-preload)
+now copies ArrayBuffer/typed arrays/DataView between the document and isolated
+preload, with a 64 KiB total complete-backing-store budget, exact offsets/backing
+aliases and writable independent binary storage inside frozen plain containers.
+Publication, sync/Promise results and callback directions pass local native and
+actual production-helper tests. This same-process realm support is not yet
+end-to-end binary IPC to main. Do not encode a large file as JSON, number arrays or base64 to
 work around these limits. No file-transfer performance has been measured yet.
 
 An [internal native buffer/view snapshot and wire slice](../architecture/0099-bounded-native-binary-wire.md)
 now passes local macOS separate-process tests, with raw binary attachments and
 explicit byte budgets. It preserves typed-array/DataView offsets and backing
 aliases with one copy of each complete backing store. This does not enable public
-IPC/Buffer workflows, frozen contextBridge publication, streaming or shared storage.
+IPC/Buffer workflows to main, streaming or shared storage. The later bounded
+contextBridge publication/call subset now uses native copies within the renderer.
 Full backing storage is visible in a cloned view; use a dedicated range when
 limiting exposed bytes. No throughput/latency or zero-copy claim follows from this.
 
@@ -47,8 +53,12 @@ Benchmark Electron and Firefly with the same workload before comparing costs.
 1. **Binary snapshots:** support the required byte views across the actual page,
    isolated preload and main-process boundaries. Preserve exact byte ranges and
    isolation; never serialize bytes as JSON/base64. Keep payload/memory/pending
-   budgets, hostile input checks and explicit errors. Bounded copied buffers are
-   the first correctness milestone, not the final large-file transport.
+   budgets, hostile input checks and explicit errors. The same-process page/preload
+   copy milestone now passes. Next integrate the existing raw native byte channel
+   with canonical document/preload identity and bounded main-process dispatch;
+   retain the default string IPC binary refusal until that route is accepted.
+   Bounded copied buffers are the first correctness milestone, not the final
+   large-file transport.
 2. **Ports and streaming:** implement compatible port handoff and binary messages,
    ordered delivery/closure and backpressure. Large reads must deliver bounded
    chunks with cancellation, avoiding whole-file buffering in each process.

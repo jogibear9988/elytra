@@ -142,10 +142,12 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
     if (snapshot.is_error())
         return vm.throw_completion<JS::TypeError>("Unsupported or excessive bridge API"sv);
     auto value = snapshot.value().materialize(
-        target, [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
+        target,
+        [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
             VERIFY(index < functions.size());
             return functions[index];
-        });
+        },
+        BridgeData::Materialization::FrozenContainers);
     // Do not return a principal-realm exception object to the source world.
     if (value.is_error())
         return vm.throw_completion<JS::TypeError>("Cannot materialize bridge API"sv);

@@ -23,6 +23,7 @@ let window;
 let report;
 let callbackReport;
 let rawReport;
+let binaryReport;
 let frame;
 const value = { count: 0 };
 value.self = value;
@@ -53,6 +54,10 @@ ipcMain.on('callback-report', (_event, data) => {
 ipcMain.on('raw-page-result', (event, data) => {
   check(event.sender === window.webContents, 'raw callback result sender');
   rawReport = data;
+});
+
+ipcMain.on('binary:report', (_event, value) => {
+  binaryReport = value;
 });
 
 ipcMain.on('closed-by-listener', (event) => {
@@ -142,6 +147,18 @@ async function round() {
       rawReport.result &&
       rawReport.asyncResult,
     'private module crossed document callback: ' + JSON.stringify(rawReport)
+  );
+  binaryReport = null;
+  window.webContents.send('binary:main');
+  await until(() => binaryReport, 'binary report missing');
+  check(
+    binaryReport.fromMain &&
+      binaryReport.geometry &&
+      binaryReport.copies &&
+      binaryReport.tail &&
+      binaryReport.frozen &&
+      binaryReport.capped,
+    'binary context bridge: ' + JSON.stringify(binaryReport)
   );
   check(value.count === 0, 'renderer mutation reached main');
 }

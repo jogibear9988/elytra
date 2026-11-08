@@ -44,4 +44,70 @@
       asyncResult: redactedModule(asyncModule)
     });
   });
+  pageEvents.binaryMain(async (mainValue) => {
+    try {
+      const fromMain =
+        mainValue instanceof Uint8Array &&
+        mainValue[0] === 255 &&
+        mainValue[1] === 128 &&
+        mainValue[2] === 0;
+      mainValue[0] = 7;
+      const b = new ArrayBuffer(65536),
+        bytes = new Uint8Array(b);
+      bytes[5] = 128;
+      bytes[65535] = 255;
+      const view = new Uint8Array(b, 5, 17);
+      const data = new DataView(b, 3, 23);
+      const graph = { b, view, alias: view, data };
+      graph.self = graph;
+      const copy = await pageEvents.binaryEchoAsync(graph);
+      const geometry = (value) =>
+        value.b instanceof ArrayBuffer &&
+        value.b.byteLength === 65536 &&
+        value.self === value &&
+        value.view === value.alias &&
+        (!stableIdentity || value.view.buffer === value.b) &&
+        value.view instanceof Uint8Array &&
+        value.view.byteOffset === 5 &&
+        value.view.length === 17 &&
+        value.data instanceof DataView &&
+        (!stableIdentity || value.data.buffer === value.b) &&
+        value.data.byteOffset === 3 &&
+        value.data.byteLength === 23;
+      const sent = pageEvents.binaryEcho(graph);
+      bytes[5] = 222;
+      const callbackCopy = pageEvents.binaryCallback(
+        (value) => new Uint8Array([value[0] + 1]),
+        new Uint8Array([6])
+      );
+      const asyncCallbackCopy = await pageEvents.binaryCallbackAsync(
+        async (value) => new Uint8Array([value[0] + 1]),
+        new Uint8Array([8])
+      );
+      let capped = true;
+      if (stableIdentity) {
+        capped = false;
+        try {
+          pageEvents.binaryEcho(new Uint8Array(65537));
+        } catch {
+          capped = true;
+        }
+      }
+      pageEvents.binaryResult({
+        fromMain,
+        geometry: geometry(copy) && geometry(sent),
+        copies:
+          copy.view[0] === 128 &&
+          sent.view[0] === 128 &&
+          bytes[5] === 222 &&
+          callbackCopy[0] === 7 &&
+          asyncCallbackCopy[0] === 9,
+        tail: new Uint8Array(copy.b)[65535] === 255,
+        frozen: !stableIdentity || Object.isFrozen(copy),
+        capped
+      });
+    } catch (error) {
+      pageEvents.binaryResult({ error: String(error) });
+    }
+  });
 </script>

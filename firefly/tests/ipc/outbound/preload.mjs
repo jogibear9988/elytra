@@ -139,6 +139,30 @@ let callbackRuns = 0;
 contextBridge.exposeInMainWorld('pageEvents', {
   privateModule: ipcRenderer,
 
+  binaryMain(callback) {
+    ipcRenderer.once('binary:main', () => callback(new Uint8Array([255, 128, 0])));
+  },
+
+  binaryEcho(value) {
+    return value;
+  },
+
+  async binaryEchoAsync(value) {
+    return value;
+  },
+
+  binaryCallback(callback, value) {
+    return callback(value);
+  },
+
+  async binaryCallbackAsync(callback, value) {
+    return await callback(value);
+  },
+
+  binaryResult(value) {
+    ipcRenderer.send('binary:report', value);
+  },
+
   module() {
     return ipcRenderer;
   },

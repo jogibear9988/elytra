@@ -2,7 +2,9 @@
 #include "Boundary.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/DataView.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
@@ -54,8 +56,34 @@ bool resolve_safe(JS::Value value)
     auto const* object = &value.as_object();
     for (size_t depth = 0; object && depth < 64; ++depth, object = object->prototype()) {
         auto id = object->engine_class_id();
+        bool binary = JS::TypedArrayBase::is_engine_class_of(*object)
+            || JS::DataView::is_engine_class_of(*object) || id == JS_LAYOUT_CLASS_ID_ARRAY_BUFFER;
+        // Engine prototype classes use ordinary descriptor storage, but have
+        // distinct IDs. Inspect their then descriptors without executing getters.
+        switch (id) {
+        case JS_LAYOUT_CLASS_ID_ARRAY_BUFFER_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_DATA_VIEW_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_TYPED_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_UINT8_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_UINT8_CLAMPED_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_UINT16_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_UINT32_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_BIG_UINT64_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_INT8_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_INT16_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_INT32_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_BIG_INT64_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_FLOAT16_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_FLOAT32_ARRAY_PROTOTYPE:
+        case JS_LAYOUT_CLASS_ID_FLOAT64_ARRAY_PROTOTYPE:
+            binary = true;
+            break;
+        default:
+            break;
+        }
+
         if (JS::host_class_of(*object)
-            || (id != JS_LAYOUT_CLASS_ID_OBJECT && id != JS_LAYOUT_CLASS_ID_ARRAY
+            || (!binary && id != JS_LAYOUT_CLASS_ID_OBJECT && id != JS_LAYOUT_CLASS_ID_ARRAY
                 && id != JS_LAYOUT_CLASS_ID_OBJECT_PROTOTYPE
                 && id != JS_LAYOUT_CLASS_ID_ARRAY_PROTOTYPE))
             return false;

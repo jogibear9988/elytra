@@ -25,8 +25,8 @@ public:
         size_t string_code_units { 65536 };
         size_t depth { 64 };
         size_t array_length { 4096 };
-        // Explicit internal opt-in. Public IPC/contextBridge stay data-only
-        // until their transport/publication contracts support raw bytes.
+        // Explicit opt-in. Public contextBridge uses BinaryPolicy; IPC stays
+        // byte-free until its native document channel is integrated.
         size_t binary_bytes { 0 };
     };
 
@@ -34,7 +34,9 @@ public:
     // Native identity policy only: replace designated ordinary capability modules
     // with empty data nodes before inspecting any properties. Never JS callbacks.
     using RedactObject = Function<bool(JS::Object&)>;
-    enum class Materialization { Frozen, Mutable };
+    // FrozenContainers deliberately leaves copied binary stores/views writable;
+    // engine TypedArrays cannot be frozen. Strict Frozen still refuses binary.
+    enum class Materialization { Frozen, Mutable, FrozenContainers };
     using MaterializeFunction = Function<JS::ThrowCompletionOr<JS::Value>(size_t)>;
     // Native error replies must not enter or allocate in a busy JavaScript VM.
     static BridgeData from_string(Utf16View);

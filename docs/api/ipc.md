@@ -238,8 +238,11 @@ mutating one does not change the sender's values.
 
 Binary IPC, MessagePorts and efficient disk-backed file/stream access are now
 prioritized for the [Code-OSS target](../compatibility/vscode.md). See the
-[file transport plan](../guides/file-transfer.md). This does not change the current
-supported values or limits below; no zero-copy or File transfer support is claimed.
+[file transport plan](../guides/file-transfer.md). The new same-process
+[contextBridge binary subset](context-bridge.md#binary-copies-between-document-and-preload)
+does not change this process IPC boundary or its limits below. The native raw byte
+channel still needs document/preload/main integration; no zero-copy or File transfer
+support is claimed.
 
 Functions, accessors, proxies, symbols, host/DOM objects, typed arrays, Buffer,
 Date, Map/Set, transferable objects and other special classes are unsupported.

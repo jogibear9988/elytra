@@ -1,5 +1,6 @@
 /** Source-to-principal snapshots apply the owning world's native capability redaction. */
 #pragma once
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 
 namespace Firefly {

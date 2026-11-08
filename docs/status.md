@@ -76,7 +76,10 @@ and recovery test. A positive Electron reference passes. Bounded document callba
 results now pass local native and production-helper acceptance. Native IPC events
 now cross to document callbacks with sender redacted to a frozen empty object;
 publication and sync/Promise results use the same exact native identity policy.
-Individual native IPC methods remain blocked. Full callback publication,
+Individual native IPC methods remain blocked. The 64 KiB contextBridge binary
+copy subset now passes local native and production-helper tests, with writable
+independent bytes and shared backing aliases. Process IPC remains byte-free until
+its native document channel is integrated. Full callback publication,
 binary/MessagePort delivery and fresh Linux/native Windows acceptance remain open.
 
 [app.enableSandbox](api/app.md#appenablesandbox) now verifies/latches native

@@ -89,7 +89,8 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::invoke(JS::VM& vm)
     auto data = capture_to_principal(*world, JS::Value(array.ptr()));
     if (data.is_error())
         return error();
-    auto copied = data.value().materialize(*source);
+    auto copied
+        = data.value().materialize(*source, {}, BridgeData::Materialization::FrozenContainers);
     if (copied.is_error())
         return error();
     auto root = GC::Root<JS::Value>::create(copied.value(), SourceLocation::current());
@@ -108,10 +109,11 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::invoke(JS::VM& vm)
         && !JS::host_class_of(value.as_object())
         && &value.as_object().shape().realm() == source.ptr())
         return observe(static_cast<JS::Promise&>(value.as_object()), *target);
-    auto snapshot = BridgeData::capture(value, *source, {});
+    auto snapshot = BridgeData::capture(value, *source, public_binary_limits());
     if (snapshot.is_error())
         return error();
-    auto answer = snapshot.value().materialize(*target);
+    auto answer
+        = snapshot.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
     if (answer.is_error())
         return error();
     return answer.release_value();
@@ -162,13 +164,14 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::settle(u64 id, bool fulfilled
     }
 
     auto& source = m_registry->document->window()->principal_realm();
-    auto data = BridgeData::capture(value, source, {});
+    auto data = BridgeData::capture(value, source, public_binary_limits());
     if (data.is_error()) {
         Boundary::reject(*record.capability, *record.target);
         return JS::js_undefined();
     }
 
-    auto copied = data.value().materialize(*record.target);
+    auto copied = data.value().materialize(
+        *record.target, {}, BridgeData::Materialization::FrozenContainers);
     if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || !m_registry->active()) {
         Boundary::reject(*record.capability, *record.target);
         return JS::js_undefined();

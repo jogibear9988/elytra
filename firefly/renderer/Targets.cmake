@@ -84,6 +84,7 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/ContextBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/CallbackBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/RedactionBridgeTest.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/BinaryBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/PromiseBridgeTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/WorldJobGuardTest.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/isolation/HandlerTest.cpp"

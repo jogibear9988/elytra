@@ -8591,6 +8591,45 @@ launch or startup-protocol change is claimed. Next prioritize the demanded binar
 MessagePort transport and full preload graph alongside real worker/cache/resource
 requirements. Do not replace those contracts with inert flags. Full goal stays active.
 
+## 2026-11-08 — Native contextBridge binary copies for the Code-OSS boundary
+
+- Resume from pushed 6480d35, which made authoritative implementation/test progress.
+  Keep the full goal and actual VS Code/efficient file transport priorities intact.
+- Enable a 64 KiB aggregate complete-backing-store policy for contextBridge API
+  publication, function arguments/results, Promise results and callback directions.
+  Reuse the validated native buffer/view snapshot; retain cycles, aliases, offsets,
+  destination view types and one destination allocation per distinct backing store.
+- Add explicit FrozenContainers materialization: plain graph containers freeze;
+  copied binary stores/views stay writable and independent. Strict Frozen and
+  default byte-free snapshots retain their refusals. Binary expandos/prototypes
+  are omitted; no getter/constructor/iterator hooks execute or source buffer detaches.
+- Extend Promise prototype/then checks for native binary instances/prototypes,
+  without running polluted destination getters or accepting unknown host/proxy
+  prototypes. Existing callback identity/pending/document/revocation rules remain.
+- Add actual-engine binary contextBridge tests: publication/sync/Promise/callback
+  directions, 65536-byte boundary and overflow refusal, writable independent bytes,
+  aliases/offsets, trap-free capture, then pollution and surviving copies at detach.
+- Extend one hidden production-helper IPC fixture with a plain-data trigger for
+  renderer-local binary work and plain-data reports. It does not send bytes to main.
+  The real Electron reference passes the common behavior; its separate backing-store
+  copies differ from Firefly's preserved backing aliases, tested separately.
+- Keep actual process IPC binary refusal. Its UTF-8 string seam is unsuitable for
+  raw FFB2 frames; reject a Base64 workaround in favor of integrating the existing
+  native byte channel with real current-document/preload/main authorization next.
+  Update APIs, file-transport plan, compatibility/status/roadmap and ADR 0140.
+
+Validation: local macOS Release build/native isolation gate and actual hidden
+production-helper and Electron common-contract batches pass. Final style, generated
+adapter freshness, unmodified upstream pin, built-site links and whitespace checks
+pass. No broad GUI suite or physical desktop interaction. Native Linux/Windows
+execution remain unverified; Ladybird stays unmodified. No new actual Code-OSS
+entry/workbench launch is claimed; the known allowServiceWorkers blocker remains.
+
+Next integrate raw native document-authorized binary process transport, then actual
+port handoff/streaming, while continuing demanded preload process/options/accessors
+and worker/cache/resource contracts. Do not substitute a text-encoded file transport,
+inert feature flags or a smaller success definition. Full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

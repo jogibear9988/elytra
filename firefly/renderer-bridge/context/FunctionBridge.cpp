@@ -145,7 +145,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         return JS::js_undefined();
     }
 
-    auto copied = data.value().materialize(*target);
+    auto copied
+        = data.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
     if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || m_revoked
         || m_source->is_detached() || !m_document->is_fully_active()) {
         if (!m_revoked && (m_source->is_detached() || !m_document->is_fully_active()))
@@ -198,8 +199,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             for (auto& callback : created)
                 callbacks->discard(*callback);
     });
-    auto data = BridgeData::capture(
-        JS::Value(array.ptr()), *target, {}, [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, public_binary_limits(),
+        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
             auto exported = TRY(callbacks->proxy(function));
             auto id = functions.size();
             functions.append(exported.function);
@@ -210,10 +211,12 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     if (data.is_error())
         return error();
     auto copied = data.value().materialize(
-        *source_realm, [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
+        *source_realm,
+        [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
             VERIFY(index < functions.size());
             return functions[index];
-        });
+        },
+        BridgeData::Materialization::FrozenContainers);
     if (copied.is_error())
         return error();
     auto copied_root = GC::Root<JS::Value>::create(copied.value(), SourceLocation::current());
@@ -246,7 +249,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     auto output = capture_to_principal(*source, result_value);
     if (output.is_error())
         return error();
-    auto answer = output.value().materialize(*target);
+    auto answer
+        = output.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
     if (answer.is_error())
         return error();
     return answer.release_value();

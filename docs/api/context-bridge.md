@@ -151,8 +151,8 @@ Navigation/detach revokes proxies and rejects pending bridges; unrelated princip
 Promise continuations keep running. Late results cannot revive a revoked endpoint.
 
 Callback arguments/results themselves must be supported data: higher-order function
-results, callable proxies/bound functions, binary values, ports and native objects
-remain unsupported. The native ipcRenderer module is a specific exception: crossing
+results, callable proxies/bound functions, ports and native objects remain unsupported.
+The bounded binary subset below is now supported. The native ipcRenderer module is a specific exception: crossing
 from preload to document replaces that exact module with a frozen empty ordinary
 object, including event.sender, nested API values and synchronous/Promise results.
 No methods, expandos, getters or listener bookkeeping are copied from the module.
@@ -169,6 +169,38 @@ empty destination object. Reference tests compare absence of IPC methods, with
 exact emptiness/freezing checked separately for Firefly. See
 [ADR 0138](../architecture/0138-document-callback-bridge.md) and
 [ADR 0139](../architecture/0139-private-ipc-module-redaction.md).
+
+## Binary copies between document and preload
+
+ArrayBuffer, typed arrays and DataView now cross the contextBridge in API
+publication, function arguments/results, native Promise results and both directions
+of document callbacks. There are at most 64 KiB of distinct complete backing stores
+per graph. Multiple views share one destination backing store, retaining view type,
+byte offset, length, graph cycles and aliases. Each crossing creates independent
+storage; it neither shares nor detaches source buffers. A Uint8Array subclass is
+normalized to Uint8Array, without invoking subclass/constructor/iterator/getter
+hooks. Buffer-shaped Uint8Array subclasses follow that rule; there is still no
+Buffer global in sandboxed preloads/documents.
+
+Plain object/array containers remain frozen. Copied binary storage and views are
+**writable**, including a view published inside an otherwise frozen API. JavaScript
+cannot freeze nonempty typed arrays; freezing an ArrayBuffer would not freeze its
+bytes. Binary expandos and custom prototypes are omitted. Shared, detached,
+resizable or out-of-bounds storage is refused; a tiny view over an oversized backing
+store also exceeds the quota. Promise settlement rejects a polluted destination
+then descriptor without running its getter. Navigation revokes API endpoints;
+already copied destination bytes remain usable.
+
+The actual Electron reference preserves offsets and ordinary aliases in this
+fixture but copies view backing stores separately. Firefly deliberately preserves
+backing aliases within the graph; reference assertions distinguish this behavior.
+See [ADR 0140](../architecture/0140-context-bridge-binary-copies.md).
+
+This is a same-process realm boundary. Public ipcRenderer.invoke/send and
+webContents.send **still reject binary values**. Their existing string transport
+has not been replaced by the document-bound native byte channel. MessagePorts,
+large-file streaming, shared memory and zero-copy remain unfinished; do not route
+large files through JSON/Base64 to work around this distinction.
 
 ## Files, budgets and errors
 

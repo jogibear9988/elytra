@@ -1,3 +1,4 @@
+#include "BinaryBridgeTest.h"
 #include "BridgeDataTest.h"
 #include "CallbackBridgeTest.h"
 #include "ContextBridgeTest.h"
@@ -147,6 +148,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(check_context_bridge(vm, *document));
     TRY(check_callback_bridge(vm, *document));
     TRY(check_redaction_bridge(vm, *document));
+    TRY(check_binary_bridge(vm, *document));
     TRY(check_promise_bridge(vm, *document));
     TRY(check_world_job_guard(vm, *document));
     TRY(check_handlers(vm, *document));
