@@ -84,8 +84,8 @@ The real public facade passes write/read/wrong-key phases, and the unchanged act
 Code-OSS service passes persisted Buffer serialization and error handling across two
 native processes. Its component host supplies a minimal ready lifecycle; this is
 not acceptance of the full production post-ready app or Electron OS crypto.
-The actual main graph now passes safeStorage import and next fails at
-session.defaultSession.protocol.handle. Native utility/renderer MessagePort handoff and demanded utility
+The actual main graph passes safeStorage and the protocol service, then fails at
+native @vscode/policy-watcher. Native utility/renderer MessagePort handoff and demanded utility
 authentication forwarding remain separate requirements; no workbench is accepted.
 
 See [ADR 0156](../architecture/0156-os-backed-safe-storage.md),

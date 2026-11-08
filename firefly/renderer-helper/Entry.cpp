@@ -6,6 +6,7 @@
 // Consume the owned native policy before upstream bootstrap/sandbox/connection
 // setup. Rename only its entry and VM-initialization call inside the composition.
 #include "RendererSession.h"
+#include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginConfig.h"
 #include "preload/Process.h"
 #include "resources/Session.h"
@@ -36,7 +37,9 @@ void firefly_initialize_renderer_vm(HTML::AgentType type)
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     TRY(Firefly::PreloadProcess::prepare());
-    auto filtered = TRY(Firefly::Protocols::consume_origin_configuration(arguments.strings));
+    auto origin = TRY(Firefly::Protocols::consume_origin_configuration(arguments.strings));
+    auto filtered
+        = TRY(Firefly::Protocols::consume_file_policy_configuration(origin.strings.span()));
     // Read-only startup evidence while this internal protocol path is under
     // development. No page/preload command can set or replace this policy.
     if (auto configuration = Firefly::Protocols::configuration_for_helper();

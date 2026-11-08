@@ -313,8 +313,9 @@ platform or replacement filesystem/parser is used. The separate real-file fixtur
 reads 30,000 UTF-8 lines with pressure and descriptor cleanup under Node/Mite/native GC.
 
 The rebuilt actual ready/main graph passes readline. With the main-realm port
-slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents and next fails linking
-fs.watchFile. The [real LibJS utility payload slice](../api/utility-process.md) has six
+slice below, it also passes MessageChannelMain/utilityProcess/safeStorage/WebContentsView/webContents,
+native filesystem watchers and the protocol service. Its next failure is the native
+@vscode/policy-watcher package. The [real LibJS utility payload slice](../api/utility-process.md) has six
 passing native boundary tests, with local public Firefly/Electron lifecycle and binary payload acceptance passing. Actual Code-OSS
 utility execution, authentication forwarding and native port handoff remain required;
 main-only channels cannot supply those connections. The bounded probe still exits 1,
@@ -379,8 +380,8 @@ This host uses the production backend with an isolated temporary OS keychain and
 minimal ready/command-line app fixture. It does not modify the user's Login
 keychain or accept production post-ready app lifecycle. Real Firefly/Electron
 comparison separately accepts pre-ready guards only; post-ready Electron crypto
-is unverified. The current actual ready graph passes safeStorage and next fails
-linking fs.watchFile. Native utility/renderer endpoint transfer, demanded auth
+is unverified. The current actual ready graph passes safeStorage, native filesystem
+watchers and the protocol service, then fails at native @vscode/policy-watcher. Native utility/renderer endpoint transfer, demanded auth
 forwarding and actual Code-OSS shared-service execution remain required; no
 workbench is accepted. See [storage scope](../api/safe-storage.md), including the
 Firefly-specific ciphertext and unavailable migration/async/platform providers.
@@ -396,8 +397,10 @@ made. The static offscreen plugin is not shipped and supplies no production desk
 fallback; native Linux/XCB and Windows execution remain unverified.
 
 The actual prepared Code-OSS local desktop/NLS entry now reaches app ready and
-passes WebContentsView/webContents imports on the production objects. Its next
-missing export is fs.watchFile. The metadata-only desktop source and empty-image
+passes WebContentsView/webContents imports and the protocol service on the production
+objects. Native fs.watchFile/fs.watch have separate local acceptance. Its next failure
+is native @vscode/policy-watcher, whose V8 helper and Node/N-API addon need a genuine
+owned native policy adapter rather than a placeholder or disabled policy service. The metadata-only desktop source and empty-image
 APIs are implemented with separate policy/controlled-host/preflight acceptance;
 valid OS enumeration and media binding remain unaccepted. Notification and genuine read-only macOS powerMonitor component gates now pass;
 physical power transitions and actual OS notification delivery remain unaccepted.

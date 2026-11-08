@@ -43,6 +43,20 @@ add_dependencies(firefly-mite check-firefly-dependencies)
 add_library(firefly-protocol-routes STATIC "${CMAKE_CURRENT_LIST_DIR}/../protocol/routes/Files.cpp"
                                            "${CMAKE_CURRENT_LIST_DIR}/../protocol/routes/Host.cpp")
 target_link_libraries(firefly-protocol-routes PUBLIC firefly-protocol-file-server LibWebView LibJS)
+add_executable(firefly-protocol-route-host-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/RouteHostProbe.cpp")
+target_link_libraries(firefly-protocol-route-host-probe PRIVATE firefly-mite
+                                                                firefly-protocol-routes)
+ladybird_check_skia_confinement(firefly-protocol-route-host-probe)
+if(WIN32)
+    ladybird_windows_bin(firefly-protocol-route-host-probe CONSOLE)
+endif()
+add_custom_target(
+    check-firefly-protocol-route-host
+    COMMAND "$<TARGET_FILE:firefly-protocol-route-host-probe>"
+            "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/route-host.mjs"
+    DEPENDS firefly-protocol-route-host-probe
+    VERBATIM)
 # Main-origin registration uses LibJS/LibURL only; its acceptance must not need Qt windows.
 add_executable(
     firefly-protocol-registration-probe
@@ -468,12 +482,20 @@ add_custom_target(
     DEPENDS firefly
     VERBATIM)
 add_custom_target(
+    check-firefly-modern-protocol
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_modern_protocol.py"
+            --firefly "$<TARGET_FILE:firefly>"
+    DEPENDS firefly
+    VERBATIM)
+add_dependencies(check-firefly-public-protocol check-firefly-modern-protocol)
+add_custom_target(
     check-firefly-file-policy
     COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/file-policy.mjs"
     DEPENDS firefly-protocol-registration-probe
     VERBATIM)
 add_dependencies(check-firefly-protocol-registration check-firefly-file-policy)
+add_dependencies(check-firefly-protocol-registration check-firefly-protocol-route-host)
 add_custom_target(
     check-firefly-crash-reporter
     COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"

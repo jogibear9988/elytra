@@ -128,6 +128,6 @@ activation, Finder selection, OS launch/trash failure races and native Windows/
 Linux integration remain separate platform work.
 
 The actual pinned Code-OSS local-desktop/NLS ready diagnostic passes the shell
-export and next fails calling `session.defaultSession.protocol.handle`. Entry/app-ready observation
+export and the protocol service, then fails at native @vscode/policy-watcher. Entry/app-ready observation
 is not acceptance of a VS Code window or open/edit/save workflow. See
 [VS Code status](../compatibility/vscode.md).

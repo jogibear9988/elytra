@@ -254,6 +254,14 @@
     "gpuProcessMainService.ts": {
       "upstream": "src/vs/platform/gpu/electron-main/gpuProcessMainService.ts",
       "sha256": "cc165c72dcf3ec39189ad4c16f95083c6eba9210c3c0053eafd10ae4d4b46f96"
+    },
+    "protocolMainService.ts": {
+      "upstream": "src/vs/platform/protocol/electron-main/protocolMainService.ts",
+      "sha256": "13397168eca973c1de912fc7e245eb3fbd612d9923bcc4251f45fa10a94ae0cb"
+    },
+    "managedRemoteResourceProtocol.ts": {
+      "upstream": "src/vs/platform/protocol/electron-main/managedRemoteResourceProtocol.ts",
+      "sha256": "2889bad6ca1d92d77fd1b1537861d67b98b5d3d5917b709da413fa9b4cab6a37"
     }
   }
 }

@@ -198,6 +198,7 @@ export default function createFireflyApi(
       quitting = true;
       systemPreferencesService.stop();
       network.stop();
+      protocols.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -263,7 +264,8 @@ export default function createFireflyApi(
     () => exited,
     error,
     unsupported,
-    transport
+    transport,
+    () => protocols
   );
   const systemPreferencesService = createSystemPreferences(
     native,
@@ -323,7 +325,7 @@ export default function createFireflyApi(
   const { Menu, MenuItem } = menus;
   const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
-  const protocols = createProtocol(native, () => ready, error, unsupported);
+  const protocols = createProtocol(native, () => ready, error, unsupported, transport);
   const { protocol } = protocols;
   const defaultSession = Object.freeze({ protocol });
   const session = {};
@@ -358,6 +360,7 @@ export default function createFireflyApi(
     exited = true;
     systemPreferencesService.stop();
     network.stop();
+    protocols.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -772,7 +775,7 @@ export default function createFireflyApi(
       menus.dispatch(id, JSON.parse(data));
       return;
     }
-    if (type === 'protocol-request' || type === 'protocol-cancel') {
+    if (type === 'protocol-request' || type === 'protocol-cancel' || type === 'protocol-pull') {
       protocols.dispatch(type, JSON.parse(data));
       return;
     }

@@ -2,6 +2,7 @@
 #include "Session.h"
 #include "Documents.h"
 #include "loading/protocol/Client.h"
+#include "native/protocol/FilePolicy.h"
 #include <LibCore/System.h>
 #include <LibIPC/FireflyBootstrap.h>
 #include <LibURL/Parser.h>
@@ -89,6 +90,17 @@ namespace {
         return {};
     }
 
+    void receive_file_policy(IPC::Stub& stub, u64 generation, bool active)
+    {
+        if (!session || !session->thread.is_current_thread())
+            return;
+        // This NotRouted stub belongs to the authenticated main connection.
+        auto& connection = static_cast<WebContent::ConnectionFromClient&>(
+            static_cast<WebContentServerStub&>(stub));
+        (void)connection;
+        (void)Protocols::apply_file_policy(generation, active);
+    }
+
     void receive_document(
         IPC::Stub& stub, IPC::TransportHandle handle, Bytes::DocumentBinding binding)
     {
@@ -159,6 +171,10 @@ void initialize()
 {
     VERIFY(!session);
     session = new Session;
+    // Install before the first page: an active interception without a native grant
+    // must deny instead of falling through to the filesystem.
+    MUST(ensure_provider());
+    Bytes::set_file_policy_receiver(receive_file_policy);
     Bytes::set_navigation_receiver(receive);
     Bytes::set_document_receiver(receive_document);
     session->timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(250), [] {
@@ -170,6 +186,7 @@ void initialize()
 
 void shutdown()
 {
+    Bytes::set_file_policy_receiver({});
     Bytes::set_navigation_receiver({});
     Bytes::set_document_receiver({});
     if (!session)

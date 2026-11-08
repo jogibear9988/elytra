@@ -213,7 +213,9 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             auto url = URL::Parser::basic_parse(bytes);
             if (!url.has_value())
                 return vm.throw_completion<JS::TypeError>("Invalid URL"_utf16);
-            if (url->scheme() == "file"sv) {
+            // A registered response handler owns this URL. Do not touch the
+            // filesystem (even stat) before its authorization/response runs.
+            if (url->scheme() == "file"sv && !protocols->intercepts_file()) {
                 auto path = url->file_path();
                 std::error_code error;
                 if (path.contains('\0')

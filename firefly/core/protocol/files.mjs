@@ -1,9 +1,19 @@
 /** Queue application callbacks independently of native transport delivery and file bytes. */
-export default function createFileHandlers(native, isReady, error, standard) {
+export default function createFileHandlers(
+  native,
+  isReady,
+  error,
+  standard,
+  occupied = () => false
+) {
   const handlers = new Map();
   const pending = new Map();
+  let stopped = false;
 
   function ready() {
+    if (stopped) {
+      throw error('ERR_FIREFLY_APP_EXITED', 'Protocol application has exited');
+    }
     if (!isReady()) {
       throw error('ERR_FIREFLY_NOT_READY', 'Protocol handlers require app readiness');
     }
@@ -109,7 +119,7 @@ export default function createFileHandlers(native, isReady, error, standard) {
             'File handlers require a registered standard custom scheme with supportFetchAPI: true'
           );
         }
-        if (handlers.has(name)) {
+        if (handlers.has(name) || occupied(name)) {
           return false;
         }
         const generation = native.protocolRegisterFile(name);
@@ -142,7 +152,27 @@ export default function createFileHandlers(native, isReady, error, standard) {
 
     canLoad: (name) => handlers.has(name),
 
+    stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      pending.clear();
+      const names = [...handlers.keys()];
+      handlers.clear();
+      for (const name of names) {
+        try {
+          native.protocolUnregisterFile(name);
+        } catch {
+          /* Retire all legacy callbacks. */
+        }
+      }
+    },
+
     dispatch(type, request) {
+      if (stopped) {
+        return;
+      }
       if (type === 'protocol-cancel') {
         pending.delete(request.token);
         return;

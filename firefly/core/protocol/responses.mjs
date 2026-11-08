@@ -184,6 +184,39 @@ export default function createProtocolResponses(transport, error, unsupported) {
     };
   }
 
+  function invokeHandler(entry, request) {
+    return Promise.resolve()
+      .then(() => {
+        if (!current(entry)) {
+          throw entry.reason ?? canceled();
+        }
+        const invoke = entry.handler;
+        return invoke(request);
+      })
+      .then((response) => {
+        if (!current(entry)) {
+          // A late async handler may return a live stream after cancellation.
+          quiet(() => {
+            const body = responseBody.call(response);
+            if (body) {
+              return cancelStream.call(body, entry.reason);
+            }
+          });
+
+          throw entry.reason ?? canceled();
+        }
+        try {
+          return metadata(entry, response);
+        } catch (failure) {
+          const reason = [DATA, LIMIT, 'ERR_FIREFLY_PROTOCOL_NETWORK'].includes(failure?.code)
+            ? failure
+            : error(DATA, 'Invalid handler Response');
+          retire(entry, reason);
+          throw reason;
+        }
+      });
+  }
+
   async function start(id, generation, descriptor, handler) {
     identity(id, generation);
     if (stopped) {
@@ -237,36 +270,7 @@ export default function createProtocolResponses(transport, error, unsupported) {
       bytes: 0
     };
     active.set(id, entry);
-    const work = Promise.resolve()
-      .then(() => {
-        if (!current(entry)) {
-          throw entry.reason ?? canceled();
-        }
-        const invoke = entry.handler;
-        return invoke(request);
-      })
-      .then((response) => {
-        if (!current(entry)) {
-          // A late async handler may return a live stream after cancellation.
-          quiet(() => {
-            const body = responseBody.call(response);
-            if (body) {
-              return cancelStream.call(body, entry.reason);
-            }
-          });
-
-          throw entry.reason ?? canceled();
-        }
-        try {
-          return metadata(entry, response);
-        } catch (failure) {
-          const reason = [DATA, LIMIT, 'ERR_FIREFLY_PROTOCOL_NETWORK'].includes(failure?.code)
-            ? failure
-            : error(DATA, 'Invalid handler Response');
-          retire(entry, reason);
-          throw reason;
-        }
-      });
+    const work = invokeHandler(entry, request);
     try {
       return await Promise.race([work, cancellation]);
     } catch (failure) {

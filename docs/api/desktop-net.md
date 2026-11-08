@@ -41,7 +41,7 @@ redirect modes and gzip/deflate decoding use captured original Mite primitives.
 Public global fetch and HTTP module replacements cannot replace that private
 transport. Response URL/redirected metadata, header guards and clones are preserved.
 
-Both admission and each redirect check the current system-proxy snapshot. A
+Each HTTP(S) transport hop checks the current system-proxy snapshot. A
 configured proxy, SOCKS, PAC/WPAD or scoped/supplemental route is explicitly
 unsupported; malformed/undetermined proxy snapshots fail closed. The current
 conservative detector rejects a configured route even if an exception might bypass
@@ -55,11 +55,21 @@ intentionally retains stricter stripping. Method/body rewriting follows the test
 are explicitly unsupported; buffered ClientRequest bodies have a separate replay path.
 
 Supported explicit credentials mode is omit; session credentials are unavailable.
-Cache default/no-store are accepted, but there is no shared HTTP cache. Explicit
-bypassCustomProtocolHandlers:true is accepted for the built-in HTTP(S) path.
-Custom/file/data/blob schemes, custom interception, webRequest hooks, session/
-partition selection, session cookies/authentication, priority, nonempty referrer/
-integrity policies, disabled TLS verification and custom agents fail explicitly.
+Cache default/no-store are accepted, but there is no shared HTTP cache. Main-process
+fetch dispatches registered modern default-session handlers, including file; redirects
+select the appropriate handler or HTTP(S) transport per hop. Custom handlers do not
+consult the OS proxy snapshot. Abort, body cancellation and app shutdown retire these
+requests too. Cross-host custom redirects strip credentials even though WHATWG URL
+represents custom origins as null. See the [protocol contract](protocol.md).
+
+bypassCustomProtocolHandlers:true skips that registry; false/default enables it.
+Bypass has an HTTP(S) transport only: an unhandled or bypassed file/custom URL fails
+explicitly instead of reading files. Legacy registerFileProtocol callbacks are not
+main fetch handlers. Utility fetch has no default-session registry or renderer
+capability. This does not change standalone Mite fetch. HTTP(S) interception,
+data/blob, webRequest hooks, session/partition selection, session cookies/authentication,
+priority, nonempty referrer/integrity policies, disabled TLS verification and custom
+agents remain unsupported.
 This is an isolated stateless transport: it does **not** share renderer/default-
 session cookies, authentication cache or proxy behavior with Electron's session stack.
 

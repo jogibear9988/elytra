@@ -20,13 +20,21 @@ CORS_HOOK = "            && !Firefly::Protocols::is_cors_scheme(request->current
 NETWORK_SEAM = "GC::Ref<PendingResponse> http_network_or_cache_fetch(JS::Realm& realm, Infrastructure::FetchParams const& fetch_params, IsAuthenticationFetch is_authentication_fetch, IsNewConnectionFetch is_new_connection_fetch)\n{\n"
 NETWORK_HOOK = "    if (auto response = Firefly::ProtocolFetch::dispatch(fetch_params))\n        return *response;\n\n"
 
+FILE_INTERCEPT_SEAM = '        // -> request’s current URL’s origin is same origin with request’s origin, and request’s response tainting is "basic"\n'
+FILE_INTERCEPT_HOOK = "        if (auto intercepted = Firefly::ProtocolFetch::dispatch_file_interception(*fetch_params))\n            return *intercepted;\n\n"
+
 
 def adapt(source):
-    if any(source.count(seam) != 1 for seam in (SEAM, PROTOCOL_SEAM, CORS_SEAM, NETWORK_SEAM)):
+    if any(
+        source.count(seam) != 1
+        for seam in (SEAM, PROTOCOL_SEAM, CORS_SEAM, NETWORK_SEAM, FILE_INTERCEPT_SEAM)
+    ):
         raise ValueError("Review the file module fetch condition")
     return PREFIX + source.replace(SEAM, SEAM + HOOK).replace(
         PROTOCOL_SEAM, PROTOCOL_HOOK + PROTOCOL_SEAM
-    ).replace(CORS_SEAM, CORS_SEAM + CORS_HOOK).replace(NETWORK_SEAM, NETWORK_SEAM + NETWORK_HOOK)
+    ).replace(CORS_SEAM, CORS_SEAM + CORS_HOOK).replace(
+        NETWORK_SEAM, NETWORK_SEAM + NETWORK_HOOK
+    ).replace(FILE_INTERCEPT_SEAM, FILE_INTERCEPT_HOOK + FILE_INTERCEPT_SEAM)
 
 
 def main():
@@ -44,6 +52,7 @@ def main():
         .replace(PROTOCOL_HOOK + PROTOCOL_SEAM, PROTOCOL_SEAM)
         .replace(CORS_SEAM + CORS_HOOK, CORS_SEAM)
         .replace(NETWORK_SEAM + NETWORK_HOOK, NETWORK_SEAM)
+        .replace(FILE_INTERCEPT_HOOK + FILE_INTERCEPT_SEAM, FILE_INTERCEPT_SEAM)
         == original
     )
     for invalid in [
@@ -56,6 +65,8 @@ def main():
         original.replace(CORS_SEAM, ""),
         original + NETWORK_SEAM,
         original.replace(NETWORK_SEAM, ""),
+        original + FILE_INTERCEPT_SEAM,
+        original.replace(FILE_INTERCEPT_SEAM, ""),
     ]:
         try:
             adapt(invalid)

@@ -66,4 +66,10 @@ void set_ipc_receiver(IpcReceiver);
 void accept_ipc(IPC::Stub&, IPC::TransportHandle, u64 page, u64 navigable_namespace,
     u64 navigable_local, u64 document_namespace, u64 document_local, String realm, u64 epoch);
 
+// Authenticated main-to-helper process policy; no page/preload registration surface.
+using FilePolicyReceiver = Function<void(IPC::Stub&, u64 generation, bool active)>;
+void set_file_policy_receiver(FilePolicyReceiver);
+
+void accept_file_policy(IPC::Stub&, u64 generation, bool active);
+
 }

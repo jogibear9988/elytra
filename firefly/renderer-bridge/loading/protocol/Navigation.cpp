@@ -1,5 +1,6 @@
 /** Native intent fields cannot be supplied by page fetch, links, workers or subframes. */
 #include "Navigation.h"
+#include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/Fetch/Infrastructure/ClientContextSnapshot.h>
@@ -17,10 +18,11 @@ Navigation::Navigation(Web::HTML::LocalNavigable& navigable, URL::URL url, Utf16
 ErrorOr<NonnullOwnPtr<Navigation>> Navigation::create(
     Web::HTML::LocalNavigable& navigable, URL::URL url, Utf16String id)
 {
+    bool file = url.scheme() == "file"sv && Protocols::file_policy_snapshot().active;
     if (navigable.has_been_destroyed() || !navigable.is_top_level_traversable()
         || !navigable.active_document() || !navigable.active_document()->is_fully_active()
-        || !Protocols::is_standard_scheme(url.scheme()) || url.origin().is_opaque() || id.is_empty()
-        || id.length_in_code_units() > 1024)
+        || (!file && !Protocols::is_standard_scheme(url.scheme()))
+        || (!file && url.origin().is_opaque()) || id.is_empty() || id.length_in_code_units() > 1024)
         return Error::from_string_literal("Invalid native navigation intent");
     auto owner = TRY(
         adopt_nonnull_own_or_enomem(new (nothrow) Navigation(navigable, move(url), move(id))));
@@ -38,7 +40,8 @@ bool Navigation::active() const
         return false;
     if (document.ptr() != m_source.ptr()) {
         if (!m_used || !document->url().equals(m_url, URL::ExcludeFragment::Yes)
-            || !document->origin().is_same_origin(m_url.origin())
+            || (m_url.scheme() == "file"sv ? !document->origin().is_file_origin()
+                                           : !document->origin().is_same_origin(m_url.origin()))
             || (m_destination && document.ptr() != m_destination.ptr()))
             return false;
         m_destination = *document;

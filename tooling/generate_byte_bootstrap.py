@@ -42,6 +42,15 @@ IPC_BODY = """    virtual void firefly_connect_ipc(IPC::TransportHandle handle, 
         Firefly::Bytes::accept_ipc(*this, move(handle), page, ns, local, document_ns, document_local, move(realm), epoch);
     }"""
 
+POLICY_METHOD = "\n    [NotRouted] firefly_file_protocol_policy(u64 generation, bool active) =|\n"
+POLICY_DECLARATION = (
+    "    virtual void firefly_file_protocol_policy(u64 generation, bool active) = 0;"
+)
+POLICY_BODY = """    virtual void firefly_file_protocol_policy(u64 generation, bool active)
+    {
+        Firefly::Bytes::accept_file_policy(*this, generation, active);
+    }"""
+
 
 def extend(source):
     if (
@@ -51,15 +60,26 @@ def extend(source):
         or "firefly_connect_navigation" in source
         or "firefly_connect_document" in source
         or "firefly_connect_ipc" in source
+        or "firefly_file_protocol_policy" in source
     ):
         raise ValueError("Review pinned control endpoint layout")
-    result = INCLUDE + source[:-2] + METHOD + NAV_METHOD + DOC_METHOD + IPC_METHOD + "}\n"
+    result = (
+        INCLUDE
+        + source[:-2]
+        + METHOD
+        + NAV_METHOD
+        + DOC_METHOD
+        + IPC_METHOD
+        + POLICY_METHOD
+        + "}\n"
+    )
     assert (
         result.removeprefix(INCLUDE)
         .replace(METHOD, "")
         .replace(NAV_METHOD, "")
         .replace(DOC_METHOD, "")
         .replace(IPC_METHOD, "")
+        .replace(POLICY_METHOD, "")
         == source
     )
     return result
@@ -118,12 +138,13 @@ def main():
         before, after = message_ids(original_header.read_text()), message_ids(header)
         if (
             not before
-            or len(after) != len(before) + 4
+            or len(after) != len(before) + 5
             or any(after.get(name) != number for name, number in before.items())
             or after.get("FireflyConnectByteChannel") != max(before.values()) + 1
             or after.get("FireflyConnectNavigation") != max(before.values()) + 2
             or after.get("FireflyConnectDocument") != max(before.values()) + 3
             or after.get("FireflyConnectIpc") != max(before.values()) + 4
+            or after.get("FireflyFileProtocolPolicy") != max(before.values()) + 5
         ):
             raise ValueError("Existing control message IDs changed")
         if (
@@ -131,6 +152,7 @@ def main():
             or header.count(NAV_DECLARATION) != 1
             or header.count(DOC_DECLARATION) != 1
             or header.count(IPC_DECLARATION) != 1
+            or header.count(POLICY_DECLARATION) != 1
             or not implementation.is_file()
         ):
             raise ValueError("Review owned control stub seam")
@@ -139,6 +161,7 @@ def main():
             .replace(NAV_DECLARATION, NAV_BODY)
             .replace(DOC_DECLARATION, DOC_BODY)
             .replace(IPC_DECLARATION, IPC_BODY)
+            .replace(POLICY_DECLARATION, POLICY_BODY)
         )
         output.write_text(header)
         # A duplicate declaration must fail rather than gain another control route.

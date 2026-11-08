@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PREFIX = '#include "native/protocol/OriginPolicy.h"\n'
+PREFIX = '#include "native/protocol/OriginPolicy.h"\n#include "native/protocol/FilePolicy.h"\n'
 ENTRIES = {
     "FetchURL.cpp": (
         "Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp",
@@ -18,7 +18,7 @@ ENTRIES = {
         "Libraries/LibWebView/HelperProcess.cpp",
         "b534514372909dec44a6a31738825e0d92aabea923add1fa2067647f82a1d888",
         '    auto client = TRY(launch_server_process<WebView::WebContentClient>("WebContent"sv, move(arguments), is_private, initial_page_id, root_navigable_id));\n',
-        '    if (auto configuration = Firefly::Protocols::configuration_for_helper_launch(); configuration.has_value())\n        arguments.append(ByteString::formatted("--firefly-origin-policy={}", *configuration));\n\n',
+        '    if (auto configuration = Firefly::Protocols::configuration_for_helper_launch(); configuration.has_value())\n        arguments.append(ByteString::formatted("--firefly-origin-policy={}", *configuration));\n    if (Firefly::Protocols::file_policy_snapshot().generation != 0)\n        arguments.append(ByteString::formatted("--firefly-file-policy={}", Firefly::Protocols::file_policy_for_helper_launch()));\n\n',
     ),
     "SecureContexts.cpp": (
         "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp",
@@ -47,6 +47,14 @@ def prepare(output):
             )
         source = data.decode("utf-8")
         planned[name] = adapt(source, seam, hook)
+        if name == "HelperProcess.cpp":
+            guarded_file_argument = (
+                "    if (Firefly::Protocols::file_policy_snapshot().generation != 0)\n"
+                '        arguments.append(ByteString::formatted("--firefly-file-policy={}", '
+                "Firefly::Protocols::file_policy_for_helper_launch()));\n"
+            )
+            if planned[name].count(guarded_file_argument) != 1:
+                raise AssertionError("Default upstream helper must not receive private file flags")
         for invalid in ["", source + seam, source.replace(seam, "")]:
             try:
                 adapt(invalid, seam, hook)

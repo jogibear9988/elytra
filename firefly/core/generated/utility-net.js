@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 // firefly/core/net/index.mjs
-function createNet(native, isReady, isExited, error, unsupported, transport) {
+function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null) {
   if (!transport) {
     const fail = () => unsupported("net captured transport");
     let stopped2 = false;
@@ -74,9 +74,9 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
       unsupported("net configured proxy/PAC");
     }
   }
-  function url(value, base) {
+  function url(value, base, custom = false) {
     const result = new URL(value, base);
-    if (!["http:", "https:"].includes(result.protocol)) {
+    if (!["http:", "https:"].includes(result.protocol) && !(custom && protocols()?.canHandle(result.href))) {
       unsupported("net URL scheme " + result.protocol);
     }
     if (result.username || result.password) {
@@ -109,8 +109,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
         unsupported("net option " + name);
       }
     }
-    if (result.bypassCustomProtocolHandlers !== void 0 && result.bypassCustomProtocolHandlers !== true) {
-      unsupported("net custom protocol interception");
+    if (result.bypassCustomProtocolHandlers !== void 0 && typeof result.bypassCustomProtocolHandlers !== "boolean") {
+      throw error("ERR_INVALID_ARG_TYPE", "bypassCustomProtocolHandlers must be a boolean");
     }
     if (result.agent !== void 0 && result.agent !== null) {
       unsupported("net agent");
@@ -209,10 +209,11 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
       response.headers
     );
   }
-  function nextHop(endpoint, method, headers, body, status, location) {
-    const target = url(location, endpoint);
+  function nextHop(endpoint, method, headers, body, status, location, custom = false) {
+    const target = url(location, endpoint, custom);
     const fields = new Headers(headers);
-    if (target.origin !== endpoint.origin) {
+    const sameOrigin = target.origin !== "null" && endpoint.origin !== "null" ? target.origin === endpoint.origin : target.protocol === endpoint.protocol && target.host === endpoint.host;
+    if (!sameOrigin) {
       for (const name of ["authorization", "proxy-authorization", "cookie"]) {
         fields.delete(name);
       }
@@ -239,7 +240,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
     if (original.credentials === "include") {
       unsupported("net session credentials");
     }
-    let endpoint = url(original.url);
+    const custom = selected.bypassCustomProtocolHandlers !== true;
+    let endpoint = url(original.url, void 0, custom);
     let method = original.method;
     let fields = new Headers(original.headers);
     let body = original.body;
@@ -247,8 +249,12 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
-        proxy();
-        const response = await fetchTransport(endpoint.href, {
+        const registry = custom ? protocols() : null;
+        const handled = registry?.canHandle(endpoint.href);
+        if (!handled) {
+          proxy();
+        }
+        const options = {
           method,
           headers: fields,
           body,
@@ -257,7 +263,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
           signal: entry.controller.signal,
           credentials: "omit",
           cache: original.cache
-        });
+        };
+        const response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
         alive();
         const location = response.headers.get("location");
         if (!redirects.has(response.status) || !location || mode === "manual") {
@@ -270,7 +277,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
         if (count >= 20) {
           throw error("ERR_FIREFLY_NET_REDIRECT", "Too many redirects");
         }
-        const next = nextHop(endpoint, method, fields, body, response.status, location);
+        const next = nextHop(endpoint, method, fields, body, response.status, location, custom);
         if (next.body !== null) {
           unsupported("net.fetch replay of redirected streaming body");
         }

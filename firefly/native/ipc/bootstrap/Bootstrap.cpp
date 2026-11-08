@@ -49,6 +49,17 @@ namespace {
 
     NeverDestroyed<RefPtr<IpcCallback>> ipc_receiver;
 
+    struct FilePolicyCallback : RefCounted<FilePolicyCallback> {
+        explicit FilePolicyCallback(FilePolicyReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        FilePolicyReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<FilePolicyCallback>> file_policy_receiver;
+
 }
 
 void set_bootstrap_receiver(BootstrapReceiver callback)
@@ -94,8 +105,7 @@ void accept_document(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u64
 {
     auto callback = document_receiver.get();
     if (!callback || !epoch || !ns || !local || !document_ns || !document_local
-        || navigation.is_empty() || navigation.length_in_code_units() > 1024 || url.is_empty()
-        || url.bytes().size() > 8192)
+        || navigation.length_in_code_units() > 1024 || url.is_empty() || url.bytes().size() > 8192)
         return;
     callback->callback(stub, move(handle),
         { { page, ns, local, move(navigation), move(url), epoch }, document_ns, document_local });
@@ -116,6 +126,19 @@ void accept_ipc(IPC::Stub& stub, IPC::TransportHandle handle, u64 page, u64 ns, 
         return;
     callback->callback(
         stub, move(handle), { page, ns, local, document_ns, document_local, move(realm), epoch });
+}
+
+void set_file_policy_receiver(FilePolicyReceiver value)
+{
+    file_policy_receiver.get()
+        = value ? adopt_ref(*new FilePolicyCallback(move(value))) : RefPtr<FilePolicyCallback> {};
+}
+
+void accept_file_policy(IPC::Stub& stub, u64 generation, bool active)
+{
+    auto callback = file_policy_receiver.get();
+    if (callback && (generation || !active))
+        callback->callback(stub, generation, active);
 }
 
 }

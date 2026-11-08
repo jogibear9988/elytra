@@ -2,8 +2,10 @@
 
 Status: partial main-process API with local macOS Release acceptance. Standard/
 secure origins and default-session file callbacks load real custom-origin windows
-and their resources, including a bounded opt-in CORS file-fetch subset. General Response handlers, partitions and broader Electron
-compatibility remain unfinished.
+and their resources, including a bounded opt-in CORS file-fetch subset. Modern
+Response handlers, default-session net.fetch dispatch and native file interception
+have local component/public acceptance; partitions and broader Electron compatibility
+remain unfinished.
 
 ## Register and load an application bundle
 
@@ -160,6 +162,71 @@ do not treat resources://bundle as an accepted CSP host source. Main must still
 allowlist target URLs and native paths. A target's CORS flag alone authorizes neither
 an origin nor a file. BypassCSP and broader Electron privilege parity remain absent.
 
+## protocol.handle(scheme, handler) and protocol.unhandle(scheme)
+
+After readiness, handle returns undefined and registers a function returning a genuine
+Response or Promise<Response>. Custom schemes require standard and supportFetchAPI
+registration above. Builtin file is also supported; HTTP(S) interception and other
+builtin schemes are unavailable. Legacy and modern handlers share a collision table:
+handle throws ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED for an existing handler;
+registerFileProtocol returns false. unhandle returns undefined and removes a modern
+handler. isProtocolHandled synchronously reports either kind.
+
+```js
+protocol.handle('app', async (request) => {
+  if (new URL(request.url).pathname === '/health') {
+    return new Response('ready', {headers: {'Content-Type': 'text/plain'}});
+  }
+  return new Response(null, {status: 404});
+});
+```
+
+The handler receives a genuine captured Request. Renderer URL/method and the optional
+cross-origin Origin header come from the native document/navigation binding. Other
+request headers, upload bodies, webContentsId and initiatorOrigin are not supplied;
+do not infer trusted initiator identity from ordinary Request defaults. Renderer
+GET/HEAD only, top-level owned documents/navigation, no ranges, workers or child frames.
+Main net.fetch carries its own genuine Request fields and shares this registry.
+
+Responses preserve status 200–599, MIME/HTTP headers, binary data, nullable bodies and
+known or unknown lengths. Response.error(), rejected handlers and body errors become
+network errors. Body reads require consumer credit, at most 64 KiB per native chunk;
+no complete-body/base64 IPC conversion occurs. One source chunk may be at most 1 MiB;
+larger chunks fail explicitly. At most 64 pending process requests, 64 headers,
+32 KiB encoded head metadata, 64 GiB streamed body and 30 seconds per native request
+are accepted. Native navigation remains limited to 16 MiB. Declared Content-Length
+must match actual EOF; HEAD and 204/205/304 do not deliver a body. HTTP framing headers
+are refused, upstream CORS/CSP and forbidden-header filtering still apply, and custom
+status text is not carried into renderer responses.
+
+Request.signal and body readers are canceled on native navigation/document/channel
+retirement, timeout, unhandle, window close and application shutdown. Late async
+handlers, body results and generations cannot revive a retired request. Removing a
+custom target conservatively retires the entire document channel; reload to rebind.
+
+### Intercepting file
+
+```js
+protocol.handle('file', () => Response.error()); // Deny native file loading.
+```
+
+Register before opening windows when establishing an application-wide file policy.
+New helpers inherit the native generation before creating a page. Existing helpers
+receive ordered authenticated control updates and refreshed bindings for the actual
+committed document. Missing/stale bindings fail closed while interception is active.
+Updates precede subsequent main-issued grants/navigation; they do not atomically
+cancel requests already started in a renderer before that update is received.
+
+Interception runs before native file access, including the main load-file stat check.
+A handler can return its own HTML or binary response without an existing file. It
+never grants the renderer a native path or classifies file as a privileged custom
+origin. Programmatic file requests are admitted only from an actual owned file
+Window with matching native settings/document identity; other sources remain refused.
+The narrow Fetch integration preserves prior CSP/mixed-content checks. Removing the
+handler restores ordinary upstream file behavior, including its existing restrictions;
+it does not grant general file fetch access. Re-enabling interception refreshes
+existing committed file documents.
+
 ## protocol.unregisterProtocol(scheme)
 
 After readiness, returns whether a handler existed. Remove it, revoke its channels
@@ -173,8 +240,9 @@ are not automatically rebound in this implementation.
 
 ## protocol.isProtocolHandled(scheme)
 
-After readiness, synchronously returns whether this default-session file handler
-exists. Built-in protocols are not reported as custom handlers.
+After readiness, synchronously returns whether this default session has a registered
+legacy or modern handler, including an explicitly intercepted file scheme. An ordinary
+builtin protocol without an application handler is not reported as handled.
 
 ## Errors and remaining API
 
@@ -186,21 +254,29 @@ ERR_FIREFLY_PROTOCOL_TOO_LATE; repeated registration or helper-launch sealing us
 ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED. Requested unsupported capabilities use
 ERR_FIREFLY_UNSUPPORTED_API. File-open failures and explicit denial reject loadURL
 with ERR_FAILED; pending loads cancelled by window/app lifecycle use ERR_ABORTED.
+Main fetch Response.error uses ERR_FIREFLY_PROTOCOL_NETWORK; malformed response
+metadata/lengths use ERR_FIREFLY_PROTOCOL_DATA, bounded controller budgets use
+ERR_FIREFLY_PROTOCOL_LIMIT, and retired main requests use ERR_FIREFLY_PROTOCOL_CANCELED
+unless an original AbortSignal reason is available. Renderer failures remain network
+errors rather than exposing these private main-process error details.
 
-handle/unhandle, net.fetch protocol dispatch, protocol interception, custom partitions, broader
-request fields/privileges and in-place document rebinding remain unavailable. The
-pinned Code-OSS entry still needs additional privileges/APIs. Its explicit local
-desktop adaptation currently reaches ProtocolMainService and stops at missing
-defaultSession.protocol.handle; its ordinary file-denial handler must be enforced
-before any native file access. No workbench launch follows from this subset.
-
-Internal streamed-response transport now supports status, binary bodies, unknown
-lengths, consumer credit and cancellation, with native/LibWeb component validation.
-It is not yet connected to public handler registration. See
-[ADR 0174](../architecture/0174-streamed-protocol-responses.md) for the integration
-boundaries and remaining work.
+Custom partitions, HTTP(S)/other builtin interception, broader request fields,
+workers/frames and additional privileges remain unavailable. The unchanged pinned
+Code-OSS ProtocolMainService now passes genuine file-denial and managed-remote
+404/500/binary/MIME consumer tests. The actual local-desktop/NLS startup advances
+past this service to the native @vscode/policy-watcher dependency. No workbench or
+workspace open/edit/save acceptance follows from this subset. See
+[ADR 0175](../architecture/0175-public-response-protocols.md).
 
 ## Validation
+
+check-firefly-modern-protocol batches genuine public main/renderer status, binary
+streaming, HEAD, network errors, cancellation/generation replacement, legacy routes,
+file policy removal/reactivation, and closed-owner cleanup. It is included in the
+public-protocol gate. The local run uses the exact production application objects
+with a static Qt offscreen frontend, without visible desktop interaction. Additional
+native policy and real Host/GC tests exercise strict admission and malformed input;
+Node/Mite policy tests distinguish controlled peers from native acceptance.
 
 check-firefly-protocol-registration checks real LibJS/native origin publication and
 JS callback policy without windows. check-firefly-protocol-host checks actual main

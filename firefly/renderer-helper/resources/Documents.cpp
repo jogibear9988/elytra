@@ -1,5 +1,6 @@
 /** Resolve actual local fetch settings; URL/origin equality cannot authorize another document. */
 #include "Documents.h"
+#include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include <LibCore/System.h>
 #include <LibURL/Parser.h>
@@ -19,12 +20,24 @@ ErrorOr<void> Documents::receive(WebContent::ConnectionFromClient& connection,
     Web::HTML::CrossProcessId id { binding.document_namespace, binding.document_local };
     auto page = connection.page_host().page(Web::PageId { binding.navigation.page });
     auto url = URL::Parser::basic_parse(binding.navigation.url);
-    if (!page.has_value() || !url.has_value() || !Protocols::is_standard_scheme(url->scheme())
-        || url->origin().is_opaque() || m_records.contains(id) || m_records.size() >= 32)
+    bool intercept = Protocols::file_policy_snapshot().active;
+    if (!page.has_value() || !url.has_value()
+        || (!intercept && !Protocols::is_standard_scheme(url->scheme()))
+        || (url->scheme() != "file"sv && url->origin().is_opaque())
+        || (!m_records.contains(id) && m_records.size() >= 32))
         return Error::from_string_literal("Document channel outside admitted page/URL/budget");
-    // The selected host may not have created the document/local navigable yet.
-    // Bind neither an existing same-origin document nor the initial about:blank.
+    // A grant may precede document creation or refresh that exact committed ID.
+    // Neither a same-origin neighbor nor a URL-only match can select its owner.
     auto transport = TRY(handle.create_transport());
+    auto previous = m_records.find(id);
+    if (previous != m_records.end()) {
+        if (previous->value.binding.navigation.epoch >= binding.navigation.epoch)
+            return Error::from_string_literal("Native document refresh epoch regressed");
+        if (previous->value.client)
+            previous->value.client->revoke();
+        m_records.remove(id);
+    }
+
     TRY(m_records.try_set(id,
         Record { move(binding), url.release_value(), move(transport), nullptr, {},
             MonotonicTime::now() }));
@@ -53,7 +66,9 @@ ErrorOr<NonnullRefPtr<ProtocolFetch::Response>> Documents::fetch(
             != Web::HTML::CrossProcessId { binding.navigable_namespace, binding.navigable_local }
         || document.page().client().id().value() != binding.page
         || !document.url().equals(record.url, URL::ExcludeFragment::Yes)
-        || !document.origin().is_same_origin(record.url.origin()))
+        || (record.url.scheme() == "file"sv
+                ? !document.origin().is_file_origin()
+                : !document.origin().is_same_origin(record.url.origin())))
         return Error::from_string_literal("Native document identity is not active/current");
     if (!record.client) {
         if (!record.transport)

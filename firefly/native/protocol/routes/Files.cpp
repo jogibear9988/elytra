@@ -3,14 +3,17 @@
 #include "native/protocol/OriginPolicy.h"
 #include <AK/JsonObject.h>
 #include <LibURL/Parser.h>
+#include <LibWebView/CanonicalDocument.h>
+#include <LibWebView/CanonicalTraversable.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
 
 namespace Firefly::Protocols {
-FileRoutes::FileRoutes(OwnsRoot owns, Send send, Failure failure)
+FileRoutes::FileRoutes(OwnsRoot owns, Send send, Failure failure, PolicyChanged policy_changed)
     : m_owns(move(owns))
     , m_send(move(send))
     , m_failure(move(failure))
+    , m_policy_changed(move(policy_changed))
 {
 }
 
@@ -19,17 +22,26 @@ FileRoutes::~FileRoutes()
     stop();
 }
 
-ErrorOr<Optional<u64>> FileRoutes::register_route(StringView scheme)
+ErrorOr<Optional<u64>> FileRoutes::register_route(StringView scheme, bool modern)
 {
-    if (m_stopped || !is_standard_scheme(scheme))
+    VERIFY(m_thread == AK::ThreadID::current());
+    if (m_stopped || (!is_standard_scheme(scheme) && !(modern && scheme == "file"sv)))
         return Error::from_string_literal(
             "File routes require a registered standard custom scheme");
     if (m_routes.contains(scheme))
         return Optional<u64> {};
     if (m_routes.size() >= 32 || m_next_generation == NumericLimits<u64>::max())
         return Error::from_string_literal("File route budget exhausted");
+    if (modern && scheme == "file"sv && m_file_policy_generation >= NumericLimits<u64>::max() - 1)
+        return Error::from_string_literal("File interception policy generation exhausted");
     auto generation = ++m_next_generation;
-    TRY(m_routes.try_set(ByteString(scheme), generation));
+    TRY(m_routes.try_set(ByteString(scheme), Route { generation, modern }));
+    if (modern && scheme == "file"sv) {
+        ++m_file_policy_generation;
+        if (m_policy_changed)
+            m_policy_changed(m_file_policy_generation, true);
+    }
+
     return Optional<u64> { generation };
 }
 
@@ -38,10 +50,24 @@ bool FileRoutes::has_route(StringView scheme) const
     return !m_stopped && m_routes.contains(scheme);
 }
 
+bool FileRoutes::intercepts_file() const
+{
+    auto route = m_routes.find("file"sv);
+    return !m_stopped && route != m_routes.end() && route->value.modern;
+}
+
 bool FileRoutes::unregister_route(StringView scheme)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
+    bool file = scheme == "file"sv && intercepts_file();
     if (!m_routes.remove(scheme))
         return false;
+    if (file) {
+        ++m_file_policy_generation;
+        if (m_policy_changed)
+            m_policy_changed(m_file_policy_generation, false);
+    }
+
     Vector<u64> retired;
     for (auto const& channel : m_channels)
         if (channel.value.url.scheme() == scheme || channel.value.targets.contains(scheme))
@@ -56,6 +82,7 @@ bool FileRoutes::unregister_route(StringView scheme)
 
 void FileRoutes::retire(u64 id)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     auto found = m_channels.find(id);
     if (found == m_channels.end())
         return;
@@ -67,6 +94,7 @@ void FileRoutes::retire(u64 id)
 
 void FileRoutes::sweep()
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     Vector<u64> retired;
     for (auto const& channel : m_channels)
         if (!channel.value.server->is_open() || !m_owns(channel.value.root))
@@ -77,23 +105,32 @@ void FileRoutes::sweep()
 
 void FileRoutes::stop()
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     if (m_stopped)
         return;
     m_stopped = true;
     revoke_weak_ptrs();
-    m_pending.clear();
-    for (auto& channel : m_channels)
+    // Make every lookup terminal before reader cancellation/application callbacks.
+    auto pending = move(m_pending);
+    m_pending = {};
+    auto channels = move(m_channels);
+    m_channels = {};
+    for (auto& channel : channels)
         channel.value.server->revoke();
-    m_channels.clear();
+    for (auto& entry : pending)
+        if (entry.value.pull)
+            (void)entry.value.pull(Error::from_errno(ECANCELED));
     m_routes.clear();
     m_owns = {};
     m_send = {};
     m_failure = {};
+    m_policy_changed = {};
 }
 
 ErrorOr<void> FileRoutes::navigation(
     WebView::WebContentPage& page, Web::HTML::NavigationPopulationRequest const& request)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     if (m_stopped || !m_owns(request.navigable_id))
         return {};
     sweep();
@@ -119,6 +156,7 @@ ErrorOr<void> FileRoutes::document(WebView::WebContentPage& page,
     Web::HTML::NavigationPopulationRequest const& request,
     Web::HTML::NavigationPopulationResult const& result)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     if (m_stopped || !m_owns(request.navigable_id))
         return {};
     // Replacement revokes old document routes even when the new URL is built-in.
@@ -130,7 +168,10 @@ ErrorOr<void> FileRoutes::document(WebView::WebContentPage& page,
         retire(id);
     auto const* params
         = result.navigation_params.get_pointer<Web::HTML::NavigationParamsDescriptor>();
-    if (!has_route(request.history_entry.url.scheme()) || !result.document_id.has_value() || !params
+    auto file_route = m_routes.find("file"sv);
+    bool intercepted_file = file_route != m_routes.end() && file_route->value.modern;
+    if ((!has_route(request.history_entry.url.scheme()) && !intercepted_file)
+        || !result.document_id.has_value() || !params
         || params->response.network_error_message.has_value())
         return {};
     auto granted = grant(page, request, result.document_id);
@@ -139,19 +180,54 @@ ErrorOr<void> FileRoutes::document(WebView::WebContentPage& page,
     return granted;
 }
 
+ErrorOr<void> FileRoutes::refresh_document(WebView::WebContentPage& page)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    if (m_stopped || !intercepts_file())
+        return {};
+    auto& root = page.traversable();
+    auto& document = root.active_document();
+    if (!m_owns(root.id()) || document.host() != &page)
+        return {};
+    sweep();
+    Vector<u64> retired;
+    for (auto const& channel : m_channels) {
+        if (!channel.value.document || channel.value.root != root.id())
+            continue;
+        if (channel.value.document_id == document.id())
+            return {}; // The existing document channel already accepts current target routes.
+        retired.append(channel.key);
+    }
+
+    for (auto id : retired)
+        retire(id);
+    return grant(page, root.id(),
+        root.active_document_load().navigation_id.value_or(Utf16String {}),
+        root.active_document_url(), document.id());
+}
+
 ErrorOr<void> FileRoutes::grant(WebView::WebContentPage& page,
     Web::HTML::NavigationPopulationRequest const& request, Optional<Root> document)
+{
+    return grant(
+        page, request.navigable_id, request.navigation_id, request.history_entry.url, document);
+}
+
+ErrorOr<void> FileRoutes::grant(WebView::WebContentPage& page, Root root,
+    Utf16String const& navigation, URL::URL const& url, Optional<Root> document)
 {
     sweep();
     if (m_channels.size() >= 64 || m_next_channel == NumericLimits<u64>::max())
         return Error::from_string_literal("Native file channel budget exhausted");
-    auto route = m_routes.find(request.history_entry.url.scheme());
-    if (route == m_routes.end())
+    auto route = m_routes.find(url.scheme());
+    auto file_route = m_routes.find("file"sv);
+    if (route == m_routes.end()
+        && !(document.has_value() && file_route != m_routes.end() && file_route->value.modern))
         return Error::from_string_literal("Native file route has ended");
     auto epoch = ++m_next_channel;
     auto pair = TRY(IPC::Transport::create_paired());
     auto weak = make_weak_ptr();
-    auto server = TRY(FileServer::create_async(
+    auto server = TRY(FileServer::create_responses(
         move(pair.local), epoch,
         [weak, epoch](auto request, auto complete) {
             if (auto self = weak.strong_ref())
@@ -168,27 +244,28 @@ ErrorOr<void> FileRoutes::grant(WebView::WebContentPage& page,
                 self->failed(epoch);
         }));
     TRY(m_channels.try_set(epoch,
-        Channel { request.navigable_id, request.navigation_id, request.history_entry.url,
-            document.has_value(), move(server), {} }));
+        Channel { root, navigation, url, document.has_value(), document, move(server), {} }));
     if (document.has_value())
         page.client().async_firefly_connect_document(move(pair.remote_handle), page.id().value(),
-            request.navigable_id.namespace_id, request.navigable_id.local_id,
-            document->namespace_id, document->local_id, request.navigation_id,
-            request.history_entry.url.serialize(), epoch);
+            root.namespace_id, root.local_id, document->namespace_id, document->local_id,
+            navigation, url.serialize(), epoch);
     else
         page.client().async_firefly_connect_navigation(move(pair.remote_handle), page.id().value(),
-            request.navigable_id.namespace_id, request.navigable_id.local_id, request.navigation_id,
-            request.history_entry.url.serialize(), epoch);
+            root.namespace_id, root.local_id, navigation, url.serialize(), epoch);
     return {};
 }
 
 void FileRoutes::request(
-    u64 channel, FileServer::AuthorizationRequest request, FileServer::Completion complete)
+    u64 channel, FileServer::AuthorizationRequest request, FileServer::ResponseCompletion complete)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     auto found = m_channels.find(channel);
     auto url = URL::Parser::basic_parse(request.url);
+    auto target = url.has_value() ? m_routes.find(url->scheme()) : m_routes.end();
+    bool intercepted_file = url.has_value() && url->scheme() == "file"sv && target != m_routes.end()
+        && target->value.modern;
     if (m_stopped || found == m_channels.end() || !m_owns(found->value.root) || !url.has_value()
-        || (!url->origin().is_same_origin(found->value.url.origin())
+        || (!url->origin().is_same_origin(found->value.url.origin()) && !intercepted_file
             && (!found->value.document || !is_cors_scheme(url->scheme())))
         || (!found->value.document && !url->equals(found->value.url, URL::ExcludeFragment::Yes))
         || m_pending.size() >= process_file_request_limit
@@ -209,13 +286,18 @@ void FileRoutes::request(
     auto token = ++m_next_token;
     JsonObject metadata;
     metadata.set("token"sv, String::number(token));
-    metadata.set("generation"sv, String::number(route->value));
+    metadata.set("generation"sv, String::number(route->value.generation));
     metadata.set("scheme"sv, url->scheme());
     metadata.set("url"sv, request.url.view());
     metadata.set("method"sv, request.head ? "HEAD"sv : "GET"sv);
     if (!url->origin().is_same_origin(found->value.url.origin()))
         metadata.set("origin"sv, found->value.url.origin().serialize());
-    if (m_pending.try_set(token, Pending { channel, request.id, move(complete) }).is_error()) {
+    metadata.set("modern"sv, route->value.modern);
+    if (m_pending
+            .try_set(token,
+                Pending { channel, request.id, move(complete), route->value.generation,
+                    route->value.modern, false, false, 0, {} })
+            .is_error()) {
         failed(channel);
         retire(channel);
         return;
@@ -226,6 +308,7 @@ void FileRoutes::request(
 
 void FileRoutes::cancel(u64 channel, u32 request)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     Optional<u64> token;
     for (auto const& pending : m_pending)
         if (pending.value.channel == channel && pending.value.request == request) {
@@ -235,17 +318,33 @@ void FileRoutes::cancel(u64 channel, u32 request)
 
     if (!token.has_value())
         return;
-    bool delivered = m_pending.find(*token)->value.delivered;
-    m_pending.remove(*token);
-    if (!delivered)
-        return; // The queued native request is discarded without entering the VM.
+    finish(*token, true);
+}
+
+void FileRoutes::finish(u64 token, bool notify)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    auto pending = m_pending.find(token);
+    if (pending == m_pending.end())
+        return;
+    auto value = move(pending->value);
+    m_pending.remove(pending);
+    // Revoke callback ownership before native completion or application reentry.
+    if (value.pull)
+        (void)value.pull(Error::from_errno(ECANCELED));
+    if (value.complete)
+        (void)value.complete(Error::from_errno(ECANCELED));
+    if (!notify || !value.delivered || m_stopped || !m_send)
+        return;
     JsonObject metadata;
-    metadata.set("token"sv, String::number(*token));
-    m_send(*token, "protocol-cancel", metadata.serialized().to_byte_string());
+    metadata.set("token"sv, String::number(token));
+    metadata.set("generation"sv, String::number(value.generation));
+    m_send(token, "protocol-cancel", metadata.serialized().to_byte_string());
 }
 
 void FileRoutes::failed(u64 id)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     auto channel = m_channels.find(id);
     if (channel != m_channels.end() && !channel->value.document && m_failure)
         m_failure(channel->value.root, channel->value.navigation, channel->value.url);
@@ -253,13 +352,21 @@ void FileRoutes::failed(u64 id)
 
 bool FileRoutes::is_pending(u64 token) const
 {
-    return m_pending.contains(token);
+    VERIFY(m_thread == AK::ThreadID::current());
+    if (m_stopped)
+        return false;
+    auto pending = m_pending.find(token);
+    if (pending == m_pending.end())
+        return false;
+    auto channel = m_channels.find(pending->value.channel);
+    return channel != m_channels.end() && channel->value.server->is_open()
+        && m_owns(channel->value.root);
 }
 
 bool FileRoutes::mark_delivered(u64 token)
 {
     auto pending = m_pending.find(token);
-    if (pending == m_pending.end() || pending->value.delivered)
+    if (!is_pending(token) || pending == m_pending.end() || pending->value.delivered)
         return false;
     pending->value.delivered = true;
     return true;
@@ -267,8 +374,9 @@ bool FileRoutes::mark_delivered(u64 token)
 
 bool FileRoutes::reply(u64 token, ErrorOr<AuthorizedFile> file)
 {
+    VERIFY(m_thread == AK::ThreadID::current());
     auto pending = m_pending.find(token);
-    if (pending == m_pending.end())
+    if (pending == m_pending.end() || pending->value.modern)
         return false;
     auto value = move(pending->value);
     m_pending.remove(pending);
@@ -278,6 +386,103 @@ bool FileRoutes::reply(u64 token, ErrorOr<AuthorizedFile> file)
         return false;
     }
 
-    return value.complete(move(file));
+    if (file.is_error())
+        return value.complete(file.release_error());
+    return value.complete(FileServer::AuthorizedResponse { file.release_value() });
+}
+
+bool FileRoutes::reply_response(u64 token, ErrorOr<StreamResponseHead> head)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    auto pending = m_pending.find(token);
+    if (pending == m_pending.end() || !pending->value.modern)
+        return false;
+    if (pending->value.streaming) {
+        if (!head.is_error())
+            return false;
+        finish(token, true);
+        return true;
+    }
+
+    auto channel = m_channels.find(pending->value.channel);
+    if (channel == m_channels.end() || !m_owns(channel->value.root)) {
+        finish(token, true);
+        return false;
+    }
+
+    auto complete = move(pending->value.complete);
+    if (head.is_error()) {
+        m_pending.remove(pending);
+        return complete(head.release_error());
+    }
+
+    auto metadata = head.release_value();
+    metadata.request = pending->value.request;
+    pending->value.streaming = true;
+    auto weak = make_weak_ptr();
+    AuthorizedStream stream { move(metadata),
+        [weak, token](size_t maximum, StreamCompletion complete) {
+            if (auto owner = weak.strong_ref())
+                owner->pull(token, maximum, move(complete));
+            else
+                (void)complete(Error::from_errno(ECANCELED));
+        },
+        [weak, token] {
+            if (auto owner = weak.strong_ref())
+                owner->finish(token, true);
+        } };
+    bool accepted = complete(FileServer::AuthorizedResponse { move(stream) });
+    if (!accepted)
+        finish(token, true);
+    return accepted;
+}
+
+void FileRoutes::pull(u64 token, size_t maximum, StreamCompletion complete)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    auto pending = m_pending.find(token);
+    if (m_stopped || pending == m_pending.end() || !pending->value.streaming || pending->value.pull
+        || !maximum || maximum > file_chunk_limit) {
+        (void)complete(Error::from_errno(ECANCELED));
+        return;
+    }
+
+    pending->value.credit = maximum;
+    pending->value.pull = move(complete);
+    JsonObject metadata;
+    metadata.set("token"sv, String::number(token));
+    metadata.set("generation"sv, String::number(pending->value.generation));
+    metadata.set("credit"sv, maximum);
+    m_send(token, "protocol-pull", metadata.serialized().to_byte_string());
+}
+
+bool FileRoutes::reply_chunk(u64 token, ReadonlyBytes bytes, bool done)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    auto pending = m_pending.find(token);
+    if (!is_pending(token)) {
+        finish(token, true);
+        return false;
+    }
+
+    if (pending == m_pending.end() || !pending->value.streaming || !pending->value.pull)
+        return false;
+    if (bytes.size() > pending->value.credit || bytes.size() > file_chunk_limit
+        || (bytes.is_empty() && !done)) {
+        finish(token, true);
+        return false;
+    }
+
+    auto copied = ByteBuffer::copy(bytes);
+    auto complete = move(pending->value.pull);
+    pending->value.credit = 0;
+    if (done || copied.is_error())
+        m_pending.remove(pending);
+    if (copied.is_error())
+        return complete(copied.release_error());
+    bool accepted = complete(StreamChunk { copied.release_value(), done });
+    if (!accepted)
+        finish(token, true);
+    return accepted;
 }
 }

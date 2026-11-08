@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 117 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 118 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -10824,6 +10824,89 @@ handler/remote consumer acceptance, actual Code-OSS workbench/open-edit-save, pl
 and release requirements stay outstanding. Code-OSS still stops at protocol.handle;
 this transport foundation does not claim a working editor. See ADR 0174.
 Full original goal active.
+
+
+## 2026-11-08 — Public modern protocol handlers and genuine file interception
+
+- Connect handle/unhandle to the genuine Request/Response controller, native route
+  generations, asynchronous response heads and credit-paced Uint8Array chunks. Share
+  legacy/modern collisions and default-session identity. Retain native opaque token
+  strings; private numeric IDs never narrow u64 identities. Keep legacy descriptor
+  routes and standalone Mite fetch unchanged. Main net.fetch selects handlers or the
+  HTTP transport per redirect, supports bypass, abort and teardown; utility requests
+  acquire no default-session capability. Strip credentials across custom hosts even
+  when WHATWG URL reports both origins as null.
+- Add native file policy generations to trusted startup/control messages. New helpers
+  install policy before pages; late registration updates existing owned helpers and
+  refreshes actual canonical document/page/URL/settings bindings. Active interception
+  fails closed without a grant. Removal restores upstream file behavior. Updates are
+  ordered before later main-issued navigation; already initiated renderer work is
+  not atomically rolled back. Default unconfigured upstream helpers receive no new
+  private argument. File never becomes a privileged custom origin.
+- Intercept before native file loading and skip the main load binding's stat when an
+  actual file response handler owns that URL. A narrow pinned Fetch seam handles
+  authenticated file-Window programmatic CORS GET/HEAD after CSP/mixed-content checks
+  but before non-HTTP CORS refusal. It supplies handler responses, never filesystem
+  fallback; other origins, frames/workers and unsupported modes retain restrictions.
+  Keep FileModules, URL origin classification and pinned Ladybird sources unchanged.
+- Owner-close checks drop queued requests/pulls and replies immediately rather than
+  waiting for the periodic sweep. Post-await guards prevent publishing resolved
+  responses/chunks after abort, unhandle or shutdown. Four actual-controller race
+  cases fail against the previous source and pass after correction. Strict native
+  Host/policy and Node/Mite registry/network tests cover bounds, lifecycle and GC.
+- Genuine public acceptance uses one hidden window and exact production application
+  objects with the static offscreen frontend: real HTML, streamed 4-MiB binary responses with status 404,
+  HEAD/500/header filtering, network-error file denial, main redirects/bypass,
+  cancellation/fresh generations, legacy routes, native file restoration, late file
+  interception, own file HTML/binary responses with status 201 responses, CSP denial BEFORE handler delivery,
+  and exact-once pending-body/request-signal cancellation when the window closes.
+  No visible desktop/UI test was performed. Native Cocoa/Linux/Windows acceptance is
+  not inferred from this offscreen component acceptance.
+- Pin unchanged original ProtocolMainService and managedRemoteResourceProtocol with
+  licenses and source hashes. The real service passes actual main file denial,
+  remote invalid-authority 404/failure 500/base64 binary/MIME 200, IPC registration and
+  cleanup using genuine protocol/session/net, with 49 compiled dependencies verified.
+  Environment/log/remote peers are controlled collaborators, not a real remote service.
+- Re-run real local-desktop/NLS startup with an existing isolated user-data directory.
+  It passes ProtocolMainService and next fails importing @vscode/policy-watcher:
+  bindings.getFileName requires V8 Error.captureStackTrace before its .node/N-API addon.
+  No workbench or workspace open/edit/save acceptance. Refresh API/session/network,
+  compatibility and adaptation docs plus ADR 0175 to state this actual boundary.
+
+Validation: all 118 runtime suites pass (18.45 seconds). Production Firefly and exact
+object offscreen frontend build. Native policy/Host, modern/legacy public, original
+consumer, export/readiness and complete native file/fetch/navigation regression gates
+pass. Source formatting passes (256 Python/865 JS-web-config/488 native/64 CMake);
+site 308 pages/21,797 local links pass. Logs: build/protocol-handlers-{runtime-final,final-build,public,legacy,consumer,
+exports,regression-final,style,site,code-oss}.log. Earlier runtime line-ending test
+needed the newly pinned vendor inputs staged before its checkout-index verification;
+that gate then passes. Initial native compilation caught exit-time mutex destruction,
+borrowed temporary view and an accidental unregister declaration replacement; fix all.
+Initial main export fixture intentionally required handle to be absent; update it to
+assert actual modern/legacy singleton/readiness and registration/removal. Initial
+public fixture used unavailable executeJavaScript; replace it with actual page scripts.
+Actual late file test exposed upstream's pre-scheme CORS refusal, leading to the
+narrow owned interception seam above; the positive file/CSP fixture exposed the main
+stat precheck, which now correctly defers to the registered response handler.
+
+Next native policy audit (read-only, not implemented): installed pinned
+@vscode/policy-watcher 1.7 creates a native watcher; stack-helper emulation alone would
+only expose the unsupported Node addon. Implement an explicitly owned package
+adapter backed by real native services, not empty policy data or disabled enforcement.
+Code-OSS constructs NativePolicyService plus NativeManagedSettingsService on macOS;
+both await the first asynchronous real snapshot. Upstream uses CFPreferencesCopyAppValue
+and a serial FSEventStream of /Library/Managed Preferences; scalar policies query
+exact CFString/CFBoolean/CFNumber types, while union definitions additionally require
+CFPreferencesAppValueIsForced. Preserve pinned semantics explicitly. Queue bounded
+plain snapshots onto Mite's owner event loop, never touch VM roots on native workers,
+and revoke epochs/callbacks before disposal. Verify both unchanged consumers and
+real read-only provider initialization before claiming further startup progress.
+Windows needs a real registry/provider and Linux currently fails explicitly upstream.
+
+Remaining: native policy integration, actual main/workbench/open-edit-save, native
+utility/renderer port handoff/authentication, extension host/PTY/workers, Windows
+watcher/oracle CI repairs, native dialog acceptance and platform/packaging/releases.
+Full original goal remains active.
 
 ## Resume
 

@@ -618,10 +618,14 @@ function createCrashReporter(native, error, unsupported) {
 }
 
 // firefly/core/protocol/files.mjs
-function createFileHandlers(native, isReady, error, standard) {
+function createFileHandlers(native, isReady, error, standard, occupied = () => false) {
   const handlers = /* @__PURE__ */ new Map();
   const pending = /* @__PURE__ */ new Map();
+  let stopped = false;
   function ready() {
+    if (stopped) {
+      throw error("ERR_FIREFLY_APP_EXITED", "Protocol application has exited");
+    }
     if (!isReady()) {
       throw error("ERR_FIREFLY_NOT_READY", "Protocol handlers require app readiness");
     }
@@ -710,7 +714,7 @@ function createFileHandlers(native, isReady, error, standard) {
             "File handlers require a registered standard custom scheme with supportFetchAPI: true"
           );
         }
-        if (handlers.has(name)) {
+        if (handlers.has(name) || occupied(name)) {
           return false;
         }
         const generation = native.protocolRegisterFile(name);
@@ -739,7 +743,25 @@ function createFileHandlers(native, isReady, error, standard) {
       }
     },
     canLoad: (name) => handlers.has(name),
+    stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      pending.clear();
+      const names = [...handlers.keys()];
+      handlers.clear();
+      for (const name of names) {
+        try {
+          native.protocolUnregisterFile(name);
+        } catch {
+        }
+      }
+    },
     dispatch(type, request) {
+      if (stopped) {
+        return;
+      }
       if (type === "protocol-cancel") {
         pending.delete(request.token);
         return;
@@ -775,15 +797,718 @@ function createFileHandlers(native, isReady, error, standard) {
   };
 }
 
+// firefly/core/protocol/responses.mjs
+function createProtocolResponses(transport, error, unsupported) {
+  const { Request, Response, Headers, AbortController, ReadableStream, Buffer: Buffer2 } = transport;
+  const byteLength = Buffer2.byteLength.bind(Buffer2);
+  const get = (Type, name) => Object.getOwnPropertyDescriptor(Type.prototype, name).get;
+  const responseStatus = get(Response, "status");
+  const responseType = get(Response, "type");
+  const responseStatusText = get(Response, "statusText");
+  const responseHeaders = get(Response, "headers");
+  const responseBody = get(Response, "body");
+  const responseUsed = get(Response, "bodyUsed");
+  const headerEntries = Headers.prototype.entries;
+  const headerGet = Headers.prototype.get;
+  const getReader = ReadableStream.prototype.getReader;
+  const cancelStream = ReadableStream.prototype.cancel;
+  const abort = AbortController.prototype.abort;
+  const probe = getReader.call(
+    new ReadableStream({
+      start(controller) {
+        controller.close();
+      }
+    })
+  );
+  const readerPrototype = Object.getPrototypeOf(probe);
+  const read = readerPrototype.read;
+  const cancelReader = readerPrototype.cancel;
+  const releaseReader = readerPrototype.releaseLock;
+  releaseReader.call(probe);
+  const Bytes = Uint8Array;
+  const typedPrototype = Object.getPrototypeOf(Bytes.prototype);
+  const typedKind = Object.getOwnPropertyDescriptor(typedPrototype, Symbol.toStringTag).get;
+  const typedLength = Object.getOwnPropertyDescriptor(typedPrototype, "byteLength").get;
+  const copyBytes = Bytes.prototype.set;
+  const sliceBytes = Bytes.prototype.slice;
+  const active = /* @__PURE__ */ new Map();
+  let stopped = false;
+  const DATA = "ERR_FIREFLY_PROTOCOL_DATA";
+  const LIMIT = "ERR_FIREFLY_PROTOCOL_LIMIT";
+  function canceled() {
+    return error("ERR_FIREFLY_PROTOCOL_CANCELED", "Protocol response ownership was revoked");
+  }
+  function current(entry) {
+    return !stopped && active.get(entry.id) === entry;
+  }
+  function quiet(action) {
+    try {
+      Promise.resolve(action()).catch(() => {
+      });
+    } catch {
+    }
+  }
+  function retire(entry, reason) {
+    if (active.get(entry.id) === entry) {
+      active.delete(entry.id);
+    }
+    entry.remainder = null;
+    entry.handler = null;
+    if (!entry.retired) {
+      entry.retired = true;
+      entry.reason = reason;
+      quiet(() => abort.call(entry.controller, reason));
+      if (entry.reader) {
+        quiet(() => cancelReader.call(entry.reader, reason));
+      } else if (entry.body) {
+        quiet(() => cancelStream.call(entry.body, reason));
+      }
+      entry.rejectCancellation(reason);
+    }
+  }
+  function identity(id, generation) {
+    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(generation) || generation <= 0) {
+      throw error("ERR_INVALID_ARG_VALUE", "Invalid protocol request identity");
+    }
+  }
+  function lookup(id, generation) {
+    identity(id, generation);
+    const entry = active.get(id);
+    if (!entry || entry.generation !== generation || stopped) {
+      throw canceled();
+    }
+    return entry;
+  }
+  function metadata(entry, response) {
+    const status = responseStatus.call(response);
+    const body = responseBody.call(response);
+    entry.body = body;
+    if (responseType.call(response) === "error" || status === 0) {
+      throw error("ERR_FIREFLY_PROTOCOL_NETWORK", "Handler returned a network-error response");
+    }
+    if (!Number.isInteger(status) || status < 200 || status > 599 || responseUsed.call(response)) {
+      throw error(DATA, "Invalid or consumed handler response");
+    }
+    const headers = responseHeaders.call(response);
+    const fields = Array.from(headerEntries.call(headers));
+    if (fields.length > 64) {
+      throw error(LIMIT, "Protocol response headers exceed their budget");
+    }
+    for (const [name, value] of fields) {
+      if ([
+        "connection",
+        "transfer-encoding",
+        "trailer",
+        "upgrade",
+        "keep-alive",
+        "proxy-connection",
+        "te"
+      ].includes(name.toLowerCase()) || /[\x00-\x08\x0a-\x1f\x7f]/.test(value)) {
+        throw error(DATA, "Forbidden protocol response header");
+      }
+    }
+    const length = headerGet.call(headers, "content-length");
+    let contentLength = null;
+    if (length !== null) {
+      if (!/^(?:0|[1-9][0-9]*)$/.test(length) || !Number.isSafeInteger(Number(length)) || Number(length) > 68719476736) {
+        throw error(DATA, "Invalid protocol content length");
+      }
+      contentLength = Number(length);
+    }
+    const bodyNull = entry.method === "HEAD" || body === null || [204, 205, 304].includes(status);
+    if (status === 204 && contentLength !== null || status === 205 && contentLength !== null && contentLength !== 0 || bodyNull && entry.method !== "HEAD" && status !== 304 && contentLength !== null && contentLength !== 0) {
+      throw error(DATA, "Invalid content length for a null response body");
+    }
+    const wire = {
+      schema: 1,
+      kind: "stream-response",
+      request: entry.id,
+      status,
+      length: contentLength,
+      head: entry.method === "HEAD",
+      bodyNull,
+      headers: fields
+    };
+    if (byteLength(JSON.stringify(wire), "utf8") > 32768) {
+      throw error(LIMIT, "Encoded protocol response head exceeds 32 KiB");
+    }
+    if (bodyNull) {
+      if (body) {
+        quiet(() => cancelStream.call(body, canceled()));
+      }
+    } else {
+      entry.reader = getReader.call(body);
+    }
+    entry.bodyNull = bodyNull;
+    entry.contentLength = contentLength;
+    return {
+      status,
+      statusText: responseStatusText.call(response),
+      headers: fields,
+      contentLength,
+      bodyNull
+    };
+  }
+  function invokeHandler(entry, request) {
+    return Promise.resolve().then(() => {
+      if (!current(entry)) {
+        throw entry.reason ?? canceled();
+      }
+      const invoke = entry.handler;
+      return invoke(request);
+    }).then((response) => {
+      if (!current(entry)) {
+        quiet(() => {
+          const body = responseBody.call(response);
+          if (body) {
+            return cancelStream.call(body, entry.reason);
+          }
+        });
+        throw entry.reason ?? canceled();
+      }
+      try {
+        return metadata(entry, response);
+      } catch (failure) {
+        const reason = [DATA, LIMIT, "ERR_FIREFLY_PROTOCOL_NETWORK"].includes(failure?.code) ? failure : error(DATA, "Invalid handler Response");
+        retire(entry, reason);
+        throw reason;
+      }
+    });
+  }
+  async function start(id, generation, descriptor, handler) {
+    identity(id, generation);
+    if (stopped) {
+      throw canceled();
+    }
+    if (active.has(id)) {
+      throw error(DATA, "Protocol request ID is already owned");
+    }
+    if (active.size >= 64) {
+      throw error(LIMIT, "Protocol response quota exhausted");
+    }
+    if (typeof handler !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "Protocol handler must be a function");
+    }
+    const controller = new AbortController();
+    const method = descriptor.method === void 0 ? "GET" : descriptor.method;
+    if (!["GET", "HEAD"].includes(method)) {
+      unsupported("protocol request upload/method " + method);
+    }
+    const request = new Request(descriptor.url, {
+      method,
+      headers: descriptor.headers,
+      signal: controller.signal
+    });
+    if (stopped || active.has(id)) {
+      throw canceled();
+    }
+    if (active.size >= 64) {
+      throw error(LIMIT, "Protocol response quota exhausted");
+    }
+    let rejectCancellation;
+    const cancellation = new Promise((_resolve, reject) => {
+      rejectCancellation = reject;
+    });
+    const entry = {
+      id,
+      generation,
+      method,
+      controller,
+      rejectCancellation,
+      cancellation,
+      handler,
+      reader: null,
+      body: null,
+      remainder: null,
+      offset: 0,
+      pulling: false,
+      retired: false,
+      bytes: 0
+    };
+    active.set(id, entry);
+    const work = invokeHandler(entry, request);
+    try {
+      return await Promise.race([work, cancellation]);
+    } catch (failure) {
+      retire(entry, failure);
+      throw failure;
+    } finally {
+      entry.handler = null;
+    }
+  }
+  async function pull(id, generation, credit = 65536) {
+    const entry = lookup(id, generation);
+    if (!Number.isInteger(credit) || credit < 1 || credit > 65536) {
+      throw error("ERR_OUT_OF_RANGE", "Protocol credit must be 1 to 65536 bytes");
+    }
+    if (entry.pulling) {
+      throw error(DATA, "Only one protocol body pull may be outstanding");
+    }
+    if (entry.bodyNull) {
+      active.delete(id);
+      return { chunk: new Bytes(), done: true };
+    }
+    if (!entry.reader) {
+      throw error(DATA, "Protocol metadata is not ready");
+    }
+    entry.pulling = true;
+    try {
+      let empty = 0;
+      while (!entry.remainder?.byteLength) {
+        const item = await Promise.race([read.call(entry.reader), entry.cancellation]);
+        if (!current(entry)) {
+          throw entry.reason ?? canceled();
+        }
+        if (item.done) {
+          if (entry.contentLength !== null && entry.bytes !== entry.contentLength) {
+            throw error(DATA, "Protocol body length does not match metadata");
+          }
+          active.delete(id);
+          releaseReader.call(entry.reader);
+          entry.reader = null;
+          return { chunk: new Bytes(), done: true };
+        }
+        if (typedKind.call(item.value) !== "Uint8Array") {
+          throw error(DATA, "Protocol chunks must be Uint8Array");
+        }
+        const length2 = typedLength.call(item.value);
+        if (length2 > 1048576) {
+          throw error(LIMIT, "Protocol source chunk exceeds 1 MiB");
+        }
+        if (!length2 && ++empty > 64) {
+          throw error(LIMIT, "Too many empty protocol chunks");
+        }
+        const owned = new Bytes(length2);
+        copyBytes.call(owned, item.value);
+        entry.remainder = owned;
+        entry.offset = 0;
+      }
+      const length = typedLength.call(entry.remainder);
+      const size = Math.min(credit, length - entry.offset);
+      const chunk = sliceBytes.call(entry.remainder, entry.offset, entry.offset + size);
+      entry.offset += size;
+      if (entry.offset === length) {
+        entry.remainder = null;
+      }
+      entry.bytes += size;
+      if (entry.bytes > 68719476736) {
+        throw error(LIMIT, "Protocol body exceeds 64 GiB");
+      }
+      if (entry.contentLength !== null && entry.bytes > entry.contentLength) {
+        throw error(DATA, "Protocol body exceeds content length");
+      }
+      return { chunk, done: false };
+    } catch (failure) {
+      retire(entry, failure);
+      throw failure;
+    } finally {
+      entry.pulling = false;
+    }
+  }
+  function cancel(id, generation, reason = canceled()) {
+    identity(id, generation);
+    const entry = active.get(id);
+    if (entry?.generation === generation) {
+      retire(entry, reason);
+    }
+  }
+  function stop() {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    for (const entry of [...active.values()]) {
+      retire(entry, canceled());
+    }
+  }
+  return { start, pull, cancel, stop };
+}
+
+// firefly/core/protocol/handlers.mjs
+function createHandlers(native, isReady, error, unsupported, transport, permitted, legacy) {
+  const routes = /* @__PURE__ */ new Map();
+  const pending = /* @__PURE__ */ new Map();
+  const local = /* @__PURE__ */ new Set();
+  let next = 0;
+  let stopped = false;
+  let responses;
+  const web = transport ? { ...transport } : void 0;
+  const signalAborted = web?.AbortSignal ? Object.getOwnPropertyDescriptor(web.AbortSignal.prototype, "aborted").get : void 0;
+  const completeTransport = web && ["Request", "Response", "Headers", "AbortController", "ReadableStream"].every(
+    (name) => typeof web[name] === "function"
+  );
+  if (completeTransport) {
+    responses = createProtocolResponses(web, error, unsupported);
+  }
+  const requestGet = (name) => completeTransport ? Object.getOwnPropertyDescriptor(web.Request.prototype, name).get : void 0;
+  const requestURL = requestGet("url");
+  const requestMethod = requestGet("method");
+  const requestHeaders = requestGet("headers");
+  const requestSignal = requestGet("signal");
+  const DATA = "ERR_FIREFLY_PROTOCOL_DATA";
+  const canceled = () => error("ERR_FIREFLY_PROTOCOL_CANCELED", "Protocol handler ownership revoked");
+  function ready() {
+    if (stopped) {
+      throw error("ERR_FIREFLY_APP_EXITED", "Protocol application has exited");
+    }
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "Protocol handlers require app readiness");
+    }
+  }
+  function scheme(value) {
+    if (typeof value !== "string") {
+      throw error("ERR_INVALID_ARG_TYPE", "scheme must be a string");
+    }
+    if (!/^[a-z][a-z0-9+.-]{0,63}$/.test(value)) {
+      throw error("ERR_INVALID_ARG_VALUE", "Invalid canonical scheme");
+    }
+    return value;
+  }
+  function opaque(value) {
+    return typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value);
+  }
+  function controller() {
+    if (!completeTransport) {
+      return unsupported("protocol captured web transport");
+    }
+    return responses ??= createProtocolResponses(web, error, unsupported);
+  }
+  function allocate() {
+    if (next >= 2147483647 || pending.size + local.size >= 64) {
+      throw error("ERR_FIREFLY_PROTOCOL_LIMIT", "Protocol handler budget exhausted");
+    }
+    return ++next;
+  }
+  function retire(entry, reason = canceled()) {
+    if (entry.token !== void 0) {
+      if (pending.get(entry.token) === entry) {
+        pending.delete(entry.token);
+      }
+    } else {
+      local.delete(entry);
+    }
+    entry.reason ??= reason;
+    responses?.cancel(entry.id, 1, entry.reason);
+    entry.unsubscribe?.();
+    entry.unsubscribe = null;
+  }
+  function deny(token) {
+    try {
+      native.protocolResponseHead(JSON.stringify({ token, error: true }));
+    } catch {
+    }
+  }
+  function matches(request, entry) {
+    return entry && request.generation === entry.generation && !stopped;
+  }
+  function handle(name, handler) {
+    ready();
+    scheme(name);
+    if (typeof handler !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "Protocol handler must be callable");
+    }
+    if (name !== "file" && !permitted(name)) {
+      unsupported("modern handler requires registered standard supportFetchAPI scheme");
+    }
+    if (routes.has(name) || legacy(name)) {
+      throw error("ERR_FIREFLY_PROTOCOL_ALREADY_REGISTERED", "Protocol scheme already handled");
+    }
+    controller();
+    const register = native.protocolRegisterResponse;
+    if (typeof register !== "function") {
+      return unsupported("protocol native response transport");
+    }
+    ready();
+    const entry = { generation: null, handler };
+    routes.set(name, entry);
+    let generation;
+    try {
+      generation = register.call(native, name);
+      if (stopped || routes.get(name) !== entry) {
+        try {
+          native.protocolUnregisterFile(name);
+        } catch {
+        }
+        ready();
+        throw canceled();
+      }
+      if (!opaque(generation)) {
+        try {
+          native.protocolUnregisterFile(name);
+        } catch {
+        }
+        throw error(DATA, "Invalid native protocol generation");
+      }
+      entry.generation = generation;
+    } catch (failure) {
+      if (routes.get(name) === entry) {
+        routes.delete(name);
+      }
+      throw failure;
+    }
+  }
+  function unhandle(name) {
+    ready();
+    scheme(name);
+    const route = routes.get(name);
+    if (!route) {
+      return;
+    }
+    routes.delete(name);
+    for (const entry of [...pending.values(), ...local]) {
+      if (entry.scheme === name) {
+        retire(entry);
+      }
+    }
+    native.protocolUnregisterFile(name);
+  }
+  function dispatch(type, request) {
+    if (!opaque(request?.token) || !opaque(request?.generation)) {
+      return false;
+    }
+    if (type === "protocol-cancel") {
+      const entry2 = pending.get(request.token);
+      if (!matches(request, entry2)) {
+        return false;
+      }
+      retire(entry2);
+      return true;
+    }
+    if (type === "protocol-pull") {
+      const entry2 = pending.get(request.token);
+      if (!matches(request, entry2)) {
+        return false;
+      }
+      controller().pull(entry2.id, 1, request.credit).then((item) => {
+        if (pending.get(request.token) !== entry2 || stopped) {
+          return;
+        }
+        const accepted = native.protocolResponseChunk(request.token, item.chunk, item.done);
+        if (accepted !== true) {
+          retire(entry2);
+          return;
+        }
+        if (item.done) {
+          pending.delete(request.token);
+        }
+      }).catch(() => {
+        if (pending.get(request.token) === entry2) {
+          retire(entry2);
+          deny(request.token);
+        }
+      });
+      return true;
+    }
+    if (type !== "protocol-request") {
+      return false;
+    }
+    const route = routes.get(request.scheme);
+    if (!route) {
+      if (request.modern === true) {
+        deny(request.token);
+        return true;
+      }
+      return false;
+    }
+    if (!matches(request, route) || pending.has(request.token)) {
+      deny(request.token);
+      return true;
+    }
+    let entry;
+    try {
+      entry = {
+        id: allocate(),
+        token: request.token,
+        generation: request.generation,
+        scheme: request.scheme
+      };
+      pending.set(request.token, entry);
+      const headers = typeof request.origin === "string" ? { origin: request.origin } : void 0;
+      controller().start(entry.id, 1, { url: request.url, method: request.method, headers }, route.handler).then((metadata) => {
+        if (pending.get(request.token) !== entry || stopped) {
+          return;
+        }
+        const head = {
+          schema: 1,
+          kind: "stream-response",
+          request: 1,
+          status: metadata.status,
+          length: metadata.contentLength,
+          head: request.method === "HEAD",
+          bodyNull: metadata.bodyNull,
+          headers: metadata.headers
+        };
+        const accepted = native.protocolResponseHead(
+          JSON.stringify({ token: request.token, head })
+        );
+        if (accepted !== true) {
+          retire(entry);
+        }
+      }).catch(() => {
+        if (pending.get(request.token) === entry) {
+          retire(entry);
+          deny(request.token);
+        }
+      });
+    } catch {
+      if (entry) {
+        retire(entry);
+      }
+      deny(request.token);
+    }
+    return true;
+  }
+  function canHandle(input) {
+    if (stopped || !web) {
+      return false;
+    }
+    const endpoint = new web.URL(input);
+    return routes.has(endpoint.protocol.slice(0, -1));
+  }
+  function requireLocal(entry) {
+    if (stopped || !local.has(entry) || routes.get(entry.scheme)?.generation !== entry.generation) {
+      throw entry.reason ?? canceled();
+    }
+  }
+  function streamedResponse(entry, metadata) {
+    const { Response, ReadableStream } = web;
+    const stream = new ReadableStream(
+      {
+        async pull(sink) {
+          try {
+            requireLocal(entry);
+            const item = await controller().pull(entry.id, 1);
+            requireLocal(entry);
+            if (item.done) {
+              local.delete(entry);
+              entry.unsubscribe?.();
+              entry.unsubscribe = null;
+              sink.close();
+            } else {
+              sink.enqueue(item.chunk);
+            }
+          } catch (failure) {
+            retire(entry, failure);
+            sink.error(failure);
+          }
+        },
+        cancel(reason) {
+          retire(entry, reason);
+        }
+      },
+      { highWaterMark: 0 }
+    );
+    return new Response(stream, {
+      status: metadata.status,
+      statusText: metadata.statusText,
+      headers: metadata.headers
+    });
+  }
+  async function fetch(input, init) {
+    ready();
+    controller();
+    const { Request, Response, ReadableStream, abortHooks } = web;
+    const request = new Request(input, init);
+    const url = requestURL.call(request);
+    const method = requestMethod.call(request);
+    const headers = requestHeaders.call(request);
+    const name = new web.URL(url).protocol.slice(0, -1);
+    const route = routes.get(name);
+    if (!route) {
+      throw error("ERR_FIREFLY_PROTOCOL_UNHANDLED", "No modern handler for URL");
+    }
+    const entry = { id: allocate(), generation: route.generation, scheme: name, unsubscribe: null };
+    local.add(entry);
+    const signal = requestSignal.call(request);
+    if (!abortHooks || !signalAborted) {
+      retire(entry);
+      return unsupported("protocol captured abort hooks");
+    }
+    if (signalAborted.call(signal)) {
+      retire(entry);
+      throw abortHooks.reason(signal);
+    }
+    entry.unsubscribe = abortHooks.subscribe(
+      signal,
+      () => retire(entry, abortHooks.reason(signal))
+    );
+    try {
+      requireLocal(entry);
+      const metadata = await controller().start(
+        entry.id,
+        1,
+        { url, method, headers },
+        route.handler
+      );
+      requireLocal(entry);
+      if (metadata.bodyNull) {
+        await controller().pull(entry.id, 1);
+        requireLocal(entry);
+        local.delete(entry);
+        entry.unsubscribe?.();
+        entry.unsubscribe = null;
+        return new Response(null, {
+          status: metadata.status,
+          statusText: metadata.statusText,
+          headers: metadata.headers
+        });
+      }
+      return streamedResponse(entry, metadata);
+    } catch (failure) {
+      retire(entry, failure);
+      throw failure;
+    }
+  }
+  function stop() {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    for (const entry of [...pending.values(), ...local]) {
+      retire(entry);
+    }
+    responses?.stop();
+    const names = [...routes.keys()];
+    routes.clear();
+    for (const name of names) {
+      try {
+        native.protocolUnregisterFile(name);
+      } catch {
+      }
+    }
+  }
+  return {
+    handle,
+    unhandle,
+    isHandled: (name) => routes.has(name),
+    dispatch,
+    canHandle,
+    fetch,
+    stop
+  };
+}
+
 // firefly/core/protocol/index.mjs
-function createProtocol(native, isReady, error, unsupported) {
+function createProtocol(native, isReady, error, unsupported, transport) {
   let registered = false;
+  let stopped = false;
+  let modern;
   const fetchEnabledSchemes = /* @__PURE__ */ new Set();
   const files = createFileHandlers(
     native,
     isReady,
     error,
-    (scheme) => fetchEnabledSchemes.has(scheme)
+    (scheme) => fetchEnabledSchemes.has(scheme),
+    (scheme) => modern?.isHandled(scheme) === true
+  );
+  modern = createHandlers(
+    native,
+    isReady,
+    error,
+    unsupported,
+    transport,
+    (scheme) => fetchEnabledSchemes.has(scheme),
+    files.canLoad
   );
   const reserved = /* @__PURE__ */ new Set([
     "http",
@@ -823,7 +1548,22 @@ function createProtocol(native, isReady, error, unsupported) {
   }
   const protocol = {
     ...files.api,
+    unregisterProtocol(name) {
+      if (modern.isHandled(name)) {
+        modern.unhandle(name);
+        return true;
+      }
+      return files.api.unregisterProtocol(name);
+    },
+    isProtocolHandled(name) {
+      return files.api.isProtocolHandled(name) || modern.isHandled(name);
+    },
+    handle: modern.handle,
+    unhandle: modern.unhandle,
     registerSchemesAsPrivileged(customSchemes) {
+      if (stopped) {
+        throw error("ERR_FIREFLY_APP_EXITED", "Protocol application has exited");
+      }
       if (isReady()) {
         throw error("ERR_FIREFLY_PROTOCOL_TOO_LATE", "Register schemes before app is ready");
       }
@@ -906,7 +1646,25 @@ function createProtocol(native, isReady, error, unsupported) {
       }
     }
   };
-  return { protocol, dispatch: files.dispatch, canLoad: files.canLoad };
+  return {
+    protocol,
+    dispatch(type, request) {
+      if (!modern.dispatch(type, request) && type !== "protocol-pull") {
+        files.dispatch(type, request);
+      }
+    },
+    canLoad: (name) => files.canLoad(name) || modern.isHandled(name),
+    canHandle: modern.canHandle,
+    fetch: modern.fetch,
+    stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      modern.stop();
+      files.stop();
+    }
+  };
 }
 
 // firefly/core/ipc-main.mjs
@@ -4011,7 +4769,7 @@ function createSystemPreferences(native, isExited, error, unsupported) {
 }
 
 // firefly/core/net/index.mjs
-function createNet(native, isReady, isExited, error, unsupported, transport) {
+function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null) {
   if (!transport) {
     const fail = () => unsupported("net captured transport");
     let stopped2 = false;
@@ -4083,9 +4841,9 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
       unsupported("net configured proxy/PAC");
     }
   }
-  function url(value, base) {
+  function url(value, base, custom = false) {
     const result = new URL2(value, base);
-    if (!["http:", "https:"].includes(result.protocol)) {
+    if (!["http:", "https:"].includes(result.protocol) && !(custom && protocols()?.canHandle(result.href))) {
       unsupported("net URL scheme " + result.protocol);
     }
     if (result.username || result.password) {
@@ -4118,8 +4876,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
         unsupported("net option " + name);
       }
     }
-    if (result.bypassCustomProtocolHandlers !== void 0 && result.bypassCustomProtocolHandlers !== true) {
-      unsupported("net custom protocol interception");
+    if (result.bypassCustomProtocolHandlers !== void 0 && typeof result.bypassCustomProtocolHandlers !== "boolean") {
+      throw error("ERR_INVALID_ARG_TYPE", "bypassCustomProtocolHandlers must be a boolean");
     }
     if (result.agent !== void 0 && result.agent !== null) {
       unsupported("net agent");
@@ -4218,10 +4976,11 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
       response.headers
     );
   }
-  function nextHop(endpoint, method, headers, body, status, location) {
-    const target = url(location, endpoint);
+  function nextHop(endpoint, method, headers, body, status, location, custom = false) {
+    const target = url(location, endpoint, custom);
     const fields = new Headers(headers);
-    if (target.origin !== endpoint.origin) {
+    const sameOrigin = target.origin !== "null" && endpoint.origin !== "null" ? target.origin === endpoint.origin : target.protocol === endpoint.protocol && target.host === endpoint.host;
+    if (!sameOrigin) {
       for (const name of ["authorization", "proxy-authorization", "cookie"]) {
         fields.delete(name);
       }
@@ -4248,7 +5007,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
     if (original.credentials === "include") {
       unsupported("net session credentials");
     }
-    let endpoint = url(original.url);
+    const custom = selected.bypassCustomProtocolHandlers !== true;
+    let endpoint = url(original.url, void 0, custom);
     let method = original.method;
     let fields = new Headers(original.headers);
     let body = original.body;
@@ -4256,8 +5016,12 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
-        proxy();
-        const response = await fetchTransport(endpoint.href, {
+        const registry = custom ? protocols() : null;
+        const handled = registry?.canHandle(endpoint.href);
+        if (!handled) {
+          proxy();
+        }
+        const options = {
           method,
           headers: fields,
           body,
@@ -4266,7 +5030,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
           signal: entry.controller.signal,
           credentials: "omit",
           cache: original.cache
-        });
+        };
+        const response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
         alive();
         const location = response.headers.get("location");
         if (!redirects.has(response.status) || !location || mode === "manual") {
@@ -4279,7 +5044,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport) {
         if (count >= 20) {
           throw error("ERR_FIREFLY_NET_REDIRECT", "Too many redirects");
         }
-        const next = nextHop(endpoint, method, fields, body, response.status, location);
+        const next = nextHop(endpoint, method, fields, body, response.status, location, custom);
         if (next.body !== null) {
           unsupported("net.fetch replay of redirected streaming body");
         }
@@ -5671,6 +6436,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       quitting = true;
       systemPreferencesService.stop();
       network.stop();
+      protocols.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -5734,7 +6500,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     () => exited,
     error,
     unsupported,
-    transport
+    transport,
+    () => protocols
   );
   const systemPreferencesService = createSystemPreferences(
     native,
@@ -5794,7 +6561,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   const { Menu, MenuItem } = menus;
   const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
-  const protocols = createProtocol(native, () => ready, error, unsupported);
+  const protocols = createProtocol(native, () => ready, error, unsupported, transport);
   const { protocol } = protocols;
   const defaultSession = Object.freeze({ protocol });
   const session = {};
@@ -5827,6 +6594,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     exited = true;
     systemPreferencesService.stop();
     network.stop();
+    protocols.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -6183,7 +6951,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       menus.dispatch(id, JSON.parse(data));
       return;
     }
-    if (type === "protocol-request" || type === "protocol-cancel") {
+    if (type === "protocol-request" || type === "protocol-cancel" || type === "protocol-pull") {
       protocols.dispatch(type, JSON.parse(data));
       return;
     }

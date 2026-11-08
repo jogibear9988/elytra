@@ -15,8 +15,8 @@ await app.whenReady();
 console.log(session.defaultSession.protocol === protocol); // true
 ```
 
-The [protocol reference](protocol.md) describes registration, asynchronous file
-callbacks, ownership, limits, errors and tested scope. The facade is frozen.
+The [protocol reference](protocol.md) describes registration, modern Response handlers, asynchronous file
+callbacks, file interception, ownership, limits, errors and tested scope. The facade is frozen.
 
 fromPartition, fromPath, custom BrowserWindow partitions/sessions, cookies,
 webRequest, permission setters, download APIs and wider session methods are

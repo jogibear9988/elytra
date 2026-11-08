@@ -1,11 +1,27 @@
 import createFileHandlers from './files.mjs';
+import createHandlers from './handlers.mjs';
 
 /** Main-only origin registration. File routes and session ownership are separate capabilities. */
-export default function createProtocol(native, isReady, error, unsupported) {
+export default function createProtocol(native, isReady, error, unsupported, transport) {
   let registered = false;
+  let stopped = false;
+  let modern;
   const fetchEnabledSchemes = new Set();
-  const files = createFileHandlers(native, isReady, error, (scheme) =>
-    fetchEnabledSchemes.has(scheme)
+  const files = createFileHandlers(
+    native,
+    isReady,
+    error,
+    (scheme) => fetchEnabledSchemes.has(scheme),
+    (scheme) => modern?.isHandled(scheme) === true
+  );
+  modern = createHandlers(
+    native,
+    isReady,
+    error,
+    unsupported,
+    transport,
+    (scheme) => fetchEnabledSchemes.has(scheme),
+    files.canLoad
   );
   const reserved = new Set([
     'http',
@@ -48,7 +64,25 @@ export default function createProtocol(native, isReady, error, unsupported) {
   const protocol = {
     ...files.api,
 
+    unregisterProtocol(name) {
+      if (modern.isHandled(name)) {
+        modern.unhandle(name);
+        return true;
+      }
+      return files.api.unregisterProtocol(name);
+    },
+
+    isProtocolHandled(name) {
+      return files.api.isProtocolHandled(name) || modern.isHandled(name);
+    },
+
+    handle: modern.handle,
+    unhandle: modern.unhandle,
+
     registerSchemesAsPrivileged(customSchemes) {
+      if (stopped) {
+        throw error('ERR_FIREFLY_APP_EXITED', 'Protocol application has exited');
+      }
       if (isReady()) {
         throw error('ERR_FIREFLY_PROTOCOL_TOO_LATE', 'Register schemes before app is ready');
       }
@@ -134,5 +168,27 @@ export default function createProtocol(native, isReady, error, unsupported) {
       }
     }
   };
-  return { protocol, dispatch: files.dispatch, canLoad: files.canLoad };
+  return {
+    protocol,
+
+    dispatch(type, request) {
+      if (!modern.dispatch(type, request) && type !== 'protocol-pull') {
+        files.dispatch(type, request);
+      }
+    },
+
+    canLoad: (name) => files.canLoad(name) || modern.isHandled(name),
+
+    canHandle: modern.canHandle,
+    fetch: modern.fetch,
+
+    stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      modern.stop();
+      files.stop();
+    }
+  };
 }

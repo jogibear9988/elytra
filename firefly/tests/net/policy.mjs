@@ -53,10 +53,15 @@ function fixture() {
     stops: 0,
     calls: [],
     responses: [],
-    controllers: []
+    controllers: [],
+    proxyQueries: 0,
+    protocolCalls: [],
+    protocolChecks: [],
+    registry: null
   };
   const native = {
     networkHasProxy() {
+      state.proxyQueries++;
       state.onProxy?.();
       return state.proxy;
     },
@@ -106,7 +111,8 @@ function fixture() {
     (name) => {
       throw error('ERR_FIREFLY_UNSUPPORTED_API', name);
     },
-    transport
+    transport,
+    () => state.registry
   );
   return { api, state, net: api.net, error };
 }
@@ -368,6 +374,242 @@ function fixture() {
     api.stop();
   }
   console.log('PASS captured response adapters survive public Readable static replacement');
+}
+
+function protocols(state, handled, responder) {
+  state.registry = {
+    canHandle(address) {
+      state.protocolChecks.push(address);
+      return handled(new URL(address));
+    },
+
+    async fetch(address, init) {
+      state.protocolCalls.push({ address, ...init });
+      return responder(address, init);
+    }
+  };
+}
+
+{
+  const { net, state, api } = fixture();
+  state.proxy = true;
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    () => new Response('handled')
+  );
+
+  const response = await net.fetch('app://one.test/resource', {
+    bypassCustomProtocolHandlers: false
+  });
+  check(
+    (await response.text()) === 'handled' && state.proxyQueries === 0 && !state.calls.length,
+    'Handled custom URL neither consults OS proxy nor reaches native network transport'
+  );
+  check(
+    state.protocolCalls.length === 1 &&
+      state.protocolChecks.every((address) => address.startsWith('app://one.test/')),
+    'Registry queried using full canonical URL'
+  );
+  for (const value of [null, 1, 'false', {}]) {
+    await rejects(
+      net.fetch('app://one.test/resource', { bypassCustomProtocolHandlers: value }),
+      'ERR_INVALID_ARG_TYPE'
+    );
+  }
+  state.proxy = false;
+
+  protocols(
+    state,
+    (url) => url.protocol === 'http:',
+    () => new Response('controlled registry')
+  );
+
+  state.responses.push(new Response('bypassed'));
+  const before = state.protocolCalls.length;
+  check(
+    (await (
+      await net.fetch('http://one.test/bypass', { bypassCustomProtocolHandlers: true })
+    ).text()) === 'bypassed',
+    'Explicit bypass reaches network transport'
+  );
+  check(
+    state.protocolCalls.length === before && state.calls.length === 1 && state.proxyQueries === 1,
+    'Bypass cannot invoke registry and applies native network policy'
+  );
+  check(
+    (await (
+      await net.fetch('http://one.test/handled', { bypassCustomProtocolHandlers: false })
+    ).text()) === 'controlled registry',
+    'False enables controlled registry lookup'
+  );
+  check(state.proxyQueries === 1, 'Handled URL does not inherit network proxy check');
+  api.stop();
+  console.log(
+    'PASS custom registry full URL routing proxy isolation explicit bypass and strict flag types'
+  );
+}
+
+{
+  const { net, state, api } = fixture();
+  const statuses = [
+    new Response(null, { status: 302, headers: { location: 'https://network.test/final' } })
+  ];
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    () => statuses.shift() ?? new Response('custom final')
+  );
+
+  state.responses.push(new Response('network final'));
+  const fromCustom = await net.fetch('app://source.test/start', {
+    headers: { authorization: 'secret', cookie: 'private=1' }
+  });
+  check(
+    (await fromCustom.text()) === 'network final' &&
+      fromCustom.redirected &&
+      fromCustom.url === 'https://network.test/final',
+    'Custom-to-HTTP redirect changes actual transport'
+  );
+  check(
+    state.calls.length === 1 &&
+      state.proxyQueries === 1 &&
+      !state.calls[0].headers.has('authorization') &&
+      !state.calls[0].headers.has('cookie'),
+    'Network hop applies proxy policy and strips cross-authority credentials'
+  );
+  state.responses.push(
+    new Response(null, { status: 302, headers: { location: 'app://destination.test/final' } })
+  );
+  const fromHTTP = await net.fetch('https://network.test/start');
+  check(
+    (await fromHTTP.text()) === 'custom final' &&
+      fromHTTP.url === 'app://destination.test/final' &&
+      fromHTTP.redirected,
+    'HTTP-to-custom redirect rechecks handler registry'
+  );
+  check(
+    state.proxyQueries === 2 && state.calls.length === 2 && state.protocolCalls.length === 2,
+    'Only network hops consult native proxy'
+  );
+  const observed = [];
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    (address, init) => {
+      observed.push({ address, headers: new Headers(init.headers) });
+      return observed.length === 1
+        ? new Response(null, { status: 302, headers: { location: 'app://other.test/final' } })
+        : new Response('different authority');
+    }
+  );
+
+  const crossHost = await net.fetch('app://first.test/start', {
+    headers: {
+      authorization: 'Bearer private',
+      cookie: 'private=1',
+      'proxy-authorization': 'Basic private'
+    }
+  });
+  await crossHost.text();
+  check(
+    observed[0].headers.has('authorization') &&
+      ['authorization', 'cookie', 'proxy-authorization'].every(
+        (name) => !observed[1].headers.has(name)
+      ),
+    'Distinct custom hosts with opaque null origins never inherit sensitive headers'
+  );
+  check(
+    state.proxyQueries === 2,
+    'Custom-to-custom redirect remains isolated from OS network provider'
+  );
+  api.stop();
+  console.log(
+    'PASS per-hop custom HTTP redirects and opaque-origin cross-host credential isolation'
+  );
+}
+
+{
+  const { net, state, api, error } = fixture();
+  let abortReason;
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    (_address, init) =>
+      new Promise((_resolve, reject) => {
+        const abort = () => {
+          abortReason = init.signal.reason;
+          reject(abortReason);
+        };
+
+        if (init.signal.aborted) {
+          abort();
+        } else {
+          init.signal.addEventListener('abort', abort, { once: true });
+        }
+      })
+  );
+
+  const controller = new AbortController();
+  const reason = error('OWN_CUSTOM_ABORT', 'Caller custom fetch cancellation');
+  const pending = net.fetch('app://first.test/pending', { signal: controller.signal });
+  const rejected = rejects(pending, reason.code);
+  controller.abort(reason);
+  await rejected;
+  check(
+    abortReason === reason && state.proxyQueries === 0 && !state.calls.length,
+    'Owned protocol fetch receives original abort reason without network admission'
+  );
+  let bodyCancel;
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    () =>
+      new Response(
+        new ReadableStream(
+          {
+            cancel(value) {
+              bodyCancel = value;
+            }
+          },
+          { highWaterMark: 0 }
+        )
+      )
+  );
+
+  const response = await net.fetch('app://first.test/body');
+  await response.body.cancel(reason);
+  check(bodyCancel === reason, 'Public response cancellation reaches handled body reader');
+
+  protocols(
+    state,
+    (url) => url.protocol === 'app:',
+    (_address, init) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener(
+          'abort',
+          () => {
+            abortReason = init.signal.reason;
+            reject(abortReason);
+          },
+          { once: true }
+        );
+      })
+  );
+
+  const shutdown = rejects(net.fetch('app://first.test/shutdown'), 'ERR_FIREFLY_APP_EXITED');
+  api.stop();
+  await shutdown;
+  check(
+    abortReason.code === 'ERR_FIREFLY_APP_EXITED' && state.stops === 1,
+    'Shutdown aborts owned protocol request before native network provider stop'
+  );
+  console.log('PASS handled fetch caller abort body cancellation and shutdown ownership cleanup');
 }
 
 console.log('DONE controlled net policy');

@@ -1,6 +1,7 @@
 /** Map actual FetchController credit/cancellation to bounded native IPC, without file IO. */
 #include "Client.h"
 #include "Dispatch.h"
+#include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include "native/protocol/files/FilePacket.h"
 #include <AK/NumericLimits.h>
@@ -76,10 +77,13 @@ bool Client::scope_is_active() const
 {
     if (m_navigation)
         return !m_revoked && m_navigation->active();
-    return !m_revoked && m_document && m_document->is_fully_active() && m_document->navigable()
-        && m_document->navigable()->is_top_level_traversable() && !m_origin.is_opaque()
-        && m_origin.is_same_origin(m_document->origin())
-        && m_origin.is_same_origin(m_document->url().origin())
+    if (m_revoked || !m_document || !m_document->is_fully_active() || !m_document->navigable()
+        || !m_document->navigable()->is_top_level_traversable()
+        || !m_origin.is_same_origin(m_document->origin()))
+        return false;
+    if (Protocols::file_policy_snapshot().active)
+        return true; // The caller also checks exact native document/settings identity per request.
+    return !m_origin.is_opaque() && m_origin.is_same_origin(m_document->url().origin())
         && Protocols::is_standard_scheme(m_document->url().scheme());
 }
 

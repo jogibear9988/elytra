@@ -1,5 +1,13 @@
 /** Stateless HTTP(S) desktop requests over captured Mite transports, with explicit proxy/session gaps. */
-export default function createNet(native, isReady, isExited, error, unsupported, transport) {
+export default function createNet(
+  native,
+  isReady,
+  isExited,
+  error,
+  unsupported,
+  transport,
+  protocols = () => null
+) {
   if (!transport) {
     // Hosts without captured primitives cannot issue requests or consult mutable globals.
     const fail = () => unsupported('net captured transport');
@@ -80,9 +88,12 @@ export default function createNet(native, isReady, isExited, error, unsupported,
     }
   }
 
-  function url(value, base) {
+  function url(value, base, custom = false) {
     const result = new URL(value, base);
-    if (!['http:', 'https:'].includes(result.protocol)) {
+    if (
+      !['http:', 'https:'].includes(result.protocol) &&
+      !(custom && protocols()?.canHandle(result.href))
+    ) {
       unsupported('net URL scheme ' + result.protocol);
     }
     if (result.username || result.password) {
@@ -118,9 +129,9 @@ export default function createNet(native, isReady, isExited, error, unsupported,
     }
     if (
       result.bypassCustomProtocolHandlers !== undefined &&
-      result.bypassCustomProtocolHandlers !== true
+      typeof result.bypassCustomProtocolHandlers !== 'boolean'
     ) {
-      unsupported('net custom protocol interception');
+      throw error('ERR_INVALID_ARG_TYPE', 'bypassCustomProtocolHandlers must be a boolean');
     }
     if (result.agent !== undefined && result.agent !== null) {
       unsupported('net agent');
@@ -226,10 +237,16 @@ export default function createNet(native, isReady, isExited, error, unsupported,
     );
   }
 
-  function nextHop(endpoint, method, headers, body, status, location) {
-    const target = url(location, endpoint);
+  function nextHop(endpoint, method, headers, body, status, location, custom = false) {
+    const target = url(location, endpoint, custom);
     const fields = new Headers(headers);
-    if (target.origin !== endpoint.origin) {
+    // WHATWG URL reports "null" for custom origins. Distinct custom hosts still
+    // form distinct application authorities and must not inherit credentials.
+    const sameOrigin =
+      target.origin !== 'null' && endpoint.origin !== 'null'
+        ? target.origin === endpoint.origin
+        : target.protocol === endpoint.protocol && target.host === endpoint.host;
+    if (!sameOrigin) {
       for (const name of ['authorization', 'proxy-authorization', 'cookie']) {
         fields.delete(name);
       }
@@ -260,7 +277,8 @@ export default function createNet(native, isReady, isExited, error, unsupported,
     if (original.credentials === 'include') {
       unsupported('net session credentials');
     }
-    let endpoint = url(original.url);
+    const custom = selected.bypassCustomProtocolHandlers !== true;
+    let endpoint = url(original.url, undefined, custom);
     let method = original.method;
     let fields = new Headers(original.headers);
     let body = original.body;
@@ -268,8 +286,12 @@ export default function createNet(native, isReady, isExited, error, unsupported,
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
-        proxy();
-        const response = await fetchTransport(endpoint.href, {
+        const registry = custom ? protocols() : null;
+        const handled = registry?.canHandle(endpoint.href);
+        if (!handled) {
+          proxy();
+        }
+        const options = {
           method,
           headers: fields,
           body,
@@ -278,7 +300,10 @@ export default function createNet(native, isReady, isExited, error, unsupported,
           signal: entry.controller.signal,
           credentials: 'omit',
           cache: original.cache
-        });
+        };
+        const response = handled
+          ? await registry.fetch(endpoint.href, options)
+          : await fetchTransport(endpoint.href, options);
         alive();
         const location = response.headers.get('location');
         if (!redirects.has(response.status) || !location || mode === 'manual') {
@@ -291,7 +316,7 @@ export default function createNet(native, isReady, isExited, error, unsupported,
         if (count >= 20) {
           throw error('ERR_FIREFLY_NET_REDIRECT', 'Too many redirects');
         }
-        const next = nextHop(endpoint, method, fields, body, response.status, location);
+        const next = nextHop(endpoint, method, fields, body, response.status, location, custom);
         if (next.body !== null) {
           unsupported('net.fetch replay of redirected streaming body');
         }

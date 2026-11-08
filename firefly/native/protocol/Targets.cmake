@@ -24,7 +24,7 @@ firefly_replace_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp"
                        "${protocol_origin_output}/HelperProcess.cpp")
 target_sources(
     LibURL
-    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp"
+    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp" "${CMAKE_CURRENT_LIST_DIR}/FilePolicy.cpp"
             "${CMAKE_CURRENT_LIST_DIR}/OriginConfig.cpp" "${CMAKE_CURRENT_LIST_DIR}/RustOrigin.cpp")
 add_custom_target(
     check-firefly-rust-origin
@@ -91,3 +91,19 @@ add_custom_target(
     COMMAND "$<TARGET_FILE:firefly-protocol-origin-probe>" sealed
     DEPENDS firefly-protocol-origin-probe check-firefly-rust-origin-dependencies
     USES_TERMINAL VERBATIM)
+
+add_executable(firefly-protocol-file-policy-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FilePolicyProbe.cpp")
+target_include_directories(firefly-protocol-file-policy-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(firefly-protocol-file-policy-probe PRIVATE LibURL AK)
+ladybird_check_skia_confinement(firefly-protocol-file-policy-probe)
+if(WIN32)
+    ladybird_windows_bin(firefly-protocol-file-policy-probe CONSOLE)
+endif()
+add_custom_target(
+    check-firefly-protocol-file-policy
+    COMMAND "$<TARGET_FILE:firefly-protocol-file-policy-probe>"
+    DEPENDS firefly-protocol-file-policy-probe
+    VERBATIM)
+add_dependencies(check-firefly-protocol-origins check-firefly-protocol-file-policy)

@@ -36,6 +36,12 @@ private:
     RefPtr<Provider> m_provider;
 };
 
+// Programmatic CORS file requests otherwise fail before scheme_fetch. This native
+// interception consumes only authenticated file-owned requests and never grants
+// the upstream filesystem fallback a new destination or origin privilege.
+WEB_API GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch_file_interception(
+    Web::Fetch::Infrastructure::FetchParams const&);
+
 // The owned scheme-fetch seam calls this after upstream cancellation checks.
 // Null preserves the upstream path. A provider denial returns a network error.
 GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(

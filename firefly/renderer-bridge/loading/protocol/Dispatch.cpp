@@ -1,5 +1,6 @@
 /** Preserve upstream fetch policy; expose no provider registration to JavaScript or workers. */
 #include "Dispatch.h"
+#include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Infrastructure/ClientContextSnapshot.h>
@@ -60,22 +61,25 @@ bool allows_request(Web::Fetch::Infrastructure::FetchParams const& params)
     using Request = Web::Fetch::Infrastructure::Request;
     using Client = Web::Fetch::Infrastructure::ClientContext;
     auto request = params.request();
-    if (!Protocols::is_standard_scheme(request->current_url().scheme()))
+    bool file
+        = request->current_url().scheme() == "file"sv && Protocols::file_policy_snapshot().active;
+    if (!file && !Protocols::is_standard_scheme(request->current_url().scheme()))
         return false;
     auto const& client = request->client_snapshot();
     auto const* origin = request->origin().get_pointer<URL::Origin>();
     auto target = request->current_url().origin();
-    if (params.is_canceled() || !client || !origin || target.is_opaque()
+    if (params.is_canceled() || !client || !origin || (!file && target.is_opaque())
         || client->global_kind != Client::GlobalKind::Window
         || client->is_window_of_a_top_level_navigable != Client::IsWindowOfATopLevelNavigable::Yes
-        || !Protocols::is_standard_scheme(client->creation_url.scheme())
+        || (!file && !Protocols::is_standard_scheme(client->creation_url.scheme()))
         || !origin->is_same_origin(client->origin)
-        || !client->creation_url.origin().is_same_origin(*origin)
+        || (!file && !client->creation_url.origin().is_same_origin(*origin))
+        || (file && (client->creation_url.scheme() != "file"sv || !origin->is_file_origin()))
         || request->is_navigation_request() || request->mode() == Request::Mode::WebSocket
         || !request->method().is_one_of("GET"sv, "HEAD"sv)
         || request->header_list()->contains("Range"sv))
         return false;
-    if (!origin->is_same_origin(target)
+    if (!file && !origin->is_same_origin(target)
         && (!Protocols::is_cors_scheme(request->current_url().scheme())
             || request->mode() != Request::Mode::CORS
             || request->credentials_mode() == Request::CredentialsMode::Include
@@ -110,14 +114,31 @@ bool allows_navigation_request(Web::Fetch::Infrastructure::FetchParams const& pa
     auto const& reserved = request.reserved_client_snapshot();
     auto const* environment
         = reserved ? reserved->kind.get_pointer<Reserved::Environment>() : nullptr;
-    return !params.is_canceled() && Protocols::is_standard_scheme(request.current_url().scheme())
-        && !request.current_url().origin().is_opaque() && request.method() == "GET"sv
+    bool file
+        = request.current_url().scheme() == "file"sv && Protocols::file_policy_snapshot().active;
+    return !params.is_canceled()
+        && (file || Protocols::is_standard_scheme(request.current_url().scheme()))
+        && (file || !request.current_url().origin().is_opaque()) && request.method() == "GET"sv
         && request.mode() == Request::Mode::Navigate
         && request.destination() == Request::Destination::Document
         && request.redirect_mode() == Request::RedirectMode::Manual && !request.client().has_value()
         && !request.client_snapshot() && !request.remote_client_navigation().has_value()
         && request.body().has<Empty>() && !request.header_list()->contains("Range"sv) && environment
         && environment->target_browsing_context == Reserved::TargetBrowsingContext::TopLevel;
+}
+
+GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch_file_interception(
+    Web::Fetch::Infrastructure::FetchParams const& params)
+{
+    using Request = Web::Fetch::Infrastructure::Request;
+    auto const& request = *params.request();
+    if (!Protocols::file_policy_snapshot().active || request.current_url().scheme() != "file"sv
+        || request.mode() != Request::Mode::CORS || request.destination().has_value()
+        || !allows_request(params))
+        return nullptr;
+    // In particular, do not skip the ordinary opaque filtering for no-cors loads,
+    // same-origin mode refusals, or the policy checks before this owned seam.
+    return dispatch(params);
 }
 
 GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
@@ -127,7 +148,9 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
     using Record = Web::Fetch::Infrastructure::Response;
     auto provider = Registration::s_current.get();
     auto request = params.request();
-    if (!provider || !Protocols::is_standard_scheme(request->current_url().scheme()))
+    bool file
+        = request->current_url().scheme() == "file"sv && Protocols::file_policy_snapshot().active;
+    if (!file && (!provider || !Protocols::is_standard_scheme(request->current_url().scheme())))
         return nullptr;
     auto deny = [&] {
         return Pending::create(params,
@@ -135,6 +158,8 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
                 "Custom protocol request is outside the admitted provider scope"_string));
     };
 
+    if (!provider)
+        return deny(); // Active native file policy must fail closed before filesystem access.
     bool navigation = request->is_navigation_request();
     auto& handler = navigation ? provider->navigation : provider->handler;
     if (!provider->active || !handler
