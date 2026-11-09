@@ -81,6 +81,8 @@ function(mite_add_runtime target root js_target)
         core/Runtime
         core/EventLoop
         core/ImmediateQueue
+        core/errors/StackTrace
+        core/errors/CallSites
         # modules
         modules/Builtins
         modules/PolicyWatcher

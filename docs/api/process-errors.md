@@ -86,3 +86,7 @@ rejectionHandled listener. This is a partial process API, not full Node compatib
 Reference behavior is defined by the [Node process events documentation](https://nodejs.org/docs/latest-v24.x/api/process.html#process-events)
 and the actual pinned Node comparison tests. Fresh platform and real Code-OSS
 workbench acceptance must be recorded separately from individual event tests.
+
+For explicit capture, lazy formatters and structured source locations, see
+[Error.captureStackTrace](error-stack.md). Fatal fallback diagnostics retain the
+side-effect-free engine trace; ordinary constructor stacks remain engine-owned.

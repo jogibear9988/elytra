@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 133 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 135 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11716,6 +11716,65 @@ Validation: build/code-oss-native-profile-{policy-final,style}.log. The prior
 complete runtime baseline remains 133 passing suites; capture-stack implementation
 and its new suite are still a separate pending worktree step. The full goal stays
 active, with editor/open-edit-save and all remaining platform/API work unfinished.
+
+
+## 2026-11-10 — Real captured stacks and lazy source CallSites
+
+- Install Error.captureStackTrace in the standalone and embedded Mite realm before
+  user entry. It snapshots actual public LibJS VM frames, trims by exact function
+  identity, samples captured-stack limits, and installs proper non-enumerable
+  getter/setter descriptors. Lazy name/message formatting, arbitrary cached values,
+  recapture, frozen-target assignment and inherited/borrowed receivers pass the
+  real Node 24.15.0 behavior checks; target Proxies reject without invoking traps.
+- Native WeakMap target records own cached JS values and frame data. Native
+  functions capture direct traced GC pointers; no JS value or borrowed execution
+  context is hidden in C++ storage. Separate branded WeakMap CallSite records own
+  only capture-time source/name metadata, so retained source sites do not retain
+  otherwise unreachable capture owners.
+- Add genuine lazy Error.prepareStackTrace callbacks with the original Error
+  constructor receiver and actual target/source-site array. Arbitrary results
+  cache; exceptions allow retry. A realm guard makes same/other captured-stack
+  reentry use default formatting; record guards reject recursive name/message
+  formatting explicitly and reset after failure.
+- Seven source CallSite methods provide actual names, filenames, source positions,
+  engine-native flags and display text. Borrowed methods select the real receiver;
+  forged/Proxy receivers fail TypeError without traps. Unsupported V8 metadata
+  throws ERR_MITE_UNSUPPORTED_API. Actual tests disproved using the interpreter's
+  caller_is_construct return-control flag for general constructors, so isConstructor
+  remains explicitly unsupported pending a genuine public/owned Rust ABI seam.
+- Node/Mite/embedded-host differentials pass normal/constructor-function identity
+  trimming, lazy/cache/error behavior, limit accessor suppression/inherited data,
+  source metadata, private-intrinsic protection, formatter reentry and bindings-style
+  caller-file discovery. Real Node/host GC retains active/lazy/arbitrary cached
+  data and retained source sites; idle host GC reclaims capture owners and cached
+  payloads, including owners of retained CallSite arrays. CLI checks do not fake GC.
+- The first default-capture-only Code-OSS trace exposed its bindings helper using
+  prepareStackTrace and leaving that hook installed if formatting threw. Implementing
+  genuine source sites fixes that consumer rather than silently accepting an inert
+  hook. The final actual isolated native-titlebar entry no longer reports missing
+  captureStackTrace or unsupported prepareStackTrace. It now reveals absent native
+  @vscode/spdlog binding searches, the handled device-ID ESM require fallback, and
+  still rejects webPreferences.v8CacheOptions before window creation. App readiness
+  is observed, workbenchAccepted remains false; no editor/open-edit-save is claimed.
+- All 135 local Release CLI CTests pass. Current production Firefly and CLI/embedded
+  hosts build. Detailed API, compatibility and ADR 0186 document captured-only
+  limits/hooks, engine-specific formatting, unavailable V8 introspection, async
+  stack limitations, native-error/fatal fallback behavior and fresh platform work.
+  No Ladybird source, pin or license notice changed; Mite remains independent.
+
+Validation logs: build/error-stack-{sites-accepted,runtime-final,metadata-build-final,
+firefly-final-build,code-oss-final,format,site,upstream}.log. Earlier failed builds,
+constructor-metadata assumptions and unsupported-hook diagnostic logs are retained
+and are not accepted runs. Formatting passes for 285 Python, 948 JS/web/config,
+555 native and 75 CMake files; site validation passes for 325 pages and 23,016
+local links/resources/fragments. No visible UI batch was run in this step.
+
+Next: narrowly audit/adapt Code-OSS's V8-only cache policy without claiming a V8
+cache in Firefly; retain and implement real zoom, autoplay, paste, sandbox and
+other observable renderer semantics. Native-titlebar diagnostics remain isolated;
+Window Controls Overlay, native addon/logging gaps, synchronous ESM require,
+workbench editing, extensions/PTY/utilities/workers, Windows repair and all
+platform/package/release requirements remain open. The full goal stays active.
 
 
 ## Resume

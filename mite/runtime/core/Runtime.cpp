@@ -5,6 +5,7 @@
 
 #include "core/Runtime.h"
 #include "core/EventLoop.h"
+#include "core/errors/StackTrace.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include "platform/process/ProcessHost.h"
@@ -235,6 +236,13 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
                     StringView(argv[index], strlen(argv[index])))));
         process->define_direct_property(
             "execArgv"_utf16, JS::Array::create_from(realm, exec_args), JS::default_attributes);
+    }
+
+    auto stack_support = install_error_stacks(realm);
+    if (stack_support.is_error()) {
+        report_exception(stack_support.error_value());
+        vm->pop_execution_context();
+        return 1;
     }
 
     auto installed = event_loop.install(realm);

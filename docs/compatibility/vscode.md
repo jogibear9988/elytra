@@ -50,7 +50,10 @@ The opaque background path separately passes real compositor CPU pixel tests. No
 window is accepted.
 
 The logged ESM require error remains a handled device-ID fallback: @vscode/deviceid
-requires its nested ESM-only uuid entry. Error.captureStackTrace is also missing.
+requires its nested ESM-only uuid entry. [Error.captureStackTrace](../api/error-stack.md)
+now has genuine lazy captured stacks and source CallSites, including the caller-file
+discovery used by bindings-style packages. Full V8 metadata and automatic hooks
+for ordinary engine errors remain incomplete.
 [Native error events](../api/process-errors.md) now have genuine event-loop and
 entry-point delivery, with local Node/Mite/embedded-host ordering, fatal/default
 and GC acceptance. Fresh platform and broader lifecycle support remain open.

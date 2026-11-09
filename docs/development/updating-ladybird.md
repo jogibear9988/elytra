@@ -529,3 +529,16 @@ routing. It deliberately shows one short-lived fixture window, so batch local
 acceptance for actual chrome changes instead of repeatedly invoking it for docs.
 No Ladybird patch or downstream Qt source change is required. See
 [ADR 0185](../architecture/0185-native-hidden-title-bar.md).
+
+## Captured Mite stack adapters
+
+Mite's errors/StackTrace and CallSites adapters use public LibJS VM stack metadata,
+native function identity, source ranges, data-only property lookup and traced
+native closures. On engine/GC changes run mite-error-stack with the genuine
+embedded host as well as CLI/Node: lazy user callbacks must survive collection,
+unreachable capture owners/cache payloads must reclaim, and retained sites must
+not retain their owner. Revalidate script/caller identity and source locations.
+Do not substitute interpreter caller_is_construct for constructor debug metadata:
+it governs only an inline return path and failed the real ordinary-new oracle.
+Supporting that method requires a genuine owned/public ABI, not a vendor patch.
+See [ADR 0186](../architecture/0186-native-captured-stack-records.md).
