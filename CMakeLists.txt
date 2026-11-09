@@ -321,6 +321,11 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_frames_policy.py"
                 --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME firefly-web-request-policy
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_web_request_policy.py"
+            --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME firefly-session-permissions-policy
         COMMAND
             "${Python3_EXECUTABLE}"

@@ -36,14 +36,28 @@ if (process.argv[3] === '--firefly') {
 if (process.argv[3] === '--firefly-ready') {
   // Let the real ready callback and asynchronous module graph run. This bounded
   // observation deliberately cannot report workbench or desktop acceptance.
-  const { app } = await import('firefly');
+  const { app, BrowserWindow } = await import('firefly');
+  const observation = Number(process.env.ELYTRA_CODE_OSS_OBSERVE_MS ?? 3000);
+  if (!Number.isInteger(observation) || observation < 1000 || observation > 60000) {
+    throw new RangeError('ELYTRA_CODE_OSS_OBSERVE_MS must be an integer from 1000 to 60000');
+  }
 
   app
     .whenReady()
     .then(() => console.log(JSON.stringify({ appReadyObserved: true, workbenchAccepted: false })));
 
   setTimeout(() => {
-    console.log(JSON.stringify({ observationEnded: true, workbenchAccepted: false }));
+    console.log(
+      JSON.stringify({
+        observationEnded: true,
+        observationMs: observation,
+        workbenchAccepted: false,
+        windows: BrowserWindow.getAllWindows().map((window) => ({
+          id: window.id,
+          url: window.webContents.getURL()
+        }))
+      })
+    );
     app.exit(1);
-  }, 3000);
+  }, observation);
 }

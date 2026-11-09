@@ -5,6 +5,7 @@ import createCommandLine from './app/command-line.mjs';
 import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createPermissions from './session/permissions.mjs';
+import createWebRequest from './session/web-request.mjs';
 import createMainIpc from './ipc-main.mjs';
 import createFrames from './frames/index.mjs';
 import createScreen from './screen/index.mjs';
@@ -212,6 +213,7 @@ export default function createFireflyApi(
       network.stop();
       protocols.stop();
       permissions.stop();
+      requests.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -279,7 +281,8 @@ export default function createFireflyApi(
     error,
     unsupported,
     transport,
-    () => protocols
+    () => protocols,
+    () => requests
   );
   const systemPreferencesService = createSystemPreferences(
     native,
@@ -349,7 +352,17 @@ export default function createFireflyApi(
     error,
     unsupported
   );
-  const defaultSession = Object.freeze({ protocol, ...permissions.api });
+  const requests = createWebRequest(
+    native,
+    () => ready,
+    () => exited,
+    (id) => allContents.get(id),
+    frames.fromDocument,
+    error,
+    unsupported,
+    transport?.abortHooks
+  );
+  const defaultSession = Object.freeze({ protocol, ...permissions.api, webRequest: requests.api });
   const session = {};
   Object.defineProperty(session, 'defaultSession', {
     enumerable: true,
@@ -384,6 +397,7 @@ export default function createFireflyApi(
     network.stop();
     protocols.stop();
     permissions.stop();
+    requests.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -805,6 +819,10 @@ export default function createFireflyApi(
     }
     if (type === 'permission-request') {
       permissions.dispatch(JSON.parse(data));
+      return;
+    }
+    if (type === 'web-request') {
+      requests.dispatch(JSON.parse(data));
       return;
     }
     if (type === 'protocol-request' || type === 'protocol-cancel' || type === 'protocol-pull') {

@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 // firefly/core/net/index.mjs
-function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null) {
+function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null, requestPolicy = () => null) {
   if (!transport) {
     const fail = () => unsupported("net captured transport");
     let stopped2 = false;
@@ -51,6 +51,61 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
   const destroyReadable = Readable.prototype.destroy;
   const abortController = AbortController.prototype.abort;
   let stopped = false;
+  function requestDetails(endpoint, method, id) {
+    return { id, url: endpoint.href, method, resourceType: "other", referrer: "" };
+  }
+  async function beforeRequest(endpoint, method, id, entry) {
+    const policy2 = requestPolicy();
+    if (policy2) {
+      await policy2.intercept(
+        "before",
+        requestDetails(endpoint, method, id),
+        entry.controller.signal
+      );
+    }
+    alive();
+    if (entry.controller.signal.aborted) {
+      throw abortHooks.reason(entry.controller.signal);
+    }
+  }
+  async function receivedHeaders(response, endpoint, method, id, entry) {
+    const policy2 = requestPolicy();
+    if (!policy2) {
+      return response;
+    }
+    try {
+      const result = await policy2.intercept(
+        "headers",
+        {
+          ...requestDetails(endpoint, method, id),
+          statusCode: response.status,
+          responseHeaders: responseHeaders(response, true)
+        },
+        entry.controller.signal
+      );
+      alive();
+      if (entry.controller.signal.aborted) {
+        throw abortHooks.reason(entry.controller.signal);
+      }
+      if (!result.responseHeaders) {
+        return response;
+      }
+      const fields = [];
+      for (const [name, values] of Object.entries(result.responseHeaders)) {
+        for (const value of values) {
+          fields.push([name, value]);
+        }
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: fields
+      });
+    } catch (failure) {
+      await response.body?.cancel(failure);
+      throw failure;
+    }
+  }
   function alive(ready = true) {
     if (stopped || isExited()) {
       stop();
@@ -246,9 +301,13 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     let fields = new Headers(original.headers);
     let body = original.body;
     const mode = original.redirect;
+    const requestId = requestPolicy()?.allocateId();
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
         if (!handled) {
@@ -264,7 +323,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
           credentials: "omit",
           cache: original.cache
         };
-        const response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
+        let response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         const location = response.headers.get("location");
         if (!redirects.has(response.status) || !location || mode === "manual") {
@@ -472,14 +532,18 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     }
     let body = state.size ? Buffer.concat(state.chunks) : null;
     state.chunks.length = 0;
+    const requestId = requestPolicy()?.allocateId();
     const entry = state.entry = acquire();
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         proxy();
         if (request.destroyed) {
           return;
         }
-        const response = await fetchTransport(endpoint.href, {
+        let response = await fetchTransport(endpoint.href, {
           method,
           headers: fields,
           body,
@@ -488,6 +552,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
           credentials: "omit",
           cache: state.spec.cache
         });
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         if (request.destroyed) {
           await response.body?.cancel();

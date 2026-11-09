@@ -6,6 +6,12 @@ Node or V8. Native availability/proxy discovery is currently unavailable on Linu
 and Windows, so these desktop requests fail explicitly there. Mite's independent
 [node:net](net.md), [HTTP](http.md) and [HTTPS](https.md) APIs have separate contracts.
 
+Main-process net.fetch/net.request now use the default Session's
+[webRequest policy](web-request.md) before each real hop and response head, with
+frame null and no invented webContents. Utility policy forwarding is unfinished:
+live utility children prevent filter registration, and active filters prevent new
+utility forks. Ordinary utility networking without filters retains its prior scope.
+
 ```js
 import { app, net } from 'firefly';
 

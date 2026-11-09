@@ -489,3 +489,20 @@ exceeds 256 KiB; both channel and listener dispose naturally. Local macOS passes
 This is distinct from Firefly utility/renderer endpoint transfer and does not
 establish native Windows/Linux pipe execution or a workbench launch. See
 [the local stream contract](../api/net.md#local-streams).
+
+
+## Longer startup diagnostics
+
+The ready probe defaults to a three-second observation and exits nonzero even
+when it reaches readiness. To look for later main-service failures, set
+`ELYTRA_CODE_OSS_OBSERVE_MS=15000` (accepted range 1000–60000). This only changes
+the owned diagnostic's deadline; it does not adapt Code-OSS or accept a desktop.
+Create the selected user-data directory before launching and retain the explicit
+`ELYTRA_CODE_OSS_LOCAL_DESKTOP=1` opt-in. The end record lists actual native window
+IDs and URLs if the deadline is reached; workbenchAccepted always remains false.
+
+With native request interception, the longer local trace gets past configureSession
+but fails in subsequent services at synchronous ESM require and uncaughtException
+registration; missing Error.captureStackTrace also disrupts error reporting. See
+the current [VS Code audit](../compatibility/vscode.md). Utility request forwarding
+and a real workbench/open/edit/save run are still required.

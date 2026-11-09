@@ -93,6 +93,11 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
     if (stopping)
         return;
     configure_permission_page(page);
+    if (web_request) {
+        if (auto result = web_request->bind(page); result.is_error())
+            warnln("ERR_FIREFLY_WEB_REQUEST_CHANNEL: {}", result.error());
+    }
+
     Web::WebDriver::BiDiSessionState state;
     state.is_active = true;
     for (auto const& [id, window] : windows) {

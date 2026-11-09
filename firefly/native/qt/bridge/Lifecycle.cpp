@@ -45,10 +45,13 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
     ipc_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [this] {
         expire_ipc_events();
         expire_permissions();
+        if (web_request)
+            web_request->sweep();
     });
     ipc_timer->start();
     initialize_protocols();
     initialize_permissions();
+    initialize_web_request();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params, NativeIpcKind kind) {
         receive_ipc(page, navigable, move(params), kind);
@@ -65,6 +68,9 @@ void Bridge::Impl::stop()
     if (stopping)
         return;
     stopping = true;
+    if (web_request)
+        web_request->stop();
+    web_request = nullptr;
     Permissions::install_hooks({});
     reset_permissions(0);
     permission_check = nullptr;
@@ -106,6 +112,17 @@ void Bridge::Impl::deliver(int id, ByteString const& type, ByteString const& dat
 {
     if (stopping || !handler)
         return;
+    if (type == "web-request"sv) {
+        auto parsed = JsonValue::from_string(data);
+        if (parsed.is_error() || !parsed.value().is_object())
+            return;
+        auto token = parsed.value().as_object().get_u32("token"sv);
+        auto epoch = parsed.value().as_object().get_u32("epoch"sv);
+        if (!token.has_value() || !epoch.has_value() || !web_request
+            || !web_request->current(*token, *epoch))
+            return;
+    }
+
     if (type == "permission-request"sv && !permission_event_current(data))
         return;
     if (jobs.is_busy() || (dialogs && dialogs->is_synchronous())) {

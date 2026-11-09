@@ -6,7 +6,8 @@ export default function createNet(
   error,
   unsupported,
   transport,
-  protocols = () => null
+  protocols = () => null,
+  requestPolicy = () => null
 ) {
   if (!transport) {
     // Hosts without captured primitives cannot issue requests or consult mutable globals.
@@ -62,6 +63,66 @@ export default function createNet(
   const destroyReadable = Readable.prototype.destroy;
   const abortController = AbortController.prototype.abort;
   let stopped = false;
+
+  function requestDetails(endpoint, method, id) {
+    return { id, url: endpoint.href, method, resourceType: 'other', referrer: '' };
+  }
+
+  async function beforeRequest(endpoint, method, id, entry) {
+    const policy = requestPolicy();
+    if (policy) {
+      await policy.intercept(
+        'before',
+        requestDetails(endpoint, method, id),
+        entry.controller.signal
+      );
+    }
+    alive();
+    if (entry.controller.signal.aborted) {
+      throw abortHooks.reason(entry.controller.signal);
+    }
+  }
+
+  async function receivedHeaders(response, endpoint, method, id, entry) {
+    const policy = requestPolicy();
+    if (!policy) {
+      return response;
+    }
+    try {
+      const result = await policy.intercept(
+        'headers',
+        {
+          ...requestDetails(endpoint, method, id),
+          statusCode: response.status,
+          responseHeaders: responseHeaders(response, true)
+        },
+        entry.controller.signal
+      );
+      alive();
+      if (entry.controller.signal.aborted) {
+        throw abortHooks.reason(entry.controller.signal);
+      }
+      if (!result.responseHeaders) {
+        return response;
+      }
+      const fields = [];
+      for (const [name, values] of Object.entries(result.responseHeaders)) {
+        for (const value of values) {
+          fields.push([name, value]);
+        }
+      }
+      // The original transport still owns framing, backpressure and abort. Only
+      // the application-visible head changes; never buffer the response body.
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: fields
+      });
+    } catch (failure) {
+      await response.body?.cancel(failure);
+      throw failure;
+    }
+  }
 
   function alive(ready = true) {
     if (stopped || isExited()) {
@@ -283,9 +344,13 @@ export default function createNet(
     let fields = new Headers(original.headers);
     let body = original.body;
     const mode = original.redirect;
+    const requestId = requestPolicy()?.allocateId();
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
         if (!handled) {
@@ -301,9 +366,10 @@ export default function createNet(
           credentials: 'omit',
           cache: original.cache
         };
-        const response = handled
+        let response = handled
           ? await registry.fetch(endpoint.href, options)
           : await fetchTransport(endpoint.href, options);
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         const location = response.headers.get('location');
         if (!redirects.has(response.status) || !location || mode === 'manual') {
@@ -532,14 +598,18 @@ export default function createNet(
     }
     let body = state.size ? Buffer.concat(state.chunks) : null;
     state.chunks.length = 0;
+    const requestId = requestPolicy()?.allocateId();
     const entry = (state.entry = acquire());
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         proxy();
         if (request.destroyed) {
           return;
         }
-        const response = await fetchTransport(endpoint.href, {
+        let response = await fetchTransport(endpoint.href, {
           method,
           headers: fields,
           body,
@@ -548,6 +618,7 @@ export default function createNet(
           credentials: 'omit',
           cache: state.spec.cache
         });
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         if (request.destroyed) {
           await response.body?.cancel();

@@ -452,3 +452,28 @@ These use real owned documents and denied permission requests; the boundary driv
 also tests the native grant model without invoking a device provider. They add no
 production test API and should not produce an OS permission prompt. Fresh platform
 and actual device/backend acceptance remain separate requirements.
+
+## Session request adapters
+
+Review Fetching.cpp compositions in prepare_file_module_hook.py, the private
+FetchController cancellation composition in prepare_web_request_controller.py and
+WebSocket containment in prepare_web_request_websocket.py. Preserve exact pinned
+fingerprints, upstream byte reversal and missing/duplicate-seam rejection. The
+request gate belongs after upstream CSP/HSTS checks and before transport; the HTTP
+head gate must precede CORS, while owned protocol/file heads must wait before CORS
+and body credit. Preserve the original transfer lease and controller stop steps.
+
+The helper launch policy is composed by prepare_protocol_origin_hooks.py and
+consumed before the VM starts. Preserve cookie/PID binding, typed stage flags,
+canonical document/navigation ownership, bounded pending/queue state and both
+callback and timeout revocation. Worker policy reads use the atomic snapshot;
+worker jobs must not touch owner-thread controller or pending vectors. WebSocket
+handshakes currently fail closed with active interception because upstream bypasses
+Fetch. Keep that containment until actual handshake interception is implemented.
+
+Run check-firefly-web-request-native and the batched exact-object offscreen
+check-firefly-web-request component gate; compare the shared hidden Electron
+fixture on relevant behavioral changes. Recheck existing protocol, permission and
+frame gates for Fetch/ownership changes. A green schema probe alone does not prove
+endpoint-zero cancellation or header changes before CORS. See
+[ADR 0181](../architecture/0181-session-request-interception.md).

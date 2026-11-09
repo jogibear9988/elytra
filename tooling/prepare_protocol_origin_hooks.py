@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-HELPER_PREFIX = '#include "native/permissions/Hooks.h"\n'
+HELPER_PREFIX = '#include "native/permissions/Hooks.h"\n#include "native/web-request/Policy.h"\n'
 PREFIX = '#include "native/protocol/OriginPolicy.h"\n#include "native/protocol/FilePolicy.h"\n'
 ENTRIES = {
     "FetchURL.cpp": (
@@ -56,6 +56,10 @@ def prepare(output):
                 '            arguments.append(ByteString::formatted("--firefly-permission-policy={}:{}:{}", permission_policy.epoch, permission_policy.check_enabled ? 1 : 0, permission_policy.request_enabled ? 1 : 0));\n'
                 "    }\n\n"
             )
+            hook += (
+                "    if (auto web_request_policy = Firefly::WebRequest::policy(); web_request_policy.epoch > 0)\n"
+                '        arguments.append(ByteString::formatted("--firefly-web-request-policy={}:{}:{}", web_request_policy.epoch, web_request_policy.before ? 1 : 0, web_request_policy.headers ? 1 : 0));\n\n'
+            )
         planned[name] = adapt(source, seam, hook, extra_prefix)
         if name == "HelperProcess.cpp":
             guarded_file_argument = (
@@ -77,7 +81,18 @@ def prepare(output):
                 raise AssertionError(
                     "Unconfigured upstream helper must not receive private permission flags"
                 )
-        elif HELPER_PREFIX in planned[name] or "--firefly-permission-policy=" in planned[name]:
+            if (
+                planned[name].count("--firefly-web-request-policy=") != 1
+                or planned[name].count("web_request_policy.epoch > 0") != 1
+            ):
+                raise AssertionError(
+                    "Unconfigured upstream helper must not receive webRequest flags"
+                )
+        elif (
+            HELPER_PREFIX in planned[name]
+            or "--firefly-permission-policy=" in planned[name]
+            or "--firefly-web-request-policy=" in planned[name]
+        ):
             raise AssertionError("Native permission launcher dependency leaked into LibWebCommon")
         for invalid in ["", source + seam, source.replace(seam, "")]:
             try:

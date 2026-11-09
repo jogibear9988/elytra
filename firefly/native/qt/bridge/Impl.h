@@ -22,6 +22,7 @@
 #include "native/frames/Registry.h"
 #include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
+#include "native/web-request/Broker.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -154,6 +155,14 @@ struct Bridge::Impl {
     std::shared_ptr<Shell::Controller> shell_service;
     std::shared_ptr<SystemPreferences::Controller> system_preferences;
     std::shared_ptr<NetworkState> network_state;
+    RefPtr<WebRequest::Broker> web_request;
+    void initialize_web_request();
+
+    void install_web_request(JS::Object&);
+
+    Optional<JsonObject> authenticate_web_request(
+        WebView::WebContentClient&, WebRequest::Packet const&);
+
     Frames::Registry frames;
     void install_frames(JS::Object&);
 

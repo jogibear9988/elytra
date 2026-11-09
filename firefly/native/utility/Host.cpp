@@ -113,6 +113,7 @@ namespace {
         JS::Realm& realm;
         Mite::EventLoop& loop;
         bool child_side {}, stopped {};
+        bool request_policy {};
         uint64_t next_id { 1 };
         std::unordered_map<uint64_t, Endpoint*> endpoints;
 
@@ -388,10 +389,35 @@ GC::Ref<JS::Object> create_host(
     auto owner = service(vm, realm, loop, false);
     GC::Root host { JS::Object::create(realm, nullptr) };
     host->define_native_function(
+        realm, "setRequestPolicy"_utf16,
+        [owner](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (owner->stopped)
+                return vm.throw_completion<JS::Error>("Utility service stopped"sv);
+            if (!vm.argument(0).is_boolean())
+                return vm.throw_completion<JS::TypeError>("Invalid utility request policy"sv);
+            auto enabled = vm.argument(0).as_bool();
+            if (enabled) {
+                for (auto const& [id, endpoint] : owner->endpoints) {
+                    if (endpoint->started && !endpoint->exited)
+                        return vm.throw_completion<JS::Error>(
+                            "Session request filters with live utility processes are unsupported"sv);
+                }
+            }
+            // Until utility requests can traverse the parent broker, mutually
+            // exclude their transport and active session filters. No child may
+            // silently bypass an application's security decision.
+            owner->request_policy = enabled;
+            return JS::js_undefined();
+        },
+        1, JS::default_attributes);
+    host->define_native_function(
         realm, "spawn"_utf16,
         [owner, &realm, electron_compat](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (owner->stopped)
                 return vm.throw_completion<JS::Error>("Utility service stopped"sv);
+            if (owner->request_policy)
+                return vm.throw_completion<JS::Error>(
+                    "Utility processes with session request filters are unsupported"sv);
             if (!vm.argument(1).is_function())
                 return vm.throw_completion<JS::TypeError>("Utility callback must be callable"sv);
             auto spec = TRY(vm.argument(0).to_object(vm));
@@ -414,8 +440,8 @@ GC::Ref<JS::Object> create_host(
                     return vm.throw_completion<JS::TypeError>("Unsupported utility stdio mode"sv);
             }
             // Recheck after accessors: no user code executes between this check and spawn.
-            if (owner->stopped || owner->endpoints.size() >= child_limit || file.empty()
-                || entry.empty())
+            if (owner->stopped || owner->request_policy || owner->endpoints.size() >= child_limit
+                || file.empty() || entry.empty())
                 return vm.throw_completion<JS::Error>(
                     "Utility process unavailable or limit exceeded"sv);
             args.insert(args.begin(),

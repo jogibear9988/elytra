@@ -49,6 +49,7 @@ add_custom_target(
 add_dependencies(firefly-renderer-probe check-firefly-upstream)
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CallbackTargets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/web-request/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/files/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/permissions/Targets.cmake")

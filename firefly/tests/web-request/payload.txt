@@ -1,0 +1,1 @@
+Owned protocol response that a canceled request must never reach.

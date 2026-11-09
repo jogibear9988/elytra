@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 127 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 128 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11256,6 +11256,81 @@ and truthful main/utility networking scope. Last-listener replacement must match
 Electron; a filter allowance must never become a filesystem grant. All previous
 workbench, native port/extension-host/PTY, worker/device, Windows repair and
 platform/package/release requirements remain open. The full original goal is active.
+
+
+## 2026-11-09 — Enforce document and main-process webRequest decisions
+
+- Implement defaultSession.webRequest.onBeforeRequest/onHeadersReceived with one
+  listener per stage, include/exclude/type filters, null removal, strict bounded
+  decisions, timeout/abort/replacement cancellation and explicit unsupported
+  stages/redirects. Revalidate canonical frames before and after callback getters;
+  no URL/payload-generated frame identity. Main net.fetch/net.request consult the
+  same policy at each real hop and head, including custom routes and redirects.
+- Add a private cookie/PID-authenticated per-helper byte control channel with typed
+  generation/page/navigable/document identity. Native admission and completion
+  independently check the real owner and ongoing top-level navigation worker.
+  Keep the hidden navigation operation call in an exported owned LibWebView
+  adapter; no upstream endpoint/header/source changes. Native odd logical request
+  IDs and main even IDs are stable across stages, monotonic and never reused.
+- Suspend actual Fetch after upstream security checks but before transport. Hold
+  HTTP response heads before CORS; owned protocol/file responses wait before CORS
+  and body credit. Preserve original body streaming/transfer ownership and caller
+  stop steps. New helpers consume launch policy before VM initialization; existing
+  helper updates are ordered asynchronous messages, not a distributed barrier.
+- Bound 64 global/16 helper pending decisions, 30-second deadlines, logical IDs,
+  clients, payload/header sizes and outgoing queues. Validate framing headers on
+  both peers; unchanged copied framing fields work, edits/removals fail explicitly.
+  Fix a codec contradiction discovered by real header traffic and extend native
+  probes to every kind/flag combination, including positive header-stage messages.
+- Active worker Fetch fails closed without touching owner-thread state. Policy
+  reads use an atomic snapshot. Because upstream WebSocket handshakes bypass
+  Fetch, an owned fingerprinted composition fails those handshakes explicitly
+  before connect while interception is active. Full socket interception is open.
+- Prevent silent utility bypass with a native temporary exclusion: filters cannot
+  be installed with live utility children, and active filters prevent new utility
+  launches, including reentrant argument getters. Real parent-mediated utility
+  request forwarding remains necessary for Code-OSS and is the intended next
+  implementation, not a permanent restriction.
+- Exact production-object offscreen tests pass real HTTP endpoint-zero cancel,
+  include/exclude/image filters, last/null semantics, ACAO rewrite before CORS,
+  header cancellation/reset, canonical cross-origin frames and stable IDs,
+  main net.fetch/net.request, custom file-provider cancellation, actual utility
+  exclusion and WebSocket upgrade endpoint-zero denial. The shared Electron
+  45.2.3 fixture passes its five supported checks. Native schema/startup probes and
+  six controlled Node/Mite policy groups pass. Existing genuine frame, permission
+  and public protocol regression batches pass offscreen. No visible desktop,
+  device request, release or fresh Windows/Linux acceptance is claimed.
+- A fresh real adapted Code-OSS entry now passes the original webRequest setters.
+  A 3-second diagnostic was insufficient to reveal the next failure; extend the
+  owned diagnostic with a bounded ELYTRA_CODE_OSS_OBSERVE_MS override. The 15-second
+  observation reaches later main services and fails with synchronous require of
+  ES modules and process uncaughtException registration; Error.captureStackTrace
+  also fails in error reporting. No workbench/open-edit-save is accepted.
+- Add detailed API/ADR/upstream-update docs, current compatibility/status and the
+  macOS release component gate. Ladybird pin and gitlink remain unchanged and clean.
+
+Validation: production/offscreen Firefly, native schema/startup probes and public
+component gates pass. All 128 runtime CTest suites pass (36.70 seconds).
+Formatting passes for 272 Python, 903 JS/web/config, 528 native and 69 CMake files.
+Site validation passes for 317 pages and 22,452 local links/resources/fragments.
+Logs: build/web-request-{codec-fix,component-final,component-accepted,policy-final,
+electron-reference,frames,permissions,protocol,code-oss-observed,runtime-final,
+style-final,site,upstream}.log. Early failing logs are retained, not counted as passes.
+
+Read-only follow-up identifies the handled synchronous-ESM path: @vscode/deviceid
+requires its nested uuid 14 ESM entry; base/node/id.js catches this and generates a
+fallback UUID. The next fatal startup call is ErrorTelemetry.installErrorListeners
+registering process.on('uncaughtException'), followed by unhandledRejection. The
+trace has reached application-service initialization, not a running workbench.
+
+Next: implement actual native EventLoop exception/rejection dispatch before
+accepting those process listeners, then resume real Code-OSS startup. Preserve
+normal fatal defaults and listener/monitor ordering; do not enable inert events.
+Synchronous ESM require and Error.captureStackTrace remain separate runtime gaps.
+Replace utility exclusion with parent-forwarded decisions before claiming shared/extension utility operation.
+Worker/unbound navigation policy, other webRequest stages, display capture,
+workbench open/edit/save, extension host/PTY, Windows repair and native platform/
+package/release requirements remain open. The full original goal stays active.
 
 
 ## Resume

@@ -32,18 +32,29 @@ A separate exact-object native frontend passes twelve identity/grant/revocation
 cases without invoking a device provider. The shared query/request-denial path
 passes Electron 45.2.3 as well.
 
-The explicit local desktop mode now defers optional display capture and rejects
-actual recording, capture authorization and capture-settings attempts. The fresh
-11,536-source tree completes the entry and observes app ready; its current first
-failure is session.defaultSession.webRequest.onBeforeRequest because webRequest
-is unavailable. Security filters remain unchanged. See [the capture adaptation](../guides/code-oss-adaptation.md#optional-display-capture-deferral).
-The required canonical frame identity foundation now passes local macOS native
-and shared Electron tests: mainFrame before application IPC, real native internal
-process identity, ancestry and stale document retirement. This supplies metadata
-for the filter implementation; it does not intercept or authorize requests.
-[Frame contract](../api/web-frame-main.md).
+The explicit local desktop mode defers optional display capture and rejects
+actual recording, capture authorization and capture-settings attempts. The
+11,536-source tree completes entry/app readiness. It now passes the original
+webRequest registrations and reaches later main services. A longer observation
+reports synchronous require of ES modules, process uncaughtException listener
+registration and missing Error.captureStackTrace; no workbench window is accepted.
 
-Full display capture and authenticated request/response filtering remain open. Media grants, separate worker permission queries, notification request/delivery
+The ESM require error is logged and caught by device-ID fallback code: the
+@vscode/deviceid package requires its nested ESM-only uuid entry. The next fatal
+call is ErrorTelemetry installing process.on('uncaughtException'), then
+unhandledRejection. Implement real native event-loop dispatch before accepting
+these listeners; inert registration would hide failures.
+
+The [request policy](../api/web-request.md) passes local macOS native offscreen
+HTTP endpoint-zero cancellation, header replacement before CORS, canonical frame
+metadata, stable IDs, main net.fetch/net.request and custom-provider cancellation.
+The shared hidden Electron fixture passes. Utility transport is temporarily
+excluded while filters are active; real parent-mediated utility decisions remain
+necessary for Code-OSS. Worker/unbound navigation, other stages and broader browser
+coverage are unfinished. The earlier dependency rows retain their checkpoint
+context; webRequest is no longer the first missing registration.
+
+Full display capture and complete session-wide request coverage remain open. Media grants, separate worker permission queries, notification request/delivery
 and native Linux/Windows permission acceptance are not established. No workbench,
 workspace open/edit/save, actual MDM-change or physical GPU acceptance is claimed.
 
@@ -297,7 +308,7 @@ Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |
 | --- | --- | --- |
-| 1 | Main continuation and session resource/capture policy | The real adapted entry passes local IPC and both permission setters; explicit local mode defers optional capture and next stops at webRequest.onBeforeRequest. Window/frame queries, genuine geolocation denial and native document/token/grant/revocation gates pass locally without device access. The pinned engine lacks getDisplayMedia. The tested optional capture adaptation preserves ordinary Electron behavior and rejects actual capture attempts; it supplies no inert Session setter. The unchanged configureSession subsequently registers security-relevant webRequest filters; implement genuine authenticated request/frame enforcement before accepting those. Actual workbench/open-edit-save and native Linux/Windows permission acceptance remain open. |
+| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. The longer actual startup trace now fails at synchronous ESM require and process uncaughtException registration; Error.captureStackTrace also fails. Implement these runtime prerequisites and real utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
 | 2 | Utility-process and native port handoff | Build on the tested real utility fork/parentPort payload slice, then implement native utility/renderer event.ports transfer and demanded authentication forwarding. Preserve native endpoint/process/document binding and revocation; pass a real Code-OSS connection beyond the main-only Protocol gate |
 | 3 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
 | 4 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |

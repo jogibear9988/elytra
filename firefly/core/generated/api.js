@@ -1850,6 +1850,450 @@ function createPermissions(native, isReady, isStopped, contentsFromId, error, un
   return { api, dispatch, stop };
 }
 
+// firefly/core/session/request-filter.mjs
+function requestFilter(value, error, unsupported) {
+  const bad = (message) => error("ERR_INVALID_ARG_VALUE", message);
+  const types = /* @__PURE__ */ new Set([
+    "mainFrame",
+    "subFrame",
+    "stylesheet",
+    "script",
+    "image",
+    "font",
+    "object",
+    "xhr",
+    "ping",
+    "cspReport",
+    "media",
+    "webSocket"
+  ]);
+  function pattern(source) {
+    if (typeof source !== "string" || source.length > 8192) {
+      throw bad("Invalid webRequest URL pattern");
+    }
+    if (source === "<all_urls>") {
+      return () => true;
+    }
+    const match = /^(\*|[a-z][a-z0-9+.-]*):\/\/([^/]*)(\/.*)$/i.exec(source);
+    if (!match || /[\r\n\0?#@]/.test(match[2])) {
+      throw bad("Invalid webRequest URL pattern: " + source);
+    }
+    const scheme = match[1].toLowerCase();
+    let authority = match[2].toLowerCase();
+    let port = null;
+    const separator = authority.lastIndexOf(":");
+    if (separator >= 0 && (!authority.startsWith("[") || separator > authority.indexOf("]"))) {
+      port = authority.slice(separator + 1);
+      authority = authority.slice(0, separator);
+      if (port !== "*" && (!/^\d{1,5}$/.test(port) || Number(port) > 65535)) {
+        throw bad("Invalid webRequest pattern port");
+      }
+    }
+    const suffix = authority.startsWith("*.") ? authority.slice(2) : null;
+    if (authority.includes("*") && authority !== "*" && !suffix || suffix?.includes("*")) {
+      throw bad("Invalid webRequest pattern hostname");
+    }
+    if (!authority && scheme !== "file") {
+      throw bad("Missing webRequest pattern hostname");
+    }
+    const path = new RegExp(
+      "^" + match[3].split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$"
+    );
+    return (url) => {
+      const protocol = url.protocol.slice(0, -1);
+      if (scheme === "*" ? !["http", "https"].includes(protocol) : protocol !== scheme) {
+        return false;
+      }
+      const host = url.hostname.toLowerCase();
+      if (authority !== "*" && (suffix ? host !== suffix && !host.endsWith("." + suffix) : host !== authority)) {
+        return false;
+      }
+      const effectivePort = url.port || ({ "http:": "80", "https:": "443", "ws:": "80", "wss:": "443" }[url.protocol] ?? "");
+      return (port === null || port === "*" || effectivePort === String(Number(port))) && path.test(url.pathname + url.search);
+    };
+  }
+  if (value === void 0) {
+    return () => true;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw bad("webRequest filter must be an object");
+  }
+  for (const key of Object.keys(value)) {
+    if (!["urls", "excludeUrls", "types"].includes(key)) {
+      unsupported("webRequest filter " + key);
+    }
+  }
+  function list(items, required) {
+    if (items === void 0 && !required) {
+      return [];
+    }
+    if (!Array.isArray(items) || items.length > 256) {
+      throw bad("webRequest URL filters must be arrays of at most 256 patterns");
+    }
+    return items.map(pattern);
+  }
+  const include = list(value.urls, true);
+  const exclude = list(value.excludeUrls, false);
+  const selected = value.types;
+  if (selected !== void 0 && (!Array.isArray(selected) || selected.length > types.size || selected.some((item) => !types.has(item)))) {
+    throw bad("Invalid webRequest resource types");
+  }
+  const allowed = selected === void 0 || selected.length === 0 ? null : new Set(selected);
+  return (details) => {
+    let url;
+    try {
+      url = new URL(details.url);
+    } catch {
+      return false;
+    }
+    return (!allowed || allowed.has(details.resourceType)) && (!include.length || include.some((test) => test(url))) && !exclude.some((test) => test(url));
+  };
+}
+
+// firefly/core/session/web-request.mjs
+function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromDocument, error, unsupported, abortHooks) {
+  const maximum = 2147483647;
+  const handlers = { before: null, headers: null };
+  const pending = /* @__PURE__ */ new Set();
+  const resources = /* @__PURE__ */ new Set([
+    "mainFrame",
+    "subFrame",
+    "stylesheet",
+    "script",
+    "image",
+    "font",
+    "object",
+    "xhr",
+    "ping",
+    "cspReport",
+    "media",
+    "webSocket",
+    "other"
+  ]);
+  let epoch = 0;
+  let stopped = false;
+  let configuring = false;
+  let healthy = true;
+  let sequence = 0;
+  const id = (value) => Number.isInteger(value) && value > 0 && value <= maximum;
+  const active = () => !stopped && !isStopped();
+  function headers(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw error("ERR_INVALID_ARG_TYPE", "responseHeaders must be a header record");
+    }
+    const entries = Object.entries(value);
+    if (entries.length > 128) {
+      throw error("ERR_OUT_OF_RANGE", "Too many response headers");
+    }
+    let size = 0;
+    const names = /* @__PURE__ */ new Set();
+    const result = /* @__PURE__ */ Object.create(null);
+    for (const [name, field] of entries) {
+      if (!/^[!#$%&'*+.^_`|~0-9a-z-]+$/i.test(name)) {
+        throw error("ERR_INVALID_ARG_VALUE", "Invalid response header name");
+      }
+      if (names.has(name.toLowerCase())) {
+        throw error("ERR_INVALID_ARG_VALUE", "Duplicate case-insensitive response header");
+      }
+      names.add(name.toLowerCase());
+      const values = Array.isArray(field) ? [...field] : [field];
+      if (values.length > 128 || values.some((item) => typeof item !== "string" || /[^\t\x20-\x7e\x80-\xff]/.test(item))) {
+        throw error("ERR_INVALID_ARG_VALUE", "Invalid response header value");
+      }
+      size += name.length + values.reduce((sum, item) => sum + item.length + 2, 0);
+      if (size > 32768) {
+        throw error("ERR_OUT_OF_RANGE", "Response header budget exceeded");
+      }
+      result[name] = values;
+    }
+    return result;
+  }
+  function decision(stage, value, originalHeaders) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw error("ERR_INVALID_ARG_TYPE", "webRequest callback requires a decision object");
+    }
+    for (const key of Object.keys(value)) {
+      if (key !== "cancel" && !(stage === "headers" && key === "responseHeaders")) {
+        unsupported("webRequest decision " + key);
+      }
+    }
+    if (value.cancel !== void 0 && typeof value.cancel !== "boolean") {
+      throw error("ERR_INVALID_ARG_TYPE", "webRequest cancel must be a boolean");
+    }
+    const result = { cancel: value.cancel === true };
+    if (!result.cancel && value.responseHeaders !== void 0) {
+      result.responseHeaders = headers(value.responseHeaders);
+      for (const name of [
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "trailer",
+        "upgrade",
+        "keep-alive",
+        "proxy-connection",
+        "te"
+      ]) {
+        const values = (record) => Object.entries(record).filter(([key]) => key.toLowerCase() === name).flatMap(([, items]) => items);
+        if (JSON.stringify(values(result.responseHeaders)) !== JSON.stringify(values(originalHeaders))) {
+          unsupported("webRequest response framing header " + name);
+        }
+      }
+    }
+    return result;
+  }
+  function metadata(data) {
+    if (!id(data.id) || typeof data.url !== "string" || data.url.length > 65536 || typeof data.method !== "string" || !/^[!#$%&'*+.^_`|~0-9a-z-]{1,32}$/i.test(data.method) || !resources.has(data.resourceType) || typeof data.referrer !== "string" || data.referrer.length > 65536) {
+      throw error("ERR_FIREFLY_WEB_REQUEST_DATA", "Invalid native request metadata");
+    }
+    const result = {
+      id: data.id,
+      url: data.url,
+      method: data.method,
+      resourceType: data.resourceType,
+      referrer: data.referrer,
+      timestamp: Date.now(),
+      frame: null
+    };
+    if (data.initiatorOrigin !== void 0) {
+      if (typeof data.initiatorOrigin !== "string" || data.initiatorOrigin.length > 65536) {
+        throw error("ERR_FIREFLY_WEB_REQUEST_DATA", "Invalid request initiator");
+      }
+      result.initiatorOrigin = data.initiatorOrigin;
+    }
+    if (data.contentsId !== void 0) {
+      const owner = id(data.contentsId) && contentsFromId(data.contentsId);
+      if (!owner || owner.isDestroyed()) {
+        throw error("ERR_FIREFLY_OBJECT_DESTROYED", "Request owner is no longer active");
+      }
+      result.webContentsId = data.contentsId;
+      result.webContents = owner;
+      if (data.document !== void 0 && data.document !== null && data.document !== "") {
+        result.frame = frameFromDocument(data.contentsId, data.document);
+        if (!result.frame || result.frame.isDestroyed()) {
+          throw error("ERR_FIREFLY_OBJECT_DESTROYED", "Request document is no longer active");
+        }
+      }
+    }
+    if (data.stage === "headers") {
+      if (!Number.isInteger(data.statusCode) || data.statusCode < 100 || data.statusCode > 599 || data.statusLine !== void 0 && (typeof data.statusLine !== "string" || data.statusLine.length > 8192 || /[\r\n\0]/.test(data.statusLine))) {
+        throw error("ERR_FIREFLY_WEB_REQUEST_DATA", "Invalid response status");
+      }
+      result.statusCode = data.statusCode;
+      if (data.statusLine !== void 0) {
+        result.statusLine = data.statusLine;
+      }
+      result.responseHeaders = headers(data.responseHeaders);
+    }
+    return result;
+  }
+  function invalidate() {
+    for (const finish of [...pending]) {
+      finish({ cancel: true });
+    }
+  }
+  function register(stage, args) {
+    if (!active()) {
+      throw error("ERR_FIREFLY_SESSION_CLOSED", "Session request policy is closed");
+    }
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "webRequest requires app readiness");
+    }
+    if (configuring) {
+      throw error("ERR_FIREFLY_SESSION_REENTRANT", "Request configuration is already in progress");
+    }
+    if (args.length < 1 || args.length > 2) {
+      throw error("ERR_INVALID_ARG_TYPE", "Expected an optional filter and a listener");
+    }
+    const listener = args[args.length - 1];
+    if (listener !== null && typeof listener !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "webRequest listener must be a function or null");
+    }
+    const match = requestFilter(args.length === 2 ? args[0] : void 0, error, unsupported);
+    if (typeof native.webRequest?.configure !== "function" || typeof native.webRequest?.complete !== "function") {
+      unsupported("Session native request interception");
+    }
+    if (epoch === maximum) {
+      throw error("ERR_OUT_OF_RANGE", "Request policy generation exhausted");
+    }
+    const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
+    const enabled = next.before !== null || next.headers !== null;
+    if (native.utility) {
+      if (typeof native.utility.setRequestPolicy !== "function") {
+        unsupported("Utility session request containment");
+      }
+      native.utility.setRequestPolicy(
+        enabled || handlers.before !== null || handlers.headers !== null || !healthy
+      );
+    }
+    ++epoch;
+    configuring = true;
+    try {
+      invalidate();
+      native.webRequest.configure(epoch, next.before !== null, next.headers !== null);
+      if (!active()) {
+        throw error("ERR_FIREFLY_SESSION_CLOSED", "Session closed during request configuration");
+      }
+      Object.assign(handlers, next);
+      healthy = true;
+      if (!enabled) {
+        native.utility?.setRequestPolicy(false);
+      }
+    } catch (failure) {
+      handlers.before = handlers.headers = null;
+      healthy = false;
+      try {
+        native.utility?.setRequestPolicy(true);
+      } catch {
+      }
+      throw failure;
+    } finally {
+      configuring = false;
+    }
+  }
+  function run(stage, data, complete, signal) {
+    let done = false;
+    let timer;
+    let unsubscribe;
+    const current = epoch;
+    const selected = handlers[stage];
+    const deadline = Date.now() + 3e4;
+    function finish(value) {
+      if (done) {
+        return;
+      }
+      done = true;
+      pending.delete(finish);
+      clearTimeout(timer);
+      unsubscribe?.();
+      complete(value);
+    }
+    if (!active() || !healthy || configuring || data.epoch !== current || !["before", "headers"].includes(stage)) {
+      finish({ cancel: true });
+      return;
+    }
+    let details;
+    try {
+      details = metadata({ ...data, stage });
+    } catch {
+      finish({ cancel: true });
+      return;
+    }
+    if (!selected || !selected.match(details)) {
+      finish({ cancel: false });
+      return;
+    }
+    const originalHeaders = stage === "headers" ? headers(details.responseHeaders) : void 0;
+    if (pending.size >= 64) {
+      finish({ cancel: true });
+      return;
+    }
+    pending.add(finish);
+    timer = setTimeout(() => finish({ cancel: true }), 3e4);
+    if (signal && abortHooks) {
+      const detach = abortHooks.subscribe(signal, () => finish({ cancel: true }));
+      if (done) {
+        detach?.();
+      } else {
+        unsubscribe = detach;
+      }
+    }
+    if (done) {
+      return;
+    }
+    const callback = (value) => {
+      if (done) {
+        return;
+      }
+      if (!active() || Date.now() >= deadline || current !== epoch || handlers[stage] !== selected || details.frame?.isDestroyed() || details.webContents?.isDestroyed()) {
+        finish({ cancel: true });
+        return;
+      }
+      try {
+        const result = decision(stage, value, originalHeaders);
+        finish(
+          active() && current === epoch && handlers[stage] === selected && Date.now() < deadline && !details.frame?.isDestroyed() && !details.webContents?.isDestroyed() ? result : { cancel: true }
+        );
+      } catch (failure) {
+        finish({ cancel: true });
+        throw failure;
+      }
+    };
+    try {
+      selected.listener(details, callback);
+    } catch (failure) {
+      finish({ cancel: true });
+      throw failure;
+    }
+  }
+  function dispatch(data) {
+    if (!data || !id(data.token) || !id(data.epoch)) {
+      return;
+    }
+    run(
+      data.stage,
+      data,
+      (value) => native.webRequest.complete(data.token, data.epoch, JSON.stringify(value))
+    );
+  }
+  function intercept(stage, data, signal) {
+    return new Promise((resolve, reject) => {
+      run(
+        stage,
+        { ...data, epoch },
+        (value) => {
+          if (value.cancel) {
+            reject(error("ERR_BLOCKED_BY_CLIENT", "Request cancelled by session policy"));
+          } else {
+            resolve(value);
+          }
+        },
+        signal
+      );
+    });
+  }
+  function stop() {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    handlers.before = handlers.headers = null;
+    invalidate();
+    if (epoch && epoch < maximum) {
+      native.webRequest.configure(++epoch, false, false);
+    }
+  }
+  const api = {
+    onBeforeRequest(...args) {
+      register("before", args);
+    },
+    onHeadersReceived(...args) {
+      register("headers", args);
+    }
+  };
+  for (const name of [
+    "onBeforeSendHeaders",
+    "onSendHeaders",
+    "onResponseStarted",
+    "onBeforeRedirect",
+    "onCompleted",
+    "onErrorOccurred"
+  ]) {
+    api[name] = () => unsupported("webRequest." + name);
+  }
+  return {
+    api: Object.freeze(api),
+    dispatch,
+    intercept,
+    stop,
+    allocateId() {
+      if (sequence >= maximum - 1) {
+        throw error("ERR_OUT_OF_RANGE", "Network request identity exhausted");
+      }
+      return sequence += 2;
+    }
+  };
+}
+
 // firefly/core/ipc-main.mjs
 function createMainIpc(native, EventEmitter, error, frameForDocument) {
   const ipcHandlers = /* @__PURE__ */ new Map();
@@ -5184,7 +5628,7 @@ function createSystemPreferences(native, isExited, error, unsupported) {
 }
 
 // firefly/core/net/index.mjs
-function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null) {
+function createNet(native, isReady, isExited, error, unsupported, transport, protocols = () => null, requestPolicy = () => null) {
   if (!transport) {
     const fail = () => unsupported("net captured transport");
     let stopped2 = false;
@@ -5233,6 +5677,61 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
   const destroyReadable = Readable.prototype.destroy;
   const abortController = AbortController.prototype.abort;
   let stopped = false;
+  function requestDetails(endpoint, method, id) {
+    return { id, url: endpoint.href, method, resourceType: "other", referrer: "" };
+  }
+  async function beforeRequest(endpoint, method, id, entry) {
+    const policy2 = requestPolicy();
+    if (policy2) {
+      await policy2.intercept(
+        "before",
+        requestDetails(endpoint, method, id),
+        entry.controller.signal
+      );
+    }
+    alive();
+    if (entry.controller.signal.aborted) {
+      throw abortHooks.reason(entry.controller.signal);
+    }
+  }
+  async function receivedHeaders(response, endpoint, method, id, entry) {
+    const policy2 = requestPolicy();
+    if (!policy2) {
+      return response;
+    }
+    try {
+      const result = await policy2.intercept(
+        "headers",
+        {
+          ...requestDetails(endpoint, method, id),
+          statusCode: response.status,
+          responseHeaders: responseHeaders(response, true)
+        },
+        entry.controller.signal
+      );
+      alive();
+      if (entry.controller.signal.aborted) {
+        throw abortHooks.reason(entry.controller.signal);
+      }
+      if (!result.responseHeaders) {
+        return response;
+      }
+      const fields = [];
+      for (const [name, values] of Object.entries(result.responseHeaders)) {
+        for (const value of values) {
+          fields.push([name, value]);
+        }
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: fields
+      });
+    } catch (failure) {
+      await response.body?.cancel(failure);
+      throw failure;
+    }
+  }
   function alive(ready = true) {
     if (stopped || isExited()) {
       stop();
@@ -5428,9 +5927,13 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     let fields = new Headers(original.headers);
     let body = original.body;
     const mode = original.redirect;
+    const requestId = requestPolicy()?.allocateId();
     const entry = acquire(original.signal);
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
         if (!handled) {
@@ -5446,7 +5949,8 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
           credentials: "omit",
           cache: original.cache
         };
-        const response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
+        let response = handled ? await registry.fetch(endpoint.href, options) : await fetchTransport(endpoint.href, options);
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         const location = response.headers.get("location");
         if (!redirects.has(response.status) || !location || mode === "manual") {
@@ -5654,14 +6158,18 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     }
     let body = state.size ? Buffer2.concat(state.chunks) : null;
     state.chunks.length = 0;
+    const requestId = requestPolicy()?.allocateId();
     const entry = state.entry = acquire();
     try {
       for (let count = 0; ; count++) {
+        if (requestPolicy()) {
+          await beforeRequest(endpoint, method, requestId, entry);
+        }
         proxy();
         if (request.destroyed) {
           return;
         }
-        const response = await fetchTransport(endpoint.href, {
+        let response = await fetchTransport(endpoint.href, {
           method,
           headers: fields,
           body,
@@ -5670,6 +6178,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
           credentials: "omit",
           cache: state.spec.cache
         });
+        response = await receivedHeaders(response, endpoint, method, requestId, entry);
         alive();
         if (request.destroyed) {
           await response.body?.cancel();
@@ -6863,6 +7372,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       network.stop();
       protocols.stop();
       permissions.stop();
+      requests.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -6928,7 +7438,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     error,
     unsupported,
     transport,
-    () => protocols
+    () => protocols,
+    () => requests
   );
   const systemPreferencesService = createSystemPreferences(
     native,
@@ -6998,7 +7509,17 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     error,
     unsupported
   );
-  const defaultSession = Object.freeze({ protocol, ...permissions.api });
+  const requests = createWebRequest(
+    native,
+    () => ready,
+    () => exited,
+    (id) => allContents.get(id),
+    frames.fromDocument,
+    error,
+    unsupported,
+    transport?.abortHooks
+  );
+  const defaultSession = Object.freeze({ protocol, ...permissions.api, webRequest: requests.api });
   const session = {};
   Object.defineProperty(session, "defaultSession", {
     enumerable: true,
@@ -7031,6 +7552,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     network.stop();
     protocols.stop();
     permissions.stop();
+    requests.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -7393,6 +7915,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     if (type === "permission-request") {
       permissions.dispatch(JSON.parse(data));
+      return;
+    }
+    if (type === "web-request") {
+      requests.dispatch(JSON.parse(data));
       return;
     }
     if (type === "protocol-request" || type === "protocol-cancel" || type === "protocol-pull") {

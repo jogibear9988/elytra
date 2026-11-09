@@ -1,6 +1,6 @@
 # session
 
-Status: partial default-session protocol and document-bound permission policy.
+Status: partial default-session protocol, document-bound permissions and request policy.
 Import from firefly, or the explicit Electron alias. ESM/CommonJS share the same
 main-process object. See [the compatibility matrix](../compatibility/firefly-0.1.md)
 for accepted platform scope.
@@ -29,6 +29,8 @@ are denied. Clipboard remains governed by its separate native gesture policy.
 
 The [protocol reference](protocol.md) describes registration, modern Response
 handlers, asynchronous file callbacks, file interception, ownership and limits.
+The [webRequest reference](web-request.md) describes request cancellation, response
+header replacement, canonical frames, bounded callbacks and remaining transport gaps.
 
 ## setPermissionCheckHandler(handler)
 

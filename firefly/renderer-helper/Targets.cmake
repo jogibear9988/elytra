@@ -15,6 +15,8 @@ add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/resources/Documents.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/UpstreamSessionAdapter.cpp"
@@ -26,6 +28,7 @@ target_include_directories(FireflyWebContent PRIVATE "${FIREFLY_SOURCE_DIR}/fire
 target_link_libraries(
     FireflyWebContent
     PRIVATE webcontentservice
+            firefly-web-request-wire
             firefly-isolated-world
             LibSandbox
             LibURL
@@ -98,6 +101,8 @@ if(FIREFLY_BUILD_RUNTIME)
     add_executable(
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/resources/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/resources/Documents.cpp"
@@ -113,6 +118,7 @@ if(FIREFLY_BUILD_RUNTIME)
     target_link_libraries(
         FireflyRuntimeWebContent
         PRIVATE webcontentservice
+                firefly-web-request-wire
                 firefly-isolated-world
                 LibSandbox
                 LibURL

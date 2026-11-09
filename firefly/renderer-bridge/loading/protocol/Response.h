@@ -59,6 +59,8 @@ private:
 
     ErrorOr<void> reject();
 
+    void finish_head(NonnullRefPtr<Web::Fetch::Infrastructure::Response>);
+
     void fail();
 
     void release_vm_state();
