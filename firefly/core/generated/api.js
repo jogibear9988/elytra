@@ -1851,7 +1851,7 @@ function createPermissions(native, isReady, isStopped, contentsFromId, error, un
 }
 
 // firefly/core/ipc-main.mjs
-function createMainIpc(native, EventEmitter, error) {
+function createMainIpc(native, EventEmitter, error, frameForDocument) {
   const ipcHandlers = /* @__PURE__ */ new Map();
   const ipcRequests = /* @__PURE__ */ new Map();
   function channelName(channel) {
@@ -1894,22 +1894,23 @@ function createMainIpc(native, EventEmitter, error) {
         ipcRequests.delete(key);
       }
     }
-    window.webContents._ipcFrame = null;
   }
   function senderEvent(window, data) {
-    let frame = window.webContents._ipcFrame;
-    if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
-      frame = {
-        _document: data.document,
-        _realm: data.realm,
-        url: data.url,
-        isDestroyed() {
-          return window.isDestroyed() || window.webContents._ipcFrame !== frame;
-        }
-      };
-      window.webContents._ipcFrame = frame;
+    if (typeof frameForDocument !== "function") {
+      throw error("ERR_FIREFLY_UNSUPPORTED_API", "Canonical IPC frame provider is unavailable");
     }
-    frame.url = data.url;
+    let frame;
+    try {
+      frame = frameForDocument(window.id, data.document);
+    } catch (failure) {
+      if (failure?.code === "ERR_FIREFLY_OBJECT_DESTROYED") {
+        return void 0;
+      }
+      throw failure;
+    }
+    if (!frame) {
+      return void 0;
+    }
     return { sender: window.webContents, senderFrame: frame };
   }
   function dispatchEvent(window, data) {
@@ -1925,7 +1926,10 @@ function createMainIpc(native, EventEmitter, error) {
       console.warn("ERR_FIREFLY_IPC_SERIALIZATION: invalid event arguments");
       return;
     }
-    ipcMain.emit(channel, senderEvent(window, data), ...args);
+    const event = senderEvent(window, data);
+    if (event) {
+      ipcMain.emit(channel, event, ...args);
+    }
   }
   function dispatchIpc(window, data) {
     const key = `${window.id}/${data.document}/${data.request}`;
@@ -1973,6 +1977,10 @@ function createMainIpc(native, EventEmitter, error) {
         ipcHandlers.delete(channel);
       }
       const event = senderEvent(window, data);
+      if (!event) {
+        finish(false, "IPC sender frame is no longer active");
+        return;
+      }
       const result = Reflect.apply(record.listener, void 0, [event, ...args]);
       Promise.resolve(result).then(
         (value) => finish(true, value),
@@ -1999,6 +2007,230 @@ function createMainIpc(native, EventEmitter, error) {
     }
   }
   return { ipcMain, cancel: cancelIpc, dispatch: dispatchIpc, dispatchEvent };
+}
+
+// firefly/core/frames/index.mjs
+function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
+  const known = /* @__PURE__ */ new Set();
+  const objects = /* @__PURE__ */ new Map();
+  let stopped = false;
+  const positive = (value) => Number.isInteger(value) && value > 0 && value <= 2147483647;
+  const text = (value) => typeof value === "string" && value.length <= 65536;
+  const destroyed = () => error("ERR_FIREFLY_OBJECT_DESTROYED", "Render frame is no longer active");
+  const invalid = () => error("ERR_FIREFLY_FRAME_DATA", "Invalid native frame snapshot");
+  function sweep() {
+    for (const [token, entry] of objects) {
+      if (!contentsAlive(entry.contents) || !entry.object.deref()) {
+        objects.delete(token);
+      }
+    }
+    for (const contents of known) {
+      if (!contentsAlive(contents)) {
+        known.delete(contents);
+      }
+    }
+  }
+  function snapshot(contents) {
+    if (stopped) {
+      return null;
+    }
+    sweep();
+    if (stopped || !positive(contents) || !contentsAlive(contents)) {
+      return null;
+    }
+    if (typeof native.frames?.snapshot !== "function") {
+      unsupported("Native frame snapshots");
+    }
+    const wire = native.frames.snapshot(contents);
+    if (stopped || !contentsAlive(contents)) {
+      return null;
+    }
+    if (typeof wire !== "string" || wire.length > 2 * 1024 * 1024) {
+      throw invalid();
+    }
+    let data;
+    try {
+      data = JSON.parse(wire);
+    } catch {
+      throw invalid();
+    }
+    if (!data || data.contentsId !== contents || !Array.isArray(data.frames) || data.frames.length > 256) {
+      throw invalid();
+    }
+    const rows = /* @__PURE__ */ new Map();
+    const documents = /* @__PURE__ */ new Set();
+    const treeIds = /* @__PURE__ */ new Set();
+    const routes = /* @__PURE__ */ new Set();
+    for (const row of data.frames) {
+      if (!row || typeof row !== "object" || !positive(row.token) || rows.has(row.token) || typeof row.document !== "string" || !/^[1-9]\d{0,19}:[1-9]\d{0,19}$/.test(row.document) || documents.has(row.document) || !positive(row.frameTreeNodeId) || treeIds.has(row.frameTreeNodeId) || !positive(row.processId) || !positive(row.osProcessId) || !positive(row.routingId) || !text(row.url) || !text(row.origin) || !(row.parent === null || positive(row.parent)) || !positive(row.top)) {
+        throw invalid();
+      }
+      const route = `${row.processId}/${row.routingId}`;
+      if (routes.has(route)) {
+        throw invalid();
+      }
+      rows.set(row.token, row);
+      documents.add(row.document);
+      treeIds.add(row.frameTreeNodeId);
+      routes.add(route);
+    }
+    if (data.mainFrame === null) {
+      if (rows.size !== 0) {
+        throw invalid();
+      }
+    } else if (!positive(data.mainFrame) || !rows.has(data.mainFrame)) {
+      throw invalid();
+    }
+    for (const row of rows.values()) {
+      if (row.top !== data.mainFrame || row.parent === null !== (row.token === data.mainFrame)) {
+        throw invalid();
+      }
+      const seen = /* @__PURE__ */ new Set();
+      let cursor = row;
+      while (cursor.parent !== null) {
+        if (seen.has(cursor.token) || seen.size >= 128 || !rows.has(cursor.parent)) {
+          throw invalid();
+        }
+        seen.add(cursor.token);
+        cursor = rows.get(cursor.parent);
+      }
+      if (cursor.token !== data.mainFrame) {
+        throw invalid();
+      }
+    }
+    if (!contentsIds) {
+      known.add(contents);
+    }
+    for (const [token, entry] of objects) {
+      if (entry.contents === contents && (!rows.has(token) || !entry.object.deref())) {
+        objects.delete(token);
+      }
+    }
+    return { main: data.mainFrame, rows };
+  }
+  function read(contents, token) {
+    const data = snapshot(contents);
+    const row = data?.rows.get(token);
+    if (!row) {
+      throw destroyed();
+    }
+    return { data, row };
+  }
+  function wrap(contents, token) {
+    const cached = objects.get(token);
+    const existing = cached?.object.deref();
+    if (existing) {
+      if (cached.contents !== contents) {
+        throw invalid();
+      }
+      return existing;
+    }
+    const field = (name) => read(contents, token).row[name];
+    const frame = Object.freeze({
+      get url() {
+        return field("url");
+      },
+      get origin() {
+        return field("origin");
+      },
+      get processId() {
+        return field("processId");
+      },
+      get osProcessId() {
+        return field("osProcessId");
+      },
+      get routingId() {
+        return field("routingId");
+      },
+      get frameTreeNodeId() {
+        return field("frameTreeNodeId");
+      },
+      get parent() {
+        const { row } = read(contents, token);
+        return row.parent === null ? null : wrap(contents, row.parent);
+      },
+      get top() {
+        return wrap(contents, field("top"));
+      },
+      get frames() {
+        return [...read(contents, token).data.rows.values()].filter((row) => row.parent === token).map((row) => wrap(contents, row.token));
+      },
+      get framesInSubtree() {
+        const { data } = read(contents, token);
+        const selected = [];
+        const visit = (current) => {
+          selected.push(wrap(contents, current));
+          for (const row of data.rows.values()) {
+            if (row.parent === current) {
+              visit(row.token);
+            }
+          }
+        };
+        visit(token);
+        return selected;
+      },
+      isDestroyed() {
+        try {
+          return !snapshot(contents)?.rows.has(token);
+        } catch {
+          return true;
+        }
+      },
+      send() {
+        unsupported("WebFrameMain.send");
+      },
+      postMessage() {
+        unsupported("WebFrameMain.postMessage");
+      },
+      executeJavaScript() {
+        unsupported("WebFrameMain.executeJavaScript");
+      },
+      collectJavaScriptCallStack() {
+        unsupported("WebFrameMain.collectJavaScriptCallStack");
+      }
+    });
+    objects.set(token, { contents, object: new WeakRef(frame) });
+    return frame;
+  }
+  function main(contents) {
+    const data = snapshot(contents);
+    return data?.main ? wrap(contents, data.main) : null;
+  }
+  function fromDocument(contents, document) {
+    if (typeof document !== "string") {
+      return void 0;
+    }
+    const data = snapshot(contents);
+    for (const row of data?.rows.values() ?? []) {
+      if (row.document === document) {
+        return wrap(contents, row.token);
+      }
+    }
+    return void 0;
+  }
+  function fromId(process2, routing) {
+    if (!positive(process2) || !positive(routing) || stopped) {
+      return void 0;
+    }
+    for (const contents of contentsIds?.() ?? known) {
+      if (!contentsAlive(contents)) {
+        continue;
+      }
+      const data = snapshot(contents);
+      for (const row of data?.rows.values() ?? []) {
+        if (row.processId === process2 && row.routingId === routing) {
+          return wrap(contents, row.token);
+        }
+      }
+    }
+    return void 0;
+  }
+  function stop() {
+    stopped = true;
+    known.clear();
+    objects.clear();
+  }
+  return { main, fromDocument, fromId, stop };
 }
 
 // firefly/core/screen/index.mjs
@@ -6485,6 +6717,16 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   const channels = createMessageChannels(native, EventEmitter, error);
   const windows = /* @__PURE__ */ new Map();
   const allContents = /* @__PURE__ */ new Map();
+  const frames = createFrames(
+    native,
+    (id) => {
+      const contents = allContents.get(id);
+      return !!contents && !contents.isDestroyed();
+    },
+    error,
+    unsupported,
+    () => allContents.keys()
+  );
   const contentsToken = Symbol("WebContents constructor");
   let views;
   let ready = false;
@@ -6631,6 +6873,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
+      frames.stop();
       allContents.clear();
       try {
         for (const win of [...windows.values()]) {
@@ -6775,7 +7018,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     cancel: cancelIpc,
     dispatch: dispatchIpc,
     dispatchEvent: dispatchIpcEvent
-  } = createMainIpc(native, EventEmitter, error);
+  } = createMainIpc(native, EventEmitter, error, frames.fromDocument);
   function finishQuit() {
     const e = event();
     app.emit("will-quit", e);
@@ -6798,6 +7041,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
+    frames.stop();
     allContents.clear();
     app.emit("quit", event(), 0);
     native.quit();
@@ -6824,7 +7068,6 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       this._url = "";
       this._title = "";
       this._pending = null;
-      this._ipcFrame = null;
       allContents.set(win.id, this);
     }
     get session() {
@@ -6846,7 +7089,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     get mainFrame() {
       alive(this._window);
-      return this._ipcFrame;
+      return frames.main(this.id);
     }
     getURL() {
       alive(this._window);
@@ -7310,6 +7553,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     BrowserWindow,
     WebContentsView: views.WebContentsView,
     webContents,
+    webFrameMain: Object.freeze({ fromId: frames.fromId }),
     ipcMain,
     MessageChannelMain: channels.MessageChannelMain,
     utilityProcess: utilities.utilityProcess,

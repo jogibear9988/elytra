@@ -35,6 +35,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     auto host = JS::Object::create(realm, nullptr);
     api = host;
     install_permissions(*host);
+    install_frames(*host);
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     desktop_capture

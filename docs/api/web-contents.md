@@ -192,3 +192,7 @@ Implementation: [api.mjs](../../firefly/core/api.mjs).
 Validation: [Firefly runner](../../tooling/tests/test_firefly.py), file/HTTP loading,
 failures, PID, lifecycle and unsupported-mode fixtures; see the
 [native gates](../development/renderer-build.md) and [matrix](../compatibility/firefly-0.1.md).
+
+Native mainFrame identity and the shared IPC senderFrame proxy are described in
+[webFrameMain](web-frame-main.md). They no longer require an initial preload IPC
+message. Per-frame execution and full frame-host lifecycle remain unsupported.

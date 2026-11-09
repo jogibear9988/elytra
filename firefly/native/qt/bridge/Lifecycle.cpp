@@ -68,6 +68,7 @@ void Bridge::Impl::stop()
     Permissions::install_hooks({});
     reset_permissions(0);
     permission_check = nullptr;
+    frames.clear();
     set_preload_configurator({});
     set_native_ipc_handler({});
     ipc_timer->stop();

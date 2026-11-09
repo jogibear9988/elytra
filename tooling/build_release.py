@@ -159,6 +159,7 @@ def main():
                 "check-firefly-net-transport",
                 "check-firefly-session-permissions",
                 "check-firefly-permission-boundary",
+                "check-firefly-frames",
             ]
         )
     run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)

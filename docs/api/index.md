@@ -67,7 +67,7 @@ promisified child/output results. The new exec slice has local macOS acceptance;
 fresh Linux/Windows shell execution remains unverified.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-126 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
+127 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
 the application-only cache policy, pure startup/launcher checks, real CLI parser
 synchronous resolve chains and promisify/native callback services with actual host GC.
 At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-hook
@@ -110,7 +110,7 @@ separate Ladybird renderer processes. Detailed entries: [app](app.md) and [nativ
 [BrowserWindow](browser-window.md), [webContents](web-contents.md) and
 [preload/contextBridge](context-bridge.md), [ipcMain/ipcRenderer](ipc.md) and
 [screen](screen.md), [clipboard/ClipboardItem](clipboard.md), [nativeTheme](native-theme.md)
-and [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md), [contentTracing](content-tracing.md), [app.commandLine](command-line.md), [app paths](app-paths.md).
+and [webFrameMain](web-frame-main.md), [protocol](protocol.md), [session](session.md), [crashReporter](crash-reporter.md), [Menu/MenuItem](menu.md), [contentTracing](content-tracing.md), [app.commandLine](command-line.md), [app paths](app-paths.md).
 
 ```js
 import {app, BrowserWindow} from 'firefly';

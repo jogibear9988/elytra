@@ -9,11 +9,13 @@ gates; the source snapshots below are deliberately explicit.
 The latest actual main-ready trace uses the explicit local desktop/NLS/policy
 adaptations and optional display-capture deferral. Entry/app ready pass; the first
 failure is session.defaultSession.webRequest.onBeforeRequest (undefined webRequest).
-The original security filters remain in place. Native frame/filter implementation
-is still unaccepted. See the [current Code-OSS audit](compatibility/vscode.md) and
+The original security filters remain in place. Native canonical frame metadata now has local macOS acceptance, including
+identity before application IPC and matching senderFrame proxies; authenticated
+request/response filtering remains unimplemented. See the [current Code-OSS audit](compatibility/vscode.md) and
 [capture adaptation](guides/code-oss-adaptation.md#optional-display-capture-deferral).
-The accepted document-bound permission slice remains scoped to its recorded 126
-regression suites; this capture adaptation adds no device or workbench acceptance.
+The latest local runtime regression gate passes 127 suites. The capture and frame
+slices add no device, request-filter or workbench acceptance. See
+[webFrameMain](api/web-frame-main.md) for the read-only frame scope.
 
 The 2026-11-08 sandbox process slice adds actual renderer identity, per-window
 additionalArguments/environment snapshots and fresh document-local copies. Local

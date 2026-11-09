@@ -5,8 +5,19 @@ import { EventEmitter } from 'node:events';
 const error = (code, message) => Object.assign(Error(message), { code });
 
 const native = { decodeIpc: JSON.parse };
-const ipc = createIpc(native, EventEmitter, error);
-const window = { id: 7, webContents: { _ipcFrame: null }, isDestroyed: () => false };
+let active = true;
+let canonicalUrl = 'app://bundle/first';
+const canonicalFrame = Object.freeze({
+  get url() {
+    return canonicalUrl;
+  },
+
+  isDestroyed: () => !active
+});
+const ipc = createIpc(native, EventEmitter, error, (id, document) =>
+  id === 7 && document === '1:2' && active ? canonicalFrame : undefined
+);
+const window = { id: 7, webContents: {}, isDestroyed: () => !active };
 const data = {
   document: '1:2',
   realm: 'preload',
@@ -36,7 +47,8 @@ const listener = function (event) {
 
 ipc.ipcMain.on('message', listener);
 ipc.dispatchEvent(window, data);
-ipc.dispatchEvent(window, { ...data, url: 'app://bundle/second' });
+canonicalUrl = 'app://bundle/second';
+ipc.dispatchEvent(window, { ...data, url: 'app://forged-packet/not-authority' });
 if (order.join() !== 'once,on,on' || frame.url !== 'app://bundle/second') {
   throw Error('order/history');
 }
@@ -46,10 +58,6 @@ ipc.dispatchEvent(window, { ...data, wire: '["error"]' });
 ipc.dispatchEvent(window, { ...data, wire: '["unknown"]' });
 if (order.length !== 3) {
   throw Error('removed listener');
-}
-ipc.cancel(window);
-if (!frame.isDestroyed()) {
-  throw Error('sender not revoked');
 }
 const warn = console.warn;
 let malformed = 0;
@@ -93,6 +101,12 @@ try {
 if (!thrown) {
   throw Error('listener exceptions swallowed');
 }
+ipc.cancel(window);
+active = false; // Controlled native document retirement, independent of IPC cancellation.
+if (!frame.isDestroyed()) {
+  throw Error('native sender not revoked');
+}
+
 console.log(
   'PASS main IPC event ordering/once/removal/sender/history/revocation and listener failures without windows'
 );

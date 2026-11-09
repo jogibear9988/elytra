@@ -42,10 +42,12 @@ stack traces do not cross. Handle authorization before performing privileged wor
 
 `event.sender` is the actual owning `webContents`, selected by the native routed
 page rather than caller arguments. `event.senderFrame` supplies its current native
-URL and `isDestroyed()`. `webContents.mainFrame` returns that same limited snapshot
-after the first handled invocation, and `null` before one or after invalidation.
-This is not the full Electron WebFrameMain API. A document/realm replacement
-invalidates the snapshot; same-document requests refresh its URL from native state.
+URL, ancestry, native process identity and `isDestroyed()` through the
+[canonical frame API](web-frame-main.md). `webContents.mainFrame` exists before
+application IPC when the native document is hosted. A document/host replacement
+retires its proxy; a same-document URL change retains identity. Merely binding or
+resetting an IPC realm does not replace a still-active canonical frame. This is
+not complete Chromium frame-host lifecycle or routing support.
 The native bridge admits the bounded request immediately, then orders sender-URL
 sampling behind already queued canonical session-history steps. An immediate
 invoke after history.replaceState therefore observes the updated native URL.
@@ -136,7 +138,7 @@ EventEmitter dispatch. Neither path treats malformed renderer input as an applic
 listener exception.
 
 This does not implement event.reply, event.returnValue, webContents ipc-message
-listeners. SenderFrame remains the limited document-bound snapshot above. Use
+listeners. SenderFrame uses the read-only canonical document proxy above. Use
 invoke for a supported document-bound application reply; the private ACK itself
 still supplies no application reply channel.
 

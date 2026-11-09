@@ -28,6 +28,11 @@ void Bridge::Impl::reset_ipc(int id)
     if (found == windows.end())
         return;
     auto& window = found->second;
+    // Frame identity belongs to the native canonical document, not an IPC
+    // realm. First preload binding must preserve a frame read before IPC.
+    // Registry validation retires replaced documents/hosts independently.
+    if (window.closing)
+        frames.invalidate(id, true);
     if (window.ipc_byte_channel) {
         window.ipc_byte_channel->close();
         window.ipc_byte_channel = nullptr;

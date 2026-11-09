@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 126 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 127 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11197,6 +11197,66 @@ filters, then continue the real main entry. Native frame work is in progress and
 unaccepted. Full capture, worker/device permissions, native utility/renderer ports,
 workbench workflows and all previously recorded platform/package/release gates
 remain required. The original goal stays active.
+
+
+## 2026-11-09 — Canonical frame identity before application IPC
+
+- Replace preload-only sender snapshots with read-only proxies backed by native
+  canonical documents. Expose webContents.mainFrame before application IPC and
+  webFrameMain.fromId; genuine IPC senderFrame uses the same proxy. The native
+  document ID selects the sender; a packet URL cannot fabricate it. Retired queued
+  senders do not invoke event listeners; unavailable invoke senders reject.
+- New native registry derives current URL/origin, complete active hosted ancestry,
+  actual managed-child processId and separate OS pid from canonical state. Native
+  document/routing tokens are monotonic; frame-node IDs track real canonical nodes
+  across document changes. Weak native records never keep old documents alive.
+  Existing native ownership checks remain independent of these descriptive proxies.
+- Bound snapshots to 256 frames/contents, 1024 tracked records/tree nodes, 4096
+  visited candidates, 128 ancestor levels, 64 KiB fields and 2 MiB metadata. Invalid
+  or exhausted data fails explicitly. Skip unhosted placeholders and descendants
+  with missing ancestor hosts; an unhosted root returns no invented main frame.
+- Maintained ESM validates snapshots, identities, scalar bounds and ancestry cycles;
+  caches wrappers weakly and sweeps closed owners; every property read revalidates
+  native ownership. Arrays
+  are copied. Same-document URL changes retain identity; new documents/host loss,
+  close and shutdown retire unavailable proxies. Routing methods/events and exact
+  Chromium frame-host/BFCache behavior remain unsupported.
+- Correct the first-bind coupling found during review: resetting preload IPC alone
+  must not retire an unchanged canonical frame. Closing clears registry authority;
+  navigation/crash is checked against the actual current document and live host.
+  Update the standalone IPC peer to supply controlled canonical identity instead of
+  constructing a frame from event URL data; malicious packet URLs are ignored.
+- Actual offscreen Firefly acceptance passes a native main frame before any
+  application IPC, real main/same/cross-origin metadata/ancestry, internal process
+  versus OS pid semantics, identity lookup, hash retention, child-document
+  replacement, canonical senderFrame aliases and actual owner closure. The hidden
+  Electron 45.2.3 shared fixture passes. It must wait for actual frame retirement
+  after the window closed event; Firefly document lifetime is intentionally tested
+  separately from Chromium frame-host reuse.
+- Add read-only API reference, ADR 0180, IPC/current status updates and the macOS
+  release component gate. No global engine IPC header expansion, new dependency
+  or Ladybird modification. Standalone Mite remains independent of Firefly/LibWeb.
+
+Validation: Release CLI/embedded host and production/offscreen Firefly build.
+All 127 runtime CTest suites pass (81.87 seconds), including six new Node/Mite
+frame-policy groups and existing IPC/protocol/permission gates. Real Firefly and
+Electron frame batches pass; the final exact-object component gate passes after
+weak-cache cleanup. No device or visible desktop UI actions. Formatting passes
+for 268 Python, 896 JS/web/config, 510 native and 67 CMake files. Site validation
+passes for 315 pages and 22,313 local links/resources/fragments. Logs:
+build/frames-{final-build,cli-build,policy-final,public,electron-final,component-final,runtime-final,style,site}.log.
+
+Next: implement actual webRequest request/response interception using this native
+frame authority. The fresh adapted Code-OSS entry still stops at onBeforeRequest;
+no filter was added just to accept registration. Prefer the existing private byte
+bootstrap for a separate authenticated typed control session, without expanding
+engine endpoint headers again. Cover HTTP/cache/custom/file before transport,
+headers before CORS, native navigation separately, bounded cancellation/teardown
+and truthful main/utility networking scope. Last-listener replacement must match
+Electron; a filter allowance must never become a filesystem grant. All previous
+workbench, native port/extension-host/PTY, worker/device, Windows repair and
+platform/package/release requirements remain open. The full original goal is active.
+
 
 ## Resume
 

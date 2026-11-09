@@ -3,7 +3,7 @@
  * sender metadata; application handlers decide authorization. Lifecycle teardown
  * cancels pending replies without trying to undo already-started handler effects.
  */
-export default function createMainIpc(native, EventEmitter, error) {
+export default function createMainIpc(native, EventEmitter, error, frameForDocument) {
   const ipcHandlers = new Map();
   const ipcRequests = new Map();
 
@@ -54,26 +54,25 @@ export default function createMainIpc(native, EventEmitter, error) {
         ipcRequests.delete(key);
       }
     }
-    window.webContents._ipcFrame = null;
   }
 
   /** Shared native-bound sender identity for invoke handlers and event listeners. */
   function senderEvent(window, data) {
-    let frame = window.webContents._ipcFrame;
-    if (!frame || frame._document !== data.document || frame._realm !== data.realm) {
-      frame = {
-        _document: data.document,
-        _realm: data.realm,
-        url: data.url,
-
-        isDestroyed() {
-          return window.isDestroyed() || window.webContents._ipcFrame !== frame;
-        }
-      };
-      window.webContents._ipcFrame = frame;
+    if (typeof frameForDocument !== 'function') {
+      throw error('ERR_FIREFLY_UNSUPPORTED_API', 'Canonical IPC frame provider is unavailable');
     }
-    // Same-document URL changes retain the endpoint, but must not retain an old URL.
-    frame.url = data.url;
+    let frame;
+    try {
+      frame = frameForDocument(window.id, data.document);
+    } catch (failure) {
+      if (failure?.code === 'ERR_FIREFLY_OBJECT_DESTROYED') {
+        return undefined;
+      }
+      throw failure;
+    }
+    if (!frame) {
+      return undefined;
+    } // A queued packet cannot resurrect a replaced document.
     return { sender: window.webContents, senderFrame: frame };
   }
 
@@ -94,7 +93,10 @@ export default function createMainIpc(native, EventEmitter, error) {
     }
     // EventEmitter supplies registration order, once-before-call removal and
     // listener exception behavior. Return values never become invoke replies.
-    ipcMain.emit(channel, senderEvent(window, data), ...args);
+    const event = senderEvent(window, data);
+    if (event) {
+      ipcMain.emit(channel, event, ...args);
+    }
   }
 
   /** Native code supplies document identity and URL; payload arguments never identify senders. */
@@ -146,6 +148,10 @@ export default function createMainIpc(native, EventEmitter, error) {
         ipcHandlers.delete(channel);
       }
       const event = senderEvent(window, data);
+      if (!event) {
+        finish(false, 'IPC sender frame is no longer active');
+        return;
+      }
       const result = Reflect.apply(record.listener, undefined, [event, ...args]);
 
       Promise.resolve(result).then(

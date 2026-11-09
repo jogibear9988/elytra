@@ -158,9 +158,9 @@ public:
             std::vector<std::string> names { "app", "BrowserWindow", "ipcMain", "screen",
                 "clipboard", "ClipboardItem", "nativeTheme", "protocol", "session", "crashReporter",
                 "Menu", "MenuItem", "contentTracing", "MessageChannelMain", "utilityProcess",
-                "safeStorage", "WebContentsView", "webContents", "desktopCapturer", "nativeImage",
-                "Notification", "powerMonitor", "powerSaveBlocker", "shell", "systemPreferences",
-                "net", "globalShortcut", "dialog" };
+                "safeStorage", "WebContentsView", "webContents", "webFrameMain", "desktopCapturer",
+                "nativeImage", "Notification", "powerMonitor", "powerSaveBlocker", "shell",
+                "systemPreferences", "net", "globalShortcut", "dialog" };
 
             TRY(modules.register_host_module("firefly", api.as_object(), names));
             if (electron_compat)

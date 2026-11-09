@@ -6,6 +6,7 @@ import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
 import createPermissions from './session/permissions.mjs';
 import createMainIpc from './ipc-main.mjs';
+import createFrames from './frames/index.mjs';
 import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
@@ -45,6 +46,16 @@ export default function createFireflyApi(
   const channels = createMessageChannels(native, EventEmitter, error);
   const windows = new Map();
   const allContents = new Map();
+  const frames = createFrames(
+    native,
+    (id) => {
+      const contents = allContents.get(id);
+      return !!contents && !contents.isDestroyed();
+    },
+    error,
+    unsupported,
+    () => allContents.keys()
+  );
   const contentsToken = Symbol('WebContents constructor');
   let views;
   let ready = false;
@@ -211,6 +222,7 @@ export default function createFireflyApi(
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
+      frames.stop();
       allContents.clear();
       try {
         for (const win of [...windows.values()]) {
@@ -358,7 +370,7 @@ export default function createFireflyApi(
     cancel: cancelIpc,
     dispatch: dispatchIpc,
     dispatchEvent: dispatchIpcEvent
-  } = createMainIpc(native, EventEmitter, error);
+  } = createMainIpc(native, EventEmitter, error, frames.fromDocument);
 
   function finishQuit() {
     const e = event();
@@ -382,6 +394,7 @@ export default function createFireflyApi(
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
+    frames.stop();
     allContents.clear();
     app.emit('quit', event(), 0);
     native.quit();
@@ -411,7 +424,6 @@ export default function createFireflyApi(
       this._url = '';
       this._title = '';
       this._pending = null;
-      this._ipcFrame = null;
       allContents.set(win.id, this);
     }
 
@@ -437,7 +449,7 @@ export default function createFireflyApi(
 
     get mainFrame() {
       alive(this._window);
-      return this._ipcFrame;
+      return frames.main(this.id);
     }
 
     getURL() {
@@ -961,6 +973,7 @@ export default function createFireflyApi(
     BrowserWindow,
     WebContentsView: views.WebContentsView,
     webContents,
+    webFrameMain: Object.freeze({ fromId: frames.fromId }),
     ipcMain,
     MessageChannelMain: channels.MessageChannelMain,
     utilityProcess: utilities.utilityProcess,

@@ -37,6 +37,12 @@ actual recording, capture authorization and capture-settings attempts. The fresh
 11,536-source tree completes the entry and observes app ready; its current first
 failure is session.defaultSession.webRequest.onBeforeRequest because webRequest
 is unavailable. Security filters remain unchanged. See [the capture adaptation](../guides/code-oss-adaptation.md#optional-display-capture-deferral).
+The required canonical frame identity foundation now passes local macOS native
+and shared Electron tests: mainFrame before application IPC, real native internal
+process identity, ancestry and stale document retirement. This supplies metadata
+for the filter implementation; it does not intercept or authorize requests.
+[Frame contract](../api/web-frame-main.md).
+
 Full display capture and authenticated request/response filtering remain open. Media grants, separate worker permission queries, notification request/delivery
 and native Linux/Windows permission acceptance are not established. No workbench,
 workspace open/edit/save, actual MDM-change or physical GPU acceptance is claimed.
