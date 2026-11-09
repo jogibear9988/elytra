@@ -39,6 +39,12 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_frames(*host);
     install_background(*host);
     install_constraints(*host);
+    host->define_native_function(
+        realm, "firstMouseAvailable"_utf16,
+        +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+            return JS::Value(first_mouse_available());
+        },
+        0, JS::default_attributes);
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     desktop_capture
@@ -163,6 +169,16 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
                 return SandboxPolicy::fail(vm, *failure);
             auto limits = TRY(read_limits(vm));
+            auto first_mouse = vm.argument(12);
+            if (!first_mouse.is_undefined()) {
+                if (!first_mouse.is_boolean())
+                    return preload_error(
+                        vm, "ERR_INVALID_ARG_TYPE", "acceptFirstMouse must be a boolean"sv);
+                if (!first_mouse_available())
+                    return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+                        "acceptFirstMouse requires the Cocoa backend"sv);
+            }
+
             auto color = vm.argument(10);
             if (!color.is_undefined()
                 && (!color.is_int32() || color.as_i32() < 0 || color.as_i32() > 0xffffff))
@@ -176,13 +192,20 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                 vm.argument(4).to_boolean(), move(preload), vm.argument(6).to_boolean(),
                 vm.argument(7).is_undefined() ? Optional<int> {} : TRY(vm.argument(7).to_i32(vm)),
                 vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)),
-                background, limits);
-            if (!id.has_value())
+                background, limits,
+                first_mouse.is_undefined() ? Optional<bool> {}
+                                           : Optional<bool> { first_mouse.as_bool() });
+            if (id.has<WindowCreationError>()) {
+                if (id.get<WindowCreationError>() == WindowCreationError::InputPolicy)
+                    return preload_error(vm, "ERR_FIREFLY_WINDOW_INPUT",
+                        "Native first mouse policy could not be applied"sv);
                 return vm.throw_completion<JS::RangeError>(
                     "Window geometry exceeds native coordinates"_utf16);
-            return JS::Value(*id);
+            }
+
+            return JS::Value(id.get<int>());
         },
-        12, JS::default_attributes);
+        13, JS::default_attributes);
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

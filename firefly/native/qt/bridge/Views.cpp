@@ -92,25 +92,60 @@ void Bridge::Impl::detach_view(int host_id, int child_id)
     }
 
     child.owner_id.clear();
+    clear_first_mouse(*child.view);
     child.view->setParent(nullptr);
     child.view->setGeometry(native_bounds(child.view_bounds));
     child.view->push_viewport_size();
 }
 
-void Bridge::Impl::attach_view(int host_id, int child_id, size_t index)
+bool Bridge::Impl::attach_view(int host_id, int child_id, size_t index)
 {
     auto& host = windows.at(host_id);
     auto& child = windows.at(child_id);
-    if (child.owner_id.has_value())
-        detach_view(*child.owner_id, child_id);
-    child.owner_id = host_id;
+    auto previous_owner = child.owner_id;
+    auto* previous_parent = child.view->parentWidget();
+    if (child.file_picker)
+        child.file_picker->cancel();
+    child.view->hide();
+    clear_first_mouse(*child.view);
     child.view->setParent(host.content_container);
+    // An attached native child must inherit its current host's first-click
+    // policy. Commit ownership only after the real platform view accepted it.
+    if (first_mouse_available()
+        && !install_first_mouse(*host.window, *child.view, host.accept_first_mouse)) {
+        clear_first_mouse(*child.view);
+        child.view->setParent(previous_parent);
+        if (previous_owner.has_value()) {
+            auto& previous = windows.at(*previous_owner);
+            if (!install_first_mouse(*previous.window, *child.view, previous.accept_first_mouse)) {
+                // Never leave a surviving child with JS ownership that no
+                // longer matches its native input policy after failed rollback.
+                close_contents(child_id, true);
+                return false;
+            }
+
+            child.view->setVisible(child.desired_visible);
+            restack_views(*previous_owner);
+        }
+
+        child.view->setGeometry(native_bounds(child.view_bounds));
+        child.view->push_viewport_size();
+        return false;
+    }
+
+    if (previous_owner.has_value()) {
+        auto& previous = windows.at(*previous_owner).child_ids;
+        previous.erase(std::remove(previous.begin(), previous.end(), child_id), previous.end());
+    }
+
+    child.owner_id = host_id;
     child.view->setGeometry(native_bounds(child.view_bounds));
     child.view->push_viewport_size();
     auto& ids = host.child_ids;
     ids.insert(ids.begin() + std::min(index, ids.size()), child_id);
     child.view->setVisible(child.desired_visible);
     restack_views(host_id);
+    return true;
 }
 
 void Bridge::Impl::close_contents(int id, bool immediate)
@@ -285,7 +320,9 @@ void Bridge::Impl::install_views(JS::Object& host)
             }
 
             (void)child;
-            attach_view(vm.argument(0).as_i32(), vm.argument(1).as_i32(), index);
+            if (!attach_view(vm.argument(0).as_i32(), vm.argument(1).as_i32(), index))
+                return preload_error(vm, "ERR_FIREFLY_WINDOW_INPUT",
+                    "Native child first mouse policy could not be applied"sv);
             return JS::js_undefined();
         },
         3, JS::default_attributes);

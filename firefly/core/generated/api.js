@@ -3268,6 +3268,27 @@ function createBackground(native, error, unsupported) {
   };
 }
 
+// firefly/core/window/input.mjs
+function createWindowInput(native, error, unsupported) {
+  return function read(options) {
+    const legacyDarkMode = options.experimentalDarkMode;
+    if (legacyDarkMode !== void 0 && typeof legacyDarkMode !== "boolean") {
+      throw error("ERR_INVALID_ARG_TYPE", "experimentalDarkMode must be a boolean");
+    }
+    const value = options.acceptFirstMouse;
+    if (value === void 0) {
+      return void 0;
+    }
+    if (typeof value !== "boolean") {
+      throw error("ERR_INVALID_ARG_TYPE", "acceptFirstMouse must be a boolean");
+    }
+    if (typeof native.firstMouseAvailable !== "function" || !native.firstMouseAvailable()) {
+      unsupported("BrowserWindow acceptFirstMouse on this window backend");
+    }
+    return value;
+  };
+}
+
 // firefly/core/message-ports/index.mjs
 function createMessageChannels(native, EventEmitter, error) {
   const states = /* @__PURE__ */ new WeakMap();
@@ -7407,6 +7428,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   };
   const channels = createMessageChannels(native, EventEmitter, error);
   const background = createBackground(native, error, unsupported);
+  const windowInput = createWindowInput(native, error, unsupported);
   const windows = /* @__PURE__ */ new Map();
   const allContents = /* @__PURE__ */ new Map();
   const frames = createFrames(
@@ -7914,6 +7936,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           "show",
           "frame",
           "backgroundColor",
+          "experimentalDarkMode",
+          "acceptFirstMouse",
           "webPreferences"
         ].includes(key)) {
           unsupported(`BrowserWindow option ${key}`);
@@ -7929,6 +7953,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       const useContentSize = options.useContentSize ?? false;
       const limits = geometry.initialConstraints(options);
       const constraintWire = JSON.stringify(limits);
+      const firstMouse = windowInput(options);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === void 0 ? "#FFFFFF" : initialBackground
@@ -7966,7 +7991,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           y,
           additionalArguments,
           color,
-          constraintWire
+          constraintWire,
+          firstMouse
         )
       });
       this.webContents = new WebContents(this, contentsToken);

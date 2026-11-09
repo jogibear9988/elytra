@@ -13,6 +13,7 @@ import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
 import createBackground from './window/background.mjs';
+import createWindowInput from './window/input.mjs';
 import createMessageChannels from './message-ports/index.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
@@ -47,6 +48,7 @@ export default function createFireflyApi(
 
   const channels = createMessageChannels(native, EventEmitter, error);
   const background = createBackground(native, error, unsupported);
+  const windowInput = createWindowInput(native, error, unsupported);
   const windows = new Map();
   const allContents = new Map();
   const frames = createFrames(
@@ -600,6 +602,8 @@ export default function createFireflyApi(
             'show',
             'frame',
             'backgroundColor',
+            'experimentalDarkMode',
+            'acceptFirstMouse',
             'webPreferences'
           ].includes(key)
         ) {
@@ -616,6 +620,7 @@ export default function createFireflyApi(
       const useContentSize = options.useContentSize ?? false;
       const limits = geometry.initialConstraints(options);
       const constraintWire = JSON.stringify(limits);
+      const firstMouse = windowInput(options);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === undefined ? '#FFFFFF' : initialBackground
@@ -656,7 +661,8 @@ export default function createFireflyApi(
           y,
           additionalArguments,
           color,
-          constraintWire
+          constraintWire,
+          firstMouse
         )
       });
       this.webContents = new WebContents(this, contentsToken);

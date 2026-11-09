@@ -20,6 +20,8 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
 | minWidth, minHeight | Integer 0..16384, default 0; minimum size; constructor useContentSize also applies |
 | maxWidth, maxHeight | Integer 0..16384, default 0; maximum size; each zero axis is unbounded |
+| acceptFirstMouse | Boolean, Cocoa only; default false. [First click on inactive windows](#first-click-on-inactive-windows) |
+| experimentalDarkMode | Legacy boolean accepted without effect, matching the pinned Electron 45 reference; use nativeTheme for appearance |
 | backgroundColor | Opaque color string, default white; [native canvas background](window-background.md) |
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
@@ -81,6 +83,40 @@ destroy is idempotent for destroyed/already-closing windows. Do not assume that
 calling destroy makes isDestroyed true before the native closed notification.
 A pending load rejects when the window is closed. Loading has its own
 [validation and Promise contract](web-contents.md).
+
+## First click on inactive windows
+
+On macOS Cocoa, acceptFirstMouse:false (the default) lets the first click activate
+an inactive window without delivering that click to its web content. With true,
+the native content view can accept the same click. Native input-transparency and
+view-readiness checks still apply. This option does not grant programmatic focus
+or mouse-event injection capabilities.
+
+The policy belongs to the host window. Its main content and attached
+WebContentsViews use the same value. Moving a child view to another host installs
+the new host's value before showing it; detaching removes the old native policy.
+There is no process-wide change to Qt's native view class.
+
+```js
+const window = new BrowserWindow({acceptFirstMouse: true});
+```
+
+An explicit acceptFirstMouse on offscreen or another unsupported backend throws
+ERR_FIREFLY_UNSUPPORTED_API before native window allocation. Nonboolean values
+throw ERR_INVALID_ARG_TYPE. Omitted values remain usable in headless tests; they
+do not establish OS click-through acceptance on those backends.
+
+experimentalDarkMode is a separate known legacy flag: Electron 45.2.3 no longer
+reads it. Firefly accepts true/false without changing appearance; other supplied
+types fail ERR_INVALID_ARG_TYPE. This is not a per-window theme API. Use
+[nativeTheme](native-theme.md) for the supported application appearance controls.
+Unknown options still fail explicitly.
+
+Acceptance: hidden Cocoa probes call the actual NSView first-mouse method and
+check independent views, class restoration, reparenting and automatic rebinding
+after actual Qt native surface destruction/recreation. Public constructor and
+child-attachment cases pass Firefly and Electron 45.2.3. These checks do not inject
+OS mouse input; end-to-end inactive-window activation remains unverified.
 
 ## Minimum and maximum size
 

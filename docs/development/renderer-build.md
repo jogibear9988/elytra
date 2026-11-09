@@ -311,3 +311,13 @@ For a deliberate hidden macOS backend check, run
 python3 tooling/tests/test_window_constraints.py --firefly build/renderer/bin/firefly --platform cocoa.
 All fixture windows use show:false. Avoid repeating desktop tests for unrelated
 documentation changes. The macOS release builder includes the offscreen gate.
+
+## Cocoa first-click policy
+
+Run cmake --build build/renderer --target check-firefly-window-input for one hidden
+Cocoa batch. It combines the genuine native NSView callback/lifecycle probe with
+public BrowserWindow and child attachment checks. No test window is shown and no
+OS mouse input is injected. Explicit first-mouse requests on the offscreen backend
+must reject; the separate admission policy also runs in CLI CTest under Node/Mite.
+This gate belongs to the macOS release builder. Actual activation input and fresh
+platform execution remain separate acceptance work.

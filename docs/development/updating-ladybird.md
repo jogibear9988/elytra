@@ -500,3 +500,13 @@ CALayer; use the public native CPU tab-preview path after accepted compositor
 swaps. This verifies actual canvas bytes, not physical GPU/CALayer presentation.
 Recheck preload isolation, frame identity, permissions and protocol regressions
 for session-state/painting changes. See [ADR 0183](../architecture/0183-native-canvas-backgrounds.md).
+
+## Native Cocoa first-click integration
+
+The first-mouse adapter uses the actual Qt QNSView runtime class and its original
+acceptsFirstMouse: implementation without changing upstream sources. On Qt or
+native view changes, re-run check-firefly-window-input: hidden Cocoa callback
+checks must cover independent policies, restoration and reparenting. Verify the
+runtime subclass assumptions and original input-transparency checks; an offscreen
+public constructor test cannot prove native click-through behavior. See
+[ADR 0184](../architecture/0184-native-first-mouse-policy.md).

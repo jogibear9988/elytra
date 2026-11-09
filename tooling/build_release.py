@@ -162,6 +162,7 @@ def main():
                 "check-firefly-frames",
                 "check-firefly-background-color",
                 "check-firefly-window-constraints",
+                "check-firefly-window-input",
                 "check-firefly-web-request",
             ]
         )

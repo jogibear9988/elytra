@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 131 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 132 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11534,6 +11534,71 @@ Next: implement actual remaining window-option behavior, beginning with the
 observed experimentalDarkMode consumer, then resume the first-window path.
 Utility forwarding, workers, extension/PTY, Windows repair and native platform/
 package/release requirements remain open. The full goal remains active.
+
+
+## 2026-11-09 — Cocoa first-mouse policy and legacy window flag admission
+
+- Add BrowserWindow acceptFirstMouse with real Cocoa behavior: false/default
+  suppresses first-click delivery to content; true delegates to Qt's original
+  acceptsFirstMouse implementation and retains native input-transparency guards.
+  This uses bounded runtime subclasses on owned NSViews, never a process-wide
+  Qt class method replacement or an upstream patch. Other native views retain
+  their original classes, method implementations and callbacks.
+- A content-owned QObject tracks QWindow/native surface identity and weak NSView
+  lifetime. Native destruction restores the installed class while still owned;
+  actual surface recreation automatically rebinds the current policy. Content
+  mouse-button events fail closed while a replacement policy is unavailable,
+  with bounded explicit diagnostics if rebinding fails. Exact identity checks
+  prevent a retained old NSView from masquerading as the current native handle.
+- Attached WebContentsViews inherit their current host's setting. Detach revokes
+  the binding; cross-host moves configure the new native view before committing
+  ownership or showing it. Failed attachment restores old policy, geometry and
+  stacking, or closes the child if native rollback fails. Independent review
+  identified the missing rollback restack, which is now fixed.
+- Native capability/type validation precedes preload I/O/window allocation.
+  Explicit true/false on offscreen/non-Cocoa backends fails unsupported. Omitted
+  headless options remain usable without claiming OS activation behavior.
+- experimentalDarkMode is a known inert legacy boolean, matching the pinned
+  Electron 45.2.3 reference. A complete source archive scan finds no consumer;
+  public true/false constructor cases also pass Electron. This is not a theme
+  setter, and actual appearance remains nativeTheme's responsibility. Other
+  supplied types and unknown window options continue to fail explicitly.
+- Genuine hidden Cocoa callbacks pass both policies, view isolation, unchanged
+  unowned Qt classes/IMPs, reinstall, reparent and teardown. Two actual QWidget
+  destroy/create cycles produce distinct native NSViews and automatically
+  restore false/true policies without reinstalling. Initial fixture failure
+  assumed Qt's KVO subclass survives teardown; independent unmodified Qt controls
+  prove normal NSKVONotifying_QNSView-to-QNSView cleanup. Corrected assertions
+  require that baseline plus complete absence of our policy class in retired
+  native inheritance chains. No production workaround was needed for that test.
+- Public hidden Cocoa/offscreen and Electron cases pass constructor admission and
+  child moves. Their existing detached-owner difference remains explicit:
+  Firefly returns null, while Electron retains the last host in this case.
+  All 132 local Release CLI CTests pass, including Node/Mite option policy.
+  Existing offscreen WebContentsView pages/PIDs/viewport/binary IPC, ordering,
+  reparent/detached navigation and host/child lifetime acceptance passes, as does
+  the public/native window-size constraint regression gate.
+  Cocoa/offscreen application and native probe builds pass. Add the hidden Cocoa
+  gate to the macOS release builder; document API behavior, limits and ADR 0184.
+- Fresh real adapted Code-OSS entry reaches constructor option validation and
+  next rejects titleBarStyle, before native workbench window allocation. Native
+  window background/constraints/input behavior is verified by separate component
+  tests, not by that stopped startup. Missing Error.captureStackTrace and the
+  handled device-ID synchronous-ESM require fallback remain visible.
+
+Validation logs: build/window-input-{build-final2,probe-build,gate,
+electron-reference,offscreen,runtime,regression,code-oss,format,site,upstream}.log.
+Earlier failed build/fixture diagnostics are retained and are not accepted runs.
+Formatting passes for 281 Python, 928 JS/web/config, 546 native and 74 CMake files;
+site validation passes for 322 pages and 22,805 local links/resources/fragments.
+Native callback tests show no windows and inject no OS input; actual inactive
+window activation, broader renderer interaction and fresh Linux/Windows execution
+remain open. Ladybird remains unmodified. The full project goal remains active.
+
+Next: genuine titleBarStyle:hidden with native macOS buttons and content geometry,
+then continue the first-window path and remaining webPreferences/runtime gaps.
+Workbench/open-edit-save, extension host/PTY, utility forwarding, workers, Windows
+repair and all platform/package/release requirements remain unfinished.
 
 
 ## Resume
