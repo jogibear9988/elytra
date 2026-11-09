@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 from pathlib import Path
+from prepare_permission_hooks import adapt as permission_adapt
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = "cd63de48c088f7d0127206ea464cd073728a6c645a117539c32326c49cf97930"
@@ -75,6 +76,9 @@ def main():
             pass
         else:
             raise AssertionError("Ambiguous IPC seam accepted")
+    # Compose both owned boundaries from the exact same pinned translation unit.
+    # Permission gates must not discard the existing IPC/navigation hooks.
+    output = permission_adapt("WebContentPage.cpp", output)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if not args.output.exists() or args.output.read_text() != output:
         args.output.write_text(output)

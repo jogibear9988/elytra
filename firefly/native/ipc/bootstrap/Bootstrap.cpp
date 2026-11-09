@@ -60,6 +60,28 @@ namespace {
 
     NeverDestroyed<RefPtr<FilePolicyCallback>> file_policy_receiver;
 
+    struct PermissionCheckCallback : RefCounted<PermissionCheckCallback> {
+        explicit PermissionCheckCallback(PermissionCheckReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        PermissionCheckReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<PermissionCheckCallback>> permission_check_receiver;
+
+    struct PermissionPolicyCallback : RefCounted<PermissionPolicyCallback> {
+        explicit PermissionPolicyCallback(PermissionPolicyReceiver value)
+            : callback(move(value))
+        {
+        }
+
+        PermissionPolicyReceiver callback;
+    };
+
+    NeverDestroyed<RefPtr<PermissionPolicyCallback>> permission_policy_receiver;
+
 }
 
 void set_bootstrap_receiver(BootstrapReceiver callback)
@@ -139,6 +161,33 @@ void accept_file_policy(IPC::Stub& stub, u64 generation, bool active)
     auto callback = file_policy_receiver.get();
     if (callback && (generation || !active))
         callback->callback(stub, generation, active);
+}
+
+void set_permission_check_receiver(PermissionCheckReceiver value)
+{
+    permission_check_receiver.get() = value ? adopt_ref(*new PermissionCheckCallback(move(value)))
+                                            : RefPtr<PermissionCheckCallback> {};
+}
+
+bool accept_permission_check(
+    IPC::Stub& stub, u64 page, u64 ns, u64 local, u64 epoch, String const& name)
+{
+    auto callback = permission_check_receiver.get();
+    return callback && ns && local && epoch && epoch <= 2147483647 && name.byte_count() <= 64
+        && !name.contains('\0') && callback->callback(stub, page, ns, local, epoch, name);
+}
+
+void set_permission_policy_receiver(PermissionPolicyReceiver value)
+{
+    permission_policy_receiver.get() = value ? adopt_ref(*new PermissionPolicyCallback(move(value)))
+                                             : RefPtr<PermissionPolicyCallback> {};
+}
+
+void accept_permission_policy(IPC::Stub& stub, u64 epoch, bool check, bool request)
+{
+    auto callback = permission_policy_receiver.get();
+    if (callback && epoch && epoch <= 2147483647)
+        callback->callback(stub, epoch, check, request);
 }
 
 }

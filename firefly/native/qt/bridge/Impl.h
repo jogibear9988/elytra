@@ -19,6 +19,7 @@
 #include "../Bridge.h"
 #include "TransportHooks.h"
 #include "native/file-picker/Picker.h"
+#include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
@@ -152,6 +153,52 @@ struct Bridge::Impl {
     std::shared_ptr<Shell::Controller> shell_service;
     std::shared_ptr<SystemPreferences::Controller> system_preferences;
     std::shared_ptr<NetworkState> network_state;
+
+    struct PermissionPending {
+        int contents;
+        u64 epoch;
+        RefPtr<WebView::WebContentPage> page;
+        Permissions::DocumentId document;
+        Permissions::Name name;
+        Permissions::Decision decision;
+        MonotonicTime deadline;
+    };
+
+    struct PermissionGrant {
+        int contents;
+        Permissions::DocumentId document;
+        Permissions::Name name;
+    };
+
+    u64 permission_epoch { 0 };
+    int permission_next { 0 };
+    bool permission_requests { false };
+    GC::Root<JS::FunctionObject> permission_check;
+    std::unordered_map<int, PermissionPending> permission_pending;
+    std::vector<PermissionGrant> permission_grants;
+    void initialize_permissions();
+
+    void install_permissions(JS::Object&);
+
+    void broadcast_permissions();
+
+    void configure_permission_page(WebView::WebContentPage&);
+
+    void reset_permissions(int);
+
+    void expire_permissions();
+
+    bool permission_event_current(ByteString const&);
+
+    int permission_contents(WebView::WebContentPage&, Permissions::DocumentId);
+
+    bool check_permission(
+        WebView::WebContentPage&, Permissions::DocumentId, u64, Permissions::Name);
+
+    void request_permission(WebView::WebContentPage&, Permissions::DocumentId, Permissions::Name,
+        Permissions::Decision);
+
+    bool complete_permission(int, u64, bool);
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
         bool electron_compat);

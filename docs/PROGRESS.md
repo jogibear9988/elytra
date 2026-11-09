@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 125 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 126 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11066,6 +11066,95 @@ handlers to skip the security boundary. Remaining full-goal requirements still
 include workbench/open-edit-save, extension host/PTY/workers, native port transfer,
 platform/packaging/release acceptance and the previously recorded Windows CI repairs.
 The original goal remains active.
+
+
+
+## 2026-11-09 — Document-bound session permission checks and requests
+
+- Implement maintained ESM Session.setPermissionCheckHandler and
+  setPermissionRequestHandler on the frozen default session; owned
+  webContents.session returns the same real singleton. Preserve ready/closed/type
+  guards, synchronous strict-boolean checks and asynchronous single-use decisions.
+  Default/null reset denies. Replacing either handler revokes pending ownership,
+  intentionally stricter than Electron's non-null request-handler replacement.
+- Reserve generations before native registration. Controlled reentrant stop during
+  the first registration exposed stale enablement; now stop revokes the reservation,
+  nested registration rejects and failed registration invalidates candidate closures.
+  Invalid decisions deny before throwing; request exceptions deny before ordinary
+  callback failure reporting. Native check exceptions now report/fail rather than
+  being silently swallowed. An inactive-document completion now sends denial to
+  its original request ID while the page remains open, draining the helper Page
+  pending-callback root; dropping that reply would retain old settings/documents.
+  This follows the inspected Page set/take lifecycle; no GC-stress claim. Media callback(true) denies and fails explicitly.
+- Add native canonical-document permission ownership, independent of preload/file
+  grants. Synchronous private IPC authenticates the sending client/page and active
+  document namespace/local ID plus policy generation. Derive current frame URL,
+  origin, embedding origin and main-frame identity natively. Deny busy/modal VM
+  reentry and revalidate after JS checkpoints, including callback-driven close/nav.
+- Reuse the existing native permission-request transport after original canonical,
+  Permissions Policy, trust and notification-activation guards. Pending requests
+  retain native page/document/epoch/deadline; retire before completion and deny stale
+  owner or generation. Queued events revalidate before each delivery/defer. Grant
+  records are exact-document, never origin-wide; close/nav/config/shutdown revoke,
+  and frame-only replacement prunes stale records. Native feature-use gates consult
+  this authority or a fresh check, with microphone query/use/capture always denied.
+- Bound native ownership to 16 pending/window, 64 global and 256 document grants;
+  31-bit generations/tokens never wrap. Enforce 64 KiB UTF-8 URL/origin fields and
+  256 KiB metadata before callback/admission/queue allocation. Completion checks the
+  30-second monotonic deadline itself, so a retained callback cannot grant merely
+  because a long JS turn delayed the expiry timer.
+- Compose pinned query-before-cache and independent request admission paths; custom
+  opaque-origin outcomes never persist in PermissionStore. Notification request
+  settlement uses its actual decision instead of re-querying the independent check
+  handler; activation/delivery remains unaccepted. Four guarded upstream source
+  compositions preserve unrelated bytes and existing IPC/navigation hooks. No
+  Ladybird source/gitlink/manifest changes. Original IPC endpoint IDs are preserved.
+- Enter owned WebContent denial mode before application content, send the captured
+  policy in a guarded private helper-launch argument and ordered authenticated
+  updates, and update existing out-of-process frame hosts. Helper queries validate
+  their actual executing PageClient against their live authenticated connection;
+  missing/stale policy fails closed. Separate out-of-process worker queries remain
+  unintegrated and can retain upstream default status; no worker support claim.
+- Real public offscreen acceptance passes main/same/cross-origin query ownership,
+  actual geolocation request-handler denial, handler replacement/null reset,
+  same-origin contents isolation and held decisions after navigation/owner close/
+  replacement/reset. No location result, notification, capture, device API or OS
+  permission prompt. The shared first query/request-denial path passes Electron
+  45.2.3. The first close fixture inspected destruction too soon; it now waits for
+  the real closed event and destroyed state before invoking the stale callback.
+- A separate native-only frontend links exact production application objects and
+  uses a real owned file document. Twelve cases check current/stale/forged native
+  identities, genuine broker-to-ESM grant, wrong-document denial and replacement
+  revocation. This is controlled native grant-model acceptance, not renderer device
+  access. It adds no production JS probe API or fake document/provider.
+- Re-run the actual prepared Code-OSS entry with local-desktop/NLS/policy adaptation.
+  Entry/app ready and both permission registrations now pass. First actual failure
+  is session.defaultSession.setDisplayMediaRequestHandler; Error.captureStackTrace
+  remains a secondary error-reporting gap. No workbench/open-edit-save claim.
+- Update API/session/Code-OSS docs and ADR 0178, including scoped defaults and
+  unsupported clipboard/media/worker routes. Add both real component targets to the
+  macOS release gate; fresh hosted execution remains required. Existing unchanged
+  ProtocolMainService consumer still passes with 49 verified compiled dependencies.
+
+Validation: Release CLI/embedded host, production Firefly, exact-object offscreen
+frontend and native boundary frontend build. All 126 CTest suites pass (36.09s).
+Final check-firefly-session-permissions and check-firefly-permission-boundary pass
+against the hardened build. Node/Mite factory policy, source pins/reversal/drift,
+startup policy guard and unchanged upstream checks pass. Formatting passes 266 Python, 890 JS/web/config, 507 native and 66 CMake files.
+The generated site validates 312 pages and 22,098 local links/resources. Logs: build/session-permissions-{final-build,
+acceptance-final,policy,electron,code-oss,protocol-regression,runtime-final,adapters,
+upstream,style,site}.log.
+
+Next: the pinned engine lacks getDisplayMedia; audit an explicit optional capture
+feature deferral in the existing local-desktop experiment, preserving ordinary
+Electron behavior and rejecting actual unsupported capture. Do not add an inert
+Session setter. The subsequent unchanged configureSession registers security-
+relevant webRequest filters; implement actual authenticated request/frame policy
+before accepting those. Then continue actual main startup and workbench workflows.
+Remaining: renderer notification activation/delivery and elapsed native deadlines,
+full device/worker permissions, native utility/renderer port transfer, extension
+host/PTY/workers, Windows watcher/oracle repairs, platform/package/release gates and
+all previously recorded cross-platform requirements. Full original goal stays active.
 
 
 ## Resume

@@ -8,6 +8,7 @@
 #include "RendererSession.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginConfig.h"
+#include "permissions/Session.h"
 #include "preload/Process.h"
 #include "resources/Session.h"
 #include <LibCore/System.h>
@@ -29,6 +30,7 @@ namespace Web::Bindings {
 void firefly_initialize_renderer_vm(HTML::AgentType type)
 {
     initialize_main_thread_vm(type);
+    Firefly::HelperPermissions::initialize();
     Firefly::RendererSession::initialize();
     Firefly::Resources::initialize();
 }
@@ -38,8 +40,9 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     TRY(Firefly::PreloadProcess::prepare());
     auto origin = TRY(Firefly::Protocols::consume_origin_configuration(arguments.strings));
-    auto filtered
+    auto file_policy
         = TRY(Firefly::Protocols::consume_file_policy_configuration(origin.strings.span()));
+    auto filtered = TRY(Firefly::HelperPermissions::prepare(file_policy.strings.span()));
     // Read-only startup evidence while this internal protocol path is under
     // development. No page/preload command can set or replace this policy.
     if (auto configuration = Firefly::Protocols::configuration_for_helper();
@@ -48,6 +51,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             *configuration);
     auto result = firefly_upstream_renderer_main({ static_cast<int>(filtered.strings.size()),
         filtered.argv.data(), filtered.strings.span() });
+    Firefly::HelperPermissions::shutdown();
     Firefly::Resources::shutdown();
     Firefly::RendererSession::shutdown();
     return result;

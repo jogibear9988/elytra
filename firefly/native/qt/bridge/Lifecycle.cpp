@@ -42,10 +42,13 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
             metadata.set("modifiers"sv, modifiers);
             enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
         });
-    ipc_timer = Core::Timer::create_repeating(
-        AK::Duration::from_seconds(1), [this] { expire_ipc_events(); });
+    ipc_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [this] {
+        expire_ipc_events();
+        expire_permissions();
+    });
     ipc_timer->start();
     initialize_protocols();
+    initialize_permissions();
     set_preload_configurator([this](auto&, auto& page) { configure_preloads(page); });
     set_native_ipc_handler([this](auto& page, auto navigable, auto params, NativeIpcKind kind) {
         receive_ipc(page, navigable, move(params), kind);
@@ -62,6 +65,9 @@ void Bridge::Impl::stop()
     if (stopping)
         return;
     stopping = true;
+    Permissions::install_hooks({});
+    reset_permissions(0);
+    permission_check = nullptr;
     set_preload_configurator({});
     set_native_ipc_handler({});
     ipc_timer->stop();
@@ -98,6 +104,8 @@ void Bridge::Impl::stop()
 void Bridge::Impl::deliver(int id, ByteString const& type, ByteString const& data)
 {
     if (stopping || !handler)
+        return;
+    if (type == "permission-request"sv && !permission_event_current(data))
         return;
     if (jobs.is_busy() || (dialogs && dialogs->is_synchronous())) {
         QTimer::singleShot(1, context.get(), [this, id, type, data] { deliver(id, type, data); });

@@ -157,6 +157,8 @@ def main():
                 "check-firefly-gpu-process",
                 "check-firefly-net-native",
                 "check-firefly-net-transport",
+                "check-firefly-session-permissions",
+                "check-firefly-permission-boundary",
             ]
         )
     run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)

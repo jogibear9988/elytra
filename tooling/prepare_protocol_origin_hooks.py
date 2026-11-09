@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+HELPER_PREFIX = '#include "native/permissions/Hooks.h"\n'
 PREFIX = '#include "native/protocol/OriginPolicy.h"\n#include "native/protocol/FilePolicy.h"\n'
 ENTRIES = {
     "FetchURL.cpp": (
@@ -29,11 +30,11 @@ ENTRIES = {
 }
 
 
-def adapt(source, seam, hook):
+def adapt(source, seam, hook, extra_prefix=""):
     if source.count(seam) != 1:
         raise ValueError("Missing or ambiguous custom origin seam")
-    result = PREFIX + source.replace(seam, hook + seam)
-    assert result.removeprefix(PREFIX).replace(hook + seam, seam) == source
+    result = extra_prefix + PREFIX + source.replace(seam, hook + seam)
+    assert result.removeprefix(extra_prefix + PREFIX).replace(hook + seam, seam) == source
     return result
 
 
@@ -46,7 +47,16 @@ def prepare(output):
                 f"Review owned protocol origin seam before updating Ladybird: {relative}"
             )
         source = data.decode("utf-8")
-        planned[name] = adapt(source, seam, hook)
+        extra_prefix = HELPER_PREFIX if name == "HelperProcess.cpp" else ""
+        if name == "HelperProcess.cpp":
+            hook += (
+                "    if (Firefly::Permissions::active()) {\n"
+                "        auto permission_policy = Firefly::Permissions::policy();\n"
+                "        if (permission_policy.epoch > 0)\n"
+                '            arguments.append(ByteString::formatted("--firefly-permission-policy={}:{}:{}", permission_policy.epoch, permission_policy.check_enabled ? 1 : 0, permission_policy.request_enabled ? 1 : 0));\n'
+                "    }\n\n"
+            )
+        planned[name] = adapt(source, seam, hook, extra_prefix)
         if name == "HelperProcess.cpp":
             guarded_file_argument = (
                 "    if (Firefly::Protocols::file_policy_snapshot().generation != 0)\n"
@@ -55,9 +65,23 @@ def prepare(output):
             )
             if planned[name].count(guarded_file_argument) != 1:
                 raise AssertionError("Default upstream helper must not receive private file flags")
+            guarded_permission_argument = (
+                "    if (Firefly::Permissions::active()) {\n"
+                "        auto permission_policy = Firefly::Permissions::policy();\n"
+                "        if (permission_policy.epoch > 0)\n"
+            )
+            if (
+                planned[name].count(guarded_permission_argument) != 1
+                or planned[name].count("--firefly-permission-policy=") != 1
+            ):
+                raise AssertionError(
+                    "Unconfigured upstream helper must not receive private permission flags"
+                )
+        elif HELPER_PREFIX in planned[name] or "--firefly-permission-policy=" in planned[name]:
+            raise AssertionError("Native permission launcher dependency leaked into LibWebCommon")
         for invalid in ["", source + seam, source.replace(seam, "")]:
             try:
-                adapt(invalid, seam, hook)
+                adapt(invalid, seam, hook, extra_prefix)
             except ValueError:
                 pass
             else:

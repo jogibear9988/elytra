@@ -429,3 +429,26 @@ adds checked Page request/close/exact-target delivery seams. Revalidate original
 multiple mode, monotonic serials, weak target/document/page identity, invalid-result
 cancellation and preservation of ordinary SDK requests without a sender. The native
 request scope does not itself implement the parent/helper transport or public API.
+
+## Session permission adapters
+
+Review the owned permission compositions whenever the upstream permission model or
+canonical document lifecycle changes. `tooling/prepare_permission_hooks.py` pins
+Permissions.cpp, Notification.cpp, WebContentPage.cpp and WebContentClient.cpp; the existing native
+IPC adapter composes its page hook rather than replacing it. Preserve both the
+query-before-cache path and the independent permission-request admission path.
+Custom outcomes must not become origin-wide grants or survive their document and
+policy generation. Keep upstream trust, Permissions Policy, activation and OS
+backend gates, and preserve ordinary unconfigured Ladybird behavior.
+
+The private bootstrap generator must preserve original endpoint IDs and bind its
+checks to the actual sending client/page/document. Review the guarded helper-launch
+snapshot and ordered policy updates, including helpers hosting existing subframes.
+A source digest or unique needle proves identity of a seam, not semantic safety.
+
+After the renderer rebuild, run `check-firefly-session-permissions` and
+`check-firefly-permission-boundary` where the explicit offscreen frontend exists.
+These use real owned documents and denied permission requests; the boundary driver
+also tests the native grant model without invoking a device provider. They add no
+production test API and should not produce an OS permission prompt. Fresh platform
+and actual device/backend acceptance remain separate requirements.

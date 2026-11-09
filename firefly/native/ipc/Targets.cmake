@@ -8,7 +8,8 @@ endif()
 set_property(
     DIRECTORY
     APPEND
-    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_ipc_event_hook.py"
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_permission_hooks.py"
+             "${FIREFLY_SOURCE_DIR}/tooling/prepare_ipc_event_hook.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/WebContentPage.cpp")
 get_target_property(view_sources LibWebView SOURCES)
 set(ipc_replaced 0)

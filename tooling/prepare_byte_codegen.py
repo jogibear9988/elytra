@@ -14,6 +14,9 @@ INSERT = """    set(firefly_ipc_generator "${LADYBIRD_SOURCE_DIR}/Meta/Generator
         set(firefly_ipc_generator "${FIREFLY_SOURCE_DIR}/tooling/generate_byte_bootstrap.py")
         set(firefly_ipc_dependency "${FIREFLY_SOURCE_DIR}/tooling/generate_byte_bootstrap.py")
         set_property(GLOBAL PROPERTY FIREFLY_BYTE_GENERATOR_SELECTED TRUE)
+    elseif(source STREQUAL "${LADYBIRD_SOURCE_DIR}/Services/WebContent/WebContentClient.ipc")
+        set(firefly_ipc_generator "${FIREFLY_SOURCE_DIR}/tooling/generate_permission_query.py")
+        set(firefly_ipc_dependency "${FIREFLY_SOURCE_DIR}/tooling/generate_permission_query.py")
     endif()
 """
 COMMAND = (

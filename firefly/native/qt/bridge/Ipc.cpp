@@ -23,6 +23,7 @@ namespace Firefly {
 // Navigation/crash invalidates both queued replies and native budget slots.
 void Bridge::Impl::reset_ipc(int id)
 {
+    reset_permissions(id);
     auto found = windows.find(id);
     if (found == windows.end())
         return;

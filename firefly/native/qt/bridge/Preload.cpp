@@ -92,6 +92,7 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
 {
     if (stopping)
         return;
+    configure_permission_page(page);
     Web::WebDriver::BiDiSessionState state;
     state.is_active = true;
     for (auto const& [id, window] : windows) {

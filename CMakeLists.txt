@@ -317,6 +317,12 @@ if(BUILD_TESTING)
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_policy_watcher_public.py" --mite
             "$<TARGET_FILE:mite>")
     add_test(
+        NAME firefly-session-permissions-policy
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_session_permissions_policy.py" --mite
+            "$<TARGET_FILE:mite>")
+    add_test(
         NAME firefly-dialog-policy
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_dialog_policy.py"
                 --mite "$<TARGET_FILE:mite>")

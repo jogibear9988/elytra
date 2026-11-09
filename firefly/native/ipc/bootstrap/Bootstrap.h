@@ -72,4 +72,17 @@ void set_file_policy_receiver(FilePolicyReceiver);
 
 void accept_file_policy(IPC::Stub&, u64 generation, bool active);
 
+// Exact-document permission checks use the authenticated main/helper connection.
+using PermissionCheckReceiver = Function<bool(IPC::Stub&, u64 page, u64 document_namespace,
+    u64 document_local, u64 epoch, String const& name)>;
+void set_permission_check_receiver(PermissionCheckReceiver);
+
+bool accept_permission_check(IPC::Stub&, u64 page, u64 document_namespace, u64 document_local,
+    u64 epoch, String const& name);
+
+using PermissionPolicyReceiver = Function<void(IPC::Stub&, u64 epoch, bool check, bool request)>;
+void set_permission_policy_receiver(PermissionPolicyReceiver);
+
+void accept_permission_policy(IPC::Stub&, u64 epoch, bool check, bool request);
+
 }

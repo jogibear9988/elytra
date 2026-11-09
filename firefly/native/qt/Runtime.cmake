@@ -226,6 +226,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Permissions.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Views.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
@@ -608,3 +609,5 @@ add_custom_target(
     VERBATIM)
 
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/web-contents-view/Targets.cmake")
+
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/session-permissions/Targets.cmake")

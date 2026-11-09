@@ -67,7 +67,7 @@ promisified child/output results. The new exec slice has local macOS acceptance;
 fresh Linux/Windows shell execution remains unverified.
 The [process reference](process.md) covers identity/environment, clocks, CPU usage,
 custom events and the explicitly owned native signal subset. Local macOS passes
-125 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
+126 runtime/component suites including actual Code-OSS source bootstrap, platform/process,
 the application-only cache policy, pure startup/launcher checks, real CLI parser
 synchronous resolve chains and promisify/native callback services with actual host GC.
 At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-hook

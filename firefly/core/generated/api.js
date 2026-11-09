@@ -1667,6 +1667,189 @@ function createProtocol(native, isReady, error, unsupported, transport) {
   };
 }
 
+// firefly/core/session/permissions.mjs
+function createPermissions(native, isReady, isStopped, contentsFromId, error, unsupported) {
+  let epoch = 0;
+  let stopped = false;
+  let configuring = false;
+  let checkHandler = null;
+  let requestHandler = null;
+  const maximumId = 2147483647;
+  const names = /* @__PURE__ */ new Set(["geolocation", "notifications", "media"]);
+  function id(value) {
+    return Number.isInteger(value) && value > 0 && value <= maximumId;
+  }
+  function active() {
+    return !stopped && !isStopped();
+  }
+  function contents(id2) {
+    const value = contentsFromId(id2);
+    return value && !value.isDestroyed() ? value : void 0;
+  }
+  function details(value, permission) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.requestingUrl !== "string" || value.requestingUrl.length > 65536 || typeof value.isMainFrame !== "boolean") {
+      return void 0;
+    }
+    const result = { requestingUrl: value.requestingUrl, isMainFrame: value.isMainFrame };
+    if (value.embeddingOrigin !== void 0) {
+      if (typeof value.embeddingOrigin !== "string" || value.embeddingOrigin.length > 65536) {
+        return void 0;
+      }
+      result.embeddingOrigin = value.embeddingOrigin;
+    }
+    if (permission === "media") {
+      if (value.mediaType !== void 0 && value.mediaType !== "audio") {
+        return void 0;
+      }
+      if (value.mediaTypes !== void 0 && (!Array.isArray(value.mediaTypes) || value.mediaTypes.length !== 1 || value.mediaTypes[0] !== "audio")) {
+        return void 0;
+      }
+      result.mediaType = "audio";
+      result.mediaTypes = ["audio"];
+    }
+    return result;
+  }
+  function configure(nextCheck, nextRequest) {
+    if (!active()) {
+      throw error("ERR_FIREFLY_SESSION_CLOSED", "Session permissions are closed");
+    }
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "Session permissions require app readiness");
+    }
+    if (!native.permissions?.configure) {
+      unsupported("Session permission enforcement");
+    }
+    if (epoch === maximumId) {
+      throw error("ERR_OUT_OF_RANGE", "Session permission generation exhausted");
+    }
+    if (configuring) {
+      throw error(
+        "ERR_FIREFLY_SESSION_REENTRANT",
+        "Permission configuration is already in progress"
+      );
+    }
+    const nextEpoch = ++epoch;
+    const check = nextCheck === null ? null : (contentsId, permission, origin, wire) => {
+      if (!active() || epoch !== nextEpoch || !id(contentsId) || !names.has(permission) || typeof origin !== "string" || origin.length > 65536 || typeof wire !== "string" || wire.length > 262144) {
+        return false;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(wire);
+      } catch {
+        return false;
+      }
+      const metadata = details(parsed, permission);
+      const target = contents(contentsId);
+      if (!metadata || !target) {
+        return false;
+      }
+      const allowed = nextCheck(target, permission, origin, metadata);
+      return allowed === true && active() && epoch === nextEpoch && contents(contentsId) === target;
+    };
+    configuring = true;
+    try {
+      native.permissions.configure(nextEpoch, check, nextRequest !== null);
+    } catch (failure) {
+      checkHandler = null;
+      requestHandler = null;
+      if (epoch < maximumId) {
+        ++epoch;
+      } else {
+        stopped = true;
+      }
+      throw failure;
+    } finally {
+      configuring = false;
+    }
+    if (!active()) {
+      if (epoch < maximumId) {
+        native.permissions.configure(++epoch, null, false);
+      }
+      throw error("ERR_FIREFLY_SESSION_CLOSED", "Session closed during permission configuration");
+    }
+    checkHandler = nextCheck;
+    requestHandler = nextRequest;
+  }
+  function handler(value) {
+    if (value !== null && typeof value !== "function") {
+      throw Object.assign(new TypeError("Permission handler must be a function or null"), {
+        code: "ERR_INVALID_ARG_TYPE"
+      });
+    }
+    return value;
+  }
+  const api = {
+    setPermissionCheckHandler(value) {
+      configure(handler(value), requestHandler);
+    },
+    setPermissionRequestHandler(value) {
+      configure(checkHandler, handler(value));
+    }
+  };
+  function dispatch(data) {
+    if (!data || typeof data !== "object" || !id(data.token) || !id(data.epoch)) {
+      return;
+    }
+    const finish = (allowed) => native.permissions.complete(data.token, data.epoch, allowed);
+    if (!active() || data.epoch !== epoch || !requestHandler || !id(data.contentsId) || !names.has(data.permission)) {
+      finish(false);
+      return;
+    }
+    const target = contents(data.contentsId);
+    const metadata = details(data, data.permission);
+    if (!target || !metadata) {
+      finish(false);
+      return;
+    }
+    const current = epoch;
+    const callbackHandler = requestHandler;
+    let completed = false;
+    const callback = (allowed) => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+      if (!active() || epoch !== current || requestHandler !== callbackHandler || contents(data.contentsId) !== target) {
+        finish(false);
+        return;
+      }
+      if (typeof allowed !== "boolean") {
+        finish(false);
+        throw Object.assign(new TypeError("Permission decision must be a boolean"), {
+          code: "ERR_INVALID_ARG_TYPE"
+        });
+      }
+      if (allowed && data.permission === "media") {
+        finish(false);
+        unsupported("Renderer microphone capture grants");
+      }
+      finish(allowed);
+    };
+    try {
+      callbackHandler(target, data.permission, callback, metadata);
+    } catch (failure) {
+      if (!completed) {
+        completed = true;
+        finish(false);
+      }
+      throw failure;
+    }
+  }
+  function stop() {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    checkHandler = null;
+    requestHandler = null;
+    if (epoch && epoch < maximumId) {
+      native.permissions.configure(++epoch, null, false);
+    }
+  }
+  return { api, dispatch, stop };
+}
+
 // firefly/core/ipc-main.mjs
 function createMainIpc(native, EventEmitter, error) {
   const ipcHandlers = /* @__PURE__ */ new Map();
@@ -6437,6 +6620,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
+      permissions.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -6563,7 +6747,15 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported, transport);
   const { protocol } = protocols;
-  const defaultSession = Object.freeze({ protocol });
+  const permissions = createPermissions(
+    native,
+    () => ready,
+    () => exited,
+    (id) => allContents.get(id),
+    error,
+    unsupported
+  );
+  const defaultSession = Object.freeze({ protocol, ...permissions.api });
   const session = {};
   Object.defineProperty(session, "defaultSession", {
     enumerable: true,
@@ -6595,6 +6787,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
+    permissions.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -6633,6 +6826,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       this._pending = null;
       this._ipcFrame = null;
       allContents.set(win.id, this);
+    }
+    get session() {
+      alive(this._window);
+      return defaultSession;
     }
     postMessage() {
       unsupported("webContents.postMessage port/data delivery");
@@ -6949,6 +7146,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   native.setHandler((id, type, data) => {
     if (type === "menu-click") {
       menus.dispatch(id, JSON.parse(data));
+      return;
+    }
+    if (type === "permission-request") {
+      permissions.dispatch(JSON.parse(data));
       return;
     }
     if (type === "protocol-request" || type === "protocol-cancel" || type === "protocol-pull") {

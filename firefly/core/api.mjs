@@ -4,6 +4,7 @@ import createTracing from './tracing/index.mjs';
 import createCommandLine from './app/command-line.mjs';
 import createCrashReporter from './crash/index.mjs';
 import createProtocol from './protocol/index.mjs';
+import createPermissions from './session/permissions.mjs';
 import createMainIpc from './ipc-main.mjs';
 import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
@@ -199,6 +200,7 @@ export default function createFireflyApi(
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
+      permissions.stop();
       shortcuts.stop();
       dialogs.stop();
       desktopShell.stop();
@@ -327,7 +329,15 @@ export default function createFireflyApi(
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported, transport);
   const { protocol } = protocols;
-  const defaultSession = Object.freeze({ protocol });
+  const permissions = createPermissions(
+    native,
+    () => ready,
+    () => exited,
+    (id) => allContents.get(id),
+    error,
+    unsupported
+  );
+  const defaultSession = Object.freeze({ protocol, ...permissions.api });
   const session = {};
   Object.defineProperty(session, 'defaultSession', {
     enumerable: true,
@@ -361,6 +371,7 @@ export default function createFireflyApi(
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
+    permissions.stop();
     shortcuts.stop();
     dialogs.stop();
     desktopShell.stop();
@@ -402,6 +413,11 @@ export default function createFireflyApi(
       this._pending = null;
       this._ipcFrame = null;
       allContents.set(win.id, this);
+    }
+
+    get session() {
+      alive(this._window);
+      return defaultSession;
     }
 
     postMessage() {
@@ -773,6 +789,10 @@ export default function createFireflyApi(
   native.setHandler((id, type, data) => {
     if (type === 'menu-click') {
       menus.dispatch(id, JSON.parse(data));
+      return;
+    }
+    if (type === 'permission-request') {
+      permissions.dispatch(JSON.parse(data));
       return;
     }
     if (type === 'protocol-request' || type === 'protocol-cancel' || type === 'protocol-pull') {

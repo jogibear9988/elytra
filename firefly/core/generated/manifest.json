@@ -1,14 +1,14 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "ab46d8905ec542d95be063f61fc97a209ddc28e033affaf15a35c58d4a9c0bd6",
+    "api.js": "4dd455349877727dcc3dfa281026c9dfa46ba3b265eacd0ded072c3ba4f01ee2",
     "safe-storage.js": "83556e5959e968894b3cdb91b7dfe295008a647c673c39cd3f91a37c5826da45",
     "utility-parent.js": "49413f8484e3e21991be052054516711614538a7a1964fccaec8f177adcb9b6c",
     "utility-net.js": "ac08b0d72d98b3d977e83176e951c17bd7994eeb7dd5933750361fff16929ee2",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
-    "firefly/core/api.mjs": "335ffd37668bc675692f637244578141391d9c3ce4d44bf0b77e9a84691fbe9b",
+    "firefly/core/api.mjs": "8da9ce94984d482befa97119f93b432c18e148d453f57bb935a01a97f398f557",
     "firefly/core/app/command-line.mjs": "2ab3004b6a7c8c9bd9dda2ebd2bc67226bb51c64b86fc290b4ce982ffab9bb45",
     "firefly/core/app/gpu.mjs": "ed2676bb428cb758700bf5fc0965cd012a442f6420afcd57c074f273faba2b93",
     "firefly/core/clipboard/index.mjs": "cb86410d470d9fe49db84b669cfb6814b9bdd624f9f6c3001f48c3c2bd0fae98",
@@ -31,6 +31,7 @@
     "firefly/core/protocol/responses.mjs": "4bcdea67f4c8aa4b3c2c41088f38f9ebb9038e577596b43f73121c1ebf1e79ba",
     "firefly/core/safe-storage/index.mjs": "3df097c268d42d0bb587ca7d35ead19cebde5907080bc1bf036e9190a92700e2",
     "firefly/core/screen/index.mjs": "8520b379fe29fc484f1960108fa2bed3f0f0cbd609f2f19dba57e42dfd0cf342",
+    "firefly/core/session/permissions.mjs": "11c47e409a12dec3243d7d26c5c1ed33ed620087f1f7ef361d5202516d80e287",
     "firefly/core/shell/index.mjs": "76e167464ba8d2be04ed253cdd5c6234871817eb88f2fcb6de2fed4c76f142bd",
     "firefly/core/system-preferences/index.mjs": "aba9897bdb0165ac60070857d387bcf93fe82d01bc050e683d91cbf5a7c7c21f",
     "firefly/core/theme/index.mjs": "6981ff6c676fdb82714f8a61dee5fe571b23a12fce1cfed74af927404e2d91ec",
