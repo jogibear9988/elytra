@@ -27,6 +27,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
+| webPreferences.spellcheck | false only; currently disabled by default. [Native spelling policy](#native-spelling-policy) |
 | webPreferences.sandbox | true by default; boolean false is overridden after early [app.enableSandbox()](app.md#appenablesandbox), otherwise explicitly rejected |
 | webPreferences.additionalArguments | Bounded string array copied to isolated-preload process.argv; nonempty arguments require a preload; see [sandbox process](sandbox-process.md) |
 | webPreferences.preload | Absolute path to a bounded UTF-8 CommonJS preload; see [preload/contextBridge](context-bridge.md) |
@@ -458,3 +459,25 @@ Electron reference. Native Windows/Linux remain unverified. See the
 
 Native HTML [file inputs](file-input.md) now have a bounded owned Qt chooser path.
 See its limits, lifecycle, helper validation and missing path/provenance APIs.
+
+
+## Native spelling policy
+
+`webPreferences.spellcheck: false` is supported for BrowserWindow and
+WebContentsView. Firefly currently installs no native spelling provider. Ladybird
+therefore sends spelling and writing-suggestion availability as false to renderer
+pages and answers spelling/suggestion requests with empty results. This is a
+native provider policy; HTML `spellcheck` attributes still describe author intent.
+
+An explicit `true` throws `ERR_FIREFLY_UNSUPPORTED_API`. Nonboolean values throw
+`ERR_INVALID_ARG_TYPE`. Omission also leaves native spelling disabled, an
+intentional difference from Electron's enabled default. Per-view enabled providers,
+languages, dictionaries and session spelling controls remain unsupported.
+
+Validation checks the actual native provider state. Both native factories also
+reject before preload I/O or widget allocation if a provider has been installed;
+this prevents a future provider from silently violating the current contract.
+Hidden public document-loading cases pass Firefly and Electron. An exact-object
+offscreen probe installs/removes a real native provider and checks rejection,
+widget counts and recovery. These tests do not claim a renderer spelling RPC,
+OS dictionary or visible underline acceptance test.

@@ -69,7 +69,13 @@ export default function createFireflyApi(
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
-  const preferences = createWebPreferences(paths, () => sandboxRequired, error, unsupported);
+  const preferences = createWebPreferences(
+    paths,
+    () => sandboxRequired,
+    error,
+    unsupported,
+    () => native.spellCheckDisabled()
+  );
   let resolveReady;
   const readyPromise = new Promise((resolve) => {
     resolveReady = resolve;

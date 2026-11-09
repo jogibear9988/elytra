@@ -40,6 +40,14 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_background(*host);
     install_constraints(*host);
     host->define_native_function(
+        realm, "spellCheckDisabled"_utf16,
+        +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+            // Upstream propagates provider availability to every renderer page and
+            // returns empty spelling/suggestion responses when there is no provider.
+            return JS::Value(WebView::Application::the().spell_checker() == nullptr);
+        },
+        0, JS::default_attributes);
+    host->define_native_function(
         realm, "firstMouseAvailable"_utf16,
         +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
             return JS::Value(first_mouse_available());
@@ -170,6 +178,9 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         realm, "create"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             // Independently enforce native launch policy before preload I/O/window creation.
+            if (WebView::Application::the().spell_checker())
+                return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+                    "Firefly windows require disabled native spellchecking"sv);
             auto native_enabled = WebView::Application::browser_options().disable_sandbox
                 == WebView::DisableSandbox::No;
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())

@@ -534,6 +534,7 @@ python3 tooling/tests/test_code_oss_window_preferences.py --mite build/release-m
 ```
 
 A fresh local macOS diagnostic with this adaptation passes the prior cache-option
-rejection and reaches app readiness, then rejects `webPreferences.spellcheck`
+rejection and reaches app readiness. With disabled native spelling support in
+Firefly it passes `spellcheck:false`, then rejects `webPreferences.zoomFactor`
 before creating the editor window. Native spdlog bindings remain unavailable.
 This is startup progress, not accepted workbench or file-editing support.

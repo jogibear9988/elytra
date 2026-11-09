@@ -11812,6 +11812,46 @@ open/edit/save, extensions, PTY, workers, Windows and release acceptance remain
 unfinished. The full goal remains active.
 
 
+## 2026-11-10 — Genuine disabled native spelling preference
+
+- Support webPreferences.spellcheck:false in the shared BrowserWindow and
+  WebContentsView validator. It reads the option once, validates a boolean and
+  admits false only when a trusted native query reports the actual spelling
+  provider absent. Missing/malformed capability queries fail closed; true remains
+  explicitly unsupported. Existing isolation, sandbox, preload and argument
+  policies remain intact. Omission leaves spelling disabled, an intentional
+  difference from Electron's enabled default.
+- Upstream Ladybird already propagates provider absence as disabled spelling and
+  writing suggestions to every page/helper, and returns empty request responses.
+  Firefly installs no provider. Both native factories additionally check actual
+  provider absence before preload I/O or allocation, including omitted defaults.
+  No Ladybird changes, fake dictionary or inert preference admission is involved.
+- Actual Node/Mite tests pass four shared policy groups. Hidden public Firefly and
+  Electron 45.2.3 windows and child views load real HTML documents with false;
+  Firefly rejects enabled/nonboolean requests before allocation. An exact-object
+  offscreen frontend installs a real native SpellChecker, verifies both explicit
+  false and omitted window/view requests reject without extra native widgets or
+  provider calls, removes the provider and verifies exact-count recovery. These
+  checks do not claim renderer spelling RPC, OS dictionary or underline acceptance.
+- Production Firefly, shared-object offscreen frontend and native provider probe
+  build. Both selected Release CTests (new spelling policy and cache adaptation)
+  pass. The prior complete runtime baseline remains 135 passing suites; two new
+  suites are now registered, without claiming a fresh complete run. No visible
+  GUI batch was launched; all created test windows stayed hidden/offscreen.
+- A fresh bounded isolated native-titlebar Code-OSS start reaches app readiness,
+  passes spellcheck:false and now rejects webPreferences.zoomFactor before native
+  window creation. Native spdlog lookup errors and the handled synchronous ESM
+  require fallback remain. No editor/open-edit-save acceptance is claimed.
+- API, both compatibility matrices, adaptation guide and ADR 0187 record supported
+  behavior, default difference and unfinished enabled/per-view/session controls.
+
+Validation: build/spellcheck-{build,final-build,cli-build,public,native,ctest,style,
+code-oss-start,site}.log. Next: genuine zoomFactor/renderer zoom and the remaining
+window preferences, then real file logging fallback and workbench acceptance.
+Extensions, PTY, workers, Windows/platform packages and releases remain unfinished;
+the full objective remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

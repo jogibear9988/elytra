@@ -1,11 +1,33 @@
 /** Shared isolation/preload policy for main windows and standalone WebContentsViews. */
-export default function createWebPreferences(paths, isSandboxRequired, error, unsupported) {
+export default function createWebPreferences(
+  paths,
+  isSandboxRequired,
+  error,
+  unsupported,
+  isSpellCheckDisabled
+) {
   return function validate(prefs = {}) {
     if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) {
       throw error('ERR_INVALID_ARG_TYPE', 'webPreferences must be an object');
     }
     for (const key of Object.keys(prefs)) {
       if (key === 'preload' || key === 'additionalArguments') {
+        continue;
+      }
+      if (key === 'spellcheck') {
+        const value = prefs[key];
+        if (typeof value !== 'boolean') {
+          throw error('ERR_INVALID_ARG_TYPE', 'webPreferences.spellcheck must be a boolean');
+        }
+        // LibWeb receives its actual availability from the native provider. Until
+        // per-view providers exist, false is valid only while that provider is absent.
+        if (
+          value ||
+          typeof isSpellCheckDisabled !== 'function' ||
+          isSpellCheckDisabled() !== true
+        ) {
+          unsupported(`webPreferences.spellcheck=${value}`);
+        }
         continue;
       }
       if (!['contextIsolation', 'nodeIntegration', 'sandbox'].includes(key)) {

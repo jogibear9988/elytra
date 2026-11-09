@@ -296,6 +296,11 @@ void Bridge::Impl::install_views(JS::Object& host)
     host.define_native_function(
         realm, "createView"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            // All current Firefly views run without a native spelling provider;
+            // recheck that invariant even if main-process validation was bypassed.
+            if (WebView::Application::the().spell_checker())
+                return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+                    "Firefly views require disabled native spellchecking"sv);
             auto native_enabled = WebView::Application::browser_options().disable_sandbox
                 == WebView::DisableSandbox::No;
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())

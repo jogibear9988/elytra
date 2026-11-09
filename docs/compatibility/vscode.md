@@ -40,7 +40,8 @@ latest real trace passes CodeApplication.initChannels after fixing macOS CPU
 notification capability detection. It next attempts CodeWindow/BrowserWindow
 construction. The next rejected default constructor option is titleBarOverlay, before
 native window allocation. With a temporary User/settings.json containing
-window.titleBarStyle:native, the real entry reaches webPreferences.v8CacheOptions.
+window.titleBarStyle:native, the latest real entry passes the audited disabled V8
+cache adaptation and spellcheck:false, then rejects webPreferences.zoomFactor.
 Neither profile creates an accepted workbench window. The known legacy experimentalDarkMode boolean is now
 accepted without effect, and acceptFirstMouse has a genuine Cocoa implementation
 verified separately with hidden native callbacks and surface recreation.
@@ -159,7 +160,7 @@ flag, caller arguments and profile selection remain unchanged.
 This profile bypasses Code-OSS's optional custom chrome configuration; it does not
 implement Window Controls Overlay. The recorded diagnostic profile and all probe
 completion records explicitly keep workbenchAccepted:false. Native-profile startup
-currently reaches webPreferences.v8CacheOptions; an actual workbench, editing,
+currently reaches webPreferences.zoomFactor; an actual workbench, editing,
 extension host and terminal are not accepted. Use the freshly built runtime and
 compiled tree paths appropriate to your local build.
 
@@ -347,7 +348,7 @@ Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |
 | --- | --- | --- |
-| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and initChannels, then reaches CodeWindow constructor option validation and stops at titleBarOverlay in the default profile; a supported native-titlebar settings profile reaches webPreferences.v8CacheOptions. Native hidden titlebar now passes an actual Cocoa renderer batch; background, size constraints and first-mouse policy have separate component acceptance. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
+| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and initChannels, then reaches CodeWindow constructor option validation and stops at titleBarOverlay in the default profile; a supported native-titlebar settings profile now passes the disabled V8 cache adaptation and spellcheck:false, then rejects webPreferences.zoomFactor. Native hidden titlebar now passes an actual Cocoa renderer batch; background, size constraints and first-mouse policy have separate component acceptance. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
 | 2 | Utility-process and native port handoff | Build on the tested real utility fork/parentPort payload slice, then implement native utility/renderer event.ports transfer and demanded authentication forwarding. Preserve native endpoint/process/document binding and revocation; pass a real Code-OSS connection beyond the main-only Protocol gate |
 | 3 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
 | 4 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |

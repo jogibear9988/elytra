@@ -33,7 +33,7 @@ internal main web view remains a separate sibling, outside contentView.children.
 
 new WebContentsView([options]) requires app ready. Only webPreferences is accepted,
 using the existing supported BrowserWindow preference subset, including documented
-preload/additionalArguments behavior. Adopting existing webContents, custom sessions,
+preload/additionalArguments behavior and [disabled native spelling](browser-window.md#native-spelling-policy). Adopting existing webContents, custom sessions,
 subframe preloads and unsupported preferences fail explicitly. Subclassing is
 unavailable. The read-only webContents reference becomes undefined after its native
 contents are destroyed; a previously saved contents wrapper remains inspectable

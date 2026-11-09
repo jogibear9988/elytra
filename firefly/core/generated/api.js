@@ -4296,13 +4296,23 @@ function createViews(native, EventEmitter, makeContents, validatePreferences, re
 }
 
 // firefly/core/window/preferences.mjs
-function createWebPreferences(paths, isSandboxRequired, error, unsupported) {
+function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSpellCheckDisabled) {
   return function validate(prefs = {}) {
     if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) {
       throw error("ERR_INVALID_ARG_TYPE", "webPreferences must be an object");
     }
     for (const key of Object.keys(prefs)) {
       if (key === "preload" || key === "additionalArguments") {
+        continue;
+      }
+      if (key === "spellcheck") {
+        const value = prefs[key];
+        if (typeof value !== "boolean") {
+          throw error("ERR_INVALID_ARG_TYPE", "webPreferences.spellcheck must be a boolean");
+        }
+        if (value || typeof isSpellCheckDisabled !== "function" || isSpellCheckDisabled() !== true) {
+          unsupported(`webPreferences.spellcheck=${value}`);
+        }
         continue;
       }
       if (!["contextIsolation", "nodeIntegration", "sandbox"].includes(key)) {
@@ -7467,7 +7477,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
-  const preferences = createWebPreferences(paths, () => sandboxRequired, error, unsupported);
+  const preferences = createWebPreferences(
+    paths,
+    () => sandboxRequired,
+    error,
+    unsupported,
+    () => native.spellCheckDisabled()
+  );
   let resolveReady;
   const readyPromise = new Promise((resolve) => {
     resolveReady = resolve;
