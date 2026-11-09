@@ -38,7 +38,8 @@ actual recording, capture authorization and capture-settings attempts. The
 webRequest registrations and ErrorTelemetry's process event subscriptions. The
 latest real trace passes CodeApplication.initChannels after fixing macOS CPU
 notification capability detection. It next attempts CodeWindow/BrowserWindow
-construction and rejects the unsupported backgroundColor option. No workbench
+construction and rejects the unsupported minWidth option after backgroundColor.
+The opaque background path separately passes real compositor CPU pixel tests. No workbench
 window is accepted.
 
 The logged ESM require error remains a handled device-ID fallback: @vscode/deviceid
@@ -310,7 +311,7 @@ Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |
 | --- | --- | --- |
-| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and initChannels, then stops at BrowserWindow backgroundColor during CodeWindow construction. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
+| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and initChannels, then passes BrowserWindow backgroundColor and stops at minWidth during CodeWindow construction. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
 | 2 | Utility-process and native port handoff | Build on the tested real utility fork/parentPort payload slice, then implement native utility/renderer event.ports transfer and demanded authentication forwarding. Preserve native endpoint/process/document binding and revocation; pass a real Code-OSS connection beyond the main-only Protocol gate |
 | 3 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
 | 4 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |

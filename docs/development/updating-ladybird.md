@@ -477,3 +477,26 @@ fixture on relevant behavioral changes. Recheck existing protocol, permission an
 frame gates for Fetch/ownership changes. A green schema probe alone does not prove
 endpoint-zero cancellation or header changes before CORS. See
 [ADR 0181](../architecture/0181-session-request-interception.md).
+
+## Canvas background adapters
+
+Review prepare_canvas_ui.py and prepare_canvas_hooks.py against the complete
+ViewImplementation.cpp, Document.cpp and PaintingRustBridge.cpp fingerprints.
+Preserve exact upstream byte reversal and missing/duplicate seam rejection.
+Native UI fallback alone does not establish a colored renderer canvas. Keep
+document blending, recording inputs, authored CSS precedence and ordinary iframe
+behavior aligned. Never remove upstream final from WebContentView to subclass it.
+
+Metadata-only canvas records travel through the existing trusted BiDi state
+channel. Keep strict context/generation/RGB bounds, atomic snapshots, removal
+before preload evaluation and the independent preload budget. No source string
+is evaluated for these records. UI destruction must erase the captured opaque
+base pointer without dereferencing it after base destruction.
+
+Run check-firefly-background-color with exact application objects and the static
+offscreen plugin. A pixel fixture must show its window virtually to produce
+frames. On macOS, QWidget.grab reads Qt chrome rather than the separate page
+CALayer; use the public native CPU tab-preview path after accepted compositor
+swaps. This verifies actual canvas bytes, not physical GPU/CALayer presentation.
+Recheck preload isolation, frame identity, permissions and protocol regressions
+for session-state/painting changes. See [ADR 0183](../architecture/0183-native-canvas-backgrounds.md).

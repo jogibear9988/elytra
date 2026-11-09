@@ -18,6 +18,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | title | String, default Firefly |
 | show | Boolean, default true |
 | frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
+| backgroundColor | Opaque color string, default white; [native canvas background](window-background.md) |
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
@@ -65,6 +66,7 @@ show:true is also supported.
 | center() | Use native AppKit window centering on macOS |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
+| setBackgroundColor(color), getBackgroundColor() | Opaque native canvas base; getter returns uppercase #RRGGBB. [Scope](window-background.md) |
 | loadFile(path[, options]), loadURL(url[, options]) | Forward to webContents; Promise<void> |
 | close() | undefined; synchronous cancellable close request, native closure follows |
 | destroy() | undefined; bypass close event; native closure follows |

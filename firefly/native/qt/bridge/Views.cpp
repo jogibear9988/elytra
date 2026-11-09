@@ -56,10 +56,12 @@ Optional<int> Bridge::Impl::create_view(Optional<Preload> preload)
         return {};
     auto id = next_id++;
     auto* view = new Ladybird::WebContentView(nullptr);
+    initialize_content_background(*view);
     view->hide();
     view->setGeometry(0, 0, 0, 0);
     windows.emplace(id, State { nullptr, view, move(preload), State::Kind::ChildView });
     setup_content_callbacks(id);
+    broadcast_background();
     return id;
 }
 
@@ -179,6 +181,7 @@ void Bridge::Impl::setup_content_callbacks(int id)
         if (!current.closing)
             reset_ipc(id);
         windows.erase(id);
+        broadcast_background();
         enqueue(id, "contents-destroyed");
     });
     auto region_start = move(view->on_load_start);

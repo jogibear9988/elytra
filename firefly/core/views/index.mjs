@@ -6,7 +6,8 @@ export default function createViews(
   validatePreferences,
   requireReady,
   error,
-  unsupported
+  unsupported,
+  background
 ) {
   const records = new Map();
   const endpoints = new WeakMap();
@@ -181,9 +182,12 @@ export default function createViews(
       return native.viewVisible(owned(this).id);
     }
 
-    setBackgroundColor() {
-      owned(this);
-      unsupported('View background color');
+    setBackgroundColor(value) {
+      const host = owned(this);
+      if (!background) {
+        unsupported('View background color');
+      }
+      background.set(host.id, value);
     }
 
     setBorderRadius() {

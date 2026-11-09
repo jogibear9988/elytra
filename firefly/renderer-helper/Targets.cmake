@@ -14,6 +14,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/Layout.cmake")
 add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
@@ -101,6 +102,7 @@ if(FIREFLY_BUILD_RUNTIME)
     add_executable(
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
@@ -148,6 +150,9 @@ if(FIREFLY_BUILD_RUNTIME)
         endif()
     endforeach()
     add_dependencies(firefly stage-firefly-runtime-helper check-firefly-js)
+    if(TARGET firefly-background-probe)
+        add_dependencies(firefly-background-probe stage-firefly-runtime-helper check-firefly-js)
+    endif()
     # A clean build of the test frontend needs the same runtime helper/resources.
     if(TARGET firefly-view-offscreen)
         add_dependencies(firefly-view-offscreen stage-firefly-runtime-helper check-firefly-js)

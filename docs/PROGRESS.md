@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 129 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 130 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11429,6 +11429,65 @@ separate acceptance gate. Ladybird is unchanged. Site validation passes for
 Next: implement genuine window backgroundColor behavior for the pinned consumer,
 then continue its actual first-window path. Full workbench, utility request
 forwarding and all prior native platform/runtime/package requirements remain open.
+The original goal remains active.
+
+
+## 2026-11-09 — Opaque native window and view canvas backgrounds
+
+- Implement BrowserWindow backgroundColor, getBackgroundColor/setBackgroundColor
+  and WebContentsView.setBackgroundColor with real native backing. Keep public
+  webContents color methods absent, matching Electron. Main ESM supports opaque
+  Electron hex/ARGB, comma RGB/HSL and native named colors, uppercase native
+  readback, invalid-string white fallback and real TypeError for non-string input.
+  Nonopaque colors fail explicitly without changing state; no transparency claim.
+- Pass constructor RGB before OS show; update the actual final upstream Qt widget
+  via owned helper functions, never a fake subclass. Owned native UI registry and
+  ViewImplementation composition set native fallback; destruction removes opaque
+  registry keys without dereferencing already-destroyed view bases.
+- Deliver complete bounded native context/generation/RGB snapshots through the
+  existing trusted BiDi state channel. Metadata records have empty source and are
+  stripped/validated before preload execution and its independent budget. No
+  DOM/CSS mutation, page setter, engine endpoint header or Ladybird source change.
+- Compose the real Document canvas blend and PaintingRustBridge canvas input,
+  preserving author CSS and ordinary iframe rules. Apply only registered active
+  top-level contexts; invalid/stale/conflicting generations reject atomically.
+  Native changes invalidate actual recording and repaint. Navigation/helper
+  changes resend current per-view defaults; independent child views stay separate.
+- Four controlled Node/Mite color groups and a hidden Electron 45.2.3 reference
+  pass. Exact production-object offscreen public tests pass constructor/load,
+  formats/types, setter/navigation, child API shape and alpha rejection. Native
+  pixel acceptance passes initial fallback plus six genuine committed CPU canvas
+  stages: blank, live update, authored override, retained authored paint after a
+  base change, navigation and independent child canvas. These are compositor
+  bitmap pixels through public native preview, not a physical CALayer/GPU claim.
+- Preserve the diagnostic history accurately: the first probe used a protected
+  upstream method; the next fixture kept the window hidden and produced no frame;
+  macOS QWidget.grab then read chrome rather than its separate page CALayer. The
+  corrected fixture explicitly requires the offscreen plugin, shows virtually
+  after arming actual frame swaps and reads public native CPU previews. Valid
+  producer diagnostics proved context/RGB delivery; no renderer guard workaround
+  was needed. All temporary diagnostics were removed.
+- Production/offscreen builds and the final combined color/frame/permission gates
+  pass. Existing non-GUI isolation and public protocol regressions pass. All 130
+  local runtime CTests pass (38.26 seconds). Source pin/reversal/drift guards pass;
+  physical GPU/CALayer, zero-flash and fresh Linux/Windows acceptance remain open.
+- Fresh real adapted Code-OSS startup passes backgroundColor and next rejects
+  BrowserWindow minWidth. It still has no accepted workbench; the actual first
+  window is not inferred from a constructor attempt. Error.captureStackTrace,
+  the handled synchronous ESM device-ID fallback and broader runtime gaps remain.
+- Add API/ADR/upstream maintenance docs and a macOS release component gate. Mite
+  remains independent of renderer libraries; Ladybird remains pinned and clean.
+
+Validation logs: build/background-color-{build,probe-build,public,trace,cpu-pixels,
+component-final,policy,runtime,isolation,protocol,code-oss,format,site,upstream}.log.
+Early failing fixture/diagnostic logs are retained and are not accepted runs.
+Formatting passes for 277 Python, 920 JS/web/config, 538 native and 72 CMake
+files; site validation passes for 321 pages and 22,731 local links/resources/fragments.
+
+Next: implement genuine constructor window constraints for the pinned minWidth/
+minHeight consumer, then resume the real first-window path. Other window/preload
+options, workbench/open-edit-save, utility forwarding, workers, extension/PTY,
+Windows repair and all native platform/package/release requirements remain open.
 The original goal remains active.
 
 

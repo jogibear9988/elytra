@@ -37,6 +37,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_permissions(*host);
     install_web_request(*host);
     install_frames(*host);
+    install_background(*host);
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     desktop_capture
@@ -160,19 +161,26 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                 == WebView::DisableSandbox::No;
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
                 return SandboxPolicy::fail(vm, *failure);
+            auto color = vm.argument(10);
+            if (!color.is_undefined()
+                && (!color.is_int32() || color.as_i32() < 0 || color.as_i32() > 0xffffff))
+                return preload_error(
+                    vm, "ERR_INVALID_ARG_VALUE", "Invalid opaque background color"sv);
+            auto background = color.is_undefined() ? 0xffffffu : static_cast<u32>(color.as_i32());
             auto title = TRY(vm.argument(2).to_utf16_string(vm));
             auto preload = TRY(read_preload(vm));
             auto id = create(TRY(vm.argument(0).to_i32(vm)), TRY(vm.argument(1).to_i32(vm)),
                 qstring_from_utf16_string(title), vm.argument(3).to_boolean(),
                 vm.argument(4).to_boolean(), move(preload), vm.argument(6).to_boolean(),
                 vm.argument(7).is_undefined() ? Optional<int> {} : TRY(vm.argument(7).to_i32(vm)),
-                vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)));
+                vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)),
+                background);
             if (!id.has_value())
                 return vm.throw_completion<JS::RangeError>(
                     "Window geometry exceeds native coordinates"_utf16);
             return JS::Value(*id);
         },
-        10, JS::default_attributes);
+        11, JS::default_attributes);
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

@@ -12,6 +12,7 @@ import createScreen from './screen/index.mjs';
 import createClipboard from './clipboard/index.mjs';
 import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
+import createBackground from './window/background.mjs';
 import createMessageChannels from './message-ports/index.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
@@ -45,6 +46,7 @@ export default function createFireflyApi(
   };
 
   const channels = createMessageChannels(native, EventEmitter, error);
+  const background = createBackground(native, error, unsupported);
   const windows = new Map();
   const allContents = new Map();
   const frames = createFrames(
@@ -593,6 +595,7 @@ export default function createFireflyApi(
             'title',
             'show',
             'frame',
+            'backgroundColor',
             'webPreferences'
           ].includes(key)
         ) {
@@ -607,6 +610,10 @@ export default function createFireflyApi(
       const show = options.show ?? true;
       const frame = options.frame ?? true;
       const useContentSize = options.useContentSize ?? false;
+      const initialBackground = options.backgroundColor;
+      const color = background.parse(
+        initialBackground === undefined ? '#FFFFFF' : initialBackground
+      );
       const x = options.x === undefined ? undefined : geometry.coordinate(options.x, 'x');
       const y = options.y === undefined ? undefined : geometry.coordinate(options.y, 'y');
       if (
@@ -641,7 +648,8 @@ export default function createFireflyApi(
           useContentSize,
           x,
           y,
-          additionalArguments
+          additionalArguments,
+          color
         )
       });
       this.webContents = new WebContents(this, contentsToken);
@@ -681,6 +689,16 @@ export default function createFireflyApi(
 
     isDestroyed() {
       return this._destroyed;
+    }
+
+    getBackgroundColor() {
+      alive(this);
+      return background.get(this.id);
+    }
+
+    setBackgroundColor(value) {
+      alive(this);
+      background.set(this.id, value);
     }
 
     close() {
@@ -795,7 +813,8 @@ export default function createFireflyApi(
       }
     },
     error,
-    unsupported
+    unsupported,
+    background
   );
 
   const webContents = {

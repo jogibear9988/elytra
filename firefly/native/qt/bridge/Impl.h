@@ -17,6 +17,7 @@
 #include "../../system-preferences/Host.h"
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
+#include "../ContentView.h"
 #include "TransportHooks.h"
 #include "native/file-picker/Picker.h"
 #include "native/frames/Registry.h"
@@ -86,6 +87,8 @@ struct Bridge::Impl {
         std::vector<int> child_ids;
         std::array<int, 4> view_bounds { 0, 0, 0, 0 };
         bool desired_visible { true };
+        u32 background_rgb { 0xffffff };
+        u32 background_generation { 1 };
         bool closing { false };
         // Navigation and first-paint bookkeeping are distinct from IPC document ownership.
         bool painted { false };
@@ -290,8 +293,13 @@ struct Bridge::Impl {
 
     void install_views(JS::Object&);
 
+    void install_background(JS::Object&);
+
+    void broadcast_background();
+
     Optional<int> create(int width, int height, QString const& title, bool show, bool frame,
-        Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y);
+        Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
+        u32 background_rgb = 0xffffff);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

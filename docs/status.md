@@ -9,7 +9,8 @@ gates; the source snapshots below are deliberately explicit.
 The latest adapted Code-OSS trace now passes session request-filter registrations
 and ErrorTelemetry's process exception/rejection subscriptions. The macOS CPU notification source now registers even without a published initial
 speed-limit value. Startup passes channel initialization and reaches its first
-BrowserWindow construction attempt, which rejects unsupported backgroundColor.
+BrowserWindow construction attempt, which now passes backgroundColor and rejects
+unsupported minWidth. Opaque colors have real local native CPU pixel acceptance.
 The handled device-ID fallback still logs synchronous ESM require failure;
 Error.captureStackTrace is also missing from error reporting. No workbench or
 open/edit/save workflow is accepted. See the [current Code-OSS audit](compatibility/vscode.md).
@@ -19,7 +20,7 @@ GC tests; [the contract](api/process-errors.md) records origins and remaining sc
 The [webRequest slice](api/web-request.md) passes real local macOS offscreen HTTP
 cancellation, response-header changes before CORS, canonical frame identity,
 main net and custom-provider tests, with shared Electron 45.2.3 reference cases.
-The local runtime regression gate passes 129 suites. Utility parent forwarding,
+The local runtime regression gate passes 130 suites. Utility parent forwarding,
 worker/unbound navigation coverage, other interception stages and fresh platform
 acceptance remain unfinished. The dependency notes below preserve earlier
 checkpoints; their former startup-blocker names are historical.

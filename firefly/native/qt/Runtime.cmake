@@ -219,6 +219,8 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/ContentView.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Background.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Lifecycle.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/IpcChannel.cpp"
@@ -619,3 +621,4 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/session-permissions/Targets.cmake")
 
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/frames/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/web-request/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/background-color/Targets.cmake")

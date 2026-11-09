@@ -4,7 +4,8 @@ Status: **partial, locally accepted functional composition**. A shared offscreen
 fixture passes against real Firefly production objects and Electron 45. It exercises
 real pages, renderer PIDs, viewport updates, native child order, ownership/reparenting,
 detached navigation, binary IPC, cleanup and registry queries. Seven separate policy
-groups pass in Node/Mite; the full non-GUI runtime gate passes all 88 suites.
+groups passed in Node/Mite at the original 88-suite checkpoint. The latest
+opaque background slice adds real native canvas pixels; see [the background contract](window-background.md).
 The same complete fixture also passes in a hidden batch on the production Cocoa
 frontend. This verifies native functional lifecycle/IPC, not on-screen macOS
 composition, hardware/GPU rendering, accessibility behavior or performance. Native
@@ -43,7 +44,8 @@ through isDestroyed().
 | setBounds({x, y, width, height}) | Requires all four own finite numeric data properties. Rounds with Math.round; negative dimensions become zero. Dimensions are bounded to 0..16384, coordinates and rectangle edges to signed 32-bit native limits. Unknown properties/accessors and animation options are refused. |
 | getBounds() | Fresh logical rectangle relative to the parent. Initial rectangle is zero-sized. |
 | setVisible(boolean), getVisible() | Desired visibility, initially true; detached contents can remain logically visible without appearing in a window. |
-| setBackgroundColor(), setBorderRadius() | Explicitly unsupported. |
+| setBackgroundColor(color) | Sets this view’s independent opaque native canvas base; [formats, limits and pixels](window-background.md). |
+| setBorderRadius() | Explicitly unsupported. |
 | Nested child views | Unsupported; a WebContentsView's children snapshot is empty. |
 
 Native geometry uses the upstream viewport push so hidden-widget geometry reaches
@@ -110,7 +112,7 @@ notification delivery and visible shell actions remain unaccepted. Continue the
 actual graph with native file polling. Import progress is not a VS Code
 window or integrated browser acceptance.
 
-No custom sessions, subframe preload integration, popups, background/radius styling,
+No custom sessions, subframe preload integration, popups, radius styling or transparent native windows,
 nested views, adoption, CDP/debugger or integrated Code-OSS browser acceptance is
 claimed. Actual Code-OSS BrowserView requires unsupported session/subframe preferences
 and further services beyond this slice. Native utility/renderer MessagePort transfer,

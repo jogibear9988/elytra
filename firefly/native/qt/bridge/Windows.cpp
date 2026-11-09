@@ -53,7 +53,8 @@ void Bridge::Impl::destroy(int id, bool immediate)
 }
 
 Optional<int> Bridge::Impl::create(int width, int height, QString const& title, bool show,
-    bool frame, Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y)
+    bool frame, Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y,
+    u32 background_rgb)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256)
@@ -70,6 +71,7 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     auto* content_layout = new QVBoxLayout(content);
     content_layout->setContentsMargins(0, 0, 0, 0);
     auto* view = new Ladybird::WebContentView(content);
+    initialize_content_background(*view, background_rgb);
     content_layout->addWidget(view);
     window->observe(view);
     auto bounds = window_bounds(*window, false);
@@ -91,10 +93,12 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
 
     windows.emplace(id, State { window, view, move(preload) });
     windows.at(id).content_container = content;
+    windows.at(id).background_rgb = background_rgb;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
         reset_ipc(id);
         windows.erase(id);
+        broadcast_background();
         enqueue(id, "closed");
     });
     window->request_close = [this, id] {
@@ -186,6 +190,7 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
     }
 
     setup_content_callbacks(id);
+    broadcast_background();
     if (show)
         window->show();
     return id;

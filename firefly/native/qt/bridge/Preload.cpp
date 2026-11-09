@@ -101,6 +101,17 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
     Web::WebDriver::BiDiSessionState state;
     state.is_active = true;
     for (auto const& [id, window] : windows) {
+        (void)id;
+        if (window.closing)
+            continue;
+        JsonObject canvas;
+        canvas.set("generation"sv, window.background_generation);
+        canvas.set("color"sv, window.background_rgb);
+        state.preload_scripts.append({ "firefly.canvas.v1"_string, String {}, move(canvas),
+            Vector<String> { window.view->handle() }, {}, {} });
+    }
+
+    for (auto const& [id, window] : windows) {
         if (window.closing || !window.preload.has_value())
             continue;
         auto const& preload = *window.preload;

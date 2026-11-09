@@ -160,6 +160,7 @@ def main():
                 "check-firefly-session-permissions",
                 "check-firefly-permission-boundary",
                 "check-firefly-frames",
+                "check-firefly-background-color",
                 "check-firefly-web-request",
             ]
         )
