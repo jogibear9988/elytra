@@ -19,10 +19,18 @@ bool set_window_bounds(QWidget& widget, QRect bounds, bool content, bool positio
     auto rect = content_rectangle(bounds, margins, content);
     if (!rect)
         return false;
-    widget.resize(rect->size());
+    // Window-manager hints do not constrain programmatic QWindow resizing. All
+    // owned outer/content resize entry points therefore enforce the actual hints.
+    auto minimum = window->minimumSize().expandedTo(widget.minimumSize());
+    auto maximum = window->maximumSize().boundedTo(widget.maximumSize()).expandedTo(minimum);
+    auto size = rect->size().expandedTo(minimum).boundedTo(maximum);
+    auto checked = content_rectangle(QRect(rect->topLeft(), size), margins, true);
+    if (!checked)
+        return false;
+    widget.resize(size);
     // QWidget can defer resizing a hidden platform window until show(). Keep the
     // native QWindow in sync so immediate hidden-window queries include the frame.
-    window->resize(rect->size());
+    window->resize(widget.size());
     if (position)
         window->setFramePosition(rect->topLeft() - QPoint(margins.left(), margins.top()));
     return true;

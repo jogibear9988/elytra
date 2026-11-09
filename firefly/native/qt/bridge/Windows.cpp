@@ -54,15 +54,21 @@ void Bridge::Impl::destroy(int id, bool immediate)
 
 Optional<int> Bridge::Impl::create(int width, int height, QString const& title, bool show,
     bool frame, Optional<Preload> preload, bool use_content_size, Optional<int> x, Optional<int> y,
-    u32 background_rgb)
+    u32 background_rgb, WindowLimits const& limits)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
-    if (stopping || windows.size() >= 256)
+    if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
         return {};
     auto id = next_id++;
     auto* window = new ChromeWindow(frame);
     window->setWindowTitle(title);
     window->resize(width, height);
+    auto* constraints = new WindowSizeConstraints(*window);
+    if (!constraints->initialize(limits, use_content_size)) {
+        delete window;
+        return {};
+    }
+
     auto* layout = new QVBoxLayout(window);
     layout->setContentsMargins(0, 0, 0, 0);
     application_menu->attach(*window);
@@ -93,6 +99,7 @@ Optional<int> Bridge::Impl::create(int width, int height, QString const& title, 
 
     windows.emplace(id, State { window, view, move(preload) });
     windows.at(id).content_container = content;
+    windows.at(id).size_constraints = constraints;
     windows.at(id).background_rgb = background_rgb;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {

@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 130 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 131 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11489,6 +11489,51 @@ minHeight consumer, then resume the real first-window path. Other window/preload
 options, workbench/open-edit-save, utility forwarding, workers, extension/PTY,
 Windows repair and all native platform/package/release requirements remain open.
 The original goal remains active.
+
+
+## 2026-11-09 — Native window minimum and maximum size constraints
+
+- Add BrowserWindow minWidth/minHeight/maxWidth/maxHeight and native-backed
+  getMinimumSize/getMaximumSize/setMinimumSize/setMaximumSize. Constructor limits
+  precede the first show and clamp initial bounds. All owned outer/content resize
+  paths enforce actual native hints with checked frame/coordinate arithmetic.
+- A window-owned controller binds genuine QWindow minimum/maximum hints and
+  rebinds platform windows. Constructor useContentSize uses real frame margins;
+  runtime setters always use outer DIP. Minimum wins conflicts while preserving
+  requested maximum for subsequent minimum reset. Applying hints restores current
+  native geometry, matching observed macOS Electron setter behavior.
+- Inputs deliberately follow Firefly's strict integer 0..16384 geometry policy;
+  invalid values fail before allocation/mutation. Each zero axis is independently
+  unbounded and reported as zero, including partial constructor maxima. This
+  differs from Electron's invalid-value coercion and partial-constructor INT_MAX.
+  Positive outer limits smaller than native decorations report the effective
+  frame-plus-one-client-DIP floor, rather than Electron's smaller requested value.
+- Shared public cases pass hidden Electron 45.2.3, Firefly's static offscreen
+  frontend and actual macOS Cocoa with show:false. Native offscreen acceptance
+  checks real QWindow hints and direct native geometry enforcement in three
+  stages, rather than trusting JavaScript snapshots alone. No visible desktop
+  windows were launched. Interactive drag, mixed-DPI and fresh Linux/Windows
+  acceptance remain open.
+- All 131 local Release CLI CTests pass, including real Node/Mite constraint-policy
+  cases. Production Cocoa, offscreen and exact-object native probe builds pass.
+  Add the offscreen gate to the macOS release builder and document public methods,
+  units, conflict/reset behavior, input differences and acceptance limits.
+- Fresh adapted real Code-OSS startup passes native minWidth/minHeight and next
+  stops at BrowserWindow experimentalDarkMode. The device-ID ESM require fallback
+  and missing Error.captureStackTrace remain visible. No workbench/open-edit-save,
+  extension host or terminal run is accepted.
+
+Validation logs: build/window-constraints-{build,cli-build,runtime,public,cocoa,
+electron-reference,code-oss,gate,geometry,format,site,upstream}.log. Formatting
+passes for 279 Python, 925 JS/web/config, 542 native and 73 CMake files; site
+validation passes for 321 pages and 22,734 local links/resources/fragments.
+Independent read-only review confirmed the documented decoration-floor edge.
+Ladybird remains unmodified.
+
+Next: implement actual remaining window-option behavior, beginning with the
+observed experimentalDarkMode consumer, then resume the first-window path.
+Utility forwarding, workers, extension/PTY, Windows repair and native platform/
+package/release requirements remain open. The full goal remains active.
 
 
 ## Resume

@@ -589,6 +589,10 @@ export default function createFireflyApi(
           ![
             'width',
             'height',
+            'minWidth',
+            'minHeight',
+            'maxWidth',
+            'maxHeight',
             'x',
             'y',
             'useContentSize',
@@ -610,6 +614,8 @@ export default function createFireflyApi(
       const show = options.show ?? true;
       const frame = options.frame ?? true;
       const useContentSize = options.useContentSize ?? false;
+      const limits = geometry.initialConstraints(options);
+      const constraintWire = JSON.stringify(limits);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === undefined ? '#FFFFFF' : initialBackground
@@ -649,7 +655,8 @@ export default function createFireflyApi(
           x,
           y,
           additionalArguments,
-          color
+          color,
+          constraintWire
         )
       });
       this.webContents = new WebContents(this, contentsToken);

@@ -301,3 +301,13 @@ check-firefly also runs tooling/tests/test_renderer_modules.py against actual
 Firefly/Electron binaries. Native policy rejection/default-off assertions run in
 check-firefly-isolation. See the [module guide](../guides/renderer-modules.md) and
 [owned adapter decision](../architecture/0073-local-renderer-modules.md).
+
+## Window size constraints
+
+Run cmake --build build/renderer --target check-firefly-window-constraints for a
+single offscreen public/native batch. The native probe links exact application
+objects and checks actual QWindow hints plus direct geometry enforcement.
+For a deliberate hidden macOS backend check, run
+python3 tooling/tests/test_window_constraints.py --firefly build/renderer/bin/firefly --platform cocoa.
+All fixture windows use show:false. Avoid repeating desktop tests for unrelated
+documentation changes. The macOS release builder includes the offscreen gate.

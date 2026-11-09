@@ -153,6 +153,10 @@ if(FIREFLY_BUILD_RUNTIME)
     if(TARGET firefly-background-probe)
         add_dependencies(firefly-background-probe stage-firefly-runtime-helper check-firefly-js)
     endif()
+    if(TARGET firefly-window-constraints-probe)
+        add_dependencies(firefly-window-constraints-probe stage-firefly-runtime-helper
+                         check-firefly-js)
+    endif()
     # A clean build of the test frontend needs the same runtime helper/resources.
     if(TARGET firefly-view-offscreen)
         add_dependencies(firefly-view-offscreen stage-firefly-runtime-helper check-firefly-js)

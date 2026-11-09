@@ -161,6 +161,7 @@ def main():
                 "check-firefly-permission-boundary",
                 "check-firefly-frames",
                 "check-firefly-background-color",
+                "check-firefly-window-constraints",
                 "check-firefly-web-request",
             ]
         )

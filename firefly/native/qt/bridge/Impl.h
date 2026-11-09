@@ -24,6 +24,7 @@
 #include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
 #include "native/web-request/Broker.h"
+#include "native/window/Constraints.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -83,6 +84,7 @@ struct Bridge::Impl {
         Ladybird::WebContentView* view;
         Kind kind;
         QWidget* content_container {};
+        WindowSizeConstraints* size_constraints {};
         Optional<int> owner_id;
         std::vector<int> child_ids;
         std::array<int, 4> view_bounds { 0, 0, 0, 0 };
@@ -295,11 +297,15 @@ struct Bridge::Impl {
 
     void install_background(JS::Object&);
 
+    void install_constraints(JS::Object&);
+
+    JS::ThrowCompletionOr<WindowLimits> read_limits(JS::VM&, size_t argument = 11);
+
     void broadcast_background();
 
     Optional<int> create(int width, int height, QString const& title, bool show, bool frame,
         Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
-        u32 background_rgb = 0xffffff);
+        u32 background_rgb = 0xffffff, WindowLimits const& limits = {});
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

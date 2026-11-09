@@ -3011,8 +3011,64 @@ function createTheme(native, EventEmitter, error) {
   return { nativeTheme, changed };
 }
 
+// firefly/core/window/constraints.mjs
+function createConstraints(native, error, unsupported) {
+  function dimension(value, name) {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      throw Object.assign(new TypeError(`${name} must be an integer`), {
+        code: "ERR_INVALID_ARG_TYPE"
+      });
+    }
+    if (value < 0 || value > 16384) {
+      throw Object.assign(new RangeError(`${name} must be between 0 and 16384`), {
+        code: "ERR_OUT_OF_RANGE"
+      });
+    }
+    return value;
+  }
+  function initial(options) {
+    const result = {};
+    for (const name of ["minWidth", "minHeight", "maxWidth", "maxHeight"]) {
+      const value = options[name];
+      result[name] = value === void 0 ? 0 : dimension(value, name);
+    }
+    return result;
+  }
+  function get(id, minimum) {
+    const method = minimum ? "minimumSize" : "maximumSize";
+    if (typeof native[method] !== "function") {
+      unsupported("Native window size constraints");
+    }
+    const wire = native[method](id);
+    if (typeof wire !== "string" || wire.length > 128) {
+      throw error("ERR_FIREFLY_GEOMETRY_DATA", "Invalid native window size constraints");
+    }
+    let value;
+    try {
+      value = JSON.parse(wire);
+    } catch {
+      throw error("ERR_FIREFLY_GEOMETRY_DATA", "Invalid native window size constraints");
+    }
+    if (!Array.isArray(value) || value.length !== 2 || value.some((item) => !Number.isInteger(item) || item < 0 || item > 2147483647)) {
+      throw error("ERR_FIREFLY_GEOMETRY_DATA", "Invalid native window size constraints");
+    }
+    return [...value];
+  }
+  function set(id, width, height, minimum) {
+    width = dimension(width, "width");
+    height = dimension(height, "height");
+    const method = minimum ? "setMinimumSize" : "setMaximumSize";
+    if (typeof native[method] !== "function") {
+      unsupported("Native window size constraints");
+    }
+    native[method](id, width, height);
+  }
+  return { initial, get, set };
+}
+
 // firefly/core/window/geometry.mjs
 function createWindowGeometry(native, EventEmitter, alive, dimension, error, unsupported) {
+  const constraints = createConstraints(native, error, unsupported);
   function coordinate(value, name) {
     if (typeof value !== "number" || !Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
       throw error("ERR_INVALID_ARG_TYPE", `${name} must be a signed 32-bit integer`);
@@ -3048,6 +3104,22 @@ function createWindowGeometry(native, EventEmitter, alive, dimension, error, uns
     native.setWindowBounds(window.id, rect.x, rect.y, rect.width, rect.height, content);
   }
   class WindowGeometry extends EventEmitter {
+    getMinimumSize() {
+      alive(this);
+      return constraints.get(this.id, true);
+    }
+    getMaximumSize() {
+      alive(this);
+      return constraints.get(this.id, false);
+    }
+    setMinimumSize(width, height) {
+      alive(this);
+      constraints.set(this.id, width, height, true);
+    }
+    setMaximumSize(width, height) {
+      alive(this);
+      constraints.set(this.id, width, height, false);
+    }
     getBounds() {
       return get(this, false);
     }
@@ -3086,7 +3158,7 @@ function createWindowGeometry(native, EventEmitter, alive, dimension, error, uns
       native.centerWindow(this.id);
     }
   }
-  return { WindowGeometry, coordinate };
+  return { WindowGeometry, coordinate, initialConstraints: constraints.initial };
 }
 
 // firefly/core/window/background.mjs
@@ -7831,6 +7903,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
         if (![
           "width",
           "height",
+          "minWidth",
+          "minHeight",
+          "maxWidth",
+          "maxHeight",
           "x",
           "y",
           "useContentSize",
@@ -7851,6 +7927,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       const show = options.show ?? true;
       const frame = options.frame ?? true;
       const useContentSize = options.useContentSize ?? false;
+      const limits = geometry.initialConstraints(options);
+      const constraintWire = JSON.stringify(limits);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === void 0 ? "#FFFFFF" : initialBackground
@@ -7887,7 +7965,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           x,
           y,
           additionalArguments,
-          color
+          color,
+          constraintWire
         )
       });
       this.webContents = new WebContents(this, contentsToken);

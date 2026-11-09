@@ -1,4 +1,6 @@
 /** Shared DIP geometry policy; native results remain authoritative after OS constraints. */
+import createConstraints from './constraints.mjs';
+
 export default function createWindowGeometry(
   native,
   EventEmitter,
@@ -7,6 +9,8 @@ export default function createWindowGeometry(
   error,
   unsupported
 ) {
+  const constraints = createConstraints(native, error, unsupported);
+
   function coordinate(value, name) {
     if (
       typeof value !== 'number' ||
@@ -53,6 +57,26 @@ export default function createWindowGeometry(
 
   // Keep geometry methods together while preserving EventEmitter ownership in BrowserWindow.
   class WindowGeometry extends EventEmitter {
+    getMinimumSize() {
+      alive(this);
+      return constraints.get(this.id, true);
+    }
+
+    getMaximumSize() {
+      alive(this);
+      return constraints.get(this.id, false);
+    }
+
+    setMinimumSize(width, height) {
+      alive(this);
+      constraints.set(this.id, width, height, true);
+    }
+
+    setMaximumSize(width, height) {
+      alive(this);
+      constraints.set(this.id, width, height, false);
+    }
+
     getBounds() {
       return get(this, false);
     }
@@ -102,5 +126,5 @@ export default function createWindowGeometry(
     }
   }
 
-  return { WindowGeometry, coordinate };
+  return { WindowGeometry, coordinate, initialConstraints: constraints.initial };
 }

@@ -18,6 +18,8 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | title | String, default Firefly |
 | show | Boolean, default true |
 | frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
+| minWidth, minHeight | Integer 0..16384, default 0; minimum size; constructor useContentSize also applies |
+| maxWidth, maxHeight | Integer 0..16384, default 0; maximum size; each zero axis is unbounded |
 | backgroundColor | Opaque color string, default white; [native canvas background](window-background.md) |
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
@@ -63,6 +65,8 @@ show:true is also supported.
 | setContentBounds(rect[, animate = false]) | Complete client rectangle |
 | getContentSize(), setContentSize(width, height[, animate = false]) | Client size excluding native frame |
 | getPosition(), setPosition(x, y[, animate = false]) | Outer-window top-left DIP coordinates |
+| getMinimumSize(), getMaximumSize() | Fresh [width, height] outer DIP limits; zero means no requested limit |
+| setMinimumSize(width, height), setMaximumSize(width, height) | Set outer DIP limits, each integer 0..16384; returns undefined |
 | center() | Use native AppKit window centering on macOS |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
@@ -77,6 +81,41 @@ destroy is idempotent for destroyed/already-closing windows. Do not assume that
 calling destroy makes isDestroyed true before the native closed notification.
 A pending load rejects when the window is closed. Loading has its own
 [validation and Promise contract](web-contents.md).
+
+## Minimum and maximum size
+
+The constructor accepts minWidth/minHeight/maxWidth/maxHeight before the native
+window is shown. Initial bounds and subsequent size/bounds changes clamp to the
+native limits. With useContentSize:true constructor limits describe the client
+area; getters include the actual native frame. Runtime constraint setters always
+use outer-window DIP, independently of useContentSize.
+
+Zero clears that axis. If minimum exceeds a requested maximum, minimum wins;
+clearing minimum restores the remembered maximum. Changing a limit does not
+immediately resize the current window on the tested macOS backend. It changes
+native window-manager hints and the policy for subsequent programmatic resizes.
+
+```js
+const window = new BrowserWindow({minWidth: 640, minHeight: 400});
+window.setMaximumSize(1200, 0); // Width capped; height independently unbounded.
+window.setBounds({width: 1600}); // Clamped to 1200.
+window.setMaximumSize(0, 0); // Clear both maximum limits.
+```
+
+Firefly intentionally requires integer inputs in 0..16384. Invalid types and
+nonintegers throw ERR_INVALID_ARG_TYPE; negative/out-of-range integers throw
+ERR_OUT_OF_RANGE before native mutation or window creation. An undefined
+constructor field uses zero. This differs from Electron's constructor coercion
+and negative-setter normalization. Firefly reports an unbounded axis as zero,
+including partial constructor maxima; Electron can report INT_MAX for that case.
+Positive outer limits smaller than the native frame are raised to the actual
+frame plus one client DIP. Getters report that effective platform floor; Electron
+can retain the smaller requested value. No fixed title-bar height is assumed.
+
+Acceptance: shared public cases pass hidden Electron 45.2.3, Firefly offscreen and
+actual macOS Cocoa. An exact-application native offscreen probe additionally
+checks QWindow hints and direct native geometry enforcement. Interactive drag,
+mixed-DPI transitions and fresh Linux/Windows execution remain unverified.
 
 ## Outer and content geometry
 
