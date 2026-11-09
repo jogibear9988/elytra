@@ -270,6 +270,10 @@
     "nativeManagedSettingsService.ts": {
       "upstream": "src/vs/platform/policy/node/nativeManagedSettingsService.ts",
       "sha256": "225c1888b253885ecf93d3e6eeb447bd97ca1f6523f0c625079f81367faf6481"
+    },
+    "local-recording-electron.ts": {
+      "upstream": "src/vs/workbench/contrib/issue/electron-browser/nativeRecordingService.ts",
+      "sha256": "51c0ac06d28d65ea27824531e34aec78211648504c8ae931223427cab4fc3bdf"
     }
   }
 }

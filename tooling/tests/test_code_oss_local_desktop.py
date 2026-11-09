@@ -64,7 +64,7 @@ def main():
                     start = restored.index("protocol.registerSchemesAsPrivileged([")
                     restored = restored[:start] + restored[start:].replace("\n]));", "\n]);", 1)
                 restored = re.sub(
-                    r"\n\t\tassertLocalDesktopFeature\('(webviews|remote resources)'\);",
+                    r"\n\t\tassertLocalDesktopFeature\('(webviews|remote resources|display capture)'\);",
                     "",
                     restored,
                 )
@@ -76,6 +76,11 @@ def main():
                     "",
                 )
                 restored = restored.replace("\n\t\tif (isLocalDesktop()) { return; }", "")
+                restored = restored.replace("\n\t\tif (isLocalDesktop()) { return false; }", "")
+                restored = restored.replace(
+                    "\n\t\tconst unavailable = rejectLocalDesktopFeature('display capture');\n\t\tif (unavailable) { return unavailable; }",
+                    "",
+                )
                 if name == "local-webview-main.ts":
                     seam = "\t\tthis._register(instantiationService.createInstance(WebviewProtocolProvider));"
                     restored = restored.replace(
@@ -87,6 +92,35 @@ def main():
                     restored = restored.replace(
                         "\t\tif (!isLocalDesktop()) {\n" + start, start
                     ).replace(end + "\n\t\t}", end)
+                    display_start = "\t\tsession.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {"
+                    display_end = "\t\t});\n\n\t\t//#endregion\n\n\t\t//#region Request filtering"
+                    restored = restored.replace(
+                        "\t\tif (!isLocalDesktop()) {\n" + display_start, display_start
+                    ).replace(display_end.replace("\t\t});", "\t\t});\n\t\t}", 1), display_end)
+                    for seam in (display_start.encode(), display_end.encode()):
+                        rejected(
+                            lambda seam=seam: adapt_local(name, data.replace(seam, b"changed"))
+                        )
+                        rejected(lambda seam=seam: adapt_local(name, data + b"\n" + seam))
+                    # Mandatory permission handlers and security filters remain byte-identical.
+                    for marker in (
+                        "setPermissionRequestHandler",
+                        "setPermissionCheckHandler",
+                        "webRequest.onBeforeRequest",
+                        "webRequest.onHeadersReceived",
+                    ):
+                        assert adapted.decode().count(marker) == data.decode().count(marker)
+                if name == "local-recording-electron.ts":
+                    for seam in (
+                        b"\tget isSupported(): boolean {",
+                        b"\tasync startRecording(",
+                        b"\trequestScreenCapturePermission(",
+                        b"\tasync openScreenCapturePermissionSettings(",
+                    ):
+                        rejected(
+                            lambda seam=seam: adapt_local(name, data.replace(seam, b"changed"))
+                        )
+                        rejected(lambda seam=seam: adapt_local(name, data + b"\n" + seam + b"x) {"))
                 assert restored.encode() == data, name
                 rejected(lambda: adapt_local(name, adapted))
                 # Missing/duplicate method entry seams and initialization seams fail closed.
@@ -153,7 +187,64 @@ process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP=enabled?'0':'1';
 if(policy.isLocalDesktop()!==enabled)throw Error('Mutable mode');
 console.log(JSON.stringify({enabled, scope:policy.localDesktopStatus().scope}));
 """.replace("SCHEMES", literal)
-        (work / "main.mjs").write_text(harness)
+        # Exercise the actual audited registration and method bodies with controlled
+        # collaborators. No real session setter, capture or OS settings action runs.
+        app_original = (PINNED / "local-app-main.ts").read_bytes()
+        app_adapted = adapt_local("local-app-main.ts", app_original).decode()
+        display_start = "\t\tsession.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {"
+        display_end = "\t\t});\n\n\t\t//#endregion\n\n\t\t//#region Request filtering"
+        original_block = (
+            display_start
+            + app_original.decode().split(display_start, 1)[1].split(display_end, 1)[0]
+            + "\t\t});"
+        )
+        adapted_block = "if (!isLocalDesktop()) {\n" + original_block + "\n\t\t}"
+        assert adapted_block in app_adapted
+        recording = adapt_local(
+            "local-recording-electron.ts", (PINNED / "local-recording-electron.ts").read_bytes()
+        ).decode()
+        methods = []
+        for start, end in (
+            ("\tget isSupported(): boolean {", "\n\tprivate _state"),
+            ("\trequestScreenCapturePermission(", "\n\tasync openScreenCapturePermissionSettings("),
+            ("\tasync openScreenCapturePermissionSettings(", "\n\tget state()"),
+            ("\tasync startRecording(", "\n\tstopRecording("),
+        ):
+            methods.append(start + recording.split(start, 1)[1].split(end, 1)[0])
+        capture_harness = (
+            """
+const {isLocalDesktop,assertLocalDesktopFeature,rejectLocalDesktopFeature}=policy;
+let originalHandler, adaptedHandler;
+let session={defaultSession:{setDisplayMediaRequestHandler(value){originalHandler=value;}}};
+ORIGINAL_REGISTRATION
+session={defaultSession:{setDisplayMediaRequestHandler(value){adaptedHandler=value;}}};
+ADAPTED_REGISTRATION
+const body=(value)=>value?.toString().split('\\n').map(line=>line.trimStart()).join('\\n');
+if(typeof originalHandler!=='function'||(enabled?adaptedHandler!==undefined:body(adaptedHandler)!==body(originalHandler)))throw Error('Actual capture registration branch');
+const isMacintosh=true;
+class ActualRecordingEntries { RECORDING_METHODS }
+const sentinel=Error('ordinary original capture collaborator');
+let attempts=0;
+const subject={_store:{isDisposed:false},getMediaRecorderConstructor(){attempts++;throw sentinel;},nativeHostService:{requestScreenCaptureAccess(){attempts++;return Promise.reject(sentinel);},openExternal(){attempts++;return Promise.reject(sentinel);}}};
+for(const name of ['startRecording','requestScreenCapturePermission','openScreenCapturePermissionSettings']){
+ let caught;try{await ActualRecordingEntries.prototype[name].call(subject);}catch(error){caught=error;}
+ if(enabled?caught?.code!=='ERR_CODE_OSS_LOCAL_DESKTOP_UNSUPPORTED':caught!==sentinel)throw Error('Actual capture attempt '+name);
+}
+if(attempts!==(enabled?0:3))throw Error('Capture attempt leaked to OS collaborator');
+const support={getMediaDevices(){return{getDisplayMedia(){}};},getSupportedFormats(){return[{}];}};
+if(Object.getOwnPropertyDescriptor(ActualRecordingEntries.prototype,'isSupported').get.call(support)!==!enabled)throw Error('Capture support advertisement');
+if(enabled&&!policy.localDesktopStatus().disabled.includes('display-capture'))throw Error('Missing capture disclosure');
+""".replace("ORIGINAL_REGISTRATION", original_block)
+            .replace("ADAPTED_REGISTRATION", adapted_block)
+            .replace("RECORDING_METHODS", "\n".join(methods))
+        )
+        harness = harness.replace(
+            "console.log(JSON.stringify({enabled, scope:policy.localDesktopStatus().scope}));",
+            capture_harness
+            + "\nconsole.log(JSON.stringify({enabled, scope:policy.localDesktopStatus().scope}));",
+        )
+        (work / "main.ts").write_text(harness)
+
         transform = """import fs from 'node:fs'; import {transformSync} from './tooling/runtime-js/node_modules/esbuild/lib/main.js';
 fs.writeFileSync(process.argv[1],transformSync(fs.readFileSync(process.argv[2],'utf8'),{loader:'ts',format:'esm',target:'es2024'}).code);"""
         subprocess.run(
@@ -164,6 +255,18 @@ fs.writeFileSync(process.argv[1],transformSync(fs.readFileSync(process.argv[2],'
                 transform,
                 str(work / "policy.mjs"),
                 str(ROOT / OWNED),
+            ],
+            cwd=ROOT,
+            check=True,
+        )
+        subprocess.run(
+            [
+                node,
+                "--input-type=module",
+                "-e",
+                transform,
+                str(work / "main.mjs"),
+                str(work / "main.ts"),
             ],
             cwd=ROOT,
             check=True,

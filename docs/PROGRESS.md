@@ -11157,6 +11157,47 @@ host/PTY/workers, Windows watcher/oracle repairs, platform/package/release gates
 all previously recorded cross-platform requirements. Full original goal stays active.
 
 
+## 2026-11-09 — Explicit optional display-capture deferral
+
+The pinned renderer lacks getDisplayMedia. Extend only the already explicit
+Code-OSS local-desktop application adaptation; do not add an inert public Session
+setter or remove security filters. Both overlay and truthful LibJS runtime opt-ins
+are required; ordinary Node/Electron behavior remains unchanged.
+
+- Skip only configureSession's display-media handler registration in enabled local
+  mode. Preserve both permission handlers and every webRequest filter unchanged.
+- Pin NativeRecordingService at the existing Code-OSS revision, preserving license
+  and exact upstream bytes. Report capture unsupported; recording, capture OS
+  authorization and capture-settings entry points explicitly reject with
+  ERR_CODE_OSS_LOCAL_DESKTOP_UNSUPPORTED before their real collaborators. Preserve
+  the read-only status query. Disclose display-capture in frozen diagnostic status
+  and the startup notice alongside webviews/remote/engine caches.
+- Extend source-policy tests for hashes/reversal/drift and actual registration and
+  recording method bodies on Node and Mite. Default branches preserve original
+  calls; local branches reject before capture, prompts or settings launches. No
+  OS capture or GUI tests are needed for this application-only policy change.
+- Fresh 11,536-source build/code-oss-capture-final completes the actual entry and
+  observes app ready with capture disabled. First failure is now
+  session.defaultSession.webRequest.onBeforeRequest (undefined webRequest).
+  Error.captureStackTrace remains secondary error reporting. See
+  build/display-capture-code-oss.log. No workbench/open-edit-save acceptance.
+
+Validation: extended test_code_oss_local_desktop.py passes with actual Node and
+build/release-mite/bin/mite; pinned source and ordinary-byte reversal checks pass.
+The previous accepted native permission slice (de57fbc, 126 regression suites)
+remains unchanged; no new native frame/filter acceptance is claimed. Document the
+application adaptation in ADR 0179 and refresh the current blocker inventory.
+Targeted local-desktop and checkout-integrity CTest gates pass (2/2); scoped
+formatting and 313 generated pages / 22,172 local links/resources pass. Logs:
+build/display-capture-{overlay,compile,code-oss,policy,style,site}.log.
+Ladybird remains unmodified.
+
+Next: genuine authenticated request/frame policy for the unchanged webRequest
+filters, then continue the real main entry. Native frame work is in progress and
+unaccepted. Full capture, worker/device permissions, native utility/renderer ports,
+workbench workflows and all previously recorded platform/package/release gates
+remain required. The original goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

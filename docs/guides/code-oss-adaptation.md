@@ -189,8 +189,8 @@ See [ADR 0108](../architecture/0108-code-oss-root-dependencies.md).
 ## Experimental local desktop
 
 This source adaptation is **not a working editor**. It is an explicit experiment
-for reaching the first local workbench while keeping webviews, remote resources
-and engine code caches unavailable. It does not implement service workers or
+for reaching the first local workbench while keeping webviews, remote resources,
+display capture and engine code caches unavailable. It does not implement service workers or
 change Ladybird. Normal Node/Electron execution retains the original branches.
 See [ADR 0149](../architecture/0149-code-oss-local-desktop.md).
 
@@ -217,12 +217,14 @@ against the audited contract before selecting it. Webview creation and main webv
 operations explicitly reject. Remote CLI, resolver and resource-provider entry points
 reject; managed remote protocol/channel initialization is omitted. Actual engine
 cache-path creation is disabled. This is a limitation of this application mode,
-not broader Electron API support. Full webviews/remote remain required later.
+not broader Electron API support. Full webviews/remote/capture remain required later.
 
 Local macOS evidence: the actual compiled 11,536-source tree with prepared root
 production packages completes the entry import, and the real app ready callback
-runs. The following asynchronous initialization reports missing generated
-src/nls.messages.json and unsupported node:zlib. No workbench is opened. The
+runs. Those first diagnostic failures were the generated NLS catalog and node:zlib;
+later slices resolved both. With NLS and the explicit policy package adaptation,
+the current fresh tree reaches session.defaultSession.webRequest.onBeforeRequest
+after the optional capture deferral below. No workbench is opened. The
 --firefly-ready probe allows three seconds for that callback and always exits 1
 with workbenchAccepted:false; neither readiness nor an import pass proves desktop
 acceptance. The normal --firefly probe still exits immediately after the import.
@@ -233,6 +235,35 @@ original byte preservation outside declared changes, drift/duplicate/seam refusa
 fresh output validation and real Node/Mite enabled/disabled/config/feature/CLI/cache
 policy behavior. These are component tests, not service/workbench or platform GUI
 acceptance. Fresh Linux/Windows runs remain required.
+
+## Optional display capture deferral
+
+The pinned engine does not implement getDisplayMedia. The explicit local desktop
+mode therefore skips only CodeApplication.configureSession's original
+setDisplayMediaRequestHandler registration. It does not add a public Session
+setter. Both permission handlers and all security-relevant webRequest filters
+remain unchanged; reaching the latter now exposes the next genuine missing API.
+
+The pinned NativeRecordingService reports unsupported in this mode. Recording,
+OS capture authorization and capture-settings entry points fail explicitly with
+ERR_CODE_OSS_LOCAL_DESKTOP_UNSUPPORTED before capture or OS collaborators run.
+The read-only permission-status query remains intact. Ordinary Node/Electron and
+disabled local-mode paths retain their original method bodies and behavior.
+The frozen process diagnostic includes display-capture in its disabled list.
+
+The source-policy test above verifies pinned hashes, exact reversal outside owned
+seams and missing/duplicate-seam rejection. It executes actual registration and
+recording method bodies on Node and Mite with controlled collaborators, including
+default/control branches and refusal before capture, prompts or settings launches.
+These are policy tests, not display/device acceptance. Ladybird remains unmodified.
+
+The fresh build/code-oss-capture-final contains 11,536 compiled sources. The actual
+entry completes and app ready is observed with display capture disclosed as
+disabled. Its first failure is session.defaultSession.webRequest.onBeforeRequest
+(undefined webRequest); Error.captureStackTrace is a secondary reporting gap.
+Native frame metadata and authenticated filtering still need acceptance; no
+workbench, workspace or native display capture is claimed. See
+[ADR 0179](../architecture/0179-optional-display-capture.md).
 
 ## Generate the indexed English NLS catalog
 

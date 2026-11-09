@@ -10,6 +10,7 @@ PATHS = {
     "local-remote-loader.ts": "src/vs/platform/remote/electron-browser/electronRemoteResourceLoader.ts",
     "local-webview-main.ts": "src/vs/platform/webview/electron-main/webviewMainService.ts",
     "local-app-main.ts": "src/vs/code/electron-main/app.ts",
+    "local-recording-electron.ts": "src/vs/workbench/contrib/issue/electron-browser/nativeRecordingService.ts",
 }
 IMPORTS = {
     "mainImpl.ts": "./vs/base/common/elytraLocalDesktop.js",
@@ -20,11 +21,13 @@ IMPORTS = {
     **{
         key: "../../../base/common/elytraLocalDesktop.js"
         for key in PATHS
-        if not key.startswith("local-webview-b") and key != "local-webview-electron.ts"
+        if not key.startswith("local-webview-b")
+        and key not in ("local-webview-electron.ts", "local-recording-electron.ts")
     },
 }
 # The desktop application sits one directory closer to vs/base than platform services.
 IMPORTS["local-app-main.ts"] = "../../base/common/elytraLocalDesktop.js"
+IMPORTS["local-recording-electron.ts"] = "../../../../base/common/elytraLocalDesktop.js"
 FUNCTIONS = {
     "mainImpl.ts": "assertLocalDesktopCLI, localDesktopCodeCache, localDesktopSchemes",
     "local-webview-browser.ts": "assertLocalDesktopFeature",
@@ -34,6 +37,7 @@ FUNCTIONS = {
     "local-remote-loader.ts": "isLocalDesktop, assertLocalDesktopFeature",
     "local-webview-main.ts": "isLocalDesktop, assertLocalDesktopFeature",
     "local-app-main.ts": "isLocalDesktop",
+    "local-recording-electron.ts": "isLocalDesktop, assertLocalDesktopFeature, rejectLocalDesktopFeature",
 }
 
 
@@ -135,6 +139,20 @@ def adapt_local(name, data):
             ],
             "webviews",
         )
+    elif name == "local-recording-electron.ts":
+        source = insert(
+            source,
+            "\tget isSupported(): boolean {",
+            "\n\t\tif (isLocalDesktop()) { return false; }",
+        )
+        source = guard_methods(
+            source,
+            ["\tasync startRecording(", "\tasync openScreenCapturePermissionSettings("],
+            "display capture",
+        )
+        source = guard_methods(
+            source, ["\trequestScreenCapturePermission("], "display capture", True
+        )
     elif name == "local-app-main.ts":
         start = (
             "\t\tconst remoteResourceChannel = new Lazy(() => mainProcessElectronServer.getChannel("
@@ -145,6 +163,15 @@ def adapt_local(name, data):
         source = source.replace(start, "\t\tif (!isLocalDesktop()) {\n" + start).replace(
             end, end + "\n\t\t}"
         )
+        # Only this optional capture registration is deferred. Security permission
+        # callbacks and all webRequest filtering below remain unchanged.
+        display_start = "\t\tsession.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {"
+        display_end = "\t\t});\n\n\t\t//#endregion\n\n\t\t//#region Request filtering"
+        if source.count(display_start) != 1 or source.count(display_end) != 1:
+            raise ValueError("Display capture registration seam changed")
+        source = source.replace(
+            display_start, "\t\tif (!isLocalDesktop()) {\n" + display_start
+        ).replace(display_end, display_end.replace("\t\t});", "\t\t});\n\t\t}", 1))
     else:
         raise ValueError(f"Unknown local adaptation: {name}")
     return source.encode()

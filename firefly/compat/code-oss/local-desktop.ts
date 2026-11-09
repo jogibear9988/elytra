@@ -25,7 +25,7 @@ const status = Object.freeze({
   enabled,
   scope: 'experimental-local-desktop',
   workbench: 'not-accepted',
-  disabled: Object.freeze(['webviews', 'remote', 'engine-code-cache'])
+  disabled: Object.freeze(['webviews', 'remote', 'display-capture', 'engine-code-cache'])
 });
 if (enabled && typeof versions?.mite === 'string' && host) {
   Object.defineProperty(host, '_vscodeLibJSLocalDesktopStatus', {
@@ -33,7 +33,7 @@ if (enabled && typeof versions?.mite === 'string' && host) {
     enumerable: true
   });
   console.warn(
-    'Elytra experimental local desktop: webviews, remote resources and engine code caches are disabled; workbench not yet accepted.'
+    'Elytra experimental local desktop: webviews, remote resources, display capture and engine code caches are disabled; workbench not yet accepted.'
   );
 }
 export function isLocalDesktop(): boolean {
