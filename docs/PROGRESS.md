@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 132 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 133 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11635,6 +11635,62 @@ retained in build/title-bar-gate.log as a failure, not an accepted run. After th
 hidden regression passed, one successful targeted visible batch completed.
 Ladybird remains unmodified. Hidden-titlebar implementation/docs still form the
 next separate logical step. The full goal remains active.
+
+
+## 2026-11-09 — Hidden Cocoa title bar with native controls and full renderer content
+
+- Add BrowserWindow titleBarStyle:default/hidden. Hidden configures genuine titled
+  AppKit windows with Qt ExpandedClientAreaHint/NoTitleBarBackgroundHint before
+  native creation. A window-owned Cocoa controller hides the caption and reapplies
+  it after actual NSWindow recreation. Close/minimize/zoom remain real native
+  controls; hidden wins over frame:false, matching the pinned Electron behavior.
+- Explicitly disable Qt's top-level safe-area layout inset for hidden style so the
+  actual renderer fills the full client area under the native controls. Geometry
+  and min/max constraints use actual frame margins without a fixed title height.
+  Both frameless and hidden-style windows enable the existing bounded HTML CSS
+  app-region adapter. Default framed windows preserve ordinary native behavior.
+- Strict type/style/backend admission precedes preload I/O/native allocation.
+  Unknown modes (hiddenInset/customButtonsOnHover), titleBarOverlay and non-Cocoa
+  hidden styles remain unsupported; the default is portable unchanged chrome.
+- Shared public native geometry/content-size/frame:false and constrained-resize
+  cases pass hidden Electron 45.2.3 and Firefly Cocoa. Offscreen rejection and
+  invalid input/window-count preservation pass. Native hidden probes verify real
+  buttons and hit targets, full layout, independent default windows, Qt-local
+  drag/no-drag behavior and actual NSWindow recreation with old-caption cleanup.
+- The exact-application Cocoa runtime probe briefly presents one real window.
+  Actual accepted renderer CPU pixels verify the HTML toolbar at the top of the
+  viewport; native coordinates verify full-window content, actual AppKit hit
+  testing reaches the enabled wired window buttons, and author CSS produces live
+  drag/no-drag regions. The fixture then hides/closes itself. No OS input is
+  injected and no native button action is invoked. Its first run found the
+  presentation crash fixed separately in 222cc36; the accepted subsequent run is
+  green. Fullscreen, broader activation/input and fresh platform parity remain open.
+- All 133 local CLI CTests pass, including actual Node/Mite style admission.
+  Existing offscreen WebContentsView real pages/PIDs/viewport/binary IPC,
+  reparent/order/detached navigation/lifetime and public/native size constraints
+  pass. Add the targeted native/renderer gate to the macOS release builder;
+  refresh API/compatibility/development docs and ADR 0185. Ladybird is unmodified.
+- Fresh adapted Code-OSS default startup next rejects titleBarOverlay during
+  constructor option validation. A separate temporary profile using Code-OSS's
+  own window.titleBarStyle:native setting reaches webPreferences.v8CacheOptions.
+  Both retain app readiness but workbenchAccepted:false and no editor window.
+  This optional chrome configuration changes diagnostic priority; it does not
+  implement the overlay API or reduce the full project scope. Missing
+  Error.captureStackTrace and handled device-ID synchronous ESM require remain.
+
+Validation: build/title-bar-{build,probe-build,gate-final,electron-reference,
+offscreen,runtime,regression,code-oss,code-oss-native-profile,format,site,upstream}.log.
+The earlier title-bar-gate.log is a failed run and is not accepted. The full goal
+remains active.
+Formatting passes for 283 Python, 933 JS/web/config, 551 native and 75 CMake files;
+the subsequent identity-fix files also pass their focused style check. Site
+validation passes for 323 pages and 22,878 local links/resources/fragments.
+
+Next: preserve a reproducible native-titlebar Code-OSS diagnostic profile and
+address genuine runtime/webPreferences semantics along that startup path.
+Window Controls Overlay/other styles remain explicit framework work. Workbench
+open/edit/save, extension host/PTY, utilities/workers, Windows repair and all
+platform/package/release acceptance requirements remain unfinished.
 
 
 ## Resume

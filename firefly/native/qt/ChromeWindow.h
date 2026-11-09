@@ -20,7 +20,12 @@ public:
         bool drag;
     };
 
-    explicit ChromeWindow(bool frame = true);
+    explicit ChromeWindow(bool frame = true, bool hidden_title_bar = false);
+
+    bool is_custom_chrome() const
+    {
+        return !m_frame || m_hidden_title_bar;
+    }
 
     void observe(QWidget* content);
 
@@ -49,6 +54,7 @@ protected:
 private:
     QElapsedTimer m_updated;
     bool m_frame;
+    bool m_hidden_title_bar;
     bool m_dragging { false };
     QPoint m_origin, m_press;
     std::vector<Region> m_regions;

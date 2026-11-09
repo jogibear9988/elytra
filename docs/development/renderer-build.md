@@ -321,3 +321,15 @@ OS mouse input is injected. Explicit first-mouse requests on the offscreen backe
 must reject; the separate admission policy also runs in CLI CTest under Node/Mite.
 This gate belongs to the macOS release builder. Actual activation input and fresh
 platform execution remain separate acceptance work.
+
+## Hidden native title bars
+
+Run cmake --build build/renderer --target check-firefly-title-bar for native Cocoa
+caption/buttons/layout/recreation and public constructor checks. The final stage
+presents one brief real renderer window, verifies actual toolbar pixels, full
+viewport, live HTML drag regions and native button hit targets, then hides and
+closes it. It posts no OS mouse events and does not activate native controls.
+Batch this targeted visible gate for substantive chrome changes; use CLI policy
+and offscreen rejection checks for routine admission/documentation work. The
+macOS release builder includes the gate. Other title-bar modes and platform
+implementations remain explicit unsupported work.

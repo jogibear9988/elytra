@@ -20,6 +20,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | frame | Boolean, default true; false removes native title bar and enables custom CSS drag regions |
 | minWidth, minHeight | Integer 0..16384, default 0; minimum size; constructor useContentSize also applies |
 | maxWidth, maxHeight | Integer 0..16384, default 0; maximum size; each zero axis is unbounded |
+| titleBarStyle | default or hidden; hidden is native macOS Cocoa only and preserves system window controls. [Contract](#hidden-native-title-bar) |
 | acceptFirstMouse | Boolean, Cocoa only; default false. [First click on inactive windows](#first-click-on-inactive-windows) |
 | experimentalDarkMode | Legacy boolean accepted without effect, matching the pinned Electron 45 reference; use nativeTheme for appearance |
 | backgroundColor | Opaque color string, default white; [native canvas background](window-background.md) |
@@ -83,6 +84,47 @@ destroy is idempotent for destroyed/already-closing windows. Do not assume that
 calling destroy makes isDestroyed true before the native closed notification.
 A pending load rejects when the window is closed. Loading has its own
 [validation and Promise contract](web-contents.md).
+
+## Hidden native title bar
+
+On macOS Cocoa, titleBarStyle:'hidden' removes the native caption/background while
+retaining the actual AppKit close, minimize and zoom buttons. The client area
+extends across the full window, including the title-bar area. It is distinct from
+frame:false, which removes the native frame and its buttons. Combining hidden
+with frame:false keeps the hidden-style native controls, as in Electron.
+
+```js
+const window = new BrowserWindow({
+  titleBarStyle: 'hidden', width: 1000, height: 700
+});
+await window.loadFile('index.html');
+```
+
+Use [CSS app regions](#custom-title-bar-and-dragging) for your HTML toolbar:
+draggable areas move the window, and no-drag areas preserve interactive buttons.
+The application should leave room for native window controls. Firefly does not
+supply Window Controls Overlay CSS environment variables or a traffic-light
+position API in this slice.
+
+Both omitted style and 'default' preserve existing platform chrome. Nonstring
+styles throw ERR_INVALID_ARG_TYPE. Unknown styles, including hiddenInset and
+customButtonsOnHover, throw ERR_FIREFLY_UNSUPPORTED_API. Hidden also throws
+ERR_FIREFLY_UNSUPPORTED_API on offscreen/non-Cocoa backends before native allocation.
+titleBarOverlay remains unsupported and is not implied by hidden.
+
+Hidden content geometry uses actual Qt/AppKit frame margins; there is no fixed
+caption-height subtraction. Content bounds span the native window, and ordinary
+minimum/maximum-size constraints continue to apply. Qt's automatic safe-area
+layout inset is disabled so native controls overlay the author-owned content.
+Fullscreen, custom traffic-light positions and fresh Linux/Windows acceptance
+remain separate work.
+
+Acceptance: shared hidden geometry/resize cases pass Electron 45.2.3 and Firefly
+Cocoa. Native probes verify real standard buttons, native hit targets, full content
+layout, Qt-local drag/no-drag behavior and automatic NSWindow recreation. One
+brief exact-application renderer batch verifies actual toolbar CPU pixels, the
+full viewport, native button hit targets and live HTML drag regions. It does not
+activate OS buttons or inject OS mouse events.
 
 ## First click on inactive windows
 
@@ -364,9 +406,9 @@ preventDefault/defaultPrevented, not the full Electron event structure.
 
 ## Custom title bar and dragging
 
-Use frame:false and HTML buttons for a fully custom bar. This is different from
-Electron's titleBarStyle:hidden, which retains macOS traffic lights; that option
-still rejects here. The current owned adapter recognizes stylesheet declarations:
+Use frame:false and HTML buttons for a fully custom bar, or titleBarStyle:hidden
+on macOS Cocoa to retain native traffic lights above the HTML content. Both modes
+enable the owned adapter for stylesheet declarations:
 
 ```css
 .toolbar { app-region: drag; -webkit-app-region: drag; user-select: none; }

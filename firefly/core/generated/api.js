@@ -3289,6 +3289,25 @@ function createWindowInput(native, error, unsupported) {
   };
 }
 
+// firefly/core/window/title-bar.mjs
+function createTitleBar(native, error, unsupported) {
+  return function read(value) {
+    if (value === void 0 || value === "default") {
+      return false;
+    }
+    if (typeof value !== "string") {
+      throw error("ERR_INVALID_ARG_TYPE", "titleBarStyle must be a string");
+    }
+    if (value !== "hidden") {
+      unsupported(`BrowserWindow titleBarStyle ${value}`);
+    }
+    if (typeof native.titleBarAvailable !== "function" || native.titleBarAvailable() !== true) {
+      unsupported("BrowserWindow hidden title bar on this window backend");
+    }
+    return true;
+  };
+}
+
 // firefly/core/message-ports/index.mjs
 function createMessageChannels(native, EventEmitter, error) {
   const states = /* @__PURE__ */ new WeakMap();
@@ -7429,6 +7448,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   const channels = createMessageChannels(native, EventEmitter, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
+  const titleBar = createTitleBar(native, error, unsupported);
   const windows = /* @__PURE__ */ new Map();
   const allContents = /* @__PURE__ */ new Map();
   const frames = createFrames(
@@ -7938,6 +7958,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           "backgroundColor",
           "experimentalDarkMode",
           "acceptFirstMouse",
+          "titleBarStyle",
           "webPreferences"
         ].includes(key)) {
           unsupported(`BrowserWindow option ${key}`);
@@ -7954,6 +7975,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       const limits = geometry.initialConstraints(options);
       const constraintWire = JSON.stringify(limits);
       const firstMouse = windowInput(options);
+      const hiddenTitleBar = titleBar(options.titleBarStyle);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === void 0 ? "#FFFFFF" : initialBackground
@@ -7992,7 +8014,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           additionalArguments,
           color,
           constraintWire,
-          firstMouse
+          firstMouse,
+          hiddenTitleBar
         )
       });
       this.webContents = new WebContents(this, contentsToken);

@@ -10,16 +10,28 @@
 #include <QWindowStateChangeEvent>
 
 namespace Firefly {
-ChromeWindow::ChromeWindow(bool frame)
+ChromeWindow::ChromeWindow(bool frame, bool hidden_title_bar)
     : m_frame(frame)
+    , m_hidden_title_bar(hidden_title_bar)
 {
-    if (!frame)
+    if (hidden_title_bar) {
+        // Keep the native titled window and real traffic lights. These official
+        // Qt hints extend its actual client area, unlike FramelessWindowHint.
+        setWindowFlags(Qt::Window | Qt::WindowTitleHint | Qt::WindowSystemMenuHint
+            | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint
+            | Qt::WindowCloseButtonHint | Qt::ExpandedClientAreaHint
+            | Qt::NoTitleBarBackgroundHint);
+        // Qt top levels otherwise inset their layouts below the native safe area.
+        // The application owns this titlebar region and must receive its full size.
+        setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
+    } else if (!frame) {
         setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    }
 }
 
 void ChromeWindow::observe(QWidget* content)
 {
-    if (!m_frame)
+    if (is_custom_chrome())
         content->installEventFilter(this);
 }
 

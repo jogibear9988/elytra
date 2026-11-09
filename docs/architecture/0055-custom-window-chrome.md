@@ -3,8 +3,10 @@
 ## Decision
 
 Keep Electron's frame:false and BrowserWindow minimize/maximize/unmaximize/restore
-names. Implement them in the owned Qt window adapter. Keep titleBarStyle:hidden
-unsupported: removing the whole frame is not the macOS traffic-light variant.
+names. Implement them in the owned Qt window adapter. The initial implementation
+kept titleBarStyle:hidden unsupported because removing the whole frame does not
+provide macOS traffic lights. [ADR 0185](0185-native-hidden-title-bar.md) now adds
+that distinct native variant and shares the bounded HTML drag-region adapter.
 
 LibWeb at the current pin does not implement Electron's app-region property. The
 owned app-regions.mjs adapter maps app-region/-webkit-app-region declarations to a

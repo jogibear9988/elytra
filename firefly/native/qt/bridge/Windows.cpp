@@ -55,15 +55,20 @@ void Bridge::Impl::destroy(int id, bool immediate)
 Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, int height,
     QString const& title, bool show, bool frame, Optional<Preload> preload, bool use_content_size,
     Optional<int> x, Optional<int> y, u32 background_rgb, WindowLimits const& limits,
-    Optional<bool> first_mouse)
+    Optional<bool> first_mouse, bool hidden_title_bar)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
         return WindowCreationError::Geometry;
     auto id = next_id++;
-    auto* window = new ChromeWindow(frame);
+    auto* window = new ChromeWindow(frame, hidden_title_bar);
     window->setWindowTitle(title);
     window->resize(width, height);
+    if (hidden_title_bar && !configure_title_bar(*window, true)) {
+        delete window;
+        return WindowCreationError::TitleBarPolicy;
+    }
+
     auto* constraints = new WindowSizeConstraints(*window);
     if (!constraints->initialize(limits, use_content_size)) {
         delete window;
@@ -135,7 +140,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
             enqueue(id, after.testFlag(Qt::WindowMaximized) ? "maximize" : "unmaximize");
     };
 
-    if (!frame) {
+    if (window->is_custom_chrome()) {
         auto* timer = new QTimer(window);
         timer->setInterval(250);
         auto active = std::make_shared<bool>(false), pending = std::make_shared<bool>(false);

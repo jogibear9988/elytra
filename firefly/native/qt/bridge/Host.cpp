@@ -45,6 +45,12 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             return JS::Value(first_mouse_available());
         },
         0, JS::default_attributes);
+    host->define_native_function(
+        realm, "titleBarAvailable"_utf16,
+        +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+            return JS::Value(title_bar_available());
+        },
+        0, JS::default_attributes);
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     desktop_capture
@@ -169,6 +175,14 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
                 return SandboxPolicy::fail(vm, *failure);
             auto limits = TRY(read_limits(vm));
+            auto title_bar = vm.argument(13);
+            if (!title_bar.is_undefined() && !title_bar.is_boolean())
+                return preload_error(
+                    vm, "ERR_INVALID_ARG_TYPE", "Hidden title bar must be a boolean"sv);
+            bool hidden_title_bar = title_bar.is_boolean() && title_bar.as_bool();
+            if (hidden_title_bar && !title_bar_available())
+                return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+                    "Hidden title bar requires the Cocoa backend"sv);
             auto first_mouse = vm.argument(12);
             if (!first_mouse.is_undefined()) {
                 if (!first_mouse.is_boolean())
@@ -194,8 +208,12 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                 vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)),
                 background, limits,
                 first_mouse.is_undefined() ? Optional<bool> {}
-                                           : Optional<bool> { first_mouse.as_bool() });
+                                           : Optional<bool> { first_mouse.as_bool() },
+                hidden_title_bar);
             if (id.has<WindowCreationError>()) {
+                if (id.get<WindowCreationError>() == WindowCreationError::TitleBarPolicy)
+                    return preload_error(vm, "ERR_FIREFLY_WINDOW_TITLE_BAR",
+                        "Native title bar policy could not be applied"sv);
                 if (id.get<WindowCreationError>() == WindowCreationError::InputPolicy)
                     return preload_error(vm, "ERR_FIREFLY_WINDOW_INPUT",
                         "Native first mouse policy could not be applied"sv);
@@ -205,7 +223,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
 
             return JS::Value(id.get<int>());
         },
-        13, JS::default_attributes);
+        14, JS::default_attributes);
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

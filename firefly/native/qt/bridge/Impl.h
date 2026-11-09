@@ -26,6 +26,7 @@
 #include "native/web-request/Broker.h"
 #include "native/window/Constraints.h"
 #include "native/window/FirstMouse.h"
+#include "native/window/TitleBar.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -306,11 +307,11 @@ struct Bridge::Impl {
 
     void broadcast_background();
 
-    enum class WindowCreationError { Geometry, InputPolicy };
+    enum class WindowCreationError { Geometry, InputPolicy, TitleBarPolicy };
     Variant<int, WindowCreationError> create(int width, int height, QString const& title, bool show,
         bool frame, Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
         u32 background_rgb = 0xffffff, WindowLimits const& limits = {},
-        Optional<bool> first_mouse = {});
+        Optional<bool> first_mouse = {}, bool hidden_title_bar = false);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

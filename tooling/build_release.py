@@ -163,6 +163,7 @@ def main():
                 "check-firefly-background-color",
                 "check-firefly-window-constraints",
                 "check-firefly-window-input",
+                "check-firefly-title-bar",
                 "check-firefly-web-request",
             ]
         )

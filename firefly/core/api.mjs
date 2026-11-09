@@ -14,6 +14,7 @@ import createTheme from './theme/index.mjs';
 import createWindowGeometry from './window/geometry.mjs';
 import createBackground from './window/background.mjs';
 import createWindowInput from './window/input.mjs';
+import createTitleBar from './window/title-bar.mjs';
 import createMessageChannels from './message-ports/index.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
@@ -49,6 +50,7 @@ export default function createFireflyApi(
   const channels = createMessageChannels(native, EventEmitter, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
+  const titleBar = createTitleBar(native, error, unsupported);
   const windows = new Map();
   const allContents = new Map();
   const frames = createFrames(
@@ -604,6 +606,7 @@ export default function createFireflyApi(
             'backgroundColor',
             'experimentalDarkMode',
             'acceptFirstMouse',
+            'titleBarStyle',
             'webPreferences'
           ].includes(key)
         ) {
@@ -621,6 +624,7 @@ export default function createFireflyApi(
       const limits = geometry.initialConstraints(options);
       const constraintWire = JSON.stringify(limits);
       const firstMouse = windowInput(options);
+      const hiddenTitleBar = titleBar(options.titleBarStyle);
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === undefined ? '#FFFFFF' : initialBackground
@@ -662,7 +666,8 @@ export default function createFireflyApi(
           additionalArguments,
           color,
           constraintWire,
-          firstMouse
+          firstMouse,
+          hiddenTitleBar
         )
       });
       this.webContents = new WebContents(this, contentsToken);

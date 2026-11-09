@@ -516,3 +516,16 @@ reported Objective-C class from Qt/KVO. Its gate reads real AppKit safeAreaInset
 and QWindow safeAreaMargins while hidden, before/after native resize and actual
 view recreation. Recheck these computed-property paths on Qt/AppKit updates;
 acceptsFirstMouse callbacks alone do not validate safe rendering/presentation.
+
+## Native hidden title-bar integration
+
+The hidden style uses Qt 6.9+ ExpandedClientAreaHint/NoTitleBarBackgroundHint and
+an explicitly disabled WA_ContentsMarginsRespectsSafeArea before native creation.
+Keep Qt/AppKit's actual content/frame geometry and native buttons; do not replace
+this with FramelessWindowHint or a guessed caption height. Qt/AppKit updates need
+check-firefly-title-bar: hidden native layout/geometry/recreation plus one real
+Cocoa renderer batch checking pixels, live HTML regions and native button hit
+routing. It deliberately shows one short-lived fixture window, so batch local
+acceptance for actual chrome changes instead of repeatedly invoking it for docs.
+No Ladybird patch or downstream Qt source change is required. See
+[ADR 0185](../architecture/0185-native-hidden-title-bar.md).
