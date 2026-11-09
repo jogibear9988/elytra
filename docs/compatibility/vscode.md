@@ -134,6 +134,32 @@ Libraries/LibWeb/ServiceWorker/{ServiceWorkerContainer,Job}.cpp. This paragraph 
 source inspection; no new service-worker execution test or workbench launch is
 claimed. HTTP/2/3, website polish and unrelated example breadth remain lower priority.
 
+
+## Reproducible native-titlebar diagnostic profile
+
+The probe-only --native-title-bar option selects Code-OSS's own native-titlebar
+setting in a fresh isolated profile:
+
+```sh
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 ELYTRA_CODE_OSS_OBSERVE_MS=15000 \
+  build/renderer/bin/firefly --electron-compat tooling/code_oss/probe.mjs \
+  build/code-oss-capture-final --native-title-bar --firefly-ready --force-cpu-painting
+```
+
+The probe prints the owned user-data and extensions directories and retains them
+for inspection. It never edits caller settings or extension directories. Explicit
+--user-data-dir/--extensions-dir conflicts reject before creating a profile. The
+probe consumes its flag and inserts owned application options before a -- argument
+boundary; literal file arguments after that boundary are preserved. Without the
+flag, caller arguments and profile selection remain unchanged.
+
+This profile bypasses Code-OSS's optional custom chrome configuration; it does not
+implement Window Controls Overlay. The recorded diagnostic profile and all probe
+completion records explicitly keep workbenchAccepted:false. Native-profile startup
+currently reaches webPreferences.v8CacheOptions; an actual workbench, editing,
+extension host and terminal are not accepted. Use the freshly built runtime and
+compiled tree paths appropriate to your local build.
+
 ## Audited reference
 
 Inspect Microsoft Code-OSS commit

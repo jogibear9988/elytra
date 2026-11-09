@@ -11693,6 +11693,31 @@ open/edit/save, extension host/PTY, utilities/workers, Windows repair and all
 platform/package/release acceptance requirements remain unfinished.
 
 
+## 2026-11-09 — Reproducible isolated native-titlebar Code-OSS diagnostics
+
+- Add probe-only --native-title-bar using Code-OSS's own supported native-caption
+  preference. Every opt-in creates a fresh short UUID profile (0700 directory,
+  exclusive 0600 settings file) plus a private extensions directory; caller
+  settings and extensions are never reused or overwritten. The retained paths
+  and selection are printed explicitly for diagnostic inspection.
+- Consume only a real probe option before -- and inject actual Code-OSS profile
+  options before the terminator. Literal post-terminator arguments remain intact.
+  Duplicate flags and conflicting user-data/extension options reject before any
+  profile creation. Default invocations preserve their arguments/profile choice.
+- Node 24.15.0 and actual standalone Mite pass isolated/default/conflict/terminator
+  and entry-failure cases, including unchanged existing settings/extension
+  sentinels and distinct private profiles. Add the non-GUI case to CTest and
+  document the reproducible command. No desktop acceptance is claimed by this tool.
+- Profile and completion records retain workbenchAccepted:false. Native caption
+  is a diagnostic configuration, not Window Controls Overlay support or a reduced
+  project objective. The observed native-profile blocker remains v8CacheOptions.
+
+Validation: build/code-oss-native-profile-{policy-final,style}.log. The prior
+complete runtime baseline remains 133 passing suites; capture-stack implementation
+and its new suite are still a separate pending worktree step. The full goal stays
+active, with editor/open-edit-save and all remaining platform/API work unfinished.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

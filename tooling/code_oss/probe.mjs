@@ -5,12 +5,17 @@
  */
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { prepareProbeProfile } from './probe-profile.mjs';
 const tree = path.resolve(process.argv[2]);
+const diagnosticProfile = prepareProbeProfile(process.argv);
+console.log(JSON.stringify({ diagnosticProfile, workbenchAccepted: false }));
 try {
   await import(pathToFileURL(path.join(tree, 'src/main.js')).href);
   console.log(
     JSON.stringify({
       entryCompleted: true,
+      diagnosticProfile,
+      workbenchAccepted: false,
       cache: process._vscodeNodeCompileCacheStatus,
       engine: process._vscodeLibJSEngineStatus,
       localDesktop: process._vscodeLibJSLocalDesktopStatus
@@ -20,6 +25,8 @@ try {
   console.error(
     JSON.stringify({
       entryCompleted: false,
+      diagnosticProfile,
+      workbenchAccepted: false,
       error: { name: error.name, code: error.code, message: error.message },
       cache: process._vscodeNodeCompileCacheStatus,
       engine: process._vscodeLibJSEngineStatus,
