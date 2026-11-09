@@ -55,7 +55,7 @@ void Bridge::Impl::destroy(int id, bool immediate)
 Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, int height,
     QString const& title, bool show, bool frame, Optional<Preload> preload, bool use_content_size,
     Optional<int> x, Optional<int> y, u32 background_rgb, WindowLimits const& limits,
-    Optional<bool> first_mouse, bool hidden_title_bar)
+    Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
@@ -83,6 +83,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     auto* content_layout = new QVBoxLayout(content);
     content_layout->setContentsMargins(0, 0, 0, 0);
     auto* view = new Ladybird::WebContentView(content);
+    initialize_content_zoom(*view, zoom_factor);
     initialize_content_background(*view, background_rgb);
     content_layout->addWidget(view);
     window->observe(view);

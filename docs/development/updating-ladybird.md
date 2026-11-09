@@ -542,3 +542,21 @@ Do not substitute interpreter caller_is_construct for constructor debug metadata
 it governs only an inline return path and failed the real ordinary-new oracle.
 Supporting that method requires a genuine owned/public ABI, not a vendor patch.
 See [ADR 0186](../architecture/0186-native-captured-stack-records.md).
+
+
+## Owned native view zoom
+
+`prepare_view_preferences.py` composes the existing canvas UI seam with one
+`apply_zoom_for_current_host` guard for registered Firefly views. Review the full
+ViewImplementation.cpp fingerprint and both exact reversals on updates. Ordinary
+upstream views must still run their original host-settings body. The native
+zoom/View registry stores only live membership, never a second factor; QObject
+cleanup removes an opaque base key without dereferencing a destroyed base.
+
+Re-run `firefly-view-preferences-source` and `check-firefly-zoom`: constructor zoom
+must survive actual tab initialization before the first author script, native
+main/preload getters must agree, and real viewport/DPR measurements must follow
+setters and navigation/reload. Recheck `check-firefly-preload-zoom` and the canvas
+pixel gate because the source composition and native view state are shared.
+Do not accept merely matching main-process getters or refresh hashes without
+reviewing page/helper initialization and input/compositor zoom transport.

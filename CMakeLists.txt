@@ -478,6 +478,13 @@ if(BUILD_TESTING)
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_dependencies.py" --mite
             "$<TARGET_FILE:mite>")
     add_test(
+        NAME firefly-zoom-policy
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_zoom_policy.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(NAME firefly-view-preferences-source
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_view_preferences.py")
+    add_test(
         NAME firefly-view-policy
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_view_policy.py"
                 --mite "$<TARGET_FILE:mite>")

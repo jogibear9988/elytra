@@ -287,7 +287,7 @@ struct Bridge::Impl {
 
     void close_contents(int, bool immediate = false);
 
-    Optional<int> create_view(Optional<Preload>);
+    Optional<int> create_view(Optional<Preload>, double zoom_factor = 1.0);
 
     void setup_content_callbacks(int);
 
@@ -301,6 +301,10 @@ struct Bridge::Impl {
 
     void install_background(JS::Object&);
 
+    void install_zoom(JS::Object&);
+
+    static JS::ThrowCompletionOr<double> read_zoom(JS::VM&, size_t index, bool optional = false);
+
     void install_constraints(JS::Object&);
 
     JS::ThrowCompletionOr<WindowLimits> read_limits(JS::VM&, size_t argument = 11);
@@ -311,7 +315,7 @@ struct Bridge::Impl {
     Variant<int, WindowCreationError> create(int width, int height, QString const& title, bool show,
         bool frame, Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
         u32 background_rgb = 0xffffff, WindowLimits const& limits = {},
-        Optional<bool> first_mouse = {}, bool hidden_title_bar = false);
+        Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

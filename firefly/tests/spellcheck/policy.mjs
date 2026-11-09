@@ -22,14 +22,15 @@ const read = create(
     return true;
   }
 );
-assert.deepEqual(read(), { preload: undefined, additionalArguments: [] });
+assert.deepEqual(read(), { preload: undefined, additionalArguments: [], zoomFactor: 1 });
 assert.deepEqual(read({ contextIsolation: true, nodeIntegration: false, sandbox: true }), {
   preload: undefined,
-  additionalArguments: []
+  additionalArguments: [],
+  zoomFactor: 1
 });
 assert.equal(calls, 0);
 const disabled = Object.freeze({ spellcheck: false });
-assert.deepEqual(read(disabled), { preload: undefined, additionalArguments: [] });
+assert.deepEqual(read(disabled), { preload: undefined, additionalArguments: [], zoomFactor: 1 });
 assert.equal(disabled.spellcheck, false);
 assert.equal(calls, 1);
 
@@ -69,7 +70,7 @@ for (const missing of [undefined, null, true, 17, {}]) {
 
   fails(() => query({ spellcheck: false }));
 
-  assert.deepEqual(query({}), { preload: undefined, additionalArguments: [] });
+  assert.deepEqual(query({}), { preload: undefined, additionalArguments: [], zoomFactor: 1 });
 }
 console.log(
   'PASS spellcheck invalid types unavailable query and nonboolean provider states fail closed'
@@ -92,7 +93,11 @@ const preferences = {
     return ++reads === 1 ? false : true;
   }
 };
-assert.deepEqual(snapshot(preferences), { preload: undefined, additionalArguments: [] });
+assert.deepEqual(snapshot(preferences), {
+  preload: undefined,
+  additionalArguments: [],
+  zoomFactor: 1
+});
 assert.equal(reads, 1);
 assert.equal(queries, 1);
 const marker = new Error('controlled spellcheck accessor failure');
@@ -137,7 +142,7 @@ const secure = Object.freeze({
   additionalArguments: argumentsValue,
   spellcheck: false
 });
-assert.deepEqual(read(secure), { preload, additionalArguments: argumentsValue });
+assert.deepEqual(read(secure), { preload, additionalArguments: argumentsValue, zoomFactor: 1 });
 for (const preference of [
   { contextIsolation: false },
   { nodeIntegration: true },
@@ -154,7 +159,7 @@ const enforced = create(
   () => true
 );
 const sandbox = Object.freeze({ spellcheck: false, sandbox: false });
-assert.deepEqual(enforced(sandbox), { preload: undefined, additionalArguments: [] });
+assert.deepEqual(enforced(sandbox), { preload: undefined, additionalArguments: [], zoomFactor: 1 });
 assert.equal(sandbox.sandbox, false);
 
 fails(() => read({ spellcheck: false, preload: false }), 'ERR_INVALID_ARG_TYPE');

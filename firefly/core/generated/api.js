@@ -4102,7 +4102,7 @@ function createViews(native, EventEmitter, makeContents, validatePreferences, re
         throw error("ERR_FIREFLY_APP_EXITED", "Application has exited");
       }
       Object.defineProperty(host, "id", {
-        value: native.createView(prefs.preload, prefs.additionalArguments),
+        value: native.createView(prefs.preload, prefs.additionalArguments, prefs.zoomFactor),
         enumerable: true
       });
       host._destroyed = false;
@@ -4295,14 +4295,52 @@ function createViews(native, EventEmitter, makeContents, validatePreferences, re
   return { WebContentsView, records, contentView, ownerOf, detachWindow, destroyed, shutdown };
 }
 
+// firefly/core/window/zoom.mjs
+function createZoomPolicy() {
+  function number(value) {
+    if (typeof value !== "number") {
+      throw Object.assign(new TypeError("Zoom requires a number"), {
+        code: "ERR_INVALID_ARG_TYPE"
+      });
+    }
+    if (!Number.isFinite(value)) {
+      throw Object.assign(new RangeError("Zoom requires a finite number"), {
+        code: "ERR_OUT_OF_RANGE"
+      });
+    }
+    return value;
+  }
+  function factor(value) {
+    number(value);
+    if (value < 0.3 || value > 5) {
+      throw Object.assign(new RangeError("Zoom factor must be within 0.3 and 5"), {
+        code: "ERR_OUT_OF_RANGE"
+      });
+    }
+    return value;
+  }
+  return {
+    factor,
+    level(value) {
+      return factor(1.2 ** number(value));
+    }
+  };
+}
+
 // firefly/core/window/preferences.mjs
+var zoom = createZoomPolicy();
 function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSpellCheckDisabled) {
   return function validate(prefs = {}) {
     if (!prefs || typeof prefs !== "object" || Array.isArray(prefs)) {
       throw error("ERR_INVALID_ARG_TYPE", "webPreferences must be an object");
     }
+    let zoomFactor = 1;
     for (const key of Object.keys(prefs)) {
       if (key === "preload" || key === "additionalArguments") {
+        continue;
+      }
+      if (key === "zoomFactor") {
+        zoomFactor = zoom.factor(prefs[key]);
         continue;
       }
       if (key === "spellcheck") {
@@ -4343,7 +4381,7 @@ function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSp
     if (additionalArguments.length > 64) {
       throw error("ERR_INVALID_ARG_VALUE", "additionalArguments exceeds 64 entries");
     }
-    return { preload: prefs.preload, additionalArguments };
+    return { preload: prefs.preload, additionalArguments, zoomFactor };
   };
 }
 
@@ -7477,6 +7515,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const zoom2 = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
     () => sandboxRequired,
@@ -7866,6 +7905,34 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       alive(this._window);
       return native.pid(this.id);
     }
+    setZoomFactor(factor) {
+      alive(this._window);
+      native.setContentsZoom(this.id, zoom2.factor(factor));
+    }
+    getZoomFactor() {
+      alive(this._window);
+      return native.contentsZoom(this.id);
+    }
+    setZoomLevel(level) {
+      alive(this._window);
+      native.setContentsZoom(this.id, zoom2.level(level));
+    }
+    getZoomLevel() {
+      alive(this._window);
+      return Math.log(native.contentsZoom(this.id)) / Math.log(1.2);
+    }
+    get zoomFactor() {
+      return this.getZoomFactor();
+    }
+    set zoomFactor(value) {
+      this.setZoomFactor(value);
+    }
+    get zoomLevel() {
+      return this.getZoomLevel();
+    }
+    set zoomLevel(value) {
+      this.setZoomLevel(value);
+    }
     isDestroyed() {
       return this._window._destroyed;
     }
@@ -8031,7 +8098,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           color,
           constraintWire,
           firstMouse,
-          hiddenTitleBar
+          hiddenTitleBar,
+          prefs.zoomFactor
         )
       });
       this.webContents = new WebContents(this, contentsToken);

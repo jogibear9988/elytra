@@ -45,8 +45,8 @@ with `TypeError`. An unresponsive-parent handshake timeout has not been establis
 is the naming and level-conversion reference. Firefly currently scopes zoom to the
 native view/window rather than propagating a same-origin preference across every
 window. Reload follows the existing view behavior; a preload can explicitly set
-its desired level for each document, as Code-OSS does. Persistent origin preferences,
-main-process webContents zoom methods, frame traversal, visual zoom limits, text/CSS
+its desired level for each document, as Code-OSS does. [Main-process webContents zoom methods](web-contents.md#browser-zoom) share the same
+native state. Persistent origin preferences, frame traversal, visual zoom limits, text/CSS
 insertion, JavaScript execution and spellcheck are not supplied by this slice.
 
 ## Validation

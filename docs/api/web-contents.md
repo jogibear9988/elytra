@@ -15,6 +15,7 @@ request/reply and bounded bidirectional events.
 | [getURL()](#contentsgeturl) | string | Observe the current URL |
 | [getTitle()](#contentsgettitle) | string | Observe the document title |
 | [getOSProcessId()](#contentsgetosprocessid) | number | Query the native renderer PID |
+| [setZoomFactor/getZoomFactor, setZoomLevel/getZoomLevel](#browser-zoom) | undefined / number | Native browser scale and logarithmic zoom level |
 | [send(channel, ...args)](ipc.md#webcontentssendchannel-args) | undefined | Native current-document event to isolated preload |
 | [isDestroyed()](#contentsisdestroyed) | boolean | Observe owner destruction |
 
@@ -196,3 +197,47 @@ failures, PID, lifecycle and unsupported-mode fixtures; see the
 Native mainFrame identity and the shared IPC senderFrame proxy are described in
 [webFrameMain](web-frame-main.md). They no longer require an initial preload IPC
 message. Per-frame execution and full frame-host lifecycle remain unsupported.
+
+
+## Browser zoom
+
+`setZoomFactor(factor)` changes the real native view's scale and returns undefined.
+`getZoomFactor()` reads the actual native value. `setZoomLevel(level)` sets
+`1.2 ** level`; `getZoomLevel()` returns `log(factor) / log(1.2)`. The read/write
+properties `zoomFactor` and `zoomLevel` are aliases for these methods. All four
+methods also work on WebContentsView.webContents and check owner liveness.
+
+```js
+const window = new BrowserWindow({webPreferences: {zoomFactor: 1.44}});
+window.webContents.setZoomLevel(1); // 120%
+window.webContents.zoomFactor = 1; // Reset to 100%
+```
+
+Setters and the constructor preference require finite numeric primitives, with
+factors from 0.3 through 5 inclusive, matching the pinned Ladybird view range.
+Levels must map into that range. Wrong types throw TypeError with
+ERR_INVALID_ARG_TYPE without numeric coercion; nonfinite/out-of-range values throw
+RangeError with ERR_OUT_OF_RANGE before mutation. The constructor defaults to 1.
+
+Main-process methods and isolated-preload [webFrame](web-frame.md) share the same
+native view state. They change actual layout, viewport, devicePixelRatio, input
+scaling and compositor state. An owned view-membership hook preserves that state
+when upstream initializes a tab or notifies browser host-setting changes. It
+retains no duplicate factor; unregistered upstream views keep their original
+host-setting behavior. New hosting pages receive the native factor through the
+ordinary upstream preference path. Widget destruction removes the registry key.
+
+Zoom is currently scoped to each webContents, an intentional difference from
+Electron's same-origin/session preference propagation. Firefly does not persist
+origin zoom settings or implement visual zoom limits or zoom-changed input events.
+Native Windows/Linux and physical display/input scaling remain unverified.
+
+
+Local acceptance: Node/Mite numeric policy and source-preservation tests pass;
+Firefly and Electron 45.2.3 pass the hidden layout/DPR/preload-getter/setter cases.
+A separate Firefly child view retains its independent factor. Firefly preserves
+its current factor across the tested navigation and location.reload; Electron
+45.2.3 reapplies the constructor zoomFactor in that fixture. Likewise Firefly's
+constructor getter reports its factor before first navigation, while Electron
+applies the preference on first load. These are documented differences, not
+claims of full Electron origin/session or lifecycle parity.

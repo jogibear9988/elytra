@@ -38,6 +38,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_web_request(*host);
     install_frames(*host);
     install_background(*host);
+    install_zoom(*host);
     install_constraints(*host);
     host->define_native_function(
         realm, "spellCheckDisabled"_utf16,
@@ -181,6 +182,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             if (WebView::Application::the().spell_checker())
                 return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
                     "Firefly windows require disabled native spellchecking"sv);
+            auto zoom_factor = TRY(read_zoom(vm, 14, true));
             auto native_enabled = WebView::Application::browser_options().disable_sandbox
                 == WebView::DisableSandbox::No;
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
@@ -220,7 +222,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
                 background, limits,
                 first_mouse.is_undefined() ? Optional<bool> {}
                                            : Optional<bool> { first_mouse.as_bool() },
-                hidden_title_bar);
+                hidden_title_bar, zoom_factor);
             if (id.has<WindowCreationError>()) {
                 if (id.get<WindowCreationError>() == WindowCreationError::TitleBarPolicy)
                     return preload_error(vm, "ERR_FIREFLY_WINDOW_TITLE_BAR",
@@ -234,7 +236,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
 
             return JS::Value(id.get<int>());
         },
-        14, JS::default_attributes);
+        15, JS::default_attributes);
     host->define_native_function(
         realm, "destroy"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

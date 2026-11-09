@@ -11852,6 +11852,52 @@ Extensions, PTY, workers, Windows/platform packages and releases remain unfinish
 the full objective remains active.
 
 
+## 2026-11-10 — Native main-process and constructor browser zoom
+
+- Add real webPreferences.zoomFactor for windows and child views, factor/level
+  webContents methods and property aliases. The main/preload APIs read and modify
+  one actual upstream view state. Strict numeric validation uses the real 0.3..5
+  factor range, maps levels as 1.2^level, rejects without coercion/mutation and
+  validates native construction before preload I/O or native allocation.
+- Actual initial renderer checks exposed upstream tab initialization resetting
+  constructor zoom. Add a scoped owned-view membership hook to the existing exact
+  canvas source composition: only registered Firefly views skip browser host zoom
+  settings. Keep all unowned upstream behavior and exact reversible source bytes.
+  Registry entries store no factor and are removed through opaque QObject cleanup.
+  The first build also exposed missing shared-library exports for registry calls;
+  corrected with the existing WEBVIEW_API convention before accepted builds.
+- Node/Mite numeric/preference suites and coordinator source/hash/drift/prewrite
+  checks pass. All 139 local Release runtime CTests pass. Production and offscreen
+  Firefly build; real hidden document tests measure layout/DPR, constructor factors,
+  runtime factor/level methods/properties, preload-main coherence, independent
+  child state and navigation/location.reload. Existing preload zoom and all seven
+  CPU canvas stages pass. No visible desktop window was launched in this step.
+- Electron 45.2.3 passes the shared numeric/layout/reference cases. Actual reference
+  checks exposed ESM readiness deadlock in the initial test fixture, fixed by using
+  the established whenReady callback. They also show constructor getter timing
+  and reload differences: Firefly preserves current view zoom while this Electron
+  fixture reapplies constructor zoom. Tests and API/ADR 0188 record these explicitly.
+  Origin/session propagation, persistence, visual limits and fresh platforms remain
+  unfinished; no full Electron zoom parity is claimed.
+- Actual isolated native-titlebar Code-OSS startup now passes zoomFactor and stops
+  at webPreferences.autoplayPolicy before window creation. Native logging and the
+  handled synchronous-ESM fallback remain; no editor/open-edit-save is accepted.
+  Refresh the current status page and both compatibility/API guides accordingly.
+- User requested another Ladybird update. Official remote fetch selects candidate
+  cdcb9a308fc9d9f34e3ebd7c5a7e6b5a63972cdf (859 commits after our accepted pin).
+  Read-only audit finds explicit GC capture migration, RemoteView/Hub architecture,
+  build/dependency changes and 24 changed direct adapter inputs. This is not an
+  accepted engine update yet. Retain the accepted pin while preparing an isolated
+  review; no Ladybird source modifications are allowed.
+
+Validation: build/zoom-{policy,policy-ctest,source,owned-view-final-build,
+cli-final-build,runtime-final,public-accepted,preload-regression,canvas-regression,
+code-oss-start,style,site}.log. Earlier failed initial-view/export/reference tests
+are retained as rejected runs. Next: isolated Ladybird candidate port/build and
+security/renderer revalidation, then autoplay and remaining Code-OSS dependencies.
+The complete product/platform/package/release objective remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

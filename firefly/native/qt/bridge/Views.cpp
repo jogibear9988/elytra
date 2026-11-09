@@ -45,7 +45,7 @@ JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::view_state(JS::VM& vm,
     return &found->second;
 }
 
-Optional<int> Bridge::Impl::create_view(Optional<Preload> preload)
+Optional<int> Bridge::Impl::create_view(Optional<Preload> preload, double zoom_factor)
 {
     if (stopping)
         return {};
@@ -56,6 +56,7 @@ Optional<int> Bridge::Impl::create_view(Optional<Preload> preload)
         return {};
     auto id = next_id++;
     auto* view = new Ladybird::WebContentView(nullptr);
+    initialize_content_zoom(*view, zoom_factor);
     initialize_content_background(*view);
     view->hide();
     view->setGeometry(0, 0, 0, 0);
@@ -305,12 +306,13 @@ void Bridge::Impl::install_views(JS::Object& host)
                 == WebView::DisableSandbox::No;
             if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
                 return SandboxPolicy::fail(vm, *failure);
-            auto id = create_view(TRY(read_preload(vm, 0, 1)));
+            auto zoom_factor = TRY(read_zoom(vm, 2, true));
+            auto id = create_view(TRY(read_preload(vm, 0, 1)), zoom_factor);
             if (!id.has_value())
                 return vm.throw_completion<JS::RangeError>("Native view budget exceeded"_utf16);
             return JS::Value(*id);
         },
-        2, JS::default_attributes);
+        3, JS::default_attributes);
     host.define_native_function(
         realm, "attachView"_utf16,
         [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

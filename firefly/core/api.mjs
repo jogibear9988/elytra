@@ -20,6 +20,7 @@ import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
 import createViews from './views/index.mjs';
 import createWebPreferences from './window/preferences.mjs';
+import createZoomPolicy from './window/zoom.mjs';
 import createNativeImages from './native-image/index.mjs';
 import createDesktopCapture from './desktop-capture/index.mjs';
 import createNotifications from './notifications/index.mjs';
@@ -69,6 +70,7 @@ export default function createFireflyApi(
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const zoom = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
     () => sandboxRequired,
@@ -493,6 +495,42 @@ export default function createFireflyApi(
       return native.pid(this.id);
     }
 
+    setZoomFactor(factor) {
+      alive(this._window);
+      native.setContentsZoom(this.id, zoom.factor(factor));
+    }
+
+    getZoomFactor() {
+      alive(this._window);
+      return native.contentsZoom(this.id);
+    }
+
+    setZoomLevel(level) {
+      alive(this._window);
+      native.setContentsZoom(this.id, zoom.level(level));
+    }
+
+    getZoomLevel() {
+      alive(this._window);
+      return Math.log(native.contentsZoom(this.id)) / Math.log(1.2);
+    }
+
+    get zoomFactor() {
+      return this.getZoomFactor();
+    }
+
+    set zoomFactor(value) {
+      this.setZoomFactor(value);
+    }
+
+    get zoomLevel() {
+      return this.getZoomLevel();
+    }
+
+    set zoomLevel(value) {
+      this.setZoomLevel(value);
+    }
+
     isDestroyed() {
       return this._window._destroyed;
     }
@@ -673,7 +711,8 @@ export default function createFireflyApi(
           color,
           constraintWire,
           firstMouse,
-          hiddenTitleBar
+          hiddenTitleBar,
+          prefs.zoomFactor
         )
       });
       this.webContents = new WebContents(this, contentsToken);

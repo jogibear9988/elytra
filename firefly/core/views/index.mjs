@@ -112,7 +112,7 @@ export default function createViews(
         throw error('ERR_FIREFLY_APP_EXITED', 'Application has exited');
       }
       Object.defineProperty(host, 'id', {
-        value: native.createView(prefs.preload, prefs.additionalArguments),
+        value: native.createView(prefs.preload, prefs.additionalArguments, prefs.zoomFactor),
         enumerable: true
       });
       host._destroyed = false;

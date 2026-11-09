@@ -1,4 +1,7 @@
 /** Shared isolation/preload policy for main windows and standalone WebContentsViews. */
+import createZoomPolicy from './zoom.mjs';
+const zoom = createZoomPolicy();
+
 export default function createWebPreferences(
   paths,
   isSandboxRequired,
@@ -10,8 +13,13 @@ export default function createWebPreferences(
     if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) {
       throw error('ERR_INVALID_ARG_TYPE', 'webPreferences must be an object');
     }
+    let zoomFactor = 1;
     for (const key of Object.keys(prefs)) {
       if (key === 'preload' || key === 'additionalArguments') {
+        continue;
+      }
+      if (key === 'zoomFactor') {
+        zoomFactor = zoom.factor(prefs[key]);
         continue;
       }
       if (key === 'spellcheck') {
@@ -63,6 +71,6 @@ export default function createWebPreferences(
     if (additionalArguments.length > 64) {
       throw error('ERR_INVALID_ARG_VALUE', 'additionalArguments exceeds 64 entries');
     }
-    return { preload: prefs.preload, additionalArguments };
+    return { preload: prefs.preload, additionalArguments, zoomFactor };
   };
 }

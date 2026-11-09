@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8" /><title>Independent native zoom</title>
+<body style="margin: 0">
+  <script>
+    (async () => {
+      for (;;) {
+        await publicZoom.independent({
+          factor: publicZoom.factor(),
+          width: innerWidth,
+          dpr: devicePixelRatio
+        });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    })();
+  </script>
+</body>

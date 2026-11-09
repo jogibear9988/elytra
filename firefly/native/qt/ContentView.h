@@ -7,6 +7,8 @@ class WebContentView;
 }
 
 namespace Firefly {
+void initialize_content_zoom(Ladybird::WebContentView&, double factor);
+
 void initialize_content_background(Ladybird::WebContentView&, u32 rgb = 0xffffff);
 
 void set_content_background(Ladybird::WebContentView&, u32 rgb);

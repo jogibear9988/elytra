@@ -245,6 +245,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../web-request/Broker.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Windows.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Views.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Zoom.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../desktop-capture/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../notifications/Host.cpp"
@@ -633,6 +634,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/frames/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/web-request/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/background-color/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/spellcheck/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/zoom/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/window-constraints/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/window-input/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/title-bar/Targets.cmake")

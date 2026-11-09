@@ -27,6 +27,7 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
+| webPreferences.zoomFactor | Finite numeric factor 0.3..5, default 1; [browser zoom](web-contents.md#browser-zoom) |
 | webPreferences.spellcheck | false only; currently disabled by default. [Native spelling policy](#native-spelling-policy) |
 | webPreferences.sandbox | true by default; boolean false is overridden after early [app.enableSandbox()](app.md#appenablesandbox), otherwise explicitly rejected |
 | webPreferences.additionalArguments | Bounded string array copied to isolated-preload process.argv; nonempty arguments require a preload; see [sandbox process](sandbox-process.md) |

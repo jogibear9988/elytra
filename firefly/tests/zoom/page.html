@@ -1,0 +1,67 @@
+<!doctype html><meta charset="utf-8" /><title>Public native zoom</title>
+<body style="margin: 0">
+  <script>
+    (async () => {
+      const api = publicZoom;
+      const close = (a, b, tolerance = 0.00001) => Math.abs(a - b) < tolerance;
+      const metrics = () => ({ width: innerWidth, dpr: devicePixelRatio });
+      const check = (value, message) => {
+        if (!value) throw Error(message);
+      };
+      let round;
+      try {
+        const config = await api.config();
+        round = config.round;
+        async function settled(factor, baseline) {
+          const end = Date.now() + 2500;
+          for (;;) {
+            const actual = metrics();
+            if (
+              close(api.factor(), factor) &&
+              (!baseline ||
+                (close(actual.dpr / baseline.dpr, factor) &&
+                  close(actual.width, baseline.width / factor, 3)))
+            ) {
+              check(close(api.level(), Math.log(factor) / Math.log(1.2)), 'preload level getter');
+              return actual;
+            }
+            check(
+              Date.now() < end,
+              'Actual renderer did not adopt zoom: ' + JSON.stringify({ factor, actual, baseline })
+            );
+            await new Promise((resolve) => setTimeout(resolve, 15));
+          }
+        }
+        const initial = await settled(config.initial);
+        await api.command({ kind: 'factor', value: 1 });
+        const baseline = await settled(1);
+        check(close(initial.dpr / baseline.dpr, config.initial), 'initial native DPR');
+        check(close(initial.width, baseline.width / config.initial, 3), 'initial native viewport');
+        if (round === 1) {
+          for (const factor of [2, 0.75, 1.2, 1]) {
+            await api.command({ kind: 'factor', value: factor });
+            await settled(factor, baseline);
+          }
+          for (const level of [1, -1, 0]) {
+            await api.command({ kind: 'level', value: level });
+            await settled(1.2 ** level, baseline);
+          }
+          api.setFactor(1.2);
+          await settled(1.2, baseline);
+          await api.command({ kind: 'observe', value: 1.2 });
+          api.setFactor(1);
+          await api.command({ kind: 'observe', value: 1 });
+          await settled(1, baseline);
+        } else {
+          await api.command({ kind: 'factor', value: config.initial });
+          await settled(config.initial, baseline);
+        }
+        check(typeof process === 'undefined' && typeof require === 'undefined', 'page isolation');
+        await api.report({ round, initial, baseline });
+        if (round === 2) location.reload();
+      } catch (error) {
+        await api.report({ round, error: String(error) });
+      }
+    })();
+  </script>
+</body>
