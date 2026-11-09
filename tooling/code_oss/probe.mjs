@@ -8,7 +8,13 @@ import { pathToFileURL } from 'node:url';
 import { prepareProbeProfile } from './probe-profile.mjs';
 const tree = path.resolve(process.argv[2]);
 const diagnosticProfile = prepareProbeProfile(process.argv);
-console.log(JSON.stringify({ diagnosticProfile, workbenchAccepted: false }));
+console.log(
+  JSON.stringify({
+    diagnosticProfile,
+    windowPreferences: process._vscodeLibJSWindowPreferencesStatus,
+    workbenchAccepted: false
+  })
+);
 try {
   await import(pathToFileURL(path.join(tree, 'src/main.js')).href);
   console.log(
@@ -18,7 +24,8 @@ try {
       workbenchAccepted: false,
       cache: process._vscodeNodeCompileCacheStatus,
       engine: process._vscodeLibJSEngineStatus,
-      localDesktop: process._vscodeLibJSLocalDesktopStatus
+      localDesktop: process._vscodeLibJSLocalDesktopStatus,
+      windowPreferences: process._vscodeLibJSWindowPreferencesStatus
     })
   );
 } catch (error) {
@@ -30,7 +37,8 @@ try {
       error: { name: error.name, code: error.code, message: error.message },
       cache: process._vscodeNodeCompileCacheStatus,
       engine: process._vscodeLibJSEngineStatus,
-      localDesktop: process._vscodeLibJSLocalDesktopStatus
+      localDesktop: process._vscodeLibJSLocalDesktopStatus,
+      windowPreferences: process._vscodeLibJSWindowPreferencesStatus
     })
   );
   process.exitCode = 1;
@@ -57,6 +65,7 @@ if (process.argv[3] === '--firefly-ready') {
     console.log(
       JSON.stringify({
         observationEnded: true,
+        windowPreferences: process._vscodeLibJSWindowPreferencesStatus,
         observationMs: observation,
         workbenchAccepted: false,
         windows: BrowserWindow.getAllWindows().map((window) => ({

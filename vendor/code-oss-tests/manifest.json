@@ -274,6 +274,10 @@
     "local-recording-electron.ts": {
       "upstream": "src/vs/workbench/contrib/issue/electron-browser/nativeRecordingService.ts",
       "sha256": "51c0ac06d28d65ea27824531e34aec78211648504c8ae931223427cab4fc3bdf"
+    },
+    "window-impl-main.ts": {
+      "upstream": "src/vs/platform/windows/electron-main/windowImpl.ts",
+      "sha256": "1cbccb2910b4763702be823fb5e49e532f49845694e473893f3f52cbb6ee0e0a"
     }
   }
 }

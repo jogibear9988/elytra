@@ -11777,6 +11777,41 @@ workbench editing, extensions/PTY/utilities/workers, Windows repair and all
 platform/package/release requirements remain open. The full goal stays active.
 
 
+## 2026-11-10 — Audited Code-OSS disabled V8 window-cache adaptation
+
+- Add the exact pinned windowImpl.ts reference, manifest hash and license-preserving
+  reversible application overlay. Only experimental local-desktop builds change
+  this source. Ordinary Node/Electron retains the original cache preference.
+- On verified Mite/LibJS local-desktop policy, omit only v8CacheOptions:none.
+  Enabled cache requests, unknown engines, missing/inconsistent policy and conflicting
+  diagnostics reject explicitly. General Firefly webPreferences validation remains
+  strict; no V8/Blink cache implementation is claimed. Other preferences retain
+  their original values, identities and evaluation order.
+- Record the omitted preference in an immutable process diagnostic, included by
+  the probe at entry completion and final observation when reached. Exact-source
+  drift checks refuse changed or duplicated seams before output creation.
+- Actual Node 24.15.0 and Mite pass 18 behavioral scenarios plus pinned-source,
+  reversible-overlay, opt-in, provenance and prewrite rejection checks. Register
+  the focused CTest; all three targeted cache/local-desktop/profile suites pass.
+  The prior complete runtime baseline remains 135 passing suites; this adds one
+  registered suite, without claiming a fresh full-suite run.
+- Compile a fresh actual 11,537-input Code-OSS tree with prepared dependencies,
+  NLS and policy watcher. A bounded isolated native-titlebar diagnostic reaches
+  app readiness and passes the former V8 cache rejection, then rejects
+  webPreferences.spellcheck before window creation. The process exits before its
+  observation timer; no final observation record or editor acceptance is claimed.
+  Native spdlog lookup errors and the handled synchronous ESM require fallback
+  remain. Source trees and Ladybird are unchanged; no visible editor opened.
+- Document the adaptation and validation command. Targeted formatting and diff
+  checks pass; the documentation site builds and validates.
+
+Validation: build/code-oss-window-cache-{overlay,compile,tests,regression,profile,
+configure,ctest,start,site}.log. Next: genuine spellcheck preference semantics,
+then remaining renderer preferences and real logging fallback. Workbench loading,
+open/edit/save, extensions, PTY, workers, Windows and release acceptance remain
+unfinished. The full goal remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -506,3 +506,34 @@ but fails in subsequent services at synchronous ESM require and uncaughtExceptio
 registration; missing Error.captureStackTrace also disrupts error reporting. See
 the current [VS Code audit](../compatibility/vscode.md). Utility request forwarding
 and a real workbench/open/edit/save run are still required.
+
+
+## Disabled V8 window cache preference
+
+The experimental local-desktop overlay also adapts the exact pinned
+`windowImpl.ts` preference initializer. On ordinary Node/Electron it preserves
+`v8CacheOptions` unchanged. On Mite it omits only the explicit `none` value,
+after checking the local-desktop opt-in, disabled engine code cache and LibJS
+engine policy. An enabled cache request or inconsistent policy rejects with
+`ERR_CODE_OSS_LIBJS_ENGINE_OPTION` before publishing the diagnostic record.
+This does not implement V8/Blink caches or admit that option in Firefly's general
+BrowserWindow API. All other renderer preferences remain intact and validated.
+
+The non-enumerable `process._vscodeLibJSWindowPreferencesStatus` record describes
+the omitted preference and why it is unavailable. The probe includes this record
+at the end of its observation, including preferences assembled asynchronously
+after the main entry completes. It still reports `workbenchAccepted: false`.
+
+The source transform checks the exact pinned SHA-256 and unique seams before
+writing any output. The tests reverse the transform to the original bytes and
+execute the actual pinned preference initializer under Node and Mite, checking
+accessor evaluation order and preservation of the remaining security settings:
+
+```sh
+python3 tooling/tests/test_code_oss_window_preferences.py --mite build/release-mite/bin/mite
+```
+
+A fresh local macOS diagnostic with this adaptation passes the prior cache-option
+rejection and reaches app readiness, then rejects `webPreferences.spellcheck`
+before creating the editor window. Native spdlog bindings remain unavailable.
+This is startup progress, not accepted workbench or file-editing support.

@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 
 from code_oss.local_desktop import adapt_local, PATHS, OWNED, HELPER
+from code_oss.window_preferences import SOURCE as WINDOW_PREFERENCES_SOURCE
 from code_oss.overlay import prepare, FILES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +38,14 @@ def main():
     with tempfile.TemporaryDirectory(prefix="elytra-local-policy-") as directory:
         work = Path(directory)
         source = work / "source"
-        for name in (*FILES, "nodeCompileCache.ts", "mainImpl.ts", *PATHS, "LICENSE.txt"):
+        for name in (
+            *FILES,
+            "nodeCompileCache.ts",
+            "mainImpl.ts",
+            *PATHS,
+            WINDOW_PREFERENCES_SOURCE,
+            "LICENSE.txt",
+        ):
             data = (PINNED / name).read_bytes()
             record = manifest["files"][name]
             assert hashlib.sha256(data).hexdigest() == record["sha256"]
