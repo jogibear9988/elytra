@@ -31,7 +31,7 @@ candidate or native Windows/Linux update was validated in this step.
 
 The detailed dated entries below supersede the initial historical baseline.
 Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 128 passing CTest suites. Native Linux/Windows CLI baselines have
+validation has 129 passing CTest suites. Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11331,6 +11331,71 @@ Replace utility exclusion with parent-forwarded decisions before claiming shared
 Worker/unbound navigation policy, other webRequest stages, display capture,
 workbench open/edit/save, extension host/PTY, Windows repair and native platform/
 package/release requirements remain open. The full original goal stays active.
+
+
+## 2026-11-09 — Native process exception and rejection events
+
+- Resume the paused error-event slice and implement uncaughtException,
+  uncaughtExceptionMonitor, unhandledRejection and rejectionHandled through the
+  actual LibJS/libuv loop. The private builtin bootstrap installs a rooted native
+  dispatcher before admitting these process subscriptions. No inert EventEmitter
+  registration or application-side replacement of Code-OSS ErrorTelemetry.
+- Route timer/immediate/nextTick/microtask/native I/O callback failures through
+  monitor then exception listeners, preserving the original value and origin.
+  Missing handlers keep fatal status 1; a throwing monitor/exception handler exits
+  7 without recursively invoking itself. Rejection-notification listener failures
+  instead use the ordinary recoverable exception path. Mark delivery busy so a
+  nested host pump cannot reenter the VM during application listeners.
+- Rejection tracking consults actual LibJS handled state, preserves reason/Promise
+  identity, suppresses same-turn catches and emits one later rejectionHandled.
+  Notification batches root values across GC; previously reported Promises are
+  weak and their metadata is removed after late notification. Actual idle host GC
+  proves a notified Promise and ephemeral reason can both be reclaimed.
+- Give Runtime's ESM entry completion one explicit native owner before driving
+  jobs. Entry rejection/TLA failures go directly to uncaughtException with origin
+  unhandledRejection even when ordinary rejection listeners exist; do not report
+  again after recovery. CJS/eval throws retain synchronous origin and continue
+  remaining owned work after a handler accepts them. Pending TLA status 13 and
+  pre-application bootstrap/terminal exit policies remain distinct.
+- Native Error promotion needed an engine-specific identity check: LibJS stack
+  storage differs from V8 own properties. Preserve intrinsic Errors plus ordinary
+  objects with an own stack property; wrap primitive/default reasons with
+  ERR_UNHANDLED_REJECTION. A real differential test caught the original mismatch.
+- The full tick regression caught premature rejection delivery after ESM jobs
+  scheduled nextTick catches. Defer notifications until both queues are drained;
+  the original same-turn ESM fixture now passes. The index-based checkout hash
+  failure was resolved by staging the matching maintained/generated sources,
+  preserving the real Windows LF/integrity test rather than weakening it.
+- Add real Node/Mite/embedded-host callback, rejection, entry and fatal child tests.
+  The latest target passes 29 shared behavior cases plus one embedded weak-GC
+  reclamation gate (30 checks). Node and host callbacks perform actual GC; CLI
+  behavior runs are explicitly labeled without a collector. No fake no-op GC or
+  silent skipped lifetime check. Force-GC fixtures preserve exact original values
+  through monitor/handler/rejection callbacks and future catches.
+- The fresh 15-second actual adapted Code-OSS trace passes ErrorTelemetry and
+  reaches CodeApplication.initChannels. Its next fatal dependency is powerMonitor
+  speed-limit-change registration. The synchronous ESM device-ID fallback and
+  Error.captureStackTrace gaps remain. No workbench/open-edit-save acceptance.
+- Update detailed process/error API, ADR 0182, timer/compatibility/current status
+  and the resumable work log. Native process error events do not add LibWeb,
+  Node or V8 to Mite. Ladybird remains pinned and unmodified.
+
+Validation: Release Mite/embedded host and production/offscreen Firefly build;
+all 129 runtime CTest suites pass (38.16 seconds), followed by the expanded process
+error target (4.42 seconds). Formatting passes for 273 Python, 913 JS/web/config,
+528 native and 69 CMake files; site validation passes for 319 pages and 22,591
+local links/resources/fragments. No visible desktop tests or device prompts. Logs:
+build/process-errors-{checkpoint-build,firefly-final,policy-accepted,final-target,
+runtime-final,code-oss,format,generate,upstream,site}.log. Earlier failing logs
+record the harness collector assumption, intrinsic Error identity and checkpoint
+ordering fixes; they are not counted as accepted runs.
+
+Next: implement a genuine native CPU speed-limit event source for the actual
+powerMonitor consumer, then rerun the main entry. Error.captureStackTrace,
+synchronous ESM require, utility parent-forwarded request decisions, worker and
+full session coverage, workbench workflows, extension/PTY, Windows repair and
+native platform/package/release requirements remain open. The original goal stays
+active; this process-event slice does not finish it.
 
 
 ## Resume

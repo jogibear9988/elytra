@@ -385,6 +385,10 @@ if(BUILD_TESTING)
         NAME mite-process-events
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_events.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    add_test(
+        NAME mite-process-errors
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_errors.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-assert
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_assert.py"
                      --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")

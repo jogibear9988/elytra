@@ -6,16 +6,19 @@ example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-The latest adapted Code-OSS trace passes the session request-filter registrations.
-A longer observation reaches subsequent main services and reports unsupported
-synchronous require of ES modules and process uncaughtException listeners;
+The latest adapted Code-OSS trace now passes session request-filter registrations
+and ErrorTelemetry's process exception/rejection subscriptions. It reaches channel
+initialization and stops at the unsupported powerMonitor speed-limit-change event.
+The handled device-ID fallback still logs synchronous ESM require failure;
 Error.captureStackTrace is also missing from error reporting. No workbench or
 open/edit/save workflow is accepted. See the [current Code-OSS audit](compatibility/vscode.md).
+Native process-error delivery passes actual Node/Mite/embedded-host behavior and
+GC tests; [the contract](api/process-errors.md) records origins and remaining scope.
 
 The [webRequest slice](api/web-request.md) passes real local macOS offscreen HTTP
 cancellation, response-header changes before CORS, canonical frame identity,
 main net and custom-provider tests, with shared Electron 45.2.3 reference cases.
-The local runtime regression gate passes 128 suites. Utility parent forwarding,
+The local runtime regression gate passes 129 suites. Utility parent forwarding,
 worker/unbound navigation coverage, other interception stages and fresh platform
 acceptance remain unfinished. The dependency notes below preserve earlier
 checkpoints; their former startup-blocker names are historical.

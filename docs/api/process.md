@@ -141,7 +141,7 @@ host SDK defines them, plus SIGUSR2 on POSIX. The callback receives the signal n
 and actual native number. Multiple listeners share one unreferenced libuv watch;
 a watch alone does not keep the application alive. Removing the final listener,
 including automatic once removal, closes the watch. Signal callback exceptions
-follow the existing runtime failure path; no uncaughtException recovery is supplied.
+use the [native process exception path](process-errors.md).
 
 Native POSIX two-delivery/once/microtask/cleanup tests pass locally on macOS for
 all five signals, against Node 24.15.0. A collecting embedded host also passes
@@ -167,13 +167,17 @@ child-management and uncatchable signals are deliberately excluded. No more than
 exceeding that bound throws ERR_MITE_SIGNAL_LIMIT until closes complete. A name
 absent from the host signal constants remains an ordinary custom event.
 
-Registering `beforeExit`, `uncaughtException`, `uncaughtExceptionMonitor`,
-`unhandledRejection`, `rejectionHandled`, `warning`, `multipleResolves`, `worker`
-or `workerMessage` throws
-ERR_MITE_UNSUPPORTED_PROCESS_EVENT. `message`/`disconnect` also reject outside
-an owned fork child. Other lifecycle/rejection paths require real integration and are not simulated by an otherwise working emitter. process.kill
-and arbitrary signal support remain absent. See
-[ADR 0104](../architecture/0104-process-events-signals.md).
+Native uncaughtException, uncaughtExceptionMonitor, unhandledRejection and
+rejectionHandled events now have real event-loop delivery. See the detailed
+[exception/rejection reference](process-errors.md) for identities, callback and
+entry-point origins, default exits, listener failures and GC lifetime.
+
+Registering beforeExit, warning, multipleResolves, worker or workerMessage still
+throws ERR_MITE_UNSUPPORTED_PROCESS_EVENT. message/disconnect also reject outside
+an owned fork child. Process kill, arbitrary signals, capture callbacks and full
+lifecycle coverage remain unfinished. [ADR 0104](../architecture/0104-process-events-signals.md)
+records the initial signal scope; [ADR 0182](../architecture/0182-native-process-error-events.md)
+describes the native error-event integration.
 
 The separate pinned Code-OSS source-mode gate evaluates its real bootstrap-node
 module, including this SIGPIPE subscription and native cwd/environment setup,

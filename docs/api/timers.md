@@ -37,9 +37,11 @@ Do not use top-level zero-delay timer/immediate ordering as a deterministic API:
 process startup and the I/O phase affect it. The tested I/O-completion case runs
 its scheduled immediate before its newly scheduled timeout.
 
-Fatal immediate exceptions and unhandled rejections use the same nonzero-exit
-policy as timers/I/O; later callbacks in that batch do not run. Process exception
-handlers and general async_hooks/async-context semantics are not implemented.
+Unhandled immediate exceptions and Promise rejections use the
+[native process error events](process-errors.md), as do timers and I/O. Without an
+exception handler the runtime exits nonzero; handled failures allow later owned
+work to continue. The interrupted callback does not resume after its throw.
+General async_hooks/async-context semantics remain unimplemented.
 
 ## Timeouts and intervals
 

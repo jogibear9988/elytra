@@ -1,10 +1,11 @@
-/** Process EventEmitter methods plus explicit, bounded native signal subscriptions. */
+/** Process events backed by the native loop, terminal emitter and bounded signals. */
 export default function installProcessEvents(host, process) {
   const { EventEmitter, signals, native } = host;
   const apply = Reflect.apply;
   const bind = Function.call.bind(Function.prototype.bind);
   const base = EventEmitter.prototype;
   const listeners = base.listenerCount;
+  const emit = base.emit;
   const active = new Map();
   const reserved = new Set([
     'beforeExit',
@@ -96,4 +97,30 @@ export default function installProcessEvents(host, process) {
   });
   Object.setPrototypeOf(process, prototype);
   EventEmitter.call(process);
+  if (typeof host.installErrorHandler === 'function') {
+    // Install actual delivery before admitting subscriptions. The dispatcher is
+    // private and rooted by the native loop; user code never receives the host.
+    host.installErrorHandler((type, value, auxiliary) => {
+      if (type === 'uncaughtException') {
+        apply(emit, process, ['uncaughtExceptionMonitor', value, auxiliary]);
+        return apply(emit, process, [type, value, auxiliary]);
+      }
+      if (type === 'unhandledRejection') {
+        return apply(emit, process, [type, value, auxiliary]);
+      }
+      if (type === 'rejectionHandled') {
+        return apply(emit, process, [type, value]);
+      }
+      throw new Error('Invalid native process error event');
+    });
+
+    for (const type of [
+      'uncaughtException',
+      'uncaughtExceptionMonitor',
+      'unhandledRejection',
+      'rejectionHandled'
+    ]) {
+      reserved.delete(type);
+    }
+  }
 }

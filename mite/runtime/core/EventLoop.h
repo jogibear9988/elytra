@@ -6,7 +6,9 @@
 #pragma once
 
 #include <LibGC/Function.h>
+#include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
+#include <LibGC/Weak.h>
 #include <LibJS/Runtime/Promise.h>
 #include <LibJS/Runtime/VM.h>
 #include <functional>
@@ -38,6 +40,18 @@ public:
     int pump_once();
 
     bool is_alive() const;
+
+    // Trusted process bootstrap only. The dispatcher returns true iff application
+    // listeners handled this event; native code owns fatal/rejection semantics.
+    void set_process_error_handler(JS::FunctionObject*);
+
+    void uncaught_exception(JS::Value, bool from_promise = false);
+
+    bool was_rejection_reported(JS::Promise const&) const;
+
+    // Loader failure is a terminal entry exception, not a user-created promise's
+    // unhandledRejection event. Register before the first checkpoint.
+    void observe_entry_promise(JS::Promise&);
 
     int status() const
     {
@@ -97,6 +111,14 @@ private:
 
     void fail(JS::Value);
 
+    void terminate(JS::Value, int status);
+
+    JS::ThrowCompletionOr<bool> emit_process_error(Utf16View kind, JS::Value, JS::Value auxiliary);
+
+    void process_rejections();
+
+    void track_handled_rejection(JS::Promise&);
+
     static void dispatch_timer(uv_timer_t*);
 
     JS::VM& m_vm;
@@ -118,6 +140,18 @@ private:
     GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_jobs;
     GC::RootVector<GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>>> m_ticks;
     GC::RootVector<GC::Ref<JS::Promise>> m_rejections;
+    GC::RootVector<GC::Ref<JS::Promise>> m_handled_rejections;
+
+    struct ReportedRejection {
+        GC::Weak<JS::Promise> promise;
+        bool handled { false };
+    };
+
+    std::vector<ReportedRejection> m_reported_rejections;
+    GC::Root<JS::FunctionObject> m_process_error_handler;
+    GC::Root<JS::Promise> m_entry_promise;
+    bool m_entry_exception_delivered { false };
+    bool m_delivering_fatal { false };
     std::unordered_map<uint64_t, Timer*> m_timers;
 };
 

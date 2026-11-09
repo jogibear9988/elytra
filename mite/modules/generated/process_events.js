@@ -8,6 +8,7 @@ function installProcessEvents(host, process) {
   const bind = Function.call.bind(Function.prototype.bind);
   const base = EventEmitter.prototype;
   const listeners = base.listenerCount;
+  const emit = base.emit;
   const active = /* @__PURE__ */ new Map();
   const reserved = /* @__PURE__ */ new Set([
     "beforeExit",
@@ -91,6 +92,29 @@ function installProcessEvents(host, process) {
   });
   Object.setPrototypeOf(process, prototype);
   EventEmitter.call(process);
+  if (typeof host.installErrorHandler === "function") {
+    host.installErrorHandler((type, value, auxiliary) => {
+      if (type === "uncaughtException") {
+        apply(emit, process, ["uncaughtExceptionMonitor", value, auxiliary]);
+        return apply(emit, process, [type, value, auxiliary]);
+      }
+      if (type === "unhandledRejection") {
+        return apply(emit, process, [type, value, auxiliary]);
+      }
+      if (type === "rejectionHandled") {
+        return apply(emit, process, [type, value]);
+      }
+      throw new Error("Invalid native process error event");
+    });
+    for (const type of [
+      "uncaughtException",
+      "uncaughtExceptionMonitor",
+      "unhandledRejection",
+      "rejectionHandled"
+    ]) {
+      reserved.delete(type);
+    }
+  }
 }
 return installProcessEvents;
 })()

@@ -291,10 +291,11 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     } else if (module_format.value()) {
         auto result = modules.run_entry();
         if (result.is_error()) {
-            report_exception(result.error_value());
-            status = 1;
+            event_loop.uncaught_exception(result.error_value(), true);
+            status = event_loop.status() ? event_loop.status() : drive();
         } else {
             GC::Root completion { result.release_value() };
+            event_loop.observe_entry_promise(*completion);
             status = drive();
             if (!hooks.exit_code.has_value() && !status
                 && completion->state() == JS::Promise::State::Pending) {
@@ -308,25 +309,24 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
                     fputs("Unsettled top-level await in entry module\n", stderr);
                     status = 13;
                 }
-            } else if (!hooks.exit_code.has_value() && !status
-                && completion->state() == JS::Promise::State::Rejected) {
-                report_exception(completion->result());
-                status = 1;
             }
+            // EventLoop owns entry rejection promotion and recovery. Reporting
+            // the settled promise here would emit a second fatal error after a
+            // real uncaughtException handler already accepted it.
         }
     } else if (filename != "[eval]") {
         auto result = modules.run_commonjs_entry();
         if (result.is_error()) {
-            report_exception(result.error_value());
-            status = 1;
+            event_loop.uncaught_exception(result.error_value());
+            status = event_loop.status() ? event_loop.status() : drive();
         } else {
             status = drive();
         }
     } else {
         auto result = modules.run_eval(source);
         if (result.is_error()) {
-            report_exception(result.error_value());
-            status = 1;
+            event_loop.uncaught_exception(result.error_value());
+            status = event_loop.status() ? event_loop.status() : drive();
         } else {
             status = drive();
         }

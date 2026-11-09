@@ -600,6 +600,15 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
         "signals"_utf16, TRY(constants->get("signals"_utf16)), JS::default_attributes);
     signal_host->define_direct_property(
         "native"_utf16, native_signals.ptr(), JS::default_attributes);
+    signal_host->define_native_function(
+        m_realm, "installErrorHandler"_utf16,
+        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            if (!vm.argument(0).is_function())
+                return vm.throw_completion<JS::TypeError>("Invalid process error dispatcher"sv);
+            loop.set_process_error_handler(&vm.argument(0).as_function());
+            return JS::js_undefined();
+        },
+        1, JS::default_attributes);
     auto events_source = JS::Script::parse(
         Utf16String::from_utf8(
             StringView(MITE_PROCESS_EVENTS_SOURCE, sizeof(MITE_PROCESS_EVENTS_SOURCE) - 1)),

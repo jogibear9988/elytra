@@ -50,7 +50,7 @@ if (mode === 'host') {
   if (process.listenerCount('SIGINT') !== 0) {
     throw new Error('Failed subscription retained');
   }
-  for (const type of ['beforeExit', 'uncaughtException', 'unhandledRejection', 'message']) {
+  for (const type of ['beforeExit', 'warning', 'message']) {
     denied(type, 'ERR_MITE_UNSUPPORTED_PROCESS_EVENT');
   }
   for (const type of ['SIGKILL', 'SIGCHLD', 'SIGSEGV']) {

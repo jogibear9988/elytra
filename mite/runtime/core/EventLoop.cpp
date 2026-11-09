@@ -14,6 +14,7 @@
 #include <LibJS/Runtime/FinalizationRegistry.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <LibJS/Script.h>
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -70,17 +71,23 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
     m_vm.host_promise_job_queue_is_empty = [this] { return m_jobs.is_empty(); };
     m_vm.host_promise_rejection_tracker
         = [this](JS::Promise& promise, JS::Promise::RejectionOperation operation) {
+              if (m_shutting_down || m_status)
+                  return;
               if (operation == JS::Promise::RejectionOperation::Reject)
                   m_rejections.append(promise);
               else
-                  m_rejections.remove_all_matching(
-                      [&](auto const& entry) { return entry.ptr() == &promise; });
+                  track_handled_rejection(promise);
           };
 }
 
 EventLoop::~EventLoop()
 {
     m_shutting_down = true;
+    m_process_error_handler = nullptr;
+    m_entry_promise = nullptr;
+    m_rejections.clear();
+    m_handled_rejections.clear();
+    m_reported_rejections.clear();
     m_vm.host_enqueue_finalization_registry_cleanup_job = move(m_original_finalizer_hook);
     m_finalizers.clear();
     m_kept_values.clear();
@@ -118,6 +125,7 @@ JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
             auto& owner = work->owner;
             // Drain native requests on shutdown, but never enter application JS then.
             if (!owner.m_shutting_down && !owner.m_status) {
+                TemporaryChange turn(owner.m_running_turn, true);
                 if (status) {
                     owner.fail(
                         JS::Error::create(owner.m_vm.realm(), "Native work request failed"_utf16));
@@ -275,6 +283,7 @@ void EventLoop::dispatch_timer(uv_timer_t* handle)
     auto& owner = timer.owner;
     if (owner.m_status)
         return;
+    TemporaryChange turn(owner.m_running_turn, true);
     if (!timer.repeating)
         owner.cancel_timer(timer.id);
     auto result = JS::call(owner.m_vm, *timer.callback, JS::Value(timer.receiver.ptr()),
@@ -321,13 +330,188 @@ void EventLoop::drain_finalizers()
     }
 }
 
-void EventLoop::fail(JS::Value error)
+void EventLoop::set_process_error_handler(JS::FunctionObject* callback)
+{
+    if (!m_shutting_down)
+        m_process_error_handler = callback;
+}
+
+JS::ThrowCompletionOr<bool> EventLoop::emit_process_error(
+    Utf16View kind, JS::Value value, JS::Value auxiliary)
+{
+    TemporaryChange turn(m_running_turn, true);
+    GC::Root callback { m_process_error_handler };
+    if (!callback)
+        return false;
+    auto value_root = GC::make_root(value);
+    auto auxiliary_root = GC::make_root(auxiliary);
+    auto result = TRY(JS::call(m_vm, *callback, JS::js_undefined(),
+        JS::PrimitiveString::create(m_vm, kind), value_root.value(), auxiliary_root.value()));
+    return result.is_boolean() && result.as_bool();
+}
+
+void EventLoop::terminate(JS::Value error, int status)
 {
     if (m_status)
         return;
-    m_report_exception(error);
-    m_status = 1;
+    auto rooted = GC::make_root(error);
+    // Reporters can inspect values; publish terminal state before any such entry.
+    m_status = status;
     uv_stop(&m_loop);
+    m_report_exception(rooted.value());
+}
+
+void EventLoop::uncaught_exception(JS::Value error, bool from_promise)
+{
+    if (m_status || m_shutting_down)
+        return;
+    auto rooted = GC::make_root(error);
+    if (m_delivering_fatal) {
+        terminate(rooted.value(), 7);
+        return;
+    }
+
+    TemporaryChange turn(m_running_turn, true);
+    TemporaryChange delivering(m_delivering_fatal, true);
+    auto origin = JS::PrimitiveString::create(
+        m_vm, from_promise ? "unhandledRejection"_utf16 : "uncaughtException"_utf16);
+    auto result = emit_process_error("uncaughtException"_utf16, rooted.value(), origin);
+    if (result.is_error()) {
+        // A monitor/exception listener throwing is terminal, never recursively
+        // delivered to the same handler. Match Node's fatal-handler exit status.
+        terminate(result.error_value(), 7);
+    } else if (!result.value()) {
+        terminate(rooted.value(), 1);
+    }
+}
+
+void EventLoop::fail(JS::Value error)
+{
+    uncaught_exception(error);
+}
+
+bool EventLoop::was_rejection_reported(JS::Promise const& promise) const
+{
+    return std::any_of(m_reported_rejections.begin(), m_reported_rejections.end(),
+        [&](auto const& entry) { return entry.promise.ptr().ptr() == &promise; });
+}
+
+void EventLoop::observe_entry_promise(JS::Promise& promise)
+{
+    m_entry_promise = &promise;
+    m_entry_exception_delivered = false;
+}
+
+void EventLoop::track_handled_rejection(JS::Promise& promise)
+{
+    m_rejections.remove_all_matching([&](auto const& entry) { return entry.ptr() == &promise; });
+    for (auto& entry : m_reported_rejections) {
+        if (entry.promise.ptr().ptr() == &promise && !entry.handled) {
+            entry.handled = true;
+            m_handled_rejections.append(promise);
+            break;
+        }
+    }
+}
+
+void EventLoop::process_rejections()
+{
+    TemporaryChange turn(m_running_turn, true);
+    // Engine-internal await/module consumers can mark a promise handled without
+    // issuing a second host callback. Read the authoritative promise state too.
+    std::erase_if(m_reported_rejections, [](auto const& entry) { return !entry.promise.ptr(); });
+    for (auto& entry : m_reported_rejections) {
+        auto promise = entry.promise.ptr();
+        if (!entry.handled && promise->is_handled()) {
+            entry.handled = true;
+            m_handled_rejections.append(*promise);
+        }
+    }
+
+    auto handled = move(m_handled_rejections);
+    m_handled_rejections = {};
+    for (auto promise : handled) {
+        if (m_status)
+            break;
+        // Once handled is reported this settled promise can never become
+        // unhandled again. Do not retain metadata for app-retained promises.
+        std::erase_if(m_reported_rejections,
+            [&](auto const& entry) { return entry.promise.ptr().ptr() == promise.ptr(); });
+        auto result = emit_process_error("rejectionHandled"_utf16, promise, JS::js_undefined());
+        if (result.is_error())
+            fail(result.error_value());
+    }
+
+    if (!m_status && m_entry_promise && !m_entry_exception_delivered
+        && m_entry_promise->state() == JS::Promise::State::Rejected) {
+        GC::Root entry { m_entry_promise };
+        auto reason = GC::make_root(entry->result());
+        m_entry_exception_delivered = true;
+        m_rejections.remove_all_matching(
+            [&](auto const& promise) { return promise.ptr() == entry.ptr(); });
+        // Node's ESM loader promotes its entry failure directly, even when an
+        // ordinary unhandledRejection listener exists. It preserves the reason.
+        uncaught_exception(reason.value(), true);
+    }
+    // Detach the rooted batch before callbacks can synchronously attach catches,
+    // reject more promises or collect garbage. Emitted promises then remain weak
+    // so an unhandledRejection listener cannot accidentally pin every rejection.
+    auto rejected = move(m_rejections);
+    m_rejections = {};
+    for (auto promise : rejected) {
+        if (m_status)
+            break;
+        if (promise.ptr() == m_entry_promise.ptr() || promise->is_handled()
+            || was_rejection_reported(*promise))
+            continue;
+        m_reported_rejections.push_back({ GC::Weak { *promise }, false });
+        auto reason = GC::make_root(promise->result());
+        auto result = emit_process_error("unhandledRejection"_utf16, reason.value(), promise);
+        if (result.is_error()) {
+            // Rejection notification is not itself fatal-exception delivery:
+            // its listener's error can be handled by uncaughtException normally.
+            fail(result.error_value());
+            continue;
+        }
+
+        if (result.value())
+            continue;
+        bool error_like = false;
+        if (reason.value().is_object()) {
+            auto& object = reason.value().as_object();
+            // LibJS keeps an intrinsic Error's stack in native state rather
+            // than Node's own JS stack property. Preserve genuine errors too,
+            // while retaining Node's observable own-stack/Proxy behavior.
+            error_like = JS::Error::is_engine_class_of(object);
+            if (!error_like) {
+                auto own_stack = object.has_own_property("stack"_utf16);
+                if (own_stack.is_error()) {
+                    fail(own_stack.error_value());
+                    continue;
+                }
+
+                error_like = own_stack.value();
+            }
+        }
+
+        if (!error_like) {
+            auto message = Utf16String::formatted(
+                "This error originated either by throwing inside of an async function without a "
+                "catch block, or by rejecting a promise which was not handled with .catch(). The "
+                "promise rejected with the reason \"{}\".",
+                reason.value().to_utf16_string_without_side_effects());
+            auto error = JS::Error::create(m_vm.realm(), message);
+            error->define_direct_property("name"_utf16,
+                JS::PrimitiveString::create(m_vm, "UnhandledPromiseRejection"_utf16),
+                JS::default_attributes);
+            error->define_direct_property("code"_utf16,
+                JS::PrimitiveString::create(m_vm, "ERR_UNHANDLED_REJECTION"_utf16),
+                JS::default_attributes);
+            reason = GC::make_root(JS::Value(error));
+        }
+
+        uncaught_exception(reason.value(), true);
+    }
 }
 
 void EventLoop::checkpoint()
@@ -348,12 +532,15 @@ void EventLoop::checkpoint()
             if (result.is_error())
                 fail(result.error_value());
         }
-    } while (!m_status && !m_ticks.is_empty());
-    // LibJS also marks internal await/module promises handled directly, without
-    // always sending a second host notification. Consult the authoritative state.
-    m_rejections.remove_all_matching([](auto const& promise) { return promise->is_handled(); });
-    if (!m_status && !m_rejections.is_empty())
-        fail(m_rejections.first()->result());
+
+        // ESM evaluation runs as a promise job and can schedule nextTicks.
+        // Those ticks may attach a catch in this same turn; notification must
+        // wait until both queues are drained, not merely the promise queue.
+        if (!m_status && m_ticks.is_empty() && m_jobs.is_empty())
+            process_rejections();
+    } while (!m_status
+        && (!m_ticks.is_empty() || !m_jobs.is_empty() || !m_rejections.is_empty()
+            || !m_handled_rejections.is_empty()));
     // Match ClearKeptObjects at the end of the complete checkpoint, not between
     // Promise/nextTick jobs. The roots also cover the pinned engine's weak traces.
     m_kept_values.clear();

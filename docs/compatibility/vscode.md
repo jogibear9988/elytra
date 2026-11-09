@@ -34,16 +34,16 @@ passes Electron 45.2.3 as well.
 
 The explicit local desktop mode defers optional display capture and rejects
 actual recording, capture authorization and capture-settings attempts. The
-11,536-source tree completes entry/app readiness. It now passes the original
-webRequest registrations and reaches later main services. A longer observation
-reports synchronous require of ES modules, process uncaughtException listener
-registration and missing Error.captureStackTrace; no workbench window is accepted.
+11,536-source tree completes entry/app readiness and now passes both the original
+webRequest registrations and ErrorTelemetry's process event subscriptions. The
+latest real trace reaches CodeApplication.initChannels and fails subscribing to
+powerMonitor speed-limit-change. No workbench window is accepted.
 
-The ESM require error is logged and caught by device-ID fallback code: the
-@vscode/deviceid package requires its nested ESM-only uuid entry. The next fatal
-call is ErrorTelemetry installing process.on('uncaughtException'), then
-unhandledRejection. Implement real native event-loop dispatch before accepting
-these listeners; inert registration would hide failures.
+The logged ESM require error remains a handled device-ID fallback: @vscode/deviceid
+requires its nested ESM-only uuid entry. Error.captureStackTrace is also missing.
+[Native error events](../api/process-errors.md) now have genuine event-loop and
+entry-point delivery, with local Node/Mite/embedded-host ordering, fatal/default
+and GC acceptance. Fresh platform and broader lifecycle support remain open.
 
 The [request policy](../api/web-request.md) passes local macOS native offscreen
 HTTP endpoint-zero cancellation, header replacement before CORS, canonical frame
@@ -308,7 +308,7 @@ Immediate execution order (each step needs real native acceptance):
 
 | Priority | Deliverable | Exit criterion |
 | --- | --- | --- |
-| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. The longer actual startup trace now fails at synchronous ESM require and process uncaughtException registration; Error.captureStackTrace also fails. Implement these runtime prerequisites and real utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
+| 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and next fails at powerMonitor speed-limit-change during initChannels. Implement a genuine native event source, plus remaining runtime gaps and real utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
 | 2 | Utility-process and native port handoff | Build on the tested real utility fork/parentPort payload slice, then implement native utility/renderer event.ports transfer and demanded authentication forwarding. Preserve native endpoint/process/document binding and revocation; pass a real Code-OSS connection beyond the main-only Protocol gate |
 | 3 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
 | 4 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |
