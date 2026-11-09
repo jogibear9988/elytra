@@ -11398,6 +11398,40 @@ native platform/package/release requirements remain open. The original goal stay
 active; this process-event slice does not finish it.
 
 
+## 2026-11-09 — Observe macOS CPU limits before the first published value
+
+- Fix the next actual Code-OSS dependency using the existing genuine macOS CPU
+  provider. Notification availability is independent of a current published
+  CPU_Speed_Limit snapshot; IOPMCopyCPUPowerStatus may report not found before any
+  value is published. Always register the passive kIOPMCPUPowerNotificationKey
+  source and advertise its observation capability. This is not an inert listener.
+- Preserve strict query behavior, validated integer limits in 0..100, weak/stopped
+  callback ownership, notify_cancel cleanup and explicit registration failures.
+  Missing/invalid readings emit nothing; never fabricate a 100-percent event.
+  No hardware throttling, thermal stress or power transition is induced or claimed.
+- Extend the native provider probe to require the observation capability even
+  when its independent actual IOKit query is unavailable, then register/cancel
+  the real passive source. Existing host validation/epochs/teardown and actual
+  JS/Host/OS query/subscription gates pass, as does the standalone controlled
+  power policy test. Production/offscreen Firefly rebuilds. Native formatting
+  passes for both changed files. Mite's accepted 129-suite baseline is unchanged.
+- A fresh actual adapted Code-OSS trace now passes initChannels and reaches its
+  first CodeWindow/BrowserWindow construction attempt. It rejects unsupported
+  BrowserWindow backgroundColor; no native workbench window or open/edit/save
+  acceptance is inferred from that attempt. ESM require fallback and
+  Error.captureStackTrace remain visible secondary runtime gaps.
+
+Logs: build/power-cpu-{observer-build,policy,style,code-oss,site}.log. Linux/Windows
+power providers remain unavailable; actual physical CPU-limit delivery remains a
+separate acceptance gate. Ladybird is unchanged. Site validation passes for
+319 pages and 22,592 local links/resources/fragments.
+
+Next: implement genuine window backgroundColor behavior for the pinned consumer,
+then continue its actual first-window path. Full workbench, utility request
+forwarding and all prior native platform/runtime/package requirements remain open.
+The original goal remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -54,7 +54,10 @@ and unknown thermal data does not become `nominal`.
 Known event names are listed below, but registration also requires that the native
 provider advertises that event. The host capability snapshot is fixed at first
 use. Battery-change events are advertised only when a real power-source query is
-available; CPU speed-limit events require an actual published native limit.
+available. macOS CPU speed-limit observation can be registered even before a
+current limit has been published. A notification emits an event only when the
+subsequent native query returns a valid limit; missing data never produces a
+synthetic 100-percent event. Actual registration failure still throws.
 
 | Event | Arguments |
 | --- | --- |

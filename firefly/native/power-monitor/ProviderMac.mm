@@ -276,24 +276,25 @@ namespace {
                 CFRunLoopAddSource(CFRunLoopGetMain(), power_source, kCFRunLoopCommonModes);
             }
 
-            auto cpu = query(Query::SpeedLimit);
-            if (cpu.code.empty()) {
-                auto weak = weak_from_this();
-                auto status = notify_register_dispatch(
-                    kIOPMCPUPowerNotificationKey, &cpu_token, dispatch_get_main_queue(), ^(int) {
-                        auto state = weak.lock();
-                        if (!state || state->stopped || !state->started)
-                            return;
-                        auto limit = query(Query::SpeedLimit);
-                        if (limit.code.empty())
-                            state->emit(
-                                { "speed-limit-change", {}, static_cast<int>(limit.number) });
-                    });
-                if (status != NOTIFY_STATUS_OK) {
-                    cpu_token = -1;
-                    cleanup();
-                    return unavailable("Native CPU power observation is unavailable");
-                }
+            // An unpublished initial CPU snapshot is not an unavailable
+            // notification source: IOPMCopyCPUPowerStatus documents
+            // kIOReturnNotFound until CPU power status has been published.
+            // Register the passive BSD source independently; only a real,
+            // validated observation can produce a speed-limit-change event.
+            auto weak = weak_from_this();
+            auto status = notify_register_dispatch(
+                kIOPMCPUPowerNotificationKey, &cpu_token, dispatch_get_main_queue(), ^(int) {
+                    auto state = weak.lock();
+                    if (!state || state->stopped || !state->started)
+                        return;
+                    auto limit = query(Query::SpeedLimit);
+                    if (limit.code.empty())
+                        state->emit({ "speed-limit-change", {}, static_cast<int>(limit.number) });
+                });
+            if (status != NOTIFY_STATUS_OK) {
+                cpu_token = -1;
+                cleanup();
+                return unavailable("Native CPU power observation is unavailable");
             }
 
             started = true;
@@ -350,8 +351,10 @@ std::vector<std::string> Provider::capabilities()
         result.push_back("on-battery");
     }
 
-    if (query(Query::SpeedLimit).code.empty())
-        result.push_back("speed-limit-change");
+    // Notification availability does not depend on whether this machine has
+    // published a speed-limit value yet. start() reports real registration
+    // failures; a missing/invalid value never becomes a fabricated 100 percent.
+    result.push_back("speed-limit-change");
     return result;
 }
 

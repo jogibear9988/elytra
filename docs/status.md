@@ -7,8 +7,9 @@ not establish working feature support. Newer master commits need their own nativ
 gates; the source snapshots below are deliberately explicit.
 
 The latest adapted Code-OSS trace now passes session request-filter registrations
-and ErrorTelemetry's process exception/rejection subscriptions. It reaches channel
-initialization and stops at the unsupported powerMonitor speed-limit-change event.
+and ErrorTelemetry's process exception/rejection subscriptions. The macOS CPU notification source now registers even without a published initial
+speed-limit value. Startup passes channel initialization and reaches its first
+BrowserWindow construction attempt, which rejects unsupported backgroundColor.
 The handled device-ID fallback still logs synchronous ESM require failure;
 Error.captureStackTrace is also missing from error reporting. No workbench or
 open/edit/save workflow is accepted. See the [current Code-OSS audit](compatibility/vscode.md).

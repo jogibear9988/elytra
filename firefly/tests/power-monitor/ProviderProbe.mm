@@ -73,6 +73,15 @@ int main()
             CFRelease(cpu);
         if (published ? !speed.code.empty() || speed.number != native_limit : speed.code.empty())
             return 7;
+        auto capabilities = Provider::capabilities();
+        if (std::find(capabilities.begin(), capabilities.end(), "speed-limit-change")
+            == capabilities.end()) {
+            fprintf(stderr, "FAIL CPU observation cannot depend on the current published value\n");
+            return 11;
+        }
+        // Register/cancel the genuine passive CPU source even when the read-only
+        // query above reports that the system has not published a value yet.
+        // This does not synthesize notifications or induce a power transition.
         auto provider = Provider::create([](Event) { });
         auto started = provider->start();
         if (!started.code.empty()) {
