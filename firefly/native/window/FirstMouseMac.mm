@@ -19,6 +19,7 @@
 @public
     BOOL accepts;
     Class original_class;
+    Class reported_class;
     Class installed_class;
     IMP original_implementation;
     void* owner;
@@ -36,6 +37,7 @@ namespace {
     struct PolicyClass {
         Class original;
         Class installed;
+        Class reported;
         IMP implementation;
     };
 
@@ -75,6 +77,19 @@ namespace {
         return NO;
     }
 
+    Class reported_view_class(id view, SEL)
+    {
+        auto* state
+            = static_cast<ElytraFirstMouseState*>(objc_getAssociatedObject(view, &policy_key));
+        if (state)
+            return state->reported_class;
+        for (Class type = object_getClass(view); type; type = class_getSuperclass(type))
+            for (auto const& entry : classes())
+                if (entry.installed == type)
+                    return entry.reported;
+        return Nil;
+    }
+
     bool is_qt_view(Class type)
     {
         for (; type; type = class_getSuperclass(type)) {
@@ -86,17 +101,18 @@ namespace {
         return false;
     }
 
-    PolicyClass const* policy_class(Class original)
+    PolicyClass const* policy_class(Class original, Class reported)
     {
         auto& values = classes();
         for (auto const& entry : values)
             if (entry.original == original)
-                return &entry;
-        if (values.size() >= class_limit || !is_qt_view(original))
+                return entry.reported == reported ? &entry : nullptr;
+        if (!reported || values.size() >= class_limit || !is_qt_view(original))
             return nullptr;
         auto selector = @selector(acceptsFirstMouse:);
         auto method = class_getInstanceMethod(original, selector);
-        if (!method)
+        auto class_method = class_getInstanceMethod(original, @selector(class));
+        if (!method || !class_method)
             return nullptr;
         char name[96];
         std::snprintf(name, sizeof(name), "ElytraFirstMousePolicy_%zu", values.size() + 1);
@@ -107,14 +123,17 @@ namespace {
         if (!installed)
             return nullptr;
         if (!class_addMethod(installed, selector, reinterpret_cast<IMP>(&accepts_first_mouse),
-                method_getTypeEncoding(method))) {
+                method_getTypeEncoding(method))
+            || !class_addMethod(installed, @selector(class),
+                reinterpret_cast<IMP>(&reported_view_class),
+                method_getTypeEncoding(class_method))) {
             objc_disposeClassPair(installed);
             return nullptr;
         }
 
         auto implementation = method_getImplementation(method);
         objc_registerClassPair(installed);
-        values.push_back({ original, installed, implementation });
+        values.push_back({ original, installed, reported, implementation });
         return &values.back();
     }
 
@@ -263,12 +282,18 @@ namespace {
                     || view.window != owner_view.window
                     || objc_getAssociatedObject(view, &policy_key))
                     return false;
-                auto entry = policy_class(object_getClass(view));
+                // KVO's inherited -class implementation assumes its own isa.
+                // An extra subclass breaks that lookup and can report Nil to
+                // AppKit's computed-property machinery (including safeAreaInsets).
+                // Preserve the reported identity from before our instance change.
+                auto reported = [view class];
+                auto entry = policy_class(object_getClass(view), reported);
                 if (!entry)
                     return false;
                 auto* state = [ElytraFirstMouseState new];
                 state->accepts = m_accepts;
                 state->original_class = entry->original;
+                state->reported_class = reported;
                 state->installed_class = entry->installed;
                 state->original_implementation = entry->implementation;
                 state->owner = this;

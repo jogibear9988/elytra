@@ -6,6 +6,8 @@
 #include <QEventLoop>
 #include <QThread>
 #include <QWidget>
+#include <QWindow>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -68,6 +70,40 @@ bool retired_as_control(NSView* view, Class control)
     return object_getClass(view) == control
         && first_mouse_policy_class(object_getClass(view)) == Nil;
 }
+
+void check_reported_class_and_safe_area(
+    QWidget& owner, QWidget& content, NSView* view, Class original)
+{
+    require(
+        [view class] == original, "Scoped native policy preserves Qt's reported Objective-C class");
+    auto insets = view.safeAreaInsets;
+    require(std::isfinite(insets.top) && std::isfinite(insets.bottom) && std::isfinite(insets.left)
+            && std::isfinite(insets.right),
+        "Actual AppKit computed safeAreaInsets remains valid after policy installation");
+    require(content.windowHandle() && owner.windowHandle(),
+        "Real Qt native windows exist for safe-area reads");
+    auto content_margins = content.windowHandle()->safeAreaMargins();
+    auto owner_margins = owner.windowHandle()->safeAreaMargins();
+    // Read the actual Qt/AppKit computed property even for hidden windows. Values
+    // remain platform-owned; no guessed title height or fake zero inset is asserted.
+    volatile int observed = content_margins.top() + owner_margins.top();
+    (void)observed;
+    auto original_size = content.size();
+    content.resize(original_size + QSize(1, 1));
+    content.windowHandle()->resize(content.size());
+    QCoreApplication::sendPostedEvents();
+    QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 5);
+    require(materialize(content) == view && [view class] == original,
+        "Hidden real native resize preserves NSView and reported Qt class identity");
+    auto resized_insets = view.safeAreaInsets;
+    require(std::isfinite(resized_insets.top) && std::isfinite(resized_insets.bottom)
+            && std::isfinite(resized_insets.left) && std::isfinite(resized_insets.right),
+        "Actual resized AppKit view retains valid computed safe-area properties");
+    volatile int resized = content.windowHandle()->safeAreaMargins().top();
+    (void)resized;
+    content.resize(original_size);
+    content.windowHandle()->resize(content.size());
+}
 }
 
 int main(int argc, char** argv)
@@ -94,6 +130,8 @@ int main(int argc, char** argv)
         require(first_view && second_view && unowned_view, "Actual Qt native NSViews exist");
         auto first_class = object_getClass(first_view);
         auto second_class = object_getClass(second_view);
+        auto first_reported_class = [first_view class];
+        auto second_reported_class = [second_view class];
         auto unowned_class = object_getClass(unowned_view);
         auto unowned_method = class_getInstanceMethod(unowned_class, @selector(acceptsFirstMouse:));
         require(unowned_method != nullptr, "Original Qt first mouse callback exists");
@@ -104,6 +142,9 @@ int main(int argc, char** argv)
 
         require(Firefly::install_first_mouse(first, first_content, false), "Install false policy");
         require(Firefly::install_first_mouse(second, second_content, true), "Install true policy");
+        check_reported_class_and_safe_area(first, first_content, first_view, first_reported_class);
+        check_reported_class_and_safe_area(
+            second, second_content, second_view, second_reported_class);
         require([first_view acceptsFirstMouse:nil] == NO,
             "False owner rejects actual first mouse callback");
         require([second_view acceptsFirstMouse:nil] == original_true,
@@ -204,6 +245,7 @@ int main(int argc, char** argv)
         recreated.setGeometry(0, 0, 120, 80);
         NSView* old_surface = materialize(recreated);
         auto surface_class = object_getClass(old_surface);
+        auto surface_reported_class = [old_surface class];
         require(surface_class == recreation_original,
             "Owned and independent recreation controls start with identical Qt runtime class");
         require(Firefly::install_first_mouse(first, recreated, false),
@@ -218,6 +260,7 @@ int main(int argc, char** argv)
                 [false_surface acceptsFirstMouse:nil] == NO;
         }),
             "False policy automatically rebinds to actual recreated NSView without reinstall");
+        check_reported_class_and_safe_area(first, recreated, false_surface, surface_reported_class);
         require(Firefly::install_first_mouse(first, recreated, true),
             "Set true before second actual surface recreation");
         require([false_surface acceptsFirstMouse:nil] == YES,
@@ -232,6 +275,9 @@ int main(int argc, char** argv)
                 [true_surface acceptsFirstMouse:nil] == YES;
         }),
             "True policy automatically rebinds to actual recreated NSView without reinstall");
+        check_reported_class_and_safe_area(first, recreated, true_surface, surface_reported_class);
+        std::puts("PASS native first mouse preserves reported class and real AppKit Qt safe-area "
+                  "getters");
         auto active_policy_class = first_mouse_policy_class(object_getClass(true_surface));
         require(
             active_policy_class != Nil, "Recreated true view has a genuine installed policy class");

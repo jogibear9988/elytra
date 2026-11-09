@@ -58,6 +58,7 @@ def main():
                     "PASS native first mouse unowned Qt class and callback preserved",
                     "PASS native first mouse reinstall and teardown restore native class",
                     "PASS native first mouse actual NSView recreation automatically preserves false and true policies",
+                    "PASS native first mouse preserves reported class and real AppKit Qt safe-area getters",
                 ]
             ), (stdout, stderr)
             print("Cocoa native callbacks: " + stdout.strip(), flush=True)

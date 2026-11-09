@@ -34,3 +34,13 @@ changing appearance, while unknown options continue to reject.
 References: [Qt 6.11.2 QNSView mouse handling](https://github.com/qt/qtbase/blob/v6.11.2/src/plugins/platforms/cocoa/qnsview_mouse.mm),
 [Electron 45.2.3 native macOS windows](https://github.com/electron/electron/blob/v45.2.3/shell/browser/native_window_mac.mm),
 [Apple NSView first-mouse contract](https://developer.apple.com/documentation/appkit/nsview/acceptsfirstmouse(for:)).
+
+The scoped subclass must also preserve the view's reported Objective-C class.
+Qt's native views can already have a KVO-generated subclass whose inherited
+-class assumes it is the outer runtime class. Adding another isa layer without
+preserving that virtual identity can report nil and abort AppKit's computed
+safeAreaInsets lookup when Qt shows the real content. Capture [view class] before
+installation and supply an owned -class implementation using that exact identity;
+object_getClass continues to identify the actual scoped policy subclass. Hidden
+regressions read actual AppKit/Qt safe-area properties and resize/recreate real
+native views. Callback-only checks did not expose this integration failure.

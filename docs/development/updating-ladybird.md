@@ -510,3 +510,9 @@ checks must cover independent policies, restoration and reparenting. Verify the
 runtime subclass assumptions and original input-transparency checks; an offscreen
 public constructor test cannot prove native click-through behavior. See
 [ADR 0184](../architecture/0184-native-first-mouse-policy.md).
+
+The first-mouse subclass must preserve both actual runtime identity and the
+reported Objective-C class from Qt/KVO. Its gate reads real AppKit safeAreaInsets
+and QWindow safeAreaMargins while hidden, before/after native resize and actual
+view recreation. Recheck these computed-property paths on Qt/AppKit updates;
+acceptsFirstMouse callbacks alone do not validate safe rendering/presentation.

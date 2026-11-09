@@ -11601,6 +11601,42 @@ Workbench/open-edit-save, extension host/PTY, utility forwarding, workers, Windo
 repair and all platform/package/release requirements remain unfinished.
 
 
+## 2026-11-09 — Preserve Cocoa KVO identity in first-mouse views
+
+- The first actual visible renderer test for the pending hidden-titlebar slice
+  exposed a native presentation crash: AppKit NSDP_getComputedPropertyValue
+  asserted during QCocoaWindow::safeAreaMargins while showing the content view.
+  Callback-only hidden acceptance had missed this path.
+- The scoped first-mouse subclass inherited Qt/KVO's -class implementation, which
+  assumes it is the outer runtime class. Its additional isa layer broke the
+  reported class identity (the Qt diagnostic printed a nil class), invalidating
+  AppKit's computed-property lookup.
+- Capture the actual reported class before installation and provide an owned
+  -class method returning that same identity. Actual object_getClass identity
+  still names the scoped policy class; original Qt/KVO classes and methods remain
+  untouched. Both first-click values, guarded true delegation, lifecycle cleanup
+  and the bounded cache remain intact. Independent review found no new confirmed
+  identity/lifetime defect.
+- Extend the hidden native gate with exact reported-class identity, actual
+  NSView.safeAreaInsets and QWindow.safeAreaMargins reads, real native resizing,
+  and the same checks after automatic false/true view recreation. All pass.
+  Compiling the unchanged preceding adapter against this new regression fails
+  deterministically at the class-identity assertion, before unsafe property access.
+- All 132 local CLI CTests belonging to this committed scope pass (the pending
+  title-bar test is excluded). Updated native/app/probe builds pass. The pending
+  title-bar's exact-application visible renderer gate also now passes real CPU
+  toolbar pixels, full viewport, native button hit targets and live HTML regions.
+  This confirms the original presentation crash is fixed; it does not establish
+  a Code-OSS workbench or broad activation/fullscreen/platform parity.
+
+Validation: build/first-mouse-identity-{build,native,before,runtime}.log and
+build/title-bar-gate-final.log. The first title-bar GUI attempt aborted; it is
+retained in build/title-bar-gate.log as a failure, not an accepted run. After the
+hidden regression passed, one successful targeted visible batch completed.
+Ladybird remains unmodified. Hidden-titlebar implementation/docs still form the
+next separate logical step. The full goal remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
