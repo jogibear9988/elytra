@@ -91,24 +91,55 @@ export function rendererAssets(source, dependencies, paths, planned, inputs) {
   if (assetInputs.length > 2000 || bytes > 64 * 1024 * 1024) {
     throw Error('Review renderer asset count/byte budget');
   }
+  const cssModules = [...planned.keys()]
+    .filter((name) => name.startsWith('src/vs/') && name.endsWith('.css'))
+    .map((name) => name.slice(4))
+    .sort();
+  if (!cssModules.length || cssModules.length > 2048) {
+    throw Error('Review staged CSS inventory count');
+  }
+  const cssInventory = Buffer.from(
+    JSON.stringify(
+      {
+        schema: 1,
+        kind: 'code-oss-staged-dev-css',
+        revision: dependencies.report.revision,
+        cssModules
+      },
+      null,
+      2
+    ) + '\n'
+  );
+  const cssTarget = 'src/elytra-css-modules.json';
+  if (planned.has(cssTarget)) {
+    throw Error('Staged CSS inventory output collision');
+  }
+  planned.set(cssTarget, cssInventory);
+  const generated = [
+    {
+      output: cssTarget,
+      outputSha256: digest(cssInventory),
+      source: 'compiler-staged-css-output-paths'
+    }
+  ];
+  if (!inputs.some((record) => record.output === target)) {
+    generated.push({
+      output: target,
+      outputSha256: digest(font),
+      package: manifest.name,
+      version: manifest.version,
+      packageSha256: digest(packageBytes),
+      source: 'node_modules/@vscode/codicons/dist/codicon.ttf'
+    });
+  }
   return {
     schema: 1,
     mode: 'upstream-dev-css-import-map',
     files: assetInputs.length,
     bytes,
     aliases: [{ path: 'out', target: 'src' }],
-    generated: inputs.some((record) => record.output === target)
-      ? []
-      : [
-          {
-            output: target,
-            outputSha256: digest(font),
-            package: manifest.name,
-            version: manifest.version,
-            packageSha256: digest(packageBytes),
-            source: 'node_modules/@vscode/codicons/dist/codicon.ttf'
-          }
-        ],
+    cssModules: cssModules.length,
+    generated,
     status: 'assets staged; real workbench startup remains unverified'
   };
 }

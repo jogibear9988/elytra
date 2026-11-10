@@ -589,3 +589,13 @@ unsupported; unexpected Code-OSS update requests fail explicitly with
 ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE. Ordinary Node/Electron behavior is
 unchanged. This application opt-out enables the local editor experiment without
 claiming native TouchBar hardware support.
+
+## Development CSS discovery in the local LibJS stage
+
+The renderer-assets build records the exact sorted paths of its 508 production
+stylesheets in src/elytra-css-modules.json, with its hash in the compile manifest.
+The pinned local CSS development service reads this inventory before requesting
+the absent native ripgrep executable. Missing/malformed data fails explicitly.
+Ordinary Node/Electron retain their original discovery path. The real workbench
+import-map loader still appends actual stylesheet links; no CSS module is erased.
+This does not provide ripgrep search for user files or claim editor acceptance.

@@ -7,11 +7,12 @@ import json
 from pathlib import Path
 
 if __package__:
-    from . import window_preferences
+    from . import window_preferences, css_development
     from .engine import adapt_engine
     from .local_desktop import adapt_local, PATHS, OWNED, HELPER
 else:
     import window_preferences
+    import css_development
     from engine import adapt_engine
     from local_desktop import adapt_local, PATHS, OWNED, HELPER
 
@@ -82,7 +83,11 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         *(["nodeCompileCache.ts"] if libjs_cache else []),
         *(["mainImpl.ts"] if libjs_engine else []),
         *(PATHS if local_desktop else []),
-        *([window_preferences.SOURCE, window_preferences.PASTE_SOURCE] if local_desktop else []),
+        *(
+            [window_preferences.SOURCE, window_preferences.PASTE_SOURCE, css_development.SOURCE]
+            if local_desktop
+            else []
+        ),
         "LICENSE.txt",
     )
     for name in names:
@@ -105,6 +110,8 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
             patched = window_preferences.adapt_window_preferences(original)
         elif name == window_preferences.PASTE_SOURCE:
             patched = window_preferences.adapt_paste_preferences(original)
+        elif name == css_development.SOURCE:
+            patched = css_development.adapt_css_development(original)
         else:
             patched = original
         if local_desktop and (name == "mainImpl.ts" or name in PATHS):
@@ -122,6 +129,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         (libjs_engine, ENGINE_SOURCE, ENGINE_TARGET),
         (local_desktop, OWNED, HELPER),
         (local_desktop, window_preferences.HELPER_SOURCE, window_preferences.HELPER_TARGET),
+        (local_desktop, css_development.HELPER_SOURCE, css_development.HELPER_TARGET),
     ):
         if enabled:
             helper = (ROOT / owned).read_bytes()
@@ -154,7 +162,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():

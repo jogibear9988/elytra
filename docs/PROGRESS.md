@@ -12632,6 +12632,24 @@ Broker and Headers strict compilers pass. The actual Firefly build succeeds
 (codeoss-request-headers-build.log). No broad suite or separate GUI check runs;
 the next Code-OSS entry will exercise registration and continue toward its renderer.
 
+## 2026-11-10 — Real stylesheet inventory for the development workbench
+
+The prepared scripts-disabled dependency tree has no native ripgrep executable.
+For the local development renderer only, generate the exact sorted inventory of
+508 actually staged CSS files and record its generated-file hash in the compile
+manifest. Adapt the pinned CSS development service before rgDiskPath to read that
+inventory only in verified local LibJS mode. Ordinary Node/Electron discovery and
+the genuine upstream Blob/import-map/stylesheet-link loader remain unchanged.
+Missing, malformed, duplicate, unsorted or escaping paths fail explicitly. Native
+ripgrep search of user files remains outside this development-discovery adapter.
+
+Focused genuine Node/Mite checks pass for the original Node branch, all 508 real
+paths, and explicit malformed/missing refusals; the pinned source reverses exactly
+and rejects drift. The single existing stage refresh succeeds with 12,343 input
+files (codeoss-css-inventory-refresh.log). A single direct Code-OSS run now observes
+the rebuilt request-header host plus this stage; no extra GUI/component suite is
+started. Real workbench/open-edit-save acceptance remains unproven.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

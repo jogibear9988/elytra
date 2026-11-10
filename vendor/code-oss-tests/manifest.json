@@ -282,6 +282,10 @@
     "window-defaults-main.ts": {
       "upstream": "src/vs/platform/windows/electron-main/windows.ts",
       "sha256": "087b784eec1f1f565e7eed9cd8b315102a9900888df28c79dc1cd30bde8c36e0"
+    },
+    "css-development-service.ts": {
+      "upstream": "src/vs/platform/cssDev/node/cssDevService.ts",
+      "sha256": "3b6c452087f79f3aafbde34285fd94f6c5d69730522441ad362d989bcda088b6"
     }
   }
 }

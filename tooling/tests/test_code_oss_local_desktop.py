@@ -15,6 +15,7 @@ import tempfile
 
 from code_oss.local_desktop import adapt_local, PATHS, OWNED, HELPER
 from code_oss.window_preferences import SOURCE as WINDOW_PREFERENCES_SOURCE
+from code_oss.css_development import SOURCE as CSS_DEVELOPMENT_SOURCE
 from code_oss.overlay import prepare, FILES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +45,7 @@ def main():
             "mainImpl.ts",
             *PATHS,
             WINDOW_PREFERENCES_SOURCE,
+            CSS_DEVELOPMENT_SOURCE,
             "window-defaults-main.ts",
             "LICENSE.txt",
         ):
