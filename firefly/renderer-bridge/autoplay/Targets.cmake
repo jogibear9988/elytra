@@ -1,4 +1,4 @@
-# Native media groundwork only; no public webPreferences admission until WebAudio is enforced.
+# Native per-context media/WebAudio enforcement and bounded public preference values.
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer/SourceAdapter.cmake")
 set(autoplay_output "${CMAKE_BINARY_DIR}/firefly-adapters/autoplay")
 execute_process(
@@ -14,8 +14,9 @@ set_property(
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/HTMLMediaElement.cpp")
 firefly_replace_source(LibWeb "Libraries/LibWeb/HTML/HTMLMediaElement.cpp"
                        "${autoplay_output}/HTMLMediaElement.cpp")
-target_sources(LibWeb PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Policy.cpp"
-                              "${CMAKE_CURRENT_LIST_DIR}/Media.cpp")
+target_sources(
+    LibWeb PRIVATE "${CMAKE_CURRENT_LIST_DIR}/Policy.cpp" "${CMAKE_CURRENT_LIST_DIR}/Media.cpp"
+                   "${CMAKE_CURRENT_LIST_DIR}/Audio.cpp")
 set_property(
     SOURCE "${autoplay_output}/HTMLMediaElement.cpp" TARGET_DIRECTORY LibWeb
     APPEND
@@ -36,6 +37,7 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/prepare.py" --output
         "${autoplay_directory}" --driver "${autoplay_driver}" --chain
         "${FIREFLY_AUTOPLAY_CHAIN_WRAPPER}" --check
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/test_audio.py"
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/test_driver.py"
             --compiler "${CMAKE_CXX_COMPILER}"
     DEPENDS libweb_bindings_rust-build

@@ -6,11 +6,13 @@
 // Consume the owned native policy before upstream bootstrap/sandbox/connection
 // setup. Rename only its entry and VM-initialization call inside the composition.
 #include "RendererSession.h"
+#include "autoplay/Session.h"
 #include "canvas/Session.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginConfig.h"
 #include "permissions/Session.h"
 #include "preload/Process.h"
+#include "renderer-bridge/autoplay/Policy.h"
 #include "resources/Session.h"
 #include "web-request/Session.h"
 #include <LibCore/System.h>
@@ -32,6 +34,7 @@ namespace Web::Bindings {
 void firefly_initialize_renderer_vm(HTML::AgentType type)
 {
     initialize_agent(type);
+    Firefly::Autoplay::initialize_owned();
     Firefly::HelperCanvas::initialize();
     Firefly::HelperPermissions::initialize();
     Firefly::HelperWebRequest::initialize();
@@ -56,6 +59,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             *configuration);
     auto result = firefly_upstream_renderer_main({ static_cast<int>(filtered.strings.size()),
         filtered.argv.data(), filtered.strings.span() });
+    Firefly::Autoplay::shutdown();
     Firefly::HelperCanvas::shutdown();
     Firefly::HelperWebRequest::shutdown();
     Firefly::HelperPermissions::shutdown();

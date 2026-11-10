@@ -72,7 +72,8 @@ JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::view_state(JS::VM& vm,
     return &found->second;
 }
 
-Optional<int> Bridge::Impl::create_view(Optional<Preload> preload, double zoom_factor)
+Optional<int> Bridge::Impl::create_view(
+    Optional<Preload> preload, double zoom_factor, Autoplay::Policy autoplay_policy)
 {
     if (stopping)
         return {};
@@ -88,6 +89,7 @@ Optional<int> Bridge::Impl::create_view(Optional<Preload> preload, double zoom_f
     view->hide();
     view->setGeometry(0, 0, 0, 0);
     windows.emplace(id, State { nullptr, view, move(preload), State::Kind::ChildView });
+    windows.at(id).autoplay_policy = autoplay_policy;
     setup_content_callbacks(id);
     broadcast_background();
     return id;
@@ -342,7 +344,7 @@ void Bridge::Impl::setup_content_callbacks(int id)
 void Bridge::Impl::install_views(JS::Object& host)
 {
     host.define_native_function(realm, "createView"_utf16,
-        native_binding<&Impl::native_views_create_view>(), 3, JS::default_attributes);
+        native_binding<&Impl::native_views_create_view>(), 4, JS::default_attributes);
     host.define_native_function(realm, "attachView"_utf16,
         native_binding<&Impl::native_views_attach_view>(), 3, JS::default_attributes);
     host.define_native_function(realm, "detachView"_utf16,
@@ -381,7 +383,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_views_create_view(JS::VM& 
     if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
         return SandboxPolicy::fail(vm, *failure);
     auto zoom_factor = TRY(read_zoom(vm, 2, true));
-    auto id = create_view(TRY(read_preload(vm, 0, 1)), zoom_factor);
+    auto autoplay_policy = TRY(read_autoplay(vm, 3));
+    auto id = create_view(TRY(read_preload(vm, 0, 1)), zoom_factor, autoplay_policy);
     if (!id.has_value())
         return vm.throw_completion<JS::RangeError>("Native view budget exceeded"_utf16);
     return JS::Value(*id);

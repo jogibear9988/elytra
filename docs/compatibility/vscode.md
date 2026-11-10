@@ -41,13 +41,14 @@ notification capability detection. It next attempts CodeWindow/BrowserWindow
 construction. The next rejected default constructor option is titleBarOverlay, before
 native window allocation. With a temporary User/settings.json containing
 window.titleBarStyle:native, the latest real entry passes the audited disabled V8
-cache adaptation, spellcheck:false and native zoomFactor, then rejects
-webPreferences.autoplayPolicy.
-The separate autoplay feature branch now passes twelve native media component
-groups, including canonical remote-frame ownership, per-element activation and
-opener behavior. WebAudio start/resume/promise enforcement and trusted production
-transport remain required; the public preference still rejects this value. See
-[the native autoplay decision and remaining gates](../architecture/0191-native-autoplay-policy.md).
+cache adaptation, spellcheck:false, native zoomFactor and the implemented autoplay
+policy, then rejects webPreferences.enableBlinkFeatures in the latest direct trace
+(autoplay-codeoss-entry.log). Exact HighlightAPI admission is implemented for the
+already-enabled native CSS.highlights capability and awaits the next rebuilt host.
+Native media admission/metadata/default/revocation passes thirteen component groups;
+ten null-audio groups pass, with the final inactive-document/GC fixture still
+unfinished. The two explicit autoplay values have experimental public wiring.
+See [the native autoplay decision and remaining gates](../architecture/0191-native-autoplay-policy.md).
 Neither profile creates an accepted workbench window. The known legacy experimentalDarkMode boolean is now
 accepted without effect, and acceptFirstMouse has a genuine Cocoa implementation
 verified separately with hidden native callbacks and surface recreation.
@@ -166,7 +167,7 @@ flag, caller arguments and profile selection remain unchanged.
 This profile bypasses Code-OSS's optional custom chrome configuration; it does not
 implement Window Controls Overlay. The recorded diagnostic profile and all probe
 completion records explicitly keep workbenchAccepted:false. Native-profile startup
-currently reaches webPreferences.autoplayPolicy; an actual workbench, editing,
+currently reaches webPreferences.enableBlinkFeatures; an actual workbench, editing,
 extension host and terminal are not accepted. Use the freshly built runtime and
 compiled tree paths appropriate to your local build.
 
@@ -355,7 +356,7 @@ Immediate execution order (each step needs real native acceptance):
 | Priority | Deliverable | Exit criterion |
 | --- | --- | --- |
 | 1 | Main continuation, utility forwarding and complete session policy | The real adapted entry now passes both permission setters and unchanged webRequest registrations. Real document/main HTTP/custom request enforcement passes locally; worker/unbound navigation and WebSocket scopes are deliberately limited, and active filters temporarily exclude utility processes. Native error/rejection delivery now passes real Node/Mite/host tests; startup passes ErrorTelemetry and initChannels, then reaches CodeWindow constructor option validation and stops at titleBarOverlay in the default profile; a supported native-titlebar settings profile now passes the disabled V8 cache adaptation, spellcheck:false and native zoomFactor, then rejects
-webPreferences.autoplayPolicy. Native hidden titlebar now passes an actual Cocoa renderer batch; background, size constraints and first-mouse policy have separate component acceptance. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
+webPreferences.enableBlinkFeatures after passing the native autoplay option. Native hidden titlebar now passes an actual Cocoa renderer batch; background, size constraints and first-mouse policy have separate component acceptance. The macOS CPU event source now registers independently of an unpublished current value. Implement real window-option behavior, remaining runtime gaps and utility parent forwarding, then validate a workbench/open-edit-save run. Display capture and fresh platform permission/interception acceptance remain open. |
 | 2 | Utility-process and native port handoff | Build on the tested real utility fork/parentPort payload slice, then implement native utility/renderer event.ports transfer and demanded authentication forwarding. Preserve native endpoint/process/document binding and revocation; pass a real Code-OSS connection beyond the main-only Protocol gate |
 | 3 | Actual main-process bootstrap | Re-run the pinned entry after each blocker; implement required protocol, lifecycle and desktop services until real startup advances |
 | 4 | Workbench bridge | Required preload/events and bounded binary MessagePort delivery connect the real workbench to main services |

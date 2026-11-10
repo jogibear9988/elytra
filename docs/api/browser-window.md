@@ -27,6 +27,8 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
+| webPreferences.enableBlinkFeatures | Exact string HighlightAPI only; native LibWeb CSS.highlights is already enabled. Other names/lists and disableBlinkFeatures are unsupported |
+| webPreferences.autoplayPolicy | Experimental: user-gesture-required or no-user-gesture-required; document-user-activation-required remains unsupported. Omission preserves the SDK default |
 | webPreferences.zoomFactor | Finite numeric factor 0.3..5, default 1; [browser zoom](web-contents.md#browser-zoom) |
 | webPreferences.spellcheck | false only; currently disabled by default. [Native spelling policy](#native-spelling-policy) |
 | webPreferences.sandbox | true by default; boolean false is overridden after early [app.enableSandbox()](app.md#appenablesandbox), otherwise explicitly rejected |
@@ -461,6 +463,12 @@ Electron reference. Native Windows/Linux remain unverified. See the
 Native HTML [file inputs](file-input.md) now have a bounded owned Qt chooser path.
 See its limits, lifecycle, helper validation and missing path/provenance APIs.
 
+
+`webPreferences.enableBlinkFeatures: 'HighlightAPI'` is accepted for BrowserWindow
+and WebContentsView because the pinned LibWeb engine already exposes native
+`CSS.highlights`/`HighlightRegistry`. It does not toggle Blink or enable arbitrary
+engine features. Unknown feature names, comma-separated lists, non-string values
+and `disableBlinkFeatures` fail explicitly.
 
 ## Native spelling policy
 

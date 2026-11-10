@@ -156,10 +156,13 @@ add_custom_target(
 
 # Exercise real media elements and their native activation paths without Qt, playable media or an OS
 # audio output. Public preference admission is separate.
-add_executable(firefly-autoplay-media-probe
-               "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/MediaProbe.cpp")
-target_include_directories(firefly-autoplay-media-probe
-                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+add_executable(
+    firefly-autoplay-media-probe
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/MediaProbe.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/autoplay/Session.cpp")
+target_include_directories(
+    firefly-autoplay-media-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
+                                         "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(
     firefly-autoplay-media-probe
     PRIVATE LibWeb
@@ -176,6 +179,33 @@ add_custom_target(
     DEPENDS firefly-autoplay-media-probe
     VERBATIM)
 
+# Actual Rust graph, Promise lifecycle and wall-clock null playback. No device factory is reachable
+# from this diagnostic PageClient.
+add_executable(firefly-autoplay-audio-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/AudioProbe.cpp")
+target_include_directories(firefly-autoplay-audio-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+target_link_libraries(
+    firefly-autoplay-audio-probe
+    PRIVATE LibWeb
+            LibIPC
+            LibWebCommon
+            LibJS
+            LibGC
+            LibAudio
+            LibMedia
+            LibGfx
+            LibURL
+            LibCore
+            LibMain
+            AK)
+ladybird_check_skia_confinement(firefly-autoplay-audio-probe)
+add_custom_target(
+    check-firefly-autoplay-audio
+    COMMAND "$<TARGET_FILE:firefly-autoplay-audio-probe>"
+    DEPENDS firefly-autoplay-audio-probe
+    VERBATIM)
+
 if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
@@ -185,7 +215,7 @@ endif()
 if(WIN32)
     target_link_libraries(firefly-renderer-probe PRIVATE shell32)
     foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe
-                  firefly-autoplay-media-probe)
+                  firefly-autoplay-media-probe firefly-autoplay-audio-probe)
         ladybird_windows_bin(${probe} CONSOLE)
     endforeach()
 endif()

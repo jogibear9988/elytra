@@ -1,5 +1,6 @@
 /** Real LibWeb media admission, without a GUI, a playable source, or an audio device. */
 #include "autoplay/Policy.h"
+#include "renderer-helper/autoplay/Session.h"
 #include <AK/ScopeGuard.h>
 #include <LibCore/EventLoop.h>
 #include <LibGC/Heap.h>
@@ -444,5 +445,74 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     TRY(play(popup, false, "opener allowance does not persistently unlock the popup element"sv));
     outln(
         "PASS actual local-opener transient one-play allowance without persistent element unlock");
+    A::initialize_owned();
+    TRY(require(A::policy_for(*popup.document) == A::Policy::Blocked,
+        "owned helper denies all unknown contexts before first snapshot"sv));
+    TRY(play(popup, false, "an old element unlock cannot bypass missing owned policy"sv));
+    Web::WebDriver::BiDiSessionState metadata;
+    auto append_policy = [&](StringView name, u32 generation) {
+        JsonObject arguments;
+        arguments.set("generation"sv, generation);
+        arguments.set("policy"sv, name);
+        metadata.preload_scripts.append({ "firefly.autoplay.v1"_string, String {}, move(arguments),
+            Vector<String> { popup.handle }, {}, {} });
+    };
+    append_policy("no-user-gesture-required"sv, 1);
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    TRY(require(metadata.preload_scripts.is_empty(), "native policy records are stripped"sv));
+    TRY(play(popup, true, "decoded trusted unrestricted snapshot authorizes actual media"sv));
+    TRY(check(popup, u"media.pause();true"sv, "pause trusted unrestricted playback"sv));
+    auto unrestricted_revision = A::revision_for(*popup.document);
+    append_policy("no-user-gesture-required"sv, 2);
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    TRY(require(A::revision_for(*popup.document) == unrestricted_revision,
+        "same policy snapshot keeps its authorization identity"sv));
+    append_policy("user-gesture-required"sv, 3);
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    auto strict_revision = A::revision_for(*popup.document);
+    TRY(require(strict_revision && strict_revision != unrestricted_revision,
+        "changed policy gets a fresh authorization identity"sv));
+    TRY(play(popup, false, "decoded strict policy relocks actual media"sv));
+    activate(popup);
+    consume(popup);
+    append_policy("upstream-default"sv, 4);
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    TRY(require(A::policy_for(*popup.document) == A::Policy::UpstreamDefault,
+        "owned default is explicitly enumerated, independently of unknown contexts"sv));
+    TRY(play(popup, true, "explicit owned default preserves genuine SDK sticky admission"sv));
+    TRY(check(popup, u"media.pause();true"sv, "pause owned default playback"sv));
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    TRY(play(popup, false, "removed owned context fails closed despite SDK sticky state"sv));
+    append_policy("document-user-activation-required"sv, 4);
+    TRY(require(Firefly::HelperAutoplay::extract(metadata).is_error()
+            && metadata.preload_scripts.size() == 1
+            && A::policy_for(*popup.document) == A::Policy::Blocked,
+        "unsupported record changes neither snapshot nor unconsumed metadata"sv));
+    metadata.preload_scripts.clear();
+    append_policy("no-user-gesture-required"sv, 4);
+    metadata.preload_scripts.first().function_declaration
+        = "throw new Error('not metadata')"_string;
+    TRY(require(Firefly::HelperAutoplay::extract(metadata).is_error(),
+        "configuration rejects executable source"sv));
+    metadata.preload_scripts.clear();
+    append_policy("no-user-gesture-required"sv, 4);
+    append_policy("no-user-gesture-required"sv, 4);
+    TRY(require(Firefly::HelperAutoplay::extract(metadata).is_error(),
+        "duplicate metadata is rejected atomically"sv));
+    TRY(require(A::policy_for(*popup.document) == A::Policy::Blocked,
+        "all malformed snapshots retain revoked ownership"sv));
+    outln("PASS real metadata decode/strip, explicit defaults, owned fail-closed revocation and "
+          "atomic refusal");
+    metadata.preload_scripts.clear();
+    append_policy("user-gesture-required"sv, 5);
+    TRY(Firefly::HelperAutoplay::extract(metadata));
+    TRY(require(A::revision_for(*popup.document) != strict_revision,
+        "removed and re-added policy cannot inherit an old audio authorization"sv));
+    for (auto invalid_id : { "710-01"sv, "0-1"sv, "710-0"sv, "710--1"sv, "bidi-uuid"sv }) {
+        Vector<A::Configuration> invalid_context;
+        invalid_context.append({ MUST(String::from_utf8(invalid_id)), 1, strict });
+        TRY(require(A::apply(move(invalid_context)).is_error(),
+            "noncanonical context identity rejected"sv));
+    }
     return 0;
 }

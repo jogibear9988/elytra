@@ -4102,7 +4102,12 @@ function createViews(native, EventEmitter, makeContents, validatePreferences, re
         throw error("ERR_FIREFLY_APP_EXITED", "Application has exited");
       }
       Object.defineProperty(host, "id", {
-        value: native.createView(prefs.preload, prefs.additionalArguments, prefs.zoomFactor),
+        value: native.createView(
+          prefs.preload,
+          prefs.additionalArguments,
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
+        ),
         enumerable: true
       });
       host._destroyed = false;
@@ -4335,8 +4340,33 @@ function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSp
       throw error("ERR_INVALID_ARG_TYPE", "webPreferences must be an object");
     }
     let zoomFactor = 1;
+    let autoplayPolicy;
     for (const key of Object.keys(prefs)) {
       if (key === "preload" || key === "additionalArguments") {
+        continue;
+      }
+      if (key === "enableBlinkFeatures") {
+        const value = prefs[key];
+        if (typeof value !== "string") {
+          throw error(
+            "ERR_INVALID_ARG_TYPE",
+            "webPreferences.enableBlinkFeatures must be a string"
+          );
+        }
+        if (value !== "HighlightAPI") {
+          unsupported(`webPreferences.enableBlinkFeatures=${value}`);
+        }
+        continue;
+      }
+      if (key === "autoplayPolicy") {
+        const value = prefs[key];
+        if (typeof value !== "string") {
+          throw error("ERR_INVALID_ARG_TYPE", "webPreferences.autoplayPolicy must be a string");
+        }
+        if (!["no-user-gesture-required", "user-gesture-required"].includes(value)) {
+          unsupported(`webPreferences.autoplayPolicy=${value}`);
+        }
+        autoplayPolicy = value;
         continue;
       }
       if (key === "zoomFactor") {
@@ -4381,7 +4411,12 @@ function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSp
     if (additionalArguments.length > 64) {
       throw error("ERR_INVALID_ARG_VALUE", "additionalArguments exceeds 64 entries");
     }
-    return { preload: prefs.preload, additionalArguments, zoomFactor };
+    return {
+      preload: prefs.preload,
+      additionalArguments,
+      zoomFactor,
+      ...autoplayPolicy === void 0 ? {} : { autoplayPolicy }
+    };
   };
 }
 
@@ -8099,7 +8134,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           constraintWire,
           firstMouse,
           hiddenTitleBar,
-          prefs.zoomFactor
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
         )
       });
       this.webContents = new WebContents(this, contentsToken);

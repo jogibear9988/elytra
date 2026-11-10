@@ -56,7 +56,8 @@ void Bridge::Impl::destroy(int id, bool immediate)
 Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, int height,
     QString const& title, bool show, bool frame, Optional<Preload> preload, bool use_content_size,
     Optional<int> x, Optional<int> y, u32 background_rgb, WindowLimits const& limits,
-    Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor)
+    Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor,
+    Autoplay::Policy autoplay_policy)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
@@ -116,6 +117,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     windows.at(id).size_constraints = constraints;
     windows.at(id).accept_first_mouse = first_mouse.value_or(false);
     windows.at(id).background_rgb = background_rgb;
+    windows.at(id).autoplay_policy = autoplay_policy;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
         reset_ipc(id);

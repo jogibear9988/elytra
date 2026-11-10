@@ -15,6 +15,7 @@ add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/autoplay/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
@@ -103,6 +104,7 @@ if(FIREFLY_BUILD_RUNTIME)
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/autoplay/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"

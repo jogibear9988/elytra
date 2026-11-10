@@ -111,7 +111,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(realm, "replyIpc"_utf16,
         native_binding<&Impl::native_host_reply_ipc>(), 6, JS::default_attributes);
     host->define_native_function(realm, "create"_utf16, native_binding<&Impl::native_host_create>(),
-        15, JS::default_attributes);
+        16, JS::default_attributes);
     host->define_native_function(realm, "destroy"_utf16,
         native_binding<&Impl::native_host_destroy>(), 1, JS::default_attributes);
     host->define_native_function(realm, "destroyNow"_utf16,
@@ -233,6 +233,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_create(JS::VM& vm)
         return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
             "Firefly windows require disabled native spellchecking"sv);
     auto zoom_factor = TRY(read_zoom(vm, 14, true));
+    auto autoplay_policy = TRY(read_autoplay(vm, 15));
     auto native_enabled
         = WebView::Application::browser_options().disable_sandbox == WebView::DisableSandbox::No;
     if (auto failure = sandbox.check_window(native_enabled); failure.has_value())
@@ -269,7 +270,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_create(JS::VM& vm)
         vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)),
         background, limits,
         first_mouse.is_undefined() ? Optional<bool> {} : Optional<bool> { first_mouse.as_bool() },
-        hidden_title_bar, zoom_factor);
+        hidden_title_bar, zoom_factor, autoplay_policy);
     if (id.has<WindowCreationError>()) {
         if (id.get<WindowCreationError>() == WindowCreationError::TitleBarPolicy)
             return preload_error(vm, "ERR_FIREFLY_WINDOW_TITLE_BAR",

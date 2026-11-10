@@ -30,6 +30,7 @@
 #include "native/window/Constraints.h"
 #include "native/window/FirstMouse.h"
 #include "native/window/TitleBar.h"
+#include "renderer-bridge/autoplay/Policy.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -143,6 +144,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         std::vector<int> child_ids;
         std::array<int, 4> view_bounds { 0, 0, 0, 0 };
         bool desired_visible { true };
+        Autoplay::Policy autoplay_policy { Autoplay::Policy::UpstreamDefault };
         u32 background_rgb { 0xffffff };
         u32 background_generation { 1 };
         bool closing { false };
@@ -338,7 +340,8 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     void close_contents(int, bool immediate = false);
 
-    Optional<int> create_view(Optional<Preload>, double zoom_factor = 1.0);
+    Optional<int> create_view(Optional<Preload>, double zoom_factor = 1.0,
+        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault);
 
     void setup_content_callbacks(int);
 
@@ -354,6 +357,8 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     void install_zoom(JS::Object&);
 
+    JS::ThrowCompletionOr<Autoplay::Policy> read_autoplay(JS::VM&, size_t index);
+
     static JS::ThrowCompletionOr<double> read_zoom(JS::VM&, size_t index, bool optional = false);
 
     void install_constraints(JS::Object&);
@@ -366,7 +371,8 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     Variant<int, WindowCreationError> create(int width, int height, QString const& title, bool show,
         bool frame, Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
         u32 background_rgb = 0xffffff, WindowLimits const& limits = {},
-        Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0);
+        Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0,
+        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

@@ -12505,6 +12505,49 @@ this validates its framing/backpressure logic, not Windows transport behavior.
 Windows execution of these repairs remains pending hosted CI. No runtime policy,
 GUI test, timeout increase, fabricated event or skipped integrity assertion is used.
 
+## 2026-11-10 — Real native autoplay and direct Code-OSS startup priority
+
+Implement native Rust AudioContext admission through three reversible pinned
+leaves, never a Window activation observer or JavaScript media shim. Genuine lazy
+renderer/output acquisition is shared by constructor, resume and both independent
+source-start paths. Transient authorization is sampled at those operations only;
+user suspension prevents automatic playback but can retain valid source-start
+authorization. Opaque native setting revisions prevent reuse across policy changes
+or removal/readdition. Queued publication revalidates without sampling activation,
+stops revoked graphs, rejects pending/current/future resumes and enters the actual
+promise/statechange execution context. Already-running dynamic policy replacement
+is outside this immutable public-option slice.
+
+Owned helpers enter fail-closed mode before session/author initialization. Strict
+metadata-only snapshots carry canonical native IDs, generations and explicit
+upstream-default records. Unknown/removed owned contexts deny, unmanaged SDK
+contexts preserve their original behavior. Strip all policy records before canvas
+and preload/script processing. BrowserWindow and WebContentsView snapshot the two
+explicit supported values and store their native enum before page configuration;
+document-user-activation-required remains explicitly unsupported. The exact
+HighlightAPI preference is accepted for already-enabled native CSS.highlights;
+arbitrary Blink switches and deprecated script-paste settings remain unsupported.
+
+Actual Release Rust crate, LibWeb and Firefly/helper builds succeed. Thirteen real
+media groups pass, including the production metadata decoder/defaults/revocation;
+ten null-audio graph groups pass. The final inactive-document pending-promise
+fixture still fails and its subsequent GC case has not run; the audio target is
+NOT green. A corrected queued rejection now enters its actual realm execution
+context after a genuine Rust panic exposed the omission. Source composition,
+CPU policy and native compiler checks pass. Evidence: autoplay-audio-rust-build.log,
+autoplay-native-media-audio-acceptance.log, autoplay-firefly-codeoss-build.log.
+
+The user now requests fewer tests and prioritizes an actual VS Code start. Stop
+expanding component suites; use direct startup evidence and only immediate blocker
+checks. The accepted Designer was reopened on request and is left running. No
+additional Designer or broad GUI suite is launched. Code-OSS renderer assets and
+its explicit local legacy-paste adaptation are being prepared separately in the
+existing stage; no accepted workbench/open-edit-save run exists yet. The direct
+Cocoa startup now passes autoplay and rejects enableBlinkFeatures (entry log above
+is actually autoplay-codeoss-entry.log); the prepared exact HighlightAPI admission
+requires one final incremental host rebuild. The unavailable offscreen Qt plugin
+was refused explicitly, so the real diagnostic used Cocoa without a GUI suite.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

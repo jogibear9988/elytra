@@ -7,6 +7,7 @@
 // is not extracted. Rename only the session-state and command entry definitions;
 // class/IPC declarations below retain their original ABI.
 #include "RendererSession.h"
+#include "autoplay/Session.h"
 #include "canvas/Session.h"
 #include <WebContent/WebDriverBiDi.h>
 #include <cstdio>
@@ -39,6 +40,12 @@ void run_webdriver_bidi_command(PageClient& page, u64 command, Web::HTML::CrossP
 
 void set_webdriver_bidi_session_state(Web::WebDriver::BiDiSessionState state)
 {
+    auto autoplay = Firefly::HelperAutoplay::extract(state);
+    if (autoplay.is_error()) {
+        warnln("Invalid native autoplay configuration: {}", autoplay.error());
+        fflush(nullptr);
+        std::_Exit(1);
+    }
     auto canvas = Firefly::HelperCanvas::extract(state);
     if (canvas.is_error()) {
         warnln("Invalid native canvas configuration: {}", canvas.error());

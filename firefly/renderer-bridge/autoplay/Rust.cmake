@@ -1,5 +1,5 @@
-# Route the genuine LibWeb WebAudio Rust leaf before upstream emits Cargo commands. This first stage
-# keeps the leaf byte-identical and enables no autoplay option.
+# Route genuine LibWeb WebAudio Rust leaves before upstream emits Cargo commands. Public autoplay
+# options remain rejected until renderer acceptance is complete.
 include_guard(GLOBAL)
 if(NOT FIREFLY_RUST_NOJIT_FINGERPRINT)
     message(FATAL_ERROR "Include WebAudio Rust routing after the existing non-JIT/origin chain")
@@ -69,10 +69,13 @@ set_property(
     APPEND
     PROPERTY
         CMAKE_CONFIGURE_DEPENDS
+        "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/audio.py"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/prepare.py"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/driver.py"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/Driver.cpp"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/lib.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/web_audio/mod.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/web_audio/audio_context.rs"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/web_audio/audio_scheduled_source_node.rs"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/web_audio/audio_buffer_source_node.rs"
 )

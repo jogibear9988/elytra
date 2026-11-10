@@ -143,8 +143,10 @@ Optional<bool> allowed(Web::HTML::HTMLMediaElement const& element)
     if (!state().owner.is_current_thread())
         return {};
     auto policy = policy_for(element.document());
-    if (!policy.has_value())
+    if (!policy.has_value() || *policy == Policy::UpstreamDefault)
         return {};
+    if (*policy == Policy::Blocked)
+        return false;
     auto& value = element_state(element, policy);
     bool opener_play = value.opener_play;
     value.opener_play = false; // Consumed by the immediate play() admission check only.

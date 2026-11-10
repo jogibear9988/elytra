@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
-"""Route the exact pinned WebAudio Rust leaf without changing its implementation yet.
+"""Route exact pinned WebAudio leaves through reversible native autoplay edits.
 
-Cargo keeps its manifest, lockfile, generated bindings and dependency graph. Only
-three checked source files are routed; other modules use their upstream files.
-The AudioContext leaf is deliberately byte-identical in this infrastructure slice.
+Cargo retains its manifest, bindings and dependency graph. All uncomposed modules
+continue to use upstream sources; no vendor source is changed.
 """
 
 import argparse
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 import re
 import sys
+
+# This script is also loaded by path by CPU policy tests; never depend on the
+# caller's sys.path or import an unrelated package named "audio".
+_audio_spec = importlib.util.spec_from_file_location(
+    "_firefly_web_audio_composition", Path(__file__).with_name("audio.py")
+)
+_audio = importlib.util.module_from_spec(_audio_spec)
+_audio_spec.loader.exec_module(_audio)
+AUDIO_PINS, compose = _audio.PINS, _audio.compose
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src"
 PINS = {
     "lib.rs": "87a59d6bbc27d74b83b07da15dddb84cda74e1e220a38f07d9edf3a0f4f60c59",
     "web_audio/mod.rs": "bfcbe81444c74d578d7861d711486534fe3c043e32b7895d51849e4084963b0e",
-    "web_audio/audio_context.rs": "b65cec7b389be677923c9d41503a1fb362b79665d3444520d043605d3ba0fc52",
+    **{f"web_audio/{name}": digest for name, digest in AUDIO_PINS.items()},
 }
 ROOT_MODULES = frozenset(
     """
@@ -123,7 +132,7 @@ def prepare(output, driver, chain="", check=False):
         if digest(path.read_bytes()) != expected:
             raise ValueError(f"Review pinned WebAudio source: {path}")
         inputs[str(path.resolve())] = expected
-    for name in ("prepare.py", "driver.py", "Driver.cpp"):
+    for name in ("prepare.py", "driver.py", "Driver.cpp", "audio.py"):
         path = Path(__file__).parent / name
         inputs[str(path.resolve())] = digest(path.read_bytes())
     root = module_source(
@@ -136,12 +145,15 @@ def prepare(output, driver, chain="", check=False):
         (SOURCE / "web_audio/mod.rs").read_text(),
         SOURCE / "web_audio",
         AUDIO_MODULES,
-        {(SOURCE / "web_audio/audio_context.rs").resolve(): output / "audio_context.rs"},
+        {(SOURCE / "web_audio" / name).resolve(): output / name for name in AUDIO_PINS},
     )
     planned = {
         "lib.rs": root.encode(),
         "web_audio.rs": audio.encode(),
-        "audio_context.rs": (SOURCE / "web_audio/audio_context.rs").read_bytes(),
+        **{
+            name: compose(name, (SOURCE / "web_audio" / name).read_text()).encode()
+            for name in AUDIO_PINS
+        },
     }
     provenance = input_fingerprint(inputs, chain, planned)
     planned["lib.rs"] += f"\n{FOOTER}{provenance}\n".encode()
@@ -175,7 +187,7 @@ def prepare(output, driver, chain="", check=False):
         path = output / name
         if not path.exists() or path.read_bytes() != data:
             path.write_bytes(data)
-    print("PASS pinned WebAudio Rust routing; implementation bytes unchanged")
+    print("PASS pinned WebAudio Rust routing and reversible native admission edits")
 
 
 if __name__ == "__main__":

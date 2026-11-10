@@ -1,7 +1,9 @@
 # ADR 0191: Native autoplay policy for Code-OSS
 
-Status: native HTML media component validated locally; WebAudio and public
-webPreferences integration remain required. Code-OSS does not run yet.
+Status: native media/WebAudio enforcement and public option wiring implemented.
+Thirteen media groups and ten WebAudio groups pass locally; the final inactive
+fixture/GC checks and actual application transport acceptance remain unfinished.
+Code-OSS does not run yet.
 
 ## Required behavior
 
@@ -47,7 +49,8 @@ AudioContext currently always starts. Its allowed_to_start is immutable, rendere
 creation occurs only in the constructor, and blocked resume paths were unreachable.
 Changing that boolean alone cannot implement the required lifecycle.
 
-Before admitting the public preference, implement and verify all of these:
+The two explicit values now have native implementation and experimental public
+wiring. The implementation and remaining acceptance cover these requirements:
 
 - Gate before output acquisition, with genuine lazy renderer creation shared by
   construction and the first authorized resume.
@@ -74,6 +77,22 @@ BFCache renderer restoration is separately incomplete upstream.
 
 document-user-activation-required additionally needs its own document/ancestor,
 delegation and browser-exception semantics; keep it explicitly unsupported until
-implemented. No autoplay value is publicly admitted by this groundwork. Only
-complete native enforcement plus actual helper/public tests can remove Code-OSS's
-current constructor blocker. A workbench/open-edit-save run remains a separate gate.
+implemented. The two experimental public values use trusted native snapshots for
+BrowserWindow and WebContentsView; no value is implemented through page-script
+patches. Actual application transport and workbench/open-edit-save acceptance
+remain separate gates.
+
+## Current validation boundary
+
+The real Release Rust crate and native Firefly host compile. Media admission,
+metadata stripping, explicit owned defaults and fail-closed removed contexts pass
+thirteen actual component groups. Ten genuine null-audio graph groups pass,
+including transient construction/resume, both source-start paths, explicit user
+suspension, authorization revisions, queued publication revocation and close.
+The remaining native fixture currently fails its inactive-document pending-promise
+assertion; its following GC check has not run. Keep that failure visible rather
+than reporting the whole audio target as passing. No OS audio device is opened.
+
+Queued tasks revalidate native policy without sampling a new activation. Removed
+or changed settings cannot reuse an old context authorization. Public settings are
+immutable; changing an already-playing graph's policy is outside this slice.

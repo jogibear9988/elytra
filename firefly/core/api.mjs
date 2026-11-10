@@ -712,7 +712,8 @@ export default function createFireflyApi(
           constraintWire,
           firstMouse,
           hiddenTitleBar,
-          prefs.zoomFactor
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
         )
       });
       this.webContents = new WebContents(this, contentsToken);
