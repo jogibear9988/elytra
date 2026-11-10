@@ -45,6 +45,7 @@
 #include <QSurfaceFormat>
 #include <QTimer>
 #include <UI/Qt/EventLoopImplementationQt.h>
+#include <cstdlib>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -340,6 +341,16 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return Firefly::Utility::run(arguments.argc, arguments.argv);
     if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--firefly-utility-electron")
         return Firefly::Utility::run(arguments.argc, arguments.argv, true);
+    // Electron applications reuse their executable for CLI children (notably
+    // shell-environment discovery). Run our independent LibJS runtime before
+    // creating Qt, the compositor or any privileged desktop host modules.
+    auto* run_as_node = std::getenv("ELECTRON_RUN_AS_NODE");
+    if (run_as_node && std::string_view(run_as_node) == "1") {
+        Mite::HostHooks hooks;
+        hooks.allow_process_signals = true;
+        return Mite::run(arguments.argc, arguments.argv, hooks);
+    }
+
     auto options = Firefly::startup_options(arguments.argc, arguments.argv);
     if (options.help || !options.error.empty()) {
         outln("Usage: firefly [--electron-compat] <main.js> [arguments...]");

@@ -230,7 +230,7 @@ are sufficient for the actual Code-OSS IPC client's child cleanup; they do not
 establish complete process lifecycle parity.
 
 `process.execArgv` now reports an empty array for file execution or the actual
-eval flag/source pair for -e/--eval. Internal fork role flags are absent. Fork-child
+eval/print flag/source pair for -e/--eval or -p/--print. Internal fork role flags are absent. Fork-child
 message/disconnect events, send/connected/channel exist only with the owned child
 capability; ordinary processes cannot enable it by assigning public properties or
 an environment marker. process.parentPort is not installed by Node-style fork.

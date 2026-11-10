@@ -76,3 +76,13 @@ unsupported Chromium enable-features (exit 1) without the engine overlay. The ex
 after passing the registerHooks/promisify imports. That is an incomplete startup trace,
 not a desktop launch. See the [dependency preparation guide](../guides/code-oss-adaptation.md#prepare-actual-root-production-dependencies). See
 [Code-OSS support](../compatibility/vscode.md) and [ADR 0107](../architecture/0107-electron-import-policy.md).
+
+## CLI child mode
+
+With `ELECTRON_RUN_AS_NODE=1`, the executable runs standalone Mite before Qt or
+renderer initialization. This supports CLI children such as Code-OSS shell
+environment discovery using `-p 'JSON.stringify(process.env)'`. No desktop
+modules are installed; version information continues to identify Mite/LibJS.
+The existing explicit fork/utility bootstrap roles retain their own validation.
+Other environment values do not select this mode. See the [Mite CLI](cli.md) for
+its supported flags and print-formatting differences.

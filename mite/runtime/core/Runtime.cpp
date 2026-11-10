@@ -88,7 +88,8 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     }
 
     if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--help")) {
-        puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite "
+        puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite -p "
+             "<source>\n       mite "
              "--version");
         return argc == 1 ? 1 : 0;
     }
@@ -127,9 +128,11 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     std::filesystem::path native_filename;
     std::string source;
     int script_arg = 1;
-    if (std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
+    bool print_completion
+        = std::string_view(argv[1]) == "-p" || std::string_view(argv[1]) == "--print";
+    if (print_completion || std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
         if (argc < 3) {
-            fputs("mite: --eval requires source text\n", stderr);
+            fputs("mite: --eval/--print requires source text\n", stderr);
             return 9;
         }
 
@@ -337,7 +340,23 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
             event_loop.uncaught_exception(result.error_value());
             status = event_loop.status() ? event_loop.status() : drive();
         } else {
-            status = drive();
+            // Print the actual script completion before driving asynchronous work.
+            // This uses normal string conversion, including errors from user hooks.
+            auto completion = result.release_value();
+            if (print_completion) {
+                auto text = completion.to_utf16_string(*vm);
+                if (text.is_error()) {
+                    event_loop.uncaught_exception(text.error_value());
+                    status = event_loop.status();
+                } else {
+                    write_text(stdout, text.value());
+                    fputc('\n', stdout);
+                    fflush(stdout);
+                }
+            }
+
+            if (!status)
+                status = drive();
         }
     }
 

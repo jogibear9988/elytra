@@ -12785,6 +12785,22 @@ in rebuilt standalone Mite return sqlite:3.53.4 and keymap:119
 (codeoss-native-package-import.log). This proves real package selection, not an
 editor run; the next combined application start remains required.
 
+
+## 2026-11-11 — Run CLI children in Mite before desktop bootstrap
+
+Code-OSS shell environment discovery reexecutes its host with
+ELECTRON_RUN_AS_NODE=1 and -p. Firefly now selects genuine standalone Mite for
+that exact environment value before Qt/desktop initialization; existing explicit
+fork/utility role validation remains earlier. Add -p/--print to evaluate a script
+and print its actual completion using JavaScript string conversion, documenting
+the difference from Node object inspection. No Node/V8 or desktop host is loaded.
+
+Combined Release Firefly/WebContent build succeeds in the reused renderer-review
+cache (codeoss-preload-start-build.log). Actual CLI invocation prints
+shell-marker{"mite":"0.1.0","platform":"darwin"}shell-marker and exits zero,
+without a GUI. The next batched Code-OSS run also includes the separately reviewed
+native focus/recent-document/preload changes. No broad runtime suite is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
