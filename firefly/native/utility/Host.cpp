@@ -5,6 +5,7 @@
 #include "Host.h"
 #include "../platform/GCIncludes.h"
 #include "core/EventLoop.h"
+#include "platform/UV.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -20,7 +21,6 @@
 #include <signal.h>
 #include <string>
 #include <unordered_map>
-#include <uv.h>
 #include <vector>
 
 namespace Firefly::Utility {

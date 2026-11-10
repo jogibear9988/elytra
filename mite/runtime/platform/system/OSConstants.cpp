@@ -3,13 +3,13 @@
  * actual host, rather than a hardcoded POSIX or Windows compatibility table.
  */
 
+#include "platform/UV.h"
 #include "platform/system/OS.h"
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <cerrno>
 #include <csignal>
 #include <cstring>
-#include <uv.h>
 #ifndef _WIN32
 #include <dlfcn.h>
 #endif

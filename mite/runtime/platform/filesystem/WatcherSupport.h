@@ -1,12 +1,12 @@
 /** Common private filesystem-watcher path snapshots and genuine libuv error projection. */
 #pragma once
+#include "platform/UV.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <cmath>
 #include <cstring>
 #include <string>
-#include <uv.h>
 
 namespace Mite::WatcherSupport {
 inline JS::ThrowCompletionOr<std::string> path_argument(JS::VM& vm, JS::Value input)

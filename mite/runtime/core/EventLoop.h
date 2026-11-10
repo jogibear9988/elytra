@@ -6,6 +6,7 @@
 #pragma once
 
 #include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
@@ -16,7 +17,6 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

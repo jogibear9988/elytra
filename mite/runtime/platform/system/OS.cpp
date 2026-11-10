@@ -4,6 +4,7 @@
  */
 
 #include "platform/system/OS.h"
+#include "platform/UV.h"
 #include "platform/system/OSNetmask.h"
 #include <AK/HashMap.h>
 #include <AK/ScopeGuard.h>
@@ -17,7 +18,6 @@
 #include <cstdio>
 #include <cstring>
 #include <limits.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

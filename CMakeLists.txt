@@ -104,6 +104,18 @@ add_executable(mite mite/cli/main.cpp)
 target_link_libraries(mite PRIVATE mite-runtime)
 include(CTest)
 if(BUILD_TESTING)
+    # Compile real SDK/libuv types in every supported include order. Windows assertions check
+    # Winsock layouts/signatures; these fixtures make no OS calls.
+    foreach(order RANGE 0 2)
+        add_library(mite-uv-headers-${order} OBJECT mite/tests/platform/UVHeaders.cpp)
+        target_link_libraries(mite-uv-headers-${order} PRIVATE mite-runtime)
+        target_compile_definitions(mite-uv-headers-${order} PRIVATE MITE_UV_HEADER_ORDER=${order})
+        add_dependencies(mite mite-uv-headers-${order})
+    endforeach()
+    add_test(NAME mite-uv-header-boundary COMMAND "${Python3_EXECUTABLE}"
+                                                  "${CMAKE_SOURCE_DIR}/tooling/check_uv_headers.py")
+    add_test(NAME mite-uv-header-guard
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_uv_headers.py")
     add_executable(firefly-startup-probe firefly/native/platform/StartupProbe.cpp)
     add_dependencies(mite firefly-startup-probe)
     add_test(NAME firefly-startup-options COMMAND "$<TARGET_FILE:firefly-startup-probe>")

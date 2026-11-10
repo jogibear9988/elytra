@@ -16,10 +16,10 @@ static int run_cli(int argc, char** argv)
 
 #ifdef _WIN32
 // Keep upstream's Windows include boundary local to this platform entry point.
+#include "platform/UV.h"
 #include "platform/process/WindowsArguments.h"
 #include <fcntl.h>
 #include <io.h>
-#include <uv.h>
 
 int wmain(int argc, wchar_t** wide_argv)
 {

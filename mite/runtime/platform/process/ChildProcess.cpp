@@ -7,6 +7,7 @@
 #include "platform/process/ChildProcess.h"
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -22,7 +23,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

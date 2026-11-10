@@ -8,6 +8,7 @@
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
 #include "modules/ModulePaths.h"
+#include "platform/UV.h"
 #include "platform/filesystem/EventWatcher.h"
 #include "platform/filesystem/StatSnapshot.h"
 #include "platform/filesystem/StatWatcher.h"
@@ -26,7 +27,6 @@
 #include <memory>
 #include <string>
 #include <sys/stat.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

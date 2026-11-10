@@ -6,6 +6,7 @@
 #include "BuiltinSources.h"
 #include "UpstreamVersion.h"
 #include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Timing.h"
 #include <AK/ScopeGuard.h>
@@ -19,7 +20,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <llhttp.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

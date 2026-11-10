@@ -8,6 +8,7 @@
 #include "core/errors/StackTrace.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
+#include "platform/UV.h"
 #include "platform/process/ProcessHost.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
@@ -22,7 +23,6 @@
 #include <LibJS/Runtime/Promise.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
-#include <uv.h>
 
 #include <cstdio>
 #include <cstdlib>

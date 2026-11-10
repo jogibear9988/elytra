@@ -1,11 +1,11 @@
 /** Shared lossless native stat projection consumed by fs.Stats and polling watchers. */
 #pragma once
+#include "platform/UV.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/PrimitiveString.h>
 #include <LibJS/Runtime/Realm.h>
 #include <string>
-#include <uv.h>
 
 namespace Mite {
 inline GC::Ref<JS::Object> make_stat_snapshot(JS::Realm& realm, uv_stat_t const& stat)

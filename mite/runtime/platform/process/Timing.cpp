@@ -1,5 +1,6 @@
 /** Monotonic nanoseconds and process CPU accounting; wall-clock adjustments cannot change them. */
 #include "Timing.h"
+#include "platform/UV.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -8,7 +9,6 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <chrono>
 #include <cstring>
-#include <uv.h>
 
 namespace Mite {
 namespace {

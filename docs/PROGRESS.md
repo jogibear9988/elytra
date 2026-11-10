@@ -12073,6 +12073,24 @@ Mite validation passes all seven writer groups, policy and short-write cases
 API documentation now explains both Node observations. Hosted validation remains
 pending until the corrected runner is pushed and executed.
 
+The old Windows native job129654457257 failed compiling EventLoop/Runtime/
+ImmediateQueue: new explicit-GC headers include AK/Time before libuv/Winsock,
+revealing two timeval declarations. Add one owned platform/UV.h boundary: load
+actual AK time types, then scope the same Winsock-only dummy_timeval spelling as
+upstream AK/Windows.h around libuv. Do not import its cpp-only SystemApi initializer
+into runtime headers, change type layouts or fake _TIMEVAL_DEFINED. All16 owned
+Mite/Firefly direct libuv includes now use this boundary; vendor sources are clean.
+
+Three compile-only include-order fixtures are dependencies of the normal mite
+build. Windows branches assert actual SDK timeval layouts, the imported Winsock
+select function pointer type and macro restoration. The maintained source guard
+and its negative fixtures reject direct libuv-header bypasses. Local Release
+Mite and Firefly/offscreen rebuilds pass; the complete CLI/source aggregate now
+passes147/147 in53.47 seconds (candidate-uv-release-build.log,
+candidate-uv-release-147.log, candidate-uv-firefly-build.log). These are Mac
+checks; the real WinSDK assertions still require the next hosted clang-cl build.
+No native Windows acceptance is inferred from local syntax or source tests.
+
 Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
 obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
 its active review worktree, shared installed dependencies or running Designer app.

@@ -6,6 +6,7 @@
 #include "UtilityParentSource.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
+#include "platform/UV.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include "serialization/WireValue.h"
@@ -16,7 +17,6 @@
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
 #include <cstdio>
-#include <uv.h>
 #include <vector>
 
 namespace Firefly::Utility {

@@ -6,6 +6,7 @@
 #include "platform/crypto/Crypto.h"
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -14,7 +15,6 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {

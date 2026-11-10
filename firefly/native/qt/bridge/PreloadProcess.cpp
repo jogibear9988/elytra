@@ -1,11 +1,11 @@
 /** Snapshot validated application arguments and the main OS environment before native window
  * creation. */
 #include "Impl.h"
+#include "platform/UV.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Runtime/ValueInlines.h>
 #include <cstring>
-#include <uv.h>
 
 namespace Firefly {
 JS::ThrowCompletionOr<JsonArray> Bridge::Impl::read_process_arguments(JS::VM& vm, size_t argument)
