@@ -12452,6 +12452,17 @@ CI repairs. Actual failed run IDs: Windows42910820776/job130166222903 and Linux
 renderer42910820714/job130166305311. The engine branch stays independently reviewable
 while the new SQLite/keyboard Code-OSS work is compiled separately.
 
+## 2026-11-11 — Preserve native Linux fork acceptance backend
+
+Linux renderer run 42921362015 at 7e876e1 failed in check-firefly-fork before
+transport execution. The target selected the available offscreen test frontend,
+and its runner replaced the workflow's xcb setting; production startup correctly
+refused that unsupported Linux backend. Select the offscreen fork frontend only
+on macOS. Linux retains the production executable and existing isolated Xvfb/xcb
+environment. The native startup guard and fork assertions remain unchanged.
+Source/diff checks pass; no local build, GUI run or remote success is claimed.
+Fresh hosted Linux execution is required.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

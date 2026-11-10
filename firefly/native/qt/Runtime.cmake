@@ -363,7 +363,9 @@ endif()
 # hosted native/Xvfb acceptance supplies the desktop backend.
 set(fork_driver firefly)
 set(fork_driver_options)
-if(TARGET firefly-view-offscreen)
+# Linux's production startup requires the isolated native X11 backend, even
+# when the test-only offscreen static plugin is available to other probes.
+if(APPLE AND TARGET firefly-view-offscreen)
     set(fork_driver firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
 endif()
