@@ -163,6 +163,17 @@ def adapt_local(name, data):
         source = source.replace(start, "\t\tif (!isLocalDesktop()) {\n" + start).replace(
             end, end + "\n\t\t}"
         )
+        # The same disabled remote feature must not register a fetch route after
+        # window creation when its scheme was deliberately omitted at startup.
+        remote_handler = (
+            "\t\tprotocol.handle(Schemas.vscodeRemoteResource, createRemoteResourceRequestHandler(this.logService));\n"
+            "\t\tthis._register(toDisposable(() => protocol.unhandle(Schemas.vscodeRemoteResource)));"
+        )
+        if source.count(remote_handler) != 1:
+            raise ValueError("Remote protocol registration seam changed")
+        source = source.replace(
+            remote_handler, "\t\tif (!isLocalDesktop()) {\n" + remote_handler + "\n\t\t}"
+        )
         # Only this optional capture registration is deferred. Security permission
         # callbacks and all webRequest filtering below remain unchanged.
         display_start = "\t\tsession.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {"

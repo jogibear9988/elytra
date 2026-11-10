@@ -613,3 +613,9 @@ In explicit local Mite mode that owned profile also disables keyboard.touchbar.e
 so the renderer does not request the intentionally omitted optional TouchBar.
 Existing user profiles are never overwritten. A reused owned profile needs both
 window.titleBarStyle:native and keyboard.touchbar.enabled:false in User/settings.json.
+
+The local remote opt-out covers both channel setup and the afterWindowOpen protocol
+handler registration. Actual remote requests remain rejected. The local Darwin
+updater skips native subscriptions only after the genuine base service reaches
+Disabled; an unexpected enabled state fails explicitly. Neither change implements
+remote resources or native application updating.

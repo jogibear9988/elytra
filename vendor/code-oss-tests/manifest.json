@@ -286,6 +286,10 @@
     "css-development-service.ts": {
       "upstream": "src/vs/platform/cssDev/node/cssDevService.ts",
       "sha256": "3b6c452087f79f3aafbde34285fd94f6c5d69730522441ad362d989bcda088b6"
+    },
+    "darwin-update-service.ts": {
+      "upstream": "src/vs/platform/update/electron-main/updateService.darwin.ts",
+      "sha256": "8eead08ba810059a02dfeaf24e09ba69b45ef987b06e0e6680931c210cc5fd6b"
     }
   }
 }

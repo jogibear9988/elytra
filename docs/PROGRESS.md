@@ -12702,6 +12702,30 @@ single direct entry batches these queries with the prior document metadata,
 header interception and real development renderer assets. Successful renderer or
 workbench loading remains unverified until that entry produces actual evidence.
 
+## 2026-11-11 — Complete the already-disabled remote/update application gates
+
+The actual native-window entry now passes configuration queries and schedules
+loading, then fails in afterWindowOpen: the local profile deliberately omitted
+remote-resource scheme privileges, but the application still unconditionally
+registered its remote handler. Guard that registration/unregistration pair only
+in local mode, matching the existing disabled-remote contract and request/CLI
+rejections. General Firefly protocol admission remains unchanged and strict.
+The new guard preserves every other previously adapted source byte.
+
+The same trace reveals a Darwin updater bug in this experiment: the real base
+service already reaches Disabled, then the subclass subscribes to unavailable
+native autoUpdater events. Only verified local Mite skips those subscriptions
+AFTER checking the actual Disabled state. Unexpected state throws
+ERR_CODE_OSS_LOCAL_UPDATER_UNSUPPORTED. Ordinary Node/Electron retains original
+subscriptions; no fake EventEmitter or native update capability is added.
+
+Focused Node/Mite adapter behavior, exact pinned-source reversal/drift and combined
+overlay preparation pass. No GUI/Ninja or broad suite is run for these guards.
+The next combined stage refresh is intentionally batched with genuine SQLite and
+keyboard-layout adapters: native state.vscdb and native-keymap failures are now
+observed actual startup dependencies (codeoss-native-window-load.log). A rendered
+workbench/open-edit-save run still has not been established.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
