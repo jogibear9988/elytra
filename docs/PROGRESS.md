@@ -12366,6 +12366,18 @@ No Ninja, desktop or audio tests were run for these fixture-only changes. The
 remaining Windows fork/reference pipe, watcher GC and filename failures still
 need investigation. Native Windows desktop support remains unfinished.
 
+## 2026-11-10 — Wait for actual native menu dispatch in hosted acceptance
+
+The older macOS Release job at abd65d1 reaches the native menu test after its
+preceding runtime/protocol gates pass, then fails the new-window dispatch check.
+The same fixture remains in aae76b4. It assumes a fixed 15 ms delay is sufficient
+for native dispatch although the quit test already uses bounded observation.
+Use a two-second bounded wait for the actual callback count, retain the exact
+callback/checked assertions, and report real native generation/signal/delivery
+counters on failure. No sleep duration is increased and no success is synthesized.
+JS formatting and diff checks pass; hosted native execution is still required.
+No local GUI test is launched for this timing-fixture correction.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

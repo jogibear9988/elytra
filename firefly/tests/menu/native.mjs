@@ -109,7 +109,14 @@ checkbox.checked = false;
 check(JSON.parse(native.state(checkbox.commandId)).label === 'Updated', 'native property update');
 native.attachWindow();
 check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
-await delay();
+// A newly attached native menu still delivers through the actual Qt -> LibJS queue.
+const attachDeadline = Date.now() + 2000;
+while (calls < 2 && Date.now() < attachDeadline) {
+  await delay();
+}
+if (calls !== 2 || !checkbox.checked) {
+  console.error('native attached-window diagnostics', native.state(checkbox.commandId));
+}
 check(calls === 2 && checkbox.checked, 'new window/native tree');
 check(native.trigger(quit.commandId), 'native quit QAction missing');
 // Wait for the actual QAction -> native queue -> LibJS role dispatch, rather than
