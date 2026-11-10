@@ -138,6 +138,33 @@ def transform(name, original):
             '(void)url;\n        Firefly::HubFrontend::unsupported("browser language settings tab"sv);',
         )
     if name == "HubConnection.cpp":
+        c.replace(
+            '#include "native/qt/hub/Frontend.h"',
+            '#include "native/qt/hub/Frontend.h"\n#include "native/qt/hub/ConnectionHooks.h"',
+        )
+        c.replace(
+            "HubConnection::~HubConnection()\n{\n    s_the = nullptr;\n}",
+            "HubConnection::~HubConnection()\n{\n    if (s_the == this)\n        s_the = nullptr;\n}",
+        )
+        c.replace(
+            "void HubConnection::die()\n{\n",
+            "void HubConnection::die()\n{\n    if (s_the != this)\n        return;\n",
+        )
+        # IPC closures may outlive HubHost. Detach only the exact current client;
+        # neither its delayed destructor nor die() may affect a later connection.
+        c.replace_at(
+            len(c.source),
+            "",
+            """
+namespace Firefly::HubLifecycle {
+void retire_ui_client(Ladybird::HubConnection& connection)
+{
+    if (Ladybird::s_the == &connection)
+        Ladybird::s_the = nullptr;
+}
+}
+""",
+        )
         # No browser frontend singleton, browser store or native authorization dialog.
         for include in [
             "ApplicationActions.h",

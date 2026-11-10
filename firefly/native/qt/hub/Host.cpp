@@ -3,6 +3,7 @@
 #include "Host.h"
 #include "../../crash/Reporter.h"
 #include "../../locale/Locale.h"
+#include "ConnectionHooks.h"
 #include <LibCore/EventLoop.h>
 #include <LibIPC/Transport.h>
 #include <LibIPC/TransportHandle.h>
@@ -57,6 +58,19 @@ void HubHost::shutdown()
     m_close_frontend();
     if (m_hub)
         m_hub->destroy_all_views();
+    // Deferred IPC invocations strongly retain their endpoint. Retire callbacks
+    // while their Application still lives, then close both actual transports;
+    // ConnectionBase::shutdown also discards queued message batches. No global
+    // event pumping or queue destruction is needed to release those self-refs.
+    if (m_server)
+        HubLifecycle::retire_ui_connection(*m_server);
+    if (m_client) {
+        HubLifecycle::retire_ui_client(*m_client);
+        m_client->shutdown();
+    }
+
+    if (m_server)
+        m_server->shutdown();
     m_client = nullptr;
     m_server = nullptr;
     if (m_hub)

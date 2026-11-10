@@ -15,6 +15,14 @@ unimplemented browser actions return explicit negative results.
 Qt widget identity is not document authority. Resolve native view/page/frame,
 preload, permission and network ownership through the real canonical Hub view.
 Keep the Hub transports alive while destroying widgets, then detach the host.
+An IPC deferred invocation can retain its endpoint beyond the Hub owner. Retire
+the actual server's application callbacks while the Hub still exists, retire the
+client singleton, and shut down both real IPC transports before dropping them.
+The composed destructor performs the same original callback cleanup only for
+the current endpoint. A retired endpoint's delayed destructor or disconnect must
+neither borrow the destroyed Hub nor clear a later endpoint's callbacks. Do not
+pump or clear the global event queue to hide this lifetime requirement.
+
 Deferred initialization seals application paths and verifies the selected native
 sandbox/renderer options before ready. The pre-ready sandbox latch is a launch
 plan that must match the initialized SDK options, not an invented engine state.
@@ -52,6 +60,17 @@ an endpoint when its weak proxy is dead and it has no pending Promise. Keep
 proxy-dead pending endpoints registered so document revocation still settles them.
 This preserves the original repeated 64-slot reclamation and pending-revocation
 assertions without extra collections or weaker limits.
+
+## Qt and the external ICU data owner
+
+Qt's static ICU archives can satisfy collation symbols before the shared
+LibUnicode target, creating a second ICU state that its external-data constructor
+does not initialize. Merely loading that dylib does not prove Qt uses its state.
+Keep Unicode explicit in both frontend and picker dependency graphs. For the
+macOS shared/external-data graph, present the actual dylib before archive
+selection with needed_library, retaining normal target dependencies and rpaths.
+Verify actual imported symbols and numeric QCollator behavior in both graph
+shapes. Do not add a second data loader or a guessed SDK resource path.
 
 ## Evidence and remaining work
 

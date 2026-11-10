@@ -140,6 +140,12 @@ if(BUILD_TESTING)
     add_test(NAME firefly-hub-lifecycle-guard
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_lifecycle.py")
+    add_test(NAME firefly-hub-connection-guard
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_connection.py")
+    add_test(NAME firefly-x11-manager-ordering
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_x11_manager.py")
     add_test(NAME firefly-hub-frontend-headers
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_frontend_headers.py")

@@ -24,3 +24,26 @@ add_custom_target(
             --output "${hub_lifecycle_output}"
     VERBATIM)
 add_dependencies(hubservice check-firefly-hub-lifecycle)
+
+# IPC may retain ConnectionFromUI until the thread queue dies. Its Application callbacks must be
+# explicitly retired first without changing its class layout.
+set(hub_connection_output "${CMAKE_BINARY_DIR}/firefly-adapters/hub/ConnectionFromUI.cpp")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_connection.py"
+            --output "${hub_connection_output}" RESULT_VARIABLE hub_connection_result)
+if(NOT hub_connection_result EQUAL 0)
+    message(FATAL_ERROR "Review embedded Hub endpoint lifecycle composition")
+endif()
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_connection.py"
+             "${LADYBIRD_SOURCE_DIR}/Services/Hub/ConnectionFromUI.cpp")
+firefly_replace_source(hubservice "Services/Hub/ConnectionFromUI.cpp" "${hub_connection_output}")
+add_custom_target(
+    check-firefly-hub-connection
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_connection.py"
+            --output "${hub_connection_output}"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_hub_connection.py"
+    VERBATIM)
+add_dependencies(hubservice check-firefly-hub-connection)

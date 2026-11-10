@@ -12151,11 +12151,36 @@ and byte contents, basename privacy, cancellation and navigation with clean exit
 in this follow-up; the accepted Designer app remains available for manual testing.
 
 A separate Qt numeric-collation probe catches two ICU implementations being
-linked into pure Qt executables. The initial link-order correction passes the
-full frontend graph, but still fails the smaller picker graph; do not treat
+linked into pure Qt executables. The initial link-order correction passed the
+full frontend graph, but still failed the smaller picker graph; do not treat
 presence of the shared Unicode dylib alone as proof that Qt calls its ICU copy.
 Actual linked symbols and both native collation probes are the acceptance gate.
-Further validation and a retained-endpoint regression are still in progress.
+On macOS with the actual shared/external-data Unicode target, present that real
+library before static archive selection through the linker's needed_library
+option, retaining its normal target dependency and rpath. Both actual native
+collation graphs now pass. nm confirms both import ucol_open_78 and
+udata_openChoice_78 rather than defining a second implementation in the executable.
+The Release and Linux renderer workflows include the collation target; Linux
+execution remains unverified.
+
+The genuine retained-endpoint regression now passes both separate processes:
+natural Host shutdown and replacement endpoint identity. It creates actual
+Hub/UI transports, retains real endpoint references after Application destruction,
+checks repeated shutdown and late disconnect handling, and releases genuine
+EventReceiver queued strong references at final thread-queue destruction. Native
+weak endpoint owners must expire without running queued callbacks. The replacement
+case also checks the newer endpoints' singleton, settings and browser callback
+stores. No VM, visible windows or desktop platform is used
+(candidate-hub-lifetime-accepted.log).
+
+Rejected fixture iterations attempted a second process-wide Application and then
+used a live event loop after destroying its queue. Neither is an SDK-supported
+test setup. The accepted fixture uses one Application per process and exactly
+one final queue destruction; no production restart or event-pumping workaround
+was added. The prior genuine hidden-picker crash and its unchanged passing
+regression remain independent evidence. Both lifetime and collation gates are
+included in the existing Release/Linux renderer workflows. Fresh hosted results,
+targeted visible Cocoa acceptance and packaged Designer startup still remain.
 
 The remaining probe callback migration covers power-monitor, locale and menu.
 All native JS callbacks now declare GC::captures; borrowed fixture state uses
@@ -12179,6 +12204,13 @@ Five non-GUI tests pass: actual marker command/order, missing callback, exited
 manager, unmapped client and missing decorations, including process/temp cleanup.
 The native Linux Xvfb gate still needs hosted execution after pushing; these
 controlled tests do not establish actual X11 acceptance.
+
+After registering the new Hub connection composition guard and non-GUI X11
+ordering tests, the complete standalone Release aggregate passes 149/149 in
+109.83 seconds (candidate-final-cli-149.log). The actual Ladybird checkout remains
+clean at the manifest/gitlink pin. Repository-wide style checks pass for 314 Python,
+961 JS/web/config, 579 native and 82 CMake files; the subsequently added native
+lifetime fixture and workflow/build integration also pass focused style checks.
 
 ## Resume
 

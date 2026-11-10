@@ -1,15 +1,14 @@
+/** Exercise real file input through a hidden native Qt view and owned renderer. */
 #include "native/file-picker/Picker.h"
-#include "native/platform/GCIncludes.h"
 #include "native/qt/hub/Frontend.h"
 #include "native/qt/hub/Host.h"
-#include <QFileDialog>
-/** Exercise real file input through a hidden native Qt view and owned renderer. */
 #include <LibCore/ArgsParser.h>
 #include <LibCore/EventLoop.h>
 #include <LibMain/Main.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
 #include <QApplication>
+#include <QFileDialog>
 #include <QMouseEvent>
 #include <QTimer>
 #include <QVBoxLayout>

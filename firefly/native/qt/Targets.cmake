@@ -109,7 +109,10 @@ add_custom_target(
 add_dependencies(firefly-qt-view check-firefly-hub-frontend)
 target_link_libraries(
     firefly-qt-view
-    PUBLIC firefly-locale
+    # Qt's static ICU archives must not be selected ahead of the shared native Unicode
+    # implementation, which maps the actual external data before main.
+    PUBLIC LibUnicode
+           firefly-locale
            LibWebView
            hubservice
            hubipc
@@ -124,9 +127,6 @@ target_link_libraries(
            Qt::Gui
            Qt::Widgets
            Qt::GuiPrivate)
-# RemoteView now resolves the page language through LibUnicode directly. Keep that dependency
-# explicit rather than relying on another static library's links.
-target_link_libraries(firefly-qt-view PRIVATE LibUnicode)
 if(APPLE)
     include("${CMAKE_CURRENT_LIST_DIR}/Mac.cmake")
 elseif(WIN32)
@@ -138,7 +138,19 @@ else()
 endif()
 add_library(firefly-file-picker STATIC "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Picker.cpp"
                                        "${CMAKE_CURRENT_LIST_DIR}/../file-picker/Snapshot.cpp")
-target_link_libraries(firefly-file-picker PUBLIC Qt::Widgets LibWebCommon LibCore LibIPC AK)
+target_link_libraries(firefly-file-picker PUBLIC LibUnicode Qt::Widgets LibWebCommon LibCore LibIPC
+                                                 AK)
+get_target_property(firefly_unicode_library_type LibUnicode TYPE)
+if(APPLE
+   AND firefly_unicode_library_type STREQUAL "SHARED_LIBRARY"
+   AND LADYBIRD_ICU_DATA_FILE)
+    # Final dependency ordering can still place Qt's static ICU archives before LibUnicode. Present
+    # the real external-data owner before archive selection; keep the ordinary target
+    # dependency/rpath as well. No second ICU loader.
+    target_link_options(firefly-file-picker INTERFACE
+                        "LINKER:-needed_library,$<TARGET_FILE:LibUnicode>")
+endif()
+
 add_executable(firefly-file-picker-probe
                "${FIREFLY_SOURCE_DIR}/firefly/tests/file-picker/NativeProbe.cpp")
 target_include_directories(firefly-file-picker-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
@@ -195,4 +207,38 @@ endif()
 
 if(FIREFLY_BUILD_RUNTIME)
     include("${CMAKE_CURRENT_LIST_DIR}/Runtime.cmake")
+endif()
+
+# The two entry graphs previously chose different ICU copies. These native Core processes exercise
+# the actual Qt collator without a GUI, dialogs or user locale changes. Keep both graph shapes
+# covered instead of manually initializing data.
+add_executable(firefly-qt-icu-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/icu/NativeProbe.cpp")
+target_link_libraries(firefly-qt-icu-probe PRIVATE firefly-qt-view)
+add_executable(firefly-picker-icu-probe "${FIREFLY_SOURCE_DIR}/firefly/tests/icu/NativeProbe.cpp")
+target_link_libraries(firefly-picker-icu-probe PRIVATE firefly-file-picker)
+add_custom_target(
+    check-firefly-qt-icu
+    COMMAND "$<TARGET_FILE:firefly-qt-icu-probe>"
+    COMMAND "$<TARGET_FILE:firefly-picker-icu-probe>"
+    DEPENDS firefly-qt-icu-probe firefly-picker-icu-probe
+    VERBATIM)
+
+if(TARGET Qt6::QOffscreenIntegrationPlugin)
+    add_executable(
+        firefly-hub-lifetime-probe
+        "${FIREFLY_SOURCE_DIR}/firefly/tests/hub/LifetimeProbe.cpp"
+        "${FIREFLY_SOURCE_DIR}/firefly/tests/web-contents-view/OffscreenPlugin.cpp")
+    target_include_directories(firefly-hub-lifetime-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
+    target_compile_definitions(firefly-hub-lifetime-probe
+                               PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
+    target_link_libraries(firefly-hub-lifetime-probe PRIVATE firefly-qt-view
+                                                             Qt6::QOffscreenIntegrationPlugin)
+    add_dependencies(firefly-hub-lifetime-probe ladybird ${ladybird_helper_processes}
+                     check-firefly-upstream)
+    add_custom_target(
+        check-firefly-hub-lifetime
+        COMMAND "$<TARGET_FILE:firefly-hub-lifetime-probe>"
+        COMMAND "$<TARGET_FILE:firefly-hub-lifetime-probe>" --replacement
+        DEPENDS firefly-hub-lifetime-probe
+        VERBATIM)
 endif()

@@ -1,6 +1,5 @@
 /** Drive a real Ladybird Qt view for native input, painting, navigation and renderer-loss
  * acceptance. */
-#include "../platform/GCIncludes.h"
 #include "hub/Frontend.h"
 #include "hub/Host.h"
 #include <LibCore/ArgsParser.h>
