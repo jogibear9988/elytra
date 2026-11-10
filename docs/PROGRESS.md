@@ -12566,6 +12566,27 @@ No broad runtime suite or GUI test is added. The application overlay is generate
 in the existing review build; the single existing compiled Code-OSS tree is being
 refreshed separately with real renderer resources before the next direct start.
 
+## 2026-11-10 — Stage real Code-OSS renderer assets in the existing tree
+
+The previous diagnostic compiler omitted renderer HTML/CSS/fonts. Add opt-in
+renderer-assets and verified refresh modes. Preserve the upstream dev bootstrap
+and real CSS import-map loader, stage bounded exact production assets plus the
+locked codicon font, and create one relative internal out-to-src alias. Do not
+clone another source/app tree or copy dependencies again. Refresh verifies the
+old manifest and every owned file, refuses edits/unowned collisions and symlinked
+new parents, preserves unchanged files/Finder data and publishes completion last.
+
+The three focused real-compiler integrity cases pass. Actual compilation of the
+single existing code-oss-window-cache-final tree succeeds with 12,342 input files
+and 805 renderer assets (33,994,409 bytes); no extra application copy is created.
+Evidence: codeoss-renderer-assets-build.log. The first real Cocoa entry with this
+stage passes autoplay, HighlightAPI and the audited legacy-paste adaptation and
+allocates native window id 1. It remains empty: optional TouchBar construction
+fails first; lifecycle cleanup also exposes missing webContents.isOffscreen().
+Evidence: codeoss-renderer-assets-start.log. This is an actual native window,
+not accepted workbench rendering or open/edit/save support. No broad test suite is
+run; the next changes target those two observed startup faults.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

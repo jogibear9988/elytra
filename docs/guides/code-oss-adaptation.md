@@ -535,9 +535,10 @@ python3 tooling/tests/test_code_oss_window_preferences.py --mite build/release-m
 
 A fresh local macOS diagnostic with this adaptation passes the prior cache-option
 rejection and reaches app readiness. With disabled native spelling support in
-Firefly it passes `spellcheck:false` and native `zoomFactor`, then rejects
-`webPreferences.autoplayPolicy`
-before creating the editor window. Native spdlog bindings remain unavailable.
+Firefly now passes `spellcheck:false`, native `zoomFactor`, autoplay and the
+already-enabled HighlightAPI request. The latest direct trace creates a native
+window but stops during optional TouchBar initialization before loading the
+workbench URL. Native spdlog bindings remain unavailable.
 This is startup progress, not accepted workbench or file-editing support.
 
 ## Deprecated synchronous script paste
@@ -555,3 +556,27 @@ The desktop Code-OSS clipboard service calls `webContents.paste()`, so genuine
 integration of that method is still required. The browser-only text fallback
 must not be claimed for this desktop experiment. No clipboard delivery or editor
 acceptance follows from omitting the preference.
+
+## Stage the real development renderer without another application copy
+
+The diagnostic compiler can include upstream HTML, CSS, images, fonts and WASM:
+
+```sh
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --renderer-assets --refresh
+```
+
+Use --refresh only for an existing output from this compiler; omit it for a fresh
+output. The tool checks every previously recorded output before writing, rejects
+edited files and unowned collisions, preserves unchanged files and Finder data,
+and reuses installed dependencies. New paths cannot follow unowned parent symlinks.
+It publishes the completed manifest last. One previous manifest is retained for
+inspection; an interrupted refresh cannot claim the old build is complete.
+
+The renderer-assets mode stages exact production asset bytes and the actual
+locked codicon font. A relative internal out-to-src alias preserves the upstream
+development bootstrap path without duplicating the module tree. Hosts unable to
+create this alias fail explicitly; this is not native Windows acceptance.
+Upstream's real CSS development service/import-map loader is retained. CSS is not
+replaced with empty modules. Successful staging does not establish a rendered
+workbench; runtime prerequisites such as CSS module discovery still need a genuine
+application start.
