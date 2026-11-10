@@ -17,6 +17,7 @@ from designer_shell import (
     SOURCE_FILES,
     apply_index_overlay,
     shell_metadata,
+    stage_index_overlay,
     verify_designer_shell,
 )
 from build_designer import source_changes
@@ -37,7 +38,9 @@ class DesignerShellTests(unittest.TestCase):
             file = self.app / target
             file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.example / source, file)
-        (self.app / "web/index.html").write_text(apply_index_overlay("<head></head><nav></nav>"))
+        (self.app / "web/index.html").write_bytes(
+            apply_index_overlay("<head></head><nav></nav>").encode("utf-8")
+        )
         self.metadata = {
             "runtime": "firefly",
             "webRoot": "web",
@@ -56,6 +59,14 @@ class DesignerShellTests(unittest.TestCase):
         self.assertEqual(self.verify(), self.metadata["designerShell"])
         self.assertIn("smoke.mjs", self.metadata["designerShell"]["files"])
         self.assertEqual(len(self.metadata["designerShell"]["files"]), 6)
+
+    def test_builder_preserves_utf8_and_normalizes_native_newlines(self):
+        index = self.root / "upstream-index.html"
+        index.write_bytes("<head></head>\r\n<nav>漢字</nav>\r\n".encode("utf-8"))
+        stage_index_overlay(index)
+        expected = apply_index_overlay("<head></head>\n<nav>漢字</nav>\n").encode("utf-8")
+        self.assertEqual(index.read_bytes(), expected)
+        self.assertNotIn(b"\r", index.read_bytes())
 
     def test_every_stale_or_missing_shell_source_fails_even_with_rehashed_manifest(self):
         for target in SOURCE_FILES:

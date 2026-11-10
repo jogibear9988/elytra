@@ -9,7 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from npm_payload import copy_dependencies
-from designer_shell import apply_index_overlay, shell_metadata
+from designer_shell import stage_index_overlay, shell_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples/web-component-designer"
@@ -111,7 +111,7 @@ def main():
     )
     # Own shell overlay only; the pinned demo checkout and app implementation stay intact.
     index = web / "index.html"
-    index.write_text(apply_index_overlay(index.read_text()))
+    stage_index_overlay(index)
     for name in ["window-controls.mjs", "window-controls.css"]:
         shutil.copy2(EXAMPLE / name, web / name)
     for name in ["main.mjs", "server.mjs", "smoke.mjs", "upstream.json"]:

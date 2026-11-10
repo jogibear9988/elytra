@@ -43,6 +43,12 @@ def apply_index_overlay(html):
     )
 
 
+def stage_index_overlay(file):
+    """Write deterministic UTF-8/LF bytes, including on native Windows."""
+    file = Path(file)
+    file.write_bytes(apply_index_overlay(file.read_text(encoding="utf-8")).encode("utf-8"))
+
+
 def check_index(application):
     file = application / "web/index.html"
     data = physical_bytes(file)

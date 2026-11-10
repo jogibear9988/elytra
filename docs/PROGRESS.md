@@ -12016,16 +12016,17 @@ Rejected evidence and corrections:
 - The new sandbox launch probe needed an explicit AK link. Its genuine native
   latch/options tests now execute; syntax-only success was insufficient evidence.
 
-Remaining before accepting the pin on master:
+Update acceptance and remaining work before master:
 
-- Stage a temporary package from the validated Release CLI and renderer; verify
-  real extracted helper/resource/dylib loading and Designer startup. Retire the
-  package when its compact evidence is recorded. The superseded Debug Cargo
-  profiles were removed after Release acceptance; their two Finder files stay.
-- Run the required targeted Cocoa/presentation batch when it will not interrupt
-  the user's manual Designer test. No candidate visible desktop test has run.
-- Obtain fresh hosted Linux/Windows CLI and Linux renderer/package evidence;
-  native Windows desktop remains unfinished. Local vcpkg objects warn of a
+- The local Release package, real helper/resource/dylib/ICU loading, targeted
+  Cocoa/presentation and complete current Designer smoke gates now pass, as scoped
+  in the follow-ups below. Retire temporary package copies after their review
+  evidence is complete; keep the accepted builds and original Finder metadata.
+- Obtain fresh hosted Windows CLI and Linux renderer/macOS package evidence.
+  Linux CLI succeeds at abd65d1; Windows exposed another OpenSSL socket include
+  needing the owned boundary described below. Each subsequent source still needs
+  its own fresh platform result. Native Windows desktop remains unfinished.
+  Local vcpkg objects warn of a
   macOS 27 build target versus the 14.4 executable minimum, so this host cannot
   establish back-deployment support. No warnings are hidden to claim it.
 - Update current docs and CI evidence, then consider master promotion. No new
@@ -12255,9 +12256,37 @@ candidate-designer-shell-current.log).
 The registered firefly-designer-shell CTest passes its ten cases; the previous
 complete runtime aggregate remains 149/149. Focused source/CMake formatting and
 diff checks pass. The fresh full packaged Designer smoke is still pending at
-this commit. The packaging guide/sample README also correct stale Linux wording:
+the shell-guard implementation commit. The packaging guide/sample README also correct stale Linux wording:
 the extracted package gate passed at 197cd2a on Ubuntu 24.04 x64 Xvfb/Openbox,
 verified again against successful run 42379262065; a newer engine needs new evidence.
+
+The following actual package acceptance closes that pending local gate: clean
+d45560e3543d7c7a05822b91db87e104a931f236, Release CLI/renderer, production bundled
+Designer, stripped native symbols and strict nested ad-hoc signatures. The full
+unchanged native Designer test passes editing/round-trip, Monaco, principal-world
+privilege absence, window capability/server security, actual HTML controls,
+native minimize and HTML close. Its retained output includes all stage and
+required success markers with empty stderr
+(candidate-current-packaged-designer-acceptance.log, designer-last-ui.log).
+This is actual macOS app execution, not just server or file-existence checks.
+Framework is 227,865,540 bytes (217.3 MiB); Designer is 263,643,704 bytes
+(251.4 MiB), before archive compression. The staging location was reused and its
+Finder metadata restored; superseded package contents were removed. The existing
+canonical upstream clone and installed build dependencies were reused.
+
+Site build and validation pass 329 pages and 23,294 local links/resources/fragments
+(candidate-designer-shell-site-check.log). Native Linux archive acceptance and
+macOS CI remain pending for this candidate; the scoped local macOS result does
+not accept Windows or complete the whole project.
+
+Make the shared overlay writer explicitly emit UTF-8/LF bytes on Windows too.
+A real file-I/O regression starts from Unicode/CRLF input and checks the final
+bytes; the shell suite now passes eleven cases. This keeps the persisted index
+digest independent of native text-mode newline conversion. The packaged macOS
+index already has those same bytes, so no additional GUI run is needed.
+The full test run also exposed the notice test importing an unused re-export from
+package_macos after formatting removed it. Import the actual native_package.notices
+owner instead; license-copy and tampered-license rejection assertions are unchanged.
 
 ## Resume
 
