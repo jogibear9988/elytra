@@ -7568,6 +7568,75 @@ function createGPU(native, isReady, isExited, error, unsupported) {
   return { getFeatureStatus, disableHardwareAcceleration, getInfo };
 }
 
+// firefly/core/app/recent-documents.mjs
+function createRecentDocuments(native, isReady, isExited, error, unsupported) {
+  const bytes = Buffer.byteLength.bind(Buffer);
+  let stopped = false;
+  function alive() {
+    if (stopped || isExited()) {
+      throw error("ERR_FIREFLY_APP_EXITED", "Recent documents are unavailable after app exit");
+    }
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "Recent documents require app readiness");
+    }
+  }
+  function invoke(name, args) {
+    alive();
+    const operation = native[name];
+    if (typeof operation !== "function") {
+      return unsupported("app recent documents");
+    }
+    alive();
+    operation.apply(native, args);
+    alive();
+  }
+  return {
+    api: {
+      clearRecentDocuments(...args) {
+        alive();
+        if (args.length) {
+          throw error("ERR_INVALID_ARG_TYPE", "clearRecentDocuments expects no arguments");
+        }
+        invoke("recentDocumentsClear", []);
+      },
+      addRecentDocument(...args) {
+        alive();
+        const value = args[0];
+        if (args.length !== 1 || typeof value !== "string") {
+          throw error("ERR_INVALID_ARG_TYPE", "addRecentDocument expects one path string");
+        }
+        if (!value || value.includes("\0") || value.length > 32768 || bytes(value) > 32768) {
+          throw error(
+            "ERR_INVALID_ARG_VALUE",
+            "Recent document path is empty, invalid or too long"
+          );
+        }
+        for (let i = 0; i < value.length; ++i) {
+          const unit = value.charCodeAt(i);
+          if (unit >= 55296 && unit <= 56319) {
+            const low = value.charCodeAt(++i);
+            if (!(low >= 56320 && low <= 57343)) {
+              throw error(
+                "ERR_INVALID_ARG_VALUE",
+                "Recent document path has an unpaired surrogate"
+              );
+            }
+          } else if (unit >= 56320 && unit <= 57343) {
+            throw error("ERR_INVALID_ARG_VALUE", "Recent document path has an unpaired surrogate");
+          }
+        }
+        invoke("recentDocumentsAdd", [value]);
+      }
+    },
+    stop() {
+      if (!stopped) {
+        stopped = true;
+        native.recentDocumentsStop?.();
+      }
+    }
+  };
+}
+
 // firefly/core/api.mjs
 function createFireflyApi(native, EventEmitter, paths, urls, files, streams, transport) {
   const error = (code, message) => Object.assign(new Error(message), { code });
@@ -7597,6 +7666,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const recentDocuments = createRecentDocuments(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const zoom2 = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
@@ -7623,6 +7699,12 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     unsupported
   );
   class App extends EventEmitter {
+    clearRecentDocuments(...args) {
+      return recentDocuments.api.clearRecentDocuments(...args);
+    }
+    addRecentDocument(...args) {
+      return recentDocuments.api.addRecentDocument(...args);
+    }
     getGPUFeatureStatus() {
       return gpu.getFeatureStatus();
     }
@@ -7730,6 +7812,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       }
       exited = true;
       quitting = true;
+      recentDocuments.stop();
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
@@ -7910,6 +7993,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       return;
     }
     exited = true;
+    recentDocuments.stop();
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
@@ -8200,6 +8284,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     static getAllWindows() {
       return [...windows.values()];
     }
+    static getFocusedWindow() {
+      const window = windows.get(native.focusedWindow());
+      return window && !window._destroyed && !window._closing ? window : null;
+    }
     static fromId(id) {
       return windows.get(id) ?? null;
     }
@@ -8262,6 +8350,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     focus() {
       alive(this);
       native.focus(this.id);
+    }
+    isFocused() {
+      alive(this);
+      return native.windowFocused(this.id);
     }
     minimize() {
       alive(this);

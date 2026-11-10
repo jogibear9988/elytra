@@ -75,6 +75,7 @@ show:true is also supported.
 | getMinimumSize(), getMaximumSize() | Fresh [width, height] outer DIP limits; zero means no requested limit |
 | setMinimumSize(width, height), setMaximumSize(width, height) | Set outer DIP limits, each integer 0..16384; returns undefined |
 | center() | Use native AppKit window centering on macOS |
+| isFocused() | Query current native Qt window activation; throws after destruction |
 | isFullScreen() | Current native Qt fullscreen state |
 | isSimpleFullScreen() | False; legacy simple-fullscreen mode is unsupported |
 | getNativeWindowHandle() | Fresh pointer-sized Buffer containing the actual NSView* on Cocoa; other backends reject |
@@ -325,6 +326,11 @@ window can remain maximized. To explicitly request normal size use unmaximize.
 
 Return native state booleans. They are observations, not requests. Minimized and
 maximized state must not be inferred solely from isVisible or from window size.
+
+`BrowserWindow.getFocusedWindow()` returns the live owned window currently active
+in Qt's native window system, or null when none is active. Instance `isFocused()`
+queries that same native activation state. Focus is not inferred from cached
+JavaScript events or from whether a window is merely visible.
 
 ### Fullscreen queries and native handles
 

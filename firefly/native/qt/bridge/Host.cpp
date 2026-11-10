@@ -5,6 +5,7 @@
 #include "../../menu/Host.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
+#include "../../recent-documents/Host.h"
 #include "../../sandbox/policy/Host.h"
 #include "../../tracing/Host.h"
 #include "../../window/Geometry.h"
@@ -41,6 +42,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_background(*host);
     install_zoom(*host);
     install_constraints(*host);
+    RecentDocuments::install_host(realm, *host, *context);
     host->define_native_function(realm, "spellCheckDisabled"_utf16,
         native_binding<&Impl::native_host_spell_check_disabled>(), 0, JS::default_attributes);
     host->define_native_function(
@@ -148,6 +150,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         native_binding<&Impl::native_host_window_bounds>(), 2, JS::default_attributes);
     host->define_native_function(realm, "visible"_utf16,
         native_binding<&Impl::native_host_visible>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "windowFocused"_utf16,
+        native_binding<&Impl::native_host_window_focused>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "focusedWindow"_utf16,
+        native_binding<&Impl::native_host_focused_window>(), 0, JS::default_attributes);
     host->define_native_function(realm, "minimized"_utf16,
         native_binding<&Impl::native_host_minimized>(), 1, JS::default_attributes);
     host->define_native_function(realm, "maximized"_utf16,
@@ -426,6 +432,24 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_window_bounds(JS::VM&
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_visible(JS::VM& vm)
 {
     return JS::Value(TRY(window_state(vm))->window->isVisible());
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_window_focused(JS::VM& vm)
+{
+    return JS::Value(TRY(window_state(vm))->window->isActiveWindow());
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_focused_window(JS::VM&)
+{
+    // Qt activation reflects the current native focus, including focus inside
+    // attached child views, rather than previously delivered JS focus events.
+    for (auto const& [id, current] : windows) {
+        if (current.kind == State::Kind::WindowMain && !current.closing && current.window
+            && current.window->isActiveWindow())
+            return JS::Value(id);
+    }
+
+    return JS::js_null();
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_minimized(JS::VM& vm)

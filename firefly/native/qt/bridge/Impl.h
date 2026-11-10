@@ -430,6 +430,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     JS::ThrowCompletionOr<JS::Value> native_host_visible(JS::VM&);
 
+    JS::ThrowCompletionOr<JS::Value> native_host_window_focused(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_focused_window(JS::VM&);
+
     JS::ThrowCompletionOr<JS::Value> native_host_minimized(JS::VM&);
 
     JS::ThrowCompletionOr<JS::Value> native_host_maximized(JS::VM&);

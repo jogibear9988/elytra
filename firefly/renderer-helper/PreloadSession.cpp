@@ -8,6 +8,7 @@
 #include "context/ContextBridge.h"
 #include "ipc/IpcEndpoint.h"
 #include "loading/FileModules.h"
+#include "native/protocol/OriginPolicy.h"
 #include "preload/Process.h"
 #include "preload/WebFrame.h"
 #include "worlds/WorldJobGuard.h"
@@ -180,7 +181,13 @@ namespace {
             return;
         auto document = local->active_document();
         auto const& url = document->url();
-        if (url.scheme() != "file"sv && url.scheme() != "http"sv && url.scheme() != "https"sv)
+        // Only native launcher registration can admit a custom application origin.
+        // A scheme spelling alone never selects a preload: the configured native
+        // context below and the realm/document-bound IPC channel remain mandatory.
+        bool builtin
+            = url.scheme() == "file"sv || url.scheme() == "http"sv || url.scheme() == "https"sv;
+        if (!builtin
+            && (!Protocols::is_standard_scheme(url.scheme()) || document->origin().is_opaque()))
             return;
         auto handle = Web::WebDriver::BiDi::navigable_id(navigable);
         auto source = session->sources.find(handle);

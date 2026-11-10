@@ -32,6 +32,7 @@ import createNet from './net/index.mjs';
 import createGlobalShortcuts from './global-shortcut/index.mjs';
 import createDialogs from './dialog/index.mjs';
 import createGPU from './app/gpu.mjs';
+import createRecentDocuments from './app/recent-documents.mjs';
 
 export default function createFireflyApi(
   native,
@@ -71,6 +72,13 @@ export default function createFireflyApi(
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const recentDocuments = createRecentDocuments(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const zoom = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
@@ -101,6 +109,14 @@ export default function createFireflyApi(
   );
 
   class App extends EventEmitter {
+    clearRecentDocuments(...args) {
+      return recentDocuments.api.clearRecentDocuments(...args);
+    }
+
+    addRecentDocument(...args) {
+      return recentDocuments.api.addRecentDocument(...args);
+    }
+
     getGPUFeatureStatus() {
       return gpu.getFeatureStatus();
     }
@@ -224,6 +240,7 @@ export default function createFireflyApi(
       }
       exited = true;
       quitting = true;
+      recentDocuments.stop();
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
@@ -408,6 +425,7 @@ export default function createFireflyApi(
       return;
     }
     exited = true;
+    recentDocuments.stop();
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
@@ -738,6 +756,11 @@ export default function createFireflyApi(
       return [...windows.values()];
     }
 
+    static getFocusedWindow() {
+      const window = windows.get(native.focusedWindow());
+      return window && !window._destroyed && !window._closing ? window : null;
+    }
+
     static fromId(id) {
       return windows.get(id) ?? null;
     }
@@ -817,6 +840,11 @@ export default function createFireflyApi(
     focus() {
       alive(this);
       native.focus(this.id);
+    }
+
+    isFocused() {
+      alive(this);
+      return native.windowFocused(this.id);
     }
 
     minimize() {

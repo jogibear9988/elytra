@@ -13,6 +13,7 @@ add_library(firefly-command-line STATIC "${CMAKE_CURRENT_LIST_DIR}/../command-li
 add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
 target_link_libraries(firefly-tracing PUBLIC Qt::Core)
 include("${FIREFLY_SOURCE_DIR}/firefly/native/locale/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/native/recent-documents/Targets.cmake")
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -251,6 +252,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../power-monitor/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../power-save-blocker/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../shell/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../recent-documents/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../net/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../global-shortcut/Host.cpp"
@@ -289,6 +291,7 @@ target_link_libraries(
            firefly-power-monitor
            firefly-power-save-blocker
            firefly-shell
+           firefly-recent-documents
            firefly-system-preferences
            firefly-network-state
            firefly-global-shortcut

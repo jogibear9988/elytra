@@ -12812,6 +12812,33 @@ environment. The native startup guard and fork assertions remain unchanged.
 Source/diff checks pass; no local build, GUI run or remote success is claimed.
 Fresh hosted Linux execution is required.
 
+
+## 2026-11-11 — Admit owned custom-origin preloads and native window startup APIs
+
+The actual vscode-file workbench previously skipped PreloadSession's fixed
+file/http/https filter, so window.vscode was undefined before any workbench
+imports. Admit additionally only native-launcher registered standard schemes
+with a nonopaque actual document origin. Preserve configured top-level native
+context selection, isolated realm ownership and document/channel revocation.
+No author globals or custom-scheme name alone can grant preload authority.
+
+Add real BrowserWindow.getFocusedWindow/isFocused Qt activation queries and
+macOS app.addRecentDocument/clearRecentDocuments through NSDocumentController.
+Recents use readiness/owner/path/shutdown guards; other platforms fail explicitly.
+The APIs never open a file, but recents operations really modify the app's OS list.
+Facade/bundle and native strict compilation pass, followed by the single combined
+Release Firefly/WebContent build (codeoss-preload-start-build.log). No broad suites
+or new GUI test framework is run.
+
+The first diagnostic omitted --disable-crash-reporter and stopped before windows;
+retain that failed evidence (codeoss-preload-start.log). The corrected reused-profile
+run (codeoss-preload-renderer-start.log) reaches the actual vscode-file document
+and now exposes window.vscode: the prior preloadGlobals TypeError is gone. Focus,
+recents and shell CLI errors are gone. Main lifecycle reaches phase4. The next
+renderer failure is a sanitized bridge promise rejection; window configuration
+remains unresolved after10seconds. NO working editor/workbench-ready claim is made.
+SQLite/keymap remain real; spdlog bindings and sync-require ESM diagnostics remain.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

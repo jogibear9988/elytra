@@ -278,3 +278,8 @@ are not a complete security review or platform certification.
 
 See [security](../guides/security.md), [compatibility](../compatibility/firefly-0.1.md)
 and [ADR 0068](../architecture/0068-public-commonjs-preload.md).
+
+Registered native standard custom schemes with nonopaque document origins also
+admit configured top-level preloads. The actual Code-OSS vscode-file start now
+exposes window.vscode; its configuration IPC still blocks editor startup. This
+does not grant a scheme-wide preload or bypass native context/channel ownership.

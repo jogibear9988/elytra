@@ -299,6 +299,19 @@ cmake --build build/renderer --target check-firefly-enable-sandbox --parallel 3
 See [ADR 0132](../architecture/0132-global-sandbox-policy.md). The API baseline is
 [Electron app.enableSandbox](https://www.electronjs.org/docs/latest/api/app#appenablesandbox).
 
+## Recent documents (macOS source implementation)
+
+`app.addRecentDocument(path)` records a file URL with the real macOS
+NSDocumentController. Relative paths resolve against the current working directory;
+paths must be nonempty, valid Unicode without NUL, at most 32 KiB UTF-8.
+`app.clearRecentDocuments()` clears this application's native recent-document list.
+Both return undefined, require readiness and reject calls after shutdown. Linux
+and Windows fail explicitly with ERR_FIREFLY_UNSUPPORTED_API. They never open files.
+
+The provider and guarded facade compile; an actual Code-OSS startup passes the
+previously failing recent-document initialization. This does not certify the separate recent-documents example or
+OS menu integration. Clearing the list is a real OS state change.
+
 ## EventEmitter methods
 
 app inherits the supported [node:events subset](mite.md), including
@@ -321,7 +334,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 | App identity and paths | name, isPackaged, getName, setName, getVersion; path names outside the documented subset |
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
-| OS integration | setUserTasks, setJumpList, addRecentDocument, clearRecentDocuments, dock, badgeCount |
+| OS integration | setUserTasks, setJumpList, dock, badgeCount |
 | Appearance/media/process policy | Broader commandLine switches, detailed getGPUInfo, getAppMetrics, accessibility properties |
 | Sessions and global services | session-created, certificate-error, login and non-Compositor process dispatch |
 | Native lifecycle events | will-finish-launching, open-file, open-url, activate, did-become-active, did-resign-active, browser-window-created/focus/blur and OS shutdown delivery |
