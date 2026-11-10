@@ -3,6 +3,7 @@
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
 #include "platform/filesystem/WatcherSupport.h"
+#include "platform/filesystem/WindowsWatchPath.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <memory>
@@ -126,6 +127,9 @@ void install_event_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& l
                 status = UV_ENOSYS;
 #endif
                 }
+
+                if (!status)
+                    status = WatcherSupport::expand_event_watch_path(path);
 
                 uint64_t id {};
                 if (!status) {

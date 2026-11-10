@@ -12453,6 +12453,25 @@ counters on failure. No sleep duration is increased and no success is synthesize
 JS formatting and diff checks pass; hosted native execution is still required.
 No local GUI test is launched for this timing-fixture correction.
 
+## 2026-11-10 — Native Windows short-path watcher admission
+
+The hosted Windows fs.watch failure reports ts\initial.txt instead of initial.txt.
+Inspection of pinned libuv's Windows backend identifies the actual cause: it
+expands a change path to its long spelling but subtracts the original watched
+short-path directory length (the hosted temp root includes RUNNER~1).
+Expand only native short-name aliases with bounded GetLongPathNameW queries before
+uv_fs_event_start. Preserve junction/symlink identity and full recursive filenames;
+do not strip basenames or silently rewrite notifications. Translate actual Win32
+failures through libuv and fail before allocating an event handle.
+
+Add a real Windows short/long-alias comparison using Win32 paths to the same
+directory, actual watchers for both spellings, Unicode root names and recursive
+nested-name assertions. Filesystems without distinct 8.3 aliases report that exact
+missing test capability. Native Windows execution remains pending hosted CI.
+Actual local Release Mite build and complete Node/Mite event watcher comparison
+pass (windows-watch-path-build.log, windows-watch-path-local-acceptance.log).
+Strict native syntax and UV boundary checks pass. No GUI tests were run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
