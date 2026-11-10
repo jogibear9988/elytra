@@ -12351,6 +12351,50 @@ The autoplay feature is being developed separately; its new untracked files are
 not part of this engine-fix commit. The engine review branch keeps only the
 required update fixes so its platform CI can complete independently.
 
+## 2026-11-10 — Native autoplay media component for Code-OSS
+
+Work continues separately on codex/autoplay-policy-2026-11-10 in the existing
+review directory/build trees. The engine CI branch remains independently pushed
+through aae76b4; its source is not mixed with this unfinished feature. Master still
+uses the accepted engine. No full app/source clone or extra SDK build was added.
+
+Implement a real LibWeb media policy component for the Code-OSS constructor's
+user-gesture-required value, plus no-user-gesture-required. Public preference
+admission stays rejected until WebAudio and authenticated transport are complete.
+ADR 0191 records the exact pinned Chromium reference and remaining requirements;
+document-user-activation-required is not implemented by substituting sticky state.
+
+The owned native policy accepts bounded atomic context/generation/value snapshots.
+Eight fingerprinted HTMLMediaElement seams preserve every unrelated upstream byte
+and all class layouts: initialization/destruction, adoption, play, explicit load,
+audible change, trusted native controls and admission before SDK file/allowlist/
+sticky bypasses. Element state has no GC edges; actual destruction erases it.
+
+Actual Release LibWeb/module/probe build and twelve no-GUI/no-audio component groups
+pass (autoplay-media-native-canonical.log): original unmanaged SDK behavior;
+explicit file/HTTP override; transient versus sticky and independent elements;
+load/source persistence; video-only mute exception and unmute reblocking; volume
+unlock; genuine Page media-menu dispatch; adoption/policy changes; separate
+contexts/atomic invalid snapshots; real GC; a real remote-top/local-child graph;
+and actual local-opener one-play authorization without a permanent child unlock.
+These exercise genuine play Promises and pause state without playable media or
+audio output. Native C++ activation is not physical-input or cross-process proof.
+
+The first link correctly exposed missing direct LibURL linkage and an SDK-hidden
+control method. Link its actual dependency and dispatch the real exported Page
+context-menu path instead of exporting a test shim. Independent headless clients
+also reuse native allocator namespaces; the fixture assigns real native IDs using
+the SDK reconstruction API. Different BiDi UUIDs deliberately remain. Inspection
+found those UUIDs differ from remote top-level IDs, so production policy lookup now
+uses canonical native namespace/local IDs consistently. The remote fixture proves
+that mapping without simulating IPC. Four source-preservation/drift/refusal tests
+and strict compiler checks pass. Ladybird remains unmodified.
+
+Remaining: actual Rust AudioContext gating/lazy graph startup, activation and pending
+Promise cleanup, trusted before-script defaults/revocation/frame transport, public
+option validation and actual helper/app acceptance. VS Code still stops before a
+window at autoplayPolicy; this component alone does not advertise that API.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -52,6 +52,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/web-request/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/canvas/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/canvas/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/autoplay/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/files/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/permissions/Targets.cmake")
@@ -153,6 +154,28 @@ add_custom_target(
     DEPENDS firefly-isolation-probe check-firefly-wire
     USES_TERMINAL VERBATIM)
 
+# Exercise real media elements and their native activation paths without Qt, playable media or an OS
+# audio output. Public preference admission is separate.
+add_executable(firefly-autoplay-media-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/MediaProbe.cpp")
+target_include_directories(firefly-autoplay-media-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+target_link_libraries(
+    firefly-autoplay-media-probe
+    PRIVATE LibWeb
+            LibJS
+            LibGC
+            LibURL
+            LibCore
+            LibMain
+            AK)
+ladybird_check_skia_confinement(firefly-autoplay-media-probe)
+add_custom_target(
+    check-firefly-autoplay-media
+    COMMAND "$<TARGET_FILE:firefly-autoplay-media-probe>"
+    DEPENDS firefly-autoplay-media-probe
+    VERBATIM)
+
 if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
@@ -161,7 +184,8 @@ endif()
 # does not enable the unfinished desktop/production runtime.
 if(WIN32)
     target_link_libraries(firefly-renderer-probe PRIVATE shell32)
-    foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe)
+    foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe
+                  firefly-autoplay-media-probe)
         ladybird_windows_bin(${probe} CONSOLE)
     endforeach()
 endif()

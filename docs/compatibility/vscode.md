@@ -43,6 +43,11 @@ native window allocation. With a temporary User/settings.json containing
 window.titleBarStyle:native, the latest real entry passes the audited disabled V8
 cache adaptation, spellcheck:false and native zoomFactor, then rejects
 webPreferences.autoplayPolicy.
+The separate autoplay feature branch now passes twelve native media component
+groups, including canonical remote-frame ownership, per-element activation and
+opener behavior. WebAudio start/resume/promise enforcement and trusted production
+transport remain required; the public preference still rejects this value. See
+[the native autoplay decision and remaining gates](../architecture/0191-native-autoplay-policy.md).
 Neither profile creates an accepted workbench window. The known legacy experimentalDarkMode boolean is now
 accepted without effect, and acceptFirstMouse has a genuine Cocoa implementation
 verified separately with hidden native callbacks and surface recreation.
