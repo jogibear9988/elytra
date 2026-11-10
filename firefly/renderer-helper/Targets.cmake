@@ -198,6 +198,8 @@ endif()
 ladybird_check_skia_confinement(firefly-protocol-renderer-probe)
 add_custom_target(
     check-firefly-protocol-renderer
+    COMMAND "${Python3_EXECUTABLE}"
+            "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_package_layout.py"
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
         --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper

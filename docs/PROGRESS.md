@@ -12091,6 +12091,34 @@ candidate-uv-release-147.log, candidate-uv-firefly-build.log). These are Mac
 checks; the real WinSDK assertions still require the next hosted clang-cl build.
 No native Windows acceptance is inferred from local syntax or source tests.
 
+Package snapshot21b5568 stages from clean Release/Release inputs with all10
+physical helpers and full ICU data. Strict nested signatures and original helper
+entitlements/flags pass. The stripped Designer bundle is263,625,085 bytes
+(251.4MiB), of which the empty Firefly app baseline is227,835,245 bytes(217.3MiB).
+This is the default local Release profile, not a size/LTO or fresh-platform claim.
+
+Add a diagnostic-only --helper-directory selector before helper initialization;
+keep production app flags and default diagnostic selection unchanged. The
+selector rejects missing/duplicate/relative/symlink/incomplete directories and
+checks physical helpers/resources and lookup candidates before launch. Extend
+the protocol gate so positive cases genuinely use the selected package, then
+observe a live actual child through the OS: parent/executable identity, mapped
+liblagom libraries and ICU mapping/open-file evidence. No page-supplied path or
+file-existence-only check substitutes for actual loading.
+
+A temporary copied Unicode-path Designer.app passes strict signing, production
+pre-GUI runtime dylib loading without SDK overrides and the actual packaged Mite
+CJK decoders (candidate-package-relocation-loader.log). A second temporary copy
+passes genuine headless production WebContent origin/configuration and actual
+libproc/lsof executable/dylib/ICU evidence with the selected package paths
+(candidate-packaged-helper-relocation-final.log). Both temporary copies are gone.
+The unchanged default/runtime helper cases and new three-case path-policy unit
+suite pass (candidate-package-probe-default-accepted.log). Linux path checks
+follow its manifest-backed firefly-runtime/bin, sidecar resources and root lib
+inventory; those non-native fixtures do not establish Linux execution. Site
+validation passes329 pages/23,291 links (candidate-package-site.log). Native
+Designer HTML/Cocoa smoke remains a separate acceptance requirement.
+
 Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
 obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
 its active review worktree, shared installed dependencies or running Designer app.

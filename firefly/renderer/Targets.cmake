@@ -160,6 +160,7 @@ endif()
 # Native Windows console probes need the same owned runtime DLL deployment as upstream helpers. This
 # does not enable the unfinished desktop/production runtime.
 if(WIN32)
+    target_link_libraries(firefly-renderer-probe PRIVATE shell32)
     foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe)
         ladybird_windows_bin(${probe} CONSOLE)
     endforeach()
