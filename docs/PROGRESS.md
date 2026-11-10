@@ -12169,6 +12169,17 @@ queued callbacks, roles and stale-generation teardown pass
 candidate-locale-capture.log, candidate-menu-capture.log). Physical power
 transitions and a fresh hosted macOS run remain separate requirements.
 
+For the Linux X11 driver, wait for Openbox's official post-initialization startup
+callback before creating the independent non-Qt control client. Its advertised
+root property is published earlier than event startup/window management in
+Openbox 3.6.1; the observed unmapped client is consistent with an early event
+being stranded in its private queue. The existing ten-second bound, fresh-server
+requirement and real mapped/decorated control acceptance remain unchanged.
+Five non-GUI tests pass: actual marker command/order, missing callback, exited
+manager, unmapped client and missing decorations, including process/temp cleanup.
+The native Linux Xvfb gate still needs hosted execution after pushing; these
+controlled tests do not establish actual X11 acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
