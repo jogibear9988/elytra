@@ -15,6 +15,12 @@ type Host = {
   };
   _vscodeLibJSEngineStatus?: { engine?: string; scope?: string };
   _vscodeLibJSWindowPreferencesStatus?: Diagnostic;
+  _vscodeLibJSTouchBarStatus?: {
+    engine: string;
+    scope: string;
+    enabled: boolean;
+    reason: string;
+  };
   _vscodeLibJSLegacyPasteStatus?: {
     engine: string;
     scope: string;
@@ -24,6 +30,7 @@ type Host = {
 const host = process as typeof process & Host;
 let published: Diagnostic | undefined;
 let pastePublished: Host['_vscodeLibJSLegacyPasteStatus'];
+let touchBarPublished: Host['_vscodeLibJSTouchBarStatus'];
 
 function refuse(): never {
   throw Object.assign(new Error('Code-OSS cannot apply this V8 window cache policy on LibJS'), {
@@ -82,7 +89,7 @@ export function libJSWindowCachePreferences(value: string): { v8CacheOptions: st
   return {};
 }
 
-function verifiedPasteDesktop(): boolean {
+function verifiedLocalWindowAdaptation(): boolean {
   const versions = host.versions;
   const local = host._vscodeLibJSLocalDesktopStatus;
   const engine = host._vscodeLibJSEngineStatus;
@@ -110,7 +117,7 @@ export function libJSWindowPastePreferences(
   if (typeof versions.node === 'string' || typeof versions.electron === 'string') {
     return { enableDeprecatedPaste: value };
   }
-  if (value !== true || !verifiedPasteDesktop()) {
+  if (value !== true || !verifiedLocalWindowAdaptation()) {
     throw Object.assign(
       new Error('Code-OSS deprecated synchronous script paste is unavailable on LibWeb'),
       {
@@ -144,4 +151,48 @@ export function libJSWindowPastePreferences(
     });
   }
   return {};
+}
+
+/** Disable this optional app integration without introducing a fake TouchBar API. */
+export function skipLibJSTouchBar(): boolean {
+  const versions = host.versions;
+  if (typeof versions.node === 'string' || typeof versions.electron === 'string') {
+    return false;
+  }
+  if (!verifiedLocalWindowAdaptation()) {
+    refuse();
+  }
+  if (!touchBarPublished) {
+    if (Object.hasOwn(host, '_vscodeLibJSTouchBarStatus')) {
+      refuse();
+    }
+    touchBarPublished = Object.freeze({
+      engine: 'LibJS/LibWeb',
+      scope: 'code-oss-local-touchbar-opt-out-only',
+      enabled: false,
+      reason:
+        'Optional Code-OSS TouchBar initialization is disabled; Firefly TouchBar remains unsupported'
+    });
+    Object.defineProperty(host, '_vscodeLibJSTouchBarStatus', {
+      value: touchBarPublished,
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
+  }
+  return true;
+}
+
+/** An unexpected feature update must fail explicitly before touching group state. */
+export function assertLibJSTouchBarSupported(): void {
+  const versions = host.versions;
+  if (typeof versions.node === 'string' || typeof versions.electron === 'string') {
+    return;
+  }
+  if (!verifiedLocalWindowAdaptation()) {
+    refuse();
+  }
+  throw Object.assign(new Error('TouchBar is disabled in the Code-OSS local desktop experiment'), {
+    code: 'ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE'
+  });
 }

@@ -580,3 +580,12 @@ Upstream's real CSS development service/import-map loader is retained. CSS is no
 replaced with empty modules. Successful staging does not establish a rendered
 workbench; runtime prerequisites such as CSS module discovery still need a genuine
 application start.
+
+## Optional TouchBar in the local editor experiment
+
+Verified local Mite/LibJS mode skips the pinned Code-OSS TouchBar constructor and
+records process._vscodeLibJSTouchBarStatus. General Firefly TouchBar remains
+unsupported; unexpected Code-OSS update requests fail explicitly with
+ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE. Ordinary Node/Electron behavior is
+unchanged. This application opt-out enables the local editor experiment without
+claiming native TouchBar hardware support.

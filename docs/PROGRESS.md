@@ -12598,6 +12598,22 @@ native window allocation. The actual incremental Firefly build succeeds
 (codeoss-offscreen-query-build.log); the next direct entry uses the rebuilt host.
 No additional component or GUI suite is run.
 
+## 2026-11-10 — Disable optional TouchBar only in the local Code-OSS adapter
+
+The first real Code-OSS window stops in unconditional TouchBar construction.
+General Firefly TouchBar remains unsupported. The exact pinned application overlay
+now skips only that constructor action in verified experimental local Mite/LibJS
+mode and publishes an immutable opt-out reason. Ordinary Node/Electron keeps the
+original constructor and updates. Unexpected local TouchBar updates reject with
+ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE before accessing missing native groups;
+no fake TouchBar objects or hardware behavior are added.
+
+The existing focused Node/Mite window-preference runner passes eighteen scenarios,
+including pinned constructor/update body projections, original/adapted behavior,
+reversal and drift refusal. The same application stage/overlay is being refreshed
+in place; no native rebuild or additional GUI suite is required for this overlay.
+The next direct startup will determine the next real editor blocker.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

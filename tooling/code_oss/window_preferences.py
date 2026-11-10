@@ -7,29 +7,48 @@ SOURCE = "window-impl-main.ts"
 HELPER_SOURCE = "firefly/compat/code-oss/window-preferences.ts"
 HELPER_TARGET = "src/vs/base/common/elytraWindowPreferences.ts"
 IMPORT = "import electron, { BrowserWindowConstructorOptions, Display } from 'electron';"
-ADDED_IMPORT = "\nimport { libJSWindowCachePreferences } from '../../../base/common/elytraWindowPreferences.js';"
+ADDED_IMPORT = "\nimport { libJSWindowCachePreferences, skipLibJSTouchBar, assertLibJSTouchBarSupported } from '../../../base/common/elytraWindowPreferences.js';"
 PREFERENCE = "v8CacheOptions: this.environmentMainService.useCodeCache ? 'bypassHeatCheck' : 'none'"
 REPLACEMENT = "...libJSWindowCachePreferences(this.environmentMainService.useCodeCache ? 'bypassHeatCheck' : 'none')"
+TOUCHBAR_CREATE = "\t\tthis.createTouchBar();"
+TOUCHBAR_SKIP = "\t\tif (!skipLibJSTouchBar()) { this.createTouchBar(); }"
+TOUCHBAR_UPDATE = "\tupdateTouchBar(groups: ISerializableCommandAction[][]): void {"
+TOUCHBAR_CHECK = TOUCHBAR_UPDATE + "\n\t\tassertLibJSTouchBarSupported();"
 
 
 def adapt_window_preferences(data):
-    """Change no preference except the single audited V8-only assignment."""
+    """Omit only audited cache/optional TouchBar entries in the local app."""
     if hashlib.sha256(data).hexdigest() != SOURCE_SHA256:
         raise ValueError("Code-OSS window preferences differ from pinned input")
     source = data.decode("utf-8")
-    for seam in (IMPORT, PREFERENCE):
+    for seam in (IMPORT, PREFERENCE, TOUCHBAR_CREATE, TOUCHBAR_UPDATE):
         if source.count(seam) != 1:
             raise ValueError(f"Unexpected Code-OSS window preference seam: {seam}")
-    return source.replace(IMPORT, IMPORT + ADDED_IMPORT).replace(PREFERENCE, REPLACEMENT).encode()
+    return (
+        source.replace(IMPORT, IMPORT + ADDED_IMPORT)
+        .replace(PREFERENCE, REPLACEMENT)
+        .replace(TOUCHBAR_CREATE, TOUCHBAR_SKIP)
+        .replace(TOUCHBAR_UPDATE, TOUCHBAR_CHECK)
+        .encode()
+    )
 
 
 def revert_window_preferences(data):
     """Prove this overlay preserves every original source byte outside its seams."""
     source = data.decode("utf-8")
-    if source.count(IMPORT + ADDED_IMPORT) != 1 or source.count(REPLACEMENT) != 1:
+    if (
+        source.count(IMPORT + ADDED_IMPORT) != 1
+        or source.count(REPLACEMENT) != 1
+        or source.count(TOUCHBAR_SKIP) != 1
+        or source.count(TOUCHBAR_CHECK) != 1
+    ):
         raise ValueError("Unexpected adapted Code-OSS window preferences")
     original = (
-        source.replace(IMPORT + ADDED_IMPORT, IMPORT).replace(REPLACEMENT, PREFERENCE).encode()
+        source.replace(IMPORT + ADDED_IMPORT, IMPORT)
+        .replace(REPLACEMENT, PREFERENCE)
+        .replace(TOUCHBAR_SKIP, TOUCHBAR_CREATE)
+        .replace(TOUCHBAR_CHECK, TOUCHBAR_UPDATE)
+        .encode()
     )
     if adapt_window_preferences(original) != data:
         raise ValueError("Adapted Code-OSS window preferences drifted")

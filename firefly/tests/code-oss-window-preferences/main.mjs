@@ -5,7 +5,11 @@ import {
   originalPreferences,
   adaptedPreferences,
   originalPastePreferences,
-  adaptedPastePreferences
+  adaptedPastePreferences,
+  touchBarCreateOriginal,
+  touchBarCreateAdapted,
+  touchBarUpdateOriginal,
+  touchBarUpdateAdapted
 } from './expressions.mjs';
 
 const fixture = JSON.parse(process.argv[2]);
@@ -274,6 +278,55 @@ if (!mite || pasteAllowed) {
   );
 
   assert.equal(process._vscodeLibJSLegacyPasteStatus, undefined);
+}
+const touchbarOwner = {
+  creations: 0,
+  updates: 0,
+
+  createTouchBar() {
+    ++this.creations;
+  },
+
+  touchBarGroups: [{}],
+
+  createTouchBarGroupSegments() {
+    ++this.updates;
+    return [];
+  }
+};
+touchBarCreateOriginal.call(touchbarOwner);
+assert.equal(touchbarOwner.creations, 1);
+if (!mite || pasteAllowed) {
+  touchBarCreateAdapted.call(touchbarOwner);
+  if (mite) {
+    assert.equal(touchbarOwner.creations, 1);
+    const status = process._vscodeLibJSTouchBarStatus;
+    assert.equal(status.enabled, false);
+    assert.equal(status.scope, 'code-oss-local-touchbar-opt-out-only');
+    assert.ok(Object.isFrozen(status));
+    touchBarCreateAdapted.call(touchbarOwner);
+    assert.equal(process._vscodeLibJSTouchBarStatus, status);
+
+    assert.throws(
+      () => touchBarUpdateAdapted.call(touchbarOwner, [], true),
+      (error) => error.code === 'ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE'
+    );
+
+    assert.equal(touchbarOwner.updates, 0);
+  } else {
+    assert.equal(touchbarOwner.creations, 2);
+    touchBarUpdateAdapted.call(touchbarOwner, [[]], true);
+    assert.equal(touchbarOwner.updates, 1);
+    assert.equal(process._vscodeLibJSTouchBarStatus, undefined);
+  }
+} else {
+  assert.throws(
+    () => touchBarCreateAdapted.call(touchbarOwner),
+    (error) => error.code === 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+  );
+
+  assert.equal(touchbarOwner.creations, 1);
+  assert.equal(process._vscodeLibJSTouchBarStatus, undefined);
 }
 console.log(
   JSON.stringify({

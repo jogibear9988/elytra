@@ -154,7 +154,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed, no clipboard/workbench acceptance"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():

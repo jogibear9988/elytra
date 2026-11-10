@@ -21,6 +21,10 @@ from code_oss.window_preferences import (
     ADDED_IMPORT,
     PREFERENCE,
     REPLACEMENT,
+    TOUCHBAR_CREATE,
+    TOUCHBAR_SKIP,
+    TOUCHBAR_UPDATE,
+    TOUCHBAR_CHECK,
     HELPER_SOURCE,
     HELPER_TARGET,
     adapt_window_preferences,
@@ -69,6 +73,19 @@ def paste_projection(data, name):
     )
 
 
+def touchbar_projection(data, suffix):
+    source = data.decode("utf-8")
+    creation = TOUCHBAR_SKIP if TOUCHBAR_SKIP in source else TOUCHBAR_CREATE
+    start = source.index(TOUCHBAR_UPDATE) + len(TOUCHBAR_UPDATE)
+    end = source.index("\n\tprivate createTouchBar():", start)
+    return (
+        f"export function touchBarCreate{suffix}() {{\n{creation}\n}}\n"
+        + f"export function touchBarUpdate{suffix}(groups, isMacintosh) {{"
+        + source[start:end]
+        + "\n"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mite", type=Path, required=True)
@@ -83,6 +100,8 @@ def main():
     adapted = adapt_window_preferences(original)
     assert adapted == original.replace(IMPORT.encode(), (IMPORT + ADDED_IMPORT).encode()).replace(
         PREFERENCE.encode(), REPLACEMENT.encode()
+    ).replace(TOUCHBAR_CREATE.encode(), TOUCHBAR_SKIP.encode()).replace(
+        TOUCHBAR_UPDATE.encode(), TOUCHBAR_CHECK.encode()
     )
     assert revert_window_preferences(adapted) == original
     assert original.split(IMPORT.encode())[0] == adapted.split(IMPORT.encode())[0], (
@@ -179,11 +198,13 @@ def main():
 
         shutil.copyfile(ROOT / HELPER_SOURCE, work / "window-preferences.ts")
         expressions = (
-            "import { libJSWindowCachePreferences, libJSWindowPastePreferences } from './window-preferences.mjs';\n"
+            "import { libJSWindowCachePreferences, libJSWindowPastePreferences, skipLibJSTouchBar, assertLibJSTouchBarSupported } from './window-preferences.mjs';\n"
             + projection(original, "originalPreferences")
             + projection(adapted, "adaptedPreferences")
             + paste_projection(paste_original, "originalPastePreferences")
             + paste_projection(paste_adapted, "adaptedPastePreferences")
+            + touchbar_projection(original, "Original")
+            + touchbar_projection(adapted, "Adapted")
         )
         (work / "expressions.ts").write_text(expressions)
         shutil.copyfile(
