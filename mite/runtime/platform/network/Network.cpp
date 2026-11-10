@@ -5,6 +5,7 @@
 
 #include "platform/network/Network.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -98,6 +99,13 @@ namespace {
     };
 
     struct Transport {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(realm);
+            for (auto const& entry : sockets)
+                visitor.visit(entry.second->callback.ptr());
+        }
+
         JS::VM& vm;
         JS::Realm& realm;
         EventLoop& loop;
@@ -257,37 +265,37 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
         }
     });
     auto host = JS::Object::create(realm, nullptr);
-    host->define_native_function(
-        realm, "create"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            TRY(callback(vm, vm.argument(0)));
-            auto* socket = transport->create(vm.argument(0).as_function());
-            if (!socket)
-                return initialization_error(vm, transport->last_error);
-            return JS::Value(static_cast<double>(socket->id));
-        },
+    host->define_native_function(realm, "create"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                TRY(callback(vm, vm.argument(0)));
+                auto* socket = transport->create(vm.argument(0).as_function());
+                if (!socket)
+                    return initialization_error(vm, transport->last_error);
+                return JS::Value(static_cast<double>(socket->id));
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "createPipe"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            TRY(callback(vm, vm.argument(0)));
-            auto* socket = transport->create(vm.argument(0).as_function(), Kind::Pipe);
-            if (!socket)
-                return initialization_error(vm, transport->last_error);
-            return JS::Value(static_cast<double>(socket->id));
-        },
+    host->define_native_function(realm, "createPipe"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                TRY(callback(vm, vm.argument(0)));
+                auto* socket = transport->create(vm.argument(0).as_function(), Kind::Pipe);
+                if (!socket)
+                    return initialization_error(vm, transport->last_error);
+                return JS::Value(static_cast<double>(socket->id));
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "setCallback"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            TRY(callback(vm, vm.argument(1)));
-            if (auto* socket = transport->get(vm.argument(0))) {
-                socket->callback = vm.argument(1).as_function();
-                socket->notify_close = true;
-            }
+    host->define_native_function(realm, "setCallback"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                TRY(callback(vm, vm.argument(1)));
+                if (auto* socket = transport->get(vm.argument(0))) {
+                    socket->callback = vm.argument(1).as_function();
+                    socket->notify_close = true;
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
     host->define_native_function(
         realm, "isIP"_utf16,
@@ -310,310 +318,318 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
             return result;
         },
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "listen"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            if (socket->kind != Kind::Tcp)
-                return JS::Value(UV_EINVAL);
-            if (!vm.argument(1).is_string())
-                return vm.throw_completion<JS::TypeError>("Invalid internal network address"_utf16);
-            int port = TRY(number(vm, vm.argument(2), 0, 65535));
-            int backlog = TRY(number(vm, vm.argument(3), 1, 2147483647));
-            sockaddr_storage storage {};
-            int status = address(string(vm.argument(1)), port, storage);
-            if (!status)
-                status = uv_tcp_bind(&socket->tcp, reinterpret_cast<sockaddr*>(&storage),
-                    vm.argument(4).to_boolean() ? UV_TCP_IPV6ONLY : 0);
-            if (!status)
-                status = uv_listen(socket->stream(), backlog, Transport::accept);
-            return JS::Value(status);
-        },
-        5, JS::default_attributes);
-    host->define_native_function(
-        realm, "connect"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            if (socket->kind != Kind::Tcp)
-                return JS::Value(UV_EINVAL);
-            if (!vm.argument(1).is_string())
-                return vm.throw_completion<JS::TypeError>("Invalid internal network address"_utf16);
-            int port = TRY(number(vm, vm.argument(2), 0, 65535));
-            sockaddr_storage storage {};
-            int status = address(string(vm.argument(1)), port, storage);
-            if (status)
+    host->define_native_function(realm, "listen"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                if (socket->kind != Kind::Tcp)
+                    return JS::Value(UV_EINVAL);
+                if (!vm.argument(1).is_string())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal network address"_utf16);
+                int port = TRY(number(vm, vm.argument(2), 0, 65535));
+                int backlog = TRY(number(vm, vm.argument(3), 1, 2147483647));
+                sockaddr_storage storage {};
+                int status = address(string(vm.argument(1)), port, storage);
+                if (!status)
+                    status = uv_tcp_bind(&socket->tcp, reinterpret_cast<sockaddr*>(&storage),
+                        vm.argument(4).to_boolean() ? UV_TCP_IPV6ONLY : 0);
+                if (!status)
+                    status = uv_listen(socket->stream(), backlog, Transport::accept);
                 return JS::Value(status);
-            auto* request = new uv_connect_t {};
-            request->data = socket;
-            status = uv_tcp_connect(request, &socket->tcp, reinterpret_cast<sockaddr*>(&storage),
-                [](uv_connect_t* request, int status) {
-                    auto& socket = *static_cast<Socket*>(request->data);
-                    socket.owner.emit(socket, "connect", JS::Value(status));
+            }),
+        5, JS::default_attributes);
+    host->define_native_function(realm, "connect"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                if (socket->kind != Kind::Tcp)
+                    return JS::Value(UV_EINVAL);
+                if (!vm.argument(1).is_string())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal network address"_utf16);
+                int port = TRY(number(vm, vm.argument(2), 0, 65535));
+                sockaddr_storage storage {};
+                int status = address(string(vm.argument(1)), port, storage);
+                if (status)
+                    return JS::Value(status);
+                auto* request = new uv_connect_t {};
+                request->data = socket;
+                status = uv_tcp_connect(request, &socket->tcp,
+                    reinterpret_cast<sockaddr*>(&storage), [](uv_connect_t* request, int status) {
+                        auto& socket = *static_cast<Socket*>(request->data);
+                        socket.owner.emit(socket, "connect", JS::Value(status));
+                        delete request;
+                    });
+                if (status)
                     delete request;
-                });
-            if (status)
-                delete request;
-            return JS::Value(status);
-        },
+                return JS::Value(status);
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "listenPipe"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            if (socket->kind != Kind::Pipe)
-                return JS::Value(UV_EINVAL);
-            auto path = TRY(pipe_path(vm, vm.argument(1)));
-            int backlog = TRY(number(vm, vm.argument(2), 1, 2147483647));
-            if (path.size() > 32768)
-                return JS::Value(UV_ENAMETOOLONG);
-            int status
-                = uv_pipe_bind2(&socket->pipe, path.data(), path.size(), UV_PIPE_NO_TRUNCATE);
-            if (!status)
-                status = uv_listen(socket->stream(), backlog, Transport::accept);
-            return JS::Value(status);
-        },
+    host->define_native_function(realm, "listenPipe"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                if (socket->kind != Kind::Pipe)
+                    return JS::Value(UV_EINVAL);
+                auto path = TRY(pipe_path(vm, vm.argument(1)));
+                int backlog = TRY(number(vm, vm.argument(2), 1, 2147483647));
+                if (path.size() > 32768)
+                    return JS::Value(UV_ENAMETOOLONG);
+                int status
+                    = uv_pipe_bind2(&socket->pipe, path.data(), path.size(), UV_PIPE_NO_TRUNCATE);
+                if (!status)
+                    status = uv_listen(socket->stream(), backlog, Transport::accept);
+                return JS::Value(status);
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "connectPipe"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            if (socket->kind != Kind::Pipe)
-                return JS::Value(UV_EINVAL);
-            auto path = TRY(pipe_path(vm, vm.argument(1)));
-            if (path.size() > 32768)
-                return JS::Value(UV_ENAMETOOLONG);
-            auto* request = new PipeConnect { *socket, {}, std::move(path) };
-            request->request.data = request;
-            int status = uv_pipe_connect2(&request->request, &socket->pipe, request->path.data(),
-                request->path.size(), UV_PIPE_NO_TRUNCATE, [](uv_connect_t* native, int status) {
-                    auto* request = static_cast<PipeConnect*>(native->data);
-                    request->socket.owner.emit(request->socket, "connect", JS::Value(status));
+    host->define_native_function(realm, "connectPipe"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                if (socket->kind != Kind::Pipe)
+                    return JS::Value(UV_EINVAL);
+                auto path = TRY(pipe_path(vm, vm.argument(1)));
+                if (path.size() > 32768)
+                    return JS::Value(UV_ENAMETOOLONG);
+                auto* request = new PipeConnect { *socket, {}, std::move(path) };
+                request->request.data = request;
+                int status = uv_pipe_connect2(&request->request, &socket->pipe,
+                    request->path.data(), request->path.size(), UV_PIPE_NO_TRUNCATE,
+                    [](uv_connect_t* native, int status) {
+                        auto* request = static_cast<PipeConnect*>(native->data);
+                        request->socket.owner.emit(request->socket, "connect", JS::Value(status));
+                        delete request;
+                    });
+                if (status)
                     delete request;
-                });
-            if (status)
-                delete request;
-            return JS::Value(status);
-        },
+                return JS::Value(status);
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "read"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            if (!vm.argument(1).to_boolean()) {
-                socket->reading = false;
-                return JS::Value(uv_read_stop(socket->stream()));
-            }
+    host->define_native_function(realm, "read"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                if (!vm.argument(1).to_boolean()) {
+                    socket->reading = false;
+                    return JS::Value(uv_read_stop(socket->stream()));
+                }
 
-            if (socket->reading)
-                return JS::Value(0);
-            int status = uv_read_start(
-                socket->stream(),
-                [](uv_handle_t*, size_t size, uv_buf_t* buffer) {
-                    // Each read callback owns and frees its allocation, even on EOF.
-                    size = std::min(size, size_t { 65536 });
-                    buffer->base = static_cast<char*>(malloc(size));
-                    buffer->len = buffer->base ? size : 0;
-                },
-                [](uv_stream_t* handle, ssize_t count, uv_buf_t const* buffer) {
-                    auto& socket = *static_cast<Socket*>(handle->data);
-                    auto& owner = socket.owner;
-                    if (count > 0 && !owner.stopping && socket.callback) {
-                        owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
-                            auto bytes = TRY(JS::Uint8Array::create(owner.realm, count));
-                            bytes->viewed_array_buffer()->overwrite(0, buffer->base, count);
-                            return JS::call(owner.vm, *socket.callback, JS::js_undefined(),
-                                js_text(owner.vm, "data"), JS::Value(bytes));
+                if (socket->reading)
+                    return JS::Value(0);
+                int status = uv_read_start(
+                    socket->stream(),
+                    [](uv_handle_t*, size_t size, uv_buf_t* buffer) {
+                        // Each read callback owns and frees its allocation, even on EOF.
+                        size = std::min(size, size_t { 65536 });
+                        buffer->base = static_cast<char*>(malloc(size));
+                        buffer->len = buffer->base ? size : 0;
+                    },
+                    [](uv_stream_t* handle, ssize_t count, uv_buf_t const* buffer) {
+                        auto& socket = *static_cast<Socket*>(handle->data);
+                        auto& owner = socket.owner;
+                        if (count > 0 && !owner.stopping && socket.callback) {
+                            owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                                auto bytes = TRY(JS::Uint8Array::create(owner.realm, count));
+                                bytes->viewed_array_buffer()->overwrite(0, buffer->base, count);
+                                return JS::call(owner.vm, *socket.callback, JS::js_undefined(),
+                                    js_text(owner.vm, "data"), JS::Value(bytes));
+                            });
+                        } else if (count < 0) {
+                            uv_read_stop(handle);
+                            socket.reading = false;
+                            owner.emit(socket, count == UV_EOF ? "end" : "error",
+                                JS::Value(static_cast<int>(count)));
+                        }
+
+                        free(buffer->base);
+                    });
+                if (!status)
+                    socket->reading = true;
+                return JS::Value(status);
+            }),
+        2, JS::default_attributes);
+    host->define_native_function(realm, "write"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                TRY(callback(vm, vm.argument(2)));
+                auto value = vm.argument(1);
+                if (!value.is_object() || !is<JS::Uint8Array>(value.as_object()))
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal network bytes"_utf16);
+                auto& array = static_cast<JS::Uint8Array&>(value.as_object());
+                auto witness = JS::make_typed_array_with_buffer_witness_record(
+                    array, JS::ArrayBuffer::Order::SeqCst);
+                if (JS::is_typed_array_out_of_bounds(witness))
+                    return vm.throw_completion<JS::TypeError>("Detached network bytes"_utf16);
+                size_t size = JS::typed_array_byte_length(witness);
+                if (size > std::numeric_limits<unsigned int>::max())
+                    return vm.throw_completion<JS::RangeError>(
+                        "Network write exceeds native buffer limit"_utf16);
+                auto* request
+                    = new Write { *socket, {}, {}, GC::Root { vm.argument(2).as_function() } };
+                if (size) {
+                    auto* data = reinterpret_cast<char const*>(
+                        array.viewed_array_buffer()->data_at(array.byte_offset()));
+                    request->bytes.assign(data, data + size);
+                }
+
+                request->request.data = request;
+                auto buffer = uv_buf_init(request->bytes.data(), static_cast<unsigned int>(size));
+                // Match a native stream's immediate completion path. In particular an
+                // empty write must not add an IOCP completion after already-sent HTTP
+                // headers. Return 1 for synchronous success; JS Writable defers public
+                // callbacks itself. Never call JS reentrantly from this native frame.
+                int written = 0;
+                if (size)
+                    written = uv_try_write(socket->stream(), &buffer, 1);
+                else if (uv_stream_get_write_queue_size(socket->stream()))
+                    written = UV_EAGAIN;
+                if (written >= 0 && static_cast<size_t>(written) == size) {
+                    delete request;
+                    return JS::Value(1);
+                }
+
+                if (written < 0 && written != UV_EAGAIN && written != UV_ENOSYS) {
+                    delete request;
+                    return JS::Value(written);
+                }
+
+                if (written > 0) {
+                    buffer.base += written;
+                    buffer.len -= written;
+                }
+                // The owned allocation retains the entire original payload until the
+                // remaining suffix completes, including partial immediate writes.
+                int status = uv_write(&request->request, socket->stream(), &buffer, 1,
+                    [](uv_write_t* native, int status) {
+                        auto* request = static_cast<Write*>(native->data);
+                        auto& owner = request->socket.owner;
+                        owner.loop.dispatch([&] {
+                            return JS::call(owner.vm, *request->callback, JS::js_undefined(),
+                                JS::Value(status));
                         });
-                    } else if (count < 0) {
-                        uv_read_stop(handle);
-                        socket.reading = false;
-                        owner.emit(socket, count == UV_EOF ? "end" : "error",
-                            JS::Value(static_cast<int>(count)));
-                    }
-
-                    free(buffer->base);
-                });
-            if (!status)
-                socket->reading = true;
-            return JS::Value(status);
-        },
-        2, JS::default_attributes);
-    host->define_native_function(
-        realm, "write"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            TRY(callback(vm, vm.argument(2)));
-            auto value = vm.argument(1);
-            if (!value.is_object() || !is<JS::Uint8Array>(value.as_object()))
-                return vm.throw_completion<JS::TypeError>("Invalid internal network bytes"_utf16);
-            auto& array = static_cast<JS::Uint8Array&>(value.as_object());
-            auto witness = JS::make_typed_array_with_buffer_witness_record(
-                array, JS::ArrayBuffer::Order::SeqCst);
-            if (JS::is_typed_array_out_of_bounds(witness))
-                return vm.throw_completion<JS::TypeError>("Detached network bytes"_utf16);
-            size_t size = JS::typed_array_byte_length(witness);
-            if (size > std::numeric_limits<unsigned int>::max())
-                return vm.throw_completion<JS::RangeError>(
-                    "Network write exceeds native buffer limit"_utf16);
-            auto* request
-                = new Write { *socket, {}, {}, GC::Root { vm.argument(2).as_function() } };
-            if (size) {
-                auto* data = reinterpret_cast<char const*>(
-                    array.viewed_array_buffer()->data_at(array.byte_offset()));
-                request->bytes.assign(data, data + size);
-            }
-
-            request->request.data = request;
-            auto buffer = uv_buf_init(request->bytes.data(), static_cast<unsigned int>(size));
-            // Match a native stream's immediate completion path. In particular an
-            // empty write must not add an IOCP completion after already-sent HTTP
-            // headers. Return 1 for synchronous success; JS Writable defers public
-            // callbacks itself. Never call JS reentrantly from this native frame.
-            int written = 0;
-            if (size)
-                written = uv_try_write(socket->stream(), &buffer, 1);
-            else if (uv_stream_get_write_queue_size(socket->stream()))
-                written = UV_EAGAIN;
-            if (written >= 0 && static_cast<size_t>(written) == size) {
-                delete request;
-                return JS::Value(1);
-            }
-
-            if (written < 0 && written != UV_EAGAIN && written != UV_ENOSYS) {
-                delete request;
-                return JS::Value(written);
-            }
-
-            if (written > 0) {
-                buffer.base += written;
-                buffer.len -= written;
-            }
-            // The owned allocation retains the entire original payload until the
-            // remaining suffix completes, including partial immediate writes.
-            int status = uv_write(&request->request, socket->stream(), &buffer, 1,
-                [](uv_write_t* native, int status) {
-                    auto* request = static_cast<Write*>(native->data);
-                    auto& owner = request->socket.owner;
-                    owner.loop.dispatch([&] {
-                        return JS::call(
-                            owner.vm, *request->callback, JS::js_undefined(), JS::Value(status));
+                        delete request;
                     });
+                if (status)
                     delete request;
-                });
-            if (status)
-                delete request;
-            return JS::Value(status);
-        },
+                return JS::Value(status);
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "shutdown"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            TRY(callback(vm, vm.argument(1)));
-            auto* request = new Shutdown { *socket, {}, GC::Root { vm.argument(1).as_function() } };
-            request->request.data = request;
-            int status = uv_shutdown(
-                &request->request, socket->stream(), [](uv_shutdown_t* native, int status) {
-                    auto* request = static_cast<Shutdown*>(native->data);
-                    auto& owner = request->socket.owner;
-                    owner.loop.dispatch([&] {
-                        return JS::call(
-                            owner.vm, *request->callback, JS::js_undefined(), JS::Value(status));
+    host->define_native_function(realm, "shutdown"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                TRY(callback(vm, vm.argument(1)));
+                auto* request
+                    = new Shutdown { *socket, {}, GC::Root { vm.argument(1).as_function() } };
+                request->request.data = request;
+                int status = uv_shutdown(
+                    &request->request, socket->stream(), [](uv_shutdown_t* native, int status) {
+                        auto* request = static_cast<Shutdown*>(native->data);
+                        auto& owner = request->socket.owner;
+                        owner.loop.dispatch([&] {
+                            return JS::call(owner.vm, *request->callback, JS::js_undefined(),
+                                JS::Value(status));
+                        });
+                        delete request;
                     });
+                if (status)
                     delete request;
-                });
-            if (status)
-                delete request;
-            return JS::Value(status);
-        },
+                return JS::Value(status);
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "close"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* socket = transport->get(vm.argument(0)))
-                transport->close(*socket);
-            return JS::js_undefined();
-        },
+    host->define_native_function(realm, "close"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* socket = transport->get(vm.argument(0)))
+                    transport->close(*socket);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "ref"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* socket = transport->get(vm.argument(0))) {
-                if (vm.argument(1).to_boolean())
-                    uv_ref(socket->base());
-                else
-                    uv_unref(socket->base());
-            }
+    host->define_native_function(realm, "ref"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* socket = transport->get(vm.argument(0))) {
+                    if (vm.argument(1).to_boolean())
+                        uv_ref(socket->base());
+                    else
+                        uv_unref(socket->base());
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "option"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::Value(UV_EBADF);
-            int option = TRY(number(vm, vm.argument(1), 0, 1));
-            int delay = TRY(number(vm, vm.argument(3), 0, 2147483647));
-            if (socket->kind == Kind::Pipe)
-                return JS::Value(0); // TCP tuning is a no-op for Node-compatible local pipes.
-            return JS::Value(option == 0
-                    ? uv_tcp_nodelay(&socket->tcp, vm.argument(2).to_boolean())
-                    : uv_tcp_keepalive(&socket->tcp, vm.argument(2).to_boolean(), delay));
-        },
+    host->define_native_function(realm, "option"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::Value(UV_EBADF);
+                int option = TRY(number(vm, vm.argument(1), 0, 1));
+                int delay = TRY(number(vm, vm.argument(3), 0, 2147483647));
+                if (socket->kind == Kind::Pipe)
+                    return JS::Value(0); // TCP tuning is a no-op for Node-compatible local pipes.
+                return JS::Value(option == 0
+                        ? uv_tcp_nodelay(&socket->tcp, vm.argument(2).to_boolean())
+                        : uv_tcp_keepalive(&socket->tcp, vm.argument(2).to_boolean(), delay));
+            }),
         4, JS::default_attributes);
-    host->define_native_function(
-        realm, "address"_utf16,
-        [transport](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* socket = transport->get(vm.argument(0));
-            if (!socket)
-                return JS::js_null();
-            if (socket->kind == Kind::Pipe)
-                return JS::Object::create(vm.realm(), vm.realm().intrinsics().object_prototype());
-            sockaddr_storage storage {};
-            int size = sizeof(storage);
-            int status = vm.argument(1).to_boolean()
-                ? uv_tcp_getpeername(&socket->tcp, reinterpret_cast<sockaddr*>(&storage), &size)
-                : uv_tcp_getsockname(&socket->tcp, reinterpret_cast<sockaddr*>(&storage), &size);
-            if (status)
-                return JS::js_null();
-            char name[INET6_ADDRSTRLEN] {};
-            int port;
-            if (storage.ss_family == AF_INET) {
-                auto& addr = reinterpret_cast<sockaddr_in&>(storage);
-                uv_ip4_name(&addr, name, sizeof(name));
-                port = ntohs(addr.sin_port);
-            } else {
-                auto& addr = reinterpret_cast<sockaddr_in6&>(storage);
-                uv_ip6_name(&addr, name, sizeof(name));
-                port = ntohs(addr.sin6_port);
-            }
+    host->define_native_function(realm, "address"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(transport)),
+            [](auto& transport, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* socket = transport->get(vm.argument(0));
+                if (!socket)
+                    return JS::js_null();
+                if (socket->kind == Kind::Pipe)
+                    return JS::Object::create(
+                        vm.realm(), vm.realm().intrinsics().object_prototype());
+                sockaddr_storage storage {};
+                int size = sizeof(storage);
+                int status = vm.argument(1).to_boolean()
+                    ? uv_tcp_getpeername(&socket->tcp, reinterpret_cast<sockaddr*>(&storage), &size)
+                    : uv_tcp_getsockname(
+                          &socket->tcp, reinterpret_cast<sockaddr*>(&storage), &size);
+                if (status)
+                    return JS::js_null();
+                char name[INET6_ADDRSTRLEN] {};
+                int port;
+                if (storage.ss_family == AF_INET) {
+                    auto& addr = reinterpret_cast<sockaddr_in&>(storage);
+                    uv_ip4_name(&addr, name, sizeof(name));
+                    port = ntohs(addr.sin_port);
+                } else {
+                    auto& addr = reinterpret_cast<sockaddr_in6&>(storage);
+                    uv_ip6_name(&addr, name, sizeof(name));
+                    port = ntohs(addr.sin6_port);
+                }
 
-            auto result
-                = JS::Object::create(vm.realm(), vm.realm().intrinsics().object_prototype());
-            result->define_direct_property(
-                "address"_utf16, js_text(vm, name), JS::default_attributes);
-            result->define_direct_property("family"_utf16,
-                js_text(vm, storage.ss_family == AF_INET ? "IPv4" : "IPv6"),
-                JS::default_attributes);
-            result->define_direct_property("port"_utf16, JS::Value(port), JS::default_attributes);
-            return result;
-        },
+                auto result
+                    = JS::Object::create(vm.realm(), vm.realm().intrinsics().object_prototype());
+                result->define_direct_property(
+                    "address"_utf16, js_text(vm, name), JS::default_attributes);
+                result->define_direct_property("family"_utf16,
+                    js_text(vm, storage.ss_family == AF_INET ? "IPv4" : "IPv6"),
+                    JS::default_attributes);
+                result->define_direct_property(
+                    "port"_utf16, JS::Value(port), JS::default_attributes);
+                return result;
+            }),
         2, JS::default_attributes);
     return host;
 }

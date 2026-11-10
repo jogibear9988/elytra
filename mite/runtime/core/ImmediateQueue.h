@@ -1,5 +1,7 @@
 /** Owns the libuv check-phase FIFO and its rooted JavaScript callbacks. */
 #pragma once
+#include "core/GCCaptures.h"
+#include <LibGC/Cell.h>
 #include <memory>
 
 namespace JS {
@@ -10,8 +12,9 @@ class Realm;
 namespace Mite {
 class EventLoop;
 
-class ImmediateQueue {
+class ImmediateQueue : public NativeCaptureOwner<ImmediateQueue> {
 public:
+    void visit_capture_edges(GC::Cell::Visitor&) const;
     ImmediateQueue(EventLoop&, JS::VM&);
 
     ~ImmediateQueue();

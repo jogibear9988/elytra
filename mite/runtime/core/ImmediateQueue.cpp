@@ -5,6 +5,7 @@
  */
 #include "core/ImmediateQueue.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -166,16 +167,38 @@ ImmediateQueue::ImmediateQueue(EventLoop& owner, JS::VM& vm)
 {
 }
 
-ImmediateQueue::~ImmediateQueue() = default;
+ImmediateQueue::~ImmediateQueue()
+{
+    revoke_native_captures();
+}
+
+void ImmediateQueue::visit_capture_edges(GC::Cell::Visitor& visitor) const
+{
+    if (!m_impl)
+        return;
+    for (auto const& entry : m_impl->calls) {
+        visitor.visit(entry.second->callback.ptr());
+        visitor.visit(entry.second->receiver.ptr());
+        for (auto const& value : entry.second->arguments)
+            visitor.visit(value);
+    }
+}
 
 void ImmediateQueue::install(JS::Realm& realm)
 {
-    realm.global_object().define_native_function(
-        realm, "__miteScheduleImmediate"_utf16, [this](JS::VM&) { return m_impl->schedule(); }, 2,
-        JS::default_attributes);
-    realm.global_object().define_native_function(
-        realm, "__miteControlImmediate"_utf16,
-        [this](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return m_impl->control(); }, 2,
-        JS::default_attributes);
+    realm.global_object().define_native_function(realm, "__miteScheduleImmediate"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) {
+                auto* self = &captured_self.get();
+                return self->m_impl->schedule();
+            }),
+        2, JS::default_attributes);
+    realm.global_object().define_native_function(realm, "__miteControlImmediate"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+                return self->m_impl->control();
+            }),
+        2, JS::default_attributes);
 }
 }

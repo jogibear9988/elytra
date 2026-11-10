@@ -1,6 +1,7 @@
 /** Native frame identity, lazy headers and GC-owned captured-stack state; no V8 dependency. */
 #include "StackTrace.h"
 #include "CallSites.h"
+#include "core/GCCaptures.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16StringBuilder.h>
 #include <LibGC/Root.h>
@@ -19,9 +20,20 @@
 
 namespace Mite {
 namespace {
-    // Each NativeFunction captures these full GC pointers directly. LibGC's
-    // GC::Function visits its raw capture range; no JS value hides in C++ state.
+    // Every captured state field has an explicit edge visitor; LibGC never
+    // guesses the contents of a native lambda capture buffer.
     struct State {
+        void visit_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(records);
+            visitor.visit(lookup);
+            visitor.visit(store);
+            visitor.visit(constructor);
+            visitor.visit(native_getter);
+            visitor.visit(native_setter);
+            visitor.visit(sites);
+        }
+
         GC::Ptr<JS::Object> records;
         GC::Ptr<JS::FunctionObject> lookup;
         GC::Ptr<JS::FunctionObject> store;
@@ -273,21 +285,27 @@ JS::ThrowCompletionOr<void> install_error_stacks(JS::Realm& realm)
     GC::Root sites { TRY(install_call_sites(realm)) };
     State state { records.ptr(), lookup.ptr(), store.ptr(), constructor.ptr(), *native_stack->get,
         *native_stack->set, sites.ptr() };
-    GC::Root getter { JS::NativeFunction::create(
-        realm,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> { return read_stack(vm, state); },
+    GC::Root getter { JS::NativeFunction::create(realm,
+        GC::create_function(realm.vm().heap(), GC::captures(state),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return read_stack(vm, state);
+            }),
         0, "get stack"_utf16) };
-    GC::Root setter { JS::NativeFunction::create(
-        realm,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> { return write_stack(vm, state); },
+    GC::Root setter { JS::NativeFunction::create(realm,
+        GC::create_function(realm.vm().heap(), GC::captures(state),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return write_stack(vm, state);
+            }),
         1, "set stack"_utf16) };
     constructor->define_direct_property(
         "stackTraceLimit"_utf16, JS::Value(10), JS::default_attributes);
-    constructor->define_native_function(
-        realm, "captureStackTrace"_utf16,
-        [state, get = GC::Ptr<JS::FunctionObject>(getter.ptr()),
-            set = GC::Ptr<JS::FunctionObject>(setter.ptr())](JS::VM& vm)
-            -> JS::ThrowCompletionOr<JS::Value> { return capture(vm, state, *get, *set); },
+    constructor->define_native_function(realm, "captureStackTrace"_utf16,
+        GC::create_function(realm.vm().heap(),
+            GC::captures(state, GC::Ptr<JS::FunctionObject>(getter.ptr()),
+                GC::Ptr<JS::FunctionObject>(setter.ptr())),
+            [](auto& state, auto& get, auto& set, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return capture(vm, state, *get, *set);
+            }),
         2, JS::Attribute::Writable | JS::Attribute::Configurable);
     return {};
 }

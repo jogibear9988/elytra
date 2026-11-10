@@ -1,4 +1,5 @@
 /** Create ESM-owned CommonJS contexts without caching or executing the synthetic parent. */
+#include "core/GCCaptures.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include <LibJS/Runtime/Array.h>
@@ -50,35 +51,37 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::make_commonjs_module(
 void ModuleLoader::install_module_utilities(JS::Object& host)
 {
     install_resolve_hook_host(host);
-    host.define_native_function(
-        m_realm, "createRequire"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string())
-                return error(
-                    "ERR_INVALID_ARG_VALUE", "createRequire requires an absolute filename", true);
-            auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto text = string(bytes);
-            auto filename = path_from_utf8(text);
-            bool absolute = filename.is_absolute();
+    host.define_native_function(m_realm, "createRequire"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                if (!vm.argument(0).is_string())
+                    return self->error("ERR_INVALID_ARG_VALUE",
+                        "createRequire requires an absolute filename", true);
+                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto text = string(bytes);
+                auto filename = path_from_utf8(text);
+                bool absolute = filename.is_absolute();
 #ifdef _WIN32
-            // Node also accepts drive-rooted paths such as \\app\\main.cjs,
-            // resolved by Windows against the current drive.
-            absolute = filename.has_root_directory();
+                // Node also accepts drive-rooted paths such as \\app\\main.cjs,
+                // resolved by Windows against the current drive.
+                absolute = filename.has_root_directory();
 #endif
-            if (!absolute || text.find('\0') != std::string::npos)
-                return error("ERR_INVALID_ARG_VALUE",
-                    "createRequire requires an absolute filename without NUL", true);
-            // A trailing separator denotes a directory context, even if it does not
-            // exist. Do not canonicalize or require an actual parent file on disk.
-            bool directory = text.ends_with('/');
+                if (!absolute || text.find('\0') != std::string::npos)
+                    return self->error("ERR_INVALID_ARG_VALUE",
+                        "createRequire requires an absolute filename without NUL", true);
+                // A trailing separator denotes a directory context, even if it does not
+                // exist. Do not canonicalize or require an actual parent file on disk.
+                bool directory = text.ends_with('/');
 #ifdef _WIN32
-            directory = directory || text.ends_with('\\');
+                directory = directory || text.ends_with('\\');
 #endif
-            if (directory)
-                filename /= "noop.js";
-            GC::Root module { TRY(make_commonjs_module(filename, nullptr, false)) };
-            return make_require(filename, *module);
-        },
+                if (directory)
+                    filename /= "noop.js";
+                GC::Root module { TRY(self->make_commonjs_module(filename, nullptr, false)) };
+                return self->make_require(filename, *module);
+            }),
         1, JS::default_attributes);
 }
 }

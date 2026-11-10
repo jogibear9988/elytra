@@ -11898,6 +11898,98 @@ security/renderer revalidation, then autoplay and remaining Code-OSS dependencie
 The complete product/platform/package/release objective remains active.
 
 
+## 2026-11-10 — Ladybird cdcb9a candidate review (NOT ACCEPTED)
+
+This section is work in the isolated codex/ladybird-update-2026-11-10 checkout.
+Accepted master remains 1d18d82 with Ladybird 97ad425 and 139 passing CLI suites.
+The candidate is not merged or a released/working Firefly build. The first local
+checkpoint covers the standalone runtime, build inputs and ICU packaging only.
+The Hub/frontend migration described here remains a separate unfinished worktree
+step. The complete candidate worktree passed all 141 Debug suites (including its
+new Hub source guard); the standalone checkpoint registers the 140-suite subset.
+Full runtime log: build/candidate-runtime-accepted.log. No test was disabled to
+pass a behavioral regression.
+
+- Official candidate cdcb9a308fc9d9f34e3ebd7c5a7e6b5a63972cdf is 859 commits
+  after the accepted pin. Candidate manifest/index/checkout match and source stays
+  clean. Bootstrap completed against the unchanged canonical vcpkg manager pin.
+- Review dependencies: ICU78.3#3 and mimalloc2.2.7#1; all shared overrides match
+  upstream. Copy/regenerate the aggregate Rust lock from upstream, retaining only
+  its versions/sources plus our aggregate crate. Guard passes 124 packages; the
+  five-root standalone graph remains independent of LibWeb/Firefly.
+- Fresh Debug Mite configuration completed. Initial no-JIT Rust runtime build
+  fails on upstream has_lazy_property, used only by the JIT but not feature-gated.
+  An owned exact-item source composition adds only cfg(feature=jit), preserves
+  manifests/locks/build scripts and delegates every other module to upstream.
+  Real native compiler-driver routing/quoting/Unicode/cache tests pass; broad
+  warning suppression and enabling JIT are not used. First actual overlay build
+  exposed Rust absolute-path nested-module semantics; add exact unicode.rs routing
+  and reject unreviewed nested file modules. Calendar E0716 needs rechecking after
+  that module correction before considering another source change.
+- Native SDK headers build through ordinary independent targets. Mite's roughly
+  100 closures now use explicit GC captures and typed native-owner/shared-service
+  edge visitors, without conservative raw closure scans. All 41 actual candidate
+  runtime/CLI translation units pass strict syntax with generated headers and
+  warnings as errors. This is not linking/runtime/GC acceptance yet.
+- Renderer bridge/helper 18 captures across 19 files are provisionally migrated,
+  with native edge visitors and weak-key ephemeron ownership retained. Only style
+  checks pass so far; real LibWeb headers/build are not available yet.
+- The upstream Qt widget now derives RemoteView; canonical authority lives in
+  in-process Hub::View. Bootstrap, frontend-service source composition and native
+  canonical-view lookup groundwork exist under native/qt/hub. They are not wired
+  into a running application. Keep all document/permission/byte/preload identities
+  canonical; widget pointers cannot replace them. Do not instantiate the upstream
+  browser Qt Application or its persistent browser stores as a shortcut.
+- Permission source compositions preserve trust/document/gesture and OS denial;
+  active denied microphones return denial without browser UI. Crash compositions
+  guard browser profile adoption/autohandlers/disposal and single-instance
+  coordination behind trusted native embedded-profile ownership. Hub bootstrap
+  opts in before initializing the real upstream Application. Source reversal and
+  missing/duplicate/drift checks pass; native capture/runtime gates remain pending.
+- Fetch source callbacks use explicit captures while preserving the before/head/
+  finish gates, BiDi processing and CORS ordering. Exact new-source reversal and
+  drift checks pass. Hub lifecycle composition selects only the owned binary path
+  and existing Core loop, preserving original fallback/host notifications.
+- The real Rust/SDK/CLI/embedded-host build now succeeds. The Unicode file-module
+  correction resolved the calendar borrow diagnostic without altering calendar
+  source. Initial full Debug run: 137/141 tests pass; four failures were policy
+  teardown, fork, legacy encoding and the helper-launch source guard.
+- Actual crash evidence identified a retired ImmediateQueue being visited during
+  shutdown collection. Add revocable native-owner anchors and a real retained
+  GC::Function test collecting while live, inside native destruction and afterward.
+  Rebuilt policy/embedding/error-stack tests now pass unchanged.
+- Upstream now trims every ICU converter from its external data file. Preserve
+  full data through the existing upstream copy branch for Mite's intentional
+  Node-compatible CJK codecs. All 1,657 encoding comparisons pass again. Candidate
+  standalone tar/ZIP/app-layout relocation tests decode real CJK data without
+  SDK paths or ICU environment overrides; full renderer/package acceptance remains
+  pending. Install/staging paths include the actual data with hashes.
+- Helper-launch source diff preserves the selected WebContent launch seam; image
+  decoder control/restart changed independently. Update the reviewed fingerprint;
+  full byte-reversal/private-policy source guard passes. The initial repaired subset was
+  5/6 green with fork still failing. Actual process evidence showed no child crash: its
+  768KiB frame arrives after the existing watchdog. The IPC reader's repeated
+  concat/rescan is quadratic; single-pass native byte scanning and bounded geometric assembly now pass the
+  original real fork fixtures with the unchanged watchdog. Controlled framing
+  cases add byte-fragmented Unicode, exact limits, input snapshots, linear-copy
+  bounds, invalid UTF8/BOM, partial EOF, reentry and quota checks. No watchdog or
+  large-frame assertion was relaxed.
+- Native non-Qt Host callbacks and Qt bindings have explicit captures and revoked
+  borrowed-owner admission. Focused non-Qt syntax checks pass; candidate real
+  renderer build remains unverified. Early Hub-deferred app.enableSandbox now uses an owned selected launch snapshot,
+  followed by actual initialized-Hub validation; its new native probe still needs
+  wiring/build. No candidate UI runtime acceptance is implied.
+- Renderer dependencies now install, while configuration stops at owned renderer
+  hook guards being migrated to the actual new SDK expressions.
+  No candidate GUI tests or acceptance, no Ladybird source edits and no release.
+
+Local evidence lives under build/candidate-*.log, build/mite-capture-syntax.log,
+and build/adapter-review. Next: retry real Mite build after nested-module fix,
+then full runtime/forced-GC tests; finish Hub/frontend/CMake/canonical migration
+and all source/security/renderer/package gates before considering master update.
+The full product/platform/release objective remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

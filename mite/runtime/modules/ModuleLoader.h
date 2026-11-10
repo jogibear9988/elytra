@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "core/GCCaptures.h"
 #include <AK/JsonValue.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
@@ -24,9 +25,12 @@ namespace Mite {
 
 class EventLoop;
 
-class ModuleLoader {
+class ModuleLoader : public NativeCaptureOwner<ModuleLoader> {
 public:
+    void visit_capture_edges(GC::Cell::Visitor&) const;
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
+
+    ~ModuleLoader();
 
     JS::ThrowCompletionOr<void> install_globals(
         bool allow_process_signals = false, bool fork_child = false);

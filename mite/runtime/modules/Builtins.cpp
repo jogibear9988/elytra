@@ -6,6 +6,7 @@
 
 #include "BuiltinSources.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -323,20 +324,22 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "stream" || name == "string_decoder") {
-        host->define_native_function(
-            m_realm, "require"_utf16,
-            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_string())
-                    return error(
-                        "ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);
-                auto encoded
-                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                auto name = string(encoded);
-                if (!name.starts_with("node:"))
-                    return error(
-                        "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected portable runtime dependency");
-                return TRY(builtin(name.substr(5)));
-            },
+        host->define_native_function(m_realm, "require"_utf16,
+            GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto* self = &captured_self.get();
+
+                    if (!vm.argument(0).is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);
+                    auto encoded
+                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                    auto name = string(encoded);
+                    if (!name.starts_with("node:"))
+                        return self->error("ERR_MITE_UNSUPPORTED_BUILTIN",
+                            "Unexpected portable runtime dependency");
+                    return TRY(self->builtin(name.substr(5)));
+                }),
             1, JS::default_attributes);
         if (name == "string_decoder") {
             auto native = create_encoding_host(m_realm);
@@ -549,12 +552,14 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     VERIFY(initializer.is_function());
     GC::Root globals_factory { initializer.as_function() };
     GC::Root globals_host { JS::Object::create(m_realm, nullptr) };
-    globals_host->define_native_function(
-        m_realm, "keepAlive"_utf16,
-        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            loop.keep_weak_target(vm.argument(0));
-            return JS::js_undefined();
-        },
+    globals_host->define_native_function(m_realm, "keepAlive"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(m_event_loop)),
+            [](auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
+
+                loop.keep_weak_target(vm.argument(0));
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     auto globals = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
     VERIFY(globals.is_object());
@@ -600,14 +605,17 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
         "signals"_utf16, TRY(constants->get("signals"_utf16)), JS::default_attributes);
     signal_host->define_direct_property(
         "native"_utf16, native_signals.ptr(), JS::default_attributes);
-    signal_host->define_native_function(
-        m_realm, "installErrorHandler"_utf16,
-        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid process error dispatcher"sv);
-            loop.set_process_error_handler(&vm.argument(0).as_function());
-            return JS::js_undefined();
-        },
+    signal_host->define_native_function(m_realm, "installErrorHandler"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(m_event_loop)),
+            [](auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
+
+                if (!vm.argument(0).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid process error dispatcher"_utf16);
+                loop.set_process_error_handler(&vm.argument(0).as_function());
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     auto events_source = JS::Script::parse(
         Utf16String::from_utf8(
@@ -679,24 +687,26 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     fetch_host->define_direct_property(
         "decompression"_utf16, decoder.ptr(), JS::default_attributes);
     // Transport modules stay lazy: Headers/Response-only programs need no sockets.
-    fetch_host->define_native_function(
-        m_realm, "require"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(vm.argument(0).to_utf16_string(vm));
-            auto bytes = MUST(name.utf16_view().to_byte_string());
-            auto module = string(bytes);
-            if (module != "node:http" && module != "node:https" && module != "node:stream"
-                && module != "node:crypto")
-                return error(
-                    "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
-            if (m_transport_captured) {
-                auto found = m_transport_dependencies.find(module);
-                VERIFY(found != m_transport_dependencies.end());
-                return found->second.ptr();
-            }
+    fetch_host->define_native_function(m_realm, "require"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
 
-            return TRY(builtin(module.substr(5)));
-        },
+                auto name = TRY(vm.argument(0).to_utf16_string(vm));
+                auto bytes = MUST(name.utf16_view().to_byte_string());
+                auto module = string(bytes);
+                if (module != "node:http" && module != "node:https" && module != "node:stream"
+                    && module != "node:crypto")
+                    return self->error(
+                        "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
+                if (self->m_transport_captured) {
+                    auto found = self->m_transport_dependencies.find(module);
+                    VERIFY(found != self->m_transport_dependencies.end());
+                    return found->second.ptr();
+                }
+
+                return TRY(self->builtin(module.substr(5)));
+            }),
         1, JS::default_attributes);
     fetch_host->define_direct_property("platform"_utf16,
         JS::PrimitiveString::create(
@@ -753,8 +763,12 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     auto webcrypto = TRY(cryptography->get("webcrypto"_utf16));
     VERIFY(webcrypto.is_object());
     m_web_crypto = webcrypto.as_object();
-    GC::Root crypto_getter { JS::NativeFunction::create(
-        m_realm, [this](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return m_web_crypto.ptr(); },
+    GC::Root crypto_getter { JS::NativeFunction::create(m_realm,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+                return self->m_web_crypto.ptr();
+            }),
         0, "get crypto"_utf16) };
     m_realm.global_object().define_direct_accessor("crypto"_utf16, crypto_getter.ptr(), nullptr,
         JS::Attribute::Enumerable | JS::Attribute::Configurable);
@@ -811,14 +825,18 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::builtin_module(std::str
     // share this registry and the same object returned by CommonJS require.
     TRY(builtin(name));
     if (!m_builtin_bridge) {
-        auto bridge = JS::NativeFunction::create(
-            m_realm,
-            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_string())
-                    return error("ERR_INVALID_ARG_TYPE", "Builtin name must be a string", true);
-                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                return TRY(builtin(string(bytes)));
-            },
+        auto bridge = JS::NativeFunction::create(m_realm,
+            GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto* self = &captured_self.get();
+
+                    if (!vm.argument(0).is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Builtin name must be a string", true);
+                    auto bytes
+                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                    return TRY(self->builtin(string(bytes)));
+                }),
             1, "getBuiltin"_utf16);
         m_builtin_bridge = JS::SyntheticModule::create_default_export_synthetic_module(
             m_realm, bridge, "mite:internal/builtin")

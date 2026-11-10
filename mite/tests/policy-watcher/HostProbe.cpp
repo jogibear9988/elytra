@@ -1,6 +1,7 @@
 /** Exact production policy Host with controlled plain providers; never OS policy or preference
  * writes. */
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
 #include "platform/policy/Host.h"
@@ -24,6 +25,15 @@
 #include <vector>
 
 namespace {
+struct IdleCollectionState : Mite::NativeCaptureOwner<IdleCollectionState> {
+    GC::Root<JS::PromiseCapability> capability;
+
+    void visit_capture_edges(GC::Cell::Visitor& visitor) const
+    {
+        visitor.visit(capability.ptr());
+    }
+};
+
 using namespace Mite::Policy;
 
 struct Feed {
@@ -112,7 +122,8 @@ int main(int argc, char** argv)
             leave_active = true;
     owner_thread = std::this_thread::get_id();
     JS::VM* owner_vm = nullptr;
-    GC::Root<JS::PromiseCapability> idle_collection;
+    IdleCollectionState collection_state;
+    auto& idle_collection = collection_state.capability;
     Mite::HostHooks hooks;
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
@@ -165,14 +176,16 @@ int main(int argc, char** argv)
                 return JS::js_undefined();
             },
             0, JS::default_attributes);
-        native->define_native_function(
-            realm, "collectAtIdle"_utf16,
-            [&](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!idle_collection)
-                    idle_collection = TRY(JS::new_promise_capability(
-                        vm, realm.intrinsics().promise_constructor().ptr()));
-                return idle_collection->promise();
-            },
+        native->define_native_function(realm, "collectAtIdle"_utf16,
+            GC::create_function(vm.heap(),
+                GC::captures(Mite::native_reference(collection_state), realm),
+                [](auto& state, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& idle_collection = state.get().capability;
+                    if (!idle_collection)
+                        idle_collection = TRY(JS::new_promise_capability(
+                            vm, realm.intrinsics().promise_constructor().ptr()));
+                    return idle_collection->promise();
+                }),
             0, JS::default_attributes);
         native->define_native_function(
             realm, "track"_utf16,

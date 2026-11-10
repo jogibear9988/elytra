@@ -3,6 +3,7 @@
  * Callbacks capture the loader only; retained nextResolve functions never borrow a
  * native stack frame. The owning VM/loader roots the dispatcher and active results.
  */
+#include "core/GCCaptures.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -102,84 +103,94 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
 
 void ModuleLoader::install_resolve_hook_host(JS::Object& host)
 {
-    host.define_native_function(
-        m_realm, "setResolveDispatcher"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_function() || m_resolve_hook_dispatcher)
-                return error(
-                    "ERR_INVALID_ARG_TYPE", "Resolve dispatcher must be installed once", true);
-            m_resolve_hook_dispatcher = &vm.argument(0).as_object();
-            return JS::js_undefined();
-        },
+    host.define_native_function(m_realm, "setResolveDispatcher"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                if (!vm.argument(0).is_function() || self->m_resolve_hook_dispatcher)
+                    return self->error(
+                        "ERR_INVALID_ARG_TYPE", "Resolve dispatcher must be installed once", true);
+                self->m_resolve_hook_dispatcher = &vm.argument(0).as_object();
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        m_realm, "defaultResolve"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string() || !vm.argument(1).is_object())
-                return error(
-                    "ERR_INVALID_ARG_TYPE", "Resolve requires a string and context object", true);
-            auto& context = vm.argument(1).as_object();
-            auto parent = TRY(context.get("parentURL"_utf16));
-            if (!parent.is_string())
-                return error(
-                    "ERR_INVALID_ARG_TYPE", "Resolve parentURL must be a file URL string", true);
-            auto parent_text = hook_text(parent);
-            auto parent_url = URL::Parser::basic_parse(view(parent_text));
-            if (!parent_url.has_value() || parent_url->scheme() != "file"sv)
-                return error("ERR_MITE_UNSUPPORTED_API", "Only file parent URLs are implemented");
-            // Apply the same file URL host/separator/NUL validation as createRequire.
-            auto encoded = parent_url->serialize_path();
-            if (!parent_url->serialized_host().is_empty() || parent_url->file_path().contains('\0')
-                || encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive)
-                || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
-                return error("ERR_INVALID_ARG_VALUE", "Invalid resolve parent file URL", true);
-            auto conditions_value = TRY(context.get("conditions"_utf16));
-            if (!conditions_value.is_object()
-                || !JS::Array::is_engine_class_of(conditions_value.as_object()))
-                return error("ERR_INVALID_ARG_TYPE", "Resolve conditions must be an array", true);
-            GC::Root conditions_object { conditions_value.as_object() };
-            auto length = TRY(conditions_object->get(vm.names.length)).as_double();
-            if (length > 1024)
-                return error("ERR_MITE_RESOLVE_HOOK_LIMIT", "Too many resolve conditions");
-            std::vector<std::string> conditions;
-            for (u32 index = 0; index < length; ++index) {
-                auto condition = TRY(conditions_object->get(index));
-                if (!condition.is_string())
-                    return error(
-                        "ERR_INVALID_ARG_TYPE", "Resolve conditions must be strings", true);
-                conditions.push_back(hook_text(condition));
-            }
+    host.define_native_function(m_realm, "defaultResolve"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
 
-            auto specifier = hook_text(vm.argument(0));
-            bool require = vm.argument(2).to_boolean();
-            Optional<URL::URL> url;
-            if (require) {
-                auto target = TRY(resolve_require(specifier, url_path(*parent_url), &conditions));
-                url = !target.host.empty()
-                    ? URL::Parser::basic_parse(view("mite-host:" + target.host))
-                    : !target.builtin.empty()
-                    ? URL::Parser::basic_parse(view("node:" + target.builtin))
-                    : Optional<URL::URL> { path_to_url(target.path) };
-            } else {
-                url = TRY(resolve(specifier, parent_text, &conditions));
-            }
+                if (!vm.argument(0).is_string() || !vm.argument(1).is_object())
+                    return self->error("ERR_INVALID_ARG_TYPE",
+                        "Resolve requires a string and context object", true);
+                auto& context = vm.argument(1).as_object();
+                auto parent = TRY(context.get("parentURL"_utf16));
+                if (!parent.is_string())
+                    return self->error("ERR_INVALID_ARG_TYPE",
+                        "Resolve parentURL must be a file URL string", true);
+                auto parent_text = hook_text(parent);
+                auto parent_url = URL::Parser::basic_parse(view(parent_text));
+                if (!parent_url.has_value() || parent_url->scheme() != "file"sv)
+                    return self->error(
+                        "ERR_MITE_UNSUPPORTED_API", "Only file parent URLs are implemented");
+                // Apply the same file URL host/separator/NUL validation as createRequire.
+                auto encoded = parent_url->serialize_path();
+                if (!parent_url->serialized_host().is_empty()
+                    || parent_url->file_path().contains('\0')
+                    || encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive)
+                    || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
+                    return self->error(
+                        "ERR_INVALID_ARG_VALUE", "Invalid resolve parent file URL", true);
+                auto conditions_value = TRY(context.get("conditions"_utf16));
+                if (!conditions_value.is_object()
+                    || !JS::Array::is_engine_class_of(conditions_value.as_object()))
+                    return self->error(
+                        "ERR_INVALID_ARG_TYPE", "Resolve conditions must be an array", true);
+                GC::Root conditions_object { conditions_value.as_object() };
+                auto length = TRY(conditions_object->get(vm.names.length)).as_double();
+                if (length > 1024)
+                    return self->error(
+                        "ERR_MITE_RESOLVE_HOOK_LIMIT", "Too many resolve conditions");
+                std::vector<std::string> conditions;
+                for (u32 index = 0; index < length; ++index) {
+                    auto condition = TRY(conditions_object->get(index));
+                    if (!condition.is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Resolve conditions must be strings", true);
+                    conditions.push_back(hook_text(condition));
+                }
 
-            GC::Root result { JS::Object::create(
-                m_realm, m_realm.intrinsics().object_prototype()) };
-            result->define_direct_property(
-                "url"_utf16, hook_string(vm, string(url->serialize())), JS::default_attributes);
-            // Node omits a format hint for builtins/CommonJS require resolution.
-            if (!require && url->scheme() == "file"sv) {
-                auto path = url_path(*url);
-                auto format = path.extension() == ".json" ? "json"
-                    : TRY(is_es_module(path))             ? "module"
-                                                          : "commonjs";
+                auto specifier = hook_text(vm.argument(0));
+                bool require = vm.argument(2).to_boolean();
+                Optional<URL::URL> url;
+                if (require) {
+                    auto target
+                        = TRY(self->resolve_require(specifier, url_path(*parent_url), &conditions));
+                    url = !target.host.empty()
+                        ? URL::Parser::basic_parse(view("mite-host:" + target.host))
+                        : !target.builtin.empty()
+                        ? URL::Parser::basic_parse(view("node:" + target.builtin))
+                        : Optional<URL::URL> { self->path_to_url(target.path) };
+                } else {
+                    url = TRY(self->resolve(specifier, parent_text, &conditions));
+                }
+
+                GC::Root result { JS::Object::create(
+                    self->m_realm, self->m_realm.intrinsics().object_prototype()) };
                 result->define_direct_property(
-                    "format"_utf16, hook_string(vm, format), JS::default_attributes);
-            }
+                    "url"_utf16, hook_string(vm, string(url->serialize())), JS::default_attributes);
+                // Node omits a format hint for builtins/CommonJS require resolution.
+                if (!require && url->scheme() == "file"sv) {
+                    auto path = url_path(*url);
+                    auto format = path.extension() == ".json" ? "json"
+                        : TRY(self->is_es_module(path))       ? "module"
+                                                              : "commonjs";
+                    result->define_direct_property(
+                        "format"_utf16, hook_string(vm, format), JS::default_attributes);
+                }
 
-            return result.ptr();
-        },
+                return result.ptr();
+            }),
         3, JS::default_attributes);
 }
 }

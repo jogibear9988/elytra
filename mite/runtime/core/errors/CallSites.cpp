@@ -1,5 +1,6 @@
 /** GC-owned, non-forgeable CallSite records backed exclusively by captured LibJS metadata. */
 #include "CallSites.h"
+#include "core/GCCaptures.h"
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
@@ -66,14 +67,15 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> install_call_sites(JS::Realm& realm)
     };
 
     for (auto const& method : supported) {
-        prototype->define_native_function(
-            realm, method.name,
-            [map = GC::Ptr<JS::Object>(records.ptr()),
-                get = GC::Ptr<JS::FunctionObject>(lookup.ptr()),
-                field = method.field](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                GC::Root record { TRY(receiver_record(vm, *map, *get)) };
-                return record->get(field);
-            },
+        prototype->define_native_function(realm, method.name,
+            GC::create_function(realm.vm().heap(),
+                GC::captures(GC::Ptr<JS::Object>(records.ptr()),
+                    GC::Ptr<JS::FunctionObject>(lookup.ptr()), method.field),
+                [](auto& map, auto& get, auto& field,
+                    JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    GC::Root record { TRY(receiver_record(vm, *map, *get)) };
+                    return record->get(field);
+                }),
             0, JS::Attribute::Writable | JS::Attribute::Configurable);
     }
 
@@ -85,14 +87,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> install_call_sites(JS::Realm& realm)
         "getPromiseIndex"_utf16, "getPosition"_utf16, "getEnclosingLineNumber"_utf16,
         "getEnclosingColumnNumber"_utf16, "getScriptHash"_utf16 };
     for (auto name : unavailable) {
-        prototype->define_native_function(
-            realm, name,
-            [map = GC::Ptr<JS::Object>(records.ptr()),
-                get = GC::Ptr<JS::FunctionObject>(lookup.ptr())](
-                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                GC::Root record { TRY(receiver_record(vm, *map, *get)) };
-                return unsupported(vm);
-            },
+        prototype->define_native_function(realm, name,
+            GC::create_function(realm.vm().heap(),
+                GC::captures(
+                    GC::Ptr<JS::Object>(records.ptr()), GC::Ptr<JS::FunctionObject>(lookup.ptr())),
+                [](auto& map, auto& get, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    GC::Root record { TRY(receiver_record(vm, *map, *get)) };
+                    return unsupported(vm);
+                }),
             0, JS::Attribute::Writable | JS::Attribute::Configurable);
     }
 

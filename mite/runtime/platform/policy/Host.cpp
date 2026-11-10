@@ -1,6 +1,7 @@
 /** Bounded native watchers; snapshots and rooted callbacks meet only on Mite's owner loop. */
 #include "Host.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
 #include <AK/JsonValue.h>
@@ -145,6 +146,13 @@ namespace {
     }
 
     struct State {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(realm);
+            for (auto const& entry : active)
+                visitor.visit(entry.second->callback.ptr());
+        }
+
         JS::Realm& realm;
         EventLoop& loop;
         ProviderFactory factory;
@@ -230,85 +238,86 @@ GC::Ref<JS::Object> create_host(JS::Realm& realm, EventLoop& loop, ProviderFacto
             state->close(*state->active.begin()->second);
     });
     GC::Root host { JS::Object::create(realm, nullptr) };
-    host->define_native_function(
-        realm, "start"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string() || !vm.argument(1).is_string()
-                || !vm.argument(2).is_function())
-                return fail(vm, "ERR_INVALID_ARG_TYPE"sv, "Invalid native policy arguments"sv);
-            auto product_view = vm.argument(0).as_string().utf16_string_view();
-            auto definition_view = vm.argument(1).as_string().utf16_string_view();
-            if (product_view.is_empty() || product_view.length_in_code_units() > name_limit
-                || definition_view.length_in_code_units() > snapshot_limit)
-                return fail(vm, "ERR_MITE_POLICY_LIMIT"sv, "Policy arguments exceed budget"sv);
-            auto product = product_view.to_utf8(AllowLonelySurrogates::No);
-            auto text = definition_view.to_utf8(AllowLonelySurrogates::No);
-            if (product.is_error() || text.is_error() || product.value().contains('\0')
-                || product.value().byte_count() > name_limit
-                || text.value().byte_count() > snapshot_limit)
-                return fail(vm, "ERR_INVALID_ARG_VALUE"sv, "Invalid native policy text"sv);
-            auto parsed = definitions(text.value().bytes_as_string_view());
-            if (parsed.is_error())
-                return fail(vm, "ERR_INVALID_ARG_VALUE"sv, "Invalid native policy definitions"sv);
-            if (state->stopped)
-                return fail(vm, "ERR_MITE_POLICY_CLOSED"sv, "Policy host has stopped"sv);
-            if (state->handles >= watcher_limit || state->next_id > identity_limit)
-                return fail(vm, "ERR_MITE_POLICY_LIMIT"sv, "Policy watcher budget exhausted"sv);
-            HashMap<ByteString, u8> allowed;
-            for (auto const& entry : parsed.value()) {
-                u8 bits = 0;
-                for (auto type : entry.types)
-                    bits |= bit(type);
-                allowed.set(entry.name, bits);
-            }
+    host->define_native_function(realm, "start"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_string() || !vm.argument(1).is_string()
+                    || !vm.argument(2).is_function())
+                    return fail(vm, "ERR_INVALID_ARG_TYPE"sv, "Invalid native policy arguments"sv);
+                auto product_view = vm.argument(0).as_string().utf16_string_view();
+                auto definition_view = vm.argument(1).as_string().utf16_string_view();
+                if (product_view.is_empty() || product_view.length_in_code_units() > name_limit
+                    || definition_view.length_in_code_units() > snapshot_limit)
+                    return fail(vm, "ERR_MITE_POLICY_LIMIT"sv, "Policy arguments exceed budget"sv);
+                auto product = product_view.to_utf8(AllowLonelySurrogates::No);
+                auto text = definition_view.to_utf8(AllowLonelySurrogates::No);
+                if (product.is_error() || text.is_error() || product.value().contains('\0')
+                    || product.value().byte_count() > name_limit
+                    || text.value().byte_count() > snapshot_limit)
+                    return fail(vm, "ERR_INVALID_ARG_VALUE"sv, "Invalid native policy text"sv);
+                auto parsed = definitions(text.value().bytes_as_string_view());
+                if (parsed.is_error())
+                    return fail(
+                        vm, "ERR_INVALID_ARG_VALUE"sv, "Invalid native policy definitions"sv);
+                if (state->stopped)
+                    return fail(vm, "ERR_MITE_POLICY_CLOSED"sv, "Policy host has stopped"sv);
+                if (state->handles >= watcher_limit || state->next_id > identity_limit)
+                    return fail(vm, "ERR_MITE_POLICY_LIMIT"sv, "Policy watcher budget exhausted"sv);
+                HashMap<ByteString, u8> allowed;
+                for (auto const& entry : parsed.value()) {
+                    u8 bits = 0;
+                    for (auto type : entry.types)
+                        bits |= bit(type);
+                    allowed.set(entry.name, bits);
+                }
 
-            auto provider
-                = state->factory(product.release_value().to_byte_string(), parsed.release_value());
-            if (provider.is_error()) {
-                bool unsupported
-                    = provider.error().is_errno() && provider.error().code() == ENOTSUP;
-                return fail(vm,
-                    unsupported ? "ERR_MITE_UNSUPPORTED_API"sv : "ERR_MITE_POLICY_PROVIDER"sv,
-                    "Native policy provider could not start"sv);
-            }
+                auto provider = state->factory(
+                    product.release_value().to_byte_string(), parsed.release_value());
+                if (provider.is_error()) {
+                    bool unsupported
+                        = provider.error().is_errno() && provider.error().code() == ENOTSUP;
+                    return fail(vm,
+                        unsupported ? "ERR_MITE_UNSUPPORTED_API"sv : "ERR_MITE_POLICY_PROVIDER"sv,
+                        "Native policy provider could not start"sv);
+                }
 
-            auto* watch = new Watch { state, state->next_id++, provider.release_value(),
-                move(allowed), GC::Root { vm.argument(2).as_function() } };
-            int status = uv_timer_init(&state->loop.native_loop(), &watch->timer);
-            if (status) {
-                delete watch;
-                return fail(
-                    vm, "ERR_MITE_POLICY_PROVIDER"sv, "Cannot initialize policy owner timer"sv);
-            }
+                auto* watch = new Watch { state, state->next_id++, provider.release_value(),
+                    move(allowed), GC::Root { vm.argument(2).as_function() } };
+                int status = uv_timer_init(&state->loop.native_loop(), &watch->timer);
+                if (status) {
+                    delete watch;
+                    return fail(
+                        vm, "ERR_MITE_POLICY_PROVIDER"sv, "Cannot initialize policy owner timer"sv);
+                }
 
-            ++state->handles;
-            watch->timer.data = watch;
-            state->active.emplace(watch->id, watch);
-            status = uv_timer_start(
-                &watch->timer,
-                [](uv_timer_t* timer) {
-                    auto& watch = *static_cast<Watch*>(timer->data);
-                    watch.owner->poll(watch);
-                },
-                0, 25);
-            if (status) {
-                state->close(*watch);
-                return fail(
-                    vm, "ERR_MITE_POLICY_PROVIDER"sv, "Cannot schedule policy snapshot delivery"sv);
-            }
+                ++state->handles;
+                watch->timer.data = watch;
+                state->active.emplace(watch->id, watch);
+                status = uv_timer_start(
+                    &watch->timer,
+                    [](uv_timer_t* timer) {
+                        auto& watch = *static_cast<Watch*>(timer->data);
+                        watch.owner->poll(watch);
+                    },
+                    0, 25);
+                if (status) {
+                    state->close(*watch);
+                    return fail(vm, "ERR_MITE_POLICY_PROVIDER"sv,
+                        "Cannot schedule policy snapshot delivery"sv);
+                }
 
-            return JS::Value(static_cast<double>(watch->id));
-        },
+                return JS::Value(static_cast<double>(watch->id));
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "stop"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* watch = state->find(vm.argument(0));
-            if (!watch)
-                return JS::Value(false);
-            state->close(*watch);
-            return JS::Value(true);
-        },
+    host->define_native_function(realm, "stop"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* watch = state->find(vm.argument(0));
+                if (!watch)
+                    return JS::Value(false);
+                state->close(*watch);
+                return JS::Value(true);
+            }),
         1, JS::default_attributes);
     return *host;
 }

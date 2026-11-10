@@ -23,22 +23,22 @@ inline JS::ThrowCompletionOr<std::string> path_argument(JS::VM& vm, JS::Value in
             array, JS::ArrayBuffer::Order::SeqCst);
 
         if (JS::is_typed_array_out_of_bounds(witness))
-            return vm.throw_completion<JS::TypeError>("Detached watch path"sv);
+            return vm.throw_completion<JS::TypeError>("Detached watch path"_utf16);
 
         auto size = JS::typed_array_byte_length(witness);
 
         if (size > 1048576)
-            return vm.throw_completion<JS::RangeError>("Watch path exceeds byte limit"sv);
+            return vm.throw_completion<JS::RangeError>("Watch path exceeds byte limit"_utf16);
 
         if (size)
             path.assign(reinterpret_cast<char const*>(
                             array.viewed_array_buffer()->data_at(array.byte_offset())),
                 size);
     } else
-        return vm.throw_completion<JS::TypeError>("Invalid internal watch path"sv);
+        return vm.throw_completion<JS::TypeError>("Invalid internal watch path"_utf16);
 
     if (path.size() > 1048576 || path.find('\0') != std::string::npos)
-        return vm.throw_completion<JS::TypeError>("Invalid internal watch path"sv);
+        return vm.throw_completion<JS::TypeError>("Invalid internal watch path"_utf16);
 
     return path;
 }
@@ -50,7 +50,7 @@ inline JS::ThrowCompletionOr<JS::Value> error(
 
     if (!input.is_number() || !std::isfinite(input.as_double()) || input.as_double() >= 0
         || input.as_double() < -65536 || std::floor(input.as_double()) != input.as_double())
-        return vm.throw_completion<JS::TypeError>("Invalid internal watcher error"sv);
+        return vm.throw_completion<JS::TypeError>("Invalid internal watcher error"_utf16);
 
     auto status = static_cast<int>(input.as_double());
 

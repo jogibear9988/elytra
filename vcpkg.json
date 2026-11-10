@@ -42,7 +42,7 @@
     },
     {
       "name": "icu",
-      "version": "78.3#2"
+      "version": "78.3#3"
     },
     {
       "name": "libtommath",
@@ -54,7 +54,7 @@
     },
     {
       "name": "mimalloc",
-      "version": "2.2.7#0"
+      "version": "2.2.7#1"
     },
     {
       "name": "mman",

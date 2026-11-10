@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "core/GCCaptures.h"
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
@@ -21,8 +22,9 @@
 namespace Mite {
 class ImmediateQueue;
 
-class EventLoop {
+class EventLoop : public NativeCaptureOwner<EventLoop> {
 public:
+    void visit_capture_edges(GC::Cell::Visitor&) const;
     EventLoop(JS::VM&, void (*report_exception)(JS::Value));
 
     ~EventLoop();

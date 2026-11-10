@@ -11,6 +11,7 @@ import shutil
 import subprocess
 from npm_payload import copy_dependencies
 from native_package.notices import cache_value, copy_runtime_notices, notices
+from native_package.icu_data import stage_data
 from package_size import bundle_size
 import sys
 
@@ -18,13 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 HELPERS = [
     "AudioServer",
     "Compositor",
+    "Hub",
     "ImageDecoder",
     "MediaServer",
     "RequestServer",
     "VideoDecoderServer",
     "WebContent",
     "WebRTCClient",
-    "WebWorker",
     "ProcessReaper",
 ]
 
@@ -91,6 +92,7 @@ def stage_bundle(
     # Physical resources keep sandbox access inside the new bundle.
     upstream = build / "bin/Ladybird.app/Contents"
     shutil.copytree(upstream / "Resources", resources, dirs_exist_ok=True)
+    stage_data(build, resources / "icu", destination)
     dependency_lock = application / "designer-package-lock.json"
     dependency_root = application / "web/node_modules"
     metadata = (
@@ -257,6 +259,7 @@ def main():
     license_count = notices(stage / "licenses", renderer, mite)
     (stage / "bin").mkdir()
     shutil.copy2(mite / "bin/mite", stage / "bin/mite")
+    icu_data = {"mite": stage_data(mite, stage / "share/Lagom/icu", stage)}
     if args.symbols == "stripped":
         run("xcrun", "strip", "-S", "-x", stage / "bin/mite", stderr=subprocess.DEVNULL)
     run("codesign", "--force", "--sign", "-", stage / "bin/mite", stderr=subprocess.DEVNULL)
@@ -281,8 +284,10 @@ def main():
             args.symbols == "stripped",
             args.electron_compat,
         )
+        icu_data[name] = stage_data(renderer, bundle / "Contents/Resources/icu", stage)
     shutil.rmtree(hello)
     manifest = {
+        "icuData": icu_data,
         "dependencies": args.dependencies,
         "symbols": args.symbols,
         "electronCompat": args.electron_compat,

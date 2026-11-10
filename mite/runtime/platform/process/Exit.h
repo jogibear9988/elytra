@@ -9,6 +9,8 @@ class Object;
 
 namespace Mite {
 struct ProcessExitState {
+    GC_HOLDS_NO_CELL_EDGES;
+
     bool emitted {};
 };
 

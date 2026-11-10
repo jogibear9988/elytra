@@ -6,6 +6,7 @@
 
 #include "platform/filesystem/FileSystem.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "modules/ModulePaths.h"
 #include "platform/filesystem/EventWatcher.h"
 #include "platform/filesystem/StatSnapshot.h"
@@ -78,6 +79,8 @@ namespace {
     using namespace ModulePaths;
 
     struct NativeRequest {
+        GC_HOLDS_NO_CELL_EDGES;
+
         std::string operation, path, dest;
         std::vector<unsigned char> data;
         int flags {}, mode {};
@@ -493,82 +496,89 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
 #endif
 #undef CONSTANT
     host->define_direct_property("constants"_utf16, constants, JS::default_attributes);
-    host->define_native_function(
-        realm, "own"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32() || vm.argument(0).as_i32() < 0)
-                return vm.throw_completion<JS::TypeError>(
-                    "Invalid private filesystem descriptor"_utf16);
-            auto owner = vm.heap().allocate<FileOwner>(vm.argument(0).as_i32());
-            return JS::NativeFunction::create(
-                realm,
-                [owner](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                    return JS::Value(owner->release());
-                },
-                0, "releaseFile"_utf16);
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "run"_utf16,
-        [&realm, &loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto spec = TRY(vm.argument(0).to_object(vm));
-            auto request = std::make_shared<NativeRequest>();
-            auto operation = TRY(TRY(spec->get("op"_utf16)).to_utf16_string(vm));
-            request->operation = string(MUST(operation.utf16_view().to_byte_string()));
-            auto path = TRY(spec->get("path"_utf16));
-            if (path.is_number())
-                request->descriptor = TRY(path.to_i32(vm));
-            else
-                request->path = TRY(path_argument(vm, path));
-            if (request->path.find('\0') != std::string::npos)
-                return vm.throw_completion<JS::TypeError>("Invalid private filesystem path"_utf16);
-            if (request->operation == "rename") {
-                request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
-                if (request->dest.find('\0') != std::string::npos)
+    host->define_native_function(realm, "own"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32() || vm.argument(0).as_i32() < 0)
                     return vm.throw_completion<JS::TypeError>(
-                        "Invalid private filesystem destination"_utf16);
-            }
+                        "Invalid private filesystem descriptor"_utf16);
+                auto owner = vm.heap().allocate<FileOwner>(vm.argument(0).as_i32());
+                return JS::NativeFunction::create(realm,
+                    GC::create_function(realm.vm().heap(), GC::captures(owner),
+                        [](auto& owner, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                            return JS::Value(owner->release());
+                        }),
+                    0, "releaseFile"_utf16);
+            }),
+        1, JS::default_attributes);
+    host->define_native_function(realm, "run"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm, native_reference(loop)),
+            [](auto& realm, auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
 
-            auto position = TRY(spec->get("position"_utf16));
-            if (position.is_string()) {
-                auto encoded = MUST(position.as_string().utf16_string_view().to_byte_string());
-                auto parsed = std::from_chars(encoded.characters(),
-                    encoded.characters() + encoded.length(), request->position);
-                if (parsed.ec != std::errc {}
-                    || parsed.ptr != encoded.characters() + encoded.length())
-                    return vm.throw_completion<JS::RangeError>(
-                        "Invalid private filesystem position"_utf16);
-            }
+                auto spec = TRY(vm.argument(0).to_object(vm));
+                auto request = std::make_shared<NativeRequest>();
+                auto operation = TRY(TRY(spec->get("op"_utf16)).to_utf16_string(vm));
+                request->operation = string(MUST(operation.utf16_view().to_byte_string()));
+                auto path = TRY(spec->get("path"_utf16));
+                if (path.is_number())
+                    request->descriptor = TRY(path.to_i32(vm));
+                else
+                    request->path = TRY(path_argument(vm, path));
+                if (request->path.find('\0') != std::string::npos)
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid private filesystem path"_utf16);
+                if (request->operation == "rename") {
+                    request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
+                    if (request->dest.find('\0') != std::string::npos)
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid private filesystem destination"_utf16);
+                }
 
-            auto length = TRY(spec->get("length"_utf16));
-            if (!length.is_undefined())
-                request->length = TRY(length.to_u32(vm));
-            request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
-            request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
-            request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
-            request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
-            if (request->operation == "writeFile" || request->operation == "write") {
-                auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));
-                request->data.assign(data.begin(), data.end());
-            }
+                auto position = TRY(spec->get("position"_utf16));
+                if (position.is_string()) {
+                    auto encoded = MUST(position.as_string().utf16_string_view().to_byte_string());
+                    auto parsed = std::from_chars(encoded.characters(),
+                        encoded.characters() + encoded.length(), request->position);
+                    if (parsed.ec != std::errc {}
+                        || parsed.ptr != encoded.characters() + encoded.length())
+                        return vm.throw_completion<JS::RangeError>(
+                            "Invalid private filesystem position"_utf16);
+                }
 
-            auto callback = vm.argument(1);
-            if (callback.is_undefined()) {
-                execute(*request);
-                return result(vm, realm, *request);
-            }
+                auto length = TRY(spec->get("length"_utf16));
+                if (!length.is_undefined())
+                    request->length = TRY(length.to_u32(vm));
+                request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
+                request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
+                request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
+                request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
+                if (request->operation == "writeFile" || request->operation == "write") {
+                    auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));
+                    request->data.assign(data.begin(), data.end());
+                }
 
-            auto complete = GC::create_function(
-                vm.heap(), [&vm, &realm, request, callback]() -> JS::ThrowCompletionOr<JS::Value> {
-                    auto value = result(vm, realm, *request);
-                    JS::Value args[] = { value.is_error() ? value.error_value() : JS::js_null(),
-                        value.is_error() ? JS::js_undefined() : value.value() };
-                    return JS::call(
-                        vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> { args, 2 });
-                });
-            TRY(loop.queue_work([request] { execute(*request); }, complete));
-            return JS::js_undefined();
-        },
+                auto callback = vm.argument(1);
+                if (callback.is_undefined()) {
+                    execute(*request);
+                    return result(vm, realm, *request);
+                }
+
+                auto complete = GC::create_function(vm.heap(),
+                    GC::captures(realm, shared_capture(request), callback),
+                    [](auto& realm, auto& request,
+                        auto& callback) -> JS::ThrowCompletionOr<JS::Value> {
+                        auto& vm = realm.vm();
+
+                        auto value = result(vm, realm, *request);
+                        JS::Value args[] = { value.is_error() ? value.error_value() : JS::js_null(),
+                            value.is_error() ? JS::js_undefined() : value.value() };
+                        return JS::call(
+                            vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> { args, 2 });
+                    });
+                TRY(loop.queue_work([request] { execute(*request); }, complete));
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
     install_stat_watcher_host(realm, *host, loop);
     install_event_watcher_host(realm, *host, loop);

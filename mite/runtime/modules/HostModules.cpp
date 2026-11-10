@@ -3,6 +3,7 @@
  * belongs to this runtime realm; hosts cannot replace reserved Node builtins.
  */
 
+#include "core/GCCaptures.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -61,17 +62,21 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::host_module(std::string
     if (auto cached = m_modules.find(identity); cached != m_modules.end())
         return *cached->second;
     if (!m_host_bridge) {
-        auto getter = JS::NativeFunction::create(
-            m_realm,
-            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_string())
-                    return error("ERR_INVALID_ARG_TYPE", "Host module name must be a string", true);
-                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                auto found = m_host_modules.find(string(bytes));
-                if (found == m_host_modules.end())
-                    return error("ERR_MODULE_NOT_FOUND", "Host module is not registered");
-                return found->second.exports.ptr();
-            },
+        auto getter = JS::NativeFunction::create(m_realm,
+            GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto* self = &captured_self.get();
+
+                    if (!vm.argument(0).is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Host module name must be a string", true);
+                    auto bytes
+                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                    auto found = self->m_host_modules.find(string(bytes));
+                    if (found == self->m_host_modules.end())
+                        return self->error("ERR_MODULE_NOT_FOUND", "Host module is not registered");
+                    return found->second.exports.ptr();
+                }),
             1, "getHostModule"_utf16);
         m_host_bridge = JS::SyntheticModule::create_default_export_synthetic_module(
             m_realm, getter, "mite:internal/host")

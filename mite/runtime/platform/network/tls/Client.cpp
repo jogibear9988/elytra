@@ -3,6 +3,7 @@
  * Every operation returns owned byte snapshots; no provider retains JS buffers.
  */
 #include "platform/network/tls/Client.h"
+#include "core/GCCaptures.h"
 #include "platform/network/tls/TrustStore.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/TypedArray.h>
@@ -62,6 +63,8 @@ namespace {
     }
 
     struct Client {
+        GC_HOLDS_NO_CELL_EDGES;
+
         SSL_CTX* context { nullptr };
         SSL* ssl { nullptr };
         bool ready { false };
@@ -111,7 +114,7 @@ namespace {
     JS::ThrowCompletionOr<std::string> string(JS::VM& vm, JS::Value value)
     {
         if (!value.is_string())
-            return vm.throw_completion<JS::TypeError>("Invalid internal TLS string"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal TLS string"_utf16);
         auto view = value.as_string().utf16_string_view();
         if (!view.validate())
             return failure(vm, "ERR_INVALID_ARG_VALUE", "TLS strings must be well-formed UTF-16");
@@ -124,12 +127,12 @@ namespace {
         if (value.is_undefined())
             return std::vector<unsigned char> {};
         if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object()))
-            return vm.throw_completion<JS::TypeError>("Invalid internal TLS bytes"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal TLS bytes"_utf16);
         auto& array = static_cast<JS::Uint8Array&>(value.as_object());
         auto witness = JS::make_typed_array_with_buffer_witness_record(
             array, JS::ArrayBuffer::Order::SeqCst);
         if (JS::is_typed_array_out_of_bounds(witness))
-            return vm.throw_completion<JS::TypeError>("Detached TLS input"sv);
+            return vm.throw_completion<JS::TypeError>("Detached TLS input"_utf16);
         auto size = JS::typed_array_byte_length(witness);
         if (size > record_limit)
             return failure(vm, "ERR_TLS_BUFFER_LIMIT", "TLS record operation exceeds one MiB");
@@ -319,18 +322,22 @@ namespace {
         GC::Root handle { JS::Object::create(realm, nullptr) };
         for (auto [name, operation] :
             { std::pair { "receive", 0 }, { "write", 1 }, { "shutdown", 2 } }) {
-            handle->define_native_function(
-                realm, Utf16String::from_utf8(StringView(name, strlen(name))),
-                [client, operation](JS::VM& vm) { return step(vm, *client, operation); }, 1,
-                JS::default_attributes);
+            handle->define_native_function(realm,
+                Utf16String::from_utf8(StringView(name, strlen(name))),
+                GC::create_function(realm.vm().heap(),
+                    GC::captures(shared_capture(client), operation),
+                    [](auto& client, auto& operation, JS::VM& vm) {
+                        return step(vm, *client, operation);
+                    }),
+                1, JS::default_attributes);
         }
 
-        handle->define_native_function(
-            realm, "close"_utf16,
-            [client](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                client->close();
-                return JS::js_undefined();
-            },
+        handle->define_native_function(realm, "close"_utf16,
+            GC::create_function(realm.vm().heap(), GC::captures(shared_capture(client)),
+                [](auto& client, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    client->close();
+                    return JS::js_undefined();
+                }),
             0, JS::default_attributes);
         return handle.ptr();
     }

@@ -12,6 +12,7 @@ import tarfile
 
 from native_package import elf
 from native_package.notices import cache_value, notices
+from native_package.icu_data import stage_data
 from native_package.payload import copy_application
 from native_package.system_notices import distribution_notices
 
@@ -120,6 +121,13 @@ def stage(
     output.mkdir(parents=True)
     payload = copy_application(application, output / "app", dependencies)
     shutil.copytree(source_runtime / "share", output / "firefly-runtime/share", symlinks=False)
+    main_icu = stage_data(build, output / "share/Lagom/icu", output)
+    helper_icu = stage_data(
+        build,
+        output / "firefly-runtime/share/Lagom/icu",
+        output,
+        shared=output / main_icu["path"],
+    )
     binaries = {}
     for source, relative in inputs.items():
         target = output / relative
@@ -175,6 +183,7 @@ def stage(
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     metadata = {
         "name": name,
+        "icuData": {"mainAndLibraries": main_icu, "helpers": helper_icu},
         "version": version,
         "commit": head,
         "platform": "linux",

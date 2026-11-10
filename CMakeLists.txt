@@ -50,6 +50,7 @@ if(ENABLE_LTO_FOR_RELEASE
 endif()
 include(lagom_install_options)
 include(rust_crate)
+include(mite/cmake/RustNoJit.cmake)
 include(targets)
 add_library(JSClangPlugin INTERFACE)
 add_library(GenericClangPlugin INTERFACE)
@@ -66,6 +67,7 @@ find_package(zmij CONFIG REQUIRED)
 find_package(mimalloc CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(ICU 78.3 EXACT REQUIRED COMPONENTS data i18n uc)
+include(mite/cmake/IcuData.cmake)
 find_path(LLVM_LIBC_INCLUDE_DIR NAMES llvm-libc/shared/math.h REQUIRED)
 pkg_check_modules(LIBPSL REQUIRED IMPORTED_TARGET libpsl)
 pkg_check_modules(libtommath REQUIRED IMPORTED_TARGET libtommath)
@@ -119,6 +121,10 @@ if(BUILD_TESTING)
     add_test(NAME mite-rust-lock-guard
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_mite_rust_lock.py")
+    add_test(
+        NAME mite-rust-nojit-driver
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/rust-nojit/test_driver.py"
+                --compiler "${CMAKE_CXX_COMPILER}")
     add_executable(mite-embedded-host mite/tests/embedding/Host.cpp)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
@@ -668,3 +674,7 @@ endif()
 include(mite/cmake/SizeOptimization.cmake)
 elytra_enable_size_optimization()
 install(TARGETS mite RUNTIME DESTINATION bin)
+if(LADYBIRD_ICU_DATA_FILE)
+    # The pinned loader resolves this relative to the installed executable.
+    install(FILES "${LADYBIRD_ICU_DATA_FILE}" DESTINATION share/Lagom/icu)
+endif()
