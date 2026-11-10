@@ -12683,6 +12683,25 @@ caught getNativeWindowHandle lookup. The batched query/handle implementation and
 one native rebuild are underway. Evidence: codeoss-dev-renderer-start.log. The
 workbench URL has not yet been loaded successfully, so no editor pass is claimed.
 
+## 2026-11-10 — Native fullscreen queries and Cocoa window-handle bytes
+
+Add the next actual Code-OSS configuration queries as a batch. isFullScreen reads
+the real QWidget state. isSimpleFullScreen returns false because no legacy Electron
+mode is admitted; both fullscreen setters still reject explicitly after type
+validation. This does not claim fullscreen-transition/event parity.
+
+Cocoa getNativeWindowHandle copies the actual WId/NSView pointer representation
+into a fresh typed array/Buffer, without rounding through JS Number. Verified Qt
+Cocoa source returns its real native view; other backend mappings remain explicitly
+unsupported. Existing owner/destruction guards apply, and the byte copy does not
+retain the native object. API docs record the lifetime and platform limits.
+
+Strict Host compilation and the actual incremental Firefly build pass
+(codeoss-window-queries-build.log). No GUI/component suite is added. The next
+single direct entry batches these queries with the prior document metadata,
+header interception and real development renderer assets. Successful renderer or
+workbench loading remains unverified until that entry produces actual evidence.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

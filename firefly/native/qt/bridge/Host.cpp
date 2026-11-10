@@ -17,6 +17,7 @@
 #include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
+#include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
@@ -153,6 +154,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         native_binding<&Impl::native_host_maximized>(), 1, JS::default_attributes);
     host->define_native_function(
         realm, "pid"_utf16, native_binding<&Impl::native_host_pid>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "windowFullScreen"_utf16,
+        native_binding<&Impl::native_host_fullscreen>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "nativeWindowHandle"_utf16,
+        native_binding<&Impl::native_host_window_handle>(), 1, JS::default_attributes);
     host->define_native_function(realm, "windowDocumentEdited"_utf16,
         native_binding<&Impl::native_host_document_edited>(), 1, JS::default_attributes);
     host->define_native_function(realm, "setWindowDocumentEdited"_utf16,
@@ -436,6 +441,31 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_maximized(JS::VM& vm)
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_pid(JS::VM& vm)
 {
     return JS::Value(static_cast<double>(TRY(state(vm))->native_view()->web_content_pid()));
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_fullscreen(JS::VM& vm)
+{
+    return JS::Value(TRY(window_state(vm))->window->isFullScreen());
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_window_handle(JS::VM& vm)
+{
+    auto* current = TRY(window_state(vm));
+#ifdef __APPLE__
+    if (QGuiApplication::platformName() != QStringLiteral("cocoa"))
+        return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API", "Native handle requires Cocoa"sv);
+    // Qt's Cocoa WId is the actual NSView*, matching Electron's macOS contract.
+    // Copy the native representation directly: never round a pointer through JS Number.
+    auto handle = current->window->winId();
+    static_assert(sizeof(handle) == sizeof(void*));
+    GC::Root bytes { TRY(JS::Uint8Array::create(realm, sizeof(handle))) };
+    bytes->viewed_array_buffer()->overwrite(0, &handle, sizeof(handle));
+    return bytes.ptr();
+#else
+    (void)current;
+    return preload_error(
+        vm, "ERR_FIREFLY_UNSUPPORTED_API", "Native window handle mapping is unavailable"sv);
+#endif
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_document_edited(JS::VM& vm)

@@ -7574,6 +7574,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   const unsupported = (name) => {
     throw error("ERR_FIREFLY_UNSUPPORTED_API", `${name} is not implemented`);
   };
+  const bufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
   const channels = createMessageChannels(native, EventEmitter, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
@@ -8285,6 +8286,32 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     isMaximized() {
       alive(this);
       return native.maximized(this.id);
+    }
+    isFullScreen() {
+      alive(this);
+      return native.windowFullScreen(this.id);
+    }
+    setFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "fullscreen must be a boolean");
+      }
+      unsupported("BrowserWindow.setFullScreen");
+    }
+    isSimpleFullScreen() {
+      alive(this);
+      return false;
+    }
+    setSimpleFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "fullscreen must be a boolean");
+      }
+      unsupported("BrowserWindow.setSimpleFullScreen");
+    }
+    getNativeWindowHandle() {
+      alive(this);
+      return bufferFrom(native.nativeWindowHandle(this.id));
     }
     isDocumentEdited() {
       alive(this);

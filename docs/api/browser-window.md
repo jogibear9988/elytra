@@ -75,6 +75,9 @@ show:true is also supported.
 | getMinimumSize(), getMaximumSize() | Fresh [width, height] outer DIP limits; zero means no requested limit |
 | setMinimumSize(width, height), setMaximumSize(width, height) | Set outer DIP limits, each integer 0..16384; returns undefined |
 | center() | Use native AppKit window centering on macOS |
+| isFullScreen() | Current native Qt fullscreen state |
+| isSimpleFullScreen() | False; legacy simple-fullscreen mode is unsupported |
+| getNativeWindowHandle() | Fresh pointer-sized Buffer containing the actual NSView* on Cocoa; other backends reject |
 | isDocumentEdited() / setDocumentEdited(edited) | Native Qt window-modified state; setter requires boolean |
 | getRepresentedFilename() / setRepresentedFilename(filename) | Native Qt document filename; setter requires string, empty string clears it |
 | setTitle(title) | undefined; title must be string |
@@ -322,6 +325,20 @@ window can remain maximized. To explicitly request normal size use unmaximize.
 
 Return native state booleans. They are observations, not requests. Minimized and
 maximized state must not be inferred solely from isVisible or from window size.
+
+### Fullscreen queries and native handles
+
+`isFullScreen()` queries the actual Qt window state. `isSimpleFullScreen()` returns
+false because legacy simple-fullscreen mode cannot be enabled. `setFullScreen()`
+and `setSimpleFullScreen()` explicitly reject; these queries do not implement
+fullscreen transitions.
+
+`getNativeWindowHandle()` returns a fresh Buffer containing the native-byte-order,
+pointer-sized representation of the real Cocoa `NSView*`, without converting it
+to a JavaScript number. It is available only on the Cocoa backend. Hidden/offscreen
+test backends and currently unverified Windows/Linux handle mappings reject
+explicitly. The buffer does not retain the view; handles can change when native
+surfaces are recreated. All these methods reject destroyed owners.
 
 ### Document metadata
 
