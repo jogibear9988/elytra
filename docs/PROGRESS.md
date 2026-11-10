@@ -12288,6 +12288,43 @@ The full test run also exposed the notice test importing an unused re-export fro
 package_macos after formatting removed it. Import the actual native_package.notices
 owner instead; license-copy and tampered-license rejection assertions are unchanged.
 
+### Candidate follow-up: shared Windows socket boundary for OpenSSL
+
+Windows run 42892218435, native job 130096084744 at abd65d1, compiles past the
+previous libuv conflict but fails TLS Client.cpp through TrustStore.h:
+OpenSSL ssl.h/e_ostime.h imports WinSDK winsock2.h after AK/Time, redeclaring
+timeval. The libuv-only boundary did not protect that separate public header path.
+
+Generalize the owned boundary to platform/WindowsSockets.h. On Windows it loads
+actual AK time declarations and imports real WinSDK Winsock using the same scoped
+dummy_timeval spelling as AK/Windows.h. UV delegates to it, and all eight owned
+OpenSSL include groups import it first. No fake time-layout macro, SDK source
+edit, cpp-only SystemApi import or new Firefly dependency enters standalone Mite.
+The boundary is empty on POSIX. A genuine WinSDK-only sandbox probe keeps its
+independent socket import; that narrow exemption does not allow OpenSSL bypasses.
+
+Six additional compile-only SSL header orders join the normal Mite target, along
+with the existing three libuv orders. They cover GC/runtime/SSL-first, UV-first,
+upstream Windows boundary coexistence and the real public TrustStore header.
+Native Windows branches assert actual SDK field/layout, Winsock select/SSL_new
+function signatures and macro restoration. Maintained-source guards and five
+negative/control cases pass. Windows execution of those ABI assertions remains
+pending a fresh clang-cl CI result; local builds do not establish it.
+
+Actual local Release Mite plus all nine compile fixtures build successfully.
+The complete runtime aggregate passes 150/150 in 113.09 seconds, including real
+crypto/TLS differential checks and the unchanged license-copy negative controls
+(candidate-windows-sockets-cli-build.log,
+candidate-windows-sockets-cli-150-final.log). The rejected first aggregate retained
+149 passing suites and the stale notice-import failure; no runtime assertion was
+removed. Actual Firefly/offscreen and safe-storage backend probe build/link pass
+(candidate-windows-sockets-firefly-build.log). No extra GUI or OS keychain test
+was run for an empty POSIX header branch. Repository-wide style passes 316 Python,
+961 JS/web/config, 581 native and 82 CMake files, plus focused checks for the final
+overlay/notice changes. Ladybird remains clean at the manifest/gitlink pin.
+Fresh hosted Windows and renderer/package acceptance, then master promotion,
+remain required. The full product/VS Code/native Windows/release goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

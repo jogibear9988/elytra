@@ -112,6 +112,15 @@ if(BUILD_TESTING)
         target_compile_definitions(mite-uv-headers-${order} PRIVATE MITE_UV_HEADER_ORDER=${order})
         add_dependencies(mite mite-uv-headers-${order})
     endforeach()
+    # OpenSSL's public ssl.h also imports Winsock. Keep real SDK header-order coverage independent
+    # of which runtime source happens to compile first.
+    foreach(order RANGE 0 5)
+        add_library(mite-openssl-headers-${order} OBJECT mite/tests/platform/SSLHeaders.cpp)
+        target_link_libraries(mite-openssl-headers-${order} PRIVATE mite-runtime)
+        target_compile_definitions(mite-openssl-headers-${order}
+                                   PRIVATE MITE_SSL_HEADER_ORDER=${order})
+        add_dependencies(mite mite-openssl-headers-${order})
+    endforeach()
     add_test(NAME mite-uv-header-boundary COMMAND "${Python3_EXECUTABLE}"
                                                   "${CMAKE_SOURCE_DIR}/tooling/check_uv_headers.py")
     add_test(NAME mite-uv-header-guard

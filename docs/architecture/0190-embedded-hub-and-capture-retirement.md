@@ -87,8 +87,10 @@ ADR 0175 supersedes ADR 0123's original blanket duplicate-ID rule. No production
 policy or test deadline was relaxed to make the candidate pass.
 
 ICU resource hashes and native CJK decoding pass after independent bundle and
-tar/ZIP relocation. Full standalone Release acceptance passes all 145 suites.
-Extracted macOS applications, targeted Cocoa presentation and fresh hosted
-platform checks remain separate gates.
+tar/ZIP relocation. The subsequent standalone Release aggregate passes 150 suites.
+Targeted real Cocoa input/title-bar/presentation checks and the clean d45560e
+packaged Designer edit/Monaco/native minimize/HTML-close gate also pass. These are
+scoped local macOS results; current hosted platform/package checks remain required
+before accepting the engine pin. Windows desktop is still unfinished.
 The old accepted Designer package can keep running while this candidate is built.
 These results do not establish a working VS Code editor or full Electron parity.

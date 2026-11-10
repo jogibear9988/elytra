@@ -4,6 +4,7 @@
  */
 #include "platform/network/tls/Client.h"
 #include "core/GCCaptures.h"
+#include "platform/WindowsSockets.h"
 #include "platform/network/tls/TrustStore.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/TypedArray.h>

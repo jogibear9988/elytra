@@ -5,6 +5,7 @@
  */
 
 #include "core/GCCaptures.h"
+#include "platform/WindowsSockets.h"
 #include "platform/crypto/Crypto.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>

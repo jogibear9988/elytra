@@ -1,5 +1,6 @@
 /** Validate byte snapshots and readiness before reaching the OS-backed encryption provider. */
 #include "Host.h"
+#include "../../../mite/runtime/platform/WindowsSockets.h"
 #include "../platform/GCIncludes.h"
 #include <AK/ScopeGuard.h>
 #include <LibJS/Runtime/Error.h>
