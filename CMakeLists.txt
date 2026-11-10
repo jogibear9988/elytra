@@ -93,6 +93,12 @@ foreach(
     add_subdirectory("${LADYBIRD_SOURCE_DIR}/Libraries/${library}" "Libraries/${library}")
 endforeach()
 
+# Public LibJS realm/context headers expose GC::Heap, whose public threading
+# dependency supplies pthread headers on Windows. The static upstream LibJS
+# target keeps GC private; propagate that header contract for our standalone
+# embedding consumers as the upstream shared-build interface already does.
+target_link_libraries(LibJSStandalone INTERFACE LibGC)
+
 include(mite/cmake/RustAggregate.cmake)
 mite_aggregate_rust()
 include(mite/cmake/ExecutionContextAdapter.cmake)

@@ -12325,6 +12325,30 @@ overlay/notice changes. Ladybird remains clean at the manifest/gitlink pin.
 Fresh hosted Windows and renderer/package acceptance, then master promotion,
 remain required. The full product/VS Code/native Windows/release goal stays active.
 
+### Candidate follow-up: public GC headers for standalone consumers
+
+Linux CLI run 42896891703 succeeds at 4b6705a. Windows run 42896891726,
+job 130112322078, now compiles and links the complete mite-runtime library,
+including the corrected OpenSSL paths. It then fails building the independent
+ExecutionContext embedding probe: public Realm/ExecutionContext headers expose
+GC::Heap, which now includes pthread.h, while the static LibJS target keeps GC's
+usage requirements private. The runtime had received those include directories
+through other dependencies; this standalone consumer correctly exposed the gap.
+
+Propagate LibGC through our LibJSStandalone interface, matching upstream's
+existing shared-build interface. Its real public LibThreading dependency supplies
+the actual Windows pthread include/library requirements. Do not add a fake header,
+attach unrelated Mite services to the probe or alter vendor targets/sources.
+Actual local Release Mite and the standalone embedding probe build/link, and
+its genuine null deallocation/realm ownership/moved-context test passes
+(candidate-public-gc-headers-build.log,
+candidate-public-gc-headers-acceptance.log). CMake formatting/diff checks pass.
+Windows compiler and runtime acceptance still require the next hosted result.
+
+The autoplay feature is being developed separately; its new untracked files are
+not part of this engine-fix commit. The engine review branch keeps only the
+required update fixes so its platform CI can complete independently.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
