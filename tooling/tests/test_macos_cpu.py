@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep generated M1/warnings policy strict while accepting exactly the owned origin fingerprint."""
 
-import _support
+import _support  # noqa: F401 — adds the shared tooling directory for standalone execution.
 
 import contextlib
 import hashlib
@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 from check_macos_cpu import check
+from _cpu_autoplay import check_autoplay_compositions
 
 
 CPU_FLAG = "-mcpu=apple-m1"
@@ -20,6 +21,9 @@ RUST_ENV = "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS"
 
 
 class MacCpuPolicy(unittest.TestCase):
+    def test_generated_autoplay_composition(self):
+        check_autoplay_compositions(self, check, CPU_FLAG, RUST_CPU_FLAG, RUST_ENV)
+
     def test_generated_commands(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

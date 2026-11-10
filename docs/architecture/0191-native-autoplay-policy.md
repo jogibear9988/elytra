@@ -51,8 +51,11 @@ Before admitting the public preference, implement and verify all of these:
 
 - Gate before output acquisition, with genuine lazy renderer creation shared by
   construction and the first authorized resume.
-- Use the real native Window activation notification. Respect explicit user
-  suspension, closed/inactive contexts and actual context/document ownership.
+- Query real transient activation at construction, resume and source start; latch
+  successful context authorization. Unrelated Window activation must not start
+  pending contexts. Cover both scheduled-source and buffer-source start paths.
+  Respect explicit user suspension, closed/inactive contexts and actual
+  context/document ownership.
 - Settle and release queued resume promises on success, failure, closure and
   revocation; never report running without a real renderer/graph.
 - Carry trusted policy before the first author script for BrowserWindow and
@@ -61,7 +64,8 @@ Before admitting the public preference, implement and verify all of these:
   preserving ordinary unmanaged SDK behavior.
 - Test actual contexts with Media::AudioOutputFactory::create_null and count
   acquisition calls. A restricted constructor/resume must acquire none; authorized
-  activation must start the real null graph and settle normal media tasks.
+  resume/source start during transient activation must start the real null graph
+  and settle normal media tasks.
 
 Route the pinned Rust crate root and web_audio module to an owned AudioContext
 source composition, preserving Cargo manifests, dependency features and notices.

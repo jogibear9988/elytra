@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Refuse native/ambiguous/missing generated Linux CPU policies; these are not execution tests."""
 
-import _support
+import _support  # noqa: F401 — adds the shared tooling directory for standalone execution.
 
 import contextlib
 import hashlib
@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 from check_linux_cpu import check
+from _cpu_autoplay import check_autoplay_compositions
 
 
 CPU_FLAG = "-march=x86-64-v2"
@@ -20,6 +21,9 @@ RUST_ENV = "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"
 
 
 class LinuxCpuPolicy(unittest.TestCase):
+    def test_generated_autoplay_composition(self):
+        check_autoplay_compositions(self, check, CPU_FLAG, RUST_CPU_FLAG, RUST_ENV)
+
     def test_generated_policy_and_refusals(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

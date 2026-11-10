@@ -12395,6 +12395,37 @@ Promise cleanup, trusted before-script defaults/revocation/frame transport, publ
 option validation and actual helper/app acceptance. VS Code still stops before a
 window at autoplayPolicy; this component alone does not advertise that API.
 
+## 2026-11-10 — Pinned WebAudio Rust build routing
+
+Route the real libweb_bindings_rust crate root and web_audio module through owned,
+fingerprinted sources without modifying upstream Cargo manifests, features,
+generated bindings or notices. In this commit the AudioContext implementation is
+byte-identical to the pinned SDK. Unknown, repeated, missing or drifted modules
+fail explicitly. Native compiler argv/exit transport preserves Unicode, empty
+arguments and quoting; the existing no-JIT/origin/cache chain remains intact.
+
+An exact generated-root cfg fingerprint follows the origin and no-JIT markers.
+Both CPU validators enforce its actual source hash and ordering without relaxing
+CPU, warning or frame-pointer requirements. Their six test groups pass. The
+native driver test uses real clang++ and rustc for routing/module resolution and
+negative checks; it does not claim WebAudio execution or Windows acceptance.
+
+The actual Release libweb_bindings_rust-build target passes
+(autoplay-rust-routing-native-build.log). All nineteen emitted Cargo commands
+carry the three exact ordered markers and -Dwarnings; the real Cargo dependency
+file includes the owned AudioContext leaf, whose bytes equal upstream. The actual
+LibWeb/media probe links this Rust output and all twelve media groups pass.
+A separate check-firefly-autoplay-rust-routing target makes the source/driver
+checks repeatable without coupling standalone Mite to LibWeb.
+
+Pinned Chromium inspection corrects the next implementation step: user-gesture
+WebAudio authorization queries transient activation at construction, resume or
+source start, only for cross-origin-to-outermost contexts. A generic activation
+notification must not unlock pending contexts. ADR 0191 now records that rule and
+both independent scheduled-source and buffer-source entry points. Actual lazy
+renderer creation, promise cleanup and authenticated public transport remain
+unfinished; no public autoplay value is admitted and Code-OSS still cannot start.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

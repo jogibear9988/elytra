@@ -28,3 +28,15 @@ add_custom_target(
             "${FIREFLY_SOURCE_DIR}/tooling/tests/test_autoplay_media_adapter.py"
     VERBATIM)
 add_dependencies(LibWeb check-firefly-autoplay-media-hooks)
+
+# Validate the real compiler route as well as the generated source selection.
+add_custom_target(
+    check-firefly-autoplay-rust-routing
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/prepare.py" --output
+        "${autoplay_directory}" --driver "${autoplay_driver}" --chain
+        "${FIREFLY_AUTOPLAY_CHAIN_WRAPPER}" --check
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/test_driver.py"
+            --compiler "${CMAKE_CXX_COMPILER}"
+    DEPENDS libweb_bindings_rust-build
+    VERBATIM)
