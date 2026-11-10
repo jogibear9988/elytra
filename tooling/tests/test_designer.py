@@ -13,6 +13,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from test_designer_controls import check_controls
+from designer_shell import verify_designer_shell
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -46,6 +47,7 @@ def main():
     parser.add_argument("--launcher", type=Path)
     args = parser.parse_args()
     app = args.app.resolve()
+    verify_designer_shell(app, required=True)
     check_controls(args.mite)
     pin = json.loads((ROOT / "examples/web-component-designer/upstream.json").read_text())
     metadata = json.loads((app / "BUILD.json").read_text())

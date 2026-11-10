@@ -10,7 +10,8 @@ import re
 import shutil
 import subprocess
 from npm_payload import copy_dependencies
-from native_package.notices import cache_value, copy_runtime_notices, notices
+from designer_shell import verify_designer_shell
+from native_package.notices import cache_value, notices
 from native_package.icu_data import stage_data
 from package_size import bundle_size
 import sys
@@ -80,6 +81,7 @@ def stage_bundle(
     strip_symbols,
     electron_compat=False,
 ):
+    verify_designer_shell(application)
     if electron_compat:
         from native_package.runtime_options import verify_electron_compat
 
@@ -241,6 +243,7 @@ def main():
     designer = args.designer.resolve()
     if stage.exists():
         parser.error("Output exists; use a fresh staging directory")
+    verify_designer_shell(designer, required=True)
     for file in [renderer / "bin/firefly", mite / "bin/mite", designer / "BUILD.json"]:
         if not file.is_file():
             parser.error("Required build output missing: " + str(file))

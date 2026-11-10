@@ -12212,6 +12212,53 @@ clean at the manifest/gitlink pin. Repository-wide style checks pass for 314 Pyt
 961 JS/web/config, 579 native and 82 CMake files; the subsequently added native
 lifetime fixture and workflow/build integration also pass focused style checks.
 
+### Candidate follow-up: Cocoa acceptance and current Designer shell
+
+Linux CLI run 42892218480 succeeds at exact source abd65d1. Windows, Linux
+renderer and macOS package workflows are still running at this checkpoint.
+The engine remains a candidate; no new alpha or working Code-OSS is claimed.
+
+One batched local native macOS run passes all four required component gates
+(candidate-cocoa-current-acceptance.log): hidden file input, real mouse/key input,
+viewport resize, native painted capture, navigation/close, genuine owned renderer
+crash reporting, hidden first-mouse/native view recreation and actual AppKit safe
+areas, hidden title-bar geometry/recreation and real toolbar pixels, native button
+hit targets and HTML drag regions. The captured page was visually inspected.
+The accepted Designer was not running before this batch; no unrelated app was closed.
+
+Restaging from clean abd65d1 Release inputs passes strict nested signing. But the
+reused Designer assets contained a November 5 Firefly shell: its old smoke code
+returned success after three markers and never performed the current native
+minimize/HTML-close assertions. The full unchanged acceptance correctly rejects it.
+An upstream demo pin alone did not establish current maintained sample files.
+
+Add shared designerShell metadata: six current maintained source hashes, the
+deterministic controls overlay and actual final index digest. The builder records
+it after bundling; both native packagers verify the actual files against current
+owned sources and their record before creating output. The Designer acceptance
+driver also rejects a stale shell before launching any server or GUI. Generic
+Linux apps with unrelated metadata remain usable. This is stale-artifact detection,
+not an authenticated upstream source or native execution certificate.
+
+Ten controlled tests pass, including stale/missing files, source updates,
+tampered bytes with a rehashed manifest, index/overlay drift, generic metadata,
+both packagers leaving no output on rejection, and Finder metadata preservation.
+The actual obsolete local stage is independently rejected. A genuine pinned
+Designer rebuild reuses the existing source/dependencies, builds 19 entry points
+and five workers, omits 139.4 MiB of module/build payload, and passes all six
+current shell hashes and index verification. Source checks exclude only basename
+.DS_Store; all other tracked/untracked changes still block. Original Finder data
+is preserved in place (candidate-designer-stale-stage.log,
+candidate-designer-current-build.log, candidate-designer-shell-tests.log,
+candidate-designer-shell-current.log).
+
+The registered firefly-designer-shell CTest passes its ten cases; the previous
+complete runtime aggregate remains 149/149. Focused source/CMake formatting and
+diff checks pass. The fresh full packaged Designer smoke is still pending at
+this commit. The packaging guide/sample README also correct stale Linux wording:
+the extracted package gate passed at 197cd2a on Ubuntu 24.04 x64 Xvfb/Openbox,
+verified again against successful run 42379262065; a newer engine needs new evidence.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

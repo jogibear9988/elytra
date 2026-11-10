@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tarfile
 
+from designer_shell import verify_designer_shell
 from native_package import elf
 from native_package.notices import cache_value, notices
 from native_package.icu_data import stage_data
@@ -71,6 +72,7 @@ def stage(
     if any(cache_value(sdk, "ENABLE_CI_BASELINE_CPU") != "ON" for sdk in [build, mite_build]):
         raise ValueError("Linux app distribution requires the portable CPU baseline in both SDKs")
     application = Path(application).resolve(strict=True)
+    verify_designer_shell(application)
     output = Path(output).resolve()
     if output.exists() or output.is_symlink():
         raise ValueError("Linux package output must be fresh")

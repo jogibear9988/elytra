@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from npm_payload import copy_dependencies
+from designer_shell import apply_index_overlay, shell_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples/web-component-designer"
@@ -16,6 +17,24 @@ EXAMPLE = ROOT / "examples/web-component-designer"
 
 def run(*args, cwd=ROOT):
     subprocess.run(list(map(str, args)), cwd=cwd, check=True)
+
+
+def source_changes(source):
+    # Finder metadata is unrelated to the pinned source. Preserve it in place,
+    # including tracked files, while every other tracked/untracked change blocks.
+    return subprocess.check_output(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=normal",
+            "--",
+            ".",
+            ":(exclude,glob)**/.DS_Store",
+        ],
+        cwd=source,
+        text=True,
+    )
 
 
 def main():
@@ -51,9 +70,7 @@ def main():
     ).strip()
     if remote != pin["repository"]:
         parser.error("Source remote differs from pinned repository")
-    dirty = subprocess.check_output(
-        ["git", "status", "--porcelain", "--untracked-files=normal"], cwd=source, text=True
-    )
+    dirty = source_changes(source)
     if dirty and not fresh:
         parser.error("Source checkout contains local changes")
     run("git", "fetch", "--depth", "1", "origin", pin["revision"], cwd=source)
@@ -94,22 +111,7 @@ def main():
     )
     # Own shell overlay only; the pinned demo checkout and app implementation stay intact.
     index = web / "index.html"
-    html = index.read_text()
-    html = html.replace(
-        "</head>",
-        '<link rel="stylesheet" href="./window-controls.css">\n<script type="module" src="./window-controls.mjs"></script>\n</head>',
-    )
-    if html.count("</nav>") != 1:
-        raise RuntimeError("Review Designer toolbar overlay against upstream HTML")
-    html = html.replace(
-        "</nav>",
-        """<div class="designer-window-controls" aria-label="Window controls">
-      <button id="window-minimize" type="button" aria-label="Minimize window" title="Minimize window">−</button>
-      <button id="window-maximize" type="button" aria-label="Maximize window" title="Maximize window">□</button>
-      <button id="window-close" type="button" aria-label="Close window" title="Close window">×</button>
-    </div></nav>""",
-    )
-    index.write_text(html)
+    index.write_text(apply_index_overlay(index.read_text()))
     for name in ["window-controls.mjs", "window-controls.css"]:
         shutil.copy2(EXAMPLE / name, web / name)
     for name in ["main.mjs", "server.mjs", "smoke.mjs", "upstream.json"]:
@@ -125,6 +127,7 @@ def main():
         json.dumps(
             {
                 "upstream": pin,
+                "designerShell": shell_metadata(output),
                 "runtime": "firefly",
                 "webRoot": "web",
                 "dependencies": dependency_info,
