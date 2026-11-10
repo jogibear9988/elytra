@@ -12726,6 +12726,28 @@ keyboard-layout adapters: native state.vscdb and native-keymap failures are now
 observed actual startup dependencies (codeoss-native-window-load.log). A rendered
 workbench/open-edit-save run still has not been established.
 
+## 2026-11-11 — Final Windows forged-fd denial and Linux picker ICU retention
+
+Authoritative f7c6117 CI narrows Windows to 146/147 passing suites: real fork,
+framing, liveness and detached-child cases pass, while a forged missing descriptor
+fast-fails in the UCRT before the expected denial. Probe only that descriptor with
+a scoped thread-local invalid-parameter handler, restoring the embedder's handler
+on all exits. Validate the actual CRT/native pipe handle before uv_guess_handle;
+keep the original denial text/exit 9. POSIX continues using the same libuv probe.
+
+Linux renderer compiles, then its Qt-view collation probe passes while lightweight
+picker collation fails to acquire ICU data. In the shared/external-data case retain
+the real LibUnicode owner before other libraries using scoped no-as-needed, matching
+the existing macOS needed-library fix. Do not add a second data loader or alter
+vendor code, global linker policy or the unchanged numeric collation assertions.
+
+Local Runtime strict compilation, formatting and existing five UV boundary/source
+checks pass. Native Windows invalid-descriptor behavior and Linux collation still
+require the next hosted results. No Ninja or GUI test is run for these isolated
+CI repairs. Actual failed run IDs: Windows42910820776/job130166222903 and Linux
+renderer42910820714/job130166305311. The engine branch stays independently reviewable
+while the new SQLite/keyboard Code-OSS work is compiled separately.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

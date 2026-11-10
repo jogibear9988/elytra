@@ -149,6 +149,15 @@ if(APPLE
     # dependency/rpath as well. No second ICU loader.
     target_link_options(firefly-file-picker INTERFACE
                         "LINKER:-needed_library,$<TARGET_FILE:LibUnicode>")
+elseif(
+    CMAKE_SYSTEM_NAME STREQUAL "Linux"
+    AND firefly_unicode_library_type STREQUAL "SHARED_LIBRARY"
+    AND LADYBIRD_ICU_DATA_FILE)
+    # The lightweight picker can use only Qt symbols. GNU/LLVM --as-needed must still retain the
+    # actual ICU-data owner's constructor, without changing the dependency policy for any subsequent
+    # library on the final link line.
+    target_link_options(firefly-file-picker INTERFACE
+                        "LINKER:--push-state,--no-as-needed,$<TARGET_FILE:LibUnicode>,--pop-state")
 endif()
 
 add_executable(firefly-file-picker-probe

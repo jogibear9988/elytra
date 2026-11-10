@@ -9,6 +9,7 @@
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include "platform/UV.h"
+#include "platform/process/InheritedPipe.h"
 #include "platform/process/ProcessHost.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
@@ -104,7 +105,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         }
         // Validate before reading the entry or creating a loop: otherwise a
         // missing inherited fd can be reused by our own libuv wakeup pipe.
-        if (uv_guess_handle(3) != UV_NAMED_PIPE) {
+        if (!Mite::is_inherited_ipc_pipe(3)) {
             fputs("mite: fork-child inherited channel is not a pipe\n", stderr);
             return 9;
         }
