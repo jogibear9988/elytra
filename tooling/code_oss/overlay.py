@@ -82,7 +82,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         *(["nodeCompileCache.ts"] if libjs_cache else []),
         *(["mainImpl.ts"] if libjs_engine else []),
         *(PATHS if local_desktop else []),
-        *([window_preferences.SOURCE] if local_desktop else []),
+        *([window_preferences.SOURCE, window_preferences.PASTE_SOURCE] if local_desktop else []),
         "LICENSE.txt",
     )
     for name in names:
@@ -103,6 +103,8 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
             patched = adapt_engine(original)
         elif name == window_preferences.SOURCE:
             patched = window_preferences.adapt_window_preferences(original)
+        elif name == window_preferences.PASTE_SOURCE:
+            patched = window_preferences.adapt_paste_preferences(original)
         else:
             patched = original
         if local_desktop and (name == "mainImpl.ts" or name in PATHS):
@@ -152,7 +154,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit only the disabled V8 window cache preference after verified LibJS/local/engine policy; no workbench acceptance"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed, no clipboard/workbench acceptance"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():

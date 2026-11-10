@@ -1,4 +1,4 @@
-"""Exact pinned application seam for disabled V8-only window cache preferences."""
+"""Exact pinned local-application omissions of unavailable engine preferences."""
 
 import hashlib
 
@@ -33,4 +33,42 @@ def revert_window_preferences(data):
     )
     if adapt_window_preferences(original) != data:
         raise ValueError("Adapted Code-OSS window preferences drifted")
+    return original
+
+
+# Legacy script paste is distinct from native UI paste. Omit only this pinned
+# application opt-in; Firefly's general enableDeprecatedPaste API stays rejected.
+PASTE_SOURCE = "window-defaults-main.ts"
+PASTE_SHA256 = "087b784eec1f1f565e7eed9cd8b315102a9900888df28c79dc1cd30bde8c36e0"
+PASTE_IMPORT = "import electron, { Display, Rectangle } from 'electron';"
+PASTE_ADDED_IMPORT = "\nimport { libJSWindowPastePreferences } from '../../../base/common/elytraWindowPreferences.js';"
+PASTE_PREFERENCE = "enableDeprecatedPaste: true"
+PASTE_REPLACEMENT = "...libJSWindowPastePreferences(true)"
+
+
+def adapt_paste_preferences(data):
+    if hashlib.sha256(data).hexdigest() != PASTE_SHA256:
+        raise ValueError("Code-OSS default preferences differ from pinned input")
+    source = data.decode("utf-8")
+    for seam in (PASTE_IMPORT, PASTE_PREFERENCE):
+        if source.count(seam) != 1:
+            raise ValueError(f"Unexpected Code-OSS paste preference seam: {seam}")
+    return (
+        source.replace(PASTE_IMPORT, PASTE_IMPORT + PASTE_ADDED_IMPORT)
+        .replace(PASTE_PREFERENCE, PASTE_REPLACEMENT)
+        .encode()
+    )
+
+
+def revert_paste_preferences(data):
+    source = data.decode("utf-8")
+    if source.count(PASTE_IMPORT + PASTE_ADDED_IMPORT) != 1 or source.count(PASTE_REPLACEMENT) != 1:
+        raise ValueError("Unexpected adapted Code-OSS paste preferences")
+    original = (
+        source.replace(PASTE_IMPORT + PASTE_ADDED_IMPORT, PASTE_IMPORT)
+        .replace(PASTE_REPLACEMENT, PASTE_PREFERENCE)
+        .encode()
+    )
+    if adapt_paste_preferences(original) != data:
+        raise ValueError("Adapted Code-OSS paste preferences drifted")
     return original

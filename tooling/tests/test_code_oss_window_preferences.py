@@ -25,6 +25,14 @@ from code_oss.window_preferences import (
     HELPER_TARGET,
     adapt_window_preferences,
     revert_window_preferences,
+    PASTE_SOURCE,
+    PASTE_SHA256,
+    PASTE_IMPORT,
+    PASTE_ADDED_IMPORT,
+    PASTE_PREFERENCE,
+    PASTE_REPLACEMENT,
+    adapt_paste_preferences,
+    revert_paste_preferences,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +55,17 @@ def projection(data, name):
         f"export function {name}(FileAccess, config) {{\n"
         + source[start:end]
         + "\nreturn webPreferences;\n}\n"
+    )
+
+
+def paste_projection(data, name):
+    source = data.decode("utf-8")
+    start = source.index("\t\twebPreferences: {") + len("\t\twebPreferences: ")
+    end = source.index("\n\t\t},", start) + len("\n\t\t}")
+    return (
+        f"export function {name}(webPreferences, windowState, windowSettings, zoomLevelToZoomFactor) {{\nreturn "
+        + source[start:end]
+        + ";\n}\n"
     )
 
 
@@ -90,10 +109,32 @@ def main():
         flush=True,
     )
 
+    paste_original = (PINNED / PASTE_SOURCE).read_bytes()
+    assert hashlib.sha256(paste_original).hexdigest() == PASTE_SHA256
+    assert manifest["files"][PASTE_SOURCE]["sha256"] == PASTE_SHA256
+    paste_adapted = adapt_paste_preferences(paste_original)
+    assert paste_adapted == paste_original.replace(
+        PASTE_IMPORT.encode(), (PASTE_IMPORT + PASTE_ADDED_IMPORT).encode()
+    ).replace(PASTE_PREFERENCE.encode(), PASTE_REPLACEMENT.encode())
+    assert revert_paste_preferences(paste_adapted) == paste_original
+    for data in [paste_original + b"\n", paste_original + PASTE_PREFERENCE.encode(), paste_adapted]:
+        rejected(lambda data=data: adapt_paste_preferences(data))
+    for data in [paste_original, paste_adapted + b"\n", paste_adapted + PASTE_REPLACEMENT.encode()]:
+        rejected(lambda data=data: revert_paste_preferences(data))
+    print("PASS exact pinned legacy-paste omission reversal and drift refusal", flush=True)
+
     with tempfile.TemporaryDirectory(prefix="elytra-window-preferences-") as temporary:
         work = Path(temporary)
         source = work / "source"
-        names = {*FILES, *PATHS, SOURCE, "mainImpl.ts", "nodeCompileCache.ts", "LICENSE.txt"}
+        names = {
+            *FILES,
+            *PATHS,
+            SOURCE,
+            PASTE_SOURCE,
+            "mainImpl.ts",
+            "nodeCompileCache.ts",
+            "LICENSE.txt",
+        }
         for name in names:
             data = (PINNED / name).read_bytes()
             entry = manifest["files"][name]
@@ -108,6 +149,7 @@ def main():
         report = prepare(source, overlay, libjs_cache=True, libjs_engine=True, local_desktop=True)
         assert (overlay / record["upstream"]).read_bytes() == adapted
         assert (source / record["upstream"]).read_bytes() == original
+        assert (overlay / manifest["files"][PASTE_SOURCE]["upstream"]).read_bytes() == paste_adapted
         assert (overlay / HELPER_TARGET).read_bytes() == (ROOT / HELPER_SOURCE).read_bytes()
         sources = [item for item in report["files"] if item["path"] == record["upstream"]]
         assert len(sources) == 1 and sources[0]["sourceSha256"] == SOURCE_SHA256
@@ -137,9 +179,11 @@ def main():
 
         shutil.copyfile(ROOT / HELPER_SOURCE, work / "window-preferences.ts")
         expressions = (
-            "import { libJSWindowCachePreferences } from './window-preferences.mjs';\n"
+            "import { libJSWindowCachePreferences, libJSWindowPastePreferences } from './window-preferences.mjs';\n"
             + projection(original, "originalPreferences")
             + projection(adapted, "adaptedPreferences")
+            + paste_projection(paste_original, "originalPastePreferences")
+            + paste_projection(paste_adapted, "adaptedPastePreferences")
         )
         (work / "expressions.ts").write_text(expressions)
         shutil.copyfile(

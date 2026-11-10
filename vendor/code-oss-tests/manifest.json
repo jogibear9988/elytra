@@ -278,6 +278,10 @@
     "window-impl-main.ts": {
       "upstream": "src/vs/platform/windows/electron-main/windowImpl.ts",
       "sha256": "1cbccb2910b4763702be823fb5e49e532f49845694e473893f3f52cbb6ee0e0a"
+    },
+    "window-defaults-main.ts": {
+      "upstream": "src/vs/platform/windows/electron-main/windows.ts",
+      "sha256": "087b784eec1f1f565e7eed9cd8b315102a9900888df28c79dc1cd30bde8c36e0"
     }
   }
 }

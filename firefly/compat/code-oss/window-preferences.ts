@@ -15,9 +15,15 @@ type Host = {
   };
   _vscodeLibJSEngineStatus?: { engine?: string; scope?: string };
   _vscodeLibJSWindowPreferencesStatus?: Diagnostic;
+  _vscodeLibJSLegacyPasteStatus?: {
+    engine: string;
+    scope: string;
+    omittedWindowPreferences: readonly { name: string; value: boolean; reason: string }[];
+  };
 };
 const host = process as typeof process & Host;
 let published: Diagnostic | undefined;
+let pastePublished: Host['_vscodeLibJSLegacyPasteStatus'];
 
 function refuse(): never {
   throw Object.assign(new Error('Code-OSS cannot apply this V8 window cache policy on LibJS'), {
@@ -68,6 +74,70 @@ export function libJSWindowCachePreferences(value: string): { v8CacheOptions: st
     });
     Object.defineProperty(host, '_vscodeLibJSWindowPreferencesStatus', {
       value: published,
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
+  }
+  return {};
+}
+
+function verifiedPasteDesktop(): boolean {
+  const versions = host.versions;
+  const local = host._vscodeLibJSLocalDesktopStatus;
+  const engine = host._vscodeLibJSEngineStatus;
+  return (
+    typeof versions.mite === 'string' &&
+    typeof versions.libjs === 'string' &&
+    host.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP === '1' &&
+    !host.env.VSCODE_CODE_CACHE_PATH &&
+    local?.enabled === true &&
+    local.scope === 'experimental-local-desktop' &&
+    Array.isArray(local.disabled) &&
+    local.disabled.includes('engine-code-cache') &&
+    engine?.engine === 'LibJS/LibWeb' &&
+    engine.scope === 'implicit-code-oss-engine-tuning-only'
+  );
+}
+
+/** Omit only the pinned app's legacy synchronous script-paste opt-in.
+ * Native UI paste is a separate future capability; no clipboard fallback is claimed.
+ */
+export function libJSWindowPastePreferences(
+  value: boolean
+): { enableDeprecatedPaste: boolean } | {} {
+  const versions = host.versions;
+  if (typeof versions.node === 'string' || typeof versions.electron === 'string') {
+    return { enableDeprecatedPaste: value };
+  }
+  if (value !== true || !verifiedPasteDesktop()) {
+    throw Object.assign(
+      new Error('Code-OSS deprecated synchronous script paste is unavailable on LibWeb'),
+      {
+        code: 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+      }
+    );
+  }
+  if (!pastePublished) {
+    if (Object.hasOwn(host, '_vscodeLibJSLegacyPasteStatus')) {
+      throw Object.assign(new Error('Conflicting Code-OSS script-paste omission status'), {
+        code: 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+      });
+    }
+    pastePublished = Object.freeze({
+      engine: 'LibJS/LibWeb',
+      scope: 'code-oss-deprecated-sync-paste-omission-only',
+      omittedWindowPreferences: Object.freeze([
+        Object.freeze({
+          name: 'enableDeprecatedPaste',
+          value: true,
+          reason:
+            'Deprecated synchronous execCommand paste is unavailable; native webContents.paste still needs integration'
+        })
+      ])
+    });
+    Object.defineProperty(host, '_vscodeLibJSLegacyPasteStatus', {
+      value: pastePublished,
       enumerable: false,
       writable: false,
       configurable: false

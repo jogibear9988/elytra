@@ -12548,6 +12548,24 @@ is actually autoplay-codeoss-entry.log); the prepared exact HighlightAPI admissi
 requires one final incremental host rebuild. The unavailable offscreen Qt plugin
 was refused explicitly, so the real diagnostic used Cocoa without a GUI suite.
 
+## 2026-11-10 — Explicit Code-OSS legacy-paste startup adaptation
+
+The exact pinned windows.ts enables Electron's deprecated synchronous script-paste
+mode. Preserve ordinary Node/Electron behavior and the original source outside
+one import/assignment seam. Only the verified experimental local Mite/LibJS profile
+omits that request; publish a separate immutable legacy-paste diagnostic at the
+actual omission. Preserve the existing cache diagnostic and its gates. The general
+Firefly option remains explicitly unsupported. No clipboard permission or fake
+paste implementation is added: desktop Code-OSS uses webContents.paste(), whose
+actual native action integration remains required.
+
+The existing focused Node/Mite window-preference runner passes eighteen scenarios,
+including original/adapted behavior and pinned source/license/drift controls. The
+new windows.ts fixture matches the actual pinned source and retains notices.
+No broad runtime suite or GUI test is added. The application overlay is generated
+in the existing review build; the single existing compiled Code-OSS tree is being
+refreshed separately with real renderer resources before the next direct start.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

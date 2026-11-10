@@ -539,3 +539,19 @@ Firefly it passes `spellcheck:false` and native `zoomFactor`, then rejects
 `webPreferences.autoplayPolicy`
 before creating the editor window. Native spdlog bindings remain unavailable.
 This is startup progress, not accepted workbench or file-editing support.
+
+## Deprecated synchronous script paste
+
+The explicit local-desktop overlay also adapts the pinned `windows.ts`
+`enableDeprecatedPaste: true` assignment. Ordinary Node/Electron keeps the value.
+Verified Mite/LibJS local-desktop mode omits this one application opt-in and
+publishes immutable `process._vscodeLibJSLegacyPasteStatus` only when it does so.
+Firefly's general `enableDeprecatedPaste: true` preference remains unsupported.
+
+This permits startup without claiming synchronous `document.execCommand('paste')`
+clipboard access. Electron's deprecated mode performs an additional synchronous
+permission check; LibWeb's real native/user paste action is a separate path.
+The desktop Code-OSS clipboard service calls `webContents.paste()`, so genuine
+integration of that method is still required. The browser-only text fallback
+must not be claimed for this desktop experiment. No clipboard delivery or editor
+acceptance follows from omitting the preference.

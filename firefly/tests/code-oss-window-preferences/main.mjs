@@ -1,7 +1,12 @@
 /** Real Node/Mite helper policy plus exact pinned Code-OSS preference-expression evaluation. */
 import assert from 'node:assert/strict';
-import { libJSWindowCachePreferences } from './window-preferences.mjs';
-import { originalPreferences, adaptedPreferences } from './expressions.mjs';
+import { libJSWindowCachePreferences, libJSWindowPastePreferences } from './window-preferences.mjs';
+import {
+  originalPreferences,
+  adaptedPreferences,
+  originalPastePreferences,
+  adaptedPastePreferences
+} from './expressions.mjs';
 
 const fixture = JSON.parse(process.argv[2]);
 const mite =
@@ -215,6 +220,60 @@ if (!mite || allowed) {
   assert.equal(result.contextIsolation, true);
   assert.equal(result.nodeIntegration, false);
   assert.equal(result.preload, token);
+}
+// Exact pinned default-window preference expression: keep native identities,
+// accessor order and every preference except the explicit legacy script-paste flag.
+const pasteArgs = [{ secureToken: {} }, { zoomLevel: 2 }, {}, (value) => value * 10];
+const pasteBaseline = originalPastePreferences(...pasteArgs);
+const pasteAllowed =
+  ['valid', 'conflict', 'preexisting-matching'].includes(fixture.policy) &&
+  process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP === '1' &&
+  !process.env.VSCODE_CODE_CACHE_PATH;
+if (!mite || pasteAllowed) {
+  const pasteActual = adaptedPastePreferences(...pasteArgs);
+  const expected = { ...pasteBaseline };
+  if (mite) {
+    delete expected.enableDeprecatedPaste;
+    const status = process._vscodeLibJSLegacyPasteStatus;
+    assert.equal(status.scope, 'code-oss-deprecated-sync-paste-omission-only');
+    assert.equal(status.omittedWindowPreferences.length, 1);
+    assert.equal(status.omittedWindowPreferences[0].name, 'enableDeprecatedPaste');
+    assert.equal(status.omittedWindowPreferences[0].value, true);
+    assert.ok(status.omittedWindowPreferences[0].reason.includes('native webContents.paste'));
+    assert.ok(
+      Object.isFrozen(status) &&
+        Object.isFrozen(status.omittedWindowPreferences) &&
+        Object.isFrozen(status.omittedWindowPreferences[0])
+    );
+    assert.deepEqual(libJSWindowPastePreferences(true), {});
+    assert.equal(process._vscodeLibJSLegacyPasteStatus, status);
+
+    assert.throws(
+      () => libJSWindowPastePreferences(false),
+      (error) => error.code === 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+    );
+
+    local.enabled = false;
+
+    assert.throws(
+      () => libJSWindowPastePreferences(true),
+      (error) => error.code === 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+    );
+
+    local.enabled = true;
+  } else {
+    assert.equal(process._vscodeLibJSLegacyPasteStatus, undefined);
+    assert.deepEqual(libJSWindowPastePreferences(false), { enableDeprecatedPaste: false });
+  }
+  assert.deepEqual(pasteActual, expected);
+  assert.equal(pasteActual.secureToken, pasteArgs[0].secureToken);
+} else {
+  assert.throws(
+    () => adaptedPastePreferences(...pasteArgs),
+    (error) => error.code === 'ERR_CODE_OSS_LIBJS_ENGINE_OPTION'
+  );
+
+  assert.equal(process._vscodeLibJSLegacyPasteStatus, undefined);
 }
 console.log(
   JSON.stringify({

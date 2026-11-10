@@ -44,6 +44,7 @@ def main():
             "mainImpl.ts",
             *PATHS,
             WINDOW_PREFERENCES_SOURCE,
+            "window-defaults-main.ts",
             "LICENSE.txt",
         ):
             data = (PINNED / name).read_bytes()
