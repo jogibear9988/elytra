@@ -12397,6 +12397,39 @@ Actual local Release Mite build and complete Node/Mite event watcher comparison
 pass (windows-watch-path-build.log, windows-watch-path-local-acceptance.log).
 Strict native syntax and UV boundary checks pass. No GUI tests were run.
 
+## 2026-11-10 — Portable fork, stat-watcher collection and framed Windows pipes
+
+The Windows runtime job at aae76b4 exposed two oracle assumptions and one
+unsupported transport assumption. Preserve production ownership and all existing
+assertions while testing the actual platform contracts:
+
+- The independent-child reference failed in Node before Mite was exercised.
+  libuv assigns non-detached Windows children to a kill-on-parent-exit Job Object;
+  unref only changes event-loop liveness. Request detached:true only on Windows,
+  retaining the original POSIX case and the exact parent-exit/child-acknowledgement
+  checks and deadlines. Mite already has the actual native detached spawn path.
+- Final stat-watcher reclamation collected inside active native dispatch frames.
+  Windows conservatively scans those stacks, including expired callback slots.
+  Use the existing real embedded-host idle collection boundary after dispatch
+  unwinds, as the event-watcher GC gate already does. Keep the in-callback
+  unwatch/forced-GC reentry, active-root checks, twelve collection turns, deadline
+  and exact final callback/watcher weak-reference reclamation assertions.
+- The named-pipe binary exchange failed in Node's Windows reference. Its libuv
+  shutdown emulates EOF with a 50 ms timer that can close both pipe directions;
+  waiting for request EOF before replying cannot establish directional half-close.
+  Retain the original POSIX half-close test unchanged. Windows instead uses a
+  separate fixed-length framed duplex exchange: actual 3 MiB + 29 byte payload,
+  Unicode endpoints, both string/object overloads, exact request/reply bytes and
+  counters, real backpressure/drain in both directions and native listener cleanup.
+  API and compatibility docs explicitly state the Windows half-close limitation.
+
+Validation: the complete actual Node/Mite fork suite, genuine embedded stat-watcher
+GC gate and complete POSIX pipe suite pass locally against build/upstream-review.
+The new framed exchange also passes in both Node and Mite over real Unix sockets;
+this validates its framing/backpressure logic, not Windows transport behavior.
+Windows execution of these repairs remains pending hosted CI. No runtime policy,
+GUI test, timeout increase, fabricated event or skipped integrity assertion is used.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

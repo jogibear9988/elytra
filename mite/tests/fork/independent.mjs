@@ -5,7 +5,10 @@ const child = fork(
   ['independent', process.argv[2], process.argv[3]],
   {
     execArgv: [],
-    stdio: 'ignore'
+    stdio: 'ignore',
+    // libuv's Windows non-detached children belong to a kill-on-parent-exit job.
+    // unref changes loop liveness; actual detachment is required for survival there.
+    ...(process.platform === 'win32' ? { detached: true } : {})
   }
 );
 

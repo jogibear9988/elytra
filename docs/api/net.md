@@ -80,7 +80,11 @@ ports select TCP port 0. A numeric-only `path` without a port rejects rather tha
 binding an unexpected local name.
 
 Local sockets share Duplex byte streaming, write-before-connect, backpressure,
-half-close, timeouts, ref/unref, cancellation and close waiting. DNS lookup and TCP
+timeouts, ref/unref, cancellation and close waiting. Unix sockets support directional
+half-close. Windows named pipes do not provide the same guarantee: libuv emulates
+EOF with a short timer that can close both directions. Use explicit request/response
+framing and complete the response before ending a Windows pipe; do not wait for a
+request EOF before sending the reply. DNS lookup and TCP
 connection-attempt events do not run. `setNoDelay` and `setKeepAlive` return the
 Socket and perform no TCP operation. Socket address metadata is an empty object;
 IP/port/family properties are undefined. A Server retains its original path from
@@ -119,8 +123,9 @@ on('data', listener) does. Native writes own copied bytes until completion.
 | setKeepAlive([enabled = false[, initialDelay = 0]]) | Set/store native keep-alive; return Socket |
 | ref() / unref() | Change native handle liveness; return Socket |
 
-Normal end half-closes the write direction. allowHalfOpen controls whether a
-received EOF automatically ends the writable side. Native callbacks run on the VM
+For TCP and Unix sockets, normal end half-closes the write direction. allowHalfOpen
+controls whether a received EOF automatically ends the writable side. The Windows
+named-pipe limitation above also applies when allowHalfOpen is true. Native callbacks run on the VM
 owner thread with normal tick/Promise checkpoints.
 
 ## Listening

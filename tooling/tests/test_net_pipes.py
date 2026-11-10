@@ -133,7 +133,13 @@ def main():
         prefix="mp-", dir=None if os.name == "nt" else "/tmp"
     ) as temporary:
         root = Path(temporary)
-        fixtures = ["exchange.mjs", "errors.mjs", "close.mjs", "abort.mjs", "unref.mjs"]
+        fixtures = [
+            "exchange-windows.mjs" if os.name == "nt" else "exchange.mjs",
+            "errors.mjs",
+            "close.mjs",
+            "abort.mjs",
+            "unref.mjs",
+        ]
         if os.name != "nt":
             fixtures += ["stale.mjs", "oversize.mjs"]
         for fixture in fixtures:
