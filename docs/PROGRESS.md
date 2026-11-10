@@ -12125,6 +12125,50 @@ its active review worktree, shared installed dependencies or running Designer ap
 The full product/platform/VS Code/release objective remains active.
 
 
+### Candidate follow-up: native shutdown and remaining hosted failures
+
+The next hosted Linux CLI run, 42765988282 at 359fd82, passes. The other
+three native workflows failed: Windows 42765988289 still tests the old direct
+libuv includes (the local da3ef59 correction needs pushing); macOS 42765988615
+reached compilation of a remaining capturing test callback in the power-monitor
+public probe; Linux renderer 42765988473 stopped in independent X11 window-manager
+readiness before renderer compilation. These results do not accept the update.
+
+A targeted local Cocoa batch initially stopped before presentation: two pure Qt
+probes unnecessarily included GC registration without linking the GC runtime.
+Removing those unused includes makes both genuine probes link. The first hidden
+file-input case then exposed a real exit crash: a deferred IPC strong reference
+destroyed ConnectionFromUI after its Hub Application had already been destroyed.
+
+The owned source composition now retires the original Application callbacks while
+the Hub is alive, closes both real IPC endpoints and makes late destructors and
+disconnect handling harmless for retired endpoints. Original upstream cleanup
+bytes and endpoint class layouts are preserved; fingerprint/reversal/drift and
+missing/duplicate seam controls pass. The unchanged hidden file-input regression
+now passes trusted native input, Qt acceptance, SelectedFile IPC, four-MiB text
+and byte contents, basename privacy, cancellation and navigation with clean exit
+(candidate-hidden-file-picker-lifecycle.log). No visible desktop test was run
+in this follow-up; the accepted Designer app remains available for manual testing.
+
+A separate Qt numeric-collation probe catches two ICU implementations being
+linked into pure Qt executables. The initial link-order correction passes the
+full frontend graph, but still fails the smaller picker graph; do not treat
+presence of the shared Unicode dylib alone as proof that Qt calls its ICU copy.
+Actual linked symbols and both native collation probes are the acceptance gate.
+Further validation and a retained-endpoint regression are still in progress.
+
+The remaining probe callback migration covers power-monitor, locale and menu.
+All native JS callbacks now declare GC::captures; borrowed fixture state uses
+revocable anchors and traces the actual mutable handler roots. The audit finds
+no remaining raw captures in the native test factories. All 26 relevant actual
+candidate translation units pass strict compiler syntax checks. Genuine local
+Release builds pass for the three probes and the menu offscreen graph; actual
+power factory/Host/passive OS queries, locale guards and offscreen Qt menu actions,
+queued callbacks, roles and stale-generation teardown pass
+(candidate-icu-captures-build.log, candidate-test-captures-syntax.log,
+candidate-locale-capture.log, candidate-menu-capture.log). Physical power
+transitions and a fresh hosted macOS run remain separate requirements.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
