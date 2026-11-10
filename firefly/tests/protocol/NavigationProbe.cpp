@@ -8,6 +8,7 @@
 #include <LibCore/ElapsedTimer.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
+#include <LibGC/Function.h>
 #include <LibIPC/StartupTransport.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
@@ -36,18 +37,23 @@ constexpr auto prefix = "<!doctype html><title>NAVIGATION_OK</title><p>native-na
 constexpr size_t body_length = 256 * 1024 + 19;
 
 struct State final : RefCounted<State> {
+    // Population descriptors are serialized LibWebCommon data; no JS cells.
+    GC_HOLDS_NO_CELL_EDGES;
     Optional<H::NavigationPopulationResult> result;
     WeakPtr<PF::Response> response;
     size_t handlers { 0 };
 };
 
-ErrorOr<void> wait(JS::Realm& realm, Function<bool()> predicate)
+ErrorOr<void> wait(JS::Realm& realm, GC::Ref<GC::Function<bool()>> predicate)
 {
     auto timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(10), [] { });
     timer->start();
-    H::main_thread_event_loop().spin_until(
-        GC::create_function(realm.heap(), [&] { return predicate() || !timer->is_active(); }));
-    if (!predicate())
+    H::main_thread_event_loop().spin_until(GC::create_function(realm.heap(),
+        GC::captures(predicate, timer->make_weak_ptr<Core::Timer>()),
+        [](auto& predicate, auto& timer) {
+            return (*predicate)() || !timer || !timer->is_active();
+        }));
+    if (!(*predicate)())
         return Error::from_string_literal("Native navigation test did not settle");
     realm.vm().heap().collect_garbage();
     return {};
@@ -178,8 +184,10 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
         auto snapshot = H::create_source_snapshot_params_from_navigation_source_snapshot(
             population_realm, request.source_snapshot_params);
         target->populate_session_history_entry_document(request, snapshot, false,
-            GC::create_function(population_realm.heap(),
-                [state](H::NavigationPopulationResult result) { state->result = move(result); }));
+            GC::create_function(population_realm.heap(), GC::captures(state),
+                [](auto& state, H::NavigationPopulationResult result) {
+                    state->result = move(result);
+                }));
     };
 
     populate();
@@ -189,7 +197,11 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             return response && response->headers_received() && !response->finished();
         };
 
-        TRY(wait(realm, [&] { return has_headers() || state->result.has_value(); }));
+        TRY(wait(realm, GC::create_function(realm.heap(), GC::captures(state), [](auto& state) {
+            auto response = state->response.strong_ref();
+            return (response && response->headers_received() && !response->finished())
+                || state->result.has_value();
+        })));
         if (!has_headers() || client->pending() != 1)
             return Error::from_string_literal("Navigation cancellation has no pending real body");
         if (mode == "revoke"sv)
@@ -199,19 +211,25 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
                 Utf16String::from_utf8("replacement"sv));
     }
 
-    TRY(wait(realm, [&] { return state->result.has_value(); }));
+    TRY(wait(realm, GC::create_function(realm.heap(), GC::captures(state), [](auto& state) {
+        return state->result.has_value();
+    })));
     TRY(validate(*state->result, *target, url, mode.is_one_of("body"sv, "boundary"sv, "replay"sv),
         mode == "boundary"sv ? P::navigation_body_limit : body_length));
     if (mode == "replay"sv) {
         state->result.clear();
         populate();
-        TRY(wait(realm, [&] { return state->result.has_value(); }));
+        TRY(wait(realm, GC::create_function(realm.heap(), GC::captures(state), [](auto& state) {
+            return state->result.has_value();
+        })));
         TRY(validate(*state->result, *navigable, url, false));
         if (state->handlers != 2)
             return Error::from_string_literal("One-shot replay did not reach native admission");
     }
 
-    TRY(wait(realm, [&] { return !client->pending(); }));
+    TRY(wait(realm,
+        GC::create_function(realm.heap(), GC::captures(client->make_weak_ptr()),
+            [](auto& client) { return client && !client->pending(); })));
     if (source->url().scheme() == "app"sv || !source->origin().is_opaque())
         return Error::from_string_literal("Test changed the source document origin");
     outln("PASS actual navigation population over native resource channel {}: body/origin/policy "

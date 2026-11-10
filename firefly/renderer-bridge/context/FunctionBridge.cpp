@@ -9,6 +9,7 @@
 #include "context/Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/Intrinsics.h>
@@ -30,6 +31,18 @@ struct FunctionBridge::Pending : public RefCounted<Pending> {
     {
     }
 };
+
+void FunctionBridge::visit_edges(GC::Cell::Visitor& visitor) const
+{
+    // Native ownership/revocation keeps the existing root lifetime. Explicit
+    // captures expose these direct dependencies without strengthening weak caches.
+    visitor.visit(m_function.ptr());
+    visitor.visit(m_document.ptr());
+    for (auto const& entry : m_pending) {
+        visitor.visit(entry.value->capability.ptr());
+        visitor.visit(entry.value->target.ptr());
+    }
+}
 
 FunctionBridge::~FunctionBridge() = default;
 
@@ -62,9 +75,10 @@ ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::Functi
     auto& target = document.window()->principal_realm();
     // The first create parameter selects a VM for allocation, not [[Realm]].
     // Set the optional realm explicitly to keep constructor/error paths in target.
-    GC::Root proxy { JS::NativeFunction::create(
-        target, [owner](JS::VM& vm) { return owner->invoke(vm); }, 0, "fireflyBridgeFunction"_utf16,
-        GC::Ptr<JS::Realm> { target }) };
+    GC::Root proxy { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner),
+            [](auto& owner, JS::VM& vm) { return owner->invoke(vm); }),
+        0, "fireflyBridgeFunction"_utf16, GC::Ptr<JS::Realm> { target }) };
     if (proxy->realm() != &target) {
         owner->revoke();
         return Error::from_string_literal("Exported function has the wrong realm");
@@ -107,12 +121,18 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
     NonnullRefPtr owner { *this };
     // Observe engine state directly, bypassing .then, constructor and species.
     // Reactions capture only owner/id, so revoke can release the owned pending roots.
-    GC::Root fulfilled { JS::NativeFunction::create(
-        target, [owner, id](JS::VM& inner) { return owner->settle(id, true, inner.argument(0)); },
+    GC::Root fulfilled { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner, id),
+            [](auto& owner, auto& id, JS::VM& inner) {
+                return owner->settle(id, true, inner.argument(0));
+            }),
         1, "fireflyPromiseFulfilled"_utf16, GC::Ptr<JS::Realm> { target }) };
-    GC::Root rejected { JS::NativeFunction::create(
-        target, [owner, id](JS::VM&) { return owner->settle(id, false, JS::js_undefined()); }, 1,
-        "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
+    GC::Root rejected { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner, id),
+            [](auto& owner, auto& id, JS::VM&) {
+                return owner->settle(id, false, JS::js_undefined());
+            }),
+        1, "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
     promise.perform_then(fulfilled.ptr(), rejected.ptr(), nullptr);
     return capability->promise();
 }

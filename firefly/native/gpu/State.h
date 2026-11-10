@@ -1,11 +1,22 @@
 /** Native-selected painting policy, independent of VM or renderer/device heuristics. */
 #pragma once
+#include "../../../mite/runtime/core/NativeCaptureLifetime.h"
 #include <optional>
 #include <string>
 
 namespace Firefly::GPU {
-class State {
+class State : public Mite::NativeCaptureOwner<State> {
 public:
+    ~State()
+    {
+        this->revoke_native_captures();
+    }
+
+    template <typename Visitor> void visit_capture_edges(Visitor&) const
+    {
+        // Only native policy/Qt data; callbacks are native transport hooks.
+    }
+
     explicit State(bool cpu_requested = false);
 
     bool request_cpu();

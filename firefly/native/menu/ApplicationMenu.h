@@ -1,5 +1,6 @@
 /** Native application-menu ownership; no engine object or callback crosses this Qt boundary. */
 #pragma once
+#include "../../../mite/runtime/core/NativeCaptureLifetime.h"
 #include <QJsonArray>
 #include <QMenuBar>
 #include <QPointer>
@@ -7,8 +8,13 @@
 #include <functional>
 
 namespace Firefly {
-class ApplicationMenu {
+class ApplicationMenu : public Mite::NativeCaptureOwner<ApplicationMenu> {
 public:
+    template <typename Visitor> void visit_capture_edges(Visitor&) const
+    {
+        // Only native policy/Qt data; callbacks are native transport hooks.
+    }
+
     using Activate
         = std::function<void(int generation, int command, bool checked, QWidget*, int modifiers)>;
     ApplicationMenu(QObject& context, Activate);

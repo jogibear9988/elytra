@@ -254,13 +254,13 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
 {
     GC::Root destination_realm { destination };
     if (m_nodes.is_empty())
-        return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"sv);
+        return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"_utf16);
     if (integrity == Materialization::Frozen) {
         for (auto const& node : m_nodes) {
             if (node.kind == Kind::ArrayBuffer || node.kind == Kind::TypedArray
                 || node.kind == Kind::DataView)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Binary snapshots require explicit mutable materialization"sv);
+                    "Binary snapshots require explicit mutable materialization"_utf16);
         }
     }
 
@@ -283,7 +283,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             auto bytes = ByteBuffer::copy(node.bytes);
             if (bytes.is_error())
                 return destination.vm().throw_completion<JS::RangeError>(
-                    "Cannot allocate bridge binary snapshot"sv);
+                    "Cannot allocate bridge binary snapshot"_utf16);
             values.append(JS::ArrayBuffer::create(destination, bytes.release_value()).ptr());
             break;
         }
@@ -299,12 +299,12 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
         case Kind::Function: {
             if (!functions)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Missing bridge function materializer"sv);
+                    "Missing bridge function materializer"_utf16);
             auto function = TRY(functions(node.length));
             if (!function.is_function() || &function.as_function().vm() != &destination.vm()
                 || function.as_function().realm() != &destination)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Invalid bridge function destination"sv);
+                    "Invalid bridge function destination"_utf16);
             values.append(function);
             break;
         }
@@ -325,7 +325,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             continue;
         if (node.buffer >= m_nodes.size() || m_nodes[node.buffer].kind != Kind::ArrayBuffer)
             return destination.vm().throw_completion<JS::TypeError>(
-                "Invalid binary view backing"sv);
+                "Invalid binary view backing"_utf16);
         auto& buffer = static_cast<JS::ArrayBuffer&>(values[node.buffer].as_object());
         auto type = binary_view_type(node.view_type);
         size_t width = node.kind == Kind::TypedArray && type.has_value() ? type->element_size : 1;
@@ -333,7 +333,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             || node.byte_offset > buffer.byte_length()
             || node.length > (buffer.byte_length() - node.byte_offset) / width)
             return destination.vm().throw_completion<JS::TypeError>(
-                "Invalid binary view geometry"sv);
+                "Invalid binary view geometry"_utf16);
         if (node.kind == Kind::TypedArray)
             values[i] = JS::TypedArrayBase::create_from_slots(
                 destination, type->kind, buffer, node.length, node.length * width, node.byte_offset)
@@ -364,7 +364,8 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             && (integrity == Materialization::Frozen
                 || (integrity == Materialization::FrozenContainers && !binary))
             && !TRY(value.as_object().set_integrity_level(JS::Object::IntegrityLevel::Frozen)))
-            return destination.vm().throw_completion<JS::TypeError>("Cannot freeze bridge data"sv);
+            return destination.vm().throw_completion<JS::TypeError>(
+                "Cannot freeze bridge data"_utf16);
     }
 
     return values[0];

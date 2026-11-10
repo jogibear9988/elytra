@@ -58,16 +58,21 @@ if(NOT EXISTS "${mite_nojit_driver}" OR NOT rust_driver_previous STREQUAL rust_d
     endif()
     file(WRITE "${mite_nojit_directory}/driver-fingerprint" "${rust_driver_fingerprint}")
 endif()
-# Keep the persistent cache wrapper unchanged. In the renderer it is the owned
-# origin driver; caching this outer driver would make the next configure chain
-# the two drivers recursively into one another.
+# Keep the persistent cache wrapper unchanged. In the renderer it is the owned origin driver;
+# caching this outer driver would make the next configure chain the two drivers recursively into one
+# another.
 set(RUSTC_WRAPPER "${mite_nojit_driver}")
 string(APPEND RUSTC_TARGET_FLAGS " --cfg=mite_nojit_build_${FIREFLY_RUST_NOJIT_FINGERPRINT}")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/prepare.py"
-    "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/driver.py"
-    "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/Driver.cpp"
-    "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/lib.rs"
-    "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/unicode.rs"
-    "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/runtime/mod.rs"
-    "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/runtime/ecmascript_function_object.rs")
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY
+        CMAKE_CONFIGURE_DEPENDS
+        "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/prepare.py"
+        "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/driver.py"
+        "${MITE_RUST_ADAPTER_ROOT}/tooling/rust-nojit/Driver.cpp"
+        "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/lib.rs"
+        "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/unicode.rs"
+        "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/runtime/mod.rs"
+        "${MITE_RUST_ADAPTER_ROOT}/vendor/ladybird/Libraries/LibJS/Rust/src/runtime/ecmascript_function_object.rs"
+)

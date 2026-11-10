@@ -18,7 +18,7 @@ ErrorOr<void> check_bridge_wire(JS::VM& vm, JS::Realm& source, JS::Realm& target
     auto run = [&](Utf16View code, JS::Realm& realm) -> JS::ThrowCompletionOr<JS::Value> {
         auto parsed = JS::Script::parse(Utf16String::from_utf16(code), realm);
         if (parsed.is_error())
-            return vm.throw_completion<JS::SyntaxError>("Invalid wire test fixture"sv);
+            return vm.throw_completion<JS::SyntaxError>("Invalid wire test fixture"_utf16);
         GC::Root script { parsed.release_value() };
         return vm.run(*script);
     };

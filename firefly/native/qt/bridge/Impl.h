@@ -10,6 +10,7 @@
 #include "../../menu/ApplicationMenu.h"
 #include "../../net/Host.h"
 #include "../../notifications/Host.h"
+#include "../../platform/GCIncludes.h"
 #include "../../power-monitor/Host.h"
 #include "../../power-save-blocker/Host.h"
 #include "../../sandbox/policy/Policy.h"
@@ -18,7 +19,9 @@
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "../ContentView.h"
+#include "../hub/Frontend.h"
 #include "TransportHooks.h"
+#include "core/GCCaptures.h"
 #include "native/file-picker/Picker.h"
 #include "native/frames/Registry.h"
 #include "native/permissions/Hooks.h"
@@ -35,8 +38,11 @@
 #include <AK/Variant.h>
 #include <LibCore/Timer.h>
 #include <LibGC/Root.h>
+#include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Object.h>
+#include <LibJS/Runtime/Realm.h>
+#include <LibJS/Runtime/VM.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
 #include <QObject>
@@ -61,7 +67,47 @@ class WebContentPage;
 namespace Firefly {
 class ChromeWindow;
 
-struct Bridge::Impl {
+struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
+    void visit_capture_edges(GC::Cell::Visitor& visitor) const
+    {
+        visitor.visit(handler.ptr());
+
+        visitor.visit(api.ptr());
+
+        visitor.visit(permission_check.ptr());
+    }
+
+    static JS::Completion retired_binding(JS::VM&);
+
+    // A method pointer is native code; the only borrowed object travels through
+    // the explicit revocable owner anchor, including during final VM collection.
+    template <auto method> auto native_binding()
+    {
+        return GC::create_function(realm.heap(), GC::captures(Mite::native_reference(*this)),
+            [](auto& owner, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* current = owner.try_get();
+
+                if (!current)
+                    return retired_binding(vm);
+
+                return (current->*method)(vm);
+            });
+    }
+
+    template <auto method, typename Extra> auto native_binding(Extra extra)
+    {
+        return GC::create_function(realm.heap(),
+            GC::captures(Mite::native_reference(*this), move(extra)),
+            [](auto& owner, auto& argument, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* current = owner.try_get();
+
+                if (!current)
+                    return retired_binding(vm);
+
+                return (current->*method)(vm, argument);
+            });
+    }
+
     struct Preload {
         String source;
         String filename;
@@ -80,6 +126,10 @@ struct Bridge::Impl {
             , preload(move(script))
         {
         }
+
+        WebView::ViewImplementation* native_view() const;
+
+        bool owns_page(WebView::WebContentPage const&) const;
 
         // Canonical content identity never changes when its QWidget is reparented.
         // window is non-null only for WindowMain; child ownership is owner_id.
@@ -140,6 +190,7 @@ struct Bridge::Impl {
     Core::EventLoop& gui;
     std::optional<int>& exit_code;
     bool electron_compat;
+    std::function<std::optional<bool>()> sandbox_launch_policy;
     std::unique_ptr<QObject> context { std::make_unique<QObject>() };
     GC::Root<JS::FunctionObject> handler;
     GC::Root<JS::Object> api;
@@ -222,7 +273,7 @@ struct Bridge::Impl {
     bool complete_permission(int, u64, bool);
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
-        bool electron_compat);
+        bool electron_compat, std::function<std::optional<bool>()> sandbox_launch_policy);
 
     ~Impl();
 
@@ -329,6 +380,102 @@ struct Bridge::Impl {
 
     void configure_preloads(WebView::WebContentPage&);
 
+    // Typed native bodies remain ordinary member methods; GC closures hold only declared captures.
+    JS::ThrowCompletionOr<JS::Value> native_background_set_contents_background(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_background_contents_background(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_background_lookup_color(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_constraints_get_constraint(JS::VM&, bool maximum);
+
+    JS::ThrowCompletionOr<JS::Value> native_constraints_set_constraint(JS::VM&, bool maximum);
+
+    JS::ThrowCompletionOr<JS::Value> native_frames_snapshot(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_handler(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_encode_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_decode_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_reply_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_create(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_destroy(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_destroy_now(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_exit(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_load(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_action(
+        JS::VM&, void (*action)(ChromeWindow&));
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_window_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_center_window(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_minimized(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_maximized(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_pid(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_title(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_title_text(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_quit(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_permissions_configure(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_permissions_complete(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_create_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_attach_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_detach_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_set_view_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_view_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_set_view_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_view_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_close_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_focus_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_owner_window(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_child_view_ids(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_focused_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_webrequest_configure(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_webrequest_complete(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_zoom_set_contents_zoom(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_zoom_contents_zoom(JS::VM&);
+
     GC::Ref<JS::Object> install();
+
+    JS::ThrowCompletionOr<JS::Value> native_host_enable_sandbox(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_spell_check_disabled(JS::VM&);
 };
 }

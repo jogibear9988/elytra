@@ -1,6 +1,7 @@
 /** Associate jobs, WebIDL callbacks and Promise failures with their source world. */
 #include "worlds/jobs/State.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/Function.h>
 #include <LibGC/WeakInlines.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
@@ -64,17 +65,18 @@ JS::Completion WorldJobGuard::State::invoke_webidl(Web::WebIDL::CallbackType& ca
                 if (observer && &observer->callback() == &callback) {
                     if (arguments.size() != 2 || !arguments[0].is_object())
                         return vm.throw_completion<JS::TypeError>(
-                            "Invalid mutation observer delivery"sv);
+                            "Invalid mutation observer delivery"_utf16);
                     auto source_array_value = arguments[0];
                     auto& source_array = source_array_value.as_object();
                     if (source_array.engine_class_id() != JS_LAYOUT_CLASS_ID_ARRAY
                         || JS::host_class_of(source_array))
-                        return vm.throw_completion<JS::TypeError>("Invalid mutation record list"sv);
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid mutation record list"_utf16);
                     auto length = TRY(source_array.internal_get_own_property("length"_utf16));
                     if (!length.has_value() || !length->value.has_value()
                         || !length->value->is_number())
                         return vm.throw_completion<JS::TypeError>(
-                            "Missing mutation record length"sv);
+                            "Missing mutation record length"_utf16);
                     auto size = static_cast<u32>(length->value->as_double());
                     GC::Root array { TRY(JS::Array::create(associated, size)) };
                     auto& world = Web::Bindings::host_defined_wrapper_world(associated);
@@ -82,12 +84,14 @@ JS::Completion WorldJobGuard::State::invoke_webidl(Web::WebIDL::CallbackType& ca
                         auto descriptor = TRY(source_array.ordinary_get_own_property(i));
                         if (!descriptor.has_value() || !descriptor->is_data_descriptor()
                             || !descriptor->value.has_value() || !descriptor->value->is_object())
-                            return vm.throw_completion<JS::TypeError>("Invalid mutation record"sv);
+                            return vm.throw_completion<JS::TypeError>(
+                                "Invalid mutation record"_utf16);
                         auto value = *descriptor->value;
                         auto* record = Web::Bindings::impl_from<Web::DOM::MutationRecord>(
                             &value.as_object());
                         if (!record)
-                            return vm.throw_completion<JS::TypeError>("Unknown mutation record"sv);
+                            return vm.throw_completion<JS::TypeError>(
+                                "Unknown mutation record"_utf16);
                         TRY(array->create_data_property_or_throw(
                             i, Web::Bindings::wrap(world, associated, GC::Ref { *record })));
                     }
@@ -211,8 +215,10 @@ void WorldJobGuard::State::enqueue(JS::PromiseJob job, GC::Ptr<JS::Realm> realm)
     // only our owned-world jobs via the public HTML microtask/context APIs;
     // the upstream hook retains all other jobs and the VM's queue contract.
     Web::HTML::queue_a_microtask(nullptr,
-        GC::create_function(
-            vm.heap(), [self, realm, origin, owned_realm, job = move(job), script_or_module] {
+        GC::create_function(vm.heap(),
+            GC::captures(self, realm, origin, owned_realm, move(job), script_or_module),
+            [](auto& self, auto& realm, auto& origin, auto& owned_realm, auto& job,
+                auto& script_or_module) {
                 if (origin && self->blocked_realm(*origin))
                     return;
                 if (owned_realm && realm != origin && self->blocked_realm(*realm))

@@ -1,4 +1,5 @@
 #include "NodeFilterTest.h"
+#include "CaptureSlot.h"
 #include "callbacks/CallbackGate.h"
 #include "worlds/IsolatedWorld.h"
 #include "worlds/WorldJobGuard.h"
@@ -160,17 +161,19 @@ ErrorOr<void> check_node_filters(JS::VM& vm, Web::DOM::Document& document)
         TRY(guard.protect(*owner));
         GC::Root realm { *owner->realm() };
         auto weak = owner->make_weak_ptr();
-        auto* active = owner.ptr();
-        auto drop = JS::NativeFunction::create(
-            *realm,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                bool executing = active->is_executing();
-                active->detach();
-                owner.clear();
-                vm.heap().collect_garbage();
-                return JS::Value(
-                    executing && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached());
-            },
+        Firefly::Tests::CaptureSlot owner_slot { owner };
+        auto drop = JS::NativeFunction::create(*realm,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(owner_slot), realm),
+                [](auto& slot, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& owner = slot.get().value;
+                    auto* active = owner.ptr();
+                    bool executing = active->is_executing();
+                    active->detach();
+                    owner.clear();
+                    vm.heap().collect_garbage();
+                    return JS::Value(executing
+                        && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached());
+                }),
             0, "dropFilterOwner"_utf16, GC::Ptr<JS::Realm> { *realm });
         realm->global_object().define_direct_property(
             "dropFilterOwner"_utf16, drop, JS::default_attributes);

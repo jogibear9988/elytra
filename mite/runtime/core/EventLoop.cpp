@@ -63,6 +63,7 @@ void EventLoop::visit_capture_edges(GC::Cell::Visitor& visitor) const
         for (auto const& value : entry.second->arguments)
             visitor.visit(value);
     }
+
     if (m_immediates)
         m_immediates->visit_capture_edges(visitor);
 }

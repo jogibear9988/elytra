@@ -1,4 +1,7 @@
 #include "native/file-picker/Picker.h"
+#include "native/platform/GCIncludes.h"
+#include "native/qt/hub/Frontend.h"
+#include "native/qt/hub/Host.h"
 #include <QFileDialog>
 /** Exercise real file input through a hidden native Qt view and owned renderer. */
 #include <LibCore/ArgsParser.h>
@@ -18,12 +21,63 @@
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
 namespace Firefly {
-class PickerApplication final : public WebView::Application {
-    WEB_VIEW_APPLICATION(PickerApplication)
+class PickerApplication final {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
-    PickerApplication()
-        : WebView::Application(ByteString(FIREFLY_LADYBIRD_DIRECTORY))
+    static ErrorOr<OwnPtr<PickerApplication>> create(Main::Arguments arguments)
     {
+        auto application = make<PickerApplication>();
+        application->m_arguments.append(arguments.strings.first());
+        application->m_arguments.append("--disable-sql-database"sv);
+        application->m_arguments.append("--disable-content-blocker"sv);
+        for (size_t index = 1; index < arguments.strings.size(); ++index) {
+            auto argument = arguments.strings[index];
+            if (argument == "--probe-file"sv) {
+                if (++index == arguments.strings.size())
+                    return Error::from_string_literal("Missing owned probe argument");
+                application->m_file = ByteString(arguments.strings[index]);
+                continue;
+            }
+
+            if (argument.starts_with("--probe-file="sv)) {
+                application->m_file = ByteString(argument.substring_view(13));
+                continue;
+            }
+
+            if (argument == "--probe-next"sv) {
+                if (++index == arguments.strings.size())
+                    return Error::from_string_literal("Missing owned probe argument");
+                application->m_next = ByteString(arguments.strings[index]);
+                continue;
+            }
+
+            if (argument.starts_with("--probe-next="sv)) {
+                application->m_next = ByteString(argument.substring_view(13));
+                continue;
+            }
+
+            application->m_arguments.append(argument);
+        }
+
+        application->m_argc = arguments.argc;
+        application->m_qt = make<QApplication>(application->m_argc, arguments.argv);
+        application->m_qt->setQuitOnLastWindowClosed(false);
+        Core::EventLoopManager::install(*new Ladybird::EventLoopManagerQt);
+        application->m_loop = &Core::EventLoop::initialize_for_current_thread();
+        static_cast<Ladybird::EventLoopImplementationQt&>(application->m_loop->impl())
+            .set_main_loop();
+
+        application->m_hub = make<HubHost>(
+            *application->m_loop, ByteString(FIREFLY_LADYBIRD_DIRECTORY),
+            [] { HubFrontend::initialize(); },
+            [] {
+                // run_picker's stack-owned picker/widgets retire before this owner.
+                HubFrontend::shutdown();
+            });
+        arguments.strings = application->m_arguments.span();
+        TRY(application->m_hub->initialize(arguments));
+        return application;
     }
 
     ErrorOr<int> run_picker()
@@ -121,37 +175,17 @@ public:
     }
 
 private:
-    void create_platform_arguments(Core::ArgsParser& parser) override
+    static WebView::BrowserOptions const& browser_options()
     {
-        parser.add_option(m_file, "Accepted test file", "probe-file", 0, "path");
-        parser.add_option(m_next, "Fresh document URL", "probe-next", 0, "URL");
+        return WebView::Application::browser_options();
     }
 
-    void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&,
-        WebView::WebContentOptions&) override
-    {
-        browser.disable_sql_database = WebView::DisableSQLDatabase::Yes;
-        browser.enable_content_blocker = WebView::EnableContentBlocker::No;
-    }
-
-    bool should_coordinate_browser_process() const override
-    {
-        return false;
-    }
-
-    Core::EventLoop& create_platform_event_loop() override
-    {
-        m_qt = make<QApplication>(arguments().argc, arguments().argv);
-        m_qt->setQuitOnLastWindowClosed(false);
-        Core::EventLoopManager::install(*new Ladybird::EventLoopManagerQt);
-        m_loop = &Core::EventLoop::initialize_for_current_thread();
-        static_cast<Ladybird::EventLoopImplementationQt&>(m_loop->impl()).set_main_loop();
-        return *m_loop;
-    }
-
+    int m_argc {}; // QApplication borrows this until its own destruction.
     OwnPtr<QApplication> m_qt;
     Core::EventLoop* m_loop { nullptr };
     ByteString m_file, m_next;
+    Vector<StringView> m_arguments;
+    OwnPtr<HubHost> m_hub;
 };
 }
 

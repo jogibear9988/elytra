@@ -40,20 +40,28 @@ ErrorOr<void> DocumentResources::prepare(WebView::WebContentPage& page,
         return Error::from_string_literal("Unexpected native document population handoff");
     auto pair = TRY(IPC::Transport::create_paired());
     auto weak = make_weak_ptr();
-    m_server = TRY(Protocols::FileServer::create_async(move(pair.local), 2,
-        [weak](Protocols::FileServer::AuthorizationRequest request,
-            Protocols::FileServer::Completion complete) {
-            // Exercise real helper loading while file authorization awaits another native task.
-            Core::deferred_invoke([weak, request = move(request), complete = move(complete)] {
-                auto self = weak.strong_ref();
-                if (!self) {
-                    (void)complete(Error::from_errno(ECANCELED));
-                    return;
-                }
+    auto create_server = [weak](NonnullOwnPtr<IPC::Transport> transport,
+                             u64 epoch) -> ErrorOr<NonnullRefPtr<Protocols::FileServer>> {
+        return Protocols::FileServer::create_async(move(transport), epoch,
+            [weak, epoch](Protocols::FileServer::AuthorizationRequest request,
+                Protocols::FileServer::Completion complete) {
+                // Keep authorization genuinely asynchronous on the native owner.
+                Core::deferred_invoke(
+                    [weak, epoch, request = move(request), complete = move(complete)] {
+                        auto self = weak.strong_ref();
+                        if (!self) {
+                            (void)complete(Error::from_errno(ECANCELED));
+                            return;
+                        }
 
-                (void)complete(self->authorize(request.url));
+                        if (epoch == 3)
+                            ++self->m_refresh_requests;
+                        (void)complete(self->authorize(request.url));
+                    });
             });
-        }));
+    };
+
+    m_server = TRY(create_server(move(pair.local), 2));
     send(page, request, *result.document_id, move(pair.remote_handle), 2);
     if (m_mode == "document-duplicate"sv) {
         auto extra = TRY(IPC::Transport::create_paired());
@@ -74,7 +82,14 @@ ErrorOr<void> DocumentResources::prepare(WebView::WebContentPage& page,
                         }
                     },
             }));
-        send(page, request, *result.document_id, move(extra.remote_handle), 3);
+        // An equal epoch is a replay, not a newer trusted grant. A higher epoch
+        // intentionally refreshes this exact committed document (ADR 0175).
+        send(page, request, *result.document_id, move(extra.remote_handle), 2);
+    } else if (m_mode == "document-refresh"sv) {
+        auto refresh = TRY(IPC::Transport::create_paired());
+        m_retired_server = m_server;
+        m_server = TRY(create_server(move(refresh.local), 3));
+        send(page, request, *result.document_id, move(refresh.remote_handle), 3);
     }
 
     return {};
@@ -115,6 +130,10 @@ bool DocumentResources::ready(bool away) const
         return !m_server && !m_requests;
     if (!m_server || m_server->pending() || m_server->files())
         return false;
+    if (m_mode == "document-refresh"sv
+        && (!m_retired_server || !m_retired_server->is_revoked() || m_retired_server->pending()
+            || m_retired_server->files() || m_refresh_requests < 6))
+        return false;
     if (m_mode == "document-id"sv)
         return m_server->is_revoked() && !m_requests;
     return m_seen == 31 && m_requests >= 6 && (away ? m_server->is_revoked() : m_server->is_open());
@@ -124,6 +143,8 @@ void DocumentResources::revoke()
 {
     if (m_server)
         m_server->revoke();
+    if (m_retired_server)
+        m_retired_server->revoke();
     if (m_duplicate)
         m_duplicate->close();
 }

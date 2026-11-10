@@ -5,6 +5,7 @@
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
 #include <LibCore/EventLoop.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -18,6 +19,16 @@
 #include <WebContent/PageClient.h>
 
 namespace Firefly {
+void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
+{
+    visitor.visit(m_document.ptr());
+    visitor.visit(m_exports.ptr());
+    for (auto const& listener : m_listeners)
+        visitor.visit(listener.callback.ptr());
+    for (auto const& entry : m_pending)
+        visitor.visit(entry.value.capability.ptr());
+}
+
 namespace {
     constexpr size_t wire_limit = ApplicationIpc::wire_limit;
     size_t pending_count;
@@ -78,14 +89,16 @@ GC::Ref<JS::Object> IpcEndpoint::exports()
     auto& realm = *m_owner->realm();
     GC::Root result { JS::Object::create(realm, nullptr) };
     NonnullRefPtr owner { *this };
-    GC::Root invoke { JS::NativeFunction::create(
-        realm, [owner](JS::VM& vm) { return owner->invoke(vm); }, 1, "invoke"_utf16,
-        GC::Ptr<JS::Realm> { realm }) };
+    GC::Root invoke { JS::NativeFunction::create(realm,
+        GC::create_function((realm).vm().heap(), GC::captures(owner),
+            [](auto& owner, JS::VM& vm) { return owner->invoke(vm); }),
+        1, "invoke"_utf16, GC::Ptr<JS::Realm> { realm }) };
     m_owner->block_function_export(*invoke);
     result->define_direct_property("invoke"_utf16, invoke, JS::default_attributes);
-    GC::Root send { JS::NativeFunction::create(
-        realm, [owner](JS::VM& vm) { return owner->invoke(vm, true); }, 1, "send"_utf16,
-        GC::Ptr<JS::Realm> { realm }) };
+    GC::Root send { JS::NativeFunction::create(realm,
+        GC::create_function((realm).vm().heap(), GC::captures(owner),
+            [](auto& owner, JS::VM& vm) { return owner->invoke(vm, true); }),
+        1, "send"_utf16, GC::Ptr<JS::Realm> { realm }) };
     m_owner->block_function_export(*send);
     result->define_direct_property("send"_utf16, send, JS::default_attributes);
     // Electron 29+ drops the entire private module across contextBridge,
@@ -93,8 +106,9 @@ GC::Ref<JS::Object> IpcEndpoint::exports()
     m_owner->redact_object_export(*result);
     m_exports = *result;
     auto method = [&](Utf16String name, ListenerOperation mode) {
-        GC::Root function { JS::NativeFunction::create(
-            realm, [owner, mode](JS::VM& vm) { return owner->listen(vm, mode); },
+        GC::Root function { JS::NativeFunction::create(realm,
+            GC::create_function((realm).vm().heap(), GC::captures(owner, mode),
+                [](auto& owner, auto& mode, JS::VM& vm) { return owner->listen(vm, mode); }),
             mode == ListenerOperation::RemoveAll ? 1 : 2, name, GC::Ptr<JS::Realm> { realm }) };
         m_owner->block_function_export(*function);
         result->define_direct_property(name, function, JS::default_attributes);

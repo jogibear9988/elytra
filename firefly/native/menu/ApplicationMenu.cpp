@@ -86,6 +86,7 @@ ApplicationMenu::ApplicationMenu(QObject& context, Activate activate)
 
 ApplicationMenu::~ApplicationMenu()
 {
+    revoke_native_captures();
     stop();
 }
 
@@ -226,6 +227,7 @@ QMenuBar* ApplicationMenu::bar() const
 
 void ApplicationMenu::stop()
 {
+    revoke_native_captures();
     if (m_stopped)
         return;
     m_stopped = true;

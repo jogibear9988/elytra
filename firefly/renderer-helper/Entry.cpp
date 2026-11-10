@@ -23,15 +23,15 @@ void firefly_initialize_renderer_vm(HTML::AgentType);
 
 ErrorOr<int> firefly_upstream_renderer_main(Main::Arguments);
 #define ladybird_main firefly_upstream_renderer_main
-#define initialize_main_thread_vm firefly_initialize_renderer_vm
+#define initialize_agent firefly_initialize_renderer_vm
 #include <Services/WebContent/main.cpp>
-#undef initialize_main_thread_vm
+#undef initialize_agent
 #undef ladybird_main
 
 namespace Web::Bindings {
 void firefly_initialize_renderer_vm(HTML::AgentType type)
 {
-    initialize_main_thread_vm(type);
+    initialize_agent(type);
     Firefly::HelperCanvas::initialize();
     Firefly::HelperPermissions::initialize();
     Firefly::HelperWebRequest::initialize();

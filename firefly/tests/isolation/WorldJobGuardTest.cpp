@@ -1,4 +1,5 @@
 #include "WorldJobGuardTest.h"
+#include "CaptureSlot.h"
 #include "callbacks/CallbackGate.h"
 #include "context/FunctionBridge.h"
 #include "worlds/WorldJobGuard.h"
@@ -121,12 +122,13 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
     auto control = TRY(Firefly::IsolatedWorld::create(*document.window()));
     GC::Root control_realm { *control->realm() };
     size_t control_runs = 0;
-    auto native = JS::NativeFunction::create(
-        *control_realm,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            ++control_runs;
-            return JS::js_undefined();
-        },
+    Firefly::Tests::CaptureSlot counter_slot { control_runs };
+    auto native = JS::NativeFunction::create(*control_realm,
+        GC::create_function(vm.heap(), GC::captures(Mite::native_reference(counter_slot)),
+            [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                ++slot.get().value;
+                return JS::js_undefined();
+            }),
         0, "controlJob"_utf16, GC::Ptr<JS::Realm> { *control_realm });
     control_realm->global_object().define_direct_property(
         "controlJob"_utf16, native, JS::default_attributes);
@@ -180,17 +182,19 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         TRY(guard.protect(*transient));
         GC::Root realm { *transient->realm() };
         auto weak = transient->make_weak_ptr();
-        auto* active = transient.ptr();
-        auto request = JS::NativeFunction::create(
-            *realm,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                bool running = active->is_executing();
-                active->detach();
-                bool deferred = running && active->is_detached() && active->realm() == nullptr
-                    && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached();
-                transient.clear();
-                return JS::Value(deferred);
-            },
+        Firefly::Tests::CaptureSlot owner_slot { transient };
+        auto request = JS::NativeFunction::create(*realm,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(owner_slot), realm),
+                [](auto& slot, auto& realm, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& transient = slot.get().value;
+                    auto* active = transient.ptr();
+                    bool running = active->is_executing();
+                    active->detach();
+                    bool deferred = running && active->is_detached() && active->realm() == nullptr
+                        && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached();
+                    transient.clear();
+                    return JS::Value(deferred);
+                }),
             0, "requestAsyncDetach"_utf16, GC::Ptr<JS::Realm> { *realm });
         realm->global_object().define_direct_property(
             "requestAsyncDetach"_utf16, request, JS::default_attributes);
@@ -268,13 +272,20 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         auto& principal = document.window()->principal_realm();
         principal.global_object().define_direct_property(
             "publishedCall"_utf16, endpoint.function, JS::default_attributes);
-        auto revoke = JS::NativeFunction::create(
-            principal,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                endpoint.owner->revoke();
-                producer->detach();
-                return JS::js_undefined();
-            },
+        Firefly::Tests::CaptureSlot endpoint_slot { endpoint };
+        Firefly::Tests::CaptureSlot producer_slot { producer };
+        auto revoke = JS::NativeFunction::create(principal,
+            GC::create_function(vm.heap(),
+                GC::captures(
+                    Mite::native_reference(endpoint_slot), Mite::native_reference(producer_slot)),
+                [](auto& endpoint_ref, auto& producer_ref,
+                    JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& endpoint = endpoint_ref.get().value;
+                    auto& producer = producer_ref.get().value;
+                    endpoint.owner->revoke();
+                    producer->detach();
+                    return JS::js_undefined();
+                }),
             0, "detachAfterPublish"_utf16, GC::Ptr<JS::Realm> { principal });
         principal.global_object().define_direct_property(
             "detachAfterPublish"_utf16, revoke, JS::default_attributes);

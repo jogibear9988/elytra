@@ -12,6 +12,8 @@ class WebContentPage;
 namespace Firefly::Protocols {
 class FileRoutes final : public RefCounted<FileRoutes>, public Weakable<FileRoutes> {
 public:
+    using HoldsNoCellEdges = void; // Canonical native state, no JS cells or roots.
+
     using Root = Web::HTML::CrossProcessId;
     using OwnsRoot = Function<bool(Root)>;
     using Send = Function<void(u64 token, ByteString type, ByteString metadata)>;

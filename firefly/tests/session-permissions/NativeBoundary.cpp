@@ -2,6 +2,8 @@
  * No Web permission/device API is called and no OS authorization is requested.
  */
 #include "native/permissions/Hooks.h"
+#include "native/platform/GCIncludes.h"
+#include "native/qt/hub/Frontend.h"
 #include <LibIPC/FireflyBootstrap.h>
 #include <LibWebView/CanonicalDocument.h>
 #include <LibWebView/CanonicalTraversable.h>
@@ -57,9 +59,12 @@ void begin_boundary_probe()
             return;
         for (auto* widget : QApplication::allWidgets()) {
             auto* view = qobject_cast<Ladybird::WebContentView*>(widget);
-            if (!view || !view->has_traversable())
+            if (!view)
                 continue;
-            auto& page = view->page();
+            auto canonical = Firefly::HubFrontend::canonical_view(*view);
+            if (!canonical.has_value() || !canonical->has_traversable())
+                continue;
+            auto& page = canonical->page();
             if (!page.is_open())
                 continue;
             auto serialized = page.traversable().active_document_url().serialize().to_byte_string();

@@ -125,6 +125,21 @@ if(BUILD_TESTING)
         NAME mite-rust-nojit-driver
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/rust-nojit/test_driver.py"
                 --compiler "${CMAKE_CXX_COMPILER}")
+    add_test(NAME firefly-hub-lifecycle-guard
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_lifecycle.py")
+    add_test(NAME firefly-hub-frontend-headers
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_frontend_headers.py")
+    add_test(NAME firefly-hub-header-policy
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_header_policy.py")
+    add_test(NAME firefly-canvas-file-adapters
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_canvas_file_adapters.py")
+    add_test(NAME firefly-timer-map-adapter
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_timer_map_adapter.py")
     add_executable(mite-embedded-host mite/tests/embedding/Host.cpp)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.

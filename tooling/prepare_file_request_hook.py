@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Page/Page.cpp"
-EXPECTED = "c0d13c02fc27997081dc4af63527eb25d64b36c294f9d9895a65c33e3e405b02"
+EXPECTED = "77907b9aafac290f454facbe83b300609015f658ff84191fcfd6f19e23671fc5"
 INCLUDE = '#include "files/Requests.h"\n'
 REQUEST = (
     "        m_client->page_did_request_file_picker(accepted_file_types, allow_multiple_files);"
@@ -37,13 +37,10 @@ def adapt(source):
     ).replace(DELIVERY, GUARDED)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, type=Path)
-    args = parser.parse_args()
-    original = SOURCE.read_bytes()
+def prepare(output, input_source=SOURCE):
+    original = input_source.read_bytes()
     if hashlib.sha256(original).hexdigest() != EXPECTED:
-        raise SystemExit("Review the owned native file request adapter against updated upstream")
+        raise ValueError("Review the owned native file request adapter against updated upstream")
     source = original.decode()
     generated = adapt(source)
     assert (
@@ -66,12 +63,19 @@ def main():
             pass
         else:
             raise AssertionError("Missing/duplicate native picker seam accepted")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    if not args.output.exists() or args.output.read_text() != generated:
-        args.output.write_text(generated)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if not output.exists() or output.read_text() != generated:
+        output.write_text(generated)
     print(
         "PASS native chooser request/close/target guards, pin, exact upstream bytes and drift refusal"
     )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    prepare(args.output)
 
 
 if __name__ == "__main__":

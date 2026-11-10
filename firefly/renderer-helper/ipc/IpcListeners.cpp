@@ -115,18 +115,18 @@ void IpcEndpoint::receive_event(u32 request, ByteString wire)
         auto& vm = realm.vm();
         auto decoded = BridgeData::decode_wire(wire.view(), public_binary_limits());
         if (decoded.is_error())
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"_utf16);
         auto copied
             = TRY(decoded.value().materialize(realm, {}, BridgeData::Materialization::Mutable));
         auto args = GC::Root<JS::Value>::create(copied, SourceLocation::current());
         if (!copied.is_object() || copied.as_object().engine_class_id() != JS_LAYOUT_CLASS_ID_ARRAY)
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event arguments"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event arguments"_utf16);
         auto& array = copied.as_object();
         auto length = TRY(TRY(array.get("length"_utf16)).to_length(vm));
         auto channel = TRY(array.get(0));
         if (length < 1 || length > 65 || !channel.is_string()
             || channel.as_string().length_in_utf16_code_units() > 256)
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event channel"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event channel"_utf16);
         auto name = channel.as_string().utf16_string();
         // Snapshot registrations before callbacks. Removals during an emit do not
         // erase callbacks already selected for that emit; additions wait for the next.

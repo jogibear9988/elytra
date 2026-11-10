@@ -10,6 +10,7 @@
 #include <LibCore/ElapsedTimer.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
+#include <LibGC/Function.h>
 #include <LibIPC/StartupTransport.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
@@ -66,13 +67,16 @@ ErrorOr<JS::Value> run(JS::Realm& realm, Utf16View source)
     return result.release_value();
 }
 
-ErrorOr<void> wait(JS::Realm& realm, Function<bool()> predicate, int seconds = 10)
+ErrorOr<void> wait(JS::Realm& realm, GC::Ref<GC::Function<bool()>> predicate, int seconds = 10)
 {
     auto timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(seconds), [] { });
     timer->start();
-    Web::HTML::main_thread_event_loop().spin_until(
-        GC::create_function(realm.heap(), [&] { return predicate() || !timer->is_active(); }));
-    if (!predicate()) {
+    Web::HTML::main_thread_event_loop().spin_until(GC::create_function(realm.heap(),
+        GC::captures(predicate, timer->make_weak_ptr<Core::Timer>()),
+        [](auto& predicate, auto& timer) {
+            return (*predicate)() || !timer || !timer->is_active();
+        }));
+    if (!(*predicate)()) {
         auto detail = run(realm, u"globalThis.channelResult"sv);
         if (!detail.is_error())
             warnln("JavaScript channel result: {}",
@@ -87,12 +91,13 @@ ErrorOr<void> wait(JS::Realm& realm, Function<bool()> predicate, int seconds = 1
 ErrorOr<void> wait_script(JS::Realm& realm, Utf16View expression, int seconds = 10)
 {
     auto text = Utf16String::from_utf16(expression);
-    return wait(
-        realm,
-        [&] {
-            auto result = run(realm, text);
-            return !result.is_error() && result.value().is_boolean() && result.value().as_bool();
-        },
+    return wait(realm,
+        GC::create_function(realm.heap(), GC::captures(realm, text),
+            [](auto& realm, auto& text) {
+                auto result = run(realm, text);
+                return !result.is_error() && result.value().is_boolean()
+                    && result.value().as_bool();
+            }),
         seconds);
 }
 
@@ -252,7 +257,9 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     }
 
     if (client)
-        TRY(wait(realm, [&] { return !client->pending(); }));
+        TRY(wait(realm,
+            GC::create_function(realm.heap(), GC::captures(client->make_weak_ptr()),
+                [](auto& client) { return client && !client->pending(); })));
     TRY(wait_script(realm,
         u"['process','require','firefly','electron'].every(k=>typeof globalThis[k]==='undefined')"sv));
     outln("PASS actual JavaScript fetch over native process channel {}: body/stream settlement and "

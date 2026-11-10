@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/HTML/HTMLInputElement.cpp"
-EXPECTED = "91e7a91600aa431b05262c1bfcbc461e612bff634d58bf8441e3e36bc4998ad2"
+EXPECTED = "08a228165284c7baa2a8ac45e4934c8e215b36da093eb6bc2d6c370699b31658"
 INCLUDE = '#include "files/Origins.h"\n#include <LibGC/Root.h>\n'
 LIST = "    auto files = FileAPI::FileList::create();"
 ROOTED = "\n    GC::Root file_origin_list { files };"
@@ -26,13 +26,10 @@ def adapt(source):
     return INCLUDE + source.replace(LIST, LIST + ROOTED).replace(SEAM, HOOK + SEAM)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    original = SOURCE.read_bytes()
+def prepare(output, input_source=SOURCE):
+    original = input_source.read_bytes()
     if hashlib.sha256(original).hexdigest() != EXPECTED:
-        raise SystemExit("Review owned file-origin adapter against updated upstream")
+        raise ValueError("Review owned file-origin adapter against updated upstream")
     source = original.decode()
     generated = adapt(source)
     assert (
@@ -46,10 +43,17 @@ def main():
             pass
         else:
             raise AssertionError("Drift/duplicate selected-file seam accepted")
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    if not args.output.exists() or args.output.read_text() != generated:
-        args.output.write_text(generated)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if not output.exists() or output.read_text() != generated:
+        output.write_text(generated)
     print("PASS native input File provenance seam, pin, exact byte preservation and drift refusal")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    prepare(args.output)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,8 @@ class PageClient;
 namespace Firefly {
 class IpcEndpoint final : public RefCounted<IpcEndpoint>, public Weakable<IpcEndpoint> {
 public:
+    void visit_edges(GC::Cell::Visitor&) const;
+
     static NonnullRefPtr<IpcEndpoint> create(IsolatedWorld&, Web::DOM::Document&, String);
 
     ~IpcEndpoint();

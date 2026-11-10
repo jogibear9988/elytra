@@ -4,6 +4,7 @@
 #include "Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Intrinsics.h>
@@ -17,6 +18,17 @@ CallbackEndpoint::CallbackEndpoint(CallbackRegistry& registry, JS::FunctionObjec
     : m_registry(registry)
     , m_function(function)
 {
+}
+
+void CallbackEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
+{
+    visitor.visit(m_function.ptr());
+    if (m_registry)
+        visitor.visit(m_registry->document.ptr());
+    for (auto const& entry : m_pending) {
+        visitor.visit(entry.value.capability.ptr());
+        visitor.visit(entry.value.target.ptr());
+    }
 }
 
 CallbackEndpoint::~CallbackEndpoint()
@@ -34,9 +46,10 @@ ErrorOr<CallbackExport> CallbackEndpoint::create(
 {
     auto owner = adopt_ref(*new CallbackEndpoint(registry, function));
     auto& target = *registry.world->realm();
-    GC::Root proxy { JS::NativeFunction::create(
-        target, [owner](JS::VM& vm) { return owner->invoke(vm); }, 0, "fireflyBridgeCallback"_utf16,
-        GC::Ptr<JS::Realm> { target }) };
+    GC::Root proxy { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner),
+            [](auto& owner, JS::VM& vm) { return owner->invoke(vm); }),
+        0, "fireflyBridgeCallback"_utf16, GC::Ptr<JS::Realm> { target }) };
     auto frozen = proxy->set_integrity_level(JS::Object::IntegrityLevel::Frozen);
     if (frozen.is_error() || !frozen.value()) {
         owner->revoke();
@@ -135,12 +148,18 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::observe(JS::Promise& promise,
     m_pending.set(id, { GC::Root { *capability }, GC::Root { target } });
     NonnullRefPtr self { *this };
     auto& principal = m_registry->document->window()->principal_realm();
-    GC::Root fulfilled { JS::NativeFunction::create(
-        principal, [self, id](JS::VM& inner) { return self->settle(id, true, inner.argument(0)); },
+    GC::Root fulfilled { JS::NativeFunction::create(principal,
+        GC::create_function((principal).vm().heap(), GC::captures(self, id),
+            [](auto& self, auto& id, JS::VM& inner) {
+                return self->settle(id, true, inner.argument(0));
+            }),
         1, "fireflyCallbackFulfilled"_utf16, GC::Ptr<JS::Realm> { principal }) };
-    GC::Root rejected { JS::NativeFunction::create(
-        principal, [self, id](JS::VM&) { return self->settle(id, false, JS::js_undefined()); }, 1,
-        "fireflyCallbackRejected"_utf16, GC::Ptr<JS::Realm> { principal }) };
+    GC::Root rejected { JS::NativeFunction::create(principal,
+        GC::create_function((principal).vm().heap(), GC::captures(self, id),
+            [](auto& self, auto& id, JS::VM&) {
+                return self->settle(id, false, JS::js_undefined());
+            }),
+        1, "fireflyCallbackRejected"_utf16, GC::Ptr<JS::Realm> { principal }) };
     // Already-settled principal promises must not inherit a source cancellation frame.
     TRY(Boundary::in_realm(principal, [&]() -> JS::ThrowCompletionOr<JS::Value> {
         promise.perform_then(fulfilled.ptr(), rejected.ptr(), nullptr);

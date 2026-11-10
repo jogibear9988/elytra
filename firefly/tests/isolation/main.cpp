@@ -1,6 +1,7 @@
 #include "BinaryBridgeTest.h"
 #include "BridgeDataTest.h"
 #include "CallbackBridgeTest.h"
+#include "CaptureSlot.h"
 #include "ContextBridgeTest.h"
 #include "CustomEventTest.h"
 #include "ErrorEventTest.h"
@@ -182,20 +183,27 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     RefPtr<Firefly::IsolatedWorld> transient = TRY(Firefly::IsolatedWorld::create(*window));
     auto* active_world = transient.ptr();
     GC::Root transient_realm { *transient->realm() };
-    transient_realm->global_object().define_native_function(
-        *transient_realm, "requestDetach"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            active_world->detach();
-            bool revoked = active_world->is_detached() && active_world->realm() == nullptr;
-            transient.clear(); // evaluate must retain its owner until its frame exits.
-            return JS::Value(revoked);
-        },
+    Firefly::Tests::CaptureSlot transient_slot { transient };
+    transient_realm->global_object().define_native_function(*transient_realm, "requestDetach"_utf16,
+        GC::create_function(vm.heap(), GC::captures(Mite::native_reference(transient_slot)),
+            [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& transient = slot.get().value;
+                auto* active_world = transient.ptr();
+
+                active_world->detach();
+                bool revoked = active_world->is_detached() && active_world->realm() == nullptr;
+                transient.clear(); // evaluate must retain its owner until its frame exits.
+                return JS::Value(revoked);
+            }),
         0, JS::default_attributes);
-    transient_realm->global_object().define_native_function(
-        *transient_realm, "nestedEvaluation"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(active_world->evaluate(u"true"sv).is_error());
-        },
+    transient_realm->global_object().define_native_function(*transient_realm,
+        "nestedEvaluation"_utf16,
+        GC::create_function(vm.heap(), GC::captures(Mite::native_reference(transient_slot)),
+            [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* active_world = slot.get().value.ptr();
+
+                return JS::Value(active_world->evaluate(u"true"sv).is_error());
+            }),
         0, JS::default_attributes);
     if (!check(active_world->evaluate(uR"JS(
         !({}).pagePoison && document.pagePrototypePoison===undefined &&

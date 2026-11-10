@@ -1,5 +1,6 @@
 /** Validate native submissions and queue worker events onto the existing owner-thread VM bridge. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "Provider.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -16,6 +17,9 @@
 
 namespace Firefly::Notifications {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
+
     struct Request {
         size_t actions;
         bool shown { false };
@@ -188,44 +192,50 @@ std::shared_ptr<Controller> install_host(
     auto state = std::make_shared<Controller::State>();
     state->receiver = &receiver;
     state->notify = std::move(notify);
-    host.define_native_function(
-        realm, "notificationSupported"_utf16,
-        [state](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(!state->stopped && Provider::supported());
-        },
+    host.define_native_function(realm, "notificationSupported"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                return JS::Value(!state->stopped && Provider::supported());
+            }),
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "notificationShow"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(token(vm));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Notification dispatcher stopped");
-            auto value = TRY(options(vm));
-            if (state->pending.size() >= 64)
-                return fail(vm, "ERR_FIREFLY_NOTIFICATION_LIMIT", "Too many active notifications");
-            if (id <= state->last_token)
-                return fail(vm, "ERR_FIREFLY_NOTIFICATION_DATA", "Reused notification token");
-            if (!state->provider)
-                state->provider = Provider::create(
-                    [weak = std::weak_ptr(state)](Event event) { post(weak, std::move(event)); });
-            state->last_token = id;
-            state->pending.emplace(id, Controller::State::Request { value.actions.size() });
-            if (state->provider)
-                state->provider->show(id, std::move(value));
-            else
-                post(std::weak_ptr(state), { id, "failed", "Native notifications unavailable" });
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "notificationShow"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(token(vm));
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Notification dispatcher stopped");
+                auto value = TRY(options(vm));
+                if (state->pending.size() >= 64)
+                    return fail(
+                        vm, "ERR_FIREFLY_NOTIFICATION_LIMIT", "Too many active notifications");
+                if (id <= state->last_token)
+                    return fail(vm, "ERR_FIREFLY_NOTIFICATION_DATA", "Reused notification token");
+                if (!state->provider)
+                    state->provider = Provider::create([weak = std::weak_ptr(state)](Event event) {
+                        post(weak, std::move(event));
+                    });
+                state->last_token = id;
+                state->pending.emplace(id, Controller::State::Request { value.actions.size() });
+                if (state->provider)
+                    state->provider->show(id, std::move(value));
+                else
+                    post(
+                        std::weak_ptr(state), { id, "failed", "Native notifications unavailable" });
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "notificationClose"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(token(vm));
-            state->pending.erase(id);
-            if (state->provider)
-                state->provider->close(id);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "notificationClose"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(token(vm));
+                state->pending.erase(id);
+                if (state->provider)
+                    state->provider->close(id);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

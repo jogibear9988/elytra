@@ -52,12 +52,12 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
         return {};
     auto contents = permission_contents(*page, document);
     auto owner = windows.find(contents);
-    if (!contents || owner == windows.end() || owner->second.closing
-        || !owner->second.view->has_traversable())
+    if (!contents || owner == windows.end() || owner->second.closing || !owner->second.native_view()
+        || !owner->second.native_view()->has_traversable())
         return {};
     // Populate public frame identity from the complete canonical tree, never from
     // a packet's URL or a page-authored IPC payload.
-    if (frames.snapshot(contents, &owner->second.view->traversable()).is_error())
+    if (frames.snapshot(contents, &owner->second.native_view()->traversable()).is_error())
         return {};
     auto url = packet.payload.get_string("url"sv);
     auto method = packet.payload.get_string("method"sv);
@@ -106,55 +106,55 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
 void Bridge::Impl::install_web_request(JS::Object& host)
 {
     auto object = JS::Object::create(realm, nullptr);
-    object->define_native_function(
-        realm, "configure"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto epoch = policy_id(vm.argument(0));
-            if (!epoch.has_value() || !vm.argument(1).is_boolean() || !vm.argument(2).is_boolean())
-                return preload_error(
-                    vm, "ERR_INVALID_ARG_VALUE", "Invalid webRequest configuration"sv);
-            if (stopping || !web_request)
-                return preload_error(vm, "ERR_FIREFLY_APP_EXITED", "Application has exited"sv);
-            if (!web_request->configure(*epoch, vm.argument(1).as_bool(), vm.argument(2).as_bool()))
-                return preload_error(
-                    vm, "ERR_FIREFLY_WEB_REQUEST_POLICY", "Stale webRequest policy"sv);
-            for (auto const& [id, window] : windows) {
-                (void)id;
-                if (window.closing || !window.view->has_traversable())
-                    continue;
-                window.view->traversable().for_each_hosting_page([&](auto& page) {
-                    if (auto result = web_request->bind(page); result.is_error())
-                        warnln("ERR_FIREFLY_WEB_REQUEST_CHANNEL: {}", result.error());
-                });
-            }
-
-            return JS::js_undefined();
-        },
-        3, JS::default_attributes);
-    object->define_native_function(
-        realm, "complete"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto token = policy_id(vm.argument(0)), epoch = policy_id(vm.argument(1));
-            if (!token.has_value() || !epoch.has_value() || !vm.argument(2).is_string())
-                return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid webRequest decision"sv);
-            auto encoded
-                = vm.argument(2).as_string().utf16_string_view().to_utf8(AllowLonelySurrogates::No);
-            if (encoded.is_error())
-                return preload_error(
-                    vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Decision contains invalid Unicode"sv);
-            auto wire = encoded.release_value();
-            if (wire.byte_count() > WebRequest::packet_payload_limit)
-                return preload_error(
-                    vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Decision metadata limit exceeded"sv);
-            auto parsed = JsonValue::from_string(wire);
-            if (parsed.is_error() || !parsed.value().is_object()
-                || !parsed.value().as_object().get_bool("cancel"sv).has_value())
-                return preload_error(
-                    vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Malformed webRequest decision"sv);
-            return JS::Value(
-                web_request && web_request->complete(*token, *epoch, parsed.value().as_object()));
-        },
-        3, JS::default_attributes);
+    object->define_native_function(realm, "configure"_utf16,
+        native_binding<&Impl::native_webrequest_configure>(), 3, JS::default_attributes);
+    object->define_native_function(realm, "complete"_utf16,
+        native_binding<&Impl::native_webrequest_complete>(), 3, JS::default_attributes);
     host.define_direct_property("webRequest"_utf16, object, JS::default_attributes);
 }
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_webrequest_configure(JS::VM& vm)
+{
+    auto epoch = policy_id(vm.argument(0));
+    if (!epoch.has_value() || !vm.argument(1).is_boolean() || !vm.argument(2).is_boolean())
+        return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid webRequest configuration"sv);
+    if (stopping || !web_request)
+        return preload_error(vm, "ERR_FIREFLY_APP_EXITED", "Application has exited"sv);
+    if (!web_request->configure(*epoch, vm.argument(1).as_bool(), vm.argument(2).as_bool()))
+        return preload_error(vm, "ERR_FIREFLY_WEB_REQUEST_POLICY", "Stale webRequest policy"sv);
+    for (auto const& [id, window] : windows) {
+        (void)id;
+        if (window.closing || !window.native_view() || !window.native_view()->has_traversable())
+            continue;
+        window.native_view()->traversable().for_each_hosting_page([&](auto& page) {
+            if (auto result = web_request->bind(page); result.is_error())
+                warnln("ERR_FIREFLY_WEB_REQUEST_CHANNEL: {}", result.error());
+        });
+    }
+
+    return JS::js_undefined();
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_webrequest_complete(JS::VM& vm)
+{
+    auto token = policy_id(vm.argument(0)), epoch = policy_id(vm.argument(1));
+    if (!token.has_value() || !epoch.has_value() || !vm.argument(2).is_string())
+        return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid webRequest decision"sv);
+    auto encoded
+        = vm.argument(2).as_string().utf16_string_view().to_utf8(AllowLonelySurrogates::No);
+    if (encoded.is_error())
+        return preload_error(
+            vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Decision contains invalid Unicode"sv);
+    auto wire = encoded.release_value();
+    if (wire.byte_count() > WebRequest::packet_payload_limit)
+        return preload_error(
+            vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Decision metadata limit exceeded"sv);
+    auto parsed = JsonValue::from_string(wire);
+    if (parsed.is_error() || !parsed.value().is_object()
+        || !parsed.value().as_object().get_bool("cancel"sv).has_value())
+        return preload_error(vm, "ERR_FIREFLY_WEB_REQUEST_DATA", "Malformed webRequest decision"sv);
+    return JS::Value(
+        web_request && web_request->complete(*token, *epoch, parsed.value().as_object()));
+}
+
 }

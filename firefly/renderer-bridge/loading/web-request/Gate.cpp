@@ -6,6 +6,7 @@
 #include <AK/StringBuilder.h>
 #include <AK/ThreadID.h>
 #include <AK/Utf8View.h>
+#include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibGC/Weak.h>
 #include <LibHTTP/HeaderList.h>
@@ -172,7 +173,10 @@ namespace {
         if (job->before) {
             auto next = job->before->function()();
             auto pending = job->pending;
-            next->when_loaded([pending](auto response) { pending->resolve(move(response)); });
+            next->when_loaded(GC::create_function(GC::Heap::the(), GC::captures(pending),
+                [](auto& pending, NonnullRefPtr<Response> response) {
+                    pending->resolve(move(response));
+                }));
         } else if (job->head)
             job->head->function()(job->response.release_nonnull());
     }

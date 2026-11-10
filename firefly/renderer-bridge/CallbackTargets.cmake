@@ -156,9 +156,38 @@ add_dependencies(LibWeb check-firefly-upstream)
 add_custom_target(
     check-firefly-callback-hooks
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_event_entries.py"
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_timer_map_adapter.py"
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_renderer_hooks.py"
     VERBATIM)
 add_dependencies(LibWeb check-firefly-callback-hooks)
+
+# Explicit GC callbacks name their owner through self or an actual captured global. Compose complete
+# map expressions; a token macro corrupts those scopes.
+set(firefly_timer_entries "${CMAKE_BINARY_DIR}/firefly-adapters/WindowOrWorkerGlobalScope.inc")
+add_custom_command(
+    OUTPUT "${firefly_timer_entries}"
+    COMMAND
+        "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/adapt_timer_map.py" --source
+        "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp" --header
+        "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.h" --output
+        "${firefly_timer_entries}"
+    DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/adapt_timer_map.py"
+            "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp"
+            "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.h"
+    VERBATIM)
+add_custom_target(firefly-timer-entries DEPENDS "${firefly_timer_entries}")
+add_dependencies(LibWeb firefly-timer-entries)
+set_property(
+    SOURCE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/callbacks/timers/TimerMapAdapter.cpp"
+           TARGET_DIRECTORY LibWeb
+    APPEND
+    PROPERTY INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/firefly-adapters")
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/adapt_timer_map.py"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWeb/HTML/WindowOrWorkerGlobalScope.h")
 
 # Rename definitions only: preprocessor token renaming also bypasses guards at internal calls in the
 # same upstream TU. Retain original algorithms while adapting explicit map, tracing, realm and

@@ -27,6 +27,7 @@ namespace {
 
     std::atomic<Configuration const*> published { nullptr };
     bool attempted { false };
+    bool embedded_profile { false };
     NeverDestroyed<ByteString> requested_directory;
     NeverDestroyed<AK::ThreadID> owner { AK::ThreadID::current() };
 
@@ -115,6 +116,18 @@ namespace {
             return Error::from_errno(E2BIG);
         return config;
     }
+}
+
+void begin_embedded_profile()
+{
+    verify_owner();
+    embedded_profile = true;
+}
+
+bool owns_embedded_profile()
+{
+    verify_owner();
+    return embedded_profile;
 }
 
 ByteString directory()

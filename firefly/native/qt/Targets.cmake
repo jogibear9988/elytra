@@ -1,6 +1,42 @@
 # Reuse upstream's actual presentation/input widget and Core/Qt event loop. Keep a curated list: no
 # browser Application, tabs, chrome or copied sources.
 find_package(Qt6 6.10 REQUIRED COMPONENTS Core Widgets GuiPrivate)
+include("${FIREFLY_SOURCE_DIR}/firefly/native/locale/Targets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/hub/Targets.cmake")
+set(hub_frontend_output "${CMAKE_BINARY_DIR}/firefly-adapters/hub-frontend")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_frontend.py" --source
+            "${LADYBIRD_SOURCE_DIR}" --output "${hub_frontend_output}" --self-test
+    RESULT_VARIABLE hub_frontend_result)
+if(NOT hub_frontend_result EQUAL 0)
+    message(FATAL_ERROR "Review embedded Hub frontend source composition")
+endif()
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_frontend.py"
+             "${LADYBIRD_SOURCE_DIR}/UI/Qt/RemoteView.h"
+             "${LADYBIRD_SOURCE_DIR}/UI/Qt/RemoteView.cpp"
+             "${LADYBIRD_SOURCE_DIR}/UI/Qt/HubConnection.cpp"
+             "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.cpp"
+             "${LADYBIRD_SOURCE_DIR}/UI/Qt/ContextMenus.cpp")
+set(prepared_view "${CMAKE_BINARY_DIR}/firefly-generated/HubView.cpp")
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py"
+            --output "${prepared_view}" RESULT_VARIABLE preparation_check)
+if(NOT preparation_check EQUAL 0)
+    message(FATAL_ERROR "Review canonical Hub preload preparation adapter")
+endif()
+set_property(
+    DIRECTORY
+    APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py"
+             "${LADYBIRD_SOURCE_DIR}/Services/Hub/View.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Services/Hub/View.h")
+firefly_replace_source(hubservice "Services/Hub/View.cpp" "${prepared_view}")
+target_sources(hubservice PRIVATE "${CMAKE_CURRENT_LIST_DIR}/PreloadHooks.cpp")
+target_include_directories(hubservice PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/clipboard/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/window/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/screen/Targets.cmake")
@@ -16,6 +52,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/native/dialog/Targets.cmake")
 add_library(firefly-gpu-policy STATIC "${FIREFLY_SOURCE_DIR}/firefly/native/gpu/State.cpp")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ProcessMonitor.cmake")
 set(firefly_qt_sources
+    Actions
     ChromeStyle
     CrashReportReviewWidget
     EventLoopImplementationQt
@@ -31,51 +68,52 @@ set(firefly_qt_sources
     SystemAppearance
     Theme
     WebCompatReportReview
-    WebContentView)
+    WebContentView
+    RemoteView
+    HubConnection
+    ContextMenus)
 set(firefly_qt_files)
 foreach(source IN LISTS firefly_qt_sources)
-    if(source STREQUAL "WebContentView")
-        set(prepared_view "${CMAKE_BINARY_DIR}/firefly-generated/WebContentView.cpp")
-        execute_process(
-            COMMAND
-                "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py"
-                --output "${prepared_view}"
-            RESULT_VARIABLE preparation_check)
-        if(NOT preparation_check EQUAL 0)
-            message(FATAL_ERROR "Review owned Qt preload preparation adapter")
-        endif()
-        set_property(
-            DIRECTORY
-            APPEND
-            PROPERTY CMAKE_CONFIGURE_DEPENDS
-                     "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py"
-                     "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.cpp"
-                     "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.h")
-        list(APPEND firefly_qt_files "${prepared_view}")
+    if(source MATCHES "^(WebContentView|RemoteView|HubConnection|ContextMenus)$")
+        list(APPEND firefly_qt_files "${hub_frontend_output}/UI/Qt/${source}.cpp")
     else()
         list(APPEND firefly_qt_files "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.cpp")
     endif()
 endforeach()
 add_library(
     firefly-qt-view STATIC
-    "${CMAKE_CURRENT_LIST_DIR}/PreloadHooks.cpp" "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp" "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp"
-    ${firefly_qt_files})
+    "${CMAKE_CURRENT_LIST_DIR}/hub/Host.cpp" "${CMAKE_CURRENT_LIST_DIR}/hub/Frontend.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/ContextMenu.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp" ${firefly_qt_files})
 set_target_properties(firefly-qt-view PROPERTIES AUTOMOC ON)
-target_include_directories(firefly-qt-view PUBLIC "${LADYBIRD_SOURCE_DIR}"
-                                                  "${LADYBIRD_SOURCE_DIR}/Libraries")
-target_include_directories(firefly-qt-view PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
-                                                   "${LADYBIRD_SOURCE_DIR}/UI/Qt")
+target_include_directories(firefly-qt-view BEFORE PUBLIC "${hub_frontend_output}")
+include("${CMAKE_CURRENT_LIST_DIR}/hub/HeaderPolicy.cmake")
+target_include_directories(
+    firefly-qt-view PUBLIC "${LADYBIRD_SOURCE_DIR}" "${LADYBIRD_SOURCE_DIR}/Libraries"
+                           "${LADYBIRD_SOURCE_DIR}/Services" "${CMAKE_BINARY_DIR}/Services")
+target_include_directories(
+    firefly-qt-view PRIVATE "${FIREFLY_SOURCE_DIR}/firefly" "${CMAKE_CURRENT_LIST_DIR}"
+                            "${LADYBIRD_SOURCE_DIR}/UI/Qt")
 target_sources(firefly-qt-view PRIVATE "${LADYBIRD_SOURCE_DIR}/UI/Qt/WebContentView.h")
 add_custom_target(
     check-firefly-preload-view
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_preload_hook.py"
             --output "${prepared_view}"
     VERBATIM)
-add_dependencies(firefly-qt-view check-firefly-preload-view)
+add_dependencies(hubservice check-firefly-preload-view)
+add_custom_target(
+    check-firefly-hub-frontend
+    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_hub_frontend.py" --source
+            "${LADYBIRD_SOURCE_DIR}" --output "${hub_frontend_output}" --self-test
+    VERBATIM)
+add_dependencies(firefly-qt-view check-firefly-hub-frontend)
 target_link_libraries(
     firefly-qt-view
-    PUBLIC LibWebView
+    PUBLIC firefly-locale
+           LibWebView
+           hubservice
+           hubipc
+           LibGamepad
            LibIPC
            LibURL
            LibGfx
@@ -86,6 +124,9 @@ target_link_libraries(
            Qt::Gui
            Qt::Widgets
            Qt::GuiPrivate)
+# RemoteView now resolves the page language through LibUnicode directly. Keep that dependency
+# explicit rather than relying on another static library's links.
+target_link_libraries(firefly-qt-view PRIVATE LibUnicode)
 if(APPLE)
     include("${CMAKE_CURRENT_LIST_DIR}/Mac.cmake")
 elseif(WIN32)

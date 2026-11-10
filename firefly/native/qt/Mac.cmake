@@ -35,6 +35,8 @@ add_custom_target(
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_view_accessibility_hook.py"
         --output "${prepared_accessibility}"
+    COMMAND "${Python3_EXECUTABLE}"
+            "${FIREFLY_SOURCE_DIR}/tooling/tests/test_view_accessibility_hook.py"
     VERBATIM)
 add_dependencies(firefly-qt-view check-firefly-view-accessibility)
 set_source_files_properties("${LADYBIRD_SOURCE_DIR}/UI/Qt/LadybirdAccessibilityElement.mm"

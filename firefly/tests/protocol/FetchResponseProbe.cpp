@@ -14,6 +14,7 @@
 #include <AK/WeakPtr.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Timer.h>
+#include <LibGC/Function.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/VM.h>
@@ -70,6 +71,8 @@ public:
 GC_DEFINE_ALLOCATOR(Read);
 
 struct State : RefCounted<State> {
+    // Response/byte channels are native transport data in the current SDK.
+    GC_HOLDS_NO_CELL_EDGES;
     u64 credit { 0 };
     size_t cancellations { 0 };
     RefPtr<Infra::Response> response;
@@ -107,7 +110,10 @@ struct Fetch {
             maximum_length));
         pending = receiver->pending();
         state->receiver = receiver->make_weak_ptr();
-        receiver->when_loaded([shared](auto response) { shared->response = move(response); });
+        receiver->when_loaded(GC::create_function(GC::Heap::the(), GC::captures(shared),
+            [](auto& shared, NonnullRefPtr<Infra::Response> response) {
+                shared->response = move(response);
+            }));
     }
 
     static NonnullRefPtr<Infra::FetchParams> make_params(
@@ -165,8 +171,11 @@ GC::Ref<Read> read(JS::Realm& realm, Web::Streams::ReadableStreamDefaultReader& 
     if (!request->settled) {
         auto timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(3), [] { });
         timer->start();
-        Web::HTML::main_thread_event_loop().spin_until(GC::create_function(
-            realm.heap(), [request, timer] { return request->settled || !timer->is_active(); }));
+        Web::HTML::main_thread_event_loop().spin_until(GC::create_function(realm.heap(),
+            GC::captures(request, timer->make_weak_ptr<Core::Timer>()),
+            [](auto& request, auto& timer) {
+                return request->settled || !timer || !timer->is_active();
+            }));
     }
 
     return request;

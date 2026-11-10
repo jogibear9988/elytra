@@ -3,13 +3,17 @@
 
 import argparse
 import hashlib
+import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "native/crash/Reporter.h"\n'
+# Candidate storage adds cross-filesystem adoption, website sidecars and bounded
+# pending retention. These hooks leave its ownership/no-follow/atomic-write paths
+# intact: only the default directory and owned build metadata are composed.
 FILES = {
     "CrashReportStore.cpp": (
-        "0bcfdcb50dff9152ddb522427d1c8f51d3871d305734213052e36433377fde16",
+        "b88fef186592ff8f8c80f44820ef8ee5c8b7a23840812be90d23f6e073031888",
         [
             (
                 '    return LexicalPath::join(Core::StandardPaths::user_data_directory(), "Ladybird"sv, "CrashReports"sv).string();',
@@ -31,6 +35,58 @@ FILES = {
         ],
     ),
 }
+
+APPLICATION_SOURCE = "Libraries/LibWebView/Application.cpp"
+APPLICATION_DIGEST = "ad7c79c0e4c256acc45b5cfadd993545f84efe031ca30e30381d4cc63ae20d33"
+
+
+def application_changes(source):
+    """Keep browser report migration/disposal out of a trusted embedded profile."""
+    start = "    // Reports belong to the profile they came from, whose own setting decides what happens to them. A temporary\n"
+    end = "    // Test results must not depend on the languages of the machine running the tests.\n"
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError("Review browser crash profile ownership seam")
+    block = source[source.index(start) : source.index(end)]
+    discard = (
+        "    if (m_settings->crash_report_sending() == CrashReportSending::NeverSend)\n"
+        "        CrashReportOutbox::the().discard_all();\n"
+    )
+    coordination = "    bool coordinate_browser_process = !headless_mode.has_value() && !webdriver_browser_endpoint.has_value() && !m_stats_log && should_coordinate_browser_process();"
+    return [
+        (
+            coordination,
+            coordination.replace(
+                "= ", "= !Firefly::CrashReporting::owns_embedded_profile() && ", 1
+            ),
+        ),
+        (
+            block,
+            "    if (!Firefly::CrashReporting::owns_embedded_profile()) {\n"
+            + textwrap.indent(block.rstrip(), "    ")
+            + "\n    }\n\n",
+        ),
+        (
+            discard,
+            "    if (!Firefly::CrashReporting::owns_embedded_profile()) {\n"
+            + textwrap.indent(discard.rstrip(), "    ")
+            + "\n    }\n",
+        ),
+    ]
+
+
+def adapt_application(source):
+    changes = application_changes(source)
+    result = source
+    for original, replacement in changes:
+        if result.count(original) != 1:
+            raise ValueError("Review missing/duplicate crash profile ownership seam")
+        result = result.replace(original, replacement)
+    restored = result
+    for original, replacement in reversed(changes):
+        restored = restored.replace(replacement, original)
+    if restored != source:
+        raise ValueError("Crash profile composition altered unrelated upstream bytes")
+    return PREFIX + result
 
 
 def adapt(source, seams):
@@ -72,6 +128,22 @@ def main():
         output = args.output / name
         if not output.exists() or output.read_text() != result:
             output.write_text(result)
+    source = ROOT / "vendor/ladybird" / APPLICATION_SOURCE
+    original = source.read_text()
+    if hashlib.sha256(source.read_bytes()).hexdigest() != APPLICATION_DIGEST:
+        raise SystemExit("Review browser crash profile ownership after Ladybird update")
+    result = adapt_application(original)
+    for seam, _ in application_changes(original):
+        for invalid in (original + seam, original.replace(seam, "")):
+            try:
+                adapt_application(invalid)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("Missing/duplicate crash profile seam accepted")
+    output = args.output / "Application.cpp"
+    if not output.exists() or output.read_text() != result:
+        output.write_text(result)
     print(
         "PASS native crash directory/metadata seams, fingerprints, exact restoration and drift refusal"
     )

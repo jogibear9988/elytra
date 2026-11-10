@@ -1,6 +1,8 @@
 /** Test-only observer linked with exact production application/view/renderer adapters. */
 #include "../../native/canvas/UI.h"
 #include "../../native/qt/ChromeWindow.h"
+#include "../../native/qt/ContentView.h"
+#include "native/platform/GCIncludes.h"
 #include <QApplication>
 #include <QImage>
 #include <QTimer>
@@ -57,7 +59,7 @@ bool pixel_matches(QImage const& image, unsigned expected)
 
 unsigned registered_background(Ladybird::WebContentView const& view)
 {
-    auto color = Firefly::CanvasUI::color(view);
+    auto color = Firefly::CanvasUI::color(Firefly::content_engine_view(view));
     return color.has_value() ? color->value() & 0xffffff : 0xffffffff;
 }
 

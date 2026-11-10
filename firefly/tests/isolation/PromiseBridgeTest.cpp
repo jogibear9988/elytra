@@ -1,4 +1,5 @@
 #include "PromiseBridgeTest.h"
+#include "CaptureSlot.h"
 #include "context/FunctionBridge.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
@@ -133,13 +134,20 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
     outln("PASS pending promise budget, GC, revoke rejection and ignored late fulfillment");
     GC::Root source_realm { *source->realm() };
     RefPtr<Firefly::FunctionBridge> revoking;
-    source_realm->global_object().define_native_function(
-        *source_realm, "revokePromiseInside"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            revoking->revoke();
-            source->detach();
-            return JS::js_undefined();
-        },
+    Firefly::Tests::CaptureSlot revoking_slot { revoking };
+    Firefly::Tests::CaptureSlot source_slot { source };
+    source_realm->global_object().define_native_function(*source_realm, "revokePromiseInside"_utf16,
+        GC::create_function(vm.heap(),
+            GC::captures(
+                Mite::native_reference(revoking_slot), Mite::native_reference(source_slot)),
+            [](auto& revoking_ref, auto& source_ref, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& revoking = revoking_ref.get().value;
+                auto& source = source_ref.get().value;
+
+                revoking->revoke();
+                source->detach();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     ScopeGuard clear_native([&] {
         source_realm->global_object().define_direct_property(

@@ -49,7 +49,14 @@ try {
 """,
             encoding="utf-8",
         )
-        for mode in ["resources", "document-duplicate", "document-id", "document-missing", "away"]:
+        for mode in [
+            "resources",
+            "document-duplicate",
+            "document-refresh",
+            "document-id",
+            "document-missing",
+            "away",
+        ]:
             result = subprocess.run(
                 [str(args.probe.resolve()), mode, str(path)],
                 capture_output=True,
@@ -58,7 +65,7 @@ try {
                 timeout=45,
             )
             assert result.returncode == 0, result
-            allowed = mode in ("resources", "document-duplicate", "away")
+            allowed = mode in ("resources", "document-duplicate", "document-refresh", "away")
             match = re.search(
                 rf"DOCUMENT_RENDERER_{'OK' if allowed else 'DENIED'} mode={mode} resource_requests=(\d+) teardown=(true|false)",
                 result.stdout,
@@ -75,8 +82,9 @@ try {
             assert parent > 0 and source > 0 and document > 0 and parent != document, result
             if allowed:
                 # Away may select a new host for its replacement data: document.
+                epoch = 3 if mode == "document-refresh" else 2
                 ready = re.findall(
-                    r"FIREFLY_DOCUMENT_CHANNEL_READY pid=(\d+) epoch=2", result.stderr
+                    rf"FIREFLY_DOCUMENT_CHANNEL_READY pid=(\d+) epoch={epoch}", result.stderr
                 )
                 assert len(ready) == 1 and int(ready[0]) != parent, result
                 if mode != "away":

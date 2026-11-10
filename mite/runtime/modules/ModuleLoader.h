@@ -28,6 +28,7 @@ class EventLoop;
 class ModuleLoader : public NativeCaptureOwner<ModuleLoader> {
 public:
     void visit_capture_edges(GC::Cell::Visitor&) const;
+
     ModuleLoader(JS::VM&, JS::Realm&, EventLoop&, std::filesystem::path entry_path);
 
     ~ModuleLoader();

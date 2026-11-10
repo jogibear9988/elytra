@@ -1,4 +1,5 @@
 #include "PrincipalCallbackTest.h"
+#include "CaptureSlot.h"
 #include "callbacks/CallbackGate.h"
 #include "worlds/IsolatedWorld.h"
 #include "worlds/WorldJobGuard.h"
@@ -66,14 +67,14 @@ ErrorOr<void> check_principal_callbacks(JS::VM& vm, Web::DOM::Document& document
         return Error::from_string_literal("Cannot create page report callback");
     auto report_value = report_callback.release_value();
     GC::Root report_function { report_value.as_object() };
-    auto report = JS::NativeFunction::create(
-        *source->realm(),
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            auto completion = Firefly::Callbacks::probe_report(*report_function);
-            if (completion.is_error())
-                return completion.release_error();
-            return completion.release_value();
-        },
+    auto report = JS::NativeFunction::create(*source->realm(),
+        GC::create_function(vm.heap(), GC::captures(report_function),
+            [](auto& report_function, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto completion = Firefly::Callbacks::probe_report(*report_function);
+                if (completion.is_error())
+                    return completion.release_error();
+                return completion.release_value();
+            }),
         0, "nativePageReport"_utf16, GC::Ptr<JS::Realm> { *source->realm() });
     source->realm()->global_object().define_direct_property(
         "nativePageReport"_utf16, report, JS::default_attributes);
@@ -124,16 +125,19 @@ ErrorOr<void> check_principal_callbacks(JS::VM& vm, Web::DOM::Document& document
         GC::Root realm { *owner->realm() };
         auto weak = owner->make_weak_ptr();
         auto* active = owner.ptr();
-        auto request = JS::NativeFunction::create(
-            page,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                bool executing = active->is_executing();
-                active->detach();
-                owner.clear();
-                vm.heap().collect_garbage();
-                return JS::Value(
-                    executing && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached());
-            },
+        Firefly::Tests::CaptureSlot owner_slot { owner };
+        auto request = JS::NativeFunction::create(page,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(owner_slot), realm),
+                [](auto& slot, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& owner = slot.get().value;
+                    auto* active = owner.ptr();
+                    bool executing = active->is_executing();
+                    active->detach();
+                    owner.clear();
+                    vm.heap().collect_garbage();
+                    return JS::Value(executing
+                        && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached());
+                }),
             0, "dropBoundaryOwner"_utf16, GC::Ptr<JS::Realm> { page });
         page.global_object().define_direct_property(
             "dropBoundaryOwner"_utf16, request, JS::default_attributes);

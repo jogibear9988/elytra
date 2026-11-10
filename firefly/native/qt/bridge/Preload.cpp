@@ -102,17 +102,17 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
     state.is_active = true;
     for (auto const& [id, window] : windows) {
         (void)id;
-        if (window.closing)
+        if (window.closing || !window.native_view())
             continue;
         JsonObject canvas;
         canvas.set("generation"sv, window.background_generation);
         canvas.set("color"sv, window.background_rgb);
         state.preload_scripts.append({ "firefly.canvas.v1"_string, String {}, move(canvas),
-            Vector<String> { window.view->handle() }, {}, {} });
+            Vector<String> { window.native_view()->handle() }, {}, {} });
     }
 
     for (auto const& [id, window] : windows) {
-        if (window.closing || !window.preload.has_value())
+        if (window.closing || !window.native_view() || !window.preload.has_value())
             continue;
         auto const& preload = *window.preload;
         JsonObject metadata;
@@ -122,7 +122,7 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
         if (electron_compat)
             metadata.set("electronCompat"sv, true);
         state.preload_scripts.append({ "firefly.preload.v1"_string, preload.source, move(metadata),
-            Vector<String> { window.view->handle() }, {}, {} });
+            Vector<String> { window.native_view()->handle() }, {}, {} });
     }
 
     page.client().async_set_webdriver_bidi_session_state(move(state));

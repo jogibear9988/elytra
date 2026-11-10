@@ -3,6 +3,8 @@
  * registered before application entry and disconnected before VM teardown.
  */
 
+#include "../platform/GCIncludes.h"
+
 #include "../app-paths/Host.h"
 #include "../app-paths/Paths.h"
 #include "../command-line/EnginePolicy.h"
@@ -22,6 +24,9 @@
 #include "Bridge.h"
 #include "core/EventLoop.h"
 #include "core/Runtime.h"
+#include "hub/Frontend.h"
+#include "hub/Host.h"
+#include "hub/SandboxLaunch.h"
 #include "modules/ModuleLoader.h"
 #include "platform/process/SignalPolicy.h"
 #include <LibCore/EventLoop.h>
@@ -32,6 +37,7 @@
 #include <LibMain/Main.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/Process.h>
+#include <LibWebView/ProcessManager.h>
 #include <QApplication>
 #include <QColorSpace>
 #include <QJsonDocument>
@@ -73,11 +79,12 @@ struct BootstrapStorage {
     Vector<StringView> native_strings;
 };
 
-class Application final : public WebView::Application {
+class Application final {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
     Application(BootstrapStorage& storage, QString directory, bool startup_cpu)
-        : WebView::Application(runtime_directory())
-        , m_storage(storage)
+        : m_storage(storage)
         , m_paths(std::move(directory))
         , m_engine(startup_cpu)
         , m_gpu(startup_cpu)
@@ -105,8 +112,13 @@ public:
         hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                                Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {
             TRY(modules.register_host_filesystem("original-fs"));
-            bridge = std::make_unique<Bridge>(
-                vm, realm, jobs, *m_loop, hooks.exit_code, electron_compat);
+            bridge = std::make_unique<Bridge>(vm, realm, jobs, *m_loop, hooks.exit_code,
+                electron_compat, [this]() -> std::optional<bool> {
+                    if (m_hub && m_hub->initialized())
+                        return WebView::Application::browser_options().disable_sandbox
+                            == WebView::DisableSandbox::No;
+                    return m_sandbox_launch.enabled();
+                });
             m_bridge = bridge.get();
             GC::Root native { bridge->exports() };
             GPU::install_host(realm, *native, m_gpu);
@@ -208,7 +220,7 @@ public:
     }
 
 private:
-    void process_did_exit(WebView::Process&& process, Optional<int> status) override
+    ByteString gpu_exit_details(WebView::Process const& process, Optional<int> status)
     {
         ByteString details;
         bool compositor = process.type() == WebView::ProcessType::Compositor;
@@ -221,38 +233,26 @@ private:
             auto bytes = QJsonDocument(value).toJson(QJsonDocument::Compact);
             details = ByteString(bytes.constData(), bytes.size());
         }
-        // Preserve upstream transport cleanup, reconnection and crash handling.
-        WebView::Application::process_did_exit(move(process), status);
-        if (!details.is_empty() && m_bridge && !m_loop->was_exit_requested())
-            m_bridge->gpu_process_gone(move(details));
+
+        return details;
     }
 
-    void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&,
-        WebView::WebContentOptions&) override
+    void observe_process_exits()
     {
-        browser.disable_sql_database = WebView::DisableSQLDatabase::No;
-        browser.enable_content_blocker = WebView::EnableContentBlocker::No;
+        auto& manager = WebView::Application::process_manager();
+        auto original = move(manager.on_process_exited);
+        manager.on_process_exited
+            = [this, original = move(original)](WebView::Process&& process, Optional<int> status) {
+                  auto details = gpu_exit_details(process, status);
+                  // Preserve real upstream cleanup and helper reconnection first. The
+                  // compositor's actual identity was copied before consuming Process.
+                  original(move(process), status);
+                  if (!details.is_empty() && m_bridge && !m_loop->was_exit_requested())
+                      m_bridge->gpu_process_gone(move(details));
+              };
     }
 
-    Vector<String> platform_preferred_languages() const override
-    {
-        Vector<String> languages;
-        for (auto const& language : Locale::preferred_languages()) {
-            auto bytes = language.toUtf8();
-            auto text = String::from_utf8(StringView(bytes.data(), bytes.size()));
-            if (!text.is_error())
-                languages.append(text.release_value());
-        }
-
-        return languages;
-    }
-
-    bool should_coordinate_browser_process() const override
-    {
-        return false;
-    }
-
-    Core::EventLoop& create_platform_event_loop() override
+    Core::EventLoop& create_platform_event_loop()
     {
         if (m_loop)
             return *m_loop;
@@ -274,6 +274,10 @@ private:
         m_storage.native_owned.append("firefly"sv);
         m_storage.native_owned.append("--profile-path"sv);
         m_storage.native_owned.append(ByteString(root.data(), root.size()));
+        // Preserve the former embedded platform option without enabling the
+        // browser's global content-blocker policy in application views.
+        m_storage.native_owned.append("--disable-content-blocker"sv);
+        m_sandbox_launch.append_arguments(m_storage.native_owned);
         if (m_gpu.cpu_requested())
             m_storage.native_owned.append("--force-cpu-painting"sv);
         for (auto& argument : m_storage.native_owned) {
@@ -285,7 +289,18 @@ private:
         m_storage.native_argv.push_back(nullptr);
         Main::Arguments selected { argc, m_storage.native_argv.data(),
             m_storage.native_strings.span() };
-        TRY(initialize(selected));
+        m_hub = make<HubHost>(
+            *m_loop, runtime_directory(), [] { HubFrontend::initialize(); },
+            [this] {
+                if (m_bridge)
+                    m_bridge->stop();
+                HubFrontend::shutdown();
+            });
+        TRY(m_hub->initialize(selected));
+        if (!m_sandbox_launch.matches(WebView::Application::browser_options()))
+            return Error::from_string_literal(
+                "Selected sandbox policy was not applied by the native Hub");
+        observe_process_exits();
         bool actual_cpu = WebView::Application::web_content_options().force_cpu_painting
             == WebView::ForceCPUPainting::Yes;
         if (m_gpu.cpu_requested() && !actual_cpu)
@@ -302,6 +317,10 @@ private:
     bool m_gpu_initial_update {};
     Bridge* m_bridge {};
     Core::EventLoop* m_loop { nullptr };
+    SandboxLaunch m_sandbox_launch;
+    // Destroy Hub/canonical views while every callback owner and QApplication
+    // above still lives. This field is intentionally destroyed first.
+    OwnPtr<HubHost> m_hub;
 };
 }
 

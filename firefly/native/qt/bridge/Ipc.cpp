@@ -61,16 +61,21 @@ void Bridge::Impl::reset_ipc(int id)
 
 ByteString Bridge::Impl::active_ipc_document(State const& window)
 {
-    auto const& doc = window.view->page().traversable().active_document();
+    auto* view = window.native_view();
+    if (!view || !view->has_traversable())
+        return {};
+    auto const& doc = view->traversable().active_document();
     return ByteString::formatted("{}:{}", doc.id().namespace_id, doc.id().local_id);
 }
 
 bool Bridge::Impl::ipc_current(int id, ByteString const& document, ByteString const& realm_id)
 {
     auto found = windows.find(id);
-    return found != windows.end() && !found->second.closing
-        && found->second.view->page().routed_connection() && found->second.ipc_document == document
-        && found->second.ipc_realm == realm_id && active_ipc_document(found->second) == document;
+    return found != windows.end() && !found->second.closing && found->second.native_view()
+        && found->second.native_view()->has_traversable()
+        && found->second.native_view()->page().routed_connection()
+        && found->second.ipc_document == document && found->second.ipc_realm == realm_id
+        && active_ipc_document(found->second) == document;
 }
 
 void Bridge::Impl::send_ipc_reply(int id, ByteString const& document, ByteString const& realm_id,
@@ -106,7 +111,7 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
     if (document->to_byte_string() != actual_key)
         return;
     for (auto& [id, window] : windows) {
-        if (window.closing || !window.preload.has_value() || &page.view() != window.view)
+        if (window.closing || !window.preload.has_value() || !window.owns_page(page))
             continue;
         if (active_ipc_document(window) != actual_key)
             return;
@@ -144,7 +149,8 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
                     auto found = state.ipc_packets.find(request);
                     if (found != state.ipc_packets.end()) {
                         found->second.history = true;
-                        found->second.url = state.view->page()
+                        found->second.url = state.native_view()
+                                                ->page()
                                                 .traversable()
                                                 .active_document_url()
                                                 .serialize()

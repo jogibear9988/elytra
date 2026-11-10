@@ -10,33 +10,35 @@ ROOT = Path(__file__).resolve().parents[1]
 PINS = {
     "Notification.cpp": (
         "Libraries/LibWeb/NotificationsAPI/Notification.cpp",
-        "9cdf4003d66a9ced64c28fc1a5f8d6898c2605e0cb3731374c7678314b269fc0",
+        "42c244647a76d7fe03142e94d23b46aa44efac0ac550d6bee52f3b3a8fadcab1",
     ),
     "Permissions.cpp": (
         "Libraries/LibWeb/PermissionsAPI/Permissions.cpp",
-        "914dddd5fec3635a54f3ab6cb6d9de6d9896f851304de7f564ab82430d963a7f",
+        "7886260b072eb3db5f7a995d4eaf7087f4cb7205eadd6e3441512162ede2ac55",
     ),
     "WebContentPage.cpp": (
         "Libraries/LibWebView/WebContentPage.cpp",
-        "cd63de48c088f7d0127206ea464cd073728a6c645a117539c32326c49cf97930",
+        "ec5fed5d57c4aab14cc2bee6ef1b7a20cbd03c189b7e8c89e1663747a89f3ee2",
     ),
     "WebContentClient.cpp": (
         "Libraries/LibWebView/WebContentClient.cpp",
-        "041e568e36b42e1f16f0a36349d2f975a94befea2ca71d0c12f07d13e3507809",
+        "ba9a9443631ed388fc42cc705dff640795e50d50ce4152ffa0369e4dcea3c104",
     ),
 }
 
 
 def changes(name, original):
     if name == "Notification.cpp":
-        settle = "    auto settle = GC::create_function(realm.heap(), [&realm, global, promise, deprecated_callback, settings = GC::Ref(settings)](PermissionsAPI::PermissionState) {"
+        # Keep upstream's explicit traced capture list and queued promise settlement.
+        # Only the embedder decision differs from the browser permission-store read.
+        settle = "    auto settle = GC::create_function(realm.heap(), GC::captures(realm, global, promise, deprecated_callback, GC::Ref(settings)), [](auto& realm, auto& global, auto& promise, auto& deprecated_callback, auto& settings, PermissionsAPI::PermissionState) {"
         state = "        auto permission_state = get_the_notifications_permission_state(settings);"
         return '#include "permissions/Hooks.h"\n', [
             (
                 settle,
                 settle.replace(
-                    "(PermissionsAPI::PermissionState)",
-                    "(PermissionsAPI::PermissionState firefly_decision)",
+                    "PermissionsAPI::PermissionState)",
+                    "PermissionsAPI::PermissionState firefly_decision)",
                 ),
             ),
             (
@@ -82,6 +84,11 @@ def changes(name, original):
                 + "    if (Firefly::Permissions::active())\n        return Firefly::Permissions::may_use(const_cast<WebContentPage&>(*this), document_id, name);\n",
             ),
             (
+                "    if (*permission_name == Web::Permissions::PermissionName::Microphone && view().microphone_authorization() == MicrophoneAuthorization::Denied) {\n",
+                "    if (*permission_name == Web::Permissions::PermissionName::Microphone && view().microphone_authorization() == MicrophoneAuthorization::Denied) {\n"
+                + "        // Preserve OS denial without entering browser permission UI.\n        if (Firefly::Permissions::active()) {\n            deny();\n            return;\n        }\n",
+            ),
+            (
                 request,
                 "    if (Firefly::Permissions::active()) {\n        Firefly::Permissions::dispatch_request(*this, request_id, document_id, *permission_name);\n        return;\n    }\n\n"
                 + request,
@@ -105,6 +112,8 @@ def adapt(name, original):
     prefix, replacements = changes(name, original)
     output = original
     for old, new in replacements:
+        if old == new:
+            raise ValueError(f"Permission seam replacement made no change in {name}")
         if output.count(old) != 1:
             raise ValueError(f"Review missing/ambiguous permission seam in {name}")
         output = output.replace(old, new)
@@ -126,6 +135,11 @@ def main():
             raise SystemExit(f"Review permission adapter after Ladybird update: {relative}")
         original = source.decode()
         output = adapt(name, original)
+        if name == "Notification.cpp":
+            assert output.count("PermissionsAPI::PermissionState firefly_decision)") == 1
+            assert (
+                "? firefly_decision : get_the_notifications_permission_state(settings);" in output
+            )
         prefix, replacements = changes(name, original)
         for old, _ in replacements:
             for invalid in (original.replace(old, ""), original + old):

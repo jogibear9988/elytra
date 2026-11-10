@@ -1,4 +1,5 @@
 #include "HandlerTest.h"
+#include "CaptureSlot.h"
 #include "callbacks/CallbackGate.h"
 #include "worlds/IsolatedWorld.h"
 #include "worlds/WorldJobGuard.h"
@@ -243,12 +244,12 @@ ErrorOr<void> check_handlers(JS::VM& vm, Web::DOM::Document& document)
         auto* target = Web::Bindings::impl_from<Web::DOM::EventTarget>(&value.as_object());
         if (!target)
             return Error::from_string_literal("Missing native erase target");
-        auto request = JS::NativeFunction::create(
-            *first->realm(),
-            [target](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                target->erase_all_event_listeners_and_handlers();
-                return JS::js_undefined();
-            },
+        auto request = JS::NativeFunction::create(*first->realm(),
+            GC::create_function(vm.heap(), GC::captures(*target),
+                [](auto& target, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    target.erase_all_event_listeners_and_handlers();
+                    return JS::js_undefined();
+                }),
             0, "eraseHandlerProbe"_utf16, GC::Ptr<JS::Realm> { *first->realm() });
         first->realm()->global_object().define_direct_property(
             "eraseHandlerProbe"_utf16, request, JS::default_attributes);
@@ -283,12 +284,13 @@ ErrorOr<void> check_handlers(JS::VM& vm, Web::DOM::Document& document)
         TRY(guard.protect(*owner));
         ScopeGuard detach_owner([&] { owner->detach(); });
         size_t foreign_calls = 0;
-        GC::Root callback { JS::NativeFunction::create(
-            page,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                ++foreign_calls;
-                return JS::Value(false);
-            },
+        Firefly::Tests::CaptureSlot counter_slot { foreign_calls };
+        GC::Root callback { JS::NativeFunction::create(page,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(counter_slot)),
+                [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    ++slot.get().value;
+                    return JS::Value(false);
+                }),
             0, "foreignHandlerProbe"_utf16, GC::Ptr<JS::Realm> { page }) };
         owner->realm()->global_object().define_direct_property(
             "foreignHandlerProbe"_utf16, callback.ptr(), JS::default_attributes);
@@ -395,17 +397,19 @@ ErrorOr<void> check_handlers(JS::VM& vm, Web::DOM::Document& document)
         });
         GC::Root realm { *source->realm() };
         auto weak = source->make_weak_ptr();
-        auto* active = source.ptr();
-        auto request = JS::NativeFunction::create(
-            *realm,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                bool running = active->is_executing();
-                active->detach();
-                bool deferred
-                    = running && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached();
-                source.clear();
-                return JS::Value(deferred);
-            },
+        Firefly::Tests::CaptureSlot owner_slot { source };
+        auto request = JS::NativeFunction::create(*realm,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(owner_slot), realm),
+                [](auto& slot, auto& realm, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& source = slot.get().value;
+                    auto* active = source.ptr();
+                    bool running = active->is_executing();
+                    active->detach();
+                    bool deferred = running
+                        && !Web::Bindings::host_defined_wrapper_world(*realm).is_detached();
+                    source.clear();
+                    return JS::Value(deferred);
+                }),
             0, "requestHandlerDetach"_utf16, GC::Ptr<JS::Realm> { *realm });
         realm->global_object().define_direct_property(
             "requestHandlerDetach"_utf16, request, JS::default_attributes);

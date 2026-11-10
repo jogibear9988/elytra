@@ -37,8 +37,10 @@ private:
     ByteString m_directory;
     ByteString m_mode;
     RefPtr<Protocols::FileServer> m_server;
+    RefPtr<Protocols::FileServer> m_retired_server;
     RefPtr<Bytes::Channel> m_duplicate;
     size_t m_requests { 0 };
+    size_t m_refresh_requests { 0 };
     u32 m_seen { 0 };
     bool m_duplicate_closed { false };
     bool m_failed { false };

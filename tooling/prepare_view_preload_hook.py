@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the owned Qt view preparation adapter, preserving all other bytes."""
+"""Configure the canonical Hub view before author scripts, preserving upstream bytes."""
 
 import argparse
 import hashlib
@@ -7,33 +7,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "WebContentView.cpp": "2061d5d514ec314af9b0c3ec06ee016ffb05f8a6a2101eacb400f7db7996b030",
-    "WebContentView.h": "5684511a723f8806c448b9d5240a814e5a944a5e9e74d5426292198101758732",
+    "View.cpp": "c5c85e95f83cf43ce5fcf0c7887baffec90e2ae9956c15db08d3d15856ca640c",
+    "View.h": "1fa3b5dbb8ced278dd03b43818e916692992e5d7383a9861d1797d3eb52a4c3f",
 }
+PREFIX = '#include "native/qt/PreloadHooks.h"\n'
+
 SEAM = "    ViewImplementation::prepare_page_for_navigable(page);"
 HOOK = "\n    Firefly::prepare_preload_view(*this, page);"
 
 
 def adapt(text):
-    if text.count(SEAM) != 1:
-        raise ValueError("Review Qt view preparation seam")
-    return '#include "PreloadHooks.h"\n' + text.replace(SEAM, SEAM + HOOK)
+    if text.count(SEAM) != 1 or PREFIX in text or HOOK in text:
+        raise ValueError("Review canonical Hub view preparation seam")
+    return PREFIX + text.replace(SEAM, SEAM + HOOK)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    source = ROOT / "vendor/ladybird/UI/Qt"
+    source = ROOT / "vendor/ladybird/Services/Hub"
     for name, expected in EXPECTED.items():
         if hashlib.sha256((source / name).read_bytes()).hexdigest() != expected:
-            raise SystemExit("Review/remove owned Qt preload preparation adapter: " + name)
-    original = (source / "WebContentView.cpp").read_text()
+            raise SystemExit("Review/remove canonical Hub preload preparation adapter: " + name)
+    original = (source / "View.cpp").read_text()
     generated = adapt(original)
-    assert (
-        generated.removeprefix('#include "PreloadHooks.h"\n').replace(SEAM + HOOK, SEAM) == original
-    )
-    for changed in ["", original + "\n" + SEAM]:
+    assert generated.removeprefix(PREFIX).replace(SEAM + HOOK, SEAM) == original
+    for changed in ["", original + "\n" + SEAM, original.replace(SEAM, ""), generated]:
         try:
             adapt(changed)
         except ValueError:
@@ -43,9 +43,7 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if not args.output.exists() or args.output.read_text() != generated:
         args.output.write_text(generated)
-    print(
-        "PASS Qt preload preparation source/ABI pin, byte preservation and missing/duplicate rejection"
-    )
+    print("PASS canonical Hub preload preparation source/ABI pin, exact bytes and seam rejection")
 
 
 if __name__ == "__main__":

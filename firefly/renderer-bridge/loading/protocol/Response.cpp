@@ -5,6 +5,7 @@
 #include "native/protocol/files/FilePacket.h"
 #include "native/protocol/files/ResponseHead.h"
 #include <AK/WeakPtr.h>
+#include <LibGC/Function.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
@@ -238,8 +239,8 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         for (auto const& header : m_head->headers)
             response->header_list()->append(header);
         auto weak = make_weak_ptr();
-        auto continuation = GC::create_function(
-            GC::Heap::the(), [weak](NonnullRefPtr<Infrastructure::Response> accepted) {
+        auto continuation = GC::create_function(GC::Heap::the(), GC::captures(weak),
+            [](auto& weak, NonnullRefPtr<Infrastructure::Response> accepted) {
                 auto owner = weak.strong_ref();
                 if (!owner || owner->m_finished)
                     return;

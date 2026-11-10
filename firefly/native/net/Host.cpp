@@ -1,5 +1,6 @@
 /** Read-only native availability/proxy queries and deterministic provider retirement. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
@@ -28,24 +29,27 @@ std::shared_ptr<NetworkState> install_host(
     if (!provider)
         provider = NetworkState::create();
     VERIFY(provider);
-    host.define_native_function(
-        realm, "networkIsOnline"_utf16,
-        [provider](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return result(vm, provider->is_online());
-        },
+    host.define_native_function(realm, "networkIsOnline"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(provider)),
+            [](auto& provider_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& provider = provider_capture.value;
+                return result(vm, provider->is_online());
+            }),
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "networkHasProxy"_utf16,
-        [provider](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return result(vm, provider->has_proxy());
-        },
+    host.define_native_function(realm, "networkHasProxy"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(provider)),
+            [](auto& provider_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& provider = provider_capture.value;
+                return result(vm, provider->has_proxy());
+            }),
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "networkStop"_utf16,
-        [provider](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            provider->stop();
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "networkStop"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(provider)),
+            [](auto& provider_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& provider = provider_capture.value;
+                provider->stop();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return provider;
 }

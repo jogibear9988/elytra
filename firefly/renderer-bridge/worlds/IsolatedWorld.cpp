@@ -110,7 +110,7 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call(
 {
     if (is_detached() || function.realm() != realm())
         return m_vm.throw_completion<JS::Error>(
-            "Function does not belong to a live isolated world"sv);
+            "Function does not belong to a live isolated world"_utf16);
     GC::Root protect_function { function };
     return execute([&] { return JS::call(m_vm, function, JS::js_undefined(), arguments); });
 }

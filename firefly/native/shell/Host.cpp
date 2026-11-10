@@ -1,5 +1,6 @@
 /** Strict request snapshots and owner-thread delivery; OS callbacks never retain JS/GC values. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "Provider.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -16,6 +17,8 @@
 
 namespace Firefly::Shell {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
     // Only posting versus receiver revocation shares this mutex. Provider,
     // pending IDs and callback delivery are confined to the QObject owner.
     std::mutex mutex;
@@ -202,82 +205,86 @@ std::shared_ptr<Controller> install_host(
     auto state = std::make_shared<Controller::State>();
     state->receiver = &receiver;
     state->notify = std::move(notify);
-    host.define_native_function(
-        realm, "shellShowItemInFolder"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Shell dispatcher stopped");
-            auto source = TRY(raw_text(vm, vm.argument(0), 32768));
-            auto target = TRY(path(vm, TRY(text(vm, QString::fromUtf8(source), 32768))));
-            auto result = normalize(TRY(provider(vm, *state))->reveal(target));
-            if (!result.code.empty())
-                return fail(vm, result.code, result.message);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "shellShowItemInFolder"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Shell dispatcher stopped");
+                auto source = TRY(raw_text(vm, vm.argument(0), 32768));
+                auto target = TRY(path(vm, TRY(text(vm, QString::fromUtf8(source), 32768))));
+                auto result = normalize(TRY(provider(vm, *state))->reveal(target));
+                if (!result.code.empty())
+                    return fail(vm, result.code, result.message);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "shellRequest"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(request_id(vm));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Shell dispatcher stopped");
-            if (!vm.argument(1).is_string())
-                return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a shell operation");
-            auto kind = TRY(raw_text(vm, vm.argument(1), 32));
-            bool external = kind == "openExternal";
-            if (!external && kind != "openPath" && kind != "trashItem")
-                return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown shell operation");
-            auto source = TRY(raw_text(vm, vm.argument(2), 512 * 1024));
-            auto document = QJsonDocument::fromJson(source);
-            if (!document.isObject())
-                return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid shell request snapshot");
-            auto options = document.object();
-            for (auto const& key : options.keys())
-                if (key != (external ? "url" : "path") && !(external && key == "activate"))
-                    return fail(vm, "ERR_FIREFLY_UNSUPPORTED_API", "Unsupported shell option");
-            bool activate = true;
-            if (external) {
-                if (!options["activate"].isBool())
-                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a shell activation flag");
-                activate = options["activate"].toBool();
-            }
+    host.define_native_function(realm, "shellRequest"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(request_id(vm));
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Shell dispatcher stopped");
+                if (!vm.argument(1).is_string())
+                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a shell operation");
+                auto kind = TRY(raw_text(vm, vm.argument(1), 32));
+                bool external = kind == "openExternal";
+                if (!external && kind != "openPath" && kind != "trashItem")
+                    return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown shell operation");
+                auto source = TRY(raw_text(vm, vm.argument(2), 512 * 1024));
+                auto document = QJsonDocument::fromJson(source);
+                if (!document.isObject())
+                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid shell request snapshot");
+                auto options = document.object();
+                for (auto const& key : options.keys())
+                    if (key != (external ? "url" : "path") && !(external && key == "activate"))
+                        return fail(vm, "ERR_FIREFLY_UNSUPPORTED_API", "Unsupported shell option");
+                bool activate = true;
+                if (external) {
+                    if (!options["activate"].isBool())
+                        return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a shell activation flag");
+                    activate = options["activate"].toBool();
+                }
 
-            auto value
-                = TRY(text(vm, options[external ? "url" : "path"], external ? 65536 : 32768));
-            auto input = external ? value.toUtf8().toStdString() : TRY(path(vm, value));
-            if (state->pending.size() >= 64)
-                return fail(
-                    vm, "ERR_FIREFLY_SHELL_LIMIT", "Too many pending native shell requests");
-            if (id <= state->last_id)
-                return fail(vm, "ERR_FIREFLY_SHELL_DATA", "Shell request ID reused");
-            auto* native = TRY(provider(vm, *state));
-            state->last_id = id;
-            state->pending.insert(id);
-            auto complete = [weak = std::weak_ptr(state), id](
-                                Result result) { post(weak, id, std::move(result)); };
-            if (external)
-                native->open_external(std::move(input), activate, std::move(complete));
-            else if (kind == "openPath")
-                native->open_path(std::move(input), std::move(complete));
-            else
-                native->trash(std::move(input), std::move(complete));
-            return JS::js_undefined();
-        },
+                auto value
+                    = TRY(text(vm, options[external ? "url" : "path"], external ? 65536 : 32768));
+                auto input = external ? value.toUtf8().toStdString() : TRY(path(vm, value));
+                if (state->pending.size() >= 64)
+                    return fail(
+                        vm, "ERR_FIREFLY_SHELL_LIMIT", "Too many pending native shell requests");
+                if (id <= state->last_id)
+                    return fail(vm, "ERR_FIREFLY_SHELL_DATA", "Shell request ID reused");
+                auto* native = TRY(provider(vm, *state));
+                state->last_id = id;
+                state->pending.insert(id);
+                auto complete = [weak = std::weak_ptr(state), id](
+                                    Result result) { post(weak, id, std::move(result)); };
+                if (external)
+                    native->open_external(std::move(input), activate, std::move(complete));
+                else if (kind == "openPath")
+                    native->open_path(std::move(input), std::move(complete));
+                else
+                    native->trash(std::move(input), std::move(complete));
+                return JS::js_undefined();
+            }),
         3, JS::default_attributes);
-    host.define_native_function(
-        realm, "shellCancel"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            state->pending.erase(TRY(request_id(vm)));
-            // Delivery cancellation is not OS cancellation or a refunded OS slot.
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "shellCancel"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                state->pending.erase(TRY(request_id(vm)));
+                // Delivery cancellation is not OS cancellation or a refunded OS slot.
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "shellShutdown"_utf16,
-        [state](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            Shell::stop(*state);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "shellShutdown"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                Shell::stop(*state);
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

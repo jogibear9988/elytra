@@ -12,6 +12,8 @@ struct NetworkStateResult {
 
 class NetworkState {
 public:
+    // OS-only provider contract: implementations must not retain JS/GC values.
+    using HoldsNoCellEdges = void;
     static std::unique_ptr<NetworkState> create();
 
     virtual ~NetworkState() = default;

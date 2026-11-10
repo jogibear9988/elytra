@@ -9,6 +9,7 @@
 
 // These standard-library values contain native bytes only, never GC cells.
 GC_UNTRACED_CAPTURE(std::string);
+
 GC_UNTRACED_CAPTURE(std::filesystem::path);
 
 namespace Mite {
@@ -26,6 +27,7 @@ template <typename T> struct NativeReference {
         // Execution remains subject to the embedding's live-owner admission.
         // Visitors, unlike callbacks, may run after native teardown.
         VERIFY(try_get());
+
         return *try_get();
     }
 

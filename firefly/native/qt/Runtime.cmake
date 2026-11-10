@@ -12,13 +12,7 @@ add_library(firefly-sandbox-policy STATIC "${CMAKE_CURRENT_LIST_DIR}/../sandbox/
 add_library(firefly-command-line STATIC "${CMAKE_CURRENT_LIST_DIR}/../command-line/State.cpp")
 add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
 target_link_libraries(firefly-tracing PUBLIC Qt::Core)
-if(APPLE)
-    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleMac.mm")
-    target_link_libraries(firefly-locale PUBLIC Qt::Core "-framework Foundation")
-else()
-    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleLinux.cpp")
-    target_link_libraries(firefly-locale PUBLIC Qt::Core)
-endif()
+include("${FIREFLY_SOURCE_DIR}/firefly/native/locale/Targets.cmake")
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -112,12 +106,17 @@ add_executable(firefly-sandbox-policy-probe
                "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/Policy.cpp")
 target_include_directories(firefly-sandbox-policy-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-sandbox-policy-probe PRIVATE firefly-sandbox-policy)
+add_executable(firefly-sandbox-launch-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/LaunchPolicyProbe.cpp")
+target_link_libraries(firefly-sandbox-launch-probe PRIVATE firefly-sandbox-policy LibWebView AK)
 add_custom_target(
     check-firefly-sandbox-policy
     COMMAND "$<TARGET_FILE:firefly-sandbox-policy-probe>"
+    COMMAND "$<TARGET_FILE:firefly-sandbox-launch-probe>"
     COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/policy.mjs"
-    DEPENDS firefly-sandbox-policy-probe firefly-protocol-registration-probe
+    DEPENDS firefly-sandbox-policy-probe firefly-sandbox-launch-probe
+            firefly-protocol-registration-probe
     VERBATIM)
 add_executable(firefly-command-line-probe
                "${FIREFLY_SOURCE_DIR}/firefly/tests/command-line/State.cpp")

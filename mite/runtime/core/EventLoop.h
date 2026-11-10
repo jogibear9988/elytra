@@ -25,6 +25,7 @@ class ImmediateQueue;
 class EventLoop : public NativeCaptureOwner<EventLoop> {
 public:
     void visit_capture_edges(GC::Cell::Visitor&) const;
+
     EventLoop(JS::VM&, void (*report_exception)(JS::Value));
 
     ~EventLoop();

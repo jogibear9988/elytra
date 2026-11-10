@@ -1,3 +1,4 @@
+#include "native/platform/GCIncludes.h"
 /** Run the real public storage facade and native provider in an explicit private keychain.
  * This is a component host, not a desktop/window lifecycle acceptance executable.
  */
@@ -68,6 +69,25 @@ int main(int argc, char** argv)
         arguments.push_back(argv[index]);
     arguments.push_back(nullptr);
     bool ready = true;
+
+    struct ReadyCapture : Mite::NativeCaptureOwner<ReadyCapture> {
+        explicit ReadyCapture(bool& value)
+            : ready(value)
+        {
+        }
+
+        ~ReadyCapture()
+        {
+            revoke_native_captures();
+        }
+
+        void visit_capture_edges(GC::Cell::Visitor&) const
+        {
+        } // Native boolean only.
+
+        bool& ready;
+    } captured { ready };
+
     Mite::HostHooks hooks;
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop&) -> JS::ThrowCompletionOr<void> {
@@ -81,12 +101,12 @@ int main(int argc, char** argv)
                 return std::make_unique<Firefly::SafeStorage::Backend>(profile);
 #endif
             });
-        native->define_native_function(
-            realm, "markReady"_utf16,
-            [&](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                ready = vm.argument(0).to_boolean();
-                return JS::js_undefined();
-            },
+        native->define_native_function(realm, "markReady"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(captured)),
+                [](auto& captured, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    captured.get().ready = vm.argument(0).to_boolean();
+                    return JS::js_undefined();
+                }),
             1, JS::default_attributes);
         TRY(modules.register_host_module("safe-storage-test", *native,
             { "safeStorageAvailable", "safeStorageEncrypt", "safeStorageDecrypt", "markReady" }));

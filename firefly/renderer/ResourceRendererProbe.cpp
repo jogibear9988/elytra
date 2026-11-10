@@ -25,13 +25,14 @@ namespace {
 
     bool document_mode()
     {
-        return mode.is_one_of(
-            "resources"sv, "document-id"sv, "document-missing"sv, "document-duplicate"sv, "away"sv);
+        return mode.is_one_of("resources"sv, "document-id"sv, "document-missing"sv,
+            "document-duplicate"sv, "document-refresh"sv, "away"sv);
     }
 
     bool bundle_allowed()
     {
-        return mode.is_one_of("resources"sv, "document-duplicate"sv, "away"sv);
+        return mode.is_one_of(
+            "resources"sv, "document-duplicate"sv, "document-refresh"sv, "away"sv);
     }
 
     struct State final : RefCounted<State>, Weakable<State> {
@@ -375,7 +376,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     if (arguments.argc != 3
         || !arguments.strings[1].is_one_of("body"sv, "duplicate"sv, "id"sv, "page"sv, "missing"sv,
             "cancel"sv, "resources"sv, "document-id"sv, "document-missing"sv,
-            "document-duplicate"sv, "away"sv))
+            "document-duplicate"sv, "document-refresh"sv, "away"sv))
         return Error::from_string_literal(
             "Expected resource renderer mode and authorized HTML path");
     Firefly::mode = arguments.strings[1];

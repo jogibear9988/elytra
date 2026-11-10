@@ -13,6 +13,8 @@
 
 namespace Firefly {
 struct WorldJobGuard::State : public RefCounted<State> {
+    void visit_edges(GC::Cell::Visitor&) const;
+
     JS::VM& vm;
     // Saved hooks receive all unowned work; wrappers never substitute a second VM queue.
     Function<JS::ThrowCompletionOr<JS::Value>(JS::JobCallback&, JS::Value, ReadonlySpan<JS::Value>)>
@@ -25,6 +27,19 @@ struct WorldJobGuard::State : public RefCounted<State> {
     Callbacks::Gate previous_gate;
 
     struct TimerRecord {
+        void visit_edges(GC::Cell::Visitor& visitor) const
+        {
+            // All cells here are weak. map is a nonowning native alias, accessed
+            // only after validating the actual weak global/timer in cancel_timer.
+            visitor.ignore(realm);
+
+            visitor.ignore(global);
+
+            visitor.ignore(timer);
+
+            visitor.ignore(map);
+        }
+
         GC::Weak<JS::Realm> realm;
         GC::Weak<Web::HTML::Window> global;
         GC::Weak<Web::HTML::Timer> timer;

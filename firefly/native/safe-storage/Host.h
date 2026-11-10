@@ -6,6 +6,7 @@
 #include <memory>
 
 namespace Firefly::SafeStorage {
+// Supplied callbacks are trusted native functions; they must not retain JS/GC values.
 using Factory = std::function<std::unique_ptr<Backend>()>;
 void install_host(JS::Realm&, JS::Object&, std::function<bool()> ready, Factory);
 }

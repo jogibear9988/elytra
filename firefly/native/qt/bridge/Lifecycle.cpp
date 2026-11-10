@@ -8,6 +8,7 @@
 #include <AK/JsonObject.h>
 #include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/PrimitiveString.h>
 #include <QTimer>
 #include <UI/Qt/WebContentView.h>
 
@@ -15,13 +16,15 @@ namespace Firefly {
 using BridgeDetail::text;
 
 Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
-    std::optional<int>& exit_code, bool electron_compat)
+    std::optional<int>& exit_code, bool electron_compat,
+    std::function<std::optional<bool>()> sandbox_launch_policy)
     : vm(vm)
     , realm(realm)
     , jobs(jobs)
     , gui(gui)
     , exit_code(exit_code)
     , electron_compat(electron_compat)
+    , sandbox_launch_policy(std::move(sandbox_launch_policy))
 {
     application_menu = std::make_unique<ApplicationMenu>(*context,
         [this](int generation, int command, bool checked, QWidget* focused, int modifiers) {
@@ -63,8 +66,17 @@ Bridge::Impl::~Impl()
     stop();
 }
 
+JS::Completion Bridge::Impl::retired_binding(JS::VM& vm)
+{
+    GC::Root error { JS::Error::create(vm.realm(), "Application host is stopped"_utf16) };
+    error->define_direct_property("code"_utf16,
+        JS::PrimitiveString::create(vm, "ERR_FIREFLY_APP_EXITED"_utf16), JS::default_attributes);
+    return JS::throw_completion(error);
+}
+
 void Bridge::Impl::stop()
 {
+    revoke_native_captures();
     if (stopping)
         return;
     stopping = true;

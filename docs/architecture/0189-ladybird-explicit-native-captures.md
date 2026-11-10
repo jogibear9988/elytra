@@ -40,8 +40,10 @@ while avoiding repeated concatenation/rescans. Real fork and controlled fragment
 quota/Unicode cases pass. This improves the existing process channel; it does not
 claim zero-copy renderer file transfer or complete VS Code compatibility.
 
-All 141 Debug tests in the isolated candidate worktree pass, including the extra
-Hub source-fidelity guard; the standalone checkpoint registers the 140-suite
-subset. Native CJK decoding passes after tar/ZIP/app-layout relocation. Vendor
+The initial 141 Debug tests in the isolated candidate worktree pass, including
+the extra Hub source-fidelity guard; the standalone checkpoint registers the
+140-suite subset. Subsequent header-policy source regressions expand the actual
+passing aggregate to 145. [ADR 0190](0190-embedded-hub-and-capture-retirement.md)
+records the real Hub/renderer migration and its separate acceptance scope. Native CJK decoding passes after tar/ZIP/app-layout relocation. Vendor
 source stays unmodified. New Hub/RemoteView bootstrap and renderer security,
 platform, GUI and release gates remain unfinished before accepting this pin on master.

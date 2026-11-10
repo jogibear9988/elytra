@@ -1,5 +1,6 @@
 /** Own private event-handler maps and root their cells during cleanup/reentry. */
 #include "worlds/jobs/State.h"
+#include <LibGC/Function.h>
 #include <LibGC/WeakInlines.h>
 #include <LibWeb/DOM/EventTarget.h>
 #include <LibWeb/HTML/EventHandler.h>
@@ -30,7 +31,8 @@ Callbacks::HandlerMap* WorldJobGuard::State::select_handler_map(Web::DOM::EventT
         NonnullRefPtr self { *this };
         Web::HTML::queue_a_microtask(nullptr,
             GC::create_function(vm.heap(),
-                [self, realm_root = GC::Ref { *realm }, target_root = GC::Ref { target }] {
+                GC::captures(self, GC::Ref { *realm }, GC::Ref { target }),
+                [](auto& self, auto& realm_root, auto& target_root) {
                     self->clear_handler_maps(realm_root.ptr(), target_root.ptr());
                 }));
     }

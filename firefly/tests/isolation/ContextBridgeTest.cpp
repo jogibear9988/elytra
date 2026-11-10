@@ -1,4 +1,5 @@
 #include "ContextBridgeTest.h"
+#include "CaptureSlot.h"
 #include "context/ContextBridge.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16StringBuilder.h>
@@ -127,10 +128,11 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     TRY(check(u"!Object.hasOwn(globalThis,'__ffForeignApi')"sv));
     target.global_object().define_direct_property(
         "__ffLeakedPublisher"_utf16, publisher, JS::default_attributes);
-    source->realm()->global_object().define_native_function(
-        *source->realm(), "principalPublicationProbe"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            auto parsed = JS::Script::parse(uR"JS(
+    source->realm()->global_object().define_native_function(*source->realm(),
+        "principalPublicationProbe"_utf16,
+        GC::create_function(vm.heap(), GC::captures(target),
+            [](auto& target, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto parsed = JS::Script::parse(uR"JS(
                 (()=>{let rejected=0;
                     for(const run of [()=>__ffLeakedPublisher('__ffBadReentry',1),
                         ()=>__ffLeakedPublisher.call(null,'__ffBadReentry',1),
@@ -140,12 +142,12 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
                     return rejected===3 && !Object.hasOwn(globalThis,'__ffBadReentry');
                 })()
             )JS"_utf16,
-                target);
-            if (parsed.is_error())
-                return JS::js_undefined();
-            GC::Root script { parsed.release_value() };
-            return vm.run(*script);
-        },
+                    target);
+                if (parsed.is_error())
+                    return JS::js_undefined();
+                GC::Root script { parsed.release_value() };
+                return vm.run(*script);
+            }),
         0, JS::default_attributes);
     TRY(check(u"principalPublicationProbe()"sv, true));
     source->realm()->global_object().define_direct_property(

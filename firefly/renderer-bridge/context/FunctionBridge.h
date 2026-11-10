@@ -26,6 +26,8 @@ struct FunctionExport {
 // global may otherwise retain the document through this object's explicit roots.
 class FunctionBridge final : public RefCounted<FunctionBridge> {
 public:
+    void visit_edges(GC::Cell::Visitor&) const;
+
     AK_ALLOC_WITH_KMALLOC;
     static ErrorOr<FunctionExport> create(
         IsolatedWorld&, JS::FunctionObject&, Web::DOM::Document&, RefPtr<CallbackRegistry> = {});

@@ -47,8 +47,9 @@ void Bridge::Impl::bind_ipc_channel(int id, WebView::WebContentPage& page,
                     }
 
                     auto hello = ApplicationIpc::decode_hello(bytes);
-                    if (hello.is_error() || hello.value().epoch != epoch
-                        || hello.value().pid != static_cast<u64>(state.view->web_content_pid())
+                    if (hello.is_error() || hello.value().epoch != epoch || !state.native_view()
+                        || hello.value().pid
+                            != static_cast<u64>(state.native_view()->web_content_pid())
                         || hello.value().document_namespace != document.namespace_id
                         || hello.value().document_local != document.local_id
                         || hello.value().navigable_namespace != navigable.namespace_id
