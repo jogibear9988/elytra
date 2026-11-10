@@ -25,8 +25,10 @@ for (const mode of ['early', 'abort']) {
     stream.bytesWritten
   );
 }
-// Node can finish a pre-aborted constructor's already-submitted open after close.
-// Let that real side effect settle; the runner checks the explicit Mite no-open deviation.
+// Node can finish a pre-aborted constructor's already-submitted open before or after close.
+// Keep that actual close-time existsSync observation visible. The runner requires Mite
+// to report false and permits only Node's boolean timing difference on this one line.
+// Let Node's real file side effect settle before comparing the final native snapshots.
 await new Promise((resolve) => setTimeout(resolve, 20));
 fs.writeFileSync('existing.bin', 'preserved');
 for (const [filename, options, code] of [

@@ -12059,6 +12059,20 @@ trees; their baseline remains OFF, so this is not represented as baseline CPU
 execution acceptance. A new hosted baseline run is required. No native runtime
 or package test was skipped to bypass the stale validator.
 
+The old Linux CLI job129654406193 completed compilation and passed142/143
+suites. Only file-write-stream/errors rejected the already documented pre-abort
+open difference: Node printed existsSync=true at close while Mite correctly
+printed false. Node may observe either value before its pending open completes;
+Mite deliberately never opens a pre-aborted target. The runner already allowed
+only Node's final empty abort.bin, but its stdout comparison was still too strict.
+Require Mite's complete original false/null/pending/zero-byte observation, allow
+only that one Node close-time boolean to vary, and keep every other line, event,
+descriptor, final file and return/error check exact. Actual local Node/Release
+Mite validation passes all seven writer groups, policy and short-write cases
+(candidate-write-stream-oracle.log). Production code and deadlines are unchanged;
+API documentation now explains both Node observations. Hosted validation remains
+pending until the corrected runner is pushed and executed.
+
 Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
 obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
 its active review worktree, shared installed dependencies or running Designer app.
