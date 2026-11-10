@@ -1953,7 +1953,7 @@ function requestFilter(value, error, unsupported) {
 // firefly/core/session/web-request.mjs
 function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromDocument, error, unsupported, abortHooks) {
   const maximum = 2147483647;
-  const handlers = { before: null, headers: null };
+  const handlers = { before: null, sendHeaders: null, headers: null };
   const pending = /* @__PURE__ */ new Set();
   const resources = /* @__PURE__ */ new Set([
     "mainFrame",
@@ -2013,7 +2013,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_INVALID_ARG_TYPE", "webRequest callback requires a decision object");
     }
     for (const key of Object.keys(value)) {
-      if (key !== "cancel" && !(stage === "headers" && key === "responseHeaders")) {
+      if (key !== "cancel" && !(stage === "headers" && key === "responseHeaders" || stage === "sendHeaders" && key === "requestHeaders")) {
         unsupported("webRequest decision " + key);
       }
     }
@@ -2021,9 +2021,11 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_INVALID_ARG_TYPE", "webRequest cancel must be a boolean");
     }
     const result = { cancel: value.cancel === true };
-    if (!result.cancel && value.responseHeaders !== void 0) {
-      result.responseHeaders = headers(value.responseHeaders);
+    const field = stage === "sendHeaders" ? "requestHeaders" : "responseHeaders";
+    if (!result.cancel && value[field] !== void 0) {
+      result[field] = headers(value[field]);
       for (const name of [
+        ...stage === "sendHeaders" ? ["host"] : [],
         "content-length",
         "transfer-encoding",
         "connection",
@@ -2034,7 +2036,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
         "te"
       ]) {
         const values = (record) => Object.entries(record).filter(([key]) => key.toLowerCase() === name).flatMap(([, items]) => items);
-        if (JSON.stringify(values(result.responseHeaders)) !== JSON.stringify(values(originalHeaders))) {
+        if (JSON.stringify(values(result[field])) !== JSON.stringify(values(originalHeaders))) {
           unsupported("webRequest response framing header " + name);
         }
       }
@@ -2073,6 +2075,12 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
           throw error("ERR_FIREFLY_OBJECT_DESTROYED", "Request document is no longer active");
         }
       }
+    }
+    if (data.stage === "sendHeaders") {
+      const original = headers(data.requestHeaders);
+      result.requestHeaders = Object.fromEntries(
+        Object.entries(original).map(([name, values]) => [name, values.join(", ")])
+      );
     }
     if (data.stage === "headers") {
       if (!Number.isInteger(data.statusCode) || data.statusCode < 100 || data.statusCode > 599 || data.statusLine !== void 0 && (typeof data.statusLine !== "string" || data.statusLine.length > 8192 || /[\r\n\0]/.test(data.statusLine))) {
@@ -2116,20 +2124,24 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_OUT_OF_RANGE", "Request policy generation exhausted");
     }
     const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
-    const enabled = next.before !== null || next.headers !== null;
+    const enabled = Object.values(next).some((handler) => handler !== null);
     if (native.utility) {
       if (typeof native.utility.setRequestPolicy !== "function") {
         unsupported("Utility session request containment");
       }
       native.utility.setRequestPolicy(
-        enabled || handlers.before !== null || handlers.headers !== null || !healthy
+        enabled || Object.values(handlers).some((handler) => handler !== null) || !healthy
       );
     }
     ++epoch;
     configuring = true;
     try {
       invalidate();
-      native.webRequest.configure(epoch, next.before !== null, next.headers !== null);
+      native.webRequest.configure(
+        epoch,
+        next.before !== null || next.sendHeaders !== null,
+        next.headers !== null
+      );
       if (!active()) {
         throw error("ERR_FIREFLY_SESSION_CLOSED", "Session closed during request configuration");
       }
@@ -2139,7 +2151,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
         native.utility?.setRequestPolicy(false);
       }
     } catch (failure) {
-      handlers.before = handlers.headers = null;
+      handlers.before = handlers.sendHeaders = handlers.headers = null;
       healthy = false;
       try {
         native.utility?.setRequestPolicy(true);
@@ -2167,7 +2179,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       unsubscribe?.();
       complete(value);
     }
-    if (!active() || !healthy || configuring || data.epoch !== current || !["before", "headers"].includes(stage)) {
+    if (!active() || !healthy || configuring || data.epoch !== current || !["before", "sendHeaders", "headers"].includes(stage)) {
       finish({ cancel: true });
       return;
     }
@@ -2182,7 +2194,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       finish({ cancel: false });
       return;
     }
-    const originalHeaders = stage === "headers" ? headers(details.responseHeaders) : void 0;
+    const originalHeaders = stage === "headers" ? headers(details.responseHeaders) : stage === "sendHeaders" ? headers(data.requestHeaders) : void 0;
     if (pending.size >= 64) {
       finish({ cancel: true });
       return;
@@ -2225,11 +2237,29 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw failure;
     }
   }
+  function runStages(stage, data, complete, signal) {
+    if (stage !== "before") {
+      run(stage, data, complete, signal);
+      return;
+    }
+    run(
+      "before",
+      data,
+      (result) => {
+        if (result.cancel || !handlers.sendHeaders) {
+          complete(result);
+          return;
+        }
+        run("sendHeaders", data, complete, signal);
+      },
+      signal
+    );
+  }
   function dispatch(data) {
     if (!data || !id(data.token) || !id(data.epoch)) {
       return;
     }
-    run(
+    runStages(
       data.stage,
       data,
       (value) => native.webRequest.complete(data.token, data.epoch, JSON.stringify(value))
@@ -2237,7 +2267,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
   }
   function intercept(stage, data, signal) {
     return new Promise((resolve, reject) => {
-      run(
+      runStages(
         stage,
         { ...data, epoch },
         (value) => {
@@ -2256,7 +2286,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       return;
     }
     stopped = true;
-    handlers.before = handlers.headers = null;
+    handlers.before = handlers.sendHeaders = handlers.headers = null;
     invalidate();
     if (epoch && epoch < maximum) {
       native.webRequest.configure(++epoch, false, false);
@@ -2266,12 +2296,14 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
     onBeforeRequest(...args) {
       register("before", args);
     },
+    onBeforeSendHeaders(...args) {
+      register("sendHeaders", args);
+    },
     onHeadersReceived(...args) {
       register("headers", args);
     }
   };
   for (const name of [
-    "onBeforeSendHeaders",
     "onSendHeaders",
     "onResponseStarted",
     "onBeforeRedirect",
@@ -5985,19 +6017,33 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
   function requestDetails(endpoint, method, id) {
     return { id, url: endpoint.href, method, resourceType: "other", referrer: "" };
   }
-  async function beforeRequest(endpoint, method, id, entry) {
+  async function beforeRequest(endpoint, method, id, entry, fields) {
     const policy2 = requestPolicy();
     if (policy2) {
-      await policy2.intercept(
+      const requestHeaders = /* @__PURE__ */ Object.create(null);
+      for (const [name, value] of fields) {
+        requestHeaders[name] = [value];
+      }
+      const result = await policy2.intercept(
         "before",
-        requestDetails(endpoint, method, id),
+        { ...requestDetails(endpoint, method, id), requestHeaders },
         entry.controller.signal
       );
+      if (result.requestHeaders !== void 0) {
+        const patched = new Headers();
+        for (const [name, values] of Object.entries(result.requestHeaders)) {
+          for (const value of values) {
+            patched.append(name, value);
+          }
+        }
+        fields = patched;
+      }
     }
     alive();
     if (entry.controller.signal.aborted) {
       throw abortHooks.reason(entry.controller.signal);
     }
+    return fields;
   }
   async function receivedHeaders(response, endpoint, method, id, entry) {
     const policy2 = requestPolicy();
@@ -6237,7 +6283,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
@@ -6468,7 +6514,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         proxy();
         if (request.destroyed) {

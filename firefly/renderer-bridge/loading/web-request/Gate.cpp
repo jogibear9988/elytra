@@ -106,7 +106,7 @@ namespace {
         bool allowed = current(*job) && decision.has_value();
         if (allowed) {
             auto validated = WebRequest::validate_decision(
-                *decision, job->stage == Stage::Headers ? &job->original_headers : nullptr);
+                *decision, &job->original_headers, job->stage == Stage::Before);
             if (validated.is_error())
                 allowed = false;
         }
@@ -116,8 +116,9 @@ namespace {
             allowed = cancel.has_value() && !*cancel;
         }
 
-        if (allowed && job->stage == Stage::Headers) {
-            if (auto value = decision->get("responseHeaders"sv); value.has_value()) {
+        if (allowed) {
+            auto field = job->stage == Stage::Before ? "requestHeaders"sv : "responseHeaders"sv;
+            if (auto value = decision->get(field); value.has_value()) {
                 allowed = value->is_object();
                 auto list = HTTP::HeaderList::create();
                 size_t bytes = 0, count = 0;
@@ -154,8 +155,12 @@ namespace {
                             list->append({ name_bytes, move(text) });
                         }
                     });
-                if (allowed)
-                    job->response->set_header_list(move(list));
+                if (allowed) {
+                    if (job->stage == Stage::Before)
+                        job->params->request()->set_header_list(move(list));
+                    else
+                        job->response->set_header_list(move(list));
+                }
             }
         }
 
@@ -256,11 +261,15 @@ namespace {
             result.set("navigation"sv, move(text));
         }
 
-        if (response) {
+        if (response)
             result.set("statusCode"sv, response->status());
+        {
+            // Snapshot the actual request before CORS preflight/transport, not a
+            // fabricated list of automatic HTTP headers added later by the SDK.
+            auto list = response ? response->header_list() : request.header_list();
             JsonObject headers;
             size_t bytes = 0, count = 0;
-            for (auto const& header : response->header_list()->headers()) {
+            for (auto const& header : list->headers()) {
                 bytes += header.name.length() + header.value.length();
                 if (++count > 128 || bytes > 32768)
                     return {};
@@ -280,7 +289,7 @@ namespace {
                 headers.set(name.release_value(), move(array));
             }
 
-            result.set("responseHeaders"sv, move(headers));
+            result.set(response ? "responseHeaders"sv : "requestHeaders"sv, move(headers));
         }
 
         if (result.serialized().byte_count() > 96 * 1024)
@@ -293,12 +302,11 @@ namespace {
         auto data = metadata(*job->params, *job->document, job->response);
         if (!data.has_value() || !state().submit || state().jobs.size() >= 16)
             return false;
-        if (job->stage == Stage::Headers) {
-            auto original = data->get_object("responseHeaders"sv);
-            if (!original.has_value())
-                return false;
-            job->original_headers = original.release_value();
-        }
+        auto original = data->get_object(
+            job->stage == Stage::Headers ? "responseHeaders"sv : "requestHeaders"sv);
+        if (!original.has_value())
+            return false;
+        job->original_headers = original.release_value();
 
         state().jobs.push_back(job);
         auto weak = std::weak_ptr<Job>(job);

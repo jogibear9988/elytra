@@ -229,10 +229,10 @@ bool Broker::complete(u32 token, u32 epoch, JsonObject decision)
     auto found = m_pending.find(token);
     if (found == m_pending.end() || found->value.packet.epoch != epoch)
         return false;
-    auto original = found->value.packet.payload.get_object("responseHeaders"sv);
-    if (validate_decision(decision,
-            found->value.packet.kind == Kind::Headers && original.has_value() ? &*original
-                                                                              : nullptr)
+    bool request_headers = found->value.packet.kind == Kind::Before;
+    auto original = found->value.packet.payload.get_object(
+        request_headers ? "requestHeaders"sv : "responseHeaders"sv);
+    if (validate_decision(decision, original.has_value() ? &*original : nullptr, request_headers)
             .is_error())
         return false;
     bool valid = current(token, epoch);

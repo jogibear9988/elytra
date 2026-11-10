@@ -41,10 +41,13 @@ notification capability detection. It next attempts CodeWindow/BrowserWindow
 construction. The next rejected default constructor option is titleBarOverlay, before
 native window allocation. With a temporary User/settings.json containing
 window.titleBarStyle:native, the latest real entry passes the audited disabled V8
-cache adaptation, spellcheck:false, native zoomFactor and the implemented autoplay
-policy, then rejects webPreferences.enableBlinkFeatures in the latest direct trace
-(autoplay-codeoss-entry.log). Exact HighlightAPI admission is implemented for the
-already-enabled native CSS.highlights capability and awaits the next rebuilt host.
+cache adaptation, spellcheck:false, native zoomFactor, autoplay and the native
+HighlightAPI capability. The real stage now includes HTML/CSS/fonts. It creates
+native window id 1; the local TouchBar opt-out and native isOffscreen query remove
+the next observed faults. The latest direct trace stops at marketplace
+webRequest.onBeforeSendHeaders registration before loading the workbench URL
+(codeoss-touchbar-start.log). Genuine request-header interception is now implemented
+and the rebuilt host awaits its next direct entry.
 Native media admission/metadata/default/revocation passes thirteen component groups;
 ten null-audio groups pass, with the final inactive-document/GC fixture still
 unfinished. The two explicit autoplay values have experimental public wiring.
@@ -167,7 +170,7 @@ flag, caller arguments and profile selection remain unchanged.
 This profile bypasses Code-OSS's optional custom chrome configuration; it does not
 implement Window Controls Overlay. The recorded diagnostic profile and all probe
 completion records explicitly keep workbenchAccepted:false. Native-profile startup
-currently reaches webPreferences.enableBlinkFeatures; an actual workbench, editing,
+currently reaches webRequest.onBeforeSendHeaders; an actual workbench, editing,
 extension host and terminal are not accepted. Use the freshly built runtime and
 compiled tree paths appropriate to your local build.
 

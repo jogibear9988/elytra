@@ -1,10 +1,10 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "a8484a6119cf0c625cb445c16b5b25a621a75f791a7b1068b7315a97a9043ae3",
+    "api.js": "e9dd50376cf94c00b38c2a4cf086c4ecec6bd0d4197d042cd4c140dfb543ac8e",
     "safe-storage.js": "83556e5959e968894b3cdb91b7dfe295008a647c673c39cd3f91a37c5826da45",
     "utility-parent.js": "49413f8484e3e21991be052054516711614538a7a1964fccaec8f177adcb9b6c",
-    "utility-net.js": "83debbd574346752b6212403694862616f6a4eb621050a4cb2ceb59ee24cb411",
+    "utility-net.js": "c1b9d1ca33806cf17341c61a0a10a5f40aa89a135fcb2e6e462ac1e4b597d213",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
@@ -21,7 +21,7 @@
     "firefly/core/menu/index.mjs": "26db0379cdf2a13505c261c305c06ee0dd0d6c4143b6879663d17e7c62acce0b",
     "firefly/core/message-ports/index.mjs": "ac4a0dc17e6951c42f07dfdb7baa2fc2e42d75b564e8f66d40f424a5f11626b8",
     "firefly/core/native-image/index.mjs": "23b503bf511fe9d820a34d0a1a4bbfa39a19c89a1cd5e925f39c15d3ece67533",
-    "firefly/core/net/index.mjs": "d0b3d8dcde7049f5968e366c76355699c19d50a6e17c7dfef4837a40baf82843",
+    "firefly/core/net/index.mjs": "1a09cac28e7bf7b273c0c24d447bf0fd0f36828c511d73ed8ec1cd354d6f3051",
     "firefly/core/net/utility.mjs": "e9c6964c3583b78d7b5b792a281f0123b8ec64889c178a5ecc50ab0d98442214",
     "firefly/core/notifications/index.mjs": "ba1bda4cdcb091363ed26d99758ef5d3dd41c071ddb03ed60edade3149b2419e",
     "firefly/core/power-monitor/index.mjs": "8bd7f0a5a9b8b4deaf629966b2c0bfb1019c1ae9eab9abb7182573901a20068f",
@@ -34,7 +34,7 @@
     "firefly/core/screen/index.mjs": "8520b379fe29fc484f1960108fa2bed3f0f0cbd609f2f19dba57e42dfd0cf342",
     "firefly/core/session/permissions.mjs": "11c47e409a12dec3243d7d26c5c1ed33ed620087f1f7ef361d5202516d80e287",
     "firefly/core/session/request-filter.mjs": "201ecba9009585f4848bb118ee8f18e8fefef109fdb1db066a14f7d96741761e",
-    "firefly/core/session/web-request.mjs": "2d526121e89032924f3a6500b17bf754746a87d1a3fda7d2f4c453d3387a9d9f",
+    "firefly/core/session/web-request.mjs": "33841e41972f9f95e6dd99dc5dd7972e7272b394e52497c8bb7105a7b2ad6baf",
     "firefly/core/shell/index.mjs": "76e167464ba8d2be04ed253cdd5c6234871817eb88f2fcb6de2fed4c76f142bd",
     "firefly/core/system-preferences/index.mjs": "aba9897bdb0165ac60070857d387bcf93fe82d01bc050e683d91cbf5a7c7c21f",
     "firefly/core/theme/index.mjs": "6981ff6c676fdb82714f8a61dee5fe571b23a12fce1cfed74af927404e2d91ec",

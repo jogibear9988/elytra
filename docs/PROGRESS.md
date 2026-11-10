@@ -12614,6 +12614,24 @@ reversal and drift refusal. The same application stage/overlay is being refreshe
 in place; no native rebuild or additional GUI suite is required for this overlay.
 The next direct startup will determine the next real editor blocker.
 
+## 2026-11-10 — Genuine request-header interception for Code-OSS startup
+
+The next real constructor fault is marketplace onBeforeSendHeaders registration.
+Implement that API through the existing authenticated held Before request: snapshot
+the actual Fetch HeaderList, validate/copy it through native ownership checks, run
+onBeforeRequest then onBeforeSendHeaders, and apply validated requestHeaders to the
+actual Request before preflight/transport. The same policy edits real net.fetch
+and net.request init headers on each redirect hop. No new packet kind, fabricated
+callback or header-only metadata simulation is used. Existing cancellation,
+epoch/ownership/queue limits and utility containment remain in force.
+
+Host and framing changes reject explicitly. This snapshot precedes SDK automatic
+Cookie/Host/framing fields and is not final wire-header parity. Document that
+partial scope. Focused existing Node/Mite policy checks pass; native Gate, Qt auth,
+Broker and Headers strict compilers pass. The actual Firefly build succeeds
+(codeoss-request-headers-build.log). No broad suite or separate GUI check runs;
+the next Code-OSS entry will exercise registration and continue toward its renderer.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

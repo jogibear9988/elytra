@@ -30,6 +30,7 @@ int main()
 {
     Packet original { Kind::Before, 0, 1, 3, 0, 11, 12, 13, 14, {} };
     original.payload.set("url"sv, "https://example.invalid/path"sv);
+    original.payload.set("requestHeaders"sv, JsonObject {});
     auto encoded = encode_packet(original);
     check(!encoded.is_error(), "encode bounded native identity");
     if (!encoded.is_error()) {
@@ -127,6 +128,17 @@ int main()
     auto duplicate = headers("x-value"sv, "one"sv);
     duplicate.set("X-Value"sv, MUST(JsonValue::from_string("[\"two\"]"sv)));
     check(validate_headers(duplicate).is_error(), "duplicate case-insensitive headers rejected");
+    JsonObject request_decision;
+    request_decision.set("cancel"sv, false);
+    request_decision.set("requestHeaders"sv, headers("X-Market-Client"sv, "native"sv));
+    JsonObject empty;
+    check(!validate_decision(request_decision, &empty, true).is_error(),
+        "before stage accepts actual custom request header replacement");
+    request_decision.set("requestHeaders"sv, headers("Host"sv, "other.invalid"sv));
+    check(validate_decision(request_decision, &empty, true).is_error(),
+        "before stage rejects request authority replacement");
+    check(validate_decision(request_decision, &empty).is_error(),
+        "response stage rejects request header fields");
     if (!failures)
         std::puts("PASS native webRequest packet/header schema (no transport acceptance)");
     return failures ? 1 : 0;

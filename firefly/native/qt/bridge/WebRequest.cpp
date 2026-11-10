@@ -86,6 +86,13 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
     result.set("resourceType"sv, *type);
     result.set("referrer"sv, *referrer);
     result.set("initiatorOrigin"sv, navigable->active_document().origin().serialize());
+    if (packet.kind == WebRequest::Kind::Before) {
+        auto headers = packet.payload.get_object("requestHeaders"sv);
+        if (!headers.has_value() || WebRequest::validate_headers(*headers).is_error())
+            return {};
+        result.set("requestHeaders"sv, *headers);
+    }
+
     if (packet.kind == WebRequest::Kind::Headers) {
         auto status = packet.payload.get_u32("statusCode"sv);
         auto line = packet.payload.get_string("statusLine"sv);

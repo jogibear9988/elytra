@@ -21,7 +21,8 @@ requests.onHeadersReceived((details, callback) => {
 
 ## Registration
 
-`onBeforeRequest([filter,] listener)` and `onHeadersReceived([filter,] listener)`
+`onBeforeRequest([filter,] listener)`, `onBeforeSendHeaders([filter,] listener)`
+and `onHeadersReceived([filter,] listener)`
 each retain one listener. A later registration replaces that stage's listener;
 passing null removes it. They do not accumulate like EventEmitter listeners.
 Registration requires app readiness and native enforcement.
@@ -41,7 +42,7 @@ characters. Unknown filter options and unsupported decisions fail explicitly.
 
 ## Details and decisions
 
-Both listeners receive `(details, callback)`. Details contain a stable numeric id,
+All three listeners receive `(details, callback)`. Details contain a stable numeric id,
 url, method, resourceType, referrer, timestamp and frame. Renderer requests also
 carry webContentsId, webContents and a canonical native frame proxy. Frame data is
 derived from the actual helper, page and document, independently of preload IPC.
@@ -52,6 +53,19 @@ Call `callback({ cancel: true })` to reject the request. `{ cancel: false }` or 
 allows it. Duplicate or retired callbacks have no effect. A thrown listener or an
 invalid decision cancels unresolved work. Before-request cancellation occurs before
 the HTTP transport or privileged custom/file handler is invoked.
+
+The send-headers listener receives requestHeaders as header-name/string pairs.
+Return `{ requestHeaders: { ...details.requestHeaders, 'X-Application': 'Firefly' } }`
+to replace the request header list. Omitted fields in that replacement are removed.
+Before-request runs first; cancellation skips send-headers. Both use the existing
+authenticated held request before transport, so custom header additions/removals
+alter the actual native Fetch request before CORS preflight and main net transports
+before every redirect hop.
+
+This is a partial snapshot of explicitly captured request headers. SDK transport
+headers such as automatic Cookie, Host and framing fields are added later; final
+wire-header visibility and casing are not promised. Registration does not enable
+a separate final transport-header event.
 
 Headers listeners additionally receive statusCode and responseHeaders, a record of
 header-name to string arrays. Native Fetch currently normalizes names to lowercase;
@@ -66,8 +80,9 @@ CR/LF or forbidden control characters. Limits are 128 names, 128 values per name
 and 32 KiB of header data, with an additional total-field limit in the renderer.
 Changing or removing content-length, transfer-encoding, connection, trailer,
 upgrade, keep-alive, proxy-connection or te is unsupported. Unchanged copies are
-accepted. RedirectURL, statusLine overrides, request-header edits and the other
-webRequest event stages remain unsupported.
+accepted. Request-header decisions also cannot add, remove or change Host.
+RedirectURL, statusLine overrides and the other webRequest event stages remain
+unsupported.
 
 ## Scope and lifecycle
 
@@ -81,7 +96,7 @@ Native request IDs are odd; main net IDs are even and neither is reused.
 The current renderer scope covers document requests and authenticated top-level
 navigation. Worker requests and unbound/subframe navigation fail closed when
 interception is active. WebSocket handshakes currently bypass upstream Fetch and
-therefore fail explicitly before connect while either handler is active. Worker
+therefore fail explicitly before connect while a blocking handler is active. Worker
 policy reads are thread-safe; actual worker/socket interception remains open.
 This is not full browser-session coverage. Existing helper
 policy changes propagate over an ordered asynchronous channel; registration is not

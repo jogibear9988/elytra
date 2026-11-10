@@ -95,6 +95,7 @@ function fixture() {
     referrer: 'https://owner.test/page',
     contentsId: 7,
     document: '9:1',
+    requestHeaders: {},
     ...fields
   });
 
@@ -134,7 +135,7 @@ const BLOCKED = 'ERR_BLOCKED_BY_CLIENT';
     'ERR_FIREFLY_UNSUPPORTED_API'
   );
 
-  fails(() => f.api.onBeforeSendHeaders(() => {}), 'ERR_FIREFLY_UNSUPPORTED_API');
+  fails(() => f.api.onSendHeaders(() => {}), 'ERR_FIREFLY_UNSUPPORTED_API');
 
   let old = 0;
   let current = 0;
@@ -425,5 +426,33 @@ const BLOCKED = 'ERR_BLOCKED_BY_CLIENT';
   console.log(
     'PASS replacement abort decision-getter reentry shutdown and stale continuation revocation'
   );
+}
+{
+  const f = fixture();
+  const order = [];
+
+  f.api.onBeforeRequest((_details, callback) => {
+    order.push('before');
+    callback({});
+  });
+
+  f.api.onBeforeSendHeaders((details, callback) => {
+    order.push('send');
+    check(details.requestHeaders.Existing === 'original', 'Actual request header snapshot');
+    details.requestHeaders['X-Market-Client'] = 'native-client';
+    callback({ requestHeaders: details.requestHeaders });
+  });
+
+  const result = await f.component.intercept(
+    'before',
+    f.data({ requestHeaders: { Existing: ['original'] } })
+  );
+  check(order.join(',') === 'before,send', 'Request phase callback ordering');
+  check(
+    result.requestHeaders['X-Market-Client'][0] === 'native-client',
+    'Real request decision header wire'
+  );
+  f.api.onBeforeSendHeaders(null);
+  f.component.stop();
 }
 console.log('DONE webRequest policy');

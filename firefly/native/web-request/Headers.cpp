@@ -58,13 +58,15 @@ ErrorOr<void> validate_headers(JsonObject const& headers)
     return {};
 }
 
-ErrorOr<void> validate_decision(JsonObject const& decision, JsonObject const* original)
+ErrorOr<void> validate_decision(
+    JsonObject const& decision, JsonObject const* original, bool request_headers)
 {
     auto cancel = decision.get_bool("cancel"sv);
     if (!cancel.has_value() || decision.size() > 2)
         return Error::from_string_literal("Invalid web request decision");
-    auto replacement = decision.get_object("responseHeaders"sv);
-    if (decision.has("responseHeaders"sv) && (!replacement.has_value() || !original))
+    auto field = request_headers ? "requestHeaders"sv : "responseHeaders"sv;
+    auto replacement = decision.get_object(field);
+    if (decision.has(field) && (!replacement.has_value() || !original))
         return Error::from_string_literal(
             "Header replacement is unavailable for this request stage");
     if (decision.size() != (replacement.has_value() ? 2u : 1u))
@@ -79,6 +81,13 @@ ErrorOr<void> validate_decision(JsonObject const& decision, JsonObject const* or
         if (old_value.has_value() != new_value.has_value()
             || (old_value.has_value() && *old_value != *new_value))
             return Error::from_string_literal("Response framing changes are unsupported");
+    }
+
+    if (request_headers) {
+        auto old_host = before.get("host"sv), new_host = after.get("host"sv);
+        if (old_host.has_value() != new_host.has_value()
+            || (old_host.has_value() && *old_host != *new_host))
+            return Error::from_string_literal("Request authority changes are unsupported");
     }
 
     return {};
