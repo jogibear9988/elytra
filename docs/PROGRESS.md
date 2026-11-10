@@ -12650,6 +12650,22 @@ files (codeoss-css-inventory-refresh.log). A single direct Code-OSS run now obse
 the rebuilt request-header host plus this stage; no extra GUI/component suite is
 started. Real workbench/open-edit-save acceptance remains unproven.
 
+## 2026-11-10 — Real document-window metadata at the editor load boundary
+
+The latest actual Code-OSS entry passes marketplace header registration and reaches
+window#load, then fails isDocumentEdited. Add the four real BrowserWindow methods
+for dirty state and represented filename. Both JS and native setters validate
+boolean/string types; all methods use existing destroyed/window-kind guards.
+Queries/setters use QWidget's actual window-modified/file-path state. Verified Qt
+Cocoa source maps these properties to NSWindow.documentEdited/representedFilename;
+other Qt platforms expose metadata without claiming Cocoa proxy chrome.
+
+Strict native Host compilation and the actual complete incremental Firefly build
+pass (codeoss-document-window-build.log). No new GUI/component suite runs. The
+next direct startup batches all four methods and uses the required development
+renderer environment rather than relaunching for each method. Prior startup
+proof: codeoss-request-headers-start.log. Workbench acceptance remains unproven.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

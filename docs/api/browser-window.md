@@ -75,6 +75,8 @@ show:true is also supported.
 | getMinimumSize(), getMaximumSize() | Fresh [width, height] outer DIP limits; zero means no requested limit |
 | setMinimumSize(width, height), setMaximumSize(width, height) | Set outer DIP limits, each integer 0..16384; returns undefined |
 | center() | Use native AppKit window centering on macOS |
+| isDocumentEdited() / setDocumentEdited(edited) | Native Qt window-modified state; setter requires boolean |
+| getRepresentedFilename() / setRepresentedFilename(filename) | Native Qt document filename; setter requires string, empty string clears it |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
 | setBackgroundColor(color), getBackgroundColor() | Opaque native canvas base; getter returns uppercase #RRGGBB. [Scope](window-background.md) |
@@ -320,6 +322,18 @@ window can remain maximized. To explicitly request normal size use unmaximize.
 
 Return native state booleans. They are observations, not requests. Minimized and
 maximized state must not be inferred solely from isVisible or from window size.
+
+### Document metadata
+
+`isDocumentEdited()` / `setDocumentEdited(boolean)` query and update the real
+Qt window-modified state. `getRepresentedFilename()` /
+`setRepresentedFilename(string)` query and update its document file path; the
+empty string clears the represented filename. All four reject destroyed owners.
+On Cocoa, Qt maps these setters to `NSWindow.documentEdited` and
+`NSWindow.representedFilename`, including the native document proxy/dirty marker.
+Other Qt platforms retain window metadata but do not provide macOS document-proxy
+UI; no equivalent Windows/Linux native chrome behavior is claimed. These methods
+do not save files, detect filesystem changes or implement an unsaved-work prompt.
 
 ### window.setTitle(title) / window.getTitle()
 

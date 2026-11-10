@@ -848,6 +848,32 @@ export default function createFireflyApi(
       return native.maximized(this.id);
     }
 
+    isDocumentEdited() {
+      alive(this);
+      return native.windowDocumentEdited(this.id);
+    }
+
+    setDocumentEdited(edited) {
+      alive(this);
+      if (typeof edited !== 'boolean') {
+        throw error('ERR_INVALID_ARG_TYPE', 'edited must be a boolean');
+      }
+      native.setWindowDocumentEdited(this.id, edited);
+    }
+
+    getRepresentedFilename() {
+      alive(this);
+      return native.representedFilename(this.id);
+    }
+
+    setRepresentedFilename(filename) {
+      alive(this);
+      if (typeof filename !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'filename must be a string');
+      }
+      native.setRepresentedFilename(this.id, filename);
+    }
+
     setTitle(title) {
       alive(this);
       if (typeof title !== 'string') {

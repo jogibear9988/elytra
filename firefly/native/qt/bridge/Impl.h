@@ -436,6 +436,14 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     JS::ThrowCompletionOr<JS::Value> native_host_pid(JS::VM&);
 
+    JS::ThrowCompletionOr<JS::Value> native_host_document_edited(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_document_edited(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_represented_filename(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_represented_filename(JS::VM&);
+
     JS::ThrowCompletionOr<JS::Value> native_host_title(JS::VM&);
 
     JS::ThrowCompletionOr<JS::Value> native_host_title_text(JS::VM&);

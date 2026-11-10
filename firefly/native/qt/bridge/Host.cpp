@@ -153,6 +153,14 @@ GC::Ref<JS::Object> Bridge::Impl::install()
         native_binding<&Impl::native_host_maximized>(), 1, JS::default_attributes);
     host->define_native_function(
         realm, "pid"_utf16, native_binding<&Impl::native_host_pid>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "windowDocumentEdited"_utf16,
+        native_binding<&Impl::native_host_document_edited>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "setWindowDocumentEdited"_utf16,
+        native_binding<&Impl::native_host_set_document_edited>(), 2, JS::default_attributes);
+    host->define_native_function(realm, "representedFilename"_utf16,
+        native_binding<&Impl::native_host_represented_filename>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "setRepresentedFilename"_utf16,
+        native_binding<&Impl::native_host_set_represented_filename>(), 2, JS::default_attributes);
     host->define_native_function(realm, "title"_utf16, native_binding<&Impl::native_host_title>(),
         2, JS::default_attributes);
     host->define_native_function(realm, "titleText"_utf16,
@@ -428,6 +436,38 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_maximized(JS::VM& vm)
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_pid(JS::VM& vm)
 {
     return JS::Value(static_cast<double>(TRY(state(vm))->native_view()->web_content_pid()));
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_document_edited(JS::VM& vm)
+{
+    return JS::Value(TRY(window_state(vm))->window->isWindowModified());
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_document_edited(JS::VM& vm)
+{
+    auto* current = TRY(window_state(vm));
+    if (!vm.argument(1).is_boolean())
+        return preload_error(vm, "ERR_INVALID_ARG_TYPE", "edited must be a boolean"sv);
+    // Qt's Cocoa platform forwards this to NSWindow.documentEdited.
+    current->window->setWindowModified(vm.argument(1).as_bool());
+    return JS::js_undefined();
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_represented_filename(JS::VM& vm)
+{
+    return JS::PrimitiveString::create(
+        vm, utf16_string_from_qstring(TRY(window_state(vm))->window->windowFilePath()));
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_represented_filename(JS::VM& vm)
+{
+    auto* current = TRY(window_state(vm));
+    if (!vm.argument(1).is_string())
+        return preload_error(vm, "ERR_INVALID_ARG_TYPE", "filename must be a string"sv);
+    // The Cocoa backend updates the real representedFilename/document proxy.
+    current->window->setWindowFilePath(
+        qstring_from_utf16_string(TRY(vm.argument(1).to_utf16_string(vm))));
+    return JS::js_undefined();
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_title(JS::VM& vm)

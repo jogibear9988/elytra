@@ -1,14 +1,14 @@
 {
   "generator": "esbuild 0.25.12",
   "files": {
-    "api.js": "e9dd50376cf94c00b38c2a4cf086c4ecec6bd0d4197d042cd4c140dfb543ac8e",
+    "api.js": "74db656fd0aae7e642ea153f758da2af85a8080e1ae222204bd8a3655e36c8d6",
     "safe-storage.js": "83556e5959e968894b3cdb91b7dfe295008a647c673c39cd3f91a37c5826da45",
     "utility-parent.js": "49413f8484e3e21991be052054516711614538a7a1964fccaec8f177adcb9b6c",
     "utility-net.js": "c1b9d1ca33806cf17341c61a0a10a5f40aa89a135fcb2e6e462ac1e4b597d213",
     "app-regions.js": "38c9ce1ce72f7be02a42f341bab3214d65638c9fa16bda1b71f0244e6c0c7104"
   },
   "sources": {
-    "firefly/core/api.mjs": "fa531061e896bf3bb5a08b9ba0cf738bf6599847932d038897f60ea9692c09da",
+    "firefly/core/api.mjs": "7b24853c8da4301d684d98e9329d9f7e28a95c7cec75d5d5ce519df71629271b",
     "firefly/core/app/command-line.mjs": "2ab3004b6a7c8c9bd9dda2ebd2bc67226bb51c64b86fc290b4ce982ffab9bb45",
     "firefly/core/app/gpu.mjs": "ed2676bb428cb758700bf5fc0965cd012a442f6420afcd57c074f273faba2b93",
     "firefly/core/clipboard/index.mjs": "cb86410d470d9fe49db84b669cfb6814b9bdd624f9f6c3001f48c3c2bd0fae98",
