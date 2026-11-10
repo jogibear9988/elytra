@@ -12426,6 +12426,21 @@ both independent scheduled-source and buffer-source entry points. Actual lazy
 renderer creation, promise cleanup and authenticated public transport remain
 unfinished; no public autoplay value is admitted and Code-OSS still cannot start.
 
+## 2026-11-10 — Windows engine test portability after successful native build
+
+The aae76b4 native Windows job compiles and links Mite and runs 147 suites:
+138 pass, nine fail. Five failures are fixture portability defects: escaped
+Windows paths in the UV guard; Rust-generated forward-slash source paths;
+CRLF conversion in Hub source-integrity input; CRLF in the X11 marker fixture;
+and Designer byte mutations that accidentally rewrote all line endings.
+Preserve exact bytes/path representations instead of relaxing the assertions.
+
+Local UV guard (five cases), Hub integrity, X11 ordering (five cases), Designer
+shell (eleven cases), and native Rust no-JIT driver/nested-module/argv checks pass.
+No Ninja, desktop or audio tests were run for these fixture-only changes. The
+remaining Windows fork/reference pipe, watcher GC and filename failures still
+need investigation. Native Windows desktop support remains unfinished.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

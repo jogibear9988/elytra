@@ -101,7 +101,7 @@ def managed_window_manager(env, log_path):
             [
                 sys.executable,
                 "-c",
-                "import sys; open(sys.argv[1], 'x').write('ready\\n')",
+                "import sys; open(sys.argv[1], 'xb').write(b'ready\\n')",
                 str(startup_marker),
             ]
         )

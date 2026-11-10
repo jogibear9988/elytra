@@ -40,12 +40,12 @@ rejects(lambda: connection.revert(original))
 with tempfile.TemporaryDirectory(prefix="elytra-hub-connection-") as temporary:
     root = Path(temporary)
     source, output = root / "upstream.cpp", root / "generated/ConnectionFromUI.cpp"
-    source.write_text(original)
+    source.write_bytes(original.encode("utf-8"))
     connection.prepare(source, output)
     timestamp = output.stat().st_mtime_ns
     connection.prepare(source, output)
     assert output.read_text() == generated and output.stat().st_mtime_ns == timestamp
-    source.write_text(original + "\n// unreviewed drift\n")
+    source.write_bytes((original + "\n// unreviewed drift\n").encode("utf-8"))
     rejects(lambda: connection.prepare(source, output))
     assert output.read_text() == generated and output.stat().st_mtime_ns == timestamp
     absent = root / "absent/ConnectionFromUI.cpp"
@@ -56,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix="elytra-hub-connection-") as temporary:
         # A refreshed hash alone must not hide a missing/duplicate native seam.
         for before, _ in connection.SEAMS:
             for changed in (original.replace(before, ""), original + before):
-                source.write_text(changed)
+                source.write_bytes(changed.encode("utf-8"))
                 connection.DIGEST = hashlib.sha256(source.read_bytes()).hexdigest()
                 rejects(lambda: connection.prepare(source, absent))
                 assert not absent.parent.exists()
