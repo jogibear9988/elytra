@@ -11898,6 +11898,41 @@ security/renderer revalidation, then autoplay and remaining Code-OSS dependencie
 The complete product/platform/package/release objective remains active.
 
 
+
+## 2026-11-10 — Remove superseded local build artifacts
+
+- User requested bounded disk use. Measured the complete project at 66.8 GiB,
+  then removed 45 obsolete generated staging/cache trees: vcpkg buildtrees and
+  package staging, the unused Debug Cargo outputs, old Code-OSS snapshots,
+  Designer packages, relocation checks and size experiments. The project is now
+  33.6 GiB. Removed 679,800 generated files; preserved all 162 encountered Finder
+  metadata files. Compact audit: build/cleanup-2026-11-10.json.
+- Keep accepted renderer/Release Mite builds, the current Code-OSS snapshot and
+  its source/dependencies/store, one accepted Designer package, source checkouts
+  and the active Ladybird review worktree. Release Mite still uses
+  build/debug/vcpkg_installed: retain these installed dependencies despite
+  removing the obsolete Debug Rust cache. Retained snapshots have no symlinks
+  into the removed build trees.
+- Add an AGENTS.md retention rule: reuse staging directories and remove
+  superseded generated outputs after validation, checking shared dependency
+  paths and active processes first. Do not remove registered worktrees, source
+  changes or user Finder metadata. The canonical vcpkg checkout and accepted
+  Ladybird pin remain clean; the retained Release Mite --version still runs.
+- The isolated Ladybird update is still under review in
+  build/ladybird-update-2026-11-10. Its current local evidence includes all 145
+  CLI/source suites, native Firefly/offscreen linking, genuine renderer-helper
+  world/security gates, resource replay/refresh and public offscreen window
+  constraints. Broader native API/IPC/Cocoa/package and fresh platform gates
+  remain pending. No candidate engine update was merged or released here.
+  Code-OSS still has no accepted editor launch; accepted master stops before
+  window creation at webPreferences.autoplayPolicy.
+
+Validation: measured before/after project usage, checked retained paths and
+snapshot links, verified clean pinned upstream/vcpkg source and executed the
+retained Release CLI. No GUI or application behavior changes in this cleanup.
+The full product/VS Code/upstream-update objective remains active.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
