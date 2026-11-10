@@ -12044,6 +12044,21 @@ Validation: pinned Prettier parses all four workflow files; exact comparison
 proves only their branch filters changed. The native gate, permission and
 publication bodies are byte-identical (candidate-ci-scope-validation.log).
 
+Observed native CI for21b5568: Windows42763478980, Linux CLI42763479045,
+Linux renderer42763478994 and macOS42763479125 all started from the candidate
+push. The macOS job129654408607 failed before compilation in check_macos_cpu.py:
+the old exact flag list rejected the new genuine mite_nojit_build_<hash> marker.
+Alpha publication was skipped. Linux has the same stale validator shape.
+
+Derive the additional allowed marker only from the actual generated
+mite-adapters/rust-nojit/lib.rs SHA256, after the optional origin marker. Keep
+target CPU, fatal warnings and flag order exact. Both CPU regression suites pass
+(two tests each, including missing/wrong/duplicate/reordered/stale/mutated-root
+cases). Actual generated roots/flag order were inspected in both local SDK
+trees; their baseline remains OFF, so this is not represented as baseline CPU
+execution acceptance. A new hosted baseline run is required. No native runtime
+or package test was skipped to bypass the stale validator.
+
 Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
 obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
 its active review worktree, shared installed dependencies or running Designer app.

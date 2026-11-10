@@ -27,6 +27,13 @@ def check(build):
         composition = [
             f"--cfg=firefly_origin_build_{hashlib.sha256(origin.read_bytes()).hexdigest()}"
         ]
+    # The non-JIT adapter is installed after origin composition in the renderer,
+    # and by itself in standalone Mite. Accept only its actual generated root hash.
+    nojit = build / "mite-adapters/rust-nojit/lib.rs"
+    if nojit.is_file():
+        composition.append(
+            f"--cfg=mite_nojit_build_{hashlib.sha256(nojit.read_bytes()).hexdigest()}"
+        )
     rust = 0
     prefix = "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS="
     for line in (build / "build.ninja").read_text(encoding="utf-8").splitlines():
