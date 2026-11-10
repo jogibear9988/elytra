@@ -1,7 +1,7 @@
 name: Native Linux renderer acceptance
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/ladybird-update-*']
     paths:
       - '.github/workflows/linux-renderer.yml'
       - '.github/actions/linux-environment/**'

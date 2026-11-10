@@ -1,7 +1,7 @@
 name: Native Linux development
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/ladybird-update-*']
     paths:
       [
         '.github/workflows/linux.yml',

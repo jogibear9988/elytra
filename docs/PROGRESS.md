@@ -12033,6 +12033,17 @@ Remaining before accepting the pin on master:
   Code-OSS startup still stops at webPreferences.autoplayPolicy; its actual value
   is user-gesture-required, whose media/WebAudio enforcement needs real work.
 
+The integration checkpoint f5e7b5a is pushed on the isolated update branch.
+Direct workflow dispatch via gh could not run because the local CLI has no API
+login; no remote workflow was claimed from that failed command. Extend the four
+existing native workflow push filters to codex/ladybird-update-* so candidates
+receive the same acceptance without a pull request or API dispatch credentials.
+Release publication conditions and workflow token permissions are unchanged.
+Actual remote runs still need observation after this metadata step is pushed.
+Validation: pinned Prettier parses all four workflow files; exact comparison
+proves only their branch filters changed. The native gate, permission and
+publication bodies are byte-identical (candidate-ci-scope-validation.log).
+
 Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
 obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
 its active review worktree, shared installed dependencies or running Designer app.
