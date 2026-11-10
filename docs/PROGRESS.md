@@ -12344,6 +12344,8 @@ its genuine null deallocation/realm ownership/moved-context test passes
 (candidate-public-gc-headers-build.log,
 candidate-public-gc-headers-acceptance.log). CMake formatting/diff checks pass.
 Windows compiler and runtime acceptance still require the next hosted result.
+The follow-up comment layout matches the pinned CMake formatter; the interface
+dependency and native validation scope are unchanged.
 
 The autoplay feature is being developed separately; its new untracked files are
 not part of this engine-fix commit. The engine review branch keeps only the
