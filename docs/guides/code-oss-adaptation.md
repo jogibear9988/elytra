@@ -599,3 +599,17 @@ the absent native ripgrep executable. Missing/malformed data fails explicitly.
 Ordinary Node/Electron retain their original discovery path. The real workbench
 import-map loader still appends actual stylesheet links; no CSS module is erased.
 This does not provide ripgrep search for user files or claim editor acceptance.
+
+## Select the prepared development renderer
+
+The source stage is a development renderer. Set VSCODE_DEV=1 together with
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1, and leave VSCODE_DEV_SERVER_URL unset. Otherwise
+Code-OSS selects production workbench.html, expects a bundled stylesheet that is
+not produced here, and skips development CSS discovery. No bundled production
+renderer is implied by this source compiler.
+
+Use --native-title-bar with the diagnostic probe to create an isolated profile.
+In explicit local Mite mode that owned profile also disables keyboard.touchbar.enabled
+so the renderer does not request the intentionally omitted optional TouchBar.
+Existing user profiles are never overwritten. A reused owned profile needs both
+window.titleBarStyle:native and keyboard.touchbar.enabled:false in User/settings.json.

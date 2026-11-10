@@ -12666,6 +12666,23 @@ next direct startup batches all four methods and uses the required development
 renderer environment rather than relaunching for each method. Prior startup
 proof: codeoss-request-headers-start.log. Workbench acceptance remains unproven.
 
+## 2026-11-10 — Use the prepared development renderer and owned optional-UI profile
+
+Source inspection proves VSCODE_DEV=1 is required: isBuilt is its negation,
+windowImpl selects workbench-dev.html only then, and CSS development discovery is
+otherwise skipped in favor of a nonexistent production bundle. Keep
+VSCODE_DEV_SERVER_URL unset so the actual staged modules are loaded. Document the
+contract. The probe's newly owned native-titlebar profile also disables the omitted
+TouchBar only for explicit local Mite mode; existing user profiles and ordinary
+Node/Electron settings stay unchanged. JS syntax/diff checks pass. No new test or
+GUI launch is added for this small configuration change.
+
+The actual development-mode entry passes both document queries and reaches
+updateConfiguration; its next missing method is isFullScreen, with a separately
+caught getNativeWindowHandle lookup. The batched query/handle implementation and
+one native rebuild are underway. Evidence: codeoss-dev-renderer-start.log. The
+workbench URL has not yet been loaded successfully, so no editor pass is claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

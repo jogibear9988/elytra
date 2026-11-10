@@ -36,7 +36,17 @@ export function prepareProbeProfile(argv) {
   mkdirSync(extensions, { mode: 0o700 });
   writeFileSync(
     path.join(user, 'settings.json'),
-    `${JSON.stringify({ 'window.titleBarStyle': 'native' }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        'window.titleBarStyle': 'native',
+        ...(process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP === '1' &&
+        typeof process.versions.mite === 'string'
+          ? { 'keyboard.touchbar.enabled': false }
+          : {})
+      },
+      null,
+      2
+    )}\n`,
     { flag: 'wx', mode: 0o600 }
   );
   argv.splice(argv.indexOf('--native-title-bar', 3), 1);
