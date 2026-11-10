@@ -4,6 +4,7 @@
 import _support
 import contextlib
 import io
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -25,7 +26,7 @@ class UVHeaders(unittest.TestCase):
             source = root / "firefly/Native.cpp"
             for include in ("#include <uv.h>", '# include "uv.h"', "#include <uv/win.h>"):
                 source.write_text(include + "\n")
-                with self.assertRaisesRegex(ValueError, "firefly/Native.cpp"):
+                with self.assertRaisesRegex(ValueError, re.escape(str(Path("firefly/Native.cpp")))):
                     check(root)
             source.write_text('#include "platform/UV.h"\n')
             with contextlib.redirect_stdout(io.StringIO()):
@@ -45,7 +46,7 @@ class UVHeaders(unittest.TestCase):
                 "#include <winsock.h>\n",
             ):
                 source.write_text(text)
-                with self.assertRaisesRegex(ValueError, "mite/TLS.cpp"):
+                with self.assertRaisesRegex(ValueError, re.escape(str(Path("mite/TLS.cpp")))):
                     check(root)
             for boundary in (
                 "platform/WindowsSockets.h",

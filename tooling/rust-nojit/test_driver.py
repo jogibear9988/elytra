@@ -68,12 +68,11 @@ def main():
         rejects(lambda: item_source(composed))
         # Module paths select upstream originals except the two owned routing roots.
         root = (directory / "lib.rs").read_text()
-        assert str(SOURCE / "parser/mod.rs") in root
-        assert str(directory / "runtime.rs") in root
-        assert (
-            str(directory / "ecmascript_function_object.rs")
-            in (directory / "runtime.rs").read_text()
-        )
+        assert (SOURCE / "parser/mod.rs").as_posix() in root
+        assert (directory / "runtime.rs").as_posix() in root
+        assert (directory / "ecmascript_function_object.rs").as_posix() in (
+            directory / "runtime.rs"
+        ).read_text()
         rejects(lambda: module_source("mod missing;", SOURCE, {}))
         unicode = (directory / "unicode.rs").read_text()
         for name in (
@@ -85,7 +84,7 @@ def main():
             "relative_time_format",
             "time_zone",
         ):
-            assert str(SOURCE / "unicode" / f"{name}.rs") in unicode
+            assert (SOURCE / "unicode" / f"{name}.rs").as_posix() in unicode
         rejects(lambda: module_source((SOURCE / "lib.rs").read_text(), SOURCE, {}))
         # Compile a real standalone Rust file-module composition: absolute path
         # routing must retain foo.rs -> foo/child.rs resolution, not base/child.rs.

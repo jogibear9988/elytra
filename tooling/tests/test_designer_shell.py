@@ -109,15 +109,15 @@ class DesignerShellTests(unittest.TestCase):
 
     def test_index_overlay_and_final_index_bytes_are_checked(self):
         file = self.app / "web/index.html"
-        original = file.read_text()
-        file.write_text(original + "<!-- stale index -->")
+        original = file.read_bytes()
+        file.write_bytes(original + b"<!-- stale index -->")
         with self.assertRaisesRegex(ValueError, "metadata is stale"):
             self.verify()
-        file.write_text(original.replace('id="window-close"', 'id="broken-close"'))
+        file.write_bytes(original.replace(b'id="window-close"', b'id="broken-close"'))
         with self.assertRaisesRegex(ValueError, "current owned toolbar overlay"):
             shell_metadata(self.app, self.example)
         with self.assertRaises(ValueError):
-            apply_index_overlay(original)
+            apply_index_overlay(original.decode("utf-8"))
         with self.assertRaises(ValueError):
             apply_index_overlay("<head></head><nav></nav><nav></nav>")
 
