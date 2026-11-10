@@ -5,6 +5,13 @@ function(mite_add_runtime target root js_target)
     find_package(libuv CONFIG REQUIRED)
     find_package(llhttp CONFIG REQUIRED)
     find_package(OpenSSL REQUIRED)
+    find_package(SQLite3 3.53.4 EXACT REQUIRED)
+    if(TARGET SQLite3::SQLite3)
+        set(mite_sqlite_target SQLite3::SQLite3)
+    else()
+        # CMake 3.30's FindSQLite3 exports only the legacy target name.
+        set(mite_sqlite_target SQLite::SQLite3)
+    endif()
     find_package(ZLIB 1.3.2 EXACT REQUIRED)
     find_package(ICU 78.3 EXACT REQUIRED COMPONENTS uc)
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${target}-generated")
@@ -33,6 +40,8 @@ function(mite_add_runtime target root js_target)
         process_events
         process_stdio
         policy-watcher
+        sqlite
+        native-keymap
         path
         module
         buffer
@@ -86,6 +95,7 @@ function(mite_add_runtime target root js_target)
         # modules
         modules/Builtins
         modules/PolicyWatcher
+        modules/StorageAndKeyboard
         modules/HostModules
         modules/ModuleLoader
         modules/CommonJSExports
@@ -117,6 +127,9 @@ function(mite_add_runtime target root js_target)
         platform/system/OSConstants
         # platform/policy
         platform/policy/Host
+        platform/keyboard/Host
+        storage/sqlite/Host
+        storage/sqlite/Store
         # platform/compression
         platform/compression/Inflater
         platform/compression/Codec
@@ -146,14 +159,24 @@ function(mite_add_runtime target root js_target)
                llhttp::llhttp_static
                OpenSSL::Crypto
                OpenSSL::SSL
-               ZLIB::ZLIB)
+               ZLIB::ZLIB
+               ${mite_sqlite_target})
     if(APPLE)
-        target_sources(${target} PRIVATE "${root}/mite/runtime/platform/policy/ProviderMac.cpp")
+        target_sources(${target} PRIVATE "${root}/mite/runtime/platform/policy/ProviderMac.cpp"
+                                         "${root}/mite/runtime/platform/keyboard/ProviderMac.cpp")
+        target_link_libraries(${target} PUBLIC "-framework Carbon")
+        file(SHA256 "${root}/vendor/native-keymap/deps/chromium/dom_code_data.inc"
+             native_keymap_hash)
+        if(NOT native_keymap_hash STREQUAL
+           "c5d1825155d67badfd3f344e81988f323a656e2acc78dde237faeb830b707660")
+            message(FATAL_ERROR "Review pinned native-keymap physical key table")
+        endif()
         target_link_libraries(${target} PUBLIC "-framework Security" "-framework CoreFoundation"
                                                "-framework CoreServices")
     else()
-        target_sources(${target}
-                       PRIVATE "${root}/mite/runtime/platform/policy/ProviderUnsupported.cpp")
+        target_sources(
+            ${target} PRIVATE "${root}/mite/runtime/platform/policy/ProviderUnsupported.cpp"
+                              "${root}/mite/runtime/platform/keyboard/ProviderUnsupported.cpp")
     endif()
     add_custom_target(
         ${target}-integrity

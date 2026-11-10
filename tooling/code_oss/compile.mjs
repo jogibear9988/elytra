@@ -15,6 +15,9 @@ import { createNLS } from './nls.mjs';
 import { verifiedRefresh, checkRefreshPlan } from './compile-refresh.mjs';
 import { runtimeAsset, rendererAssets } from './renderer-assets.mjs';
 import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
+import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
+import { planSQLite, applySQLite } from './sqlite.mjs';
+import { verifyPackageAdditions } from './package-adaptations.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -25,7 +28,9 @@ const { values } = parseArgs({
     nls: { type: 'boolean', default: false },
     refresh: { type: 'boolean', default: false },
     'renderer-assets': { type: 'boolean', default: false },
-    'mite-policy-watcher': { type: 'boolean', default: false }
+    'mite-policy-watcher': { type: 'boolean', default: false },
+    'mite-native-keymap': { type: 'boolean', default: false },
+    'mite-sqlite': { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -182,10 +187,18 @@ if (JSON.parse(planned.get('package.json')).type !== 'module') {
 const dependencies =
   values.dependencies &&
   preparedDependencies(values.dependencies, planned.get('package.json'), pin.revision);
-if (values['mite-policy-watcher'] && !dependencies) {
-  throw Error('--mite-policy-watcher requires a verified prepared dependency tree');
+const packageSelectors = [
+  ['mite-policy-watcher', planPolicyWatcher, applyPolicyWatcher],
+  ['mite-native-keymap', planNativeKeymap, applyNativeKeymap],
+  ['mite-sqlite', planSQLite, applySQLite]
+];
+if (packageSelectors.some(([option]) => values[option]) && !dependencies) {
+  throw Error('Native package adapters require a verified prepared dependency tree');
 }
-const policyWatcher = values['mite-policy-watcher'] ? planPolicyWatcher(dependencies.root) : null;
+const packagePlans = packageSelectors
+  .filter(([option]) => values[option])
+  .map(([, plan, apply]) => ({ plan: plan(dependencies.root), apply }));
+let packageAdditions = packagePlans;
 const assets = values['renderer-assets']
   ? rendererAssets(source, dependencies, paths, planned, inputs)
   : undefined;
@@ -209,12 +222,13 @@ if (refresh && dependencies) {
   ) {
     throw Error('Refresh dependency graph differs');
   }
-  if (
-    JSON.stringify(refresh.previous.packageAdaptations ?? []) !==
-    JSON.stringify(policyWatcher ? [policyWatcher.record] : [])
-  ) {
-    throw Error('Refresh package adaptation differs');
-  }
+  // Verify every old adapter and each newly selected ORIGINAL loader+manifest
+  // before any stage write. Removal or modification of an old adapter is refused.
+  packageAdditions = verifyPackageAdditions(
+    output,
+    refresh.previous.packageAdaptations ?? [],
+    packagePlans
+  );
 }
 if (dependencies && (within(dependencies.root, output) || within(output, dependencies.root))) {
   throw new Error('Output overlaps dependency input tree');
@@ -250,7 +264,9 @@ planned.set(
         ]
           .filter((name) => planned.has(name))
           .map((output) => ({ output, outputSha256: sha256(planned.get(output)) })),
-        packageAdaptations: policyWatcher ? [policyWatcher.record] : undefined,
+        packageAdaptations: packagePlans.length
+          ? packagePlans.map(({ plan }) => plan.record)
+          : undefined,
         nls: nls?.report(),
         generated: nls
           ? [...nls.artifacts()].map(([output, data]) => ({ output, outputSha256: sha256(data) }))
@@ -296,13 +312,18 @@ if (dependencies && !refresh) {
     dereference: false,
     verbatimSymlinks: true
   });
-  if (policyWatcher) {
-    applyPolicyWatcher(output, policyWatcher);
-  }
   fs.copyFileSync(
     path.join(dependencies.root, 'ELYTRA-DEPENDENCIES.json'),
     path.join(output, 'ELYTRA-DEPENDENCIES.json')
   );
+}
+if (dependencies) {
+  if (!refresh) {
+    packageAdditions = verifyPackageAdditions(output, [], packagePlans);
+  }
+  for (const { plan, apply } of packageAdditions) {
+    apply(output, plan);
+  }
 }
 if (assets && !fs.existsSync(path.join(output, 'out'))) {
   // Relative and internal: preserve one physical module tree. Failure on a host

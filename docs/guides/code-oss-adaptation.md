@@ -562,7 +562,7 @@ acceptance follows from omitting the preference.
 The diagnostic compiler can include upstream HTML, CSS, images, fonts and WASM:
 
 ```sh
-node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --renderer-assets --refresh
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --renderer-assets --refresh
 ```
 
 Use --refresh only for an existing output from this compiler; omit it for a fresh
@@ -619,3 +619,17 @@ handler registration. Actual remote requests remain rejected. The local Darwin
 updater skips native subscriptions only after the genuine base service reaches
 Disabled; an unexpected enabled state fails explicitly. Neither change implements
 remote resources or native application updating.
+
+## Native package adapters for the local editor
+
+Use --mite-native-keymap and --mite-sqlite with the compiler for the exact audited
+native-keymap 3.3.9 and @vscode/sqlite3 5.1.12-vscode packages. Mite selects real OS
+keyboard-layout queries and real worker-thread SQLite storage; Node/Electron keeps
+its original addon path. No Node, V8 or N-API runtime is installed into Mite.
+The keyboard provider currently supports macOS only. SQLite has focused macOS
+on-disk/transaction/reopen acceptance; other platform execution remains unverified.
+
+When refreshing a stage, retain all its previously selected adapter flags. The
+compiler validates old adapters and original newly selected loaders/package.json
+before writing and does not copy node_modules again. See
+[the native package decision](../architecture/0192-native-code-oss-packages.md).

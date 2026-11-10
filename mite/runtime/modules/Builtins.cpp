@@ -779,6 +779,7 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
         TRY(builtin("child_process"));
 
     TRY(install_policy_watcher());
+    TRY(install_storage_and_keyboard());
     return {};
 }
 

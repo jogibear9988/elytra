@@ -24,5 +24,7 @@
   "fetch": "mite/runtime/bootstrap/fetch/index.mjs",
   "decompression": "mite/runtime/bootstrap/compression/decompression.mjs",
   "zlib": "mite/modules/compression/zlib.mjs",
-  "readline": "mite/modules/core/readline/index.mjs"
+  "readline": "mite/modules/core/readline/index.mjs",
+  "sqlite": "mite/modules/storage/sqlite.mjs",
+  "native-keymap": "mite/modules/system/native-keymap.mjs"
 }

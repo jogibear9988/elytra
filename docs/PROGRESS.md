@@ -12748,6 +12748,43 @@ CI repairs. Actual failed run IDs: Windows42910820776/job130166222903 and Linux
 renderer42910820714/job130166305311. The engine branch stays independently reviewable
 while the new SQLite/keyboard Code-OSS work is compiled separately.
 
+## 2026-11-11 — Genuine standalone SQLite and native keyboard services
+
+Implement private mite:sqlite and mite:native-keymap extensions, maintained ESM
+facades and exact-package Code-OSS adapters. No Node/V8/N-API or Qt/LibWeb dependency
+is added to standalone Mite. SQLite uses real worker-thread connections/prepared
+statements, bounded FIFO/callback ownership, cancellation, finalization and actual
+on-disk transactions. Pin direct vcpkg sqlite3 3.53.4#2 and retain its notices.
+The OS provider reads actual macOS TIS/Carbon metadata and 119 physical mappings;
+referenced 500 ms polling matches the original addon callback liveness. Other
+keyboard platforms fail explicitly. ADR 0192 records ownership/language/scope.
+
+The first SDK configure correctly refused language enabling in deferred code;
+Carbon uses only C APIs, so compile its unchanged provider as C++ and remove the
+unnecessary Objective-C/ARC setup. Actual Firefly build succeeds. Standalone cache
+had manifest install disabled and selected system SQLite3.54; install ONLY the
+pinned missing sqlite3 package from the existing cache, clear the two SQLite path
+cache entries and rebuild in the same tree. Prefer modern CMake SQLite3::SQLite3
+when available, retaining the older target for CMake3.30 compatibility.
+
+Actual standalone Release build and the focused SQLite test pass: real file header,
+Unicode/NUL/text/blob bindings, prepared transactions/rollback, close/reopen and
+independent Python SQLite row/integrity verification. Actual OS queries return
+layoutPresent:true, keys:119 and iso:true. Mite's loader dependencies contain no Qt
+or LibWeb. Evidence: codeoss-native-mite-{configure,build}.log,
+codeoss-sqlite-disk-acceptance.log, codeoss-keymap-query.log and
+codeoss-native-services-final-build.log. Physical layout change acceptance remains
+unverified; no GUI or broad runtime suite is run.
+
+Safe additive package refresh verifies every old adapter and original new loader/
+package hash before mutation, refuses removal/drift, and reuses dependencies. The
+single Code-OSS stage refresh succeeds with both genuine package adapters and
+the completed disabled-service guards, without another dependency copy
+(codeoss-native-packages-refresh.log). Actual imports of both adapted npm entries
+in rebuilt standalone Mite return sqlite:3.53.4 and keymap:119
+(codeoss-native-package-import.log). This proves real package selection, not an
+editor run; the next combined application start remains required.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

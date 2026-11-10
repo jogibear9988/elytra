@@ -1,0 +1,14 @@
+{
+  "package": "native-keymap",
+  "version": "3.3.9",
+  "url": "https://registry.npmjs.org/native-keymap/-/native-keymap-3.3.9.tgz",
+  "integrity": "sha512-d/ydQ5x+GM5W0dyAjFPwexhtc9CDH1g/xWZESS5CXk16ThyFzSBLvlBJq1+FyzUIFf/F2g1MaHdOpa6G9150YQ==",
+  "files": {
+    "ThirdPartyNotices.txt": "fd50d26182cc2badb20bfe6a7a4f3b522efe440ea7b67aeacd51e762bc5fd71b",
+    "index.js": "4e5aaf2b1661850fb01e90a72720c99ff8976c9c9304ee7cd84755ac43ed9299",
+    "package.json": "bee751b38ff1035305c82449f92d309ee5315bea42091ab3bf54f5223253bed1",
+    "License.txt": "31bec773a6a3d56327cdc6149027250e6730014ba46a0ad432e8e11914baae52",
+    "index.d.ts": "a5b46f80929ed7fd470e593f4794fbb71b6a957c6174c73a1e0be651b9d40776",
+    "deps/chromium/dom_code_data.inc": "c5d1825155d67badfd3f344e81988f323a656e2acc78dde237faeb830b707660"
+  }
+}

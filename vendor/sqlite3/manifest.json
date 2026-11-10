@@ -1,0 +1,9 @@
+{
+  "name": "SQLite",
+  "version": "3.53.4",
+  "vcpkgPortVersion": 2,
+  "upstream": "https://sqlite.org/",
+  "license": "Public-Domain",
+  "copyrightSha256": "1472ec10e27c62157cebd95d9186e8912a75a1a829fe3a612611710da2992ed5",
+  "usage": "Mite direct native SQLite C API; standalone and embedded runtime; not Node/N-API"
+}

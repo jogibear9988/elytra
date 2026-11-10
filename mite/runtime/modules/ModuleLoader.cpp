@@ -270,6 +270,10 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     // arbitrary names from the private host URL namespace.
     if (specifier == "mite:policy-watcher")
         return URL::Parser::basic_parse("mite-host:mite-policy-watcher"sv).release_value();
+    if (specifier == "mite:sqlite")
+        return URL::Parser::basic_parse("mite-host:mite-sqlite"sv).release_value();
+    if (specifier == "mite:native-keymap")
+        return URL::Parser::basic_parse("mite-host:mite-native-keymap"sv).release_value();
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
     auto base = URL::Parser::basic_parse(view(referrer));

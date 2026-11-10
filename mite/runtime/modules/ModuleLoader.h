@@ -64,6 +64,7 @@ public:
 
 private:
     JS::ThrowCompletionOr<void> install_policy_watcher();
+    JS::ThrowCompletionOr<void> install_storage_and_keyboard();
 
     struct RequireResolution {
         std::filesystem::path path;

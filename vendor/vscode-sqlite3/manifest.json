@@ -1,0 +1,11 @@
+{
+  "package": "@vscode/sqlite3",
+  "version": "5.1.12-vscode",
+  "url": "https://registry.npmjs.org/@vscode/sqlite3/-/sqlite3-5.1.12-vscode.tgz",
+  "files": {
+    "package.json": "5242b530769028cafcec857815ef783a4b310ce157572231730498057895a008",
+    "lib/sqlite3.js": "8d6b400ae7f69a80d0cdd37a968d7b9a913661fa53475e5b8de49dda21684973",
+    "LICENSE": "7686f81e580cd6774f609a2d8a41b2cebdf79bc30e6b46c3efff5a656158981c"
+  },
+  "integrity": "sha512-WLTftbMtK3Ni0s+q46qtKJ2CFtA3YrS5N4GcrETDCxqNTQAvk1LlYlG3RwGE6vZLcUqPt3TCHobijYeNUhEQ9Q=="
+}
