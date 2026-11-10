@@ -531,6 +531,13 @@ export default function createFireflyApi(
       this.setZoomLevel(value);
     }
 
+    isOffscreen() {
+      alive(this._window);
+      // All admitted contents use native window/view presentation. Electron's
+      // offscreen webPreference remains unsupported, including in hidden windows.
+      return false;
+    }
+
     isDestroyed() {
       return this._window._destroyed;
     }

@@ -7968,6 +7968,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     set zoomLevel(value) {
       this.setZoomLevel(value);
     }
+    isOffscreen() {
+      alive(this._window);
+      return false;
+    }
     isDestroyed() {
       return this._window._destroyed;
     }

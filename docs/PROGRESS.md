@@ -12587,6 +12587,17 @@ Evidence: codeoss-renderer-assets-start.log. This is an actual native window,
 not accepted workbench rendering or open/edit/save support. No broad test suite is
 run; the next changes target those two observed startup faults.
 
+## 2026-11-10 — Native presentation query for the real Code-OSS window
+
+Add webContents.isOffscreen() with the usual destroyed-owner guard. All admitted
+BrowserWindow/WebContentsView contents use native window/view presentation, so the
+actual supported answer is false, including hidden windows. The unsupported
+offscreen creation option still rejects; do not invent paint/capture capability.
+This resolves the observed Code-OSS lifecycle method lookup after its first real
+native window allocation. The actual incremental Firefly build succeeds
+(codeoss-offscreen-query-build.log); the next direct entry uses the rebuilt host.
+No additional component or GUI suite is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
