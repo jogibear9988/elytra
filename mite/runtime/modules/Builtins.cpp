@@ -23,6 +23,7 @@
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Signals.h"
 #include "platform/process/Timing.h"
+#include "platform/system/Inspector.h"
 #include "platform/system/OS.h"
 #include "platform/text/Encoding.h"
 #include "platform/text/URL.h"
@@ -65,17 +66,18 @@ static constexpr std::string_view path_exports[] = { "resolve", "normalize", "is
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
 static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer", "Blob", "File" };
-static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", "closeSync", "read",
-    "readSync", "write", "writeSync", "fstat", "fstatSync", "ftruncate", "ftruncateSync", "fsync",
-    "fsyncSync", "fdatasync", "fdatasyncSync", "constants", "Stats", "Dirent", "promises",
-    "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
-    "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
-    "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync",
-    "readdir", "readdirSync", "WriteStream", "createWriteStream", "watchFile", "unwatchFile",
-    "watch", "realpath", "realpathSync" };
+static constexpr std::string_view fs_exports[]
+    = { "open", "openSync", "close", "closeSync", "read", "readSync", "write", "writeSync", "fstat",
+          "fstatSync", "ftruncate", "ftruncateSync", "fsync", "fsyncSync", "fdatasync",
+          "fdatasyncSync", "constants", "Stats", "Dirent", "promises", "readFile", "readFileSync",
+          "writeFile", "writeFileSync", "appendFile", "appendFileSync", "access", "accessSync",
+          "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync", "mkdir", "mkdirSync",
+          "chmod", "chmodSync", "mkdtemp", "mkdtempSync", "rm", "rmSync", "rmdir", "rmdirSync",
+          "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync", "WriteStream",
+          "createWriteStream", "watchFile", "unwatchFile", "watch", "realpath", "realpathSync" };
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
-          "mkdir", "rmdir", "unlink", "rename", "readdir", "realpath" };
+          "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
@@ -105,6 +107,8 @@ static constexpr std::string_view dns_promises_exports[]
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage",
     "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES",
     "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
+static constexpr std::string_view inspector_exports[]
+    = { "url", "open", "close", "waitForDebugger", "Session" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness",
     "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem",
     "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority",
@@ -117,8 +121,9 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "createBrotliDecompress", "createZstdCompress", "createZstdDecompress", "brotliCompress",
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
-static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues" };
+static constexpr std::string_view crypto_exports[]
+    = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash", "createHmac", "Hmac",
+          "timingSafeEqual", "webcrypto", "getRandomValues", "X509Certificate" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
@@ -140,6 +145,8 @@ static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
+    { "inspector", { MITE_INSPECTOR_SOURCE, sizeof(MITE_INSPECTOR_SOURCE) - 1 },
+        inspector_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "tls", { MITE_TLS_SOURCE, sizeof(MITE_TLS_SOURCE) - 1 }, tls_exports },
     { "https", { MITE_HTTPS_SOURCE, sizeof(MITE_HTTPS_SOURCE) - 1 }, https_exports },
@@ -464,6 +471,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         auto buffer = TRY(builtin("buffer"));
         host->define_direct_property(
             "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
+    }
+
+    if (name == "inspector") {
+        host->define_direct_property(
+            "native"_utf16, create_inspector_host(m_realm), JS::default_attributes);
     }
 
     if (name == "util") {

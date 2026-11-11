@@ -56,6 +56,7 @@ function(mite_add_runtime target root js_target)
         decompression
         tls
         os
+        inspector
         crypto
         zlib
         readline
@@ -124,6 +125,7 @@ function(mite_add_runtime target root js_target)
         platform/text/Encoding
         # platform/system
         platform/system/OS
+        platform/system/Inspector
         platform/system/OSConstants
         # platform/policy
         platform/policy/Host
@@ -136,7 +138,8 @@ function(mite_add_runtime target root js_target)
         # platform/crypto
         platform/crypto/Crypto
         platform/crypto/CryptoHash
-        platform/crypto/CryptoHmac)
+        platform/crypto/CryptoHmac
+        platform/crypto/CryptoX509)
     set(files)
     foreach(source IN LISTS sources)
         list(APPEND files "${root}/mite/runtime/${source}.cpp")

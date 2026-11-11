@@ -13651,6 +13651,37 @@ request still refuses engine flags, under investigation. The offscreen provider
 correctly refuses macOS Services menu registration; this is not Cocoa acceptance.
 SharedProcess/AgentHost readiness, window-ready and editing remain open.
 
+## 2026-11-11 — Real builtin prerequisites for Code-OSS child imports
+
+The actual AgentHost import rejects node:inspector. Add a native inactive-endpoint
+url() query and maintained ESM inspector facade; open/close/waitForDebugger/Session
+explicitly refuse the absent backend. Importable inactive query is a disclosed
+extension over Node built without inspector, not a fake debugger or V8 dependency.
+
+Static shared-process audit identifies real pre-entry imports: X509Certificate,
+fs/promises.chmod/rm/mkdtemp. Implement genuine OpenSSL PEM/DER certificate parsing,
+canonical PEM/JSON and independent raw DER with 1 MiB input bound; other X509
+operations remain explicit refusals. Add real libuv permission changes, secure
+temporary directories and file/final-symlink removal in sync/callback/Promise forms.
+force ignores only ENOENT; directory rm is ERR_FS_EISDIR, recursive/retry removal
+remains unsupported. Keep Mite independent and reuse existing native providers.
+
+Combined Release host/helper/static-offscreen build passes
+(codeoss-child-builtins-build.log). Focused actual Mite runtime checks pass inactive
+inspector/refusals, owned filesystem mutation, and Node/Mite X509 byte-identical
+canonicalization/ownership/invalid-input checks (codeoss-inspector-native.log,
+codeoss-fs-mutation-native.log, codeoss-x509-native.log). Existing Node filesystem
+reference and generated-source verification pass. No broad local suite or GUI run.
+
+Actual entry restarted offscreen as PID85471 with the current local extension
+adaptation (codeoss-child-builtins-start.log): Main->SharedProcess#connect and
+Renderer->SharedProcess#connect now both report connection established. The real
+watcher channel still connects. AgentHost now rejects node:async_hooks rather than
+inspector; the real extension child now reaches undici and rejects node:querystring
+rather than native fork flags. No SharedProcess service-completeness, window-ready
+or usable editor acceptance is inferred from a port handshake. The offscreen
+macOS menu provider refusal remains intentional and Cocoa interaction is unaccepted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

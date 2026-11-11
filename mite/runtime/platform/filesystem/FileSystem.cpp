@@ -88,9 +88,9 @@ namespace {
         int64_t position { -1 };
         size_t length {};
         int number {};
-        bool recursive {}, with_file_types {};
+        bool recursive {}, with_file_types {}, force {};
         int error {};
-        std::string syscall, error_path, created;
+        std::string syscall, error_path, created, error_code;
         uv_stat_t stat {};
 
         struct Entry {
@@ -268,6 +268,28 @@ namespace {
             return;
         }
 
+        if (op == "rm") {
+            // lstat deliberately does not follow a final symlink. Recursive
+            // deletion is not admitted by the public facade in this slice.
+            FsRequest stat;
+            auto status = uv_fs_lstat(nullptr, &stat.value, path, nullptr);
+            if (status == UV_ENOENT && request.force)
+                return;
+            if (record(request, status, "lstat", request.path) < 0)
+                return;
+            if ((stat.value.statbuf.st_mode & S_IFMT) == S_IFDIR) {
+                record(request, UV_EISDIR, "rm", request.path);
+                request.error_code = "ERR_FS_EISDIR";
+                return;
+            }
+
+            FsRequest unlink;
+            status = uv_fs_unlink(nullptr, &unlink.value, path, nullptr);
+            if (status != UV_ENOENT || !request.force)
+                record(request, status, "unlink", request.path);
+            return;
+        }
+
         if (op == "mkdir" && request.recursive) {
             auto bytes = reinterpret_cast<char8_t const*>(request.path.data());
             mkdir_recursive(
@@ -298,7 +320,15 @@ namespace {
             result = uv_fs_rename(nullptr, &call.value, path, request.dest.c_str(), nullptr);
         else if (op == "mkdir")
             result = uv_fs_mkdir(nullptr, &call.value, path, request.mode, nullptr);
-        else if (op == "rmdir")
+        else if (op == "chmod")
+            result = uv_fs_chmod(nullptr, &call.value, path, request.mode, nullptr);
+        else if (op == "mkdtemp") {
+            // libuv/OS atomically creates one fresh directory; no exists-then-create race.
+            auto pattern = request.path + "XXXXXX";
+            result = uv_fs_mkdtemp(nullptr, &call.value, pattern.c_str(), nullptr);
+            if (!result)
+                request.created = call.value.path;
+        } else if (op == "rmdir")
             result = uv_fs_rmdir(nullptr, &call.value, path, nullptr);
         else if (op == "readdir") {
             result = uv_fs_scandir(nullptr, &call.value, path, 0, nullptr);
@@ -391,8 +421,9 @@ namespace {
                 StringView(uv_strerror(request.error), strlen(uv_strerror(request.error)))));
         error->define_direct_property(
             "errno"_utf16, JS::Value(request.error), JS::default_attributes);
-        error->define_direct_property(
-            "code"_utf16, text(vm, uv_err_name(request.error)), JS::default_attributes);
+        error->define_direct_property("code"_utf16,
+            text(vm, request.error_code.empty() ? uv_err_name(request.error) : request.error_code),
+            JS::default_attributes);
         error->define_direct_property(
             "syscall"_utf16, text(vm, request.syscall), JS::default_attributes);
         if (request.descriptor < 0 && request.syscall != "read" && request.syscall != "write"
@@ -416,6 +447,9 @@ namespace {
             return byte_array(realm, request.data.data(), request.data.size());
         if (request.operation == "readFile" || request.operation == "realpath")
             return byte_array(realm, request.data.data(), request.data.size());
+        if (request.operation == "mkdtemp")
+            return byte_array(realm, reinterpret_cast<unsigned char const*>(request.created.data()),
+                request.created.size());
         if (request.operation == "mkdir" && !request.created.empty())
             return JS::Value(text(vm, request.created));
         if (request.operation == "stat" || request.operation == "lstat"
@@ -552,6 +586,7 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                 request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
                 request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
                 request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
+                request->force = TRY(spec->get("force"_utf16)).to_boolean();
                 request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
                 if (request->operation == "writeFile" || request->operation == "write") {
                     auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));

@@ -999,6 +999,40 @@ function createFileSystemModule(host) {
       spec.mode = mode(opts.mode, 511);
       spec.recursive = !!opts.recursive;
       convert = (value) => value;
+    } else if (op === "chmod") {
+      if (typeof argument !== "number" && typeof argument !== "string") {
+        fail("ERR_INVALID_ARG_TYPE", "mode must be a number or octal string");
+      }
+      spec.mode = mode(argument, 0);
+    } else if (op === "mkdtemp") {
+      const opts = options(argument);
+      const encoding = codec(opts.encoding === void 0 ? "utf8" : opts.encoding, true);
+      convert = (raw) => {
+        let buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        if (windows) {
+          buffer = Buffer.concat([Buffer.from(parentPath), buffer.subarray(-6)]);
+        }
+        return encoding === "buffer" ? buffer : buffer.toString(encoding || "utf8");
+      };
+    } else if (op === "rm") {
+      if (argument !== void 0 && (argument === null || typeof argument !== "object")) {
+        fail("ERR_INVALID_ARG_TYPE", "rm options must be an object");
+      }
+      const opts = options(argument);
+      for (const name of ["force", "recursive"]) {
+        if (opts[name] !== void 0 && typeof opts[name] !== "boolean") {
+          fail("ERR_INVALID_ARG_TYPE", `${name} must be a boolean`);
+        }
+      }
+      for (const name of ["maxRetries", "retryDelay"]) {
+        if (opts[name] !== void 0) {
+          integer(opts[name], 0, 4294967295, name);
+        }
+      }
+      if (opts.recursive || opts.maxRetries || opts.retryDelay) {
+        unsupported("Recursive rm and removal retry options");
+      }
+      spec.force = !!opts.force;
     } else if (op === "rename") {
       spec.dest = nativePath(path(argument));
     } else if (op === "rmdir") {
@@ -1048,7 +1082,7 @@ function createFileSystemModule(host) {
         callback(error2);
         return;
       }
-      if (op === "readFile" || op === "realpath" || op === "stat" || op === "lstat" || op === "readdir" || op === "mkdir" || op === "open" || op === "fstat") {
+      if (op === "readFile" || op === "realpath" || op === "stat" || op === "lstat" || op === "readdir" || op === "mkdir" || op === "mkdtemp" || op === "open" || op === "fstat") {
         callback(null, converted);
       } else {
         callback(null);
@@ -1066,6 +1100,9 @@ function createFileSystemModule(host) {
     "stat",
     "lstat",
     "mkdir",
+    "chmod",
+    "mkdtemp",
+    "rm",
     "rmdir",
     "unlink",
     "rename",
@@ -1472,6 +1509,9 @@ function createFileSystemModule(host) {
     "stat",
     "lstat",
     "mkdir",
+    "chmod",
+    "mkdtemp",
+    "rm",
     "rmdir",
     "unlink",
     "rename",

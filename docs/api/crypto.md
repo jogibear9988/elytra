@@ -311,3 +311,19 @@ See [the HMAC/equality design](../architecture/0071-native-hmac-and-byte-compari
 HMAC/equality exports are included in [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 at `19ad113`, whose native macOS/Linux/Windows Release CLI suites all pass.
 Alpha 1 predates these exports; later changes need their own platform acceptance.
+
+## X509Certificate: canonical certificate data
+
+`new X509Certificate(pemOrDer)` parses real certificate data with OpenSSL.
+Supported inputs are strings and exact ArrayBuffer/typed-array/DataView byte ranges,
+with a 1 MiB input bound. `toString()` and `toJSON()` return canonical PEM;
+`raw` returns an independent Buffer of DER bytes. Mutating input or a returned raw
+buffer does not change the stored certificate. Invalid certificates fail parsing.
+
+This initial subset serves Code-OSS certificate normalization. Subject/issuer,
+identity matching, trust/signature verification, public-key export and other X509
+fields/operations remain explicitly unsupported. Parsing alone does not establish
+trust or HTTPS verification; the existing TLS trust path remains separate.
+The focused Node/Mite fixture passes PEM/DER canonicalization, exact view ranges,
+JSON, storage ownership, invalid data and Mite-specific bounds/receiver checks on
+the current macOS native build. Fresh Linux/Windows X509 acceptance remains pending.

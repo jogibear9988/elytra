@@ -5,7 +5,13 @@
 import createRandomApi from './random.mjs';
 import createDigestApi from './digest.mjs';
 import createWebCrypto from './web-crypto.mjs';
+import createX509 from './x509.mjs';
 
 export default function createCryptoModule(host) {
-  return { ...createRandomApi(host), ...createDigestApi(host), ...createWebCrypto(host) };
+  return {
+    ...createRandomApi(host),
+    ...createDigestApi(host),
+    ...createWebCrypto(host),
+    ...createX509(host)
+  };
 }
