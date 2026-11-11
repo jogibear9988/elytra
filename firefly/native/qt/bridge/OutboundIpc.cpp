@@ -23,7 +23,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::send_ipc_event(JS::VM& vm)
     if (window->ipc_outgoing_failed)
         return preload_error(vm, "ERR_FIREFLY_IPC_REVOKED",
             "Event peer timed out; reload for a new document endpoint"sv);
-    auto bytes = wire_bytes(vm.argument(1), realm);
+    auto bytes = wire_bytes(vm.argument(1), realm, WireValuePolicy::ApplicationMessage);
     if (bytes.is_error()
         || BridgeData::decode_wire(bytes.value().view(), application_ipc_limits()).is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC graph"sv);

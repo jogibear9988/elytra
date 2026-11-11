@@ -205,7 +205,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_ipc(JS::VM& vm
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_decode_ipc(JS::VM& vm)
 {
-    auto wire = wire_bytes(vm.argument(0), realm);
+    auto wire = wire_bytes(vm.argument(0), realm, WireValuePolicy::ApplicationMessage);
     if (wire.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire bytes"sv);
     auto graph = BridgeData::decode_wire(wire.value().view(), application_ipc_limits());
@@ -234,7 +234,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_reply_ipc(JS::VM& vm)
     if (!window.ipc_pending.erase(request))
         return JS::js_undefined();
     --ipc_pending_count;
-    auto wire = wire_bytes(vm.argument(5), realm);
+    auto wire = wire_bytes(vm.argument(5), realm, WireValuePolicy::ApplicationMessage);
     if (wire.is_error()) {
         retire_ipc_channel(id);
         return JS::js_undefined();

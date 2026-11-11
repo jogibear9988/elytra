@@ -25,6 +25,42 @@
 
 namespace Firefly {
 namespace {
+    // Match only known native/startup failures; output never includes source text.
+    void diagnose_source_rejection(JS::Value value)
+    {
+        auto* enabled = std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC");
+        if (!enabled || StringView(enabled, strlen(enabled)) != "1"sv)
+            return;
+        char const* reason = "unclassified";
+        if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
+            auto message = value.as_object().get_without_side_effects("message"_utf16);
+            if (message.is_string()) {
+                auto text = message.as_string().utf16_string_view();
+                if (text
+                    == u"Preload: did not find expected vscode-window-config in renderer process arguments list."sv)
+                    reason = "missing-config-argument";
+                else if (text.ends_with(u"TypeError: webFrame document is revoked"sv))
+                    reason = "zoom-revoked";
+                else if (text.ends_with(u"TypeError: webFrame document was revoked during zoom"sv))
+                    reason = "zoom-revoked-during-call";
+                else if (text.ends_with(u"IPC document channel closed"sv))
+                    reason = "ipc-closed";
+                else if (text.ends_with(u"Invalid IPC reply"sv))
+                    reason = "invalid-ipc-reply";
+                else if (text.ends_with(u"IPC sender frame is no longer active"sv))
+                    reason = "inactive-ipc-frame";
+                else if (text.ends_with(u"IPC result is not supported bounded data"sv))
+                    reason = "unsupported-ipc-result";
+                else if (
+                    text.starts_with(
+                        u"Preload: unable to fetch vscode-window-config: Error: No handler registered for '"sv))
+                    reason = "missing-ipc-handler";
+            }
+        }
+
+        std::fprintf(stderr, "FIREFLY_CONTEXT_SOURCE reason=%s\n", reason);
+    }
+
     // Trusted native stages only: never log source values, error messages or API names.
     void diagnose_promise_failure(char const* stage, Error const* failure = nullptr)
     {
@@ -163,7 +199,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
         1, "fireflyPromiseFulfilled"_utf16, GC::Ptr<JS::Realm> { target }) };
     GC::Root rejected { JS::NativeFunction::create(target,
         GC::create_function((target).vm().heap(), GC::captures(owner, id),
-            [](auto& owner, auto& id, JS::VM&) {
+            [](auto& owner, auto& id, JS::VM& inner) {
+                diagnose_source_rejection(inner.argument(0));
                 return owner->settle(id, false, JS::js_undefined());
             }),
         1, "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };

@@ -1,6 +1,7 @@
 #include "BridgeDataTest.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
+#include "serialization/WireValue.h"
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Error.h>
@@ -252,9 +253,19 @@ ErrorOr<void> check_large_bridge_catalog(
         return Error::from_string_literal("Default capture unexpectedly admitted full catalog");
     auto graph = TRY(Firefly::BridgeData::capture_ipc(configuration.value(), source, limits));
     auto wire = TRY(graph.encode_wire(limits));
+    auto wrapped = Firefly::wire_value(source, wire);
+    if (wrapped.is_error())
+        return Error::from_string_literal("Catalog native wire view construction failed");
+    auto wire_root = GC::Root<JS::Value>::create(wrapped.value(), SourceLocation::current());
+    if (!Firefly::wire_bytes(wrapped.value(), source).is_error())
+        return Error::from_string_literal("Single-frame wire policy admitted full catalog");
+    auto extracted = TRY(
+        Firefly::wire_bytes(wrapped.value(), source, Firefly::WireValuePolicy::ApplicationMessage));
+    if (extracted != wire)
+        return Error::from_string_literal("Catalog native wire view changed payload");
     if (!Firefly::BridgeData::decode_wire(wire, Firefly::public_binary_limits()).is_error())
         return Error::from_string_literal("Default wire policy unexpectedly admitted full catalog");
-    auto decoded = TRY(Firefly::BridgeData::decode_wire(wire, limits));
+    auto decoded = TRY(Firefly::BridgeData::decode_wire(extracted, limits));
     vm.heap().collect_garbage();
     auto copy = decoded.materialize(target, {}, Firefly::BridgeData::Materialization::Mutable);
     if (copy.is_error())

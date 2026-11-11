@@ -12974,6 +12974,33 @@ not touched. Next batched direct start should use the same private profile,
 VSCODE_DEV=1, ELYTRA_CODE_OSS_LOCAL_DESKTOP=1, FIREFLY_IPC_BYTES_DIAGNOSTIC=1 and
 --disable-crash-reporter, then classify the actual native stage before fixing it.
 
+## 2026-11-11 — Preserve large application wire values through native JS views
+
+Static review finds the concrete remaining128KiB boundary in WireValue::wire_bytes.
+Native main replyIpc silently retires the document channel when that adapter rejects
+its large Uint8Array, explaining a source Promise failure without an encode-stage
+failure. Introduce an explicit ApplicationMessage native policy for application
+host decode/reply/outbound paths; preserve the SingleFrame default for utilities
+and main-only ports. No JS caller can select the native policy directly.
+
+Extend the actual NLS fixture through wire_value and wire_bytes, requiring the old
+default to reject and the application policy to preserve all7,490,980bytes before
+decode and real async contextBridge publication. Combined Release build and focused
+native fixture pass (codeoss-wire-boundary-utility-build.log,
+codeoss-native-wire-value-catalog.log). Add allowlisted native source-Error reason comparisons;
+never log source text/API names or run error accessors. Fixed-stage main
+missing-handler/inactive-frame diagnostics are batched with the next utility step. Ordinary rejection stays
+sanitized. Bundle verification and host/helper builds pass.
+
+The refreshed direct app start now passes configuration and reaches actual
+workbench.desktop.main module imports (codeoss-wire-value-direct.log). It fails
+fetching the17th direct module import; the3,097bytefile exists and the SDK error
+branch proves fetch/module-map/MIME failure rather than syntax failure. No config
+warning or bridge/IPCfailure diagnostic occurs. Secondary openDevTools is unsupported
+and is not the cause. Main45021/helper45032 were observed; only that failed owned
+processgroup was then terminated. Next work is bounded queuing behind the eight
+active custom-resource fetch slots; no working editor/workbench-ready claim.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

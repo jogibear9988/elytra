@@ -360,3 +360,9 @@ Native probes check fixed application framing, byte limits and private wire extr
 without property hooks. The document-channel batch also sends real unknown-realm,
 wrong-document and duplicate native handles and requires each to be closed without
 an application packet. These local macOS tests are not general platform certification.
+
+The private native wire-view adapter has a distinct application-message policy:
+large invoke/reply/send graphs can pass through the host's Uint8Array storage up
+to the logical bound. Utility and main-only port callers keep the single-frame
+default. The actual catalog check includes this adapter as well as graph encoding;
+a graph-only roundtrip does not verify the full host boundary.
