@@ -318,6 +318,9 @@ namespace {
             result = uv_fs_unlink(nullptr, &call.value, path, nullptr);
         else if (op == "rename")
             result = uv_fs_rename(nullptr, &call.value, path, request.dest.c_str(), nullptr);
+        else if (op == "copyfile")
+            result = uv_fs_copyfile(
+                nullptr, &call.value, path, request.dest.c_str(), request.flags, nullptr);
         else if (op == "mkdir")
             result = uv_fs_mkdir(nullptr, &call.value, path, request.mode, nullptr);
         else if (op == "chmod")
@@ -430,7 +433,7 @@ namespace {
             && request.syscall != "close")
             error->define_direct_property(
                 "path"_utf16, text(vm, display_path(request.error_path)), JS::default_attributes);
-        if (request.operation == "rename")
+        if (request.operation == "rename" || request.operation == "copyfile")
             error->define_direct_property(
                 "dest"_utf16, text(vm, display_path(request.dest)), JS::default_attributes);
         return error;
@@ -511,6 +514,12 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
     CONSTANT(O_TRUNC);
     CONSTANT(O_APPEND);
     constants->define_direct_property(
+        "COPYFILE_EXCL"_utf16, JS::Value(UV_FS_COPYFILE_EXCL), JS::Attribute::Enumerable);
+    constants->define_direct_property(
+        "COPYFILE_FICLONE"_utf16, JS::Value(UV_FS_COPYFILE_FICLONE), JS::Attribute::Enumerable);
+    constants->define_direct_property("COPYFILE_FICLONE_FORCE"_utf16,
+        JS::Value(UV_FS_COPYFILE_FICLONE_FORCE), JS::Attribute::Enumerable);
+    constants->define_direct_property(
         "O_SYNC"_utf16, JS::Value(UV_FS_O_SYNC), JS::Attribute::Enumerable);
     CONSTANT(F_OK);
     CONSTANT(R_OK);
@@ -562,7 +571,7 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                 if (request->path.find('\0') != std::string::npos)
                     return vm.throw_completion<JS::TypeError>(
                         "Invalid private filesystem path"_utf16);
-                if (request->operation == "rename") {
+                if (request->operation == "rename" || request->operation == "copyfile") {
                     request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
                     if (request->dest.find('\0') != std::string::npos)
                         return vm.throw_completion<JS::TypeError>(
@@ -585,6 +594,13 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                     request->length = TRY(length.to_u32(vm));
                 request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
                 request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
+                if (request->operation == "copyfile"
+                    && (request->flags < 0
+                        || (request->flags
+                            & ~(UV_FS_COPYFILE_EXCL | UV_FS_COPYFILE_FICLONE
+                                | UV_FS_COPYFILE_FICLONE_FORCE))))
+                    return vm.throw_completion<JS::RangeError>(
+                        "Invalid private copyfile flags"_utf16);
                 request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
                 request->force = TRY(spec->get("force"_utf16)).to_boolean();
                 request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();

@@ -370,8 +370,18 @@ export default function createFileSystemModule(host) {
         unsupported('Recursive rm and removal retry options');
       }
       spec.force = !!opts.force;
-    } else if (op === 'rename') {
+    } else if (op === 'rename' || op === 'copyfile') {
       spec.dest = nativePath(path(argument));
+      if (op === 'copyfile') {
+        if (data !== undefined && data !== null && typeof data !== 'number') {
+          fail('ERR_INVALID_ARG_TYPE', 'mode must be a number');
+        }
+        const flags = data == null ? 0 : Math.trunc(data);
+        if (!Number.isFinite(flags) || flags < 0 || flags > 7) {
+          fail('ERR_OUT_OF_RANGE', 'mode must contain only COPYFILE flags', RangeError);
+        }
+        spec.flags = flags;
+      }
     } else if (op === 'rmdir') {
       if (options(argument).recursive) {
         unsupported('Recursive rmdir');
@@ -488,6 +498,16 @@ export default function createFileSystemModule(host) {
       };
     }
   }
+
+  fs.copyFileSync = (src, dest, mode) => sync('copyfile', src, dest, mode);
+
+  fs.copyFile = function (src, dest, mode, callback) {
+    if (typeof mode === 'function') {
+      callback = mode;
+      mode = undefined;
+    }
+    callbackOperation('copyfile', src, dest, mode, callback);
+  };
 
   // Both public forms use the platform canonicalizer; no JS symlink-walking fallback.
   const realpathCallback = fs.realpath;
@@ -922,6 +942,7 @@ export default function createFileSystemModule(host) {
     'rmdir',
     'unlink',
     'rename',
+    'copyFile',
     'readdir'
   ]) {
     promises[op] = function (...args) {

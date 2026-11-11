@@ -140,3 +140,20 @@ in the [runtime reference](mite.md). Promisify adds no text codec implementation
 
 See [ADR 0110](../architecture/0110-promisify-callback-results.md) and the
 [Node 24.15 util contract](https://nodejs.org/download/release/v24.15.0/docs/api/util.html#utilpromisifyoriginal).
+
+## Bounded inspection and formatting
+
+`inspect`, `format` and `formatWithOptions` now format real primitives, ordinary
+own-data objects, arrays, Map/Set, dates, regular expressions and cycles.
+`inspect.custom` is the registered `Symbol.for('nodejs.util.inspect.custom')`.
+Prototype data-method hooks receive the actual receiver, remaining depth, copied
+options and the same inspect callback; getters are not executed to find a hook.
+Self-returning hooks fall back to normal data inspection.
+
+A shared nested budget limits inspection to 4096 nodes, 16,384 properties,
+64 nesting levels, 256 custom hooks and 1 MiB output. Colors, hidden/proxy/getter
+inspection, numeric separators, binary/Promise/internal Error-stack and other
+advanced formatting remain explicit refusals. This is a partial formatter, not V8
+introspection. Selected actual Node/Mite output and an Undici-shaped private-Map
+custom inspector pass on the current macOS build; fresh platform acceptance remains
+pending.

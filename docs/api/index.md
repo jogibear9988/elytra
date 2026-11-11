@@ -63,6 +63,8 @@ The [Blob/File/FormData reference](blob-formdata.md) covers immutable bytes, fil
 metadata, multipart uploads and body consumers.
 The [decompression reference](decompression.md) describes native Web Stream gzip/
 deflate decoding, automatic Fetch content handling, pressure and integrity limits.
+The [file-copy reference](fs-copy-file.md) covers real sync/callback/Promise copy,
+clone flags and destination error behavior.
 The [filesystem mutation reference](filesystem-mutations.md) covers real chmod,
 secure mkdtemp and bounded nonrecursive rm.
 The [filesystem event reference](event-watcher.md) covers fs.watch, native events,

@@ -1033,8 +1033,18 @@ function createFileSystemModule(host) {
         unsupported("Recursive rm and removal retry options");
       }
       spec.force = !!opts.force;
-    } else if (op === "rename") {
+    } else if (op === "rename" || op === "copyfile") {
       spec.dest = nativePath(path(argument));
+      if (op === "copyfile") {
+        if (data !== void 0 && data !== null && typeof data !== "number") {
+          fail("ERR_INVALID_ARG_TYPE", "mode must be a number");
+        }
+        const flags2 = data == null ? 0 : Math.trunc(data);
+        if (!Number.isFinite(flags2) || flags2 < 0 || flags2 > 7) {
+          fail("ERR_OUT_OF_RANGE", "mode must contain only COPYFILE flags", RangeError);
+        }
+        spec.flags = flags2;
+      }
     } else if (op === "rmdir") {
       if (options(argument).recursive) {
         unsupported("Recursive rmdir");
@@ -1132,6 +1142,14 @@ function createFileSystemModule(host) {
       };
     }
   }
+  fs.copyFileSync = (src, dest, mode2) => sync("copyfile", src, dest, mode2);
+  fs.copyFile = function(src, dest, mode2, callback) {
+    if (typeof mode2 === "function") {
+      callback = mode2;
+      mode2 = void 0;
+    }
+    callbackOperation("copyfile", src, dest, mode2, callback);
+  };
   const realpathCallback = fs.realpath;
   const realpathSync = fs.realpathSync;
   fs.realpath.native = (...args) => realpathCallback(...args);
@@ -1515,6 +1533,7 @@ function createFileSystemModule(host) {
     "rmdir",
     "unlink",
     "rename",
+    "copyFile",
     "readdir"
   ]) {
     promises[op] = function(...args) {

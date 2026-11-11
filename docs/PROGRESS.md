@@ -13795,6 +13795,28 @@ are undici's util.inspect.custom and the agent graph's missing copyFileSync expo
 expected. No editor/extension activation/agent diff/network acceptance is claimed;
 no broad local suite or GUI run.
 
+## 2026-11-11 — Real custom inspection and file-copy imports
+
+The actual extension child reaches util.inspect.custom in Undici Headers, and
+the agent graph rejects the missing copyFileSync export. Implement genuine bounded
+inspect/format/formatWithOptions, registered custom symbol, real receiver/options/
+callback dispatch, own-data formatting, Map/Set/cycles and native date/regexp values.
+Do not introduce an inspect-shaped placeholder; unsupported advanced introspection
+fails explicitly and nested calls share resource limits.
+
+Add actual uv_fs_copyfile through the existing filesystem worker/context pipeline,
+with sync/callback/Promise forms, snapshotted paths, EXCL/FICLONE/FICLONE_FORCE
+constants, native errors and destination metadata. Preserve real forced-clone
+failures, including libuv destination removal behavior; no atomic/recursive promise.
+
+Native strict compilation and focused Node reference fixtures pass. Combined
+Release host/helper/offscreen build passes (codeoss-inspect-copy-build.log).
+Actual Mite fixtures pass real formatter/custom hooks and copy bytes/flags/errors/
+path ownership/async context (codeoss-inspect-native.log,
+codeoss-copy-file-native.log). No broad local suite or GUI run. A read-only actual
+agent-graph audit identifies remaining eager filesystem/key/trust imports; future
+implementations must be real operations, especially signature verification.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

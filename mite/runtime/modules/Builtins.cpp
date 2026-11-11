@@ -69,18 +69,18 @@ static constexpr std::string_view path_exports[] = { "resolve", "normalize", "is
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
 static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer", "Blob", "File" };
-static constexpr std::string_view fs_exports[]
-    = { "open", "openSync", "close", "closeSync", "read", "readSync", "write", "writeSync", "fstat",
-          "fstatSync", "ftruncate", "ftruncateSync", "fsync", "fsyncSync", "fdatasync",
-          "fdatasyncSync", "constants", "Stats", "Dirent", "promises", "readFile", "readFileSync",
-          "writeFile", "writeFileSync", "appendFile", "appendFileSync", "access", "accessSync",
-          "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync", "mkdir", "mkdirSync",
-          "chmod", "chmodSync", "mkdtemp", "mkdtempSync", "rm", "rmSync", "rmdir", "rmdirSync",
-          "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync", "WriteStream",
-          "createWriteStream", "watchFile", "unwatchFile", "watch", "realpath", "realpathSync" };
-static constexpr std::string_view fs_promises_exports[]
-    = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
-          "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath" };
+static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", "closeSync", "read",
+    "readSync", "write", "writeSync", "fstat", "fstatSync", "ftruncate", "ftruncateSync", "fsync",
+    "fsyncSync", "fdatasync", "fdatasyncSync", "constants", "Stats", "Dirent", "promises",
+    "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
+    "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
+    "mkdir", "mkdirSync", "chmod", "chmodSync", "mkdtemp", "mkdtempSync", "rm", "rmSync", "rmdir",
+    "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync",
+    "WriteStream", "createWriteStream", "watchFile", "unwatchFile", "watch", "realpath",
+    "realpathSync", "copyFile", "copyFileSync" };
+static constexpr std::string_view fs_promises_exports[] = { "open", "constants", "readFile",
+    "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "chmod", "mkdtemp", "rm",
+    "rmdir", "unlink", "rename", "readdir", "realpath", "copyFile" };
 static constexpr std::string_view async_hooks_exports[] = { "AsyncLocalStorage", "AsyncResource",
     "executionAsyncId", "triggerAsyncId", "executionAsyncResource", "createHook" };
 static constexpr std::string_view querystring_exports[]
@@ -89,7 +89,8 @@ static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[]
-    = { "TextEncoder", "TextDecoder", "promisify", "inherits", "types", "debuglog", "debug" };
+    = { "TextEncoder", "TextDecoder", "promisify", "inherits", "types", "debuglog", "debug",
+        "inspect", "format", "formatWithOptions" };
 static constexpr std::string_view util_types_exports[]
     = { "isArrayBuffer", "isSharedArrayBuffer", "isAnyArrayBuffer", "isArrayBufferView",
           "isTypedArray", "isUint8Array", "isDataView", "isProxy", "isPromise" };
