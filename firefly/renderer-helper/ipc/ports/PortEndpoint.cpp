@@ -17,6 +17,7 @@
 #include <LibWeb/HTML/Scripting/Environments.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/HTML/Window.h>
+#include <limits>
 
 namespace Firefly {
 namespace {
@@ -159,6 +160,9 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
     if (packet.kind == P::Kind::Ack) {
         if (!m_ledger.acknowledge(packet.route, P::read_size(packet.payload)))
             return false;
+        if (ipc_bytes_diagnostics_enabled()
+            && found->value.diagnostic_acks != std::numeric_limits<u64>::max())
+            ++found->value.diagnostic_acks;
         flush();
         return true;
     }
@@ -307,12 +311,15 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
             // Fixed enums and bounded counters only. Do not log application
             // payloads, URLs, document/capability identities or environment data.
             warnln("FIREFLY_PORT_REFUSAL reason={} frame_bytes={} route_waiting={} route_bytes={} "
-                   "endpoint_bytes={} control_bytes={} physical_waiting={} send_credit={}",
+                   "endpoint_bytes={} control_bytes={} physical_waiting={} send_credit={} "
+                   "sent_total={} ack_total={}",
                 refusal, frame_bytes, found == m_routes.end() ? 0 : found->value.outgoing.size(),
                 found == m_routes.end() ? 0 : found->value.outgoing_bytes, m_outgoing_bytes,
                 m_control_bytes, m_endpoint.m_byte_queue.size(),
                 found != m_routes.end() && !encoded.is_error()
-                    && m_ledger.can_send(identity, frame_bytes));
+                    && m_ledger.can_send(identity, frame_bytes),
+                found == m_routes.end() ? 0 : found->value.diagnostic_sent,
+                found == m_routes.end() ? 0 : found->value.diagnostic_acks);
         }
 
         warnln("ERR_FIREFLY_PORT_LIMIT: DOM port queue exhausted");
@@ -389,6 +396,9 @@ void PortEndpoint::flush()
             route.outgoing_bytes -= wire.length();
             m_outgoing_bytes -= wire.length();
             m_ledger.sent(identity, wire.length());
+            if (ipc_bytes_diagnostics_enabled()
+                && route.diagnostic_sent != std::numeric_limits<u64>::max())
+                ++route.diagnostic_sent;
             if (!send(P::Kind::Data, identity, wire.bytes())) {
                 m_endpoint.retire_channel();
                 return;

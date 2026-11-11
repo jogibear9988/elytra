@@ -260,8 +260,19 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         return JS::Value(invalid);
     Ports::Identity route { *route_id, *generation };
     auto live = state->renderer_ports.state(route);
-    if (live == Ports::Ledger::State::Retired)
+    if (live == Ports::Ledger::State::Retired) {
+        // A peer Close can overtake the queued JavaScript consumption callback.
+        // This exact known route is already canceled: ignore late consume/close
+        // controls without emitting an ACK or refunding any other reservation.
+        // Unknown identities and wrong generations remain invalid below; data
+        // sends never report successful admission to a retired route.
+        if (action == 1)
+            return JS::Value(positive(vm.argument(4), ApplicationIpc::wire_limit).has_value()
+                    ? success
+                    : invalid);
         return JS::Value(action == 2 ? success : retired);
+    }
+
     if (live != Ports::Ledger::State::Live)
         return JS::Value(invalid);
     if (state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit)

@@ -59,6 +59,8 @@ private:
         Vector<ByteString> outgoing;
         size_t outgoing_bytes { 0 };
         u64 dequeued { 0 };
+        u64 diagnostic_sent { 0 };
+        u64 diagnostic_acks { 0 };
         bool peer_closed { false };
         bool close_requested { false };
     };

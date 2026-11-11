@@ -120,6 +120,42 @@ app
       'PASS renderer ports: real principal DOM pair, delayed start, 32 binary FIFO snapshots and ordered close'
     );
 
+    // A previous peer close must not poison the document-level transport when
+    // its last already-delivered message produces a late consumption control.
+    // This new same-document route exercises that exact native lifetime boundary.
+    const burst = new MessageChannelMain();
+    let burstReceived = 0;
+    let burstClosed = false;
+
+    burst.port1.on('message', ({ data }) => {
+      try {
+        check(data.kind === 'burst' && data.index === burstReceived, 'DOM burst FIFO');
+        check(data.payload === 'c'.repeat(600), 'DOM burst payload bytes');
+        ++burstReceived;
+      } catch (error) {
+        fail(error);
+      }
+    });
+
+    burst.port1.once('close', () => {
+      try {
+        check(burstReceived === 64, 'Burst delivery precedes close');
+        burstClosed = true;
+      } catch (error) {
+        fail(error);
+      }
+    });
+
+    window.webContents.postMessage('handoff', 'burst', [burst.port2]);
+    await until(() => reports.some((value) => value.phase === 'burst'));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    check(burstReceived === 0 && !burstClosed, 'No consumption before actual main start');
+    burst.port1.start();
+    await until(() => burstReceived === 64 && burstClosed);
+    console.log(
+      'PASS renderer ports: 64-message DOM burst waits for real consumption then drains FIFO and closes'
+    );
+
     child = utilityProcess.fork(path.join(import.meta.dirname, 'child.mjs'), [], { stdio: 'pipe' });
     child.on('error', fail);
     let stderr = '';

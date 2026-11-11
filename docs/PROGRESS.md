@@ -13976,6 +13976,27 @@ codeoss-worker-gate-native.log, codeoss-system-ca-native.log). The no-import inf
 loop is interrupted and joined. Native Linux/Windows acceptance remains open.
 These are genuine worker operations, not full Node worker/structured-clone parity.
 
+## 2026-11-11 — Preserve document links across canceled port consumption
+
+The new real same-document burst gate exposed a close/consume race: a native Close
+retired the route before queued JavaScript dequeue acknowledgements completed;
+the late consume status then poisoned the entire cached document link. Treat only
+valid consumption of an exact already-retired route as canceled success. Emit no
+ACK, refund no credit and do not admit sends. Unknown identities, wrong generations,
+invalid sizes and document/epoch failures remain refused.
+
+Release build passes (codeoss-port-retirement-build.log). The actual offscreen
+batch passes all three groups: existing principal pair/binary ownership, a genuine
+64-message small DOM burst with delayed consumption and ordered close, then actual
+utility/native DOM relay and PID retirement (codeoss-port-burst-fixed-native.log).
+New scalar sent/ACK counters count only actual ledger send/authenticated FIFO ACK.
+
+Actual latest CodeOSS still exceeds the 64-message renderer waiting cap, but now
+proves receiver progress: 19 sent / 3 acknowledged, 64 waiting / 55,385 bytes and
+no physical backlog (codeoss-native-workers-start.log). This is separate bounded
+startup-burst pressure; no credit or byte budget was changed in this commit. No
+physical GUI interaction was performed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

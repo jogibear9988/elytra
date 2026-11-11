@@ -45,13 +45,14 @@ def main():
         )
         try:
             stdout, stderr = process.communicate(timeout=40)
-            assert process.returncode == 0 and stdout.count("PASS renderer ports:") == 2, (
+            assert process.returncode == 0 and stdout.count("PASS renderer ports:") == 3, (
                 command,
                 process.returncode,
                 stdout,
                 stderr,
             )
             assert "VERIFICATION FAILED" not in stderr, stderr
+            assert "ERR_FIREFLY_PORT_LIMIT" not in stderr, stderr
             print("Firefly offscreen: " + stdout.strip())
         finally:
             stop(process)
