@@ -13088,6 +13088,21 @@ burst mode passes64HEAD requests with one queued abort, exactly63parent
 this change. Actual complete Workbench graph acceptance remains the next combined
 application step.
 
+## 2026-11-11 — Keep Linux profile acceptance independent of Cocoa-only theme
+
+Engine04287d5 Linuxrun42931263994/job130230296830 passes the formerly failing
+IPC event and outbound gates. Its next failure is the app-paths fixture calling
+a nativeTheme API that Linux explicitly does not implement. Retain every profile,
+cookie/storage, language, sandbox/PID and real file/database assertion; check
+explicit theme setter/getter ERR_FIREFLY_UNSUPPORTED_API on non-macOS in both write
+and read launches. Cocoa retains exact dark-page and persisted preference checks.
+Do not weaken isolation or invent a Linux theme implementation.
+
+JS/Python syntax, formatting and diff checks pass; no GUI/build/broad test is run
+for this fixture repair. Subsequent workflow gates were read for another obvious
+Cocoa-only theme dependency; none was found. Fresh hosted Linux execution remains
+required; no Linux native-theme support is advertised.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
