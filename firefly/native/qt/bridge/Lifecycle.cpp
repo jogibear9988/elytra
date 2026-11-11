@@ -46,6 +46,20 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
             metadata.set("triggeredByAccelerator"sv, (modifiers & 16) != 0);
             enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
         });
+    dock_menu = std::make_unique<ApplicationMenu>(
+        *context,
+        [this](int generation, int command, bool checked, QWidget*, int modifiers) {
+            if (stopping)
+                return;
+            JsonObject metadata;
+            metadata.set("generation"sv, generation);
+            metadata.set("command"sv, command);
+            metadata.set("checked"sv, checked);
+            metadata.set("modifiers"sv, modifiers & 15);
+            metadata.set("triggeredByAccelerator"sv, (modifiers & 16) != 0);
+            enqueue(0, "dock-menu-click", metadata.serialized().to_byte_string());
+        },
+        true);
     ipc_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [this] {
         expire_ipc_events();
         expire_permissions();
@@ -114,6 +128,8 @@ void Bridge::Impl::stop()
         network_state->stop();
     if (application_menu)
         application_menu->stop();
+    if (dock_menu)
+        dock_menu->stop();
     while (!windows.empty())
         close_contents(windows.begin()->first, true);
     context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.

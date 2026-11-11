@@ -228,6 +228,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     size_t ipc_outgoing_count { 0 };
     RefPtr<Core::Timer> ipc_timer;
     std::unique_ptr<ApplicationMenu> application_menu;
+    std::unique_ptr<ApplicationMenu> dock_menu;
     Tracing::Recorder tracing;
     SandboxPolicy::Policy sandbox;
     RefPtr<Protocols::FileRoutes> protocols;

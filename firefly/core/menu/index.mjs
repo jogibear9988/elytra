@@ -17,6 +17,9 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
   const menuState = new WeakMap();
   const itemState = new WeakMap();
   let current = null;
+  let dockCurrent = null;
+  let dockGeneration = 0;
+  let dockCommands = new Map();
   const building = new Set();
   let generation = 0;
   let nextCommand = 0;
@@ -116,6 +119,11 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     }
     const snapshot =
       menu === null ? { items: null, map: new Map(), menus: new Set() } : graph(menu);
+    for (const command of snapshot.map.keys()) {
+      if (dockCommands.has(command)) {
+        unsupported('sharing an installed application and Dock menu');
+      }
+    }
     const wire = JSON.stringify({ schema: 1, generation: generation + 1, items: snapshot.items });
     if (wire.length > 64 * 1024) {
       throw error('ERR_OUT_OF_RANGE', 'Menu wire budget exceeded');
@@ -126,6 +134,44 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     commands = snapshot.map;
   }
 
+  function installDock(menu) {
+    if (!menuState.has(menu)) {
+      throw error('ERR_INVALID_ARG_TYPE', 'Dock menu must be a Menu');
+    }
+    if (
+      typeof native.dockMenuApply !== 'function' ||
+      typeof native.dockMenuAvailable !== 'function' ||
+      !native.dockMenuAvailable()
+    ) {
+      unsupported('app.dock.setMenu provider');
+    }
+    if (dockGeneration === 2147483647) {
+      throw error('ERR_OUT_OF_RANGE', 'Dock menu generation exhausted');
+    }
+    const snapshot = graph(menu);
+    for (const [command, entry] of snapshot.map) {
+      if (commands.has(command)) {
+        unsupported('sharing an installed application and Dock menu');
+      }
+      const data = itemState.get(entry.item);
+      if (data.accelerator != null || menuRoles.has(data.role)) {
+        unsupported('Dock menu accelerator/native submenu role');
+      }
+    }
+    const wire = JSON.stringify({
+      schema: 1,
+      generation: dockGeneration + 1,
+      items: snapshot.items
+    });
+    if (wire.length > 64 * 1024) {
+      throw error('ERR_OUT_OF_RANGE', 'Dock menu wire budget exceeded');
+    }
+    native.dockMenuApply(wire);
+    ++dockGeneration;
+    dockCurrent = menu;
+    dockCommands = snapshot.map;
+  }
+
   function update(item, key, value) {
     const data = itemState.get(item);
     const previous = data[key];
@@ -133,6 +179,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     try {
       if (current && commands.has(data.command)) {
         install(current);
+      } else if (dockCurrent && dockCommands.has(data.command)) {
+        installDock(dockCurrent);
       }
     } catch (failure) {
       data[key] = previous;
@@ -358,7 +406,10 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       if (!Number.isInteger(position) || position < 0 || position > list.length) {
         throw error('ERR_OUT_OF_RANGE', 'Invalid menu insertion index');
       }
-      if (current && graph(current).menus.has(this)) {
+      if (
+        (current && graph(current).menus.has(this)) ||
+        (dockCurrent && graph(dockCurrent).menus.has(this))
+      ) {
         unsupported('structural changes to an installed application menu');
       }
       if (data.parent) {
@@ -384,15 +435,44 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       return null;
     }
   }
+  const dock = {
+    setMenu(menu) {
+      if (this !== dock) {
+        throw error('ERR_INVALID_ARG_TYPE', 'Illegal Dock receiver');
+      }
+      installDock(menu);
+    },
+
+    getMenu() {
+      if (this !== dock) {
+        throw error('ERR_INVALID_ARG_TYPE', 'Illegal Dock receiver');
+      }
+      return dockCurrent;
+    }
+  };
+  for (const method of [
+    'bounce',
+    'cancelBounce',
+    'downloadFinished',
+    'setBadge',
+    'getBadge',
+    'hide',
+    'show',
+    'isVisible',
+    'setIcon'
+  ]) {
+    dock[method] = () => unsupported('app.dock.' + method);
+  }
   return {
     Menu,
     MenuItem,
+    dock,
 
-    dispatch(windowId, event) {
-      if (event.generation !== generation) {
+    dispatch(windowId, event, dockEvent = false) {
+      if (event.generation !== (dockEvent ? dockGeneration : generation)) {
         return;
       }
-      const found = commands.get(event.command);
+      const found = (dockEvent ? dockCommands : commands).get(event.command);
       if (!found?.eligible) {
         return;
       }

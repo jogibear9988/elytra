@@ -12,6 +12,20 @@ bool activation_is_keyboard()
     return false;
 }
 
+bool dock_available()
+{
+    return false;
+}
+
+bool install_dock(QMenu&)
+{
+    return false;
+}
+
+void clear_dock()
+{
+}
+
 bool bind(QMenu&, QString const&)
 {
     return false;

@@ -152,3 +152,20 @@ the existing controlled Node menu policy. The native Release host/helper build
 passes. A single actual Cocoa Code-OSS launch stops earlier at app.dock.setMenu
 and a renderer splash-copy mutation, so it does not yet accept the new native role
 registration, physical shortcuts or editing actions. No additional GUI suite is run.
+
+## macOS Dock menu
+
+`app.dock.setMenu(menuOrNull)` and `app.dock.getMenu()` now have an owned native
+implementation. Dock roots may contain normal leaf items; role/accelerator Dock
+items remain refused. The Dock menu has separate native generations and event
+routing from the application menu. Sharing installed item ownership between both
+menus is rejected. Property updates republish the current tree; failed replacement
+preserves its previous native/JS state. Clearing/shutdown restores a preceding
+native registration only while the installed Dock menu is still Firefly-owned.
+
+The provider calls genuine QMenu.setAsDockMenu on Cocoa. It validates the Qt native
+delegate registration interface and does not leave Qt's retained native menu behind
+after teardown. Offscreen/Linux providers refuse explicitly. Bounce, badge, icon,
+show/hide and other Dock methods remain unsupported. Controlled policy and native
+compilation are separate from native Dock click/construction acceptance, which
+remains pending; no additional Cocoa session is run in this slice.

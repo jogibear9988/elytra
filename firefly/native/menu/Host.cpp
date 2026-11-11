@@ -9,8 +9,38 @@
 #include <LibJS/Runtime/ValueInlines.h>
 
 namespace Firefly {
-void install_menu_host(JS::Realm& realm, JS::Object& host, ApplicationMenu& menu)
+void install_menu_host(
+    JS::Realm& realm, JS::Object& host, ApplicationMenu& menu, ApplicationMenu* dock)
 {
+    host.define_native_function(
+        realm, "dockMenuAvailable"_utf16,
+        +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+            return JS::Value(MenuRoles::dock_available());
+        },
+        0, JS::default_attributes);
+    if (dock) {
+        host.define_native_function(realm, "dockMenuApply"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(*dock)),
+                [](auto& dock_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& dock = *TRY(Firefly::live_native_capture(vm, dock_capture));
+                    if (!vm.argument(0).is_string()
+                        || vm.argument(0).as_string().length_in_utf16_code_units() > 65536)
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid Dock menu metadata"_utf16);
+                    auto bytes = vm.argument(0).as_string().utf16_string_view().to_utf8();
+                    QString failure;
+                    if (bytes.is_error()
+                        || !dock.apply(QByteArray(bytes.value()
+                                                      .bytes_as_string_view()
+                                                      .characters_without_null_termination(),
+                                           bytes.value().byte_count()),
+                            failure))
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid or unsupported native Dock menu"_utf16);
+                    return JS::js_undefined();
+                }),
+            1, JS::default_attributes);
+    }
     host.define_native_function(
         realm, "menuRoleAvailable"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

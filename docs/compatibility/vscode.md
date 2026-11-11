@@ -30,8 +30,10 @@ The contextBridge binary ceiling now matches application IPC at 1 MiB, and the
 pinned deviceid package uses genuine asynchronous uuid14 and native file storage.
 A bounded renderer FIFO now retains startup bursts before native admission. The
 next actual run has no contextBridge failures and reaches configuration reads and
-menu construction. Current concrete errors are MenuItem accelerator support and
-implicit AgentHost utility engine flags. SharedProcess service readiness,
+menu construction. Menu accelerators/roles and a native Dock menu are implemented but await Cocoa
+interaction acceptance. Mutable result copies now pass saved-splash startup, and
+the real AgentHost child starts then rejects missing node:inspector. Another
+renderer utility request still rejects engine flags. SharedProcess service readiness,
 window-ready and open/edit/save remain unaccepted.
 
 The former graph hang was caused by empty JavaScript responses completing before

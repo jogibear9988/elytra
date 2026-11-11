@@ -6,6 +6,10 @@
 #include <QThread>
 #include <array>
 
+@protocol FireflyNativeDockDelegate <NSObject>
+@property (nonatomic, retain) NSMenu* dockMenu;
+@end
+
 namespace Firefly::MenuRoles {
 namespace {
     struct Registration {
@@ -14,6 +18,8 @@ namespace {
     };
 
     std::array<Registration, 3> registrations;
+    Registration dock;
+    __weak id<FireflyNativeDockDelegate> dock_delegate;
 
     NSMenu* current(size_t index)
     {
@@ -44,6 +50,42 @@ bool available()
 bool activation_is_keyboard()
 {
     return available() && NSApp.currentEvent && NSApp.currentEvent.type == NSEventTypeKeyDown;
+}
+
+bool dock_available()
+{
+    return available() && [NSApp.delegate respondsToSelector:@selector(dockMenu)] &&
+        [NSApp.delegate respondsToSelector:@selector(setDockMenu:)];
+}
+
+bool install_dock(QMenu& menu)
+{
+    if (!dock_available())
+        return false;
+    auto delegate = (id<FireflyNativeDockDelegate>)NSApp.delegate;
+    NSMenu* native = menu.toNSMenu();
+    if (!native)
+        return false;
+    if (dock.installed && delegate.dockMenu != dock.installed)
+        return false;
+    if (!dock.installed)
+        dock.previous = delegate.dockMenu;
+    menu.setAsDockMenu();
+    if (delegate.dockMenu != native)
+        return false;
+    dock_delegate = delegate;
+    dock.installed = native;
+    return true;
+}
+
+void clear_dock()
+{
+    auto delegate = dock_delegate;
+    if (delegate && dock.installed && delegate.dockMenu == dock.installed)
+        delegate.dockMenu = dock.previous;
+    dock_delegate = nil;
+    dock.installed = nil;
+    dock.previous = nil;
 }
 
 bool bind(QMenu& menu, QString const& role)

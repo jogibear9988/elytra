@@ -123,7 +123,8 @@ namespace {
         return !result.isEmpty();
     }
 
-    bool validate(QJsonArray const& items, QSet<int>& commands, QSet<QString>& roles, int depth = 1)
+    bool validate(QJsonArray const& items, QSet<int>& commands, QSet<QString>& roles, bool dock,
+        int depth = 1)
     {
         if (depth > 8)
             return false;
@@ -140,6 +141,8 @@ namespace {
                     return false;
             QKeySequence shortcut;
             auto role = node.value("role");
+            if (dock && (node.contains("role") || node.contains("accelerator")))
+                return false;
             if ((node.contains("accelerator")
                     && (type == "submenu" || type == "separator"
                         || !accelerator(node.value("accelerator"), shortcut)))
@@ -158,7 +161,7 @@ namespace {
                 || !node.value("checked").isBool() || !node.value("submenu").isArray()
                 || (type != "normal" && type != "checkbox" && type != "separator"
                     && type != "submenu")
-                || (depth == 1 && type != "submenu")
+                || (!dock && depth == 1 && type != "submenu")
                 || (type != "checkbox" && node.value("checked").toBool()))
                 return false;
             if (node.contains("role")) {
@@ -170,7 +173,7 @@ namespace {
             if (type != "submenu" && !children.isEmpty())
                 return false;
             commands.insert(command);
-            if (type == "submenu" && !validate(children, commands, roles, depth + 1))
+            if (type == "submenu" && !validate(children, commands, roles, dock, depth + 1))
                 return false;
         }
 
@@ -178,9 +181,10 @@ namespace {
     }
 }
 
-ApplicationMenu::ApplicationMenu(QObject& context, Activate activate)
+ApplicationMenu::ApplicationMenu(QObject& context, Activate activate, bool dock)
     : m_context(context)
     , m_activate(std::move(activate))
+    , m_dock_mode(dock)
 {
 }
 
@@ -192,6 +196,12 @@ ApplicationMenu::~ApplicationMenu()
 
 void ApplicationMenu::clear_bars()
 {
+    if (m_dock_mode) {
+        MenuRoles::clear_dock();
+        delete m_dock;
+        m_dock = nullptr;
+        return;
+    }
     MenuRoles::clear();
     for (auto bar : m_bars) {
         if (!bar)
@@ -204,7 +214,8 @@ void ApplicationMenu::clear_bars()
     m_bars.clear();
 }
 
-void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool enabled, bool visible)
+void ApplicationMenu::populate(
+    QWidget& target, QJsonArray const& items, bool enabled, bool visible, int requested_generation)
 {
     for (auto const& value : items) {
         auto node = value.toObject();
@@ -217,7 +228,7 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
             target.addAction(action);
             populate(*menu, node.value("submenu").toArray(),
                 enabled && node.value("enabled").toBool(),
-                visible && node.value("visible").toBool());
+                visible && node.value("visible").toBool(), requested_generation);
             if (node.contains("role") && !MenuRoles::bind(*menu, node.value("role").toString()))
                 qFatal("Native menu role registration failed after validated admission");
         } else {
@@ -236,7 +247,8 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
                 action->setShortcutContext(Qt::ApplicationShortcut);
             }
             target.addAction(action);
-            int generation = m_generation, command = node.value("command").toInt();
+            int generation = requested_generation < 0 ? m_generation : requested_generation;
+            int command = node.value("command").toInt();
             QObject::connect(action, &QAction::triggered, &m_context,
                 [this, action, generation, command](bool checked) {
                     if (generation != m_generation || !action->isEnabled() || !action->isVisible())
@@ -287,7 +299,7 @@ QMenuBar* ApplicationMenu::create_bar(QWidget* parent)
 
 bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
 {
-    if (m_stopped || metadata.size() > 65536) {
+    if (m_stopped || metadata.size() > 65536 || (m_dock_mode && !MenuRoles::dock_available())) {
         error = "Native application menu is stopped or over budget";
         return false;
     }
@@ -301,11 +313,27 @@ bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
     if (!parsed.isObject() || object.size() != 3 || object.value("schema") != QJsonValue(1)
         || !integer(object.value("generation"), generation) || generation <= m_generation
         || (!items.isNull() && !items.isArray())
-        || (items.isArray() && !validate(items.toArray(), commands, roles))) {
+        || (items.isArray() && !validate(items.toArray(), commands, roles, m_dock_mode))) {
         error = "Invalid native application menu schema, generation or budget";
         return false;
     }
 
+    if (m_dock_mode && items.isArray()) {
+        auto* menu = new QMenu;
+        populate(*menu, items.toArray(), true, true, generation);
+        if (!MenuRoles::install_dock(*menu)) {
+            delete menu;
+            error = "Native Dock menu registration failed";
+            return false;
+        }
+        auto previous = m_dock;
+        m_dock = menu;
+        m_generation = generation;
+        m_items = items.toArray();
+        m_installed = true;
+        delete previous;
+        return true;
+    }
     clear_bars();
     m_generation = generation;
     m_items = items.toArray();
@@ -324,7 +352,7 @@ bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
 
 void ApplicationMenu::attach(QWidget& window)
 {
-    if (m_stopped)
+    if (m_stopped || m_dock_mode)
         return;
     m_windows.removeIf([](auto pointer) { return pointer.isNull(); });
     m_windows.append(&window);

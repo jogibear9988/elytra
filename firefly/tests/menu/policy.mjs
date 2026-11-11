@@ -140,6 +140,73 @@ for (const id of ['quit', 'close']) {
   });
 }
 check(quit === 1 && close === 1, 'role routing');
+// Controlled transport only: application and Dock generations must never share dispatch maps.
+let dockWire;
+let appWire;
+let dockRefused = false;
+let dockCalls = 0;
+let appCalls = 0;
+const separate = createMenus(
+  {
+    menuApply(value) {
+      appWire = JSON.parse(value);
+    },
+
+    dockMenuAvailable() {
+      return true;
+    },
+
+    dockMenuApply(value) {
+      if (dockRefused) {
+        throw Error('native Dock refused');
+      }
+      dockWire = JSON.parse(value);
+    }
+  },
+  error,
+  unsupported,
+  () => {},
+  () => undefined
+);
+const dockItem = new separate.MenuItem({ label: 'New Window', click: () => dockCalls++ });
+const dockMenu = separate.Menu.buildFromTemplate([dockItem]);
+check(separate.dock.getMenu() === null, 'Initial Dock menu');
+separate.dock.setMenu(dockMenu);
+const oldDockGeneration = dockWire.generation;
+const appItem = new separate.MenuItem({ label: 'Application action', click: () => appCalls++ });
+const appMenu = separate.Menu.buildFromTemplate([{ label: 'Root', submenu: [appItem] }]);
+separate.Menu.setApplicationMenu(appMenu);
+separate.dispatch(0, { generation: appWire.generation, command: dockItem.commandId, modifiers: 0 });
+check(!dockCalls && !appCalls, 'Dock ID cannot route through application generation');
+separate.dispatch(
+  0,
+  { generation: dockWire.generation, command: dockItem.commandId, modifiers: 0 },
+  true
+);
+check(dockCalls === 1 && !appCalls, 'Dock callback uses its own map');
+dockRefused = true;
+try {
+  dockItem.label = 'refused';
+} catch {}
+check(
+  dockItem.label === 'New Window' && separate.dock.getMenu() === dockMenu,
+  'Dock install failure rollback'
+);
+dockRefused = false;
+dockItem.enabled = false;
+separate.dispatch(
+  0,
+  { generation: oldDockGeneration, command: dockItem.commandId, modifiers: 0 },
+  true
+);
+check(dockCalls === 1, 'Stale Dock generation denied');
+
+fails(() => separate.Menu.setApplicationMenu(dockMenu), 'ERR_FIREFLY_UNSUPPORTED_API');
+
+fails(() => separate.dock.setMenu(appMenu), 'ERR_FIREFLY_UNSUPPORTED_API');
+
+fails(() => separate.dock.bounce(), 'ERR_FIREFLY_UNSUPPORTED_API');
+
 console.log(
   'PASS menu graph validation, cycles/ids, install rollback, live properties, roles and stale events'
 );

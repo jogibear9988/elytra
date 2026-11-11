@@ -13626,6 +13626,31 @@ Strict actual compile-database syntax passes all five changed units, formatting
 and diff checks pass. The next combined native build/application run is required;
 no broad local suite or additional GUI is run for this correction.
 
+## 2026-11-11 — Genuine owned macOS Dock menu and result-copy continuation
+
+Implement app.dock.setMenu/getMenu on macOS with a separate native Dock-mode menu
+owner, Qt's real setAsDockMenu, separate generations/dispatch and bounded JS/native
+graph validation. Reject application/Dock shared ownership. Build a candidate and
+verify native replacement before committing maps/generation or deleting the old
+menu. Preserve the original preceding Qt native Dock registration across updates;
+restore it only while still ours, before Qt deletion (the native delegate retains
+its menu). Other Dock methods and offscreen/non-Cocoa providers fail explicitly.
+
+The existing controlled Node menu policy, generated-source checks and six strict
+native translation units pass. Combined Release native build passes with the
+mutable-result correction (codeoss-result-dock-build.log). Native Cocoa Dock clicks
+and physical shortcuts remain unaccepted; do not repeat the prior Cocoa batch.
+
+Restart the task-owned actual entry offscreen as PID81512
+(codeoss-result-dock-start.log). The saved splash no longer blocks imports: 5,261
+module targets fetch/link without missing/loading/parse errors. The helper reports
+no contextBridge copy/send failure. Actual AgentHost child PID81529 now starts,
+then native module-entry diagnostics show rejection on missing node:inspector.
+The utility watcher renderer channel connects again. Another renderer utility
+request still refuses engine flags, under investigation. The offscreen provider
+correctly refuses macOS Services menu registration; this is not Cocoa acceptance.
+SharedProcess/AgentHost readiness, window-ready and editing remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -7,6 +7,8 @@
 #include <QVector>
 #include <functional>
 
+class QMenu;
+
 namespace Firefly {
 class ApplicationMenu : public Mite::NativeCaptureOwner<ApplicationMenu> {
 public:
@@ -17,7 +19,7 @@ public:
 
     using Activate
         = std::function<void(int generation, int command, bool checked, QWidget*, int modifiers)>;
-    ApplicationMenu(QObject& context, Activate);
+    ApplicationMenu(QObject& context, Activate, bool dock = false);
 
     ~ApplicationMenu();
 
@@ -33,7 +35,8 @@ public:
 private:
     void clear_bars();
 
-    void populate(QWidget&, QJsonArray const&, bool enabled = true, bool visible = true);
+    void populate(
+        QWidget&, QJsonArray const&, bool enabled = true, bool visible = true, int generation = -1);
 
     QMenuBar* create_bar(QWidget* parent);
 
@@ -45,5 +48,7 @@ private:
     int m_generation { 0 };
     bool m_installed { false };
     bool m_stopped { false };
+    bool m_dock_mode { false };
+    QPointer<QMenu> m_dock;
 };
 }

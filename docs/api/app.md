@@ -334,7 +334,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 | App identity and paths | name, isPackaged, getName, setName, getVersion; path names outside the documented subset |
 | Single-instance/relaunch | requestSingleInstanceLock, releaseSingleInstanceLock, hasSingleInstanceLock, relaunch |
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
-| OS integration | setUserTasks, setJumpList, dock, badgeCount |
+| OS integration | setUserTasks, setJumpList, remaining Dock methods, badgeCount |
 | Appearance/media/process policy | Broader commandLine switches, detailed getGPUInfo, getAppMetrics, accessibility properties |
 | Sessions and global services | session-created, certificate-error, login and process dispatch outside the Compositor/Utility subset |
 | Native lifecycle events | will-finish-launching, open-file, open-url, activate, did-become-active, did-resign-active, browser-window-created/focus/blur and OS shutdown delivery |
@@ -387,3 +387,10 @@ negative-signal representation. See [utility processes](utility-process.md).
 Known CPU fields and an unknown default backend are different states; no Chromium
 or physical GPU capabilities are fabricated. These additions are newer than the
 historical Alpha 2 lifecycle subset mentioned above.
+
+## app.dock (macOS)
+
+The macOS object exposes `setMenu(menuOrNull)` and `getMenu()` for an owned native
+Cocoa Dock menu. Other Dock methods fail explicitly. Offscreen/non-Cocoa providers
+cannot install the menu; native Dock interaction acceptance is still pending.
+See [Dock menu ownership and limits](menu.md#macos-dock-menu).

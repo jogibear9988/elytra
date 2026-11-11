@@ -392,6 +392,9 @@ export default function createFireflyApi(
     }
   );
   const { Menu, MenuItem } = menus;
+  if (process.platform === 'darwin') {
+    Object.defineProperty(app, 'dock', { enumerable: true, value: menus.dock });
+  }
   const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported, transport);
@@ -1012,8 +1015,8 @@ export default function createFireflyApi(
   };
 
   native.setHandler((id, type, data) => {
-    if (type === 'menu-click') {
-      menus.dispatch(id, JSON.parse(data));
+    if (type === 'menu-click' || type === 'dock-menu-click') {
+      menus.dispatch(id, JSON.parse(data), type === 'dock-menu-click');
       return;
     }
     if (type === 'permission-request') {
