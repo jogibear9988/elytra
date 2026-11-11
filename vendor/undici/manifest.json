@@ -1,0 +1,463 @@
+{
+  "name": "undici",
+  "version": "7.29.1",
+  "license": "MIT",
+  "tarball": "https://registry.npmjs.org/undici/-/undici-7.29.1.tgz",
+  "integrity": "sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==",
+  "packageSha256": "10e55f4adb6a43e72823ea235ff6a0c777db1ef68e3a1c810f0246e1b9332d8b",
+  "sourceSha256": "a53177756a60479215b577b895867e92e3ce0d61ab479fb642cd4420e84cc165",
+  "runtimeFiles": [
+    {
+      "path": "index-fetch.js",
+      "sha256": "155df504376841f714239ffbb43c7fbbfe3532c44aafe19ca7fd1615a18d5f1d"
+    },
+    {
+      "path": "index.js",
+      "sha256": "dca95e2bbf4bae18325a4e5d9c887427a8a63a1345ed92a46f1067360dec0ffa"
+    },
+    {
+      "path": "lib/api/abort-signal.js",
+      "sha256": "46ac3527affb69036384c8baec5bf34ba567adb336921c7a62e8f471bb827f37"
+    },
+    {
+      "path": "lib/api/api-connect.js",
+      "sha256": "d8ca4a5cbff898afb26573cca18b9aab2928d8113d5d8897b5fc193ef343fcf0"
+    },
+    {
+      "path": "lib/api/api-pipeline.js",
+      "sha256": "46265a16bb621e8723a98da72824cb92a43cb27b912f336919e5c73049710772"
+    },
+    {
+      "path": "lib/api/api-request.js",
+      "sha256": "93474854999d0a80815ed132640d50e3ed2cbc74b3bc9ec84704b923c7ca6a35"
+    },
+    {
+      "path": "lib/api/api-stream.js",
+      "sha256": "9da4d699b6746216898b44a1beabb6e65de8c6aab825df51890da563f42d8aff"
+    },
+    {
+      "path": "lib/api/api-upgrade.js",
+      "sha256": "86659d0e904788981bd2d3de9a391f35630099ba21b8b898619eac62c514b429"
+    },
+    {
+      "path": "lib/api/index.js",
+      "sha256": "a7b4b74ea6b81b2401f8659c138df54fd3f2c45450741682c026abb4cf133096"
+    },
+    {
+      "path": "lib/api/readable.js",
+      "sha256": "ee3cbcc13aad446dad1c2fe3105f21fb2c7761776c2c6634980a760c4cdd4669"
+    },
+    {
+      "path": "lib/cache/memory-cache-store.js",
+      "sha256": "531953d14bf94d58df4997b73c03683854ad206fd62585ba54261b28292fdec7"
+    },
+    {
+      "path": "lib/cache/sqlite-cache-store.js",
+      "sha256": "cac3e06815ba09fd686755476b6dd683905fb630c3e39df49c78238fa26db3b6"
+    },
+    {
+      "path": "lib/core/connect.js",
+      "sha256": "67956a204fe3982edbf032dd44ff9c1c391daaa85c05e9750d245bdfb2b87fe0"
+    },
+    {
+      "path": "lib/core/constants.js",
+      "sha256": "feeb46180cfa4623da75627c9c3a5d5f38945644c30b7afe37415437ed71bca2"
+    },
+    {
+      "path": "lib/core/diagnostics.js",
+      "sha256": "907ce2d66cede91b860a1c1318ebdf0d9577c0f747a3b35510162c63489f28bc"
+    },
+    {
+      "path": "lib/core/errors.js",
+      "sha256": "c69b7a060b711e4cd97f3ff05eb18cf4ec7a08ce5d618c54a567baf6f1a47481"
+    },
+    {
+      "path": "lib/core/request.js",
+      "sha256": "64a41db4ad51b780bd70174ef4de95b797aec4c724023f8fb82ae570adcebd85"
+    },
+    {
+      "path": "lib/core/socks5-client.js",
+      "sha256": "5ee3d782919a74b4c0fc0aac0da1d39abd759f7c017f7b3d4b932ccafddd1be7"
+    },
+    {
+      "path": "lib/core/socks5-utils.js",
+      "sha256": "830467b148e86786f41c356667625721dfd9bef27fd85ada0fb498bda9a19016"
+    },
+    {
+      "path": "lib/core/symbols.js",
+      "sha256": "4b839c2a59097740289c27d80548eaba8e6b557ed3204402c050b9a42cd5a0cc"
+    },
+    {
+      "path": "lib/core/tree.js",
+      "sha256": "c9fc9938718f33d77a6ed1abac5e564531ac9f9436cde2867243d50cd6c0b4e8"
+    },
+    {
+      "path": "lib/core/util.js",
+      "sha256": "a53177756a60479215b577b895867e92e3ce0d61ab479fb642cd4420e84cc165"
+    },
+    {
+      "path": "lib/dispatcher/agent.js",
+      "sha256": "7cbf227ccf6337e109ce567ebef036a6bab04eb81b3de3645adee5256aa79bf6"
+    },
+    {
+      "path": "lib/dispatcher/balanced-pool.js",
+      "sha256": "90989fe532a02854d88c5f4af9c8bbec33f24d2318d3b4534f1128e273e5463d"
+    },
+    {
+      "path": "lib/dispatcher/client-h1.js",
+      "sha256": "131e14c7b6a2125eeec1501f59c032d39b3d0e33d818af8b0c1702c034881bef"
+    },
+    {
+      "path": "lib/dispatcher/client-h2.js",
+      "sha256": "3a3e264b0bec837790f5f4b5c7969b071eb45554090b558606ece945ce31d253"
+    },
+    {
+      "path": "lib/dispatcher/client.js",
+      "sha256": "07529b464fb6be9b42bd4a34d2ea0e090812b237ec3a1f047ab94df052fa428f"
+    },
+    {
+      "path": "lib/dispatcher/dispatcher-base.js",
+      "sha256": "b83ee0c7f9ccbf0ff06d4a127f1d7c50e337351ed605def247e049be7febbccd"
+    },
+    {
+      "path": "lib/dispatcher/dispatcher.js",
+      "sha256": "39907c123fd59f712111e719ba43426525c17ba0fcd279f6e892f829264dda0a"
+    },
+    {
+      "path": "lib/dispatcher/env-http-proxy-agent.js",
+      "sha256": "1f572709bc4f0e0469579c37192c0d6376c1b4875b7667b80513706fbc13b41a"
+    },
+    {
+      "path": "lib/dispatcher/fixed-queue.js",
+      "sha256": "5d72c9de20e74d2437afc97f9f9e8e202d79983a77d2a598ac9ab1e0a8d0052d"
+    },
+    {
+      "path": "lib/dispatcher/h2c-client.js",
+      "sha256": "80188685d9c10d6904d8857668e835dbe16515b17b7e7bfa02b043f67be7afa4"
+    },
+    {
+      "path": "lib/dispatcher/pool-base.js",
+      "sha256": "aa257609b208a90e73e110ac3b7c75b5599b310bb2b9bd15464c36216a94613a"
+    },
+    {
+      "path": "lib/dispatcher/pool.js",
+      "sha256": "1c8056214b32004c8e38cdda2bbd67c4edd1aec1fed0a3681aad7b22d35273a1"
+    },
+    {
+      "path": "lib/dispatcher/proxy-agent.js",
+      "sha256": "40f18bbc8b5c9512d4bdbf7bde47a787cbefe98d19f40d5703f5286a67bf5f53"
+    },
+    {
+      "path": "lib/dispatcher/retry-agent.js",
+      "sha256": "465e9429750441852cb0ed19bd669dbe2eca2b531ce6966040551a9b6550ae30"
+    },
+    {
+      "path": "lib/dispatcher/round-robin-pool.js",
+      "sha256": "af12924b9556033697f61a2671318fbde98c84536e991bd0700c076e8467fc92"
+    },
+    {
+      "path": "lib/dispatcher/socks5-proxy-agent.js",
+      "sha256": "9a7a9cb6cbbaccc867a6c36541ff95f89fa3863dcb5548eb46c449b2333174b3"
+    },
+    {
+      "path": "lib/encoding/index.js",
+      "sha256": "7ea8fe81ff3c9d054f3ef8bb67bfe260b2e930c51d5d5563ca2ef19a218a5909"
+    },
+    {
+      "path": "lib/global.js",
+      "sha256": "d8e78f218c7bbefdec657f3ae81e31a7f811df511fe951e3a35e3dac1e368e21"
+    },
+    {
+      "path": "lib/handler/cache-handler.js",
+      "sha256": "328fdf6d0b5302d1f6d61aeab7700884e8a5bc1c372359c952a7bbdb2930ca65"
+    },
+    {
+      "path": "lib/handler/cache-revalidation-handler.js",
+      "sha256": "85a375bc55f22471cfa3d900d6f901a004a580fc68ca9aeb9c2885f330c7b01e"
+    },
+    {
+      "path": "lib/handler/decorator-handler.js",
+      "sha256": "a3c2f832c5e58c7f8e33388c7b1a10880906caca9a077492b73d7f8a1c6963e3"
+    },
+    {
+      "path": "lib/handler/deduplication-handler.js",
+      "sha256": "048ca694b451b4016ebe53739c1bf5dd342319d8912a9fd5abdc2f7c5385467e"
+    },
+    {
+      "path": "lib/handler/redirect-handler.js",
+      "sha256": "80a1cc48b27a48fbd1d1f57c47c20c89ab055d599f2b649623be02149b519c61"
+    },
+    {
+      "path": "lib/handler/retry-handler.js",
+      "sha256": "5fee32f0d8e60570513b632c44a888f4b057f240d6d409ffcd4467542c76e0fc"
+    },
+    {
+      "path": "lib/handler/unwrap-handler.js",
+      "sha256": "618c664b488381f63ea43b8b3b1d26c3ee3a0272259941ab79410c0d6d8eaae0"
+    },
+    {
+      "path": "lib/handler/wrap-handler.js",
+      "sha256": "d8a2903c97106d27840633053f007e916744f4091c6ebf0756b368f147ae13a8"
+    },
+    {
+      "path": "lib/interceptor/cache.js",
+      "sha256": "cb7c1a724c51b1a1834a9e8fe2e6f1bd84312e55a4e7c7099b941085b2d6ff62"
+    },
+    {
+      "path": "lib/interceptor/decompress.js",
+      "sha256": "7e70f2f670533fe647e776eacecd8684195e12a5ffba72aaab84fcdd384a68fd"
+    },
+    {
+      "path": "lib/interceptor/deduplicate.js",
+      "sha256": "ff08e37261e35221586120cdc85ce08981064e7b1726e1089c116c70bfe20627"
+    },
+    {
+      "path": "lib/interceptor/dns.js",
+      "sha256": "fd57881ded93891ffc1590c4bfbd906bae084b02f3e9c86f52118df1cec540a9"
+    },
+    {
+      "path": "lib/interceptor/dump.js",
+      "sha256": "30d035bae71552ef4cd19b264728482abb9a7b5f82af47ffb9ad81e2541ea4bc"
+    },
+    {
+      "path": "lib/interceptor/redirect.js",
+      "sha256": "07e2ba6095945d7d374dfd6dd17450676f55cbd088400c19b9a1bf8a0010599e"
+    },
+    {
+      "path": "lib/interceptor/response-error.js",
+      "sha256": "9cb06334d1c1f791784005789cc5afb9daea396c7f5e0c962af90538b4843e10"
+    },
+    {
+      "path": "lib/interceptor/retry.js",
+      "sha256": "488cf270ae143cc13a6ecf82ba523314fdbb17fd9ee08677c4488d4410f047c3"
+    },
+    {
+      "path": "lib/llhttp/constants.js",
+      "sha256": "90c4858736745781548d464e51224ce9353162cd87bc8142be803bc2937184ba"
+    },
+    {
+      "path": "lib/llhttp/llhttp-wasm.js",
+      "sha256": "344f7ae80c983694372d9234584a1261ef5492ab219d6e573e933f5d1c715b00"
+    },
+    {
+      "path": "lib/llhttp/llhttp_simd-wasm.js",
+      "sha256": "52c16227482700834512f2c2257eb44652f39b11f868600562274f476025e4bd"
+    },
+    {
+      "path": "lib/llhttp/utils.js",
+      "sha256": "e21afcaf44b0fec37acfff86945e4526541e990ac0efd2f1efa2ea9f2b259b6b"
+    },
+    {
+      "path": "lib/mock/mock-agent.js",
+      "sha256": "f612291584fede3068afa88c7bbf0821248d4809925f6dcac32bd7d0fdbd3274"
+    },
+    {
+      "path": "lib/mock/mock-call-history.js",
+      "sha256": "da183e702da0f0066ea534681118d65b5ac97415662df6b74f978ae831b1674b"
+    },
+    {
+      "path": "lib/mock/mock-client.js",
+      "sha256": "108d91ef5f916d094a78d92a4d81f2cd4bfe20708ae6307d8197de81d826ce5c"
+    },
+    {
+      "path": "lib/mock/mock-errors.js",
+      "sha256": "b5bd959401de99d8129ba272dddfdb62708247f684a8186aa4d858e2780d64ee"
+    },
+    {
+      "path": "lib/mock/mock-interceptor.js",
+      "sha256": "f2ac4fe03eb49b31afb0f4c8636e4b63c5ca2f17c8ac34cb613028ab08f072ea"
+    },
+    {
+      "path": "lib/mock/mock-pool.js",
+      "sha256": "763d77ce68f6315f384b5e897b87ea2e2034b69d29e2d6d2da37ae8a0679197c"
+    },
+    {
+      "path": "lib/mock/mock-symbols.js",
+      "sha256": "b90b7dc21d5a18c2e5255b0916bf75e880eef32ca45ab312a581547041638e20"
+    },
+    {
+      "path": "lib/mock/mock-utils.js",
+      "sha256": "4720ec7096039fb8f0044e8dd3b22d4eaebd8e7ce61f814908b92bac406f6444"
+    },
+    {
+      "path": "lib/mock/pending-interceptors-formatter.js",
+      "sha256": "9d3737f40ba601fd7a9c6dd28a328e6797686ff08da712dcd0a0f011d5639f8d"
+    },
+    {
+      "path": "lib/mock/snapshot-agent.js",
+      "sha256": "54f61cfe219a66dc2b17d0535c06429093105f321d9a60bf4b439225c028f6c1"
+    },
+    {
+      "path": "lib/mock/snapshot-recorder.js",
+      "sha256": "9bf63c8b207b6f6e7fe4400b32d8322cfc185735d6ecfbd87a2691a8fba82922"
+    },
+    {
+      "path": "lib/mock/snapshot-utils.js",
+      "sha256": "0971c847787d90abcb0bf4e1d76161a2f82651169cc8e637b26875fecab666f8"
+    },
+    {
+      "path": "lib/util/cache.js",
+      "sha256": "3c4dc94325aa355f99d20f3ea878c13299dbc73986f1caaaf8d0d3cd8dffce5d"
+    },
+    {
+      "path": "lib/util/date.js",
+      "sha256": "153ad641cbdb4cc5acacc8b50b79684166e29b838192bf98b2d32e2871ff7522"
+    },
+    {
+      "path": "lib/util/promise.js",
+      "sha256": "123edb8cf7eb03156beb04a3482c5cb86bddf3f8348b857edb263cae38bc482b"
+    },
+    {
+      "path": "lib/util/runtime-features.js",
+      "sha256": "eda04942c74b6c80341e3df2112968bcd1810271aab9215261306811c3ee60a4"
+    },
+    {
+      "path": "lib/util/stats.js",
+      "sha256": "d62ae00eaf72f33cc990a3a835d70b9c7d2f10d47acffa0e631ea82145b7c34e"
+    },
+    {
+      "path": "lib/util/timers.js",
+      "sha256": "4e5ef13ce9e1ca6de8a656b95e2425602bacbd6010af1da3ce573f8d8f573119"
+    },
+    {
+      "path": "lib/web/cache/cache.js",
+      "sha256": "60015d174411d4094837ce8f1d44a4ad0b4946c26a49d28e5d95f6d840ac4f82"
+    },
+    {
+      "path": "lib/web/cache/cachestorage.js",
+      "sha256": "f9cccd19fbc185edac7624e542b0864412d71c2083177f3c6902b34d2b07d461"
+    },
+    {
+      "path": "lib/web/cache/util.js",
+      "sha256": "638d5c2424a730e6d2400ac518765b3fc9b50e2b3816b65fb7b46f93c66a5930"
+    },
+    {
+      "path": "lib/web/cookies/constants.js",
+      "sha256": "85a24ae49eb5954e15363049bbc68967f01aae7260246daa3f49ad375429acb4"
+    },
+    {
+      "path": "lib/web/cookies/index.js",
+      "sha256": "3f3dd4ffc1e3db9f51a4e82c3c49e7d59c7921899eb897d9cf5b2787fdafe83d"
+    },
+    {
+      "path": "lib/web/cookies/parse.js",
+      "sha256": "d4768b29fd6b5ac9ad045936597618858dd15b38e1af6eb12281379fbfbbebe5"
+    },
+    {
+      "path": "lib/web/cookies/util.js",
+      "sha256": "51941b2fb0a6f29e389b91236050b1fc4bdaf57051ae53145767219a9d3c5f09"
+    },
+    {
+      "path": "lib/web/eventsource/eventsource-stream.js",
+      "sha256": "fe7a94fe87999a6f1e489ca02d4069ae099800166954d32b080fe1282545e511"
+    },
+    {
+      "path": "lib/web/eventsource/eventsource.js",
+      "sha256": "4d9fd7d5e3b39f1c2d0332292febcae08d9a9e77cede87ed9455f8d904077ff9"
+    },
+    {
+      "path": "lib/web/eventsource/util.js",
+      "sha256": "40be55b091614715abc90794a686016e3139273f8dafcc6cac1bb7afa7db4643"
+    },
+    {
+      "path": "lib/web/fetch/body.js",
+      "sha256": "fd7e1fe68e263f3296ecf0f4f799b3099717ecd8c9626db9bab73b7a4db7eb7d"
+    },
+    {
+      "path": "lib/web/fetch/constants.js",
+      "sha256": "030e21057cdd1758db16eb0e86806be93b7616e5f46d9a93b90a9a8e99672423"
+    },
+    {
+      "path": "lib/web/fetch/data-url.js",
+      "sha256": "acd2ae8c00e035a8b3c816c8a5f75eebfe12ab7db61158488cc350f92785fcd4"
+    },
+    {
+      "path": "lib/web/fetch/formdata-parser.js",
+      "sha256": "d5d048201a040865a4376e423fd78b102ad164cb51ad7b0ade56897c7318bd6b"
+    },
+    {
+      "path": "lib/web/fetch/formdata.js",
+      "sha256": "957184704f2ef215849411f702bdb9bcff1f42d81dfc0f69b16ff62670bf936a"
+    },
+    {
+      "path": "lib/web/fetch/global.js",
+      "sha256": "6b38813b82ec8d5002009640515d35f83ab96d4f8e0066d71fae89324079a289"
+    },
+    {
+      "path": "lib/web/fetch/headers.js",
+      "sha256": "0ca9bcb1cb174a19311b27f55b954d53e5adc06d6aa935c42df96c9a4453d0a7"
+    },
+    {
+      "path": "lib/web/fetch/index.js",
+      "sha256": "de99d1d1944b747c6428a73f8ad72f687c1c66a568af5aaae90c9dd22aaa2aa7"
+    },
+    {
+      "path": "lib/web/fetch/request.js",
+      "sha256": "b4b36815f3c0d082ab8f413a27085f0b197f8cdf04880db15bf7d1f0084d780a"
+    },
+    {
+      "path": "lib/web/fetch/response.js",
+      "sha256": "0c376c359711217831d095d8139fb62b290c77dca1fe93e708d1b081074812fc"
+    },
+    {
+      "path": "lib/web/fetch/util.js",
+      "sha256": "765b5cfb803401dbb591b1e28d22fd6a9fd6db4c0bf2ec5f86dc89e39429e016"
+    },
+    {
+      "path": "lib/web/infra/index.js",
+      "sha256": "06cf4d0fe3220e2309f389d40d6e403e2c765ccb7552f68fce60cc2d25ee13bc"
+    },
+    {
+      "path": "lib/web/subresource-integrity/subresource-integrity.js",
+      "sha256": "65997037f348e22746f0852037998ba64fb83e6428485c6e200d42da8a154a75"
+    },
+    {
+      "path": "lib/web/webidl/index.js",
+      "sha256": "3242d1bfd31cac178a66dd4113da3dbf1d4e886439853be233f71922dd9853c0"
+    },
+    {
+      "path": "lib/web/websocket/connection.js",
+      "sha256": "96defe4a46c42666a448e63c3264629e1a16cdc604b78bdfb9ed343dd3829c51"
+    },
+    {
+      "path": "lib/web/websocket/constants.js",
+      "sha256": "e7b6d0550a367ba9edfb68b14bd3fbe44fd3042faf76901567b8c3ffc2ccfa84"
+    },
+    {
+      "path": "lib/web/websocket/events.js",
+      "sha256": "d88278a61f86bf66e3be1722d13a469e4af7bb8f767241f7f0aab104b92bc38b"
+    },
+    {
+      "path": "lib/web/websocket/frame.js",
+      "sha256": "d848070d5865bcec4e85d8b5785b6dd3ab4fbc388b28e3cfcad9805c1a83a789"
+    },
+    {
+      "path": "lib/web/websocket/permessage-deflate.js",
+      "sha256": "da8d8dc29515bce2ba4def5c3f811f8644eeb5d4819bc521d5811fbbdda4afb7"
+    },
+    {
+      "path": "lib/web/websocket/receiver.js",
+      "sha256": "9a1f6e6df954a772c5bed6c6d7b3ece04d5fc7a3208672e6f177d8f9d7bb110b"
+    },
+    {
+      "path": "lib/web/websocket/sender.js",
+      "sha256": "5c5e162f1252d9c91d5cd30ae59c722f1e1cd7df86f03bf45fe085915c2d72e9"
+    },
+    {
+      "path": "lib/web/websocket/stream/websocketerror.js",
+      "sha256": "41fafec8f19753c6718b024c95afec6e6407197250ffbe56d81549d715bb0bcc"
+    },
+    {
+      "path": "lib/web/websocket/stream/websocketstream.js",
+      "sha256": "b059a716dc53fccde7443ed89567dfbcf0ffa019e41d5f71a09fe98e0e33430d"
+    },
+    {
+      "path": "lib/web/websocket/util.js",
+      "sha256": "bb4a7bd7f2bf57e45245e41e05cc8d0bdb55feabfd16bbaff7a381863ba5907f"
+    },
+    {
+      "path": "lib/web/websocket/websocket.js",
+      "sha256": "afdb5256fc5d0e8873fb4aca42b1787e15aca4ef39966ca255464c571e1edf2a"
+    }
+  ]
+}

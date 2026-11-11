@@ -18,3 +18,10 @@
 
 # npm deviceid includes CRLF files; preserve exact upstream integrity/license bytes.
 /vendor/deviceid/** -text -whitespace
+
+# Preserve the pinned Node diagnostic sources and npm runtime audit bytes.
+/vendor/node-diagnostics-channel/** text eol=lf
+/vendor/undici/** -text -whitespace
+
+# Keep the pinned Node attribution bytes, including upstream space-before-tab.
+/vendor/node-diagnostics-channel/LICENSE -whitespace

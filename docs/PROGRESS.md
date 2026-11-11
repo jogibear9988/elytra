@@ -13762,6 +13762,39 @@ than inventing Worker APIs; the subsequent run reaches the absent ambient
 MessagePort assertion (codeoss-worker-feature-start.log). Both are package
 capability assumptions under investigation, not accepted workers or editor use.
 
+## 2026-11-11 — Audit Undici capabilities and defer real diff-worker construction
+
+Pin undici7.29.1 package/license and its complete 113-file runtime JavaScript
+inventory. Add an explicit compiler package adapter for genuine Mite capability
+queries: preserve unknown Node-version fields as undefined; use actual builtin
+inventory to report absent optional worker markAsUncloneable; make the necessarily
+false MessagePort brand trait explicit when no such ambient class exists. Keep
+other ambient classes strict and Node/Electron unchanged. Publish immutable
+unavailable status, without fabricated versions, Worker/MessagePort classes or IDs.
+Protect three transformed files plus all 110 unchanged audit files in refresh.
+
+The actual agent graph separately imports Worker eagerly in diffComputeService,
+though construction is lazy. Pin that source and move only constructor resolution
+to its original demand site through an owned helper. Preserve genuine Node/Electron
+workers and source arguments/listeners. Mite service registration needs no Worker;
+actual diff attempts fail explicitly with unavailable status. Do not return empty
+diffs, disable the agent or claim a worker backend.
+
+Focused actual Node/Mite capability, conflict/drift/provenance and diff-policy
+controls pass. Safely migrate the exact known earlier one/two-file owned Undici
+adapter after stopping only the verified diagnostic process; restore only proven
+owned inputs and byte-splice only that package record. Preserve other four adapters,
+back up the exact previous metadata, then canonical refresh reuses the same stage:
+12,348 compiled files and 32 owned overlay records
+(codeoss-undici-webidl-migration.log, codeoss-diff-webidl-refresh.log).
+
+Actual offscreen entry PID96800 retains both SharedProcess handshakes and advances
+past the previous optional worker/ambient MessagePort failures. New concrete errors
+are undici's util.inspect.custom and the agent graph's missing copyFileSync export
+(codeoss-diff-webidl-start.log). The offscreen Cocoa-only Services menu refusal is
+expected. No editor/extension activation/agent diff/network acceptance is claimed;
+no broad local suite or GUI run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

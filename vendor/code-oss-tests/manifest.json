@@ -306,6 +306,10 @@
     "local-process-extension-host.ts": {
       "upstream": "src/vs/workbench/services/extensions/electron-browser/localProcessExtensionHost.ts",
       "sha256": "725eff5c31fd5832e55c0cfa4f131efe0bb3cda4433342e90e56bb93da4f191d"
+    },
+    "diffComputeService.ts": {
+      "upstream": "src/vs/platform/agentHost/node/diffComputeService.ts",
+      "sha256": "d33579abe20a405fdc4737d3e7ef2367eadbc41b7d5854b5fe30f77a78bf74de"
     }
   }
 }

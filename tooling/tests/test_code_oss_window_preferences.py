@@ -163,6 +163,7 @@ def main():
             "local-process-extension-host.ts",
             "shared-process-main.ts",
             "electronAgentHostStarter.ts",
+            "diffComputeService.ts",
             "css-development-service.ts",
             "darwin-update-service.ts",
             "mainImpl.ts",

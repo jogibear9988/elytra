@@ -32,8 +32,19 @@ export function verifyPackageAdditions(output, previous, plans) {
     ) {
       throw Error('Invalid additional package adapter files');
     }
+    if (
+      record.auditFiles !== undefined &&
+      (!Array.isArray(record.auditFiles) || record.auditFiles.length > 512)
+    ) {
+      throw Error('Invalid audited package runtime files');
+    }
     const paths = new Set();
-    for (const file of [record, ...(record.additionalFiles ?? [])]) {
+    const audits = (record.auditFiles ?? []).map((file) => ({
+      path: file.path,
+      sourceSha256: file.sha256,
+      outputSha256: file.sha256
+    }));
+    for (const file of [record, ...(record.additionalFiles ?? []), ...audits]) {
       if (!file || paths.has(file.path)) {
         throw Error('Duplicate package adapter file');
       }

@@ -53,6 +53,7 @@ def main():
             "utility-process-main.ts",
             "shared-process-main.ts",
             "electronAgentHostStarter.ts",
+            "diffComputeService.ts",
             "LICENSE.txt",
         ):
             data = (PINNED / name).read_bytes()

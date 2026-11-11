@@ -562,7 +562,7 @@ acceptance follows from omitting the preference.
 The diagnostic compiler can include upstream HTML, CSS, images, fonts and WASM:
 
 ```sh
-node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --mite-deviceid --renderer-assets --refresh
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --mite-deviceid --mite-undici --renderer-assets --refresh
 ```
 
 Use --refresh only for an existing output from this compiler; omit it for a fresh
@@ -736,3 +736,32 @@ local check; process._vscodeLibJSUtilityUnsignedLibrariesStatus discloses that
 unsigned-library relaxation is unavailable. This neither loads NAPI addons nor
 changes macOS entitlements. General utility flags remain unsupported; successful
 extension-host startup and actual extension activation still require acceptance.
+
+## Undici capability assumptions
+
+Add `--mite-undici` with the existing package options. The exact undici7.29.1
+adapter leaves unavailable Node version metadata undefined on Mite, queries the
+real builtin inventory before probing the absent worker markAsUncloneable feature,
+and treats the absent ambient MessagePort brand as unavailable. It never invents
+a Node version, Worker backend, MessagePort class or transferable host. The other
+six required ambient WebIDL classes remain strict. Node/Electron keep their original
+paths. Immutable status records disclose each omission.
+
+All 113 pinned runtime JavaScript inputs are verified: the three transformed
+outputs have input/output hashes and the remaining 110 are audited unchanged.
+Refresh refuses modified package/audit files. When upgrading one of the two known
+older adapters, `migrate-undici.mjs <stage>` performs a read-only preflight;
+`--apply` restores only its verified transformed files and removes that exact
+owned adapter record before canonical refresh. Other package records and metadata
+bytes remain preserved. This is an owned-stage migration, not a dependency reinstall
+or evidence of complete undici networking compatibility.
+
+## Agent diff workers
+
+The pinned agent diff service now resolves its real Worker constructor at its
+original construction site. Node/Electron receive the genuine Node Worker; Mite
+does not import the unsupported backend merely to register the service. An actual
+worker-backed diff request in the verified local profile publishes unavailable
+status and throws ERR_CODE_OSS_LIBJS_DIFF_WORKER_UNAVAILABLE. No empty diff result,
+substitute Worker class or process disable is used. Native Mite worker support and
+agent diff workflows remain required work.
