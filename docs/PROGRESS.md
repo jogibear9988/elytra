@@ -13682,6 +13682,29 @@ rather than native fork flags. No SharedProcess service-completeness, window-rea
 or usable editor acceptance is inferred from a port handshake. The offscreen
 macOS menu provider refusal remains intentional and Cocoa interaction is unaccepted.
 
+## 2026-11-11 — Disclose implicit extension-host options without disabling the process
+
+Pin the actual renderer local-process-extension-host.ts defaults. Before async
+host creation/debug-port/shell-env work, validate the verified local engine policy
+and reject explicit debug, break, profiling, test/development and unknown options.
+After async work, revalidate and match the exact generated defaults before omitting
+them. Preserve Node/Electron's original path and do not evaluate local policy there.
+Disclose unavailable inspector/network inspection and unapplied IPv4-first DNS
+ordering in an immutable renderer status. Do not claim the DNS option is honored.
+
+The main utility source adaptation additionally replaces the unsupported unsigned
+library relaxation with false under the same strict local mode. It does not add
+N-API loading or entitlement support. Explicit raw CLI debug/profiling flags still
+fail early. No generic execArgv stripping or fake runtime versions are added.
+
+Focused source reversal/drift, thirteen Node/Mite extension-policy scenarios and
+seven utility-auth scenarios pass. Refresh the existing canonical stage to 12,347
+compiled files / 30 owned overlay records, preserving four package adapters and
+Finder metadata (codeoss-extension-host-refresh.log). Actual offscreen startup now
+forks the extension child and reaches undici/node:querystring instead of refusing
+engine flags (codeoss-child-builtins-start.log). This is process/import progress,
+not extension activation or debugger acceptance. No broad suite or GUI run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

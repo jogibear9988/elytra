@@ -302,6 +302,10 @@
     "electronAgentHostStarter.ts": {
       "upstream": "src/vs/platform/agentHost/electron-main/electronAgentHostStarter.ts",
       "sha256": "50140c223133999f91d336ad2b6ddc0601fa25ee3689455d477879b6cf3e6f31"
+    },
+    "local-process-extension-host.ts": {
+      "upstream": "src/vs/workbench/services/extensions/electron-browser/localProcessExtensionHost.ts",
+      "sha256": "725eff5c31fd5832e55c0cfa4f131efe0bb3cda4433342e90e56bb93da4f191d"
     }
   }
 }

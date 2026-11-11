@@ -714,3 +714,25 @@ These records include only native process/endpoint identifiers, byte counts and
 fixed phase labels. They do not print module paths, source, environment contents
 or message payloads. A fulfilled entry or admitted frame does not establish service
 readiness; use the actual application's handshake as the acceptance criterion.
+
+## Implicit extension-host engine defaults
+
+The pinned localProcessExtensionHost adapter validates the explicit local LibJS
+profile before creating a host or probing a debugger port. Extension development,
+explicit inspect/break settings, extension tests and V8 profiling remain errors.
+Ordinary Node/Electron retains the original flag construction and does not read
+the adapter's policy inputs. Local mode omits only the exact generated default
+array: IPv4-first DNS ordering, experimental network inspection, and either the
+implicit localhost inspector/nolazy pair or inspect-port=0 fallback. It does not
+claim those DNS or inspector settings were applied. Unexpected flags fail.
+
+The sandbox uses its genuine firefly/libjs process identity and the owned local
+profile record, without inventing a Mite version or main-only engine status.
+An immutable renderer-global _vscodeLibJSExtensionHostFlagsStatus reports
+inspectorAvailable:false, networkInspectionAvailable:false and
+dnsOrderingApplied:false. Separately, the main utility adapter replaces the
+pinned allowLoadingUnsignedLibraries:true opt-in with false after its verified
+local check; process._vscodeLibJSUtilityUnsignedLibrariesStatus discloses that
+unsigned-library relaxation is unavailable. This neither loads NAPI addons nor
+changes macOS entitlements. General utility flags remain unsupported; successful
+extension-host startup and actual extension activation still require acceptance.

@@ -160,6 +160,7 @@ def main():
             SOURCE,
             PASTE_SOURCE,
             "utility-process-main.ts",
+            "local-process-extension-host.ts",
             "shared-process-main.ts",
             "electronAgentHostStarter.ts",
             "css-development-service.ts",

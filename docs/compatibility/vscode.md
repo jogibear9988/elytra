@@ -32,8 +32,9 @@ A bounded renderer FIFO now retains startup bursts before native admission. The
 next actual run has no contextBridge failures and reaches configuration reads and
 menu construction. Menu accelerators/roles and a native Dock menu are implemented but await Cocoa
 interaction acceptance. Mutable result copies now pass saved-splash startup, and
-the real AgentHost child starts then rejects missing node:inspector. Another
-renderer utility request still rejects engine flags. SharedProcess service readiness,
+the real AgentHost child now reaches missing node:async_hooks, and the extension
+child reaches missing node:querystring in undici. Main and renderer both report
+SharedProcess connection established; complete service readiness,
 window-ready and open/edit/save remain unaccepted.
 
 The former graph hang was caused by empty JavaScript responses completing before

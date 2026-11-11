@@ -18,6 +18,8 @@ from code_oss.utility_auth import (
     ADDED_IMPORT,
     OPTION,
     REPLACEMENT,
+    UNSIGNED_OPTION,
+    UNSIGNED_REPLACEMENT,
     adapt_utility_auth,
     revert_utility_auth,
 )
@@ -42,7 +44,7 @@ def main():
     adapted = adapt_utility_auth(original)
     assert adapted == original.replace(IMPORT.encode(), (IMPORT + ADDED_IMPORT).encode()).replace(
         OPTION.encode(), REPLACEMENT.encode()
-    )
+    ).replace(UNSIGNED_OPTION.encode(), UNSIGNED_REPLACEMENT.encode())
     assert revert_utility_auth(adapted) == original
     for data in (
         original + b"\n",
@@ -84,8 +86,8 @@ const node=typeof process.versions.node==='string';
 process._vscodeLibJSLocalDesktopStatus={enabled:true,scope:'experimental-local-desktop',disabled:['engine-code-cache']};
 process._vscodeLibJSEngineStatus={engine:'LibJS/LibWeb',scope:'implicit-code-oss-engine-tuning-only'};
 if(policy==='missing-engine')delete process._vscodeLibJSEngineStatus;
-if(policy==='conflict')process._vscodeLibJSUtilityAuthStatus={};
-const{libJSUtilityAuthForwarding:f}=await import('./helper.mjs');
+if(policy==='conflict'){process._vscodeLibJSUtilityAuthStatus={};process._vscodeLibJSUtilityUnsignedLibrariesStatus={};}
+const{libJSUtilityAuthForwarding:f,libJSUtilityUnsignedLibraries:u}=await import('./helper.mjs');
 const value=policy==='undefined'?undefined:policy==='false'?false:policy==='malformed'?'true':true;
 let result,failed=false;try{result=f(value)}catch(e){if(e.code!=='ERR_CODE_OSS_LIBJS_UTILITY_AUTH_UNAVAILABLE')throw e;failed=true}
 const allowed=!['missing-engine','conflict','malformed','wrong-env'].includes(policy);
@@ -97,6 +99,14 @@ if(!node&&allowed&&value===true){
  if(!Object.isFrozen(status)||d.writable||d.configurable||status.available!==false||status.requested!==true||status.scope!=='code-oss-local-utility-auth-opt-out-only')throw Error('Missing immutable unavailable disclosure');
  if(f(true)!==false||process._vscodeLibJSUtilityAuthStatus!==status)throw Error('Unstable disclosure');
 }else if(policy!=='conflict'&&status!==undefined)throw Error('Published omission before use');
+let unsigned, unsignedError;
+try{unsigned=u(value)}catch(e){unsignedError=e}
+if(Boolean(unsignedError)!==(!node&&!allowed))throw Error('Unsigned library admission');
+if(!unsignedError&&unsigned!==(node?value:value===true?false:value))throw Error('Unsigned library option changed');
+if(!node&&allowed&&value===true){
+ const d=Object.getOwnPropertyDescriptor(process,'_vscodeLibJSUtilityUnsignedLibrariesStatus');
+ if(!Object.isFrozen(d.value)||d.writable||d.configurable||d.value.available!==false||!d.value.reason.includes('neither loads NAPI'))throw Error('Missing unsigned unavailable disclosure');
+}else if(policy!=='conflict'&&process._vscodeLibJSUtilityUnsignedLibrariesStatus!==undefined)throw Error('Unsigned published before use');
 console.log('PASS utility auth '+policy);
 """)
         for policy in (
