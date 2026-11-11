@@ -25,8 +25,10 @@ async function run() {
         imported.Menu === firefly.Menu &&
         legacy.MenuItem === firefly.MenuItem &&
         imported.contentTracing === firefly.contentTracing &&
-        !('desktopCapturer' in imported),
-      'Partial protocol/menu/tracing exports are shared; unsupported desktopCapturer remains unavailable'
+        imported.desktopCapturer === firefly.desktopCapturer &&
+        legacy.desktopCapturer === firefly.desktopCapturer &&
+        typeof imported.desktopCapturer.getSources === 'function',
+      'Partial protocol/menu/tracing/capture facades share the same host identity'
     );
   } else {
     check(
