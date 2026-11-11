@@ -355,6 +355,24 @@ GC::Ref<JS::Object> create_tls_host(JS::Realm& realm)
     auto host = JS::Object::create(realm, nullptr);
     host->define_native_function(realm, "create"_utf16, create, 7, JS::default_attributes);
     host->define_native_function(
+        realm, "systemCertificates"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+#ifdef __APPLE__
+            std::vector<std::string> certificates;
+            if (!tls_system_certificates(certificates))
+                return failure(vm, "ERR_TLS_TRUST_STORE", "Cannot enumerate native TLS anchors");
+            GC::Root result { TRY(JS::Array::create(vm.realm(), certificates.size())) };
+            for (size_t index = 0; index < certificates.size(); ++index)
+                result->define_direct_property(
+                    index, text(vm, certificates[index].c_str()), JS::default_attributes);
+            return result.ptr();
+#else
+            return failure(vm, "ERR_MITE_UNSUPPORTED_API",
+                "System CA enumeration is not verified on this platform");
+#endif
+        },
+        0, JS::default_attributes);
+    host->define_native_function(
         realm, "extraCertificates"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             auto const& snapshot = tls_extra_certificates();

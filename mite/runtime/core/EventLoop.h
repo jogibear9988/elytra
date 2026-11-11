@@ -62,6 +62,11 @@ public:
     // unhandledRejection event. Register before the first checkpoint.
     void observe_entry_promise(JS::Promise&);
 
+    void set_exception_reporter(std::function<void(JS::Value)> reporter)
+    {
+        m_report_exception = std::move(reporter);
+    }
+
     int status() const
     {
         return m_status;
@@ -132,7 +137,7 @@ private:
 
     JS::VM& m_vm;
     std::unique_ptr<AsyncContext> m_async_context;
-    void (*m_report_exception)(JS::Value);
+    std::function<void(JS::Value)> m_report_exception;
 
     uv_loop_t m_loop {};
     uv_async_t m_finalizer_wakeup {};

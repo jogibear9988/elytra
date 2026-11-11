@@ -2,7 +2,9 @@
 #include "platform/network/tls/TrustStore.h"
 #include "platform/WindowsSockets.h"
 #include <initializer_list>
+#include <memory>
 #include <openssl/err.h>
+#include <openssl/pem.h>
 #include <openssl/x509.h>
 
 #ifdef __APPLE__
@@ -11,6 +13,44 @@
 #endif
 
 namespace Mite {
+bool tls_system_certificates(std::vector<std::string>& certificates)
+{
+#ifdef __APPLE__
+    // Use a fresh real trust store, not a bundled list or cached package data.
+    // It snapshots this query's anchors without changing any live TLS context.
+    std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)> context(
+        SSL_CTX_new(TLS_client_method()), SSL_CTX_free);
+    if (!context || !load_tls_system_trust(context.get()))
+        return false;
+    auto* objects = X509_STORE_get0_objects(SSL_CTX_get_cert_store(context.get()));
+    auto count = sk_X509_OBJECT_num(objects);
+    if (count < 0 || count > 4096)
+        return false;
+    std::vector<std::string> result;
+    size_t total = 0;
+    for (int index = 0; index < count; ++index) {
+        auto* object = sk_X509_OBJECT_value(objects, index);
+        if (X509_OBJECT_get_type(object) != X509_LU_X509)
+            continue;
+        std::unique_ptr<BIO, decltype(&BIO_free)> output(BIO_new(BIO_s_mem()), BIO_free);
+        if (!output || PEM_write_bio_X509(output.get(), X509_OBJECT_get0_X509(object)) != 1)
+            return false;
+        char* bytes = nullptr;
+        auto size = BIO_get_mem_data(output.get(), &bytes);
+        if (!bytes || size <= 0 || size > 128 * 1024
+            || static_cast<size_t>(size) > 16 * 1024 * 1024 - total)
+            return false;
+        result.emplace_back(bytes, static_cast<size_t>(size));
+        total += static_cast<size_t>(size);
+    }
+    certificates = std::move(result);
+    return true;
+#else
+    (void)certificates;
+    return false;
+#endif
+}
+
 bool load_tls_system_trust(SSL_CTX* context)
 {
 #ifdef _WIN32

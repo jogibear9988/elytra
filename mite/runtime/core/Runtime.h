@@ -6,8 +6,12 @@
 #pragma once
 
 #include <LibJS/Runtime/Completion.h>
+#include <filesystem>
 #include <functional>
 #include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace JS {
 class VM;
@@ -33,7 +37,25 @@ struct HostHooks {
     bool allow_process_signals { false };
     // An explicit host status wins over process.exitCode and pending entry TLA.
     std::optional<int> exit_code;
+    // Called on this VM owner thread; no value may escape into another heap.
+    std::function<void(JS::Value)> exception;
 };
+
+// Parsed, native-only inputs for one VM owner. Workers bypass CLI/process-global
+// startup entirely and create/destroy the complete session on their own thread.
+struct OwnerSession {
+    std::filesystem::path entry_path;
+    std::string source;
+    std::vector<std::string> argv;
+    std::vector<std::string> exec_argv;
+    std::unordered_map<std::string, std::string> environment;
+    bool eval {};
+    bool print_completion {};
+    bool fork_child {};
+    bool worker {};
+};
+
+int run_owner_session(OwnerSession const&, HostHooks const& = {});
 
 // Hosts provide UTF-8 argument bytes; native Windows CLI conversion is at wmain.
 int run(int argc, char** argv, HostHooks const& = {});

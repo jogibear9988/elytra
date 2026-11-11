@@ -7,6 +7,7 @@
 #include "BuiltinSources.h"
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
+#include "core/workers/Host.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -139,10 +140,12 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "getHashes", "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
-    "X509Certificate", "createPublicKey", "verify" };
+    "getHashes", "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto",
+    "getRandomValues", "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
+static constexpr std::string_view worker_threads_exports[] = { "Worker", "MessagePort",
+    "isMainThread", "isInternalThread", "parentPort", "workerData", "threadId", "threadName" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
@@ -165,6 +168,8 @@ static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
+    { "worker_threads", { MITE_WORKER_THREADS_SOURCE, sizeof(MITE_WORKER_THREADS_SOURCE) - 1 },
+        worker_threads_exports },
     { "inspector", { MITE_INSPECTOR_SOURCE, sizeof(MITE_INSPECTOR_SOURCE) - 1 },
         inspector_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
@@ -328,6 +333,20 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
     }
 
+    if (name == "worker_threads") {
+        host->define_direct_property("native"_utf16,
+            create_worker_host(m_vm, m_realm, m_event_loop), JS::default_attributes);
+        host->define_direct_property(
+            "events"_utf16, TRY(builtin("events")), JS::default_attributes);
+        host->define_direct_property(
+            "types"_utf16, create_util_types_host(m_realm), JS::default_attributes);
+        host->define_direct_property("path"_utf16, TRY(builtin("path")), JS::default_attributes);
+        auto url = TRY(builtin("url"));
+        host->define_direct_property(
+            "URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
+        host->define_direct_property(
+            "fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);
+    }
     if (name == "child_process") {
         host->define_direct_property(
             "childIpc"_utf16, JS::Value(m_fork_child), JS::default_attributes);

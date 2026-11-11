@@ -13946,6 +13946,36 @@ not a complete CodeOSS/platform/release-support claim. Worker implementation rem
 uncommitted in the active review worktree and is not part of this merge. No new GUI
 run or release is performed by promotion.
 
+## 2026-11-11 — Genuine independent-VM native worker threads
+
+Extract the shared VM-owner session from CLI process startup; workers use real
+libuv-created threads with 8 MiB stacks, independent LibJS VMs/heaps/module loaders
+and loops, with no subprocess or Node/V8 substitute. Bound owned byte queues and
+process-wide active/joining threads. Preserve creation context for parent events;
+materialize JS only on the receiving owner. Interrupt under a protected VM lifetime,
+wake the owner loop and join before retiring native handles. Publish the VM before
+entry execution, including workers that never import worker_threads.
+
+Provide file/URL CJS+ESM Worker, genuine parentPort messages, lifecycle events,
+ref/unref and Promise terminate. Copy worker environment; deny worker chdir and
+keep process.exit local. Reject unsupported options, transfers/shared memory and
+clone kinds. Bound aggregate binary storage before allocation and preserve supported
+cycles/view offsets/backing aliases. Match Node's re-reference during terminate,
+including repeated calls after unref. Add a bounded Node/Mite CTest lifecycle gate.
+
+Also expose real macOS system CA anchors via getCACertificates('system'), using
+the same policy as Mite default TLS clients. Freeze/cache canonical PEM per realm;
+other native enumeration and Node's additional user/admin Keychain trust settings
+remain unimplemented and documented.
+
+Combined Release builds pass (codeoss-native-workers-build.log,
+codeoss-workers-termination-build.log). Actual Mite passes five lifecycle groups,
+standalone no-other-reference terminate-after-unref, and canonical system-root
+query (codeoss-workers-native.log, codeoss-worker-unref-native.log,
+codeoss-worker-gate-native.log, codeoss-system-ca-native.log). The no-import infinite
+loop is interrupted and joined. Native Linux/Windows acceptance remains open.
+These are genuine worker operations, not full Node worker/structured-clone parity.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -274,6 +274,11 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fork.py"
                      --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-worker-threads
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_worker_threads.py"
+                --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-worker-threads PROPERTIES TIMEOUT 90 LABELS "runtime;native")
+    add_test(
         NAME mite-stat-watcher
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_stat_watcher.py"
                 --mite "$<TARGET_FILE:mite>")

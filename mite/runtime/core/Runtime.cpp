@@ -202,10 +202,44 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         }
     }
 
+    OwnerSession session;
+    session.entry_path
+        = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
+    session.source = std::move(source);
+    session.eval = filename == "[eval]";
+    session.print_completion = print_completion;
+    session.fork_child = fork_child;
+    session.argv.emplace_back(argv[0]);
+    if (!session.eval)
+        session.argv.push_back(filename);
+    for (int index = script_arg + 1; index < argc; ++index)
+        session.argv.emplace_back(argv[index]);
+    if (session.eval) {
+        session.exec_argv.emplace_back(argv[1]);
+        session.exec_argv.emplace_back(argv[2]);
+    }
+    capture_tls_extra_certificates();
+    return run_owner_session(session, hooks);
+}
+
+int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
+{
+    auto filename
+        = session.eval ? std::string("[eval]") : ModulePaths::path_string(session.entry_path);
+    auto const& source = session.source;
+    auto const& entry_path = session.entry_path;
+    bool print_completion = session.print_completion;
+    bool fork_child = session.fork_child;
+    auto report = [&](JS::Value value) {
+        if (hooks.exception)
+            hooks.exception(value);
+        else
+            report_exception(value);
+    };
     auto vm = JS::VM::create();
     auto context_result = JS::Realm::initialize_host_defined_realm(*vm, {}, {});
     if (context_result.is_error()) {
-        report_exception(context_result.error_value());
+        report(context_result.error_value());
         return 1;
     }
 
@@ -230,11 +264,21 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     // Initialize the owned libuv loop before process queries: Windows libuv's
     // uv_os_getppid uses WinAPI pointers initialized by uv_loop_init.
     Mite::EventLoop event_loop(*vm, report_exception);
-
     auto exit_state = std::make_shared<Mite::ProcessExitState>();
-    auto process_result = Mite::create_process(*vm, realm, exit_state);
+    exit_state->worker = session.worker;
+    if (session.worker || hooks.exception)
+        event_loop.set_exception_reporter([&](JS::Value value) {
+            if (exit_state->requested_code.has_value() || vm->interrupt_requested())
+                return;
+            if (hooks.exception)
+                hooks.exception(value);
+            else
+                report(value);
+        });
+    auto process_result = Mite::create_process(
+        *vm, realm, exit_state, session.worker ? &session.environment : nullptr);
     if (process_result.is_error()) {
-        report_exception(process_result.error_value());
+        report(process_result.error_value());
         vm->pop_execution_context();
         return 1;
     }
@@ -243,59 +287,39 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     global.define_direct_property("process"_utf16, process.ptr(), JS::default_attributes);
     GC::RootVector<JS::Value> args;
     args.append(process->get_without_side_effects("execPath"_utf16));
+    auto append_text = [&](std::string const& argument) {
+        return JS::PrimitiveString::create(*vm,
+            Utf16String::from_utf8_with_replacement_character(
+                StringView(argument.data(), argument.size())));
+    };
     process->define_direct_property("argv0"_utf16,
-        JS::PrimitiveString::create(*vm,
-            Utf16String::from_utf8_with_replacement_character(
-                StringView(argv[0], strlen(argv[0])))),
-        JS::Attribute::Enumerable);
-    if (filename != "[eval]")
-        args.append(JS::PrimitiveString::create(*vm,
-            Utf16String::from_utf8_with_replacement_character(
-                StringView(filename.data(), filename.size()))));
-    for (int i = script_arg + 1; i < argc; ++i)
-        args.append(JS::PrimitiveString::create(*vm,
-            Utf16String::from_utf8_with_replacement_character(
-                StringView(argv[i], strlen(argv[i])))));
+        append_text(session.argv.empty() ? "mite" : session.argv[0]), JS::Attribute::Enumerable);
+    for (size_t index = 1; index < session.argv.size(); ++index)
+        args.append(append_text(session.argv[index]));
     process->define_direct_property(
         "argv"_utf16, JS::Array::create_from(realm, args), JS::default_attributes);
-
-    if (filename == "[eval]") {
-        GC::RootVector<JS::Value> exec_args;
-        for (int index = 1; index <= 2; ++index)
-            exec_args.append(JS::PrimitiveString::create(*vm,
-                Utf16String::from_utf8_with_replacement_character(
-                    StringView(argv[index], strlen(argv[index])))));
-        process->define_direct_property(
-            "execArgv"_utf16, JS::Array::create_from(realm, exec_args), JS::default_attributes);
-    }
+    GC::RootVector<JS::Value> exec_args;
+    for (auto const& argument : session.exec_argv)
+        exec_args.append(append_text(argument));
+    process->define_direct_property(
+        "execArgv"_utf16, JS::Array::create_from(realm, exec_args), JS::default_attributes);
 
     auto stack_support = install_error_stacks(realm);
     if (stack_support.is_error()) {
-        report_exception(stack_support.error_value());
+        report(stack_support.error_value());
         vm->pop_execution_context();
         return 1;
     }
 
     auto installed = event_loop.install(realm);
     if (installed.is_error()) {
-        report_exception(installed.error_value());
+        report(installed.error_value());
         vm->pop_execution_context();
         return 1;
     }
 
-    // Node-compatible extra trust is an immutable process-start snapshot, never
-    // reinterpreted after application JavaScript changes the environment.
-    capture_tls_extra_certificates();
-    auto entry_path
-        = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
+    // CLI captures immutable process trust before entering this reusable owner session.
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
-    auto globals = modules.install_globals(hooks.allow_process_signals, fork_child);
-    if (globals.is_error()) {
-        report_exception(globals.error_value());
-        vm->pop_execution_context();
-        return 1;
-    }
-
     bool host_active = true;
     auto stop_host = [&] {
         if (!host_active)
@@ -306,15 +330,23 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     };
 
     ScopeGuard stop_guard(stop_host);
+    auto globals = modules.install_globals(hooks.allow_process_signals, fork_child);
+    if (globals.is_error()) {
+        report(globals.error_value());
+        vm->pop_execution_context();
+        return 1;
+    }
+
     if (hooks.initialize) {
         auto result = hooks.initialize(*vm, realm, modules, event_loop);
         if (result.is_error()) {
-            report_exception(result.error_value());
+            report(result.error_value());
             stop_host();
             if (event_loop.has_pending_work()) {
                 // A partially initialized host can already own blocking work.
                 fflush(nullptr);
-                std::_Exit(1);
+                if (!session.worker)
+                    std::_Exit(1);
             }
 
             vm->pop_execution_context();
@@ -328,7 +360,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
                                               : modules.is_es_module(entry_path);
     int status = 0;
     if (module_format.is_error()) {
-        report_exception(module_format.error_value());
+        report(module_format.error_value());
         status = 1;
     } else if (module_format.value()) {
         if (std::getenv("MITE_MODULE_DIAGNOSTIC"))
@@ -349,7 +381,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
                 && completion->state() == JS::Promise::State::Pending) {
                 auto requested = process->get("exitCode"_utf16);
                 if (requested.is_error()) {
-                    report_exception(requested.error_value());
+                    report(requested.error_value());
                     status = 1;
                 } else if (requested.value().is_int32()) {
                     status = requested.value().as_i32();
@@ -396,10 +428,12 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         }
     }
 
+    if (session.worker && exit_state->requested_code.has_value())
+        status = *exit_state->requested_code;
     if (!hooks.exit_code.has_value() && (status == 0 || status == 13)) {
         auto code = process->get("exitCode"_utf16);
         if (code.is_error()) {
-            report_exception(code.error_value());
+            report(code.error_value());
             status = 1;
         } else if (code.value().is_int32()) {
             status = code.value().as_i32();
@@ -409,10 +443,12 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     if (hooks.exit_code.has_value())
         status = *hooks.exit_code;
     bool pending_before_exit = event_loop.has_pending_work();
-    auto exit_notice = emit_process_exit(
-        *vm, *process, *exit_state, status, status != 0 || hooks.exit_code.has_value());
+    auto exit_notice = (session.worker && vm->interrupt_requested())
+        ? JS::ThrowCompletionOr<int>(exit_state->requested_code.value_or(status))
+        : emit_process_exit(
+              *vm, *process, *exit_state, status, status != 0 || hooks.exit_code.has_value());
     if (exit_notice.is_error()) {
-        report_exception(exit_notice.error_value());
+        report(exit_notice.error_value());
         status = 1;
     } else {
         status = hooks.exit_code.has_value() ? *hooks.exit_code : exit_notice.value();
@@ -426,7 +462,8 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         // Fatal termination must not wait for a blocking filesystem worker (e.g.
         // a FIFO with no writer). The OS reclaims requests and handles at exit.
         fflush(nullptr);
-        std::_Exit(status);
+        if (!session.worker)
+            std::_Exit(status);
     }
 
     vm->pop_execution_context();

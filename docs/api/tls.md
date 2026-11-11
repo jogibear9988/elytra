@@ -115,7 +115,12 @@ file supplies additional real default TLS anchors; an explicit `ca` still replac
 default trust. `getCACertificates('extra')` returns the cached frozen array of
 canonical PEM certificates from that same immutable snapshot. Later environment
 changes do not reload trust. An unset or empty setting returns an empty array.
-Other query categories explicitly reject.
+`getCACertificates('system')` additionally queries the real macOS Security anchors
+used by Mite default clients and caches a frozen canonical PEM array per realm.
+This shares Mite's existing anchor policy; Node's additional user/admin Keychain
+trust-setting resolution is not yet reproduced. Linux/Windows system enumeration
+explicitly rejects because those loaders can populate stores lazily. Default and
+bundled query categories remain unsupported.
 
 Limits are a 32,768-byte UTF-8 path, a regular file of at most 4 MiB and at most
 1024 certificates. Invalid/unreadable configured input fails with
@@ -123,3 +128,10 @@ Limits are a 32,768-byte UTF-8 path, a regular file of at most 4 MiB and at most
 Node's warning-and-ignore behavior. Focused actual macOS Mite fixtures pass unset,
 valid and invalid startup/query cases. A dedicated added-root handshake and fresh
 Linux/Windows execution remain unverified.
+
+The system query caps its snapshot at 4096 certificates, 128 KiB per PEM and
+16 MiB total. The public shape follows the
+[Node 24 certificate-query API](https://nodejs.org/download/release/v24.15.0/docs/api/tls.html#tlsgetcacertificatestype),
+with the trust-policy/platform differences above. The actual macOS Mite fixture validates the frozen system snapshot and parses every
+advertised root back into a genuine X509 certificate. Fresh Linux/Windows
+system enumeration and full Keychain trust-setting parity remain open.

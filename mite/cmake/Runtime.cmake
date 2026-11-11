@@ -66,6 +66,7 @@ function(mite_add_runtime target root js_target)
         zlib
         readline
         child_process
+        worker_threads
         cjs-lexer
         timers_promises)
         string(TOUPPER "${module}" module_upper)
@@ -96,6 +97,7 @@ function(mite_add_runtime target root js_target)
         core/Runtime
         core/EventLoop
         core/ImmediateQueue
+        core/workers/Host
         core/async/Context
         core/errors/StackTrace
         core/errors/CallSites

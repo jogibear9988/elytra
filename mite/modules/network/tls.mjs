@@ -5,6 +5,7 @@ export default function createTlsModule(host) {
   const tick = host.process.nextTick;
   const states = new WeakMap();
   let extraCertificates;
+  let systemCertificates;
   const token = {};
 
   function failure(code, message, Type = Error) {
@@ -539,6 +540,10 @@ export default function createTlsModule(host) {
       }
       if (!['default', 'system', 'bundled', 'extra'].includes(type)) {
         throw failure('ERR_INVALID_ARG_VALUE', 'Unknown certificate type', TypeError);
+      }
+      if (type === 'system') {
+        systemCertificates ??= Object.freeze(native.systemCertificates());
+        return systemCertificates;
       }
       if (type !== 'extra') {
         unsupported(`getCACertificates ${type}`);

@@ -37,6 +37,8 @@ The [inspector state reference](inspector.md) describes the inactive endpoint qu
 and explicit debugger-backend refusals.
 The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and the
 fixed process runtime timeOrigin; timeline/profiling APIs remain absent.
+The [worker_threads reference](worker-threads.md) covers genuine independent-VM
+threads, message snapshots, termination and unsupported shared-memory/transfer modes.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
 error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,

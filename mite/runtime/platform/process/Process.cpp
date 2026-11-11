@@ -84,6 +84,20 @@ static JS::ThrowCompletionOr<ByteString> current_directory(JS::VM& vm)
     }
 }
 
+struct WorkerEnvironment {
+    GC_HOLDS_NO_CELL_EDGES;
+    std::unordered_map<std::string, std::string> values;
+};
+
+static thread_local std::weak_ptr<WorkerEnvironment> current_worker_environment;
+
+std::optional<std::unordered_map<std::string, std::string>> worker_environment_snapshot()
+{
+    if (auto environment = current_worker_environment.lock())
+        return environment->values;
+    return {};
+}
+
 char const* native_platform()
 {
 #if defined(_WIN32)
@@ -108,9 +122,11 @@ static char const* architecture()
 #endif
 }
 
-JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(
-    JS::VM& vm, JS::Realm& realm, std::shared_ptr<ProcessExitState> exit_state)
+JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm& realm,
+    std::shared_ptr<ProcessExitState> exit_state,
+    std::unordered_map<std::string, std::string> const* worker_environment)
 {
+    current_worker_environment.reset();
     if (!exit_state)
         exit_state = std::make_shared<ProcessExitState>();
     GC::Root process { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
@@ -235,6 +251,61 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(
             return JS::Array::create_from(vm.realm(), keys);
         },
         0, JS::default_attributes);
+    if (worker_environment) {
+        // Each worker receives its own environment snapshot. Mutations never reach
+        // process-global libc/libuv environment storage.
+        auto environment = std::make_shared<WorkerEnvironment>();
+        environment->values = *worker_environment;
+        current_worker_environment = environment;
+        host->define_native_function(realm, "envGet"_utf16,
+            GC::create_function(vm.heap(), GC::captures(shared_capture(environment)),
+                [](auto& environment, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto name = TRY(string_argument(vm, 0));
+                    auto found = environment->values.find(name.characters());
+                    if (found == environment->values.end())
+                        return JS::js_undefined();
+                    return text(vm, found->second.c_str());
+                }),
+            1, JS::default_attributes);
+        host->define_native_function(realm, "envSet"_utf16,
+            GC::create_function(vm.heap(), GC::captures(shared_capture(environment)),
+                [](auto& environment, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto name = TRY(string_argument(vm, 0));
+                    auto value = TRY(string_argument(vm, 1));
+                    environment->values[name.characters()] = value.characters();
+                    return JS::js_undefined();
+                }),
+            2, JS::default_attributes);
+        host->define_native_function(realm, "envDelete"_utf16,
+            GC::create_function(vm.heap(), GC::captures(shared_capture(environment)),
+                [](auto& environment, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto name = TRY(string_argument(vm, 0));
+                    environment->values.erase(name.characters());
+                    return JS::js_undefined();
+                }),
+            1, JS::default_attributes);
+        host->define_native_function(realm, "envKeys"_utf16,
+            GC::create_function(vm.heap(), GC::captures(shared_capture(environment)),
+                [](auto& environment, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    GC::RootVector<JS::Value> keys;
+                    for (auto const& [name, value] : environment->values) {
+                        (void)value;
+                        keys.append(text(vm, name.c_str()));
+                    }
+                    return JS::Array::create_from(vm.realm(), keys);
+                }),
+            0, JS::default_attributes);
+        process->define_native_function(
+            realm, "chdir"_utf16,
+            +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto failure = JS::Error::create(
+                    vm.realm(), "process.chdir is unavailable in workers"_utf16);
+                failure->define_direct_property("code"_utf16,
+                    text(vm, "ERR_WORKER_UNSUPPORTED_OPERATION"), JS::default_attributes);
+                return JS::throw_completion(failure);
+            },
+            1, JS::default_attributes);
+    }
     host->define_native_function(realm, "exit"_utf16,
         GC::create_function(realm.vm().heap(), GC::captures(shared_capture(exit_state)),
             [](auto& exit_state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -243,6 +314,11 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(
                         "Invalid internal process exit"_utf16);
                 auto code = TRY(emit_process_exit(
                     vm, vm.argument(1).as_object(), *exit_state, vm.argument(0).as_i32(), false));
+                if (exit_state->worker) {
+                    exit_state->requested_code = code;
+                    vm.request_interrupt();
+                    return vm.throw_completion<JS::Error>("Worker exited"_utf16);
+                }
                 std::exit(code);
             }),
         2, JS::default_attributes);
