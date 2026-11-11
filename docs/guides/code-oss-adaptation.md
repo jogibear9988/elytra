@@ -562,7 +562,7 @@ acceptance follows from omitting the preference.
 The diagnostic compiler can include upstream HTML, CSS, images, fonts and WASM:
 
 ```sh
-node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --renderer-assets --refresh
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --mite-deviceid --renderer-assets --refresh
 ```
 
 Use --refresh only for an existing output from this compiler; omit it for a fresh
@@ -672,3 +672,22 @@ names the omitted input policy. Normal Node/Electron and production Mite preserv
 the original preference. Native handles, first-click behavior and actual desktop
 presentation still require a later Cocoa acceptance run. Linux production keeps
 its existing Xvfb/X11 requirement.
+
+## Device identity with genuine asynchronous UUID and native storage
+
+The actual desktop entry imports @vscode/deviceid0.1.5, whose CommonJS loader
+requires the ESM-only uuid14 package. Use `--mite-deviceid` alongside all existing
+package flags when creating or refreshing the stage. This exact pinned package
+adaptation defers genuine uuid import into its already asynchronous missing-ID
+branch only under Mite. Its storage module uses actual node:fs/promises operations
+and recursive mkdir in that same runtime, avoiding the fs-extra/graceful-fs legacy
+constants dependency. Existing file paths, persisted IDs and error handling remain.
+Node/Electron retain the original synchronous loader and fs-extra branch.
+
+The package version, both changed source files, package manifest and license are
+pinned under vendor/deviceid. Compilation records both input/output hashes; refresh
+checks both staged files and refuses edited sidecars. A focused actual Node/Mite
+fixture generates a real UUID and reads it back from a file in a fresh temporary
+HOME. No replacement ID, entropy source or private user storage is used by that
+fixture. This adaptation does not add general synchronous require(ESM), legacy
+constants or full fs-extra support to Mite.

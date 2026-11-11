@@ -17,6 +17,7 @@ import { runtimeAsset, rendererAssets } from './renderer-assets.mjs';
 import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
 import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
 import { planSQLite, applySQLite } from './sqlite.mjs';
+import { planDeviceId, applyDeviceId } from './deviceid.mjs';
 import { verifyPackageAdditions } from './package-adaptations.mjs';
 
 const { values } = parseArgs({
@@ -30,7 +31,8 @@ const { values } = parseArgs({
     'renderer-assets': { type: 'boolean', default: false },
     'mite-policy-watcher': { type: 'boolean', default: false },
     'mite-native-keymap': { type: 'boolean', default: false },
-    'mite-sqlite': { type: 'boolean', default: false }
+    'mite-sqlite': { type: 'boolean', default: false },
+    'mite-deviceid': { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -190,7 +192,8 @@ const dependencies =
 const packageSelectors = [
   ['mite-policy-watcher', planPolicyWatcher, applyPolicyWatcher],
   ['mite-native-keymap', planNativeKeymap, applyNativeKeymap],
-  ['mite-sqlite', planSQLite, applySQLite]
+  ['mite-sqlite', planSQLite, applySQLite],
+  ['mite-deviceid', planDeviceId, applyDeviceId]
 ];
 if (packageSelectors.some(([option]) => values[option]) && !dependencies) {
   throw Error('Native package adapters require a verified prepared dependency tree');

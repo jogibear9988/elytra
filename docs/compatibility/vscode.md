@@ -26,9 +26,11 @@ The implicit SharedProcess inspector defaults are explicitly omitted only in the
 pinned local LibJS adaptation; user-requested inspector flags still fail.
 
 This is progress beyond the earlier renderer-port refusal, not an accepted editor.
-Current actual startup still reports the 64 KiB contextBridge binary argument
-limit and a synchronous CommonJS require of an ES module. SharedProcess service
-readiness, window-ready and open/edit/save remain unaccepted.
+The contextBridge binary ceiling now matches application IPC at 1 MiB, and the
+pinned deviceid package uses genuine asynchronous uuid14 and native file storage.
+The next actual run no longer reports those earlier refusals; bounded diagnostics
+identify repeated IPC send admission-limit errors. SharedProcess service readiness,
+window-ready and open/edit/save remain unaccepted.
 
 The former graph hang was caused by empty JavaScript responses completing before
 asynchronous request-header authorization. The adapter now retains those pending

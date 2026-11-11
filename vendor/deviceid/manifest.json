@@ -1,0 +1,23 @@
+{
+  "package": "@vscode/deviceid",
+  "version": "0.1.5",
+  "tarball": "https://registry.npmjs.org/@vscode/deviceid/-/deviceid-0.1.5.tgz",
+  "integrity": "sha512-D0be67wWo7WyyBqHnRkL2bK7lp7CDH/EMN4kMV6INoKc7kxRL3nsTtngt9JZrOcZdnW59gquGRk+6KFIDyD3QA==",
+  "files": {
+    "dist/devdeviceid.js": {
+      "sha256": "0d30d86857783615a35a42e14f3770d4fc956769c9dd0911e054ad390805df72"
+    },
+    "dist/index.js": {
+      "sha256": "a3c23187fd5e2ff1b727cbb30793048d6178183154ee96442ec0121564fdf1c6"
+    },
+    "dist/storage.js": {
+      "sha256": "518013180a98b70fa922cc3a6a9ef00a9b27f4eed3e39cf37cee93ab44f42e38"
+    },
+    "package.json": {
+      "sha256": "031958ead47834a8069d5da665f729d0965e87e1f91eca7044fd75b617dfafc3"
+    },
+    "LICENSE.txt": {
+      "sha256": "2fade85119c086eff03b6cc04d1b0975152c4920cb27122ca3f27473b3fdcefa"
+    }
+  }
+}

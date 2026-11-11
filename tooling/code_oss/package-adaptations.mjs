@@ -27,40 +27,56 @@ export function verifyPackageAdditions(output, previous, plans) {
   }
   for (const [name, record] of selected) {
     if (
-      typeof record.path !== 'string' ||
-      path.isAbsolute(record.path) ||
-      record.path.split(/[\\/]/).some((part) => !part || part === '.' || part === '..')
+      record.additionalFiles !== undefined &&
+      (!Array.isArray(record.additionalFiles) || record.additionalFiles.length > 16)
     ) {
-      throw Error('Invalid package adapter target');
+      throw Error('Invalid additional package adapter files');
     }
-    const target = fs.realpathSync(path.join(output, record.path));
-    const modules = path.join(output, 'node_modules') + path.sep;
-    if (!target.startsWith(modules) || !fs.statSync(target).isFile()) {
-      throw Error('Package adapter target escaped stage');
-    }
-    const expected = old.has(name) ? record.outputSha256 : record.sourceSha256;
-    if (hash(fs.readFileSync(target)) !== expected) {
-      throw Error('Refuse edited native package loader: ' + name);
-    }
-    let directory = path.dirname(target);
-    while (directory.startsWith(modules) && !fs.existsSync(path.join(directory, 'package.json'))) {
-      directory = path.dirname(directory);
-    }
-    if (!directory.startsWith(modules)) {
-      throw Error('Missing native package manifest');
-    }
-    const packageFile = fs.realpathSync(path.join(directory, 'package.json'));
-    if (!packageFile.startsWith(modules)) {
-      throw Error('Native package manifest escaped stage');
-    }
-    const bytes = fs.readFileSync(packageFile);
-    const metadata = JSON.parse(bytes);
-    if (
-      hash(bytes) !== record.packageSha256 ||
-      metadata.name !== name ||
-      metadata.version !== record.version
-    ) {
-      throw Error('Refuse edited native package manifest: ' + name);
+    const paths = new Set();
+    for (const file of [record, ...(record.additionalFiles ?? [])]) {
+      if (!file || paths.has(file.path)) {
+        throw Error('Duplicate package adapter file');
+      }
+      paths.add(file.path);
+      if (
+        typeof file.path !== 'string' ||
+        path.isAbsolute(file.path) ||
+        file.path.split(/[\\/]/).some((part) => !part || part === '.' || part === '..')
+      ) {
+        throw Error('Invalid package adapter target');
+      }
+      const target = fs.realpathSync(path.join(output, file.path));
+      const modules = path.join(output, 'node_modules') + path.sep;
+      if (!target.startsWith(modules) || !fs.statSync(target).isFile()) {
+        throw Error('Package adapter target escaped stage');
+      }
+      const expected = old.has(name) ? file.outputSha256 : file.sourceSha256;
+      if (hash(fs.readFileSync(target)) !== expected) {
+        throw Error('Refuse edited native package loader: ' + name);
+      }
+      let directory = path.dirname(target);
+      while (
+        directory.startsWith(modules) &&
+        !fs.existsSync(path.join(directory, 'package.json'))
+      ) {
+        directory = path.dirname(directory);
+      }
+      if (!directory.startsWith(modules)) {
+        throw Error('Missing native package manifest');
+      }
+      const packageFile = fs.realpathSync(path.join(directory, 'package.json'));
+      if (!packageFile.startsWith(modules)) {
+        throw Error('Native package manifest escaped stage');
+      }
+      const bytes = fs.readFileSync(packageFile);
+      const metadata = JSON.parse(bytes);
+      if (
+        hash(bytes) !== record.packageSha256 ||
+        metadata.name !== name ||
+        metadata.version !== record.version
+      ) {
+        throw Error('Refuse edited native package manifest: ' + name);
+      }
     }
   }
   return plans.filter(({ plan }) => !old.has(plan.record.name));

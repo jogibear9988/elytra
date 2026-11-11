@@ -13497,6 +13497,31 @@ Release host/helper/static-offscreen rebuild passes (codeoss-context-rpc-build.l
 Fresh execution of the expanded boundary fixture is deferred; no broad local suite
 or visible GUI is run. Actual startup acceptance is recorded separately below.
 
+## 2026-11-11 — Actual device identity through asynchronous UUID and native storage
+
+Add optional --mite-deviceid compilation for exact @vscode/deviceid0.1.5. Under
+actual Mite only, its already-async missing-ID branch imports genuine uuid14 rather
+than synchronously requiring ESM. Its exact storage leaf uses real node:fs/promises
+read/write/access and mkdir(recursive), avoiding fs-extra's unsupported legacy
+constants dependency. Existing stored IDs, paths and error handling remain; no fake
+identity or replacement entropy is used. Node/Electron keep original paths.
+Pin both edited inputs, package, index and license; package provenance and refresh
+validation cover both changed outputs while preserving prior one-file adapters.
+
+Focused actual Node/Mite generation and persisted readback pass in isolated fresh
+HOME directories, along with reversible/drift/refresh/edited-sidecar refusals.
+Refresh the same stage with the four package flags, NLS and renderer assets:
+12,345 compiled source files and 26 owned overlay records verified, no duplicated
+package/dependency tree or Finder metadata removal (codeoss-deviceid-refresh.log).
+
+Actual offscreen entry restarted as PID75285 with the new native bridge and stage
+(codeoss-context-rpc-start.log). It no longer reports the earlier synchronous ESM
+require or binary-bytes refusal and again establishes the utility watcher channel.
+Fixed safe diagnostics now identify repeated IPC send admission-limit failures,
+which are the next startup issue to address. SharedProcess service readiness,
+window-ready, editing, package and cross-platform acceptance remain open. No broad
+local suite or visible GUI is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
