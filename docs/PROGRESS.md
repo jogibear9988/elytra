@@ -13302,6 +13302,27 @@ or desktop test is run. Actual Code-OSS now reaches workbench#open and fails at 
 local remote-resource factory guard (codeoss-bridge-receiver-start.log), beyond
 the prior bridge refusal. Editor/window-ready remains unaccepted.
 
+## 2026-11-11 — Reject remote resource use rather than unused provider factories
+
+The real Workbench constructs browser resource services even for a local window.
+Move the explicit local-desktop refusal inside the two returned URI callbacks,
+before resource.with; provider factory creation itself no longer throws. Retain
+doRequest's refusal and the local constructor's no-channel-registration guard.
+This enables no remote URL generation, transport or remote-workspace support.
+The exact pinned transforms/reversal and missing/duplicate seams plus focused
+Node/Mite policy checks pass; ordinary behavior remains unchanged.
+
+Refresh the same verified stage in place with all native package adapters, NLS
+and real renderer assets: 12,344 files and 24 owned overlay records pass
+(codeoss-remote-provider-refresh.log). No dependency/source/app copy or Finder
+metadata removal is performed. Actual offscreen Code-OSS now logs
+Renderer->SharedProcess#connect, before acquirePort and main onWindowConnection,
+then fails explicitly at Utility native MessagePort transfer is not implemented
+(codeoss-remote-provider-start.log). Source-call refusals and the separate 64 KiB
+contextBridge binary argument limit also occur. Next implement genuine native
+main/utility and renderer port handoff; no editor-ready/editing acceptance or
+unimplemented API allowance is claimed. No broad suite or visible GUI test is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

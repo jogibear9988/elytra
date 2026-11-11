@@ -89,6 +89,37 @@ def main():
                     "\n\t\tconst unavailable = rejectLocalDesktopFeature('remote');\n\t\tif (unavailable) { return unavailable; }",
                     "",
                 )
+                if name == "local-remote-loader.ts":
+                    for prefix, indent in (
+                        ("\t\treturn (uri: URI)", "\t\t"),
+                        ("\treturn (resourceId, resource)", "\t"),
+                    ):
+                        guarded = (
+                            prefix
+                            + " => {\n"
+                            + indent
+                            + "\tassertLocalDesktopFeature('remote resources');\n"
+                            + indent
+                            + "\treturn "
+                        )
+                        # Generic guard stripping above may already remove the
+                        # two-tab guard; reconstruct this prefix without it too.
+                        stripped = guarded.replace(
+                            "\n\t\tassertLocalDesktopFeature('remote resources');", ""
+                        )
+                        actual = guarded if guarded in restored else stripped
+                        assert restored.count(actual) == 1
+                        start = restored.index(actual)
+                        ending = "\n" + indent + "\t});\n" + indent + "};"
+                        end = restored.index(ending, start)
+                        restored = (
+                            restored[:start]
+                            + restored[start:end].replace(actual, prefix + " => ", 1)
+                            + "\n"
+                            + indent
+                            + "});"
+                            + restored[end + len(ending) :]
+                        )
                 restored = restored.replace("\n\t\tif (isLocalDesktop()) { return; }", "")
                 restored = restored.replace("\n\t\tif (isLocalDesktop()) { return false; }", "")
                 restored = restored.replace(
@@ -147,6 +178,15 @@ def main():
                             lambda seam=seam: adapt_local(name, data.replace(seam, b"changed"))
                         )
                         rejected(lambda seam=seam: adapt_local(name, data + b"\n" + seam + b"x) {"))
+                if name == "local-remote-loader.ts":
+                    for seam in (
+                        b"\t\treturn (uri: URI) => uri.with({",
+                        b"\treturn (resourceId, resource) => resource.with({",
+                    ):
+                        rejected(
+                            lambda seam=seam: adapt_local(name, data.replace(seam, b"changed"))
+                        )
+                        rejected(lambda seam=seam: adapt_local(name, data + b"\n" + seam))
                 assert restored.encode() == data, name
                 rejected(lambda: adapt_local(name, adapted))
                 # Missing/duplicate method entry seams and initialization seams fail closed.
@@ -269,6 +309,38 @@ if(enabled&&!policy.localDesktopStatus().disabled.includes('display-capture'))th
             capture_harness
             + "\nconsole.log(JSON.stringify({enabled, scope:policy.localDesktopStatus().scope}));",
         )
+        loader = adapt_local(
+            "local-remote-loader.ts", (PINNED / "local-remote-loader.ts").read_bytes()
+        ).decode()
+        provider_method = (
+            "\tpublic getResourceUriProvider() {"
+            + loader.split("\tpublic getResourceUriProvider() {", 1)[1].split(
+                "\n}\n\nexport function", 1
+            )[0]
+        )
+        provider_factory = (
+            "export function createBrowserResourceUriProvider"
+            + loader.split("export function createBrowserResourceUriProvider", 1)[1]
+        )
+        provider_harness = """
+class ActualRemoteProvider { PROVIDER_METHOD }
+PROVIDER_FACTORY
+const Schemas={vscodeManagedRemoteResource:'vscode-managed-remote-resource'};
+let generated=0;
+const resource={authority:'remote-host',scheme:'vscode-remote',with(value){generated++;return value;}};
+const method=ActualRemoteProvider.prototype.getResourceUriProvider.call({windowId:41});
+const factory=createBrowserResourceUriProvider(41);
+if(typeof method!=='function'||typeof factory!=='function'||generated!==0)throw Error('Provider construction performed remote work');
+for(const invoke of [()=>method(resource),()=>factory('owned-resource',resource)]) {
+ let result, failure;
+ try{result=invoke();}catch(error){failure=error;}
+ if(enabled ? failure?.code!=='ERR_CODE_OSS_LOCAL_DESKTOP_UNSUPPORTED' : failure||result.scheme!==Schemas.vscodeManagedRemoteResource||result.authority!=='window:41')throw Error('Provider operation contract');
+}
+if(generated!==(enabled?0:2))throw Error('Disabled provider generated an unsupported URI');
+""".replace("PROVIDER_METHOD", provider_method).replace(
+            "PROVIDER_FACTORY", provider_factory.replace("export function", "function", 1)
+        )
+        harness += provider_harness
         (work / "main.ts").write_text(harness)
 
         transform = """import fs from 'node:fs'; import {transformSync} from './tooling/runtime-js/node_modules/esbuild/lib/main.js';

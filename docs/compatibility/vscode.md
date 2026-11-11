@@ -15,10 +15,12 @@ missing/loading/parse-error entries and linked central Workbench records. This i
 module loading/linking evidence, not an accepted editor window or editing workflow.
 
 The source-parent contextBridge method binding is now implemented and the actual
-entry reaches workbench#open. Its next failure is our local experiment's remote
-resource guard firing while a URI-provider factory is created, before a resource
-operation. Guard placement is the next source-adapter correction. Remote resources
-remain unsupported; initializing an unused callback must not claim support for them.
+entry reaches workbench#open and Renderer->SharedProcess#connect. Local URI-provider
+factories can now be constructed; actual remote-resource operations still fail
+explicitly. The current fatal refusal is Utility native MessagePort transfer is
+not implemented, during the main process's SharedProcess connection handoff.
+Some preload source-call refusals and the separate 64 KiB contextBridge binary
+argument limit are also observed and remain work. No accepted editor is claimed.
 
 The former graph hang was caused by empty JavaScript responses completing before
 asynchronous request-header authorization. The adapter now retains those pending
