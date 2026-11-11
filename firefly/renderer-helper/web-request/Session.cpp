@@ -2,6 +2,8 @@
 #include "Session.h"
 #include "loading/web-request/Gate.h"
 #include "native/ipc/bytes/Channel.h"
+#include "native/platform/QueueSnapshots.h"
+#include "native/web-request/Limits.h"
 #include "native/web-request/Packet.h"
 #include <AK/HashMap.h>
 #include <AK/NeverDestroyed.h>
@@ -35,6 +37,7 @@ namespace {
         size_t bytes {};
         Vector<ByteBuffer> outgoing;
         size_t outgoing_bytes {};
+        QueueSnapshotClock diagnostics;
         bool admitted {};
         bool stopped {};
     };
@@ -145,10 +148,14 @@ namespace {
             .document_local = doc.local_id,
             .payload = move(metadata) };
         auto logical = packet.payload.get_u32("logicalId"sv);
-        if (!logical.has_value() || !*logical
-            || (session.get()->logical.size() >= 1024
-                && !session.get()->logical.contains(*logical)))
+        if (!logical.has_value() || !*logical)
             return Error::from_string_literal("webRequest logical identity budget exceeded");
+        if (session.get()->logical.size() >= WebRequest::logical_request_limit
+            && !session.get()->logical.contains(*logical)) {
+            WebRequest::logical_limit_diagnostic(
+                WebRequest::LogicalLimitStage::Session, session.get()->logical.size());
+            return Error::from_string_literal("webRequest logical identity budget exceeded");
+        }
         auto encoded = TRY(WebRequest::encode_packet(packet));
         if (encoded.size() > 2 * 1024 * 1024 - session.get()->bytes)
             return Error::from_string_literal("webRequest queued-byte budget exceeded");
@@ -157,6 +164,8 @@ namespace {
         Packet identity = packet;
         identity.payload = {};
         session.get()->logical.set(*logical, identity);
+        WebRequest::logical_retention_diagnostic(
+            WebRequest::LogicalLimitStage::Session, session.get()->logical.size());
         session.get()->bytes += encoded.size();
         session.get()->pending.set(id,
             Pending { identity, move(completion),
@@ -229,6 +238,13 @@ void initialize()
     session.get()->timer = Core::Timer::create_repeating(AK::Duration::from_milliseconds(100), [] {
         if (!*session)
             return;
+        if (auto after = session.get()->diagnostics.due())
+            std::fprintf(stderr,
+                "FIREFLY_QUEUE_SNAPSHOT stage=web-request-session after=%u pending=%zu "
+                "logical=%zu pending_bytes=%zu outgoing=%zu outgoing_bytes=%zu open=%u\n",
+                after, session.get()->pending.size(), session.get()->logical.size(),
+                session.get()->bytes, session.get()->outgoing.size(), session.get()->outgoing_bytes,
+                session.get()->channel && session.get()->channel->is_open() ? 1u : 0u);
         WebRequestGate::sweep();
         Vector<u32> expired;
         for (auto const& entry : session.get()->pending)

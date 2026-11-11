@@ -93,6 +93,19 @@ shutdown cannot authorize a retired continuation. Pending decisions are bounded
 to 64 in the main policy and native broker, 16 per helper, with 30-second deadlines.
 Native request IDs are odd; main net IDs are even and neither is reused.
 
+Document requests wait in FIFO order behind those active decision slots. The
+renderer retains at most 8,192 queued/active decisions per document and 16,384 per
+helper, with serialized metadata bounded to 32 MiB/document and 64 MiB/helper.
+Queue time counts toward the original 30-second deadline. Promotion rechecks the
+document, policy epoch, cancellation and metadata quotas. These limits do not
+increase the active native broker limits.
+
+Logical request identities span multiple decision stages and body streaming;
+their separate limit is 16,384 per helper in the renderer, helper session and main
+broker. Normal body completion, cancellation and document retirement release them.
+Native SDK body-error cleanup still needs a complete audit; a loaded response head
+alone is not body completion. This is bounded admission, not unlimited concurrency.
+
 The current renderer scope covers document requests and authenticated top-level
 navigation. Worker requests and unbound/subframe navigation fail closed when
 interception is active. WebSocket handshakes currently bypass upstream Fetch and

@@ -1,13 +1,18 @@
 /** Map actual FetchController credit/cancellation to bounded native IPC, without file IO. */
 #include "Client.h"
 #include "Dispatch.h"
+#include "native/protocol/Diagnostics.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include "native/protocol/files/FilePacket.h"
 #include <AK/NumericLimits.h>
 #include <LibCore/EventLoop.h>
+#include <LibJS/SourceTextModule.h>
+#include <LibURL/Parser.h>
 #include <LibWeb/HTML/LocalNavigable.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
+#include <LibWeb/HTML/Scripting/ModuleMap.h>
+#include <LibWeb/HTML/Scripting/ModuleScript.h>
 
 namespace Firefly::ProtocolFetch {
 namespace {
@@ -131,6 +136,7 @@ void Client::revoke()
     VERIFY(m_thread == AK::ThreadID::current());
     if (m_revoked)
         return;
+    Protocols::diagnostic(Protocols::DiagnosticStage::ClientRevoke, m_jobs.size());
     m_revoked = true;
     if (m_timer)
         m_timer->stop();
@@ -171,13 +177,19 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
             && request.origin().has<URL::Origin>()
             && request.origin().get<URL::Origin>().is_same_origin(m_origin);
     if (!admitted || m_jobs.size() >= document_job_limit || process_jobs >= process_job_limit
-        || m_next == NumericLimits<u32>::max())
+        || m_next == NumericLimits<u32>::max()) {
+        Protocols::diagnostic(admitted ? Protocols::DiagnosticStage::ClientQuota
+                                       : Protocols::DiagnosticStage::ClientScope,
+            m_jobs.size());
         return Error::from_string_literal("Protocol request is outside the admitted scope");
+    }
     auto url = request.current_url().serialize();
     if (url.bytes().size() > Protocols::file_request_url_limit
         || url.bytes().size() > document_url_limit - m_waiting_url_bytes
-        || url.bytes().size() > process_url_limit - process_url_bytes)
+        || url.bytes().size() > process_url_limit - process_url_bytes) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientUrl, m_jobs.size());
         return Error::from_string_literal("Protocol request URL exceeds the transport limit");
+    }
     auto id = ++m_next;
     auto weak = make_weak_ptr();
     auto response = TRY(Response::create(params, m_epoch, id,
@@ -198,6 +210,7 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
         Job { response, url.to_byte_string(), MonotonicTime::now() + AK::Duration::from_seconds(30),
             0, request.method() == "HEAD"sv }));
     ++process_jobs;
+    Protocols::diagnostic(Protocols::DiagnosticStage::ClientAdmitted, m_jobs.size());
     m_waiting_url_bytes += url.bytes().size();
     process_url_bytes += url.bytes().size();
     schedule();
@@ -244,6 +257,7 @@ void Client::receive(ReadonlyBytes bytes)
     VERIFY(m_thread == AK::ThreadID::current());
     auto packet = Protocols::decode_file_packet(bytes);
     if (!scope_is_active() || packet.is_error() || packet.value().epoch != m_epoch) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientPacket, m_jobs.size());
         revoke();
         return;
     }
@@ -251,6 +265,7 @@ void Client::receive(ReadonlyBytes bytes)
     auto id = packet.value().request;
     auto found = m_jobs.find(id);
     if (found == m_jobs.end() || !found->value.sent) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientUnknown, m_jobs.size());
         revoke();
         return;
     }
@@ -265,6 +280,7 @@ void Client::receive(ReadonlyBytes bytes)
     auto response = found->value.response;
     auto result = response->receive(bytes);
     if (result.is_error()) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientResponse, m_jobs.size());
         revoke();
         return;
     }
@@ -321,6 +337,7 @@ void Client::pump()
     m_last_pumped = *id;
     auto& job = m_jobs.find(*id)->value;
     if (MonotonicTime::now() >= job.deadline) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientDeadline, m_jobs.size());
         revoke();
         return;
     }
@@ -338,6 +355,7 @@ void Client::pump()
     if (!job.sent) {
         ++m_active;
         ++process_active;
+        Protocols::diagnostic(Protocols::DiagnosticStage::ClientSent, m_active);
         m_waiting_url_bytes -= job.url.length();
         process_url_bytes -= job.url.length();
         job.sent = true;
@@ -352,6 +370,65 @@ void Client::pump()
 
 void Client::sweep()
 {
+    if (auto after = m_diagnostics.due()) {
+        size_t waiting = 0, credit_ready = 0;
+        for (auto const& entry : m_jobs) {
+            waiting += !entry.value.sent;
+            credit_ready += entry.value.sent && !!entry.value.credit;
+        }
+        std::fprintf(stderr,
+            "FIREFLY_QUEUE_SNAPSHOT stage=protocol-client after=%u jobs=%zu active=%zu "
+            "waiting=%zu credit_ready=%zu url_bytes=%zu native_frames=%zu "
+            "process_jobs=%zu process_active=%zu current=%u\n",
+            after, m_jobs.size(), m_active, waiting, credit_ready, m_waiting_url_bytes,
+            m_channel ? m_channel->pending_send_count() : 0, process_jobs, process_active,
+            scope_is_active() ? 1u : 0u);
+        if (!m_navigation && m_document && m_document->is_fully_active()) {
+            struct ObservedModule {
+                char const* label;
+                StringView relative;
+            };
+
+            static constexpr ObservedModule modules[] = { { "bootstrap", "./workbench.js"sv },
+                { "workbench-desktop", "../../../workbench/workbench.desktop.main.js"sv },
+                { "workbench-common", "../../../workbench/workbench.common.main.js"sv },
+                { "desktop-main", "../../../workbench/electron-browser/desktop.main.js"sv },
+                // Code-OSS imports through appRoot/out even when the bootstrap
+                // HTML uses src. Keep URL identities distinct despite the disk alias.
+                { "out-workbench-desktop", "../../../../../out/vs/workbench/workbench.desktop.main.js"sv },
+                { "out-workbench-common", "../../../../../out/vs/workbench/workbench.common.main.js"sv },
+                { "out-desktop-main", "../../../../../out/vs/workbench/electron-browser/desktop.main.js"sv } };
+            auto& map = m_document->relevant_settings_object().module_map();
+            for (auto const& observed : modules) {
+                auto url = URL::Parser::basic_parse(observed.relative, m_document->url());
+                auto entry = url.has_value() ? map.get(*url, u"javascript-or-wasm"sv)
+                                             : Optional<Web::HTML::ModuleMap::Entry const&> {};
+                char const* status = url.has_value() ? "missing" : "unresolved";
+                size_t callbacks = 0;
+                bool empty = false, parse_error = false, rethrow = false, environment = false;
+                if (entry.has_value()) {
+                    if (auto* waiting = entry->get_pointer<Web::HTML::ModuleMap::CallbackList>()) {
+                        status = "loading";
+                        callbacks = waiting->size();
+                    } else {
+                        status = "fetched";
+                        auto script = entry->get<GC::Ref<Web::HTML::ModuleScript>>();
+                        empty = script->record().has<Empty>();
+                        parse_error = !script->parse_error().is_null();
+                        rethrow = !script->error_to_rethrow().is_null();
+                        auto record = script->record();
+                        if (auto* source = record.get_pointer<GC::Ref<JS::SourceTextModule>>())
+                            environment = !!(*source)->environment();
+                    }
+                }
+                std::fprintf(stderr,
+                    "FIREFLY_MODULE_SNAPSHOT label=%s after=%u state=%s callbacks=%zu "
+                    "record_empty=%u parse_error=%u rethrow=%u source_environment=%u\n",
+                    observed.label, after, status, callbacks, empty ? 1u : 0u,
+                    parse_error ? 1u : 0u, rethrow ? 1u : 0u, environment ? 1u : 0u);
+            }
+        }
+    }
     if (!scope_is_active() || !m_channel->is_open()) {
         revoke();
         return;

@@ -2,13 +2,16 @@
  * abort/flow control. */
 #include "Response.h"
 #include "loading/web-request/Gate.h"
+#include "native/protocol/Diagnostics.h"
 #include "native/protocol/files/FilePacket.h"
 #include "native/protocol/files/ResponseHead.h"
 #include <AK/WeakPtr.h>
 #include <LibGC/Function.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
+#include <LibWeb/Fetch/Infrastructure/HTTP/MIME.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
+#include <LibWebCommon/MimeSniff/MimeType.h>
 
 namespace Firefly::ProtocolFetch {
 namespace Engine = Web::Fetch::Engine;
@@ -105,6 +108,7 @@ void Response::fail()
     VERIFY(m_thread == AK::ThreadID::current());
     if (m_finished)
         return;
+    Protocols::diagnostic(Protocols::DiagnosticStage::ResponseFail, m_received);
     m_finished = true;
     WebRequestGate::cancel(*m_params);
     m_gate->detach_transport();
@@ -129,6 +133,7 @@ void Response::stop()
 
 ErrorOr<void> Response::reject()
 {
+    Protocols::diagnostic(Protocols::DiagnosticStage::ResponseFrame, m_received);
     fail();
     return Error::from_string_literal("Invalid protocol response frame/state/credit");
 }
@@ -170,12 +175,19 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
     // The ordinary upstream HTTP fetch path repeats its own CORS/filter checks.
     if (m_params->request()->response_tainting() == Infrastructure::Request::ResponseTainting::CORS
         && !Web::Fetch::Fetching::cors_check(*m_params->request(), *response)) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ResponseCors);
         // A policy refusal belongs to this request; the well-formed channel
         // remains usable for other resources from the same document.
         fail();
         return;
     }
 
+    if (m_params->request()->destination() == Infrastructure::Request::Destination::Script) {
+        auto mime = Infrastructure::extract_mime_type(response->header_list());
+        if (!mime.has_value() || !mime->is_javascript())
+            Protocols::diagnostic(
+                Protocols::DiagnosticStage::ResponseScriptMime, mime.has_value() ? 1 : 0);
+    }
     if (!m_head->body_null) {
         m_channel = Engine::FetchByteChannel::create(
             { .low = Protocols::file_chunk_limit / 2, .high = Protocols::file_chunk_limit },
@@ -205,6 +217,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         return reject();
     using Kind = Protocols::FilePacketKind;
     if (packet.kind == Kind::Cancel) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ResponseCancel, m_received);
         fail();
         return {};
     }

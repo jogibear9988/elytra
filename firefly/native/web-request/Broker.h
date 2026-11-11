@@ -3,6 +3,7 @@
 #include "Packet.h"
 #include "Policy.h"
 #include "native/ipc/bytes/Channel.h"
+#include "native/platform/QueueSnapshots.h"
 #include <AK/HashMap.h>
 #include <AK/WeakPtr.h>
 #include <LibCore/Timer.h>
@@ -71,6 +72,7 @@ private:
     bool m_before { false };
     bool m_headers { false };
     bool m_stopped { false };
+    QueueSnapshotClock m_diagnostics;
     size_t m_bytes { 0 };
 };
 }

@@ -14,6 +14,7 @@
 #include "../locale/Host.h"
 #include "../locale/Locale.h"
 #include "../platform/DesktopServices.h"
+#include "../platform/Diagnostics.h"
 #include "../platform/RuntimePaths.h"
 #include "../platform/StartupOptions.h"
 #include "../safe-storage/Host.h"
@@ -29,6 +30,7 @@
 #include "hub/SandboxLaunch.h"
 #include "modules/ModuleLoader.h"
 #include "platform/process/SignalPolicy.h"
+#include <LibCore/Environment.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
 #include <LibGC/Root.h>
@@ -373,6 +375,11 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return 1;
     }
 
+    // Forward only this explicit boolean through the SDK's existing helper
+    // environment allowlist. Do not broaden it or pass application secrets.
+    if (Firefly::ipc_bytes_diagnostics_enabled())
+        TRY(Core::Environment::set(
+            "LIBWEB_FIREFLY_IPC_BYTES_DIAGNOSTIC"sv, "1"sv, Core::Environment::Overwrite::Yes));
     TRY(Firefly::verify_desktop_environment());
     QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
     auto format = QSurfaceFormat::defaultFormat();

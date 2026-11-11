@@ -7,6 +7,7 @@
 #include "context/Boundary.h"
 #include "context/CallbackBridge.h"
 #include "context/Snapshot.h"
+#include "native/platform/Diagnostics.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Function.h>
@@ -28,8 +29,7 @@ namespace {
     // Match only known native/startup failures; output never includes source text.
     void diagnose_source_rejection(JS::Value value)
     {
-        auto* enabled = std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC");
-        if (!enabled || StringView(enabled, strlen(enabled)) != "1"sv)
+        if (!ipc_bytes_diagnostics_enabled())
             return;
         char const* reason = "unclassified";
         if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
@@ -64,8 +64,7 @@ namespace {
     // Trusted native stages only: never log source values, error messages or API names.
     void diagnose_promise_failure(char const* stage, Error const* failure = nullptr)
     {
-        auto* enabled = std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC");
-        if (!enabled || StringView(enabled, strlen(enabled)) != "1"sv)
+        if (!ipc_bytes_diagnostics_enabled())
             return;
         char const* reason = "none";
         if (failure) {

@@ -1,5 +1,6 @@
 /** Credit-paced file service over the existing bounded native byte channel. No LibWeb or JS. */
 #include "Server.h"
+#include "native/protocol/Diagnostics.h"
 #include <AK/Array.h>
 #include <AK/ScopeGuard.h>
 #include <LibCore/EventLoop.h>
@@ -119,6 +120,7 @@ void FileServer::receive(ReadonlyBytes bytes)
     VERIFY(m_thread == AK::ThreadID::current());
     auto decoded = decode_file_request(bytes);
     if (!is_open() || decoded.is_error() || decoded.value().epoch != m_epoch || m_admitting) {
+        diagnostic(DiagnosticStage::ServerPacket, m_jobs.size());
         revoke();
         return;
     }
@@ -128,6 +130,7 @@ void FileServer::receive(ReadonlyBytes bytes)
         // Consume all request IDs, including refused routes. An old reply cannot
         // later become a different file. Bound even jobs waiting to send refusal.
         if (packet.request <= m_last_request || m_jobs.size() >= document_file_request_limit) {
+            diagnostic(DiagnosticStage::ServerQuota, m_jobs.size());
             revoke();
             return;
         }
@@ -142,6 +145,8 @@ void FileServer::receive(ReadonlyBytes bytes)
         auto admitted
             = m_files->admit(m_epoch, packet.request, packet.kind == FileRequestKind::Head, now);
         if (admitted.is_error()) {
+            diagnostic(DiagnosticStage::ServerAdmit, m_jobs.size(),
+                admitted.error().is_errno() ? admitted.error().code() : 0);
             job.authorizing = false;
             job.cancelled = true;
         }
@@ -231,6 +236,8 @@ bool FileServer::authorize(u32 request, ErrorOr<AuthorizedResponse> result)
     }
 
     if (result.is_error()) {
+        diagnostic(DiagnosticStage::ServerAuthorize, m_jobs.size(),
+            result.error().is_errno() ? result.error().code() : 0);
         m_files->cancel(m_epoch, request);
         job.cancelled = true;
     } else if (producer) {
@@ -238,6 +245,7 @@ bool FileServer::authorize(u32 request, ErrorOr<AuthorizedResponse> result)
         auto encoded = encode_stream_response_head(response.head);
         if (response.head.request != request || response.head.head != job.head
             || (!response.head.body_null && !response.pull) || encoded.is_error()) {
+            diagnostic(DiagnosticStage::ServerMetadata, m_jobs.size());
             m_files->cancel(m_epoch, request);
             job.cancelled = true;
         } else {
@@ -250,6 +258,8 @@ bool FileServer::authorize(u32 request, ErrorOr<AuthorizedResponse> result)
         auto file = result.release_value().get<AuthorizedFile>();
         auto metadata = m_files->authorize(m_epoch, request, file.path, file.headers, now);
         if (metadata.is_error()) {
+            diagnostic(DiagnosticStage::ServerMetadata, m_jobs.size(),
+                metadata.error().is_errno() ? metadata.error().code() : 0);
             job.cancelled = true;
         } else {
             job.head_or_empty = metadata.value().head || !metadata.value().content_length;

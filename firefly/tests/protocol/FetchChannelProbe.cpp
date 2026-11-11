@@ -3,6 +3,7 @@
 #include "Arguments.h"
 #include "loading/protocol/Client.h"
 #include "loading/protocol/Dispatch.h"
+#include "loading/web-request/Gate.h"
 #include "native/protocol/OriginPolicy.h"
 #include "native/protocol/files/Server.h"
 #include <AK/Array.h>
@@ -26,6 +27,7 @@
 #endif
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -143,6 +145,37 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             client->revoke();
     };
 
+    struct GateCounters {
+        size_t calls {}, active {}, peak {}, finished {};
+    };
+
+    auto gate = std::make_shared<GateCounters>();
+    if (mode == "gate-burst"sv) {
+        Firefly::WebRequestGate::install(
+            [gate](auto stage, auto&, JsonObject,
+                Firefly::WebRequestGate::Completion completion) -> ErrorOr<u32> {
+                if (stage != Firefly::WebRequestGate::Stage::Before)
+                    return Error::from_string_literal("Unexpected controlled gate stage");
+                auto id = static_cast<u32>(++gate->calls);
+                ++gate->active;
+                gate->peak = max(gate->peak, gate->active);
+                Core::deferred_invoke([gate, id, completion = move(completion)]() mutable {
+                    --gate->active;
+                    JsonObject decision;
+                    decision.set("cancel"sv, id == 17);
+                    completion(move(decision));
+                });
+                return id;
+            },
+            [](u32) {}, [gate](u32) { ++gate->finished; });
+        if (!Firefly::WebRequestGate::configure({ 1, true, false }))
+            return Error::from_string_literal("Controlled native gate policy setup failed");
+    }
+    ScopeGuard gate_cleanup([&] {
+        if (mode == "gate-burst"sv)
+            Firefly::WebRequestGate::shutdown();
+    });
+
     if (mode == "body"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
@@ -182,6 +215,31 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             ]).then(()=>channelResult='ok',e=>channelResult='error:'+e.message);
         )JS"sv));
         TRY(wait_script(realm, u"channelResult==='ok'"sv));
+    } else if (mode == "gate-burst"sv) {
+        TRY(run(realm, uR"JS(
+            globalThis.channelResult='pending';
+            Promise.allSettled(Array.from({length:32},()=>fetch('app://bundle/body').then(async r=>{
+                const bytes=new Uint8Array(await r.arrayBuffer());
+                if(r.status!==200 || bytes.length!==4099 ||
+                    !bytes.every((v,i)=>v===((i*37+11)&255))) throw Error('gated GET body');
+            }))).then(results=>{
+                channelResult=results.filter(r=>r.status==='fulfilled').length===31 &&
+                    results.filter(r=>r.status==='rejected').length===1 ? 'gate-burst':'bad';
+            },()=>channelResult='bad');
+        )JS"sv));
+        TRY(wait_script(realm, u"channelResult==='gate-burst'"sv));
+        if (gate->calls != 32 || gate->active || gate->peak != 16 || gate->finished != 32)
+            return Error::from_string_literal("Native security gate burst ownership mismatch");
+    } else if (mode == "burst"sv) {
+        TRY(run(realm, uR"JS(
+            globalThis.channelResult='pending';
+            Promise.all(Array.from({length:32},()=>fetch('app://bundle/body').then(async r=>{
+                const bytes=new Uint8Array(await r.arrayBuffer());
+                if(r.status!==200 || bytes.length!==4099 ||
+                    !bytes.every((v,i)=>v===((i*37+11)&255))) throw Error('queued GET body');
+            }))).then(()=>channelResult='burst',()=>channelResult='bad');
+        )JS"sv));
+        TRY(wait_script(realm, u"channelResult==='burst'"sv));
     } else if (mode == "quota"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
@@ -408,6 +466,8 @@ ErrorOr<void> parent(StringView path, StringView mode)
             || calls
                 != static_cast<size_t>(mode == "body"sv              ? 3
                         : mode == "quota"sv                          ? 63
+                        : mode == "burst"sv                          ? 32
+                        : mode == "gate-burst"sv                     ? 31
                         : mode.is_one_of("scope"sv, "abort-early"sv) ? 0
                                                                      : 1))
             return Error::from_string_literal("Native fetch admission/file cleanup mismatch");
@@ -432,9 +492,9 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     IPC::HandleBroker::install(make<IPC::LocalHandleBroker>());
 #endif
     if (arguments.argc != 3
-        || !arguments.strings[1].is_one_of("body"sv, "stream"sv, "quota"sv, "scope"sv, "abort"sv,
-            "abort-early"sv, "reader-cancel"sv, "revoke"sv, "drop"sv, "peerloss"sv, "malformed"sv,
-            "epoch"sv, "future"sv, "silence"sv))
+        || !arguments.strings[1].is_one_of("body"sv, "stream"sv, "quota"sv, "burst"sv,
+            "gate-burst"sv, "scope"sv, "abort"sv, "abort-early"sv, "reader-cancel"sv, "revoke"sv,
+            "drop"sv, "peerloss"sv, "malformed"sv, "epoch"sv, "future"sv, "silence"sv))
         return Error::from_string_literal(
             "Expected fetch-channel mode and native-authorized file path");
     TRY(parent(arguments.strings[2], arguments.strings[1]));

@@ -1,6 +1,7 @@
 /** All admission and decisions run on the native UI owner; stale ownership fails closed. */
 #include "Broker.h"
 #include "Headers.h"
+#include "Limits.h"
 #include <AK/Random.h>
 #include <AK/ScopeGuard.h>
 #include <LibWebView/WebContentPage.h>
@@ -186,7 +187,11 @@ void Broker::receive(u64 client, ReadonlyBytes bytes)
 
     auto public_id = found->value.logical_ids.get(*logical);
     if (!public_id.has_value()) {
-        if (found->value.logical_ids.size() >= 1024 || m_next_public_id > 2147483645) {
+        if (found->value.logical_ids.size() >= logical_request_limit
+            || m_next_public_id > 2147483645) {
+            if (found->value.logical_ids.size() >= logical_request_limit)
+                logical_limit_diagnostic(
+                    LogicalLimitStage::Broker, found->value.logical_ids.size());
             retire(client);
             return;
         }
@@ -194,6 +199,7 @@ void Broker::receive(u64 client, ReadonlyBytes bytes)
         public_id = m_next_public_id;
         m_next_public_id += 2;
         found->value.logical_ids.set(*logical, *public_id);
+        logical_retention_diagnostic(LogicalLimitStage::Broker, found->value.logical_ids.size());
     }
 
     metadata->set("id"sv, *public_id);
@@ -281,6 +287,17 @@ void Broker::retire(u64 client)
 
 void Broker::sweep()
 {
+    if (auto after = m_diagnostics.due()) {
+        size_t logical = 0, ready = 0;
+        for (auto const& entry : m_clients) {
+            logical += entry.value.logical_ids.size();
+            ready += entry.value.ready;
+        }
+        std::fprintf(stderr,
+            "FIREFLY_QUEUE_SNAPSHOT stage=web-request-broker after=%u pending=%zu "
+            "logical=%zu clients=%zu ready_clients=%zu pending_bytes=%zu epoch=%u\n",
+            after, m_pending.size(), logical, m_clients.size(), ready, m_bytes, m_epoch);
+    }
     Vector<u32> expired;
     for (auto const& entry : m_pending)
         if (!current(entry.key, entry.value.packet.epoch))

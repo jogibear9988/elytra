@@ -13122,6 +13122,52 @@ failure without a desktop window (codeoss-offscreen-module-start.log). The owned
 failed process47077/helper47081 was verified and stopped. Later debugging can use
 this component mode until a substantive renderer milestone warrants Cocoa UI.
 
+## 2026-11-11 — Admit the actual Workbench module graph through request policy
+
+The actual offscreen Code-OSS entry exposed a second independent admission limit:
+webRequest rejected the 17th concurrent decision before the protocol fetch client.
+Queue decisions behind the existing 16 active helper slots, preserving the broker's
+64-process bound. Bound retained decisions to 8,192/document and 16,384/helper and
+serialized metadata to 32/64 MiB. Recheck native document/policy identity, original
+30-second deadline and metadata on promotion. Cancellation, denial and retirement
+release queued roots, byte accounting and logical identities; successful body EOF
+retains the existing finish hook. Do not retire identities at response-head arrival
+or between redirects. SDK body-error cleanup still needs a complete audit.
+
+Harmonize the independent retained logical-identity limit at 16,384 across Gate,
+helper Session and main Broker; the former Session/Broker limit of 1,024 rejected
+the larger graph even after active decision queuing worked. Active, wire and body
+credit quotas remain unchanged. Opt-in bounded fixed-stage native diagnostics carry
+no URLs, headers or payloads. Forward only their boolean through the SDK's existing
+LIBWEB_ diagnostic environment prefix; upstream sources remain unchanged.
+
+Focused actual native component evidence: 32 GET bodies pass the real file channel
+(codeoss-module-fetch-get-burst.log); 32 requests pass Gate plus FileServer with a
+controlled denial of request 17, 31 verified bodies, peak 16 decisions and complete
+logical cleanup (codeoss-web-request-queue-burst.log). This component callback does
+not substitute for main Broker acceptance. Release host/helper/offscreen builds
+pass (codeoss-web-request-queue-build.log, codeoss-web-request-logical-build.log).
+No broad suite or visible GUI run is added.
+
+Actual Code-OSS then passes retained counts 1,024/1,025 in all three native layers
+without the previous module exception (codeoss-logical-cap-start.log). Its renderer
+is alive but idle before renderer hello/window-ready; no editor or editing success
+is claimed. A read-only native process sample shows event-loop waiting rather than
+active module compilation. Next inspect bounded native queue states and module
+loading/evaluation to identify the remaining wait; prioritize this over broad tests.
+
+Add two opt-in snapshots (5/30 seconds) to existing native sweeps, without another
+poller or application data. Actual codeoss-idle-snapshot-start.log reaches zero
+active/queued requests in all four transport layers at 30 seconds. The corrected
+fixed ModuleMap observer keeps src/out URL identities separate despite their disk
+alias: codeoss-module-state-start.log confirms all three central out/workbench
+records are fetched with no parse/rethrow error, while transport queues are empty.
+Fetched is not evaluated; editor acceptance remains open. Native performance-entry
+observation was omitted because that SDK symbol is not exported; no upstream ABI
+change is introduced for diagnostics. Combined Release host/helper/offscreen build
+passes (codeoss-idle-snapshot-build.log), as does the corrected observer build
+(codeoss-module-state-build.log). No broad suite or desktop test is run.
+
 ## 2026-11-11 — Linux CI: bind opted-in helper reports to the application directory
 
 Engine run42935630484/job130244908069 atef319d2 passes the complete85-target
