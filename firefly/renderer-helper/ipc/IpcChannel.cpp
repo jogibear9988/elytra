@@ -100,15 +100,18 @@ void IpcEndpoint::flush_packets()
                 retire_channel();
                 return;
             }
+
             m_byte_queue.remove(0);
             continue;
         }
+
         auto packet = ApplicationIpc::FragmentEncoder::encode_next(queued.kind, queued.success,
             m_byte_epoch, queued.request, queued.wire.bytes(), queued.offset);
         if (packet.is_error()) {
             retire_channel();
             return;
         }
+
         queued.offset = packet.value().next_offset;
         if (packet.value().complete)
             m_byte_queue.remove(0);
@@ -117,6 +120,8 @@ void IpcEndpoint::flush_packets()
             return;
         }
     }
+
+    schedule_admission();
 }
 
 void IpcEndpoint::clear_packets()
@@ -156,6 +161,7 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
         retire_channel();
         return;
     }
+
     if (!m_reassembler.active()) {
         m_receive_reservation = m_wire_budget->reserve(required.value());
         if (!m_receive_reservation) {
@@ -163,16 +169,19 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
             return;
         }
     }
+
     auto decoded = m_reassembler.accept(bytes, m_byte_epoch);
     if (decoded.is_error()) {
         retire_channel();
         return;
     }
+
     if (!decoded.value().has_value()) {
         if (!m_fragment_deadline.has_value())
             m_fragment_deadline = MonotonicTime::now() + AK::Duration::from_seconds(30);
         return;
     }
+
     m_fragment_deadline.clear();
     auto reservation = move(m_receive_reservation);
     auto packet = decoded.release_value().release_value();
@@ -182,6 +191,7 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
             retire_channel();
         return;
     }
+
     if (packet.kind != ApplicationIpc::Kind::Reply && packet.kind != ApplicationIpc::Kind::Event) {
         retire_channel();
         return;

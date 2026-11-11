@@ -13524,6 +13524,32 @@ which are the next startup issue to address. SharedProcess service readiness,
 window-ready, editing, package and cross-platform acceptance remain open. No broad
 local suite or visible GUI is run.
 
+## 2026-11-11 — Queue renderer startup bursts before native admission
+
+Safe diagnostics identify ipc-send's old 16-pending rejection, before serialization.
+Code-OSS catches these exceptions and drops initial RPC subscriptions. Add a bounded
+FIFO for both send and invoke, retaining 16 active/document and 64/renderer plus
+256 waiting/document and 1024/renderer. Snapshot and reserve existing wire bytes at
+call time, move the reservation on promotion, and publish native control/wire only
+when active and physical credit are available. Wake other waiting documents on
+release, preserve request ordering, and avoid destructor reentry through the weak
+endpoint registry. See ADR 0196 for exact totals and ownership.
+
+Deadlines begin at the original call. Unsent expiry settles individually; admitted
+expiry retires the channel rather than reusing credit still held by main. Already
+received deferred replies win. Update the existing overflow fixture to the bounded
+waiting queue and refresh the port/binary compatibility rows. Strict native syntax,
+formatting and diff checks pass. Release host/helper/static-offscreen build passes
+(codeoss-ipc-admission-build.log). No broad local IPC suite or visible GUI is run;
+the updated overflow fixture has not yet received fresh runtime acceptance.
+The actual pinned desktop entry restarted as PID76522 and reports zero context
+bridge failures in this run, passing the earlier dropped-send burst. It now reads
+Workbench configuration and reaches native menu construction. New concrete errors
+are unsupported MenuItem accelerator and implicit AgentHost utility engine flags
+(codeoss-ipc-admission-start.log); the renderer/file-watcher channel still connects.
+This is further startup progress, not window-ready or editor acceptance.
+
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

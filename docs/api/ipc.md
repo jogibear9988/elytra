@@ -119,8 +119,13 @@ Listener return values are ignored, including Promises; they are not serialized
 or awaited and do not become invoke replies. Application failures are not delivered
 back to send callers.
 
-Events and invokes share the 16 endpoint / 64 renderer / 64 native-host outstanding
-budgets and monotonic request IDs. A private native acknowledgement releases event
+Events and invokes share 16 active calls per endpoint, 64 per renderer and 64
+across the native host, with monotonic request IDs. The renderer additionally
+admits a FIFO of at most 256 waiting calls per document and 1024 per renderer.
+Waiting sends and invokes retain immutable encoded snapshots under the same
+16-MiB document / 64-MiB process wire reservation budget. Both native control
+markers and graph frames are published only when active credit is available;
+later invokes cannot overtake earlier queued sends. A private native acknowledgement releases event
 credit after authenticated native admission, before application listeners run.
 This ACK is not exposed to application JavaScript, creates no reply Promise and
 is not a listener-completion receipt. Native quota stays reserved through history
@@ -128,8 +133,13 @@ ordering and VM-busy retries. Removing a document/window reclaims its slots;
 dispatch checks ownership before admission and does not access sender state after
 application callbacks, so a listener may destroy its own window safely.
 
-Local validation/exhaustion throws immediately. A later main admission refusal or
-unanswered 30-second event deadline releases local credit and writes an explicit
+Local validation or waiting-queue/wire-budget exhaustion throws immediately.
+The original 30-second deadline starts at logical admission, includes FIFO wait
+and never restarts on native publication. Unsent expiration releases its snapshot
+without publishing a marker; replies/ACKs and teardown wake other waiting document
+endpoints fairly. Expiration of an already admitted request retires its document
+channel rather than recycling credit while main or fragment state is unknown.
+A later main admission refusal or unanswered event deadline releases local credit and writes an explicit
 ERR_FIREFLY_IPC_SEND helper diagnostic. There is no delivery receipt or retry API;
 send returning undefined is not proof the application processed a message. This
 bounded alpha behavior differs from Electron's unbounded application-facing send
@@ -286,7 +296,8 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | Distinct binary backing storage | 1 MiB per application IPC or contextBridge graph |
 | Native unsent logical queue | At most 48 per document/direction, refilled through 16 physical-frame credits |
 | Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
-| Pending invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
+| Active invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
+| Renderer FIFO waiting calls | 256 per document / 1024 per renderer, within the retained wire budgets |
 | Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
 
 These are the new source application-channel limits. ContextBridge uses its own

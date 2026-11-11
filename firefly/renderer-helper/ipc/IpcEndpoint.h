@@ -72,6 +72,12 @@ private:
 
     void clear_packets();
 
+    void schedule_admission();
+
+    void pump_admission();
+
+    static void wake_admission();
+
     struct Listener {
         Utf16String channel;
         GC::Root<JS::FunctionObject> callback;
@@ -89,6 +95,7 @@ private:
         GC::Root<JS::PromiseCapability> capability;
         MonotonicTime deadline;
         bool settling { false };
+        bool admitted { false };
     };
 
     RefPtr<IsolatedWorld> m_owner;
@@ -108,6 +115,16 @@ private:
         RefPtr<IpcWireReservation> reservation;
     };
 
+    struct QueuedCall {
+        ApplicationIpc::Kind kind;
+        u32 request;
+        ByteString wire;
+        RefPtr<IpcWireReservation> reservation;
+    };
+
+    Vector<QueuedCall> m_calls;
+    size_t m_active_count { 0 };
+    bool m_admission_scheduled { false };
     Vector<QueuedPacket> m_byte_queue;
     NonnullRefPtr<IpcWireBudget> m_wire_budget { adopt_ref(*new IpcWireBudget) };
     RefPtr<IpcWireReservation> m_receive_reservation;

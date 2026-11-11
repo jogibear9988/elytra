@@ -5,6 +5,7 @@
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
+#include <AK/NeverDestroyed.h>
 #include <LibCore/EventLoop.h>
 #include <LibGC/Function.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -35,6 +36,8 @@ void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
 namespace {
     constexpr size_t wire_limit = ApplicationIpc::logical_wire_limit;
     size_t pending_count;
+    size_t queued_count;
+    NeverDestroyed<Vector<WeakPtr<IpcEndpoint>>> endpoints;
 
     GC::Ref<JS::Error> ipc_error(JS::Realm& realm, Utf16View message, Utf16View code)
     {
@@ -57,6 +60,7 @@ NonnullRefPtr<IpcEndpoint> IpcEndpoint::create(
     IsolatedWorld& world, Web::DOM::Document& document, String realm)
 {
     auto endpoint = adopt_ref(*new IpcEndpoint(world, document, move(realm)));
+    endpoints->append(endpoint->make_weak_ptr());
     world.add_detach_hook([weak = endpoint->make_weak_ptr()] {
         if (auto owner = weak.strong_ref())
             owner->revoke();
@@ -82,8 +86,17 @@ void IpcEndpoint::revoke()
     }
 
     clear_packets();
-    pending_count -= m_pending.size();
+    queued_count -= m_calls.size();
+    m_calls.clear();
+    pending_count -= m_active_count;
+    m_active_count = 0;
+    m_admission_scheduled = false;
     m_pending.clear();
+    // A destructor can enter here after its RefCount reached zero, before the
+    // Weakable base clears its link. Do not strong-ref that retiring endpoint.
+    endpoints->remove_all_matching(
+        [this](auto const& weak) { return !weak || weak.ptr() == this; });
+    wake_admission();
     m_listeners.clear();
     m_exports = nullptr;
     m_document = nullptr;
@@ -156,8 +169,8 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         || vm.argument_count() > 65)
         return reject(
             u"IPC requires a string channel and at most 64 arguments"sv, u"ERR_INVALID_ARG_TYPE"sv);
-    if (m_pending.size() >= 16 || pending_count >= 64 || m_next == 0xffffffffu)
-        return reject(u"IPC pending request budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
+    if (m_calls.size() >= 256 || queued_count >= 1024 || m_next == 0xffffffffu)
+        return reject(u"IPC admission queue budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
     GC::Root args { TRY(JS::Array::create(realm, vm.argument_count())) };
     for (size_t i = 0; i < vm.argument_count(); ++i)
         args->define_direct_property(i, vm.argument(i), JS::default_attributes);
@@ -173,20 +186,17 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
     if (!page || !navigable->is_top_level_traversable())
         return reject(
             u"IPC requires the configured top-level document"sv, u"ERR_FIREFLY_IPC_REVOKED"sv);
+    auto reservation = m_wire_budget->reserve(encoded.value().length());
+    if (!reservation)
+        return reject(u"IPC admission wire budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
     u32 id = ++m_next;
     m_pending.set(id,
         Pending {
             GC::Root { capability.ptr() }, MonotonicTime::now() + AK::Duration::from_seconds(30) });
-    ++pending_count;
-    // This marker shares the native connection with history updates. The graph
-    // itself stays on the raw channel; main joins both halves before dispatch.
-    control(event ? "firefly.ipc.send.v1"_string : "firefly.ipc.invoke.v1"_string, id);
-    if (!send_packet(event ? ApplicationIpc::Kind::Send : ApplicationIpc::Kind::Invoke, id, false,
-            encoded.value())) {
-        if (m_pending.remove(id))
-            --pending_count;
-        return reject(u"IPC document channel is retired"sv, u"ERR_FIREFLY_IPC_REVOKED"sv);
-    }
+    ++queued_count;
+    m_calls.append({ event ? ApplicationIpc::Kind::Send : ApplicationIpc::Kind::Invoke, id,
+        encoded.release_value(), move(reservation) });
+    schedule_admission();
 
     if (event)
         return JS::js_undefined();
@@ -213,7 +223,20 @@ void IpcEndpoint::settle(
     auto pending = m_pending.take(id);
     if (!pending.has_value())
         return;
-    --pending_count;
+    if (pending->admitted) {
+        --pending_count;
+        --m_active_count;
+    } else {
+        for (size_t i = 0; i < m_calls.size(); ++i) {
+            if (m_calls[i].request == id) {
+                m_calls.remove(i);
+                --queued_count;
+                break;
+            }
+        }
+    }
+
+    ScopeGuard wake = [] { wake_admission(); };
     if (!pending->capability) {
         // send has no application-visible reply Promise. Report asynchronous
         // admission/timeout failures explicitly and release its private credit.
@@ -258,6 +281,64 @@ void IpcEndpoint::settle(
         warnln("Firefly IPC reply settlement rejected");
 }
 
+void IpcEndpoint::wake_admission()
+{
+    endpoints->remove_all_matching([](auto const& weak) { return !weak; });
+    for (auto const& weak : *endpoints)
+        if (auto owner = weak.strong_ref())
+            owner->schedule_admission();
+}
+
+void IpcEndpoint::schedule_admission()
+{
+    if (m_admission_scheduled || m_byte_failed || m_calls.is_empty() || m_active_count >= 16
+        || pending_count >= 64 || !m_byte_channel || !m_byte_channel->is_open()
+        || m_byte_queue.size() >= ApplicationIpc::queue_limit)
+        return;
+    m_admission_scheduled = true;
+    Core::deferred_invoke([weak = make_weak_ptr()] {
+        if (auto owner = weak.strong_ref()) {
+            owner->m_admission_scheduled = false;
+            owner->pump_admission();
+        }
+    });
+}
+
+void IpcEndpoint::pump_admission()
+{
+    if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document
+        || !m_document->is_fully_active() || m_calls.is_empty() || m_active_count >= 16
+        || pending_count >= 64 || !m_byte_channel || !m_byte_channel->is_open()
+        || m_byte_queue.size() >= ApplicationIpc::queue_limit)
+        return;
+    auto found = m_pending.find(m_calls.first().request);
+    VERIFY(found != m_pending.end());
+    if (found->value.settling)
+        return;
+    if (found->value.deadline <= MonotonicTime::now()) {
+        auto error = MUST(BridgeData::from_string(u"IPC request timed out"sv).encode_wire({}));
+        settle(found->key, false, error);
+        return;
+    }
+
+    auto call = m_calls.take_first();
+    --queued_count;
+    found->value.admitted = true;
+    ++m_active_count;
+    ++pending_count;
+    // Send both halves only when native admission credit is available. Reserving
+    // the encoded snapshot at call time prevents mutation and double charging.
+    control(call.kind == ApplicationIpc::Kind::Send ? "firefly.ipc.send.v1"_string
+                                                    : "firefly.ipc.invoke.v1"_string,
+        call.request);
+    m_byte_queue.append(
+        { call.kind, call.request, false, move(call.wire), 0, move(call.reservation) });
+    flush_packets();
+    // One request per deferred turn gives other document endpoints a chance at
+    // the renderer-wide active credit; physical fragments retain their own FIFO.
+    schedule_admission();
+}
+
 void IpcEndpoint::expire()
 {
     if (m_ports)
@@ -267,10 +348,23 @@ void IpcEndpoint::expire()
         retire_channel();
         return;
     }
+
     Vector<u32> expired;
-    for (auto const& entry : m_pending)
-        if (entry.value.deadline <= now)
-            expired.append(entry.key);
+    for (auto const& entry : m_pending) {
+        // An authenticated reply already received while source code was busy
+        // wins over its deadline; its deferred settlement owns the first result.
+        if (entry.value.settling || entry.value.deadline > now)
+            continue;
+        // A published request may still occupy main admission or a partial
+        // fragment. Never recycle its credit while that peer state is unknown.
+        if (entry.value.admitted) {
+            retire_channel();
+            return;
+        }
+
+        expired.append(entry.key);
+    }
+
     if (expired.is_empty())
         return;
     if (!m_owner || m_owner->is_detached()) {
