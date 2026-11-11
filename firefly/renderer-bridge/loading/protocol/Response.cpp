@@ -121,8 +121,12 @@ void Response::fail()
                       "Protocol resource request failed"_string));
     auto callbacks = exchange(m_callbacks, nullptr);
     release_vm_state();
-    if (callbacks && callbacks->callbacks.cancel)
-        callbacks->callbacks.cancel();
+    if (callbacks) {
+        if (m_complete_received && callbacks->callbacks.completed)
+            callbacks->callbacks.completed();
+        else if (callbacks->callbacks.cancel)
+            callbacks->callbacks.cancel();
+    }
 }
 
 void Response::stop()
@@ -196,7 +200,16 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
             Infrastructure::ResponseBody { NonnullRefPtr { *m_channel }, m_head->content_length });
     }
 
+    m_head_ready = true;
     m_pending->resolve(response);
+    // Resolving the head can reenter transport/cancellation. The owner remains
+    // protected, but its VM roots may already have been released.
+    if (m_finished)
+        return;
+    if (m_complete_received) {
+        finish_complete();
+        return;
+    }
     if (m_channel) {
         m_gate->attach_transport(*m_transport);
         m_gate->grant_credit(m_channel->initial_credit());
@@ -207,7 +220,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
 {
     VERIFY(m_thread == AK::ThreadID::current());
     NonnullRefPtr protect { *this };
-    if (m_finished)
+    if (m_finished || m_complete_received)
         return Error::from_string_literal("Protocol response is already terminal");
     auto decoded = Protocols::decode_file_packet(wire);
     if (decoded.is_error())
@@ -293,6 +306,20 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         || (!m_head->body_null && m_head->content_length.has_value()
             && m_received != *m_head->content_length))
         return reject();
+    // Empty files and HEAD can complete before an asynchronous header decision.
+    // Keep the pending response and client slot until that decision is settled.
+    m_complete_received = true;
+    if (m_head_ready)
+        finish_complete();
+    return {};
+}
+
+void Response::finish_complete()
+{
+    NonnullRefPtr protect { *this };
+    VERIFY(m_complete_received && m_head_ready);
+    if (m_finished)
+        return;
     m_finished = true;
     m_gate->detach_transport();
     if (m_channel) {
@@ -300,8 +327,9 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         m_controller->did_complete_network_body(*m_channel);
     }
 
-    m_callbacks = nullptr;
+    auto callbacks = exchange(m_callbacks, nullptr);
     release_vm_state();
-    return {};
+    if (callbacks && callbacks->callbacks.completed)
+        callbacks->callbacks.completed();
 }
 }

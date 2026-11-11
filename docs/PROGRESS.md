@@ -13187,6 +13187,54 @@ requires both private reports and exact metadata. Focused native strict syntax
 and diff checks pass; actual Linux rerun remains required. No local GUI, Ninja
 or broad suite is run for this correction.
 
+## 2026-11-11 — Locate the pending Workbench module graph without executing it
+
+Actual codeoss-module-environment-start.log confirms empty transport queues and
+fetched central workbench modules without parse/rethrow errors at 5/30 seconds,
+but no source-module environments. The bootstrap has its environment. This points
+to graph loading/linking, not an active native transport backlog; do not claim
+module evaluation or editor readiness.
+
+Add a bounded read-only native descendant snapshot on the existing two diagnostic
+ticks: 8,192 targets, 65,536 edges, 8 MiB URL keys, deduplicated source records.
+Use native requested_modules, URL parsing and exact native import-map entries;
+do not call the SDK resolver (it mutates the resolved-module set), link/evaluate
+or application JavaScript. Explicitly count scoped/prefix/unsupported attribute
+resolution as skipped. Report only fixed scheme/state totals, callback counts,
+budget truncation and VM stack depth. Independently summarize real import-map
+targets so Blob-backed CSS modules remain observable. No URL/source data is logged.
+Strict native compilation and the Release helper/offscreen build pass
+(codeoss-module-graph-build.log). No broad test or visible GUI run is added.
+
+Actual graph snapshot: 5,261 targets, 52,732 edges, no skipped/truncated cases,
+empty VM stack; 395 Blob modules are fetched, but 22 custom-scheme modules still
+have one pending callback each although transport queues are empty. This exposed
+the terminal/head-authorization race described below.
+
+## 2026-11-11 — Keep empty modules alive until header authorization completes
+
+Native file service correctly sends Complete without body credit for empty files
+and HEAD. The response adapter previously marked completion and released its
+unresolved PendingResponse before an asynchronous webRequest headers decision;
+the Client then dropped the last response owner and the weak header continuation
+could never settle the module. The actual compiled source includes empty modules.
+
+Separate wire completion from admitted-head completion. Retain the pending response
+and Client job until authorization settles; then resolve HEAD or a genuine empty
+GET body and finish it without granting late credit to a retired native request.
+An explicit native completion callback releases the active Client slot promptly.
+Denial after wire completion retires locally without sending a late Cancel;
+duplicate frames, timeout, cancellation and native document checks remain enforced.
+
+Release helper/offscreen build passes (codeoss-empty-module-build.log). The actual
+Code-OSS rerun now fetches all 5,261 graph targets with zero loading/missing/error
+entries; all three central source-module environments are created. The former
+22-module hang is gone. Workbench execution now raises a contextBridge call refusal
+(codeoss-empty-module-start.log); editor/window-ready and open/edit/save remain
+unaccepted. No broad suite or visible GUI test is run. HEAD's staged completion is
+covered by the same native state path but still needs its focused delayed-header
+regression; this actual application evidence specifically covers empty JS GETs.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
