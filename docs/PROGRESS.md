@@ -13323,6 +13323,25 @@ contextBridge binary argument limit also occur. Next implement genuine native
 main/utility and renderer port handoff; no editor-ready/editing acceptance or
 unimplemented API allowance is claimed. No broad suite or visible GUI test is run.
 
+
+## 2026-11-11 — Repair stale Electron alias expectation after hosted Linux gates
+
+Hosted Linux renderer run [42943597905](https://github.com/jogibear9988/elytra/actions/runs/42943597905)
+at engine commit `135c5e9` completes native renderer/helper compilation, protocol,
+realm isolation, sandbox, X11, service ownership and real application/preload/IPC
+checks. It then fails the opt-in Electron alias fixture because that fixture still
+requires `desktopCapturer` to be absent. The maintained partial main-process facade
+is now exported; unavailable OS providers remain explicit failures.
+
+Update only the alias assertion to require the same desktopCapturer singleton
+through Firefly, ESM Electron alias and CommonJS alias, with a callable getSources.
+Do not enumerate sources or request capture permissions. Preserve the remaining
+npm precedence, opt-in/default behavior, engine identity and isolated preload/page
+checks. JavaScript syntax, maintained formatting and diff checks pass locally;
+fresh hosted execution is still required. Packaging and Designer steps were skipped
+by the failing job and are not accepted by this result. The concurrent macOS release
+run is left untouched. No local GUI, native build or broad test suite is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
