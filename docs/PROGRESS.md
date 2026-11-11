@@ -12463,6 +12463,22 @@ environment. The native startup guard and fork assertions remain unchanged.
 Source/diff checks pass; no local build, GUI run or remote success is claimed.
 Fresh hosted Linux execution is required.
 
+## 2026-11-11 — Linux CI: acknowledge admitted renderer events before callbacks
+
+Engine run42927578665/job130217870091 ataae29db builds the Linux renderer and
+passes the corrected same-executable fork boundary. The public IPC event fixture
+prints PASS and exits0, but its reentrant window-close listener exposes an ACK
+ordering race: native teardown closes the channel before the post-listener ACK,
+producing ERR_FIREFLY_IPC_SEND for an already admitted event.
+
+Move the successful private ACK before application dispatch, after native graph,
+identity, history and quota validation. It acknowledges native admission, not
+listener completion. End the sender-state borrow before invoking application
+code; keep refusal, timeout and channel-failure handling unchanged. The existing
+public regression and its stderr assertion remain unchanged. Strict native
+compilation and diff checks are the focused local validation; fresh hosted Linux
+execution is still required. No GUI or broad suite is run for this correction.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

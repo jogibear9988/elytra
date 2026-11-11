@@ -121,11 +121,12 @@ back to send callers.
 
 Events and invokes share the 16 endpoint / 64 renderer / 64 native-host outstanding
 budgets and monotonic request IDs. A private native acknowledgement releases event
-credit after synchronous listener dispatch, or after an ignored event. This ACK is
-not exposed to application JavaScript and creates no reply Promise. Native quota
-stays reserved through history ordering and VM-busy retries. Removing a document/
-window reclaims its slots; dispatch rechecks ownership before any callback and
-again before ACK, so a listener may destroy its own window safely.
+credit after authenticated native admission, before application listeners run.
+This ACK is not exposed to application JavaScript, creates no reply Promise and
+is not a listener-completion receipt. Native quota stays reserved through history
+ordering and VM-busy retries. Removing a document/window reclaims its slots;
+dispatch checks ownership before admission and does not access sender state after
+application callbacks, so a listener may destroy its own window safely.
 
 Local validation/exhaustion throws immediately. A later main admission refusal or
 unanswered 30-second event deadline releases local credit and writes an explicit
