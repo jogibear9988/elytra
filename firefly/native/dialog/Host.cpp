@@ -1,5 +1,6 @@
 /** Private snapshots never publish native widgets/paths to renderer realms. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
@@ -19,6 +20,9 @@
 
 namespace Firefly::Dialogs {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
+
     struct Pending {
         int parent_id {};
         QPointer<QWidget> parent;
@@ -369,149 +373,154 @@ std::shared_ptr<Controller> install_host(JS::Realm& realm, JS::Object& host, QOb
         if (auto current = weak.lock())
             current->stop();
     });
-    host.define_native_function(
-        realm, "dialogStart"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(integer(vm, vm.argument(0)));
-            auto kind = TRY(raw_text(vm, vm.argument(1), 16));
-            auto parent_id = TRY(integer(vm, vm.argument(2), true));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped");
-            auto snapshot = TRY(options(vm, vm.argument(3), kind));
-            QPointer<QWidget> parent
-                = parent_id && state->resolve ? state->resolve(parent_id) : nullptr;
-            if (parent_id && !parent)
-                return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Unknown dialog parent");
-            {
-                std::lock_guard lock(state->mutex);
+    host.define_native_function(realm, "dialogStart"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(integer(vm, vm.argument(0)));
+                auto kind = TRY(raw_text(vm, vm.argument(1), 16));
+                auto parent_id = TRY(integer(vm, vm.argument(2), true));
                 if (state->stopped)
                     return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped");
-                if (state->synchronous || id <= state->last_id || state->pending.size() >= 16)
-                    return fail(
-                        vm, "ERR_FIREFLY_DIALOG_LIMIT", "Dialog admission budget exhausted");
-                state->last_id = id;
-            }
+                auto snapshot = TRY(options(vm, vm.argument(3), kind));
+                QPointer<QWidget> parent
+                    = parent_id && state->resolve ? state->resolve(parent_id) : nullptr;
+                if (parent_id && !parent)
+                    return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Unknown dialog parent");
+                {
+                    std::lock_guard lock(state->mutex);
+                    if (state->stopped)
+                        return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped");
+                    if (state->synchronous || id <= state->last_id || state->pending.size() >= 16)
+                        return fail(
+                            vm, "ERR_FIREFLY_DIALOG_LIMIT", "Dialog admission budget exhausted");
+                    state->last_id = id;
+                }
 
-            auto* native = TRY(provider(vm, *state));
-            if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
-                return fail(
-                    vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Dialog parent closed during admission");
-            {
-                std::lock_guard lock(state->mutex);
-                state->pending.emplace(
-                    id, Controller::State::Pending { parent_id, parent, {}, false });
-            }
+                auto* native = TRY(provider(vm, *state));
+                if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
+                    return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED",
+                        "Dialog parent closed during admission");
+                {
+                    std::lock_guard lock(state->mutex);
+                    state->pending.emplace(
+                        id, Controller::State::Pending { parent_id, parent, {}, false });
+                }
 
-            if (parent) {
-                auto connection = QObject::connect(
-                    parent.data(), &QObject::destroyed, [weak = std::weak_ptr(state), id] {
-                        if (auto current = weak.lock()) {
-                            post(weak, id,
-                                error("ERR_FIREFLY_OBJECT_DESTROYED", "Dialog parent closed"));
-                            if (current->provider)
-                                current->provider->cancel(id);
+                if (parent) {
+                    auto connection = QObject::connect(
+                        parent.data(), &QObject::destroyed, [weak = std::weak_ptr(state), id] {
+                            if (auto current = weak.lock()) {
+                                post(weak, id,
+                                    error("ERR_FIREFLY_OBJECT_DESTROYED", "Dialog parent closed"));
+                                if (current->provider)
+                                    current->provider->cancel(id);
+                            }
+                        });
+                    std::lock_guard lock(state->mutex);
+                    state->pending.at(id).destroyed = connection;
+                }
+
+                auto result = native->start(id, kind, snapshot, parent.data(),
+                    [weak = std::weak_ptr(state), id](
+                        Result completion) { post(weak, id, std::move(completion)); });
+                if (!result.code.empty() || state->stopped) {
+                    {
+                        std::lock_guard lock(state->mutex);
+                        auto found = state->pending.find(id);
+                        if (found != state->pending.end()) {
+                            QObject::disconnect(found->second.destroyed);
+                            state->pending.erase(found);
                         }
-                    });
-                std::lock_guard lock(state->mutex);
-                state->pending.at(id).destroyed = connection;
-            }
-
-            auto result = native->start(id, kind, snapshot, parent.data(),
-                [weak = std::weak_ptr(state), id](
-                    Result completion) { post(weak, id, std::move(completion)); });
-            if (!result.code.empty() || state->stopped) {
-                {
-                    std::lock_guard lock(state->mutex);
-                    auto found = state->pending.find(id);
-                    if (found != state->pending.end()) {
-                        QObject::disconnect(found->second.destroyed);
-                        state->pending.erase(found);
                     }
+
+                    native->cancel(id);
+                    if (state->stopped)
+                        return fail(
+                            vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped during admission");
+                    return fail(vm, result.code, result.message);
                 }
 
-                native->cancel(id);
-                if (state->stopped)
-                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped during admission");
-                return fail(vm, result.code, result.message);
-            }
-
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         4, JS::default_attributes);
-    host.define_native_function(
-        realm, "dialogMessageSync"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto parent_id = TRY(integer(vm, vm.argument(0), true));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped");
-            auto snapshot = TRY(options(vm, vm.argument(1), "message"));
-            QPointer<QWidget> parent
-                = parent_id && state->resolve ? state->resolve(parent_id) : nullptr;
-            if (parent_id && !parent)
-                return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Unknown dialog parent");
-            auto* native = TRY(provider(vm, *state));
-            if (state->synchronous)
-                return fail(
-                    vm, "ERR_FIREFLY_DIALOG_LIMIT", "Nested synchronous dialogs unavailable");
-            if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
-                return fail(
-                    vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Dialog parent closed during admission");
-            state->synchronous = true;
-            auto result = checked_result(native->message_sync(snapshot, parent.data()));
-            state->synchronous = false;
-            auto deferred = std::move(state->deferred);
-            state->deferred.clear();
-            for (auto& [id, completion] : deferred) {
+    host.define_native_function(realm, "dialogMessageSync"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto parent_id = TRY(integer(vm, vm.argument(0), true));
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped");
+                auto snapshot = TRY(options(vm, vm.argument(1), "message"));
+                QPointer<QWidget> parent
+                    = parent_id && state->resolve ? state->resolve(parent_id) : nullptr;
+                if (parent_id && !parent)
+                    return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED", "Unknown dialog parent");
+                auto* native = TRY(provider(vm, *state));
+                if (state->synchronous)
+                    return fail(
+                        vm, "ERR_FIREFLY_DIALOG_LIMIT", "Nested synchronous dialogs unavailable");
+                if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
+                    return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED",
+                        "Dialog parent closed during admission");
+                state->synchronous = true;
+                auto result = checked_result(native->message_sync(snapshot, parent.data()));
+                state->synchronous = false;
+                auto deferred = std::move(state->deferred);
+                state->deferred.clear();
+                for (auto& [id, completion] : deferred) {
+                    {
+                        std::lock_guard lock(state->mutex);
+                        auto found = state->pending.find(id);
+                        if (found != state->pending.end())
+                            found->second.queued = false;
+                    }
+
+                    post(std::weak_ptr(state), id, std::move(completion));
+                }
+
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED",
+                        "Dialogs stopped during native modal operation");
+                if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
+                    return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED",
+                        "Dialog parent closed during modal operation");
+                if (!result.code.empty())
+                    return fail(vm, result.code, result.message);
+                auto bytes = QJsonDocument(result.value).toJson(QJsonDocument::Compact);
+                if (bytes.size() > 262144)
+                    return fail(vm, "ERR_OUT_OF_RANGE", "Dialog result exceeds its budget");
+                return JS::PrimitiveString::create(vm,
+                    Utf16String::from_utf8_with_replacement_character(
+                        StringView(bytes.constData(), bytes.size())));
+            }),
+        2, JS::default_attributes);
+    host.define_native_function(realm, "dialogCancel"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(integer(vm, vm.argument(0)));
                 {
                     std::lock_guard lock(state->mutex);
                     auto found = state->pending.find(id);
-                    if (found != state->pending.end())
-                        found->second.queued = false;
+                    if (found == state->pending.end())
+                        return JS::js_undefined();
+                    QObject::disconnect(found->second.destroyed);
+                    state->pending.erase(found);
                 }
 
-                post(std::weak_ptr(state), id, std::move(completion));
-            }
-
-            if (state->stopped)
-                return fail(
-                    vm, "ERR_FIREFLY_APP_EXITED", "Dialogs stopped during native modal operation");
-            if (parent_id && (!parent || state->resolve(parent_id) != parent.data()))
-                return fail(vm, "ERR_FIREFLY_OBJECT_DESTROYED",
-                    "Dialog parent closed during modal operation");
-            if (!result.code.empty())
-                return fail(vm, result.code, result.message);
-            auto bytes = QJsonDocument(result.value).toJson(QJsonDocument::Compact);
-            if (bytes.size() > 262144)
-                return fail(vm, "ERR_OUT_OF_RANGE", "Dialog result exceeds its budget");
-            return JS::PrimitiveString::create(vm,
-                Utf16String::from_utf8_with_replacement_character(
-                    StringView(bytes.constData(), bytes.size())));
-        },
-        2, JS::default_attributes);
-    host.define_native_function(
-        realm, "dialogCancel"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(integer(vm, vm.argument(0)));
-            {
-                std::lock_guard lock(state->mutex);
-                auto found = state->pending.find(id);
-                if (found == state->pending.end())
-                    return JS::js_undefined();
-                QObject::disconnect(found->second.destroyed);
-                state->pending.erase(found);
-            }
-
-            if (state->provider)
-                state->provider->cancel(id);
-            return JS::js_undefined();
-        },
+                if (state->provider)
+                    state->provider->cancel(id);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "dialogShutdown"_utf16,
-        [state](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            state->stop();
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "dialogShutdown"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                state->stop();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

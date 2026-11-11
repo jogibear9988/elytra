@@ -301,3 +301,11 @@ production-helper/desktop support is still unavailable. See
 [ADR 0134](../architecture/0134-simple-custom-protocol-cors.md).
 Baseline: [Electron protocol](https://www.electronjs.org/docs/latest/api/protocol).
 Only the subset described here is implemented.
+
+Application resource fetches now queue behind eight active document requests.
+The renderer client bounds retained jobs at8192/document and16384/helper process,
+with32/64MiB waiting URL metadata ceilings. Start order is FIFO; existing body
+credits remain round-robin. Queued aborts stay local and original30second deadlines
+include queue time. This does not raise the native server's active limits or imply
+cross-helper scheduling. A real native burst fixture validates this path; the
+complete Code-OSS workbench remains separately unaccepted.

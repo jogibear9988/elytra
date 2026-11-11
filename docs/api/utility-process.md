@@ -4,7 +4,9 @@ Status: **partial, locally tested on macOS** with real Firefly and Electron 45.2
 Actual LibJS child execution, binary messaging, stdio/lifecycle, rapid failed entries
 and parent teardown pass, as do six native boundary tests. Full Electron parity,
 Code-OSS shared-process execution and fresh Linux/Windows remain unverified.
-Native MessagePort handoff remains unavailable.
+Initial main-to-utility MessagePort handoff now passes a real no-window native
+fixture on macOS. Renderer/DOM handoff and transfer back from the child remain
+unavailable; this does not establish the Code-OSS SharedProcess handshake.
 
 ## Fork a utility module
 
@@ -46,7 +48,7 @@ and full Electron lifecycle parity remain unverified.
 | env | Object of string values; replaces the inherited environment when supplied. Undefined entries are omitted. Defaults to process.env. |
 | cwd | Optional child working directory. |
 | stdio | inherit by default; pipe and ignore also supported. A three-element array may independently select stdout/stderr, with stdin fixed to ignore. |
-| serviceName | Explicitly unsupported; no crash attribution or app child-process-gone reporting is implemented. |
+| serviceName | Bounded UTF-8 label retained by the native child owner; defaults to Node Utility Process. Abnormal exits emit app child-process-gone with the actual PID and this name. App process metrics remain unsupported. |
 | execArgv | Empty array accepted; nonempty engine flags explicitly refused. |
 | allowLoadingUnsignedLibraries | Omitted/false accepted; enabling explicitly refused. |
 | respondToAuthRequestsFromMainProcess | Omitted/false accepted; enabling explicitly refused. |
@@ -72,7 +74,7 @@ A child module uses its installed process.parentPort:
 
 ```js
 process.parentPort.once('message', ({ data, ports }) => {
-  // Native endpoint transfer is not available yet; ports is currently empty.
+  // A main-to-utility transfer supplies native-backed endpoints in ports.
   process.parentPort.postMessage({ operation: data.operation, runtime: 'LibJS' });
   process.exit(0); // Immediate exit can truncate unrelated pending asynchronous writes.
 });
@@ -80,7 +82,8 @@ process.parentPort.once('message', ({ data, ports }) => {
 
 The parent calls child.postMessage(message[, transfer]); child messages arrive as
 raw values on child.on('message'). The child receives an event containing
-{ data, ports: [] }. Messages queue before its first message listener and delivery
+{ data, ports }. Messages without attachments have an empty ports array.
+Messages queue before its first message listener and delivery
 is asynchronous FIFO. parentPort.start() also enables delivery. The reference and Firefly keep an idle
 utility alive even without listeners; explicitly exit or kill it when done. Broader
 reference management and exact task timing remain unverified.
@@ -91,8 +94,31 @@ Both directions use the native [IPC data subset](ipc.md#data-and-resource-limits
 plain supported data graphs, cycles/aliases and fixed ArrayBuffer/view snapshots.
 The aggregate distinct binary backing-store budget is 64 KiB per message and the
 encoded frame limit is 128 KiB. Data is copied into independently writable receiver
-storage. This is not zero-copy transfer. Nonempty transfer lists fail explicitly
-with ERR_FIREFLY_UNSUPPORTED_API; no public IDs stand in for actual ports.
+storage. This is not zero-copy transfer.
+
+The main process can transfer up to 16 owned MessageChannelMain endpoints with
+child.postMessage(value, [port]). Native write admission precedes detaching the
+old wrapper. Failed admission leaves the old endpoint usable. The utility receives
+a stopped endpoint in event.ports: register message/close listeners and call start().
+Port messages are asynchronous, preserve FIFO and copy their data/binary snapshots
+over the child's private native pipe. Internal route identities never appear in
+application messages. Existing queued data follows the transferred endpoint.
+
+The initial native slice refuses child-to-parent transfers, attachments inside
+port.postMessage, queued messages that themselves carry ports, and forwarding an
+already native-backed endpoint to another utility. These refusals occur before
+changing the old owner. ArrayBuffers are copied; they are not transfer-list entries.
+See [MessageChannelMain](message-channel-main.md) for wrapper/GC behavior.
+
+Native routes have at most 16 outstanding messages and 1 MiB payload bytes per
+direction. Each child reserves separate 4 MiB send/receive windows (8 MiB total),
+so simultaneous duplex traffic cannot consume the other's receive reservation.
+The native ledger supports at most 256 active routes per child; the shared wrapper
+core also enforces its 256-endpoint-record budget. ACKs release exact FIFO byte
+credits after delivery. Paused ports retain bounded work; native writable events
+retry data and control frames without duplicate delivery. Close/channel loss/exit
+retire routes, and stale native identities cannot reopen them. These are copied,
+brokered endpoints, not descriptor transfer or a zero-copy performance claim.
 
 The child facade retains at most 64 incoming data messages / 1 MiB encoded bytes.
 The native channel allows 16 pending writes / 2 MiB framed bytes per endpoint, with
@@ -105,16 +131,18 @@ These implementation bounds and error codes are not Electron API guarantees.
 
 ## Remaining Code-OSS requirements
 
-The fresh actual ready/main probe completes its entry and reaches app ready, then
-passes the protocol service; subsequent startup blockers are tracked in the
-[Code-OSS status](../compatibility/vscode.md). Resolving utilityProcess at
-import time does not demonstrate that Code-OSS has forked a utility child.
+The actual local entry now creates its renderer, loads the Workbench graph and
+forks the file-watcher and shared-process utilities. Genuine renderer relay now
+passes a focused offscreen fixture and the actual watcher channel connects. The
+pinned local adaptation discloses omission of implicit inspector defaults; explicit
+inspector requests remain unsupported. Follow the [Code-OSS status](../compatibility/vscode.md);
+component port acceptance does not establish complete SharedProcess service startup.
 
 The actual pinned utility wrapper first sends configuration, then expects genuine
 ipc-ready/init-done responses from bootstrap-fork and the shared-process module.
 A connection subsequently sends an actual MessageChannelMain endpoint into that
-child and often transfers another endpoint to a renderer. Neither native port
-handoff nor renderer/DOM endpoint binding is implemented by this payload channel.
+child and transfers another endpoint to a renderer. Main-to-utility handoff now
+has actual native component acceptance, including the subsequent renderer/DOM relay.
 The default shared-process configuration also enables authentication forwarding,
 which is explicitly unsupported. These are separate blockers before running the
 actual shared-process services or a VS Code workbench.
@@ -123,3 +151,14 @@ See [ADR 0155](../architecture/0155-native-utility-processes.md),
 [main ports](message-channel-main.md) and [Code-OSS status](../compatibility/vscode.md).
 Reference contracts: [Electron utilityProcess](https://www.electronjs.org/docs/latest/api/utility-process)
 and [parentPort](https://www.electronjs.org/docs/latest/api/parent-port).
+
+Utility exit attribution preserves the native exit status; a signal termination is
+reported as a negative signal number in `child-process-gone.exitCode`. A clean
+zero exit emits the child `exit` event without an app failure event. This does not
+claim Electron process metrics or identical platform crash classification.
+
+No-session utilities use their own system network context. They do not inherit
+main `defaultSession.webRequest` filters, matching the
+[Electron45.2.3 factory branches](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557).
+`session` and `partition` options remain explicitly unsupported; this separation
+does not implement session sharing or main-process HTTP/client-certificate auth.

@@ -16,6 +16,7 @@ import createBackground from './window/background.mjs';
 import createWindowInput from './window/input.mjs';
 import createTitleBar from './window/title-bar.mjs';
 import createMessageChannels from './message-ports/index.mjs';
+import createRendererPorts from './message-ports/renderer.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
 import createViews from './views/index.mjs';
@@ -32,6 +33,7 @@ import createNet from './net/index.mjs';
 import createGlobalShortcuts from './global-shortcut/index.mjs';
 import createDialogs from './dialog/index.mjs';
 import createGPU from './app/gpu.mjs';
+import createRecentDocuments from './app/recent-documents.mjs';
 
 export default function createFireflyApi(
   native,
@@ -48,7 +50,20 @@ export default function createFireflyApi(
     throw error('ERR_FIREFLY_UNSUPPORTED_API', `${name} is not implemented`);
   };
 
-  const channels = createMessageChannels(native, EventEmitter, error);
+  const bufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
+  const portCodec = {
+    encodeIpc: (value) =>
+      typeof native.encodePortIpc === 'function'
+        ? native.encodePortIpc(value)
+        : native.encodeIpc(value),
+
+    decodeIpc: (wire) =>
+      typeof native.decodePortIpc === 'function'
+        ? native.decodePortIpc(wire)
+        : native.decodeIpc(wire)
+  };
+  const channels = createMessageChannels(portCodec, EventEmitter, error);
+  const rendererPorts = createRendererPorts(native, channels, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
   const titleBar = createTitleBar(native, error, unsupported);
@@ -70,6 +85,13 @@ export default function createFireflyApi(
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const recentDocuments = createRecentDocuments(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const zoom = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
@@ -100,6 +122,14 @@ export default function createFireflyApi(
   );
 
   class App extends EventEmitter {
+    clearRecentDocuments(...args) {
+      return recentDocuments.api.clearRecentDocuments(...args);
+    }
+
+    addRecentDocument(...args) {
+      return recentDocuments.api.addRecentDocument(...args);
+    }
+
     getGPUFeatureStatus() {
       return gpu.getFeatureStatus();
     }
@@ -223,6 +253,7 @@ export default function createFireflyApi(
       }
       exited = true;
       quitting = true;
+      recentDocuments.stop();
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
@@ -235,6 +266,7 @@ export default function createFireflyApi(
       power.stop();
       notifications.stop();
       capture.stop();
+      rendererPorts.shutdown();
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
@@ -337,7 +369,13 @@ export default function createFireflyApi(
     EventEmitter,
     streams?.Readable,
     app,
-    paths
+    paths,
+    (details) => {
+      if (!exited) {
+        app.emit('child-process-gone', event(), details);
+      }
+    },
+    channels
   );
   Object.defineProperty(app, 'commandLine', {
     enumerable: true,
@@ -354,6 +392,9 @@ export default function createFireflyApi(
     }
   );
   const { Menu, MenuItem } = menus;
+  if (process.platform === 'darwin') {
+    Object.defineProperty(app, 'dock', { enumerable: true, value: menus.dock });
+  }
   const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported, transport);
@@ -407,6 +448,7 @@ export default function createFireflyApi(
       return;
     }
     exited = true;
+    recentDocuments.stop();
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
@@ -419,6 +461,7 @@ export default function createFireflyApi(
     power.stop();
     notifications.stop();
     capture.stop();
+    rendererPorts.shutdown();
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
@@ -460,8 +503,9 @@ export default function createFireflyApi(
       return defaultSession;
     }
 
-    postMessage() {
-      unsupported('webContents.postMessage port/data delivery');
+    postMessage(channel, message, transfer) {
+      alive(this._window);
+      rendererPorts.post(this.id, channel, message, transfer);
     }
 
     send(channel, ...args) {
@@ -529,6 +573,13 @@ export default function createFireflyApi(
 
     set zoomLevel(value) {
       this.setZoomLevel(value);
+    }
+
+    isOffscreen() {
+      alive(this._window);
+      // All admitted contents use native window/view presentation. Electron's
+      // offscreen webPreference remains unsupported, including in hidden windows.
+      return false;
     }
 
     isDestroyed() {
@@ -712,7 +763,8 @@ export default function createFireflyApi(
           constraintWire,
           firstMouse,
           hiddenTitleBar,
-          prefs.zoomFactor
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
         )
       });
       this.webContents = new WebContents(this, contentsToken);
@@ -727,6 +779,11 @@ export default function createFireflyApi(
 
     static getAllWindows() {
       return [...windows.values()];
+    }
+
+    static getFocusedWindow() {
+      const window = windows.get(native.focusedWindow());
+      return window && !window._destroyed && !window._closing ? window : null;
     }
 
     static fromId(id) {
@@ -810,6 +867,11 @@ export default function createFireflyApi(
       native.focus(this.id);
     }
 
+    isFocused() {
+      alive(this);
+      return native.windowFocused(this.id);
+    }
+
     minimize() {
       alive(this);
       native.minimize(this.id);
@@ -838,6 +900,64 @@ export default function createFireflyApi(
     isMaximized() {
       alive(this);
       return native.maximized(this.id);
+    }
+
+    isFullScreen() {
+      alive(this);
+      return native.windowFullScreen(this.id);
+    }
+
+    setFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== 'boolean') {
+        throw error('ERR_INVALID_ARG_TYPE', 'fullscreen must be a boolean');
+      }
+      unsupported('BrowserWindow.setFullScreen');
+    }
+
+    isSimpleFullScreen() {
+      alive(this);
+      // Electron's legacy simple-fullscreen mode cannot be admitted or enabled.
+      return false;
+    }
+
+    setSimpleFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== 'boolean') {
+        throw error('ERR_INVALID_ARG_TYPE', 'fullscreen must be a boolean');
+      }
+      unsupported('BrowserWindow.setSimpleFullScreen');
+    }
+
+    getNativeWindowHandle() {
+      alive(this);
+      return bufferFrom(native.nativeWindowHandle(this.id));
+    }
+
+    isDocumentEdited() {
+      alive(this);
+      return native.windowDocumentEdited(this.id);
+    }
+
+    setDocumentEdited(edited) {
+      alive(this);
+      if (typeof edited !== 'boolean') {
+        throw error('ERR_INVALID_ARG_TYPE', 'edited must be a boolean');
+      }
+      native.setWindowDocumentEdited(this.id, edited);
+    }
+
+    getRepresentedFilename() {
+      alive(this);
+      return native.representedFilename(this.id);
+    }
+
+    setRepresentedFilename(filename) {
+      alive(this);
+      if (typeof filename !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'filename must be a string');
+      }
+      native.setRepresentedFilename(this.id, filename);
     }
 
     setTitle(title) {
@@ -895,8 +1015,8 @@ export default function createFireflyApi(
   };
 
   native.setHandler((id, type, data) => {
-    if (type === 'menu-click') {
-      menus.dispatch(id, JSON.parse(data));
+    if (type === 'menu-click' || type === 'dock-menu-click') {
+      menus.dispatch(id, JSON.parse(data), type === 'dock-menu-click');
       return;
     }
     if (type === 'permission-request') {
@@ -977,6 +1097,10 @@ export default function createFireflyApi(
     }
     if (type === 'theme-changed') {
       theme.changed();
+      return;
+    }
+    if (typeof type === 'string' && type.startsWith('renderer-port-')) {
+      rendererPorts.dispatch(id, type, data);
       return;
     }
     const win = windows.get(id) ?? views.records.get(id);

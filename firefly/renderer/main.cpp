@@ -3,6 +3,8 @@
  * not define application-facing Firefly APIs.
  */
 
+#include "../tests/protocol/Arguments.h"
+#include "HelperDirectory.h"
 #include <AK/LexicalPath.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Promise.h>
@@ -12,6 +14,7 @@
 #include <LibWebCommon/WebView/Utilities.h>
 #include <LibWebView/Application.h>
 #include <LibWebView/HeadlessWebView.h>
+#include <cstdio>
 
 namespace Firefly {
 
@@ -20,9 +23,26 @@ namespace Firefly {
 class RendererApplication final : public WebView::Application {
     WEB_VIEW_APPLICATION(RendererApplication)
 public:
-    RendererApplication()
-        : WebView::Application(ByteString(FIREFLY_LADYBIRD_DIRECTORY))
+    explicit RendererApplication(
+        ByteString helper_directory = ByteString(FIREFLY_LADYBIRD_DIRECTORY))
+        : WebView::Application(move(helper_directory))
     {
+    }
+
+    static ErrorOr<NonnullOwnPtr<RendererApplication>> create_checked(
+        Main::Arguments const& arguments, Optional<ByteString> const& selected)
+    {
+        auto app = adopt_own(
+            *new RendererApplication(selected.value_or(ByteString(FIREFLY_LADYBIRD_DIRECTORY))));
+        if (selected.has_value())
+            TRY(Diagnostics::verify_selected_paths(*selected));
+        TRY(app->initialize(arguments));
+        if (selected.has_value()) {
+            outln("PROBE_HELPER_DIRECTORY={}", *selected);
+            outln("PROBE_RESOURCE_ROOT={}", WebView::s_ladybird_resource_root);
+        }
+
+        return app;
     }
 
     ErrorOr<int> run_probe()
@@ -57,6 +77,7 @@ public:
                 return;
             loaded = true;
             outln("WebContent PID: {}", view->web_content_pid());
+            fflush(stdout); // The parent may inspect this owned live helper in manual mode.
             if (mode == WebView::HeadlessMode::Manual)
                 return;
             if (mode == WebView::HeadlessMode::Screenshot) {
@@ -123,6 +144,14 @@ private:
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+#ifndef FIREFLY_DIAGNOSTIC_ARGUMENTS_OWNED
+    Firefly::Tests::ProtocolArguments native_arguments;
+    TRY(native_arguments.initialize(arguments));
+    arguments = native_arguments.arguments();
+#endif
+    Firefly::Diagnostics::HelperDirectoryOption helper;
+    TRY(helper.parse(arguments));
+    arguments.strings = helper.arguments.span();
     // A development probe must not attach to or alter a user's browser profile.
     Vector<StringView> isolated_arguments;
     isolated_arguments.append(arguments.strings.first());
@@ -130,6 +159,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     for (auto argument : arguments.strings.slice(1))
         isolated_arguments.append(argument);
     arguments.strings = isolated_arguments.span();
-    auto application = TRY(Firefly::RendererApplication::create(arguments));
+    auto application
+        = TRY(Firefly::RendererApplication::create_checked(arguments, helper.selected));
     return application->run_probe();
 }

@@ -35,7 +35,8 @@ public:
     IsolatedWorld& operator=(IsolatedWorld const&) = delete;
     JS::ThrowCompletionOr<JS::Value> evaluate(Utf16View);
 
-    JS::ThrowCompletionOr<JS::Value> call(JS::FunctionObject&, ReadonlySpan<JS::Value>);
+    JS::ThrowCompletionOr<JS::Value> call(
+        JS::FunctionObject&, ReadonlySpan<JS::Value>, JS::Value receiver = JS::js_undefined());
     // Internal job-dispatch scope. Keep the owner/context alive while an engine
     // job runs; ordinary evaluate/call still reject recursive entry.
     JS::ThrowCompletionOr<JS::Value> run_async_frame(Function<JS::ThrowCompletionOr<JS::Value>()>);
@@ -79,7 +80,7 @@ private:
     friend class FunctionBridge;
     // Only a validated principal callback scope may request this nested entry.
     JS::ThrowCompletionOr<JS::Value> call_from_callback(
-        JS::FunctionObject&, ReadonlySpan<JS::Value>);
+        JS::FunctionObject&, ReadonlySpan<JS::Value>, JS::Value receiver = JS::js_undefined());
 
     JS::ThrowCompletionOr<JS::Value> execute(Function<JS::ThrowCompletionOr<JS::Value>()>);
 

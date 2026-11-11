@@ -5,12 +5,19 @@
 
 namespace Firefly {
 Bridge::Bridge(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
-    std::optional<int>& exit_code, bool electron_compat)
-    : m_impl(std::make_unique<Impl>(vm, realm, jobs, gui, exit_code, electron_compat))
+    std::optional<int>& exit_code, bool electron_compat,
+    std::function<std::optional<bool>()> sandbox_launch_policy)
+    : m_impl(std::make_unique<Impl>(
+          vm, realm, jobs, gui, exit_code, electron_compat, std::move(sandbox_launch_policy)))
 {
 }
 
 Bridge::~Bridge() = default;
+
+void Bridge::stop()
+{
+    m_impl->stop();
+}
 
 GC::Ref<JS::Object> Bridge::exports()
 {

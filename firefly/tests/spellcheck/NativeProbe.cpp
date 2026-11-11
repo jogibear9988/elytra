@@ -42,10 +42,10 @@ public:
         done({});
     }
 
-    Vector<Utf16String> guesses(DocumentTag, Utf16String const&) override
+    void guesses(DocumentTag, Utf16String const&, Function<void(Vector<Utf16String>)> done) override
     {
         ++m_state->provider_calls;
-        return {};
+        done({});
     }
 
     void ignore(DocumentTag, Utf16String const&) override

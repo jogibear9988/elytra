@@ -3,7 +3,10 @@
  * provider context; cached native bytes support the documented stream/manual digest policy.
  */
 
+#include "core/GCCaptures.h"
+#include "platform/WindowsSockets.h"
 #include "platform/crypto/Crypto.h"
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/TypedArray.h>
@@ -14,6 +17,8 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <optional>
+#include <set>
+#include <string>
 #include <vector>
 
 namespace Mite {
@@ -29,7 +34,65 @@ namespace {
         return JS::throw_completion(error);
     }
 
+    /** The legacy OpenSSL name/alias registry is the same lookup surface used by
+     * createHash below. Admit only methods whose real provider initializes now;
+     * names such as legacy MD4 must not become fictitious supported algorithms. */
+    struct DigestCatalog {
+        static constexpr size_t name_limit = 256;
+        static constexpr size_t count_limit = 1024;
+        static constexpr size_t bytes_limit = 64 * 1024;
+        std::set<std::string> names;
+        size_t bytes { 0 };
+        size_t visits { 0 };
+        bool exceeded { false };
+        bool failed { false };
+    };
+
+    void collect_digest(EVP_MD const*, char const* from, char const*, void* argument)
+    {
+        auto& catalog = *static_cast<DigestCatalog*>(argument);
+        if (catalog.exceeded || catalog.failed || !from)
+            return;
+        if (++catalog.visits > 8192) {
+            catalog.exceeded = true;
+            return;
+        }
+        size_t length = 0;
+        while (length <= DigestCatalog::name_limit && from[length])
+            ++length;
+        if (!length || length > DigestCatalog::name_limit) {
+            catalog.exceeded = true;
+            return;
+        }
+        if (catalog.names.contains(std::string(from, length)))
+            return;
+        // Keep failed capability probes out of subsequent native crypto errors.
+        bool marked = ERR_set_mark() == 1;
+        auto* method = EVP_get_digestbyname(from);
+        std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> context(
+            EVP_MD_CTX_new(), EVP_MD_CTX_free);
+        bool supported = method && EVP_MD_get_size(method) >= 0 && context
+            && EVP_DigestInit_ex(context.get(), method, nullptr) == 1;
+        if (!context)
+            catalog.failed = true;
+        if (marked)
+            ERR_pop_to_mark();
+        else
+            ERR_clear_error();
+        if (!supported)
+            return;
+        if (catalog.names.size() >= DigestCatalog::count_limit
+            || length > DigestCatalog::bytes_limit - catalog.bytes) {
+            catalog.exceeded = true;
+            return;
+        }
+        catalog.names.emplace(from, length);
+        catalog.bytes += length;
+    }
+
     struct HashState {
+        GC_HOLDS_NO_CELL_EDGES;
+
         EVP_MD_CTX* context { nullptr };
         EVP_MD const* method { nullptr };
         size_t output_length { 0 };
@@ -57,11 +120,11 @@ namespace {
         if (value.is_undefined())
             return std::optional<size_t> {};
         if (!value.is_number())
-            return vm.throw_completion<JS::TypeError>("Invalid internal hash output length"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal hash output length"_utf16);
         auto number = value.as_double();
         if (!std::isfinite(number) || number < 0 || number > 2147483647
             || std::trunc(number) != number)
-            return vm.throw_completion<JS::RangeError>("Invalid internal hash output length"sv);
+            return vm.throw_completion<JS::RangeError>("Invalid internal hash output length"_utf16);
         return std::optional<size_t> { static_cast<size_t>(number) };
     }
 
@@ -83,73 +146,79 @@ namespace {
     GC::Ref<JS::Object> hash_handle(JS::Realm& realm, std::shared_ptr<HashState> state)
     {
         GC::Root result { JS::Object::create(realm, nullptr) };
-        result->define_native_function(
-            realm, "update"_utf16,
-            [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!state->context)
-                    return JS::Value(false);
-                auto value = vm.argument(0);
-                if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object()))
-                    return vm.throw_completion<JS::TypeError>("Invalid internal hash bytes"sv);
-                auto& array = static_cast<JS::Uint8Array&>(value.as_object());
-                auto witness = JS::make_typed_array_with_buffer_witness_record(
-                    array, JS::ArrayBuffer::Order::SeqCst);
-                if (JS::is_typed_array_out_of_bounds(witness))
-                    return JS::Value(EVP_DigestUpdate(state->context, nullptr, 0) == 1);
-                auto size = JS::typed_array_byte_length(witness);
-                ERR_clear_error();
-                int status = size
-                    ? array.viewed_array_buffer()->with_readonly_bytes(array.byte_offset(), size,
-                          [&](ReadonlyBytes bytes) {
-                              return EVP_DigestUpdate(state->context, bytes.data(), bytes.size());
-                          })
-                    : EVP_DigestUpdate(state->context, nullptr, 0);
-                return JS::Value(status == 1);
-            },
+        result->define_native_function(realm, "update"_utf16,
+            GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+                [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    if (!state->context)
+                        return JS::Value(false);
+                    auto value = vm.argument(0);
+                    if (!value.is_object()
+                        || !JS::Uint8Array::is_engine_class_of(value.as_object()))
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid internal hash bytes"_utf16);
+                    auto& array = static_cast<JS::Uint8Array&>(value.as_object());
+                    auto witness = JS::make_typed_array_with_buffer_witness_record(
+                        array, JS::ArrayBuffer::Order::SeqCst);
+                    if (JS::is_typed_array_out_of_bounds(witness))
+                        return JS::Value(EVP_DigestUpdate(state->context, nullptr, 0) == 1);
+                    auto size = JS::typed_array_byte_length(witness);
+                    ERR_clear_error();
+                    int status = size ? array.viewed_array_buffer()->with_readonly_bytes(
+                                            array.byte_offset(), size,
+                                            [&](ReadonlyBytes bytes) {
+                                                return EVP_DigestUpdate(
+                                                    state->context, bytes.data(), bytes.size());
+                                            })
+                                      : EVP_DigestUpdate(state->context, nullptr, 0);
+                    return JS::Value(status == 1);
+                }),
             1, JS::default_attributes);
-        result->define_native_function(
-            realm, "digest"_utf16,
-            [state, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!state->finalized) {
+        result->define_native_function(realm, "digest"_utf16,
+            GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state), realm),
+                [](auto& state, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    if (!state->finalized) {
+                        if (!state->context)
+                            return hash_error(
+                                vm, "ERR_CRYPTO_HASH_FINALIZED", u"Digest already called"sv);
+                        std::vector<unsigned char> bytes(state->output_length);
+                        auto* data = bytes.empty() ? nullptr : bytes.data();
+                        unsigned size = 0;
+                        ERR_clear_error();
+                        int status = state->xof
+                            ? EVP_DigestFinalXOF(state->context, data, bytes.size())
+                            : EVP_DigestFinal_ex(state->context, data, &size);
+                        state->close();
+                        if (status != 1 || (!state->xof && size != bytes.size()))
+                            return hash_error(
+                                vm, "ERR_CRYPTO_HASH_FINALIZED", u"Hash finalization failed"sv);
+                        state->digest = std::move(bytes);
+                        state->finalized = true;
+                    }
+
+                    GC::Root bytes { TRY(JS::Uint8Array::create(realm, state->digest.size())) };
+                    if (!state->digest.empty())
+                        bytes->viewed_array_buffer()->overwrite(
+                            0, state->digest.data(), state->digest.size());
+                    return bytes.ptr();
+                }),
+            0, JS::default_attributes);
+        result->define_native_function(realm, "copy"_utf16,
+            GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state), realm),
+                [](auto& state, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                     if (!state->context)
                         return hash_error(
                             vm, "ERR_CRYPTO_HASH_FINALIZED", u"Digest already called"sv);
-                    std::vector<unsigned char> bytes(state->output_length);
-                    auto* data = bytes.empty() ? nullptr : bytes.data();
-                    unsigned size = 0;
+                    auto requested = TRY(output_length(vm, 0));
+                    auto copy = std::make_shared<HashState>();
+                    copy->method = state->method;
+                    TRY(configure_length(vm, *copy, requested.value_or(state->output_length)));
+                    copy->context = EVP_MD_CTX_new();
                     ERR_clear_error();
-                    int status = state->xof ? EVP_DigestFinalXOF(state->context, data, bytes.size())
-                                            : EVP_DigestFinal_ex(state->context, data, &size);
-                    state->close();
-                    if (status != 1 || (!state->xof && size != bytes.size()))
+                    if (!copy->context || EVP_MD_CTX_copy_ex(copy->context, state->context) != 1)
                         return hash_error(
-                            vm, "ERR_CRYPTO_HASH_FINALIZED", u"Hash finalization failed"sv);
-                    state->digest = std::move(bytes);
-                    state->finalized = true;
-                }
-
-                GC::Root bytes { TRY(JS::Uint8Array::create(realm, state->digest.size())) };
-                if (!state->digest.empty())
-                    bytes->viewed_array_buffer()->overwrite(
-                        0, state->digest.data(), state->digest.size());
-                return bytes.ptr();
-            },
-            0, JS::default_attributes);
-        result->define_native_function(
-            realm, "copy"_utf16,
-            [state, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!state->context)
-                    return hash_error(vm, "ERR_CRYPTO_HASH_FINALIZED", u"Digest already called"sv);
-                auto requested = TRY(output_length(vm, 0));
-                auto copy = std::make_shared<HashState>();
-                copy->method = state->method;
-                TRY(configure_length(vm, *copy, requested.value_or(state->output_length)));
-                copy->context = EVP_MD_CTX_new();
-                ERR_clear_error();
-                if (!copy->context || EVP_MD_CTX_copy_ex(copy->context, state->context) != 1)
-                    return hash_error(vm, "ERR_CRYPTO_HASH_CREATION_FAILED", u"Hash copy failed"sv);
-                return hash_handle(realm, std::move(copy));
-            },
+                            vm, "ERR_CRYPTO_HASH_CREATION_FAILED", u"Hash copy failed"sv);
+                    return hash_handle(realm, std::move(copy));
+                }),
             1, JS::default_attributes);
         return *result;
     }
@@ -159,27 +228,50 @@ GC::Ref<JS::Object> create_hash_host(JS::Realm& realm)
 {
     GC::Root host { JS::Object::create(realm, nullptr) };
     host->define_native_function(
-        realm, "create"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string())
-                return vm.throw_completion<JS::TypeError>("Invalid internal hash algorithm"sv);
-            auto name = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto requested = TRY(output_length(vm, 1));
-            ERR_clear_error();
-            // get_digestbyname returns a borrowed static descriptor. Provider init
-            // may still fail (for example legacy MD4); never assert on that failure.
-            auto* method = EVP_get_digestbyname(name.characters());
-            if (!method)
-                return hash_error(vm, nullptr, u"Digest method not supported"sv);
-            auto state = std::make_shared<HashState>();
-            state->method = method;
-            TRY(configure_length(vm, *state, requested));
-            state->context = EVP_MD_CTX_new();
-            if (!state->context || EVP_DigestInit_ex(state->context, method, nullptr) != 1)
+        realm, "list"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            DigestCatalog catalog;
+            EVP_MD_do_all_sorted(collect_digest, &catalog);
+            if (catalog.exceeded)
                 return hash_error(
-                    vm, "ERR_OSSL_EVP_UNSUPPORTED", u"Hash provider is unavailable"sv);
-            return hash_handle(realm, std::move(state));
+                    vm, "ERR_MITE_CRYPTO_LIMIT", u"Digest enumeration exceeds its native budget"sv);
+            if (catalog.failed)
+                return hash_error(
+                    vm, "ERR_CRYPTO_OPERATION_FAILED", u"Unable to inspect digest providers"sv);
+            auto& realm = vm.realm();
+            GC::Root result { TRY(JS::Array::create(realm, catalog.names.size())) };
+            size_t index = 0;
+            for (auto const& name : catalog.names)
+                result->define_direct_property(index++,
+                    JS::PrimitiveString::create(
+                        vm, Utf16String::from_utf8(StringView(name.data(), name.size()))),
+                    JS::default_attributes);
+            return result.ptr();
         },
+        0, JS::default_attributes);
+    host->define_native_function(realm, "create"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_string())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal hash algorithm"_utf16);
+                auto name = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto requested = TRY(output_length(vm, 1));
+                ERR_clear_error();
+                // get_digestbyname returns a borrowed static descriptor. Provider init
+                // may still fail (for example legacy MD4); never assert on that failure.
+                auto* method = EVP_get_digestbyname(name.characters());
+                if (!method)
+                    return hash_error(vm, nullptr, u"Digest method not supported"sv);
+                auto state = std::make_shared<HashState>();
+                state->method = method;
+                TRY(configure_length(vm, *state, requested));
+                state->context = EVP_MD_CTX_new();
+                if (!state->context || EVP_DigestInit_ex(state->context, method, nullptr) != 1)
+                    return hash_error(
+                        vm, "ERR_OSSL_EVP_UNSUPPORTED", u"Hash provider is unavailable"sv);
+                return hash_handle(realm, std::move(state));
+            }),
         2, JS::default_attributes);
     return *host;
 }

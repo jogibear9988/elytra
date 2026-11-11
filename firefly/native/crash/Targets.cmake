@@ -10,9 +10,13 @@ endif()
 set_property(
     DIRECTORY
     APPEND
-    PROPERTY CMAKE_CONFIGURE_DEPENDS "${FIREFLY_SOURCE_DIR}/tooling/prepare_crash_hooks.py"
+    PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${FIREFLY_SOURCE_DIR}/tooling/prepare_crash_hooks.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/CrashReport.cpp"
-             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/CrashReportStore.cpp")
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/CrashReportStore.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/Application.cpp")
+firefly_replace_source(LibWebView "Libraries/LibWebView/Application.cpp"
+                       "${crash_output}/Application.cpp")
 firefly_replace_source(LibWebView "Libraries/LibWebView/CrashReport.cpp"
                        "${crash_output}/CrashReport.cpp")
 firefly_replace_source(LibWebView "Libraries/LibWebView/CrashReportStore.cpp"

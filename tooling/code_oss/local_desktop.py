@@ -115,16 +115,39 @@ def adapt_local(name, data):
         )
     elif name == "local-remote-loader.ts":
         source = insert(source, "\t\tsuper();", "\n\t\tif (isLocalDesktop()) { return; }")
-        source = guard_methods(
-            source,
-            ["\tprivate async doRequest(", "\tpublic getResourceUriProvider("],
-            "remote resources",
-        )
-        source = insert(
-            source,
-            "export function createBrowserResourceUriProvider(windowId: number): (resourceId: string, resource: URI) => URI {",
-            "\n\tassertLocalDesktopFeature('remote resources');",
-        )
+        source = guard_methods(source, ["\tprivate async doRequest("], "remote resources")
+        # Desktop service construction requests these factories even for entirely
+        # local windows. Refuse at the actual URI-generation operation, before
+        # resource.with can produce an unsupported remote URL.
+        for seam, indent in (
+            ("\t\treturn (uri: URI) => uri.with({", "\t\t"),
+            ("\treturn (resourceId, resource) => resource.with({", "\t"),
+        ):
+            if source.count(seam) != 1:
+                raise ValueError(f"Remote URI provider seam changed: {seam}")
+            start = source.index(seam)
+            ending = "\n" + indent + "});"
+            end = source.index(ending, start)
+            head, expression = seam.split("=> ", 1)
+            guarded = (
+                head
+                + "=> {\n"
+                + indent
+                + "\tassertLocalDesktopFeature('remote resources');\n"
+                + indent
+                + "\treturn "
+                + expression
+            )
+            source = (
+                source[:start]
+                + source[start:end].replace(seam, guarded, 1)
+                + "\n"
+                + indent
+                + "\t});\n"
+                + indent
+                + "};"
+                + source[end + len(ending) :]
+            )
     elif name == "local-webview-main.ts":
         seam = "\t\tthis._register(instantiationService.createInstance(WebviewProtocolProvider));"
         if source.count(seam) != 1:
@@ -162,6 +185,17 @@ def adapt_local(name, data):
             raise ValueError("Remote initialization seam changed")
         source = source.replace(start, "\t\tif (!isLocalDesktop()) {\n" + start).replace(
             end, end + "\n\t\t}"
+        )
+        # The same disabled remote feature must not register a fetch route after
+        # window creation when its scheme was deliberately omitted at startup.
+        remote_handler = (
+            "\t\tprotocol.handle(Schemas.vscodeRemoteResource, createRemoteResourceRequestHandler(this.logService));\n"
+            "\t\tthis._register(toDisposable(() => protocol.unhandle(Schemas.vscodeRemoteResource)));"
+        )
+        if source.count(remote_handler) != 1:
+            raise ValueError("Remote protocol registration seam changed")
+        source = source.replace(
+            remote_handler, "\t\tif (!isLocalDesktop()) {\n" + remote_handler + "\n\t\t}"
         )
         # Only this optional capture registration is deferred. Security permission
         # callbacks and all webRequest filtering below remain unchanged.

@@ -68,19 +68,36 @@ export default function createNet(
     return { id, url: endpoint.href, method, resourceType: 'other', referrer: '' };
   }
 
-  async function beforeRequest(endpoint, method, id, entry) {
+  async function beforeRequest(endpoint, method, id, entry, fields) {
     const policy = requestPolicy();
     if (policy) {
-      await policy.intercept(
+      const requestHeaders = Object.create(null);
+      for (const [name, value] of fields) {
+        requestHeaders[name] = [value];
+      }
+      const result = await policy.intercept(
         'before',
-        requestDetails(endpoint, method, id),
+        { ...requestDetails(endpoint, method, id), requestHeaders },
         entry.controller.signal
       );
+      if (result.requestHeaders !== undefined) {
+        // This is the actual pre-transport list, before SDK-generated Cookie,
+        // Host and framing fields. Preserve values rather than simulating a
+        // final wire snapshot; the shared policy validates protected headers.
+        const patched = new Headers();
+        for (const [name, values] of Object.entries(result.requestHeaders)) {
+          for (const value of values) {
+            patched.append(name, value);
+          }
+        }
+        fields = patched;
+      }
     }
     alive();
     if (entry.controller.signal.aborted) {
       throw abortHooks.reason(entry.controller.signal);
     }
+    return fields;
   }
 
   async function receivedHeaders(response, endpoint, method, id, entry) {
@@ -349,7 +366,7 @@ export default function createNet(
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
@@ -603,7 +620,7 @@ export default function createNet(
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         proxy();
         if (request.destroyed) {

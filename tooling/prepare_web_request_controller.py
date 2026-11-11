@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "aa0f5b44370047ae64e93eade02a2508ba515a47c17da609e69380510b5ea0b3"
+EXPECTED = "6918f4ad2f21128b48d74ff76179ac2c7806aac5ba21a5e7b24f3ba80d96ed18"
 PREFIX = '#include "loading/web-request/Gate.h"\n'
 SEAM = "void FetchController::cancel_webdriver_bidi_network_interception() const\n{\n"
 HOOK = "    if (auto params = original_fetch_params())\n        Firefly::WebRequestGate::cancel(*params);\n"

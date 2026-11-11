@@ -528,7 +528,7 @@ export default function createUrlModule(host) {
   }
 
   return {
-    ...createLegacyUrl(native),
+    ...createLegacyUrl(native, host.Buffer),
     URL,
     URLSearchParams,
     fileURLToPath,

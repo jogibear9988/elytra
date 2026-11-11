@@ -6,9 +6,12 @@
 #include "context/FunctionBridge.h"
 #include "context/Boundary.h"
 #include "context/CallbackBridge.h"
+#include "context/ContextBridge.h"
 #include "context/Snapshot.h"
+#include "native/platform/Diagnostics.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/Intrinsics.h>
@@ -18,8 +21,151 @@
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/Window.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 namespace Firefly {
+namespace {
+    // Match only known native/startup failures; output never includes source text.
+    void diagnose_source_rejection(
+        JS::Value value, JS::FunctionObject* function, JS::Object* receiver)
+    {
+        static unsigned emitted = 0;
+        if (!ipc_bytes_diagnostics_enabled() || emitted >= 64)
+            return;
+        ++emitted;
+        char const* reason = "unclassified";
+        char const* kind = "non-error";
+        char const* code = "none";
+        char const* role = "other";
+        auto name
+            = function ? function->get_without_side_effects("name"_utf16) : JS::js_undefined();
+        if (name.is_string() && name.as_string().length_in_utf16_code_units() <= 64) {
+            auto text = name.as_string().utf16_string_view();
+            if (text == u"getProcessMemoryInfo"sv)
+                role = "process-memory";
+            else if (text == u"getPathForFile"sv)
+                role = "file-path";
+            else if (text == u"setZoomLevel"sv)
+                role = "zoom";
+            else if (text == u"acquire"sv)
+                role = "port-acquire";
+            else if (text == u"send"sv)
+                role = "ipc-send";
+            else if (text == u"invoke"sv)
+                role = "ipc-invoke";
+            else if (text == u"once"sv || text == u"removeListener"sv)
+                role = "ipc-listener";
+            else if (text == u"on"sv)
+                role = receiver
+                        && receiver->get_without_side_effects("getProcessMemoryInfo"_utf16)
+                               .is_function()
+                    ? "process-listener"
+                    : "ipc-listener";
+        }
+
+        if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
+            auto& object = value.as_object();
+            kind = "error";
+            if (JS::TypeError::is_engine_class_of(object))
+                kind = "type-error";
+            else if (JS::RangeError::is_engine_class_of(object))
+                kind = "range-error";
+            else if (JS::ReferenceError::is_engine_class_of(object))
+                kind = "reference-error";
+            auto error_code = object.get_without_side_effects("code"_utf16);
+            if (error_code.is_string()
+                && error_code.as_string().length_in_utf16_code_units() <= 64) {
+                auto text = error_code.as_string().utf16_string_view();
+                if (text == u"ERR_FIREFLY_UNSUPPORTED_API"sv)
+                    code = "unsupported-api";
+                else if (text == u"ERR_FIREFLY_IPC_LIMIT"sv)
+                    code = "ipc-limit";
+                else if (text == u"ERR_FIREFLY_IPC_REVOKED"sv)
+                    code = "ipc-revoked";
+                else if (text == u"ERR_FIREFLY_IPC_SERIALIZATION"sv)
+                    code = "ipc-serialization";
+                else if (text == u"ERR_FIREFLY_IPC_REMOTE"sv)
+                    code = "ipc-remote";
+                else if (text == u"ERR_INVALID_ARG_TYPE"sv)
+                    code = "argument-type";
+            }
+
+            auto message = object.get_without_side_effects("message"_utf16);
+            if (message.is_string() && message.as_string().length_in_utf16_code_units() <= 4096) {
+                auto text = message.as_string().utf16_string_view();
+                if (text == u"Sandbox process method is not implemented"sv)
+                    reason = "preload-process-unsupported";
+                else if (text == u"IPC listener owner is inactive"sv)
+                    reason = "ipc-listener-revoked";
+                else if (text == u"IPC pending request budget exceeded"sv
+                    || text == u"IPC listener budget exceeded"sv)
+                    reason = "ipc-limit";
+                else if (text == u"IPC arguments are not supported data"sv
+                    || text == u"IPC data budget exceeded"sv)
+                    reason = "ipc-serialization";
+                else if (text.ends_with(u" is not a function"sv))
+                    reason = "noncallable";
+                else if (text.ends_with(u" is not defined"sv))
+                    reason = "undefined-binding";
+                else if (text
+                    == u"Preload: did not find expected vscode-window-config in renderer process arguments list."sv)
+                    reason = "missing-config-argument";
+                else if (text.ends_with(u"TypeError: webFrame document is revoked"sv))
+                    reason = "zoom-revoked";
+                else if (text.ends_with(u"TypeError: webFrame document was revoked during zoom"sv))
+                    reason = "zoom-revoked-during-call";
+                else if (text.ends_with(u"IPC document channel closed"sv))
+                    reason = "ipc-closed";
+                else if (text.ends_with(u"Invalid IPC reply"sv))
+                    reason = "invalid-ipc-reply";
+                else if (text.ends_with(u"IPC sender frame is no longer active"sv))
+                    reason = "inactive-ipc-frame";
+                else if (text.ends_with(u"IPC result is not supported bounded data"sv))
+                    reason = "unsupported-ipc-result";
+                else if (
+                    text.starts_with(
+                        u"Preload: unable to fetch vscode-window-config: Error: No handler registered for '"sv))
+                    reason = "missing-ipc-handler";
+            }
+        }
+
+        std::fprintf(stderr, "FIREFLY_CONTEXT_SOURCE reason=%s kind=%s code=%s role=%s\n", reason,
+            kind, code, role);
+    }
+
+    // Trusted native stages only: never log source values, error messages or API names.
+    void diagnose_promise_failure(char const* stage, Error const* failure = nullptr)
+    {
+        static unsigned emitted = 0;
+        if (!ipc_bytes_diagnostics_enabled() || emitted >= 64)
+            return;
+        ++emitted;
+        char const* reason = "none";
+        if (failure) {
+            reason = "other";
+            auto text = failure->string_literal();
+            if (text == "Bridge string budget exceeded"sv)
+                reason = "strings";
+            else if (text == "Bridge value budget exceeded"sv)
+                reason = "values";
+            else if (text == "Bridge property budget exceeded"sv)
+                reason = "properties";
+            else if (text == "Bridge rejects custom prototypes"sv)
+                reason = "prototype";
+            else if (text == "Bridge binary byte budget exceeded"sv)
+                reason = "binary-bytes";
+            else if (text == "Bridge depth budget exceeded"sv)
+                reason = "depth";
+            else if (text == "Bridge cumulative array length budget exceeded"sv)
+                reason = "array-elements";
+        }
+
+        std::fprintf(stderr, "FIREFLY_CONTEXT_FAILURE stage=%s reason=%s\n", stage, reason);
+    }
+}
+
 struct FunctionBridge::Pending : public RefCounted<Pending> {
     GC::Root<JS::PromiseCapability> capability;
     GC::Root<JS::Realm> target;
@@ -31,12 +177,28 @@ struct FunctionBridge::Pending : public RefCounted<Pending> {
     }
 };
 
+void FunctionBridge::visit_edges(GC::Cell::Visitor& visitor) const
+{
+    // Native ownership/revocation keeps the existing root lifetime. Explicit
+    // captures expose these direct dependencies without strengthening weak caches.
+    visitor.visit(m_function.ptr());
+    visitor.visit(m_receiver.ptr());
+    visitor.visit(m_document.ptr());
+    for (auto const& entry : m_pending) {
+        visitor.visit(entry.value->capability.ptr());
+        visitor.visit(entry.value->target.ptr());
+    }
+}
+
 FunctionBridge::~FunctionBridge() = default;
 
 FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& function,
-    Web::DOM::Document& document, CallbackRegistry& callbacks, bool own_registry)
+    Web::DOM::Document& document, CallbackRegistry& callbacks, bool own_registry,
+    JS::Object* receiver, ContextBridge* publisher)
     : m_source(source)
     , m_function(function)
+    , m_receiver(receiver)
+    , m_publisher(publisher ? publisher->make_weak_ptr() : WeakPtr<ContextBridge> {})
     , m_document(document)
     , m_callbacks(callbacks)
     , m_own_registry(own_registry)
@@ -44,7 +206,8 @@ FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& functi
 }
 
 ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::FunctionObject& function,
-    Web::DOM::Document& document, RefPtr<CallbackRegistry> callbacks)
+    Web::DOM::Document& document, RefPtr<CallbackRegistry> callbacks, JS::Object* receiver,
+    ContextBridge* publisher)
 {
     // FunctionObject::realm() is a native field read. Callable proxies/bound
     // functions have no own realm and are rejected without invoking their hooks.
@@ -54,17 +217,22 @@ ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::Functi
             != &document.window()->principal_realm())
         return Error::from_string_literal(
             "Function export requires its live source world and exact document");
+    if (receiver
+        && (&receiver->vm() != &function.vm() || &receiver->shape().realm() != source.realm()
+            || JS::host_class_of(*receiver)))
+        return Error::from_string_literal("Bridge receiver requires its own source object");
     bool own_registry = !callbacks;
     if (!callbacks)
         callbacks = TRY(CallbackRegistry::create(source, document));
-    auto owner
-        = adopt_ref(*new FunctionBridge(source, function, document, *callbacks, own_registry));
+    auto owner = adopt_ref(*new FunctionBridge(
+        source, function, document, *callbacks, own_registry, receiver, publisher));
     auto& target = document.window()->principal_realm();
     // The first create parameter selects a VM for allocation, not [[Realm]].
     // Set the optional realm explicitly to keep constructor/error paths in target.
-    GC::Root proxy { JS::NativeFunction::create(
-        target, [owner](JS::VM& vm) { return owner->invoke(vm); }, 0, "fireflyBridgeFunction"_utf16,
-        GC::Ptr<JS::Realm> { target }) };
+    GC::Root proxy { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner),
+            [](auto& owner, JS::VM& vm) { return owner->invoke(vm); }),
+        0, "fireflyBridgeFunction"_utf16, GC::Ptr<JS::Realm> { target }) };
     if (proxy->realm() != &target) {
         owner->revoke();
         return Error::from_string_literal("Exported function has the wrong realm");
@@ -76,6 +244,7 @@ ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::Functi
         return Error::from_string_literal("Cannot freeze exported function");
     }
 
+    owner->m_proxy = proxy.ptr();
     return FunctionExport { owner, *proxy };
 }
 
@@ -83,6 +252,9 @@ void FunctionBridge::revoke()
 {
     m_revoked = true;
     m_function = nullptr;
+    m_receiver = nullptr;
+    m_proxy = nullptr;
+    m_publisher.clear();
     m_document = nullptr;
     m_source.clear();
     if (m_callbacks && m_own_registry)
@@ -107,12 +279,20 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
     NonnullRefPtr owner { *this };
     // Observe engine state directly, bypassing .then, constructor and species.
     // Reactions capture only owner/id, so revoke can release the owned pending roots.
-    GC::Root fulfilled { JS::NativeFunction::create(
-        target, [owner, id](JS::VM& inner) { return owner->settle(id, true, inner.argument(0)); },
+    GC::Root fulfilled { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner, id),
+            [](auto& owner, auto& id, JS::VM& inner) {
+                return owner->settle(id, true, inner.argument(0));
+            }),
         1, "fireflyPromiseFulfilled"_utf16, GC::Ptr<JS::Realm> { target }) };
-    GC::Root rejected { JS::NativeFunction::create(
-        target, [owner, id](JS::VM&) { return owner->settle(id, false, JS::js_undefined()); }, 1,
-        "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
+    GC::Root rejected { JS::NativeFunction::create(target,
+        GC::create_function((target).vm().heap(), GC::captures(owner, id),
+            [](auto& owner, auto& id, JS::VM& inner) {
+                diagnose_source_rejection(
+                    inner.argument(0), owner->m_function.ptr(), owner->m_receiver.ptr());
+                return owner->settle(id, false, JS::js_undefined());
+            }),
+        1, "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
     promise.perform_then(fulfilled.ptr(), rejected.ptr(), nullptr);
     return capability->promise();
 }
@@ -129,26 +309,30 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
     record.capability = nullptr;
     record.target = nullptr;
     if (m_revoked || m_source->is_detached() || !m_document->is_fully_active()) {
+        diagnose_promise_failure("revoked-owner");
         revoke();
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     if (!fulfilled) {
+        diagnose_promise_failure("source-promise");
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
-    auto data = capture_to_principal(*m_source, value);
-    if (data.is_error()) {
-        Boundary::reject(*capability, *target);
-        return JS::js_undefined();
-    }
-
-    auto copied
-        = data.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+    auto copied = [&]() -> ErrorOr<JS::Value> {
+        if (auto publisher = m_publisher.strong_ref())
+            return publisher->copy_result(value, true);
+        auto data = TRY(capture_to_principal(*m_source, value));
+        auto result = data.materialize(*target, {}, BridgeData::Materialization::Mutable);
+        if (result.is_error())
+            return Error::from_string_literal("Cannot publish bridge result");
+        return result.release_value();
+    }();
     if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || m_revoked
         || m_source->is_detached() || !m_document->is_fully_active()) {
+        diagnose_promise_failure("result-publication");
         if (!m_revoked && (m_source->is_detached() || !m_document->is_fully_active()))
             revoke();
         Boundary::reject(*capability, *target);
@@ -161,23 +345,26 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
 
 JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
 {
-    auto error = [&]() {
+    auto error = [&](char const* stage, Error const* failure = nullptr) {
+        diagnose_promise_failure(stage, failure);
         return JS::throw_completion(
             Boundary::error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
     };
 
     if (m_revoked)
-        return error();
+        return error("invoke-revoked");
     if (!m_document->is_fully_active() || m_source->is_detached()) {
         revoke();
-        return error();
+        return error("invoke-document");
     }
 
-    if (m_call_depth >= 32 || m_pending.size() >= 64 || vm.argument_count() > 64
-        || vm.current_realm() != &m_document->window()->principal_realm()
-        || !Boundary::caller_is(vm, m_document->window()->principal_realm())
-        || (m_source->is_executing() && !m_callbacks->principal_depth))
-        return error();
+    if (m_call_depth >= 32 || m_pending.size() >= 64 || vm.argument_count() > 64)
+        return error("invoke-budget");
+    if (vm.current_realm() != &m_document->window()->principal_realm()
+        || !Boundary::caller_is(vm, m_document->window()->principal_realm()))
+        return error("invoke-caller");
+    if (m_source->is_executing() && !m_callbacks->principal_depth)
+        return error("invoke-reentry");
     NonnullRefPtr protect { *this };
     NonnullRefPtr source { *m_source };
     GC::Root function { *m_function };
@@ -199,8 +386,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             for (auto& callback : created)
                 callbacks->discard(*callback);
     });
-    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, public_binary_limits(),
-        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, context_bridge_limits(),
+        [&](JS::FunctionObject& function, JS::Object*) -> ErrorOr<size_t> {
             auto exported = TRY(callbacks->proxy(function));
             auto id = functions.size();
             functions.append(exported.function);
@@ -209,7 +396,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             return id;
         });
     if (data.is_error())
-        return error();
+        return error("invoke-argument-capture", &data.error());
     auto copied = data.value().materialize(
         *source_realm,
         [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
@@ -218,7 +405,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
         },
         BridgeData::Materialization::FrozenContainers);
     if (copied.is_error())
-        return error();
+        return error("invoke-argument-publication");
     auto copied_root = GC::Root<JS::Value>::create(copied.value(), SourceLocation::current());
     GC::RootVector<JS::Value> source_arguments;
     for (size_t i = 0; i < arguments.size(); ++i)
@@ -227,17 +414,22 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     // at argument delivery, not after its result is known.
     committed = true;
     auto result = source->is_executing()
-        ? source->call_from_callback(*function, source_arguments.span())
-        : source->call(*function, source_arguments.span());
+        ? source->call_from_callback(*function, source_arguments.span(),
+              m_receiver ? JS::Value(m_receiver.ptr()) : JS::js_undefined())
+        : source->call(*function, source_arguments.span(),
+              m_receiver ? JS::Value(m_receiver.ptr()) : JS::js_undefined());
     // Never inspect or stringify an exception supplied by the source world.
     // Recheck revocation after the source call, including native reentrant hooks.
     if (m_revoked || source->is_detached() || !document->is_fully_active()) {
         revoke();
-        return error();
+        return error("invoke-retired-after-call");
     }
 
-    if (result.is_error())
-        return error();
+    if (result.is_error()) {
+        diagnose_source_rejection(result.error().value(), function.ptr(), m_receiver.ptr());
+        return error("invoke-source-call");
+    }
+
     auto result_value = result.release_value();
     if (result_value.is_object()) {
         auto& object = result_value.as_object();
@@ -246,13 +438,19 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             return observe(vm, static_cast<JS::Promise&>(object), *target);
     }
 
+    if (auto publisher = m_publisher.strong_ref()) {
+        auto answer = publisher->copy_result(result_value);
+        if (answer.is_error())
+            return error("invoke-result-capture", &answer.error());
+        return answer.release_value();
+    }
+
     auto output = capture_to_principal(*source, result_value);
     if (output.is_error())
-        return error();
-    auto answer
-        = output.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+        return error("invoke-result-capture", &output.error());
+    auto answer = output.value().materialize(*target, {}, BridgeData::Materialization::Mutable);
     if (answer.is_error())
-        return error();
+        return error("invoke-result-publication");
     return answer.release_value();
 }
 }

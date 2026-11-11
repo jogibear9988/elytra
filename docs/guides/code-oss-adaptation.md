@@ -535,7 +535,233 @@ python3 tooling/tests/test_code_oss_window_preferences.py --mite build/release-m
 
 A fresh local macOS diagnostic with this adaptation passes the prior cache-option
 rejection and reaches app readiness. With disabled native spelling support in
-Firefly it passes `spellcheck:false` and native `zoomFactor`, then rejects
-`webPreferences.autoplayPolicy`
-before creating the editor window. Native spdlog bindings remain unavailable.
+Firefly now passes `spellcheck:false`, native `zoomFactor`, autoplay and the
+already-enabled HighlightAPI request. The latest direct trace creates a native
+window but stops during optional TouchBar initialization before loading the
+workbench URL. Native spdlog bindings remain unavailable.
 This is startup progress, not accepted workbench or file-editing support.
+
+## Deprecated synchronous script paste
+
+The explicit local-desktop overlay also adapts the pinned `windows.ts`
+`enableDeprecatedPaste: true` assignment. Ordinary Node/Electron keeps the value.
+Verified Mite/LibJS local-desktop mode omits this one application opt-in and
+publishes immutable `process._vscodeLibJSLegacyPasteStatus` only when it does so.
+Firefly's general `enableDeprecatedPaste: true` preference remains unsupported.
+
+This permits startup without claiming synchronous `document.execCommand('paste')`
+clipboard access. Electron's deprecated mode performs an additional synchronous
+permission check; LibWeb's real native/user paste action is a separate path.
+The desktop Code-OSS clipboard service calls `webContents.paste()`, so genuine
+integration of that method is still required. The browser-only text fallback
+must not be claimed for this desktop experiment. No clipboard delivery or editor
+acceptance follows from omitting the preference.
+
+## Stage the real development renderer without another application copy
+
+The diagnostic compiler can include upstream HTML, CSS, images, fonts and WASM:
+
+```sh
+node tooling/code_oss/compile.mjs --source build/code-oss-source --overlay build/code-oss-start-overlay --dependencies build/code-oss-runtime-dependencies-v2 --output build/code-oss-window-cache-final --nls --mite-policy-watcher --mite-native-keymap --mite-sqlite --mite-deviceid --mite-undici --renderer-assets --refresh
+```
+
+Use --refresh only for an existing output from this compiler; omit it for a fresh
+output. The tool checks every previously recorded output before writing, rejects
+edited files and unowned collisions, preserves unchanged files and Finder data,
+and reuses installed dependencies. New paths cannot follow unowned parent symlinks.
+It publishes the completed manifest last. One previous manifest is retained for
+inspection; an interrupted refresh cannot claim the old build is complete.
+
+The renderer-assets mode stages exact production asset bytes and the actual
+locked codicon font. A relative internal out-to-src alias preserves the upstream
+development bootstrap path without duplicating the module tree. Hosts unable to
+create this alias fail explicitly; this is not native Windows acceptance.
+Upstream's real CSS development service/import-map loader is retained. CSS is not
+replaced with empty modules. Successful staging does not establish a rendered
+workbench; runtime prerequisites such as CSS module discovery still need a genuine
+application start.
+
+## Optional TouchBar in the local editor experiment
+
+Verified local Mite/LibJS mode skips the pinned Code-OSS TouchBar constructor and
+records process._vscodeLibJSTouchBarStatus. General Firefly TouchBar remains
+unsupported; unexpected Code-OSS update requests fail explicitly with
+ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE. Ordinary Node/Electron behavior is
+unchanged. This application opt-out enables the local editor experiment without
+claiming native TouchBar hardware support.
+
+## Development CSS discovery in the local LibJS stage
+
+The renderer-assets build records the exact sorted paths of its 508 production
+stylesheets in src/elytra-css-modules.json, with its hash in the compile manifest.
+The pinned local CSS development service reads this inventory before requesting
+the absent native ripgrep executable. Missing/malformed data fails explicitly.
+Ordinary Node/Electron retain their original discovery path. The real workbench
+import-map loader still appends actual stylesheet links; no CSS module is erased.
+This does not provide ripgrep search for user files or claim editor acceptance.
+
+## Select the prepared development renderer
+
+The source stage is a development renderer. Set VSCODE_DEV=1 together with
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1, and leave VSCODE_DEV_SERVER_URL unset. Otherwise
+Code-OSS selects production workbench.html, expects a bundled stylesheet that is
+not produced here, and skips development CSS discovery. No bundled production
+renderer is implied by this source compiler.
+
+Use --native-title-bar with the diagnostic probe to create an isolated profile.
+In explicit local Mite mode that owned profile also disables keyboard.touchbar.enabled
+so the renderer does not request the intentionally omitted optional TouchBar.
+Existing user profiles are never overwritten. A reused owned profile needs both
+window.titleBarStyle:native and keyboard.touchbar.enabled:false in User/settings.json.
+
+The local remote opt-out covers both channel setup and the afterWindowOpen protocol
+handler registration. Actual remote requests remain rejected. The local Darwin
+updater skips native subscriptions only after the genuine base service reaches
+Disabled; an unexpected enabled state fails explicitly. Neither change implements
+remote resources or native application updating.
+
+## Native package adapters for the local editor
+
+Use --mite-native-keymap and --mite-sqlite with the compiler for the exact audited
+native-keymap 3.3.9 and @vscode/sqlite3 5.1.12-vscode packages. Mite selects real OS
+keyboard-layout queries and real worker-thread SQLite storage; Node/Electron keeps
+its original addon path. No Node, V8 or N-API runtime is installed into Mite.
+The keyboard provider currently supports macOS only. SQLite has focused macOS
+on-disk/transaction/reopen acceptance; other platform execution remains unverified.
+
+When refreshing a stage, retain all its previously selected adapter flags. The
+compiler validates old adapters and original newly selected loaders/package.json
+before writing and does not copy node_modules again. See
+[the native package decision](../architecture/0192-native-code-oss-packages.md).
+
+## Optional utility authentication forwarding
+
+The pinned local desktop adapter disables the optional
+respondToAuthRequestsFromMainProcess opt-in only after verifying the Mite/LibJS,
+local-desktop and engine-policy identities. Ordinary Node/Electron retains the
+original configuration; malformed or unverified local options fail explicitly.
+When a true request is omitted, process._vscodeLibJSUtilityAuthStatus records an
+immutable unavailable status. Undefined/false does not publish an omission. This
+permits local utility startup without claiming utility HTTP authentication
+forwarding, authenticated remote/proxy workflows or full editor acceptance. The
+general Firefly option remains unsupported. Upstream source bytes outside the
+exact import/configuration seam are preserved and reversible.
+
+## Test-only offscreen renderer diagnostics on macOS
+
+To diagnose the real renderer without repeatedly focusing a desktop window, build
+`firefly-view-offscreen`. It links the same application objects with Qt's existing
+static offscreen platform plugin. In this explicitly selected experiment, the
+source adapter omits only the optional first-mouse preference. Native production
+input guards remain unchanged; this mode cannot certify a usable desktop editor.
+
+```sh
+cmake --build build/renderer --target firefly-view-offscreen
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC=1 \
+QT_QPA_PLATFORM=offscreen VSCODE_DEV=1 \
+build/renderer/bin/firefly-view-offscreen --electron-compat \
+  build/code-oss-window-cache-final/src/main.js \
+  --user-data-dir /tmp/your-owned-code-profile --disable-crash-reporter
+```
+
+Use a private prepared profile with native title-bar and disabled TouchBar settings.
+The helper requires the exact diagnostic executable basename, explicit flag and
+platform, and verified local engine/cache policy. Invalid combinations fail. The
+immutable `_vscodeLibJSOffscreenDiagnosticStatus` says `desktopAccepted:false` and
+names the omitted input policy. Normal Node/Electron and production Mite preserve
+the original preference. Native handles, first-click behavior and actual desktop
+presentation still require a later Cocoa acceptance run. Linux production keeps
+its existing Xvfb/X11 requirement.
+
+## Device identity with genuine asynchronous UUID and native storage
+
+The actual desktop entry imports @vscode/deviceid0.1.5, whose CommonJS loader
+requires the ESM-only uuid14 package. Use `--mite-deviceid` alongside all existing
+package flags when creating or refreshing the stage. This exact pinned package
+adaptation defers genuine uuid import into its already asynchronous missing-ID
+branch only under Mite. Its storage module uses actual node:fs/promises operations
+and recursive mkdir in that same runtime, avoiding the fs-extra/graceful-fs legacy
+constants dependency. Existing file paths, persisted IDs and error handling remain.
+Node/Electron retain the original synchronous loader and fs-extra branch.
+
+The package version, both changed source files, package manifest and license are
+pinned under vendor/deviceid. Compilation records both input/output hashes; refresh
+checks both staged files and refuses edited sidecars. A focused actual Node/Mite
+fixture generates a real UUID and reads it back from a file in a fresh temporary
+HOME. No replacement ID, entropy source or private user storage is used by that
+fixture. This adaptation does not add general synchronous require(ESM), legacy
+constants or full fs-extra support to Mite.
+
+## Agent-host development inspector
+
+The pinned local LibJS overlay also adapts the AgentHost starter's implicit
+5878 inspector default. It keeps the agent process enabled, omitting only the
+synthesized `--nolazy` / `--inspect=5878` pair in the verified local/no-cache mode.
+The immutable `process._vscodeLibJSAgentHostDebugStatus` discloses inspector
+unavailability. Explicit inspect-agenthost / inspect-brk-agenthost requests,
+including empty values, fail early. Ordinary Node/Electron and built no-debug
+parser results remain unchanged. The exact source and reversible seams are pinned;
+this does not make the inspector or complete agent services supported.
+
+## Bounded native startup phases
+
+For an owned offscreen diagnostic, `MITE_MODULE_DIAGNOSTIC=1` emits fixed ESM
+entry begin/submitted and pending/fulfilled/rejected Promise-state transitions.
+It works in standalone Mite without a desktop dependency. Combine it with
+`FIREFLY_IPC_BYTES_DIAGNOSTIC=1` for native utility initialization, parent-handler
+installation and at most 32 receive/send-admitted frame counters per endpoint.
+These records include only native process/endpoint identifiers, byte counts and
+fixed phase labels. They do not print module paths, source, environment contents
+or message payloads. A fulfilled entry or admitted frame does not establish service
+readiness; use the actual application's handshake as the acceptance criterion.
+
+## Implicit extension-host engine defaults
+
+The pinned localProcessExtensionHost adapter validates the explicit local LibJS
+profile before creating a host or probing a debugger port. Extension development,
+explicit inspect/break settings, extension tests and V8 profiling remain errors.
+Ordinary Node/Electron retains the original flag construction and does not read
+the adapter's policy inputs. Local mode omits only the exact generated default
+array: IPv4-first DNS ordering, experimental network inspection, and either the
+implicit localhost inspector/nolazy pair or inspect-port=0 fallback. It does not
+claim those DNS or inspector settings were applied. Unexpected flags fail.
+
+The sandbox uses its genuine firefly/libjs process identity and the owned local
+profile record, without inventing a Mite version or main-only engine status.
+An immutable renderer-global _vscodeLibJSExtensionHostFlagsStatus reports
+inspectorAvailable:false, networkInspectionAvailable:false and
+dnsOrderingApplied:false. Separately, the main utility adapter replaces the
+pinned allowLoadingUnsignedLibraries:true opt-in with false after its verified
+local check; process._vscodeLibJSUtilityUnsignedLibrariesStatus discloses that
+unsigned-library relaxation is unavailable. This neither loads NAPI addons nor
+changes macOS entitlements. General utility flags remain unsupported; successful
+extension-host startup and actual extension activation still require acceptance.
+
+## Undici capability assumptions
+
+Add `--mite-undici` with the existing package options. The exact undici7.29.1
+adapter leaves unavailable Node version metadata undefined on Mite, queries the
+real builtin inventory before probing the absent worker markAsUncloneable feature,
+and treats the absent ambient MessagePort brand as unavailable. It never invents
+a Node version, Worker backend, MessagePort class or transferable host. The other
+six required ambient WebIDL classes remain strict. Node/Electron keep their original
+paths. Immutable status records disclose each omission.
+
+All 113 pinned runtime JavaScript inputs are verified: the three transformed
+outputs have input/output hashes and the remaining 110 are audited unchanged.
+Refresh refuses modified package/audit files. When upgrading one of the two known
+older adapters, `migrate-undici.mjs <stage>` performs a read-only preflight;
+`--apply` restores only its verified transformed files and removes that exact
+owned adapter record before canonical refresh. Other package records and metadata
+bytes remain preserved. This is an owned-stage migration, not a dependency reinstall
+or evidence of complete undici networking compatibility.
+
+## Agent diff workers
+
+The pinned agent diff service now resolves its real Worker constructor at its
+original construction site. Node/Electron receive the genuine Node Worker; Mite
+does not import the unsupported backend merely to register the service. An actual
+worker-backed diff request in the verified local profile publishes unavailable
+status and throws ERR_CODE_OSS_LIBJS_DIFF_WORKER_UNAVAILABLE. No empty diff result,
+substitute Worker class or process disable is used. Native Mite worker support and
+agent diff workflows remain required work.

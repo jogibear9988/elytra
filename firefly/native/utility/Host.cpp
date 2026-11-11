@@ -3,7 +3,11 @@
  * The parent kills and reaps owned children at teardown; no JS runs after shutdown.
  */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "core/EventLoop.h"
+#include "platform/UV.h"
+#include "ports/Ledger.h"
+#include <AK/JsonObject.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -19,7 +23,6 @@
 #include <signal.h>
 #include <string>
 #include <unordered_map>
-#include <uv.h>
 #include <vector>
 
 namespace Firefly::Utility {
@@ -38,21 +41,21 @@ namespace {
     JS::ThrowCompletionOr<std::string> string(JS::VM& vm, JS::Value value)
     {
         if (!value.is_string())
-            return vm.throw_completion<JS::TypeError>("Invalid utility process string"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid utility process string"_utf16);
         auto bytes = MUST(value.as_string().utf16_string_view().to_byte_string());
         if (bytes.contains('\0'))
-            return vm.throw_completion<JS::TypeError>("NUL in utility process string"sv);
+            return vm.throw_completion<JS::TypeError>("NUL in utility process string"_utf16);
         return std::string(bytes.characters(), bytes.length());
     }
 
     JS::ThrowCompletionOr<std::vector<std::string>> strings(JS::VM& vm, JS::Value value)
     {
         if (!value.is_object() || !is<JS::Array>(value.as_object()))
-            return vm.throw_completion<JS::TypeError>("Invalid utility process arguments"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid utility process arguments"_utf16);
         auto& array = value.as_object();
         auto size = TRY(TRY(array.get("length"_utf16)).to_u32(vm));
         if (size > 65536)
-            return vm.throw_completion<JS::RangeError>("Too many utility process arguments"sv);
+            return vm.throw_completion<JS::RangeError>("Too many utility process arguments"_utf16);
         std::vector<std::string> result;
         for (uint32_t i = 0; i < size; ++i)
             result.push_back(TRY(string(vm, TRY(array.get(i)))));
@@ -103,23 +106,50 @@ namespace {
         uv_process_t process {};
         uv_timer_t startup {};
         size_t handles {}, writes {}, write_bytes {};
+        unsigned diagnostic_count {};
         bool process_initialized {}, timer_initialized {}, started {}, announced {}, exited {},
             killed {}, channel_closed {};
         std::vector<char> incoming;
+        std::string service_name;
+        Ports::Ledger ports;
     };
 
     struct Service {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            // Shutdown retires all roots before the loop/VM can be destroyed.
+            if (stopped)
+                return;
+            visitor.visit(realm);
+            for (auto const& [id, endpoint] : endpoints) {
+                (void)id;
+                visitor.visit(endpoint->callback.ptr());
+            }
+        }
+
         JS::VM& vm;
         JS::Realm& realm;
         Mite::EventLoop& loop;
         bool child_side {}, stopped {};
-        bool request_policy {};
         uint64_t next_id { 1 };
         std::unordered_map<uint64_t, Endpoint*> endpoints;
 
         ~Service()
         {
             VERIFY(endpoints.empty());
+        }
+
+        // Fixed native counters only: never inspect payloads or environment contents.
+        void diagnose(Endpoint& endpoint, char const* phase, size_t bytes = 0)
+        {
+            if (!std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC") || endpoint.diagnostic_count >= 32)
+                return;
+            ++endpoint.diagnostic_count;
+            fprintf(stderr,
+                "FIREFLY_UTILITY_PHASE pid=%d side=%s endpoint=%llu phase=%s bytes=%zu count=%u\n",
+                static_cast<int>(uv_os_getpid()), child_side ? "child" : "main",
+                static_cast<unsigned long long>(endpoint.id), phase, bytes,
+                endpoint.diagnostic_count);
         }
 
         Endpoint* get(JS::Value id)
@@ -219,6 +249,7 @@ namespace {
                 return;
             endpoint.channel_closed = true;
             endpoint.incoming.clear();
+            endpoint.ports.clear();
             close(endpoint.pipes[3]);
             emit(endpoint, "close");
         }
@@ -300,27 +331,104 @@ namespace {
                     endpoint.incoming.begin() + 4, endpoint.incoming.begin() + 4 + length);
                 endpoint.incoming.erase(
                     endpoint.incoming.begin(), endpoint.incoming.begin() + 4 + length);
-                bytes(endpoint, child_side ? "message" : "data", payload.data(), payload.size());
+                diagnose(endpoint, "frame-receive", payload.size());
+                if (Ports::has_magic(payload)) {
+                    receive_port(endpoint, payload);
+                } else {
+                    bytes(
+                        endpoint, child_side ? "message" : "data", payload.data(), payload.size());
+                }
             }
+        }
+
+        void receive_port(Endpoint& endpoint, std::span<char const> wire)
+        {
+            Ports::Packet packet {};
+            if (!Ports::decode(wire, packet)) {
+                error(endpoint, UV_EPROTO);
+                return;
+            }
+
+            if (packet.kind == Ports::Kind::Transfer) {
+                if (!child_side || !endpoint.ports.admit_transfer(packet.ports)) {
+                    error(endpoint, UV_EPROTO);
+                    return;
+                }
+
+                bytes(endpoint, "port-transfer", wire.data(), wire.size());
+                return;
+            }
+
+            auto state = endpoint.ports.state(packet.route);
+            if (state == Ports::Ledger::State::Retired)
+                return; // An already queued message cannot resurrect a retired capability.
+            if (state != Ports::Ledger::State::Live) {
+                error(endpoint, UV_EPROTO);
+                return;
+            }
+
+            if (packet.kind == Ports::Kind::Ack) {
+                if (!endpoint.ports.acknowledge(packet.route, Ports::read_size(packet.payload))) {
+                    error(endpoint, UV_EPROTO);
+                    return;
+                }
+
+                emit(endpoint, "port-writable");
+            } else if (packet.kind == Ports::Kind::Close) {
+                endpoint.ports.close(packet.route);
+                bytes(endpoint, "port-close", wire.data(), wire.size());
+            } else {
+                if (!endpoint.ports.received(packet.route, packet.payload.size())) {
+                    error(endpoint, UV_ENOBUFS);
+                    return;
+                }
+
+                bytes(endpoint, "port-data", wire.data(), wire.size());
+            }
+        }
+
+        JS::ThrowCompletionOr<std::span<char const>> payload(JS::VM& vm, JS::Value value)
+        {
+            if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object())
+                || JS::host_class_of(value.as_object())
+                || &value.as_object().shape().realm() != &realm)
+                return vm.throw_completion<JS::TypeError>(
+                    "Utility channel requires its own Uint8Array"_utf16);
+            auto& array = static_cast<JS::Uint8Array&>(value.as_object());
+            auto* backing = array.viewed_array_buffer();
+            if (!backing || backing->is_detached() || backing->is_shared_array_buffer()
+                || !backing->is_fixed_length())
+                return vm.throw_completion<JS::TypeError>(
+                    "Utility channel requires fixed nonshared storage"_utf16);
+            auto witness = JS::make_typed_array_with_buffer_witness_record(
+                array, JS::ArrayBuffer::Order::SeqCst);
+            if (JS::is_typed_array_out_of_bounds(witness))
+                return vm.throw_completion<JS::TypeError>("Detached utility message"_utf16);
+            auto size = JS::typed_array_byte_length(witness);
+            if (!size)
+                return std::span<char const> {};
+            return std::span<char const>(
+                reinterpret_cast<char const*>(
+                    array.viewed_array_buffer()->data_at(array.byte_offset())),
+                size);
         }
 
         JS::ThrowCompletionOr<JS::Value> send(JS::VM& vm, Endpoint* endpoint, JS::Value value)
         {
-            if (stopped || !endpoint || endpoint->channel_closed)
-                return JS::Value(UV_EPIPE);
-            if (!value.is_object() || !is<JS::Uint8Array>(value.as_object()))
-                return vm.throw_completion<JS::TypeError>("Utility channel requires Uint8Array"sv);
-            auto& array = static_cast<JS::Uint8Array&>(value.as_object());
-            auto witness = JS::make_typed_array_with_buffer_witness_record(
-                array, JS::ArrayBuffer::Order::SeqCst);
-            if (JS::is_typed_array_out_of_bounds(witness))
-                return vm.throw_completion<JS::TypeError>("Detached utility message"sv);
-            auto size = JS::typed_array_byte_length(witness);
+            auto wire = TRY(payload(vm, value));
+            return JS::Value(write(endpoint, wire));
+        }
+
+        int write(Endpoint* endpoint, std::span<char const> wire)
+        {
+            if (stopped || !endpoint || endpoint->channel_closed || endpoint->exited)
+                return UV_EPIPE;
+            auto size = wire.size();
             if (size > frame_limit)
-                return JS::Value(UV_EMSGSIZE);
+                return UV_EMSGSIZE;
             if (endpoint->writes >= write_count_limit
                 || endpoint->write_bytes + size + 4 > write_bytes_limit)
-                return JS::Value(UV_ENOBUFS);
+                return UV_ENOBUFS;
 
             struct Write {
                 Endpoint& endpoint;
@@ -332,8 +440,7 @@ namespace {
             for (size_t i = 0; i < 4; ++i)
                 write->bytes[i] = static_cast<char>(size >> ((3 - i) * 8));
             if (size)
-                memcpy(write->bytes.data() + 4,
-                    array.viewed_array_buffer()->data_at(array.byte_offset()), size);
+                memcpy(write->bytes.data() + 4, wire.data(), size);
             write->request.data = write;
             auto buffer
                 = uv_buf_init(write->bytes.data(), static_cast<unsigned int>(write->bytes.size()));
@@ -344,17 +451,142 @@ namespace {
                     --endpoint.writes;
                     endpoint.write_bytes -= write->bytes.size();
                     delete write;
-                    if (status && !endpoint.owner.stopped && !endpoint.channel_closed)
-                        endpoint.owner.error(endpoint, status);
+                    if (!endpoint.owner.stopped && !endpoint.channel_closed) {
+                        if (status)
+                            endpoint.owner.error(endpoint, status);
+                        else
+                            endpoint.owner.emit(endpoint, "port-writable");
+                    }
                 });
             if (status)
                 delete write;
             else {
                 ++endpoint->writes;
                 endpoint->write_bytes += size + 4;
+                diagnose(*endpoint, "frame-send-admitted", size);
             }
 
+            return status;
+        }
+
+        static JS::ThrowCompletionOr<uint32_t> identity(JS::VM& vm, JS::Value value)
+        {
+            if (!value.is_number() || !std::isfinite(value.as_double()) || value.as_double() < 1
+                || value.as_double() > Ports::identity_limit
+                || std::trunc(value.as_double()) != value.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid native utility port identity"_utf16);
+            return static_cast<uint32_t>(value.as_double());
+        }
+
+        enum class PortAction { Send, Close, Consume };
+
+        JS::ThrowCompletionOr<JS::Value> port_action(JS::VM& vm, PortAction action)
+        {
+            size_t offset = child_side ? 0 : 1;
+            auto* endpoint = get(child_side ? JS::Value(1) : vm.argument(0));
+            Ports::Identity route { TRY(identity(vm, vm.argument(offset))),
+                TRY(identity(vm, vm.argument(offset + 1))) };
+            if (stopped || !endpoint || endpoint->channel_closed || endpoint->exited)
+                return JS::Value(UV_EPIPE);
+            auto state = endpoint->ports.state(route);
+            if (state == Ports::Ledger::State::Retired)
+                return JS::Value(action == PortAction::Close ? 0 : UV_EPIPE);
+            if (state != Ports::Ledger::State::Live)
+                return JS::Value(UV_EINVAL);
+            if (action == PortAction::Send) {
+                auto data = TRY(payload(vm, vm.argument(offset + 2)));
+                if (data.empty())
+                    return JS::Value(UV_EINVAL);
+                if (data.size() > Ports::frame_limit - Ports::header_size)
+                    return JS::Value(UV_EMSGSIZE);
+                if (!endpoint->ports.can_send(route, data.size()))
+                    return JS::Value(UV_ENOBUFS);
+                auto frame = Ports::encode(Ports::Kind::Data, route, {}, data);
+                auto status = write(endpoint, frame);
+                if (!status)
+                    endpoint->ports.sent(route, data.size());
+                return JS::Value(status);
+            }
+
+            if (action == PortAction::Close) {
+                auto frame = Ports::encode(Ports::Kind::Close, route, {}, {});
+                auto status = write(endpoint, frame);
+                if (!status)
+                    endpoint->ports.close(route);
+                return JS::Value(status);
+            }
+
+            auto amount = vm.argument(offset + 2);
+            if (!amount.is_number() || !std::isfinite(amount.as_double()) || amount.as_double() < 0
+                || amount.as_double() > Ports::frame_limit
+                || std::trunc(amount.as_double()) != amount.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid native utility port consumption"_utf16);
+            auto size = static_cast<uint32_t>(amount.as_double());
+            if (!endpoint->ports.can_consume(route, size))
+                return JS::Value(UV_EINVAL);
+            auto encoded_size = Ports::size_payload(size);
+            auto frame = Ports::encode(Ports::Kind::Ack, route, {}, encoded_size);
+            auto status = write(endpoint, frame);
+            if (!status)
+                endpoint->ports.consumed(route, size);
             return JS::Value(status);
+        }
+
+        JS::ThrowCompletionOr<JS::Value> transfer(JS::VM& vm)
+        {
+            auto* endpoint = get(vm.argument(0));
+            auto wire = TRY(payload(vm, vm.argument(1)));
+            auto count_value = vm.argument(2);
+            if (!count_value.is_number() || !std::isfinite(count_value.as_double())
+                || count_value.as_double() < 1 || count_value.as_double() > 16
+                || std::trunc(count_value.as_double()) != count_value.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid utility port transfer count"_utf16);
+            auto count = static_cast<size_t>(count_value.as_double());
+            std::vector<Ports::Identity> identities;
+            int status = stopped || !endpoint || endpoint->channel_closed || endpoint->exited
+                ? UV_EPIPE
+                : 0;
+            if (!status && !endpoint->ports.prepare_transfer(count, identities))
+                status = UV_EMFILE;
+            if (!status && wire.empty())
+                status = UV_EINVAL;
+            if (!status && wire.size() > Ports::frame_limit - Ports::header_size - count * 8)
+                status = UV_EMSGSIZE;
+            // Allocate every destination descriptor before write admission. No
+            // application code runs between admission and the ledger commit.
+            GC::Root ports { TRY(JS::Array::create(realm, status ? 0 : count)) };
+            if (!status) {
+                for (size_t index = 0; index < count; ++index) {
+                    GC::Root descriptor { JS::Object::create(realm, nullptr) };
+                    descriptor->define_direct_property(
+                        "id"_utf16, JS::Value(identities[index].id), JS::default_attributes);
+                    descriptor->define_direct_property("generation"_utf16,
+                        JS::Value(identities[index].generation), JS::default_attributes);
+                    ports->define_direct_property(index, descriptor.ptr(), JS::default_attributes);
+                }
+            }
+
+            GC::Root result { JS::Object::create(realm, nullptr) };
+            result->define_direct_property("ports"_utf16, ports.ptr(), JS::default_attributes);
+            if (!status) {
+                auto frame = Ports::encode(Ports::Kind::Transfer, {}, identities, wire);
+                status = write(endpoint, frame);
+                if (!status) {
+                    auto admitted = endpoint->ports.admit_transfer(identities);
+                    VERIFY(admitted);
+                } else {
+                    ports = TRY(JS::Array::create(realm, 0));
+                    result->define_direct_property(
+                        "ports"_utf16, ports.ptr(), JS::default_attributes);
+                }
+            }
+
+            result->define_direct_property(
+                "status"_utf16, JS::Value(status), JS::default_attributes);
+            return JS::Value(result.ptr());
         }
 
         void shutdown()
@@ -365,6 +597,7 @@ namespace {
             for (auto& [id, endpoint] : endpoints) {
                 endpoint->callback = nullptr;
                 endpoint->channel_closed = true;
+                endpoint->ports.clear();
                 close_startup(*endpoint);
                 for (auto& pipe : endpoint->pipes)
                     close(pipe);
@@ -373,6 +606,30 @@ namespace {
             }
         }
     };
+
+    void install_ports(JS::Realm& realm, JS::Object& host, std::shared_ptr<Service> owner)
+    {
+        host.define_direct_property(
+            "portQueueFull"_utf16, JS::Value(UV_ENOBUFS), JS::default_attributes);
+        for (auto const& [name, action] :
+            std::array { std::pair { "sendPort"_utf16, Service::PortAction::Send },
+                std::pair { "closePort"_utf16, Service::PortAction::Close },
+                std::pair { "consumePort"_utf16, Service::PortAction::Consume } }) {
+            host.define_native_function(realm, name,
+                GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner), action),
+                    [](auto& capture, auto& action, JS::VM& vm) {
+                        return capture.value->port_action(vm, action);
+                    }),
+                static_cast<int>(owner->child_side ? 3 : 4), JS::default_attributes);
+        }
+
+        if (!owner->child_side) {
+            host.define_native_function(realm, "sendTransfer"_utf16,
+                GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+                    [](auto& capture, JS::VM& vm) { return capture.value->transfer(vm); }),
+                3, JS::default_attributes);
+        }
+    }
 
     std::shared_ptr<Service> service(
         JS::VM& vm, JS::Realm& realm, Mite::EventLoop& loop, bool child)
@@ -388,190 +645,214 @@ GC::Ref<JS::Object> create_host(
 {
     auto owner = service(vm, realm, loop, false);
     GC::Root host { JS::Object::create(realm, nullptr) };
-    host->define_native_function(
-        realm, "setRequestPolicy"_utf16,
-        [owner](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (owner->stopped)
-                return vm.throw_completion<JS::Error>("Utility service stopped"sv);
-            if (!vm.argument(0).is_boolean())
-                return vm.throw_completion<JS::TypeError>("Invalid utility request policy"sv);
-            auto enabled = vm.argument(0).as_bool();
-            if (enabled) {
-                for (auto const& [id, endpoint] : owner->endpoints) {
-                    if (endpoint->started && !endpoint->exited)
-                        return vm.throw_completion<JS::Error>(
-                            "Session request filters with live utility processes are unsupported"sv);
+    install_ports(realm, *host, owner);
+    host->define_native_function(realm, "spawn"_utf16,
+        GC::create_function(realm.heap(),
+            GC::captures(Mite::shared_capture(owner), realm, electron_compat),
+            [](auto& owner_capture, auto& realm, auto& electron_compat,
+                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& owner = owner_capture.value;
+                if (owner->stopped)
+                    return vm.throw_completion<JS::Error>("Utility service stopped"_utf16);
+                if (!vm.argument(1).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Utility callback must be callable"_utf16);
+                auto spec = TRY(vm.argument(0).to_object(vm));
+                std::array<char, 32768> executable {};
+                size_t executable_size = executable.size();
+                if (uv_exepath(executable.data(), &executable_size))
+                    return vm.throw_completion<JS::Error>(
+                        "Cannot resolve utility executable"_utf16);
+                std::string file(executable.data(), executable_size);
+                auto entry = TRY(string(vm, TRY(spec->get("entry"_utf16))));
+                auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
+                auto env = TRY(strings(vm, TRY(spec->get("env"_utf16))));
+                auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
+                auto name_value = TRY(spec->get("serviceName"_utf16));
+                auto name = name_value.is_undefined() ? std::string("Node Utility Process")
+                                                      : TRY(string(vm, name_value));
+                if (name.empty())
+                    name = "Node Utility Process";
+                if (name.size() > 4096
+                    || String::from_utf8(StringView(name.data(), name.size())).is_error())
+                    return vm.throw_completion<JS::TypeError>("Invalid utility service name"_utf16);
+                auto stdio = TRY(TRY(spec->get("stdio"_utf16)).to_object(vm));
+                std::array<std::string, 3> modes;
+                for (size_t i = 0; i < 3; ++i) {
+                    modes[i] = TRY(string(vm, TRY(stdio->get(i))));
+                    if ((i == 0 && modes[i] != "ignore")
+                        || (i != 0 && modes[i] != "ignore" && modes[i] != "pipe"
+                            && modes[i] != "inherit"))
+                        return vm.throw_completion<JS::TypeError>(
+                            "Unsupported utility stdio mode"_utf16);
                 }
-            }
-            // Until utility requests can traverse the parent broker, mutually
-            // exclude their transport and active session filters. No child may
-            // silently bypass an application's security decision.
-            owner->request_policy = enabled;
-            return JS::js_undefined();
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "spawn"_utf16,
-        [owner, &realm, electron_compat](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (owner->stopped)
-                return vm.throw_completion<JS::Error>("Utility service stopped"sv);
-            if (owner->request_policy)
-                return vm.throw_completion<JS::Error>(
-                    "Utility processes with session request filters are unsupported"sv);
-            if (!vm.argument(1).is_function())
-                return vm.throw_completion<JS::TypeError>("Utility callback must be callable"sv);
-            auto spec = TRY(vm.argument(0).to_object(vm));
-            std::array<char, 32768> executable {};
-            size_t executable_size = executable.size();
-            if (uv_exepath(executable.data(), &executable_size))
-                return vm.throw_completion<JS::Error>("Cannot resolve utility executable"sv);
-            std::string file(executable.data(), executable_size);
-            auto entry = TRY(string(vm, TRY(spec->get("entry"_utf16))));
-            auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
-            auto env = TRY(strings(vm, TRY(spec->get("env"_utf16))));
-            auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
-            auto stdio = TRY(TRY(spec->get("stdio"_utf16)).to_object(vm));
-            std::array<std::string, 3> modes;
-            for (size_t i = 0; i < 3; ++i) {
-                modes[i] = TRY(string(vm, TRY(stdio->get(i))));
-                if ((i == 0 && modes[i] != "ignore")
-                    || (i != 0 && modes[i] != "ignore" && modes[i] != "pipe"
-                        && modes[i] != "inherit"))
-                    return vm.throw_completion<JS::TypeError>("Unsupported utility stdio mode"sv);
-            }
-            // Recheck after accessors: no user code executes between this check and spawn.
-            if (owner->stopped || owner->request_policy || owner->endpoints.size() >= child_limit
-                || file.empty() || entry.empty())
-                return vm.throw_completion<JS::Error>(
-                    "Utility process unavailable or limit exceeded"sv);
-            args.insert(args.begin(),
-                { file, electron_compat ? "--firefly-utility-electron" : "--firefly-utility",
-                    entry });
-            auto arguments = pointers(args), environment = pointers(env);
-            auto* endpoint = new Endpoint { *owner, owner->next_id++,
-                GC::Root { vm.argument(1).as_function() } };
-            owner->endpoints.emplace(endpoint->id, endpoint);
-            std::array<uv_stdio_container_t, 4> handles {};
-            int status = 0;
-            for (int i = 0; i < 4; ++i) {
-                if (i == 3 || modes[static_cast<size_t>(i)] == "pipe") {
-                    status = owner->initialize(*endpoint, i);
-                    if (status)
-                        break;
-                    handles[i].flags = static_cast<uv_stdio_flags>(
-                        UV_CREATE_PIPE | UV_WRITABLE_PIPE | (i == 3 ? UV_READABLE_PIPE : 0));
+                // Recheck after accessors: no user code executes between this check and spawn.
+                if (owner->stopped || owner->endpoints.size() >= child_limit || file.empty()
+                    || entry.empty())
+                    return vm.throw_completion<JS::Error>(
+                        "Utility process unavailable or limit exceeded"_utf16);
+                args.insert(args.begin(),
+                    { file, electron_compat ? "--firefly-utility-electron" : "--firefly-utility",
+                        entry });
+                auto arguments = pointers(args), environment = pointers(env);
+                auto* endpoint = new Endpoint { *owner, owner->next_id++,
+                    GC::Root { vm.argument(1).as_function() } };
+                endpoint->service_name = move(name);
+                owner->endpoints.emplace(endpoint->id, endpoint);
+                std::array<uv_stdio_container_t, 4> handles {};
+                int status = 0;
+                for (int i = 0; i < 4; ++i) {
+                    if (i == 3 || modes[static_cast<size_t>(i)] == "pipe") {
+                        status = owner->initialize(*endpoint, i);
+                        if (status)
+                            break;
+                        handles[i].flags = static_cast<uv_stdio_flags>(
+                            UV_CREATE_PIPE | UV_WRITABLE_PIPE | (i == 3 ? UV_READABLE_PIPE : 0));
 #ifdef _WIN32
-                    // Preserve our raw framing while allowing concurrent child reads/writes.
-                    // ipc=1 would also select overlapped I/O, but adds Node handle framing.
-                    if (i == 3)
-                        handles[i].flags
-                            = static_cast<uv_stdio_flags>(handles[i].flags | UV_NONBLOCK_PIPE);
+                        // Preserve our raw framing while allowing concurrent child reads/writes.
+                        // ipc=1 would also select overlapped I/O, but adds Node handle framing.
+                        if (i == 3)
+                            handles[i].flags
+                                = static_cast<uv_stdio_flags>(handles[i].flags | UV_NONBLOCK_PIPE);
 #endif
-                    handles[i].data.stream = endpoint->pipes[i].stream();
-                } else if (modes[static_cast<size_t>(i)] == "inherit") {
-                    handles[i].flags = UV_INHERIT_FD;
-                    handles[i].data.fd = i;
-                } else
-                    handles[i].flags = UV_IGNORE;
-            }
-
-            if (!status) {
-                uv_process_options_t options {};
-                options.file = file.c_str();
-                options.args = arguments.data();
-                options.env = environment.data();
-                options.cwd = cwd.empty() ? nullptr : cwd.c_str();
-                options.stdio = handles.data();
-                options.stdio_count = 4;
-                options.flags = UV_PROCESS_WINDOWS_HIDE;
-                options.exit_cb = [](uv_process_t* process, int64_t code, int signal) {
-                    auto& endpoint = *static_cast<Endpoint*>(process->data);
-                    endpoint.exited = true;
-                    endpoint.owner.announce(endpoint);
-                    endpoint.owner.emit(
-                        endpoint, "exit", JS::Value(signal ? 0 : static_cast<double>(code)));
-                    uv_close(reinterpret_cast<uv_handle_t*>(process), [](uv_handle_t* handle) {
-                        auto& endpoint = *static_cast<Endpoint*>(handle->data);
-                        endpoint.owner.released(endpoint);
-                    });
-                };
-
-                status = uv_spawn(&owner->loop.native_loop(), &endpoint->process, &options);
-                endpoint->process.data = endpoint;
-                endpoint->process_initialized = true;
-                ++endpoint->handles;
-                endpoint->started = !status;
-            }
-
-            auto id = endpoint->id;
-            auto pid = endpoint->started ? endpoint->process.pid : 0;
-            if (!status) {
-                status = uv_timer_init(&owner->loop.native_loop(), &endpoint->startup);
-                if (!status) {
-                    endpoint->timer_initialized = true;
-                    ++endpoint->handles;
-                    endpoint->startup.data = endpoint;
-                    status = uv_timer_start(
-                        &endpoint->startup,
-                        [](uv_timer_t* timer) {
-                            auto& endpoint = *static_cast<Endpoint*>(timer->data);
-                            endpoint.owner.announce(endpoint);
-                        },
-                        0, 0);
+                        handles[i].data.stream = endpoint->pipes[i].stream();
+                    } else if (modes[static_cast<size_t>(i)] == "inherit") {
+                        handles[i].flags = UV_INHERIT_FD;
+                        handles[i].data.fd = i;
+                    } else
+                        handles[i].flags = UV_IGNORE;
                 }
-            }
 
-            if (status) {
-                endpoint->channel_closed = true;
-                endpoint->callback = nullptr;
-                owner->close_startup(*endpoint);
-                for (auto& pipe : endpoint->pipes)
-                    owner->close(pipe);
-                if (endpoint->started)
-                    uv_process_kill(&endpoint->process, SIGKILL);
-                else if (endpoint->process_initialized)
-                    uv_close(reinterpret_cast<uv_handle_t*>(&endpoint->process),
-                        [](uv_handle_t* handle) {
+                if (!status) {
+                    uv_process_options_t options {};
+                    options.file = file.c_str();
+                    options.args = arguments.data();
+                    options.env = environment.data();
+                    options.cwd = cwd.empty() ? nullptr : cwd.c_str();
+                    options.stdio = handles.data();
+                    options.stdio_count = 4;
+                    options.flags = UV_PROCESS_WINDOWS_HIDE;
+                    options.exit_cb = [](uv_process_t* process, int64_t code, int signal) {
+                        auto& endpoint = *static_cast<Endpoint*>(process->data);
+                        endpoint.exited = true;
+                        // fd3 may still contain ordered messages from before exit.
+                        // Retired capabilities ignore those late frames without
+                        // inventing a new protocol failure for a reaped child.
+                        endpoint.ports.retire_all();
+                        endpoint.owner.announce(endpoint);
+                        // Preserve the native identity before the process handle is
+                        // closed. Service names are admission-time snapshots, not
+                        // mutable process.title or an invented metrics sample.
+                        if (signal || code != 0) {
+                            JsonObject details;
+                            details.set("type"sv, "Utility"sv);
+                            details.set("name"sv,
+                                MUST(String::from_utf8(StringView(
+                                    endpoint.service_name.data(), endpoint.service_name.size()))));
+                            details.set("pid"sv, static_cast<i64>(process->pid));
+                            details.set("exitCode"sv, signal ? -signal : code);
+                            bool crash = signal == SIGABRT || signal == SIGSEGV || signal == SIGILL
+                                || signal == SIGFPE;
+#ifndef _WIN32
+                            crash = crash || signal == SIGBUS;
+#endif
+                            auto reason
+                                = signal ? (crash ? "crashed"sv : "killed"sv) : "abnormal-exit"sv;
+                            details.set("reason"sv, reason);
+                            auto encoded = details.serialized().to_byte_string();
+                            endpoint.owner.emit(
+                                endpoint, "gone", text(endpoint.owner.vm, encoded.characters()));
+                        }
+
+                        endpoint.owner.emit(
+                            endpoint, "exit", JS::Value(signal ? 0 : static_cast<double>(code)));
+                        uv_close(reinterpret_cast<uv_handle_t*>(process), [](uv_handle_t* handle) {
                             auto& endpoint = *static_cast<Endpoint*>(handle->data);
                             endpoint.owner.released(endpoint);
                         });
-                if (!endpoint->handles) {
-                    owner->endpoints.erase(id);
-                    delete endpoint;
-                }
-            }
+                    };
 
-            GC::Root result { JS::Object::create(realm, nullptr) };
-            result->define_direct_property(
-                "id"_utf16, JS::Value(static_cast<double>(id)), JS::default_attributes);
-            result->define_direct_property(
-                "pid"_utf16, JS::Value(static_cast<double>(pid)), JS::default_attributes);
-            result->define_direct_property(
-                "status"_utf16, JS::Value(status), JS::default_attributes);
-            return result.ptr();
-        },
+                    status = uv_spawn(&owner->loop.native_loop(), &endpoint->process, &options);
+                    endpoint->process.data = endpoint;
+                    endpoint->process_initialized = true;
+                    ++endpoint->handles;
+                    endpoint->started = !status;
+                }
+
+                auto id = endpoint->id;
+                auto pid = endpoint->started ? endpoint->process.pid : 0;
+                if (!status) {
+                    status = uv_timer_init(&owner->loop.native_loop(), &endpoint->startup);
+                    if (!status) {
+                        endpoint->timer_initialized = true;
+                        ++endpoint->handles;
+                        endpoint->startup.data = endpoint;
+                        status = uv_timer_start(
+                            &endpoint->startup,
+                            [](uv_timer_t* timer) {
+                                auto& endpoint = *static_cast<Endpoint*>(timer->data);
+                                endpoint.owner.announce(endpoint);
+                            },
+                            0, 0);
+                    }
+                }
+
+                if (status) {
+                    endpoint->channel_closed = true;
+                    endpoint->callback = nullptr;
+                    owner->close_startup(*endpoint);
+                    for (auto& pipe : endpoint->pipes)
+                        owner->close(pipe);
+                    if (endpoint->started)
+                        uv_process_kill(&endpoint->process, SIGKILL);
+                    else if (endpoint->process_initialized)
+                        uv_close(reinterpret_cast<uv_handle_t*>(&endpoint->process),
+                            [](uv_handle_t* handle) {
+                                auto& endpoint = *static_cast<Endpoint*>(handle->data);
+                                endpoint.owner.released(endpoint);
+                            });
+                    if (!endpoint->handles) {
+                        owner->endpoints.erase(id);
+                        delete endpoint;
+                    }
+                }
+
+                GC::Root result { JS::Object::create(realm, nullptr) };
+                result->define_direct_property(
+                    "id"_utf16, JS::Value(static_cast<double>(id)), JS::default_attributes);
+                result->define_direct_property(
+                    "pid"_utf16, JS::Value(static_cast<double>(pid)), JS::default_attributes);
+                result->define_direct_property(
+                    "status"_utf16, JS::Value(status), JS::default_attributes);
+                return result.ptr();
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "send"_utf16,
-        [owner](JS::VM& vm) { return owner->send(vm, owner->get(vm.argument(0)), vm.argument(1)); },
+    host->define_native_function(realm, "send"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM& vm) {
+                auto& owner = owner_capture.value;
+                return owner->send(vm, owner->get(vm.argument(0)), vm.argument(1));
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "kill"_utf16,
-        [owner](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* endpoint = owner->get(vm.argument(0));
-            if (owner->stopped || !endpoint || !endpoint->started || endpoint->exited
-                || endpoint->killed)
-                return JS::Value(false);
-            endpoint->killed = uv_process_kill(&endpoint->process, SIGTERM) == 0;
-            return JS::Value(endpoint->killed);
-        },
+    host->define_native_function(realm, "kill"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& owner = owner_capture.value;
+                auto* endpoint = owner->get(vm.argument(0));
+                if (owner->stopped || !endpoint || !endpoint->started || endpoint->exited
+                    || endpoint->killed)
+                    return JS::Value(false);
+                endpoint->killed = uv_process_kill(&endpoint->process, SIGTERM) == 0;
+                return JS::Value(endpoint->killed);
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "shutdown"_utf16,
-        [owner](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            owner->shutdown();
-            return JS::js_undefined();
-        },
+    host->define_native_function(realm, "shutdown"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& owner = owner_capture.value;
+                owner->shutdown();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return *host;
 }
@@ -580,7 +861,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_parent_host(
     JS::VM& vm, JS::Realm& realm, Mite::EventLoop& loop, int fd)
 {
     if (uv_guess_handle(fd) != UV_NAMED_PIPE)
-        return vm.throw_completion<JS::Error>("Missing inherited utility channel"sv);
+        return vm.throw_completion<JS::Error>("Missing inherited utility channel"_utf16);
     auto owner = service(vm, realm, loop, true);
     auto* endpoint = new Endpoint { *owner, 1, nullptr };
     owner->endpoints.emplace(1, endpoint);
@@ -596,33 +877,41 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_parent_host(
             delete endpoint;
         }
 
-        return vm.throw_completion<JS::Error>("Cannot open inherited utility channel"sv);
+        return vm.throw_completion<JS::Error>("Cannot open inherited utility channel"_utf16);
     }
 
     GC::Root host { JS::Object::create(realm, nullptr) };
-    host->define_native_function(
-        realm, "setHandler"_utf16,
-        [owner](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_function())
-                return vm.throw_completion<JS::TypeError>("Utility handler must be callable"sv);
-            auto found = owner->endpoints.find(1);
-            if (owner->stopped || found == owner->endpoints.end())
-                return vm.throw_completion<JS::Error>("Utility channel closed"sv);
-            found->second->callback = vm.argument(0).as_function();
-            return JS::js_undefined();
-        },
+    install_ports(realm, *host, owner);
+    host->define_native_function(realm, "setHandler"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& owner = owner_capture.value;
+                if (!vm.argument(0).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Utility handler must be callable"_utf16);
+                auto found = owner->endpoints.find(1);
+                if (owner->stopped || found == owner->endpoints.end())
+                    return vm.throw_completion<JS::Error>("Utility channel closed"_utf16);
+                found->second->callback = vm.argument(0).as_function();
+                owner->diagnose(*found->second, "parent-handler-installed");
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "send"_utf16,
-        [owner](JS::VM& vm) { return owner->send(vm, owner->get(JS::Value(1)), vm.argument(0)); },
+    host->define_native_function(realm, "send"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM& vm) {
+                auto& owner = owner_capture.value;
+                return owner->send(vm, owner->get(JS::Value(1)), vm.argument(0));
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "close"_utf16,
-        [owner](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* endpoint = owner->get(JS::Value(1)))
-                owner->close_channel(*endpoint);
-            return JS::js_undefined();
-        },
+    host->define_native_function(realm, "close"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+            [](auto& owner_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& owner = owner_capture.value;
+                if (auto* endpoint = owner->get(JS::Value(1)))
+                    owner->close_channel(*endpoint);
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return GC::Ref<JS::Object> { *host };
 }

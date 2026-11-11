@@ -1,3 +1,4 @@
+#include "native/platform/GCIncludes.h"
 /** Exact production dialog Host and LibJS factory; providers never display an OS dialog. */
 #include "core/EventLoop.h"
 #include "core/Runtime.h"
@@ -173,6 +174,33 @@ int main(int argc, char** argv)
     auto parent = std::make_unique<QWidget>(); // Hidden: never shown or assigned a native window.
     std::shared_ptr<Controller> controller;
     GC::Root<JS::FunctionObject> handler;
+
+    // Preserve live outer bindings and trace the real mutable callback root.
+    // The revocation anchor retires before any referenced stack owner disappears.
+    struct ProbeCaptures : Mite::NativeCaptureOwner<ProbeCaptures> {
+        ProbeCaptures(GC::Root<JS::FunctionObject>& handler, std::unique_ptr<QObject>& receiver,
+            std::unique_ptr<QWidget>& parent)
+            : handler(handler)
+            , receiver(receiver)
+            , parent(parent)
+        {
+        }
+
+        ~ProbeCaptures()
+        {
+            revoke_native_captures();
+        }
+
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(handler.ptr());
+        }
+
+        GC::Root<JS::FunctionObject>& handler;
+        std::unique_ptr<QObject>& receiver;
+        std::unique_ptr<QWidget>& parent;
+    } captured { handler, receiver, parent };
+
     JS::VM* owner = nullptr;
     Mite::EventLoop* loop = nullptr;
     Mite::HostHooks hooks;
@@ -200,12 +228,13 @@ int main(int argc, char** argv)
             },
             [&](int id) -> QWidget* { return id == 7 ? parent.get() : nullptr; },
             [] { return std::make_unique<ControlledProvider>(); });
-        native->define_native_function(
-            realm, "setHandler"_utf16,
-            [&](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                handler = vm.argument(0).as_function();
-                return JS::js_undefined();
-            },
+        native->define_native_function(realm, "setHandler"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(captured)),
+                [](auto& captured, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& handler = captured.get().handler;
+                    handler = vm.argument(0).as_function();
+                    return JS::js_undefined();
+                }),
             1, JS::default_attributes);
         native->define_native_function(
             realm, "complete"_utf16,
@@ -235,19 +264,21 @@ int main(int argc, char** argv)
             realm, "canceled"_utf16,
             +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(canceled); }, 0,
             JS::default_attributes);
-        native->define_native_function(
-            realm, "destroyParent"_utf16,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                parent.reset();
-                return JS::js_undefined();
-            },
+        native->define_native_function(realm, "destroyParent"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(captured)),
+                [](auto& captured, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& parent = captured.get().parent;
+                    parent.reset();
+                    return JS::js_undefined();
+                }),
             0, JS::default_attributes);
-        native->define_native_function(
-            realm, "destroyReceiver"_utf16,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                receiver.reset();
-                return JS::js_undefined();
-            },
+        native->define_native_function(realm, "destroyReceiver"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(captured)),
+                [](auto& captured, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& receiver = captured.get().receiver;
+                    receiver.reset();
+                    return JS::js_undefined();
+                }),
             0, JS::default_attributes);
         native->define_native_function(
             realm, "collect"_utf16,

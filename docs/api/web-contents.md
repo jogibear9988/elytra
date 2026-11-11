@@ -17,7 +17,12 @@ request/reply and bounded bidirectional events.
 | [getOSProcessId()](#contentsgetosprocessid) | number | Query the native renderer PID |
 | [setZoomFactor/getZoomFactor, setZoomLevel/getZoomLevel](#browser-zoom) | undefined / number | Native browser scale and logarithmic zoom level |
 | [send(channel, ...args)](ipc.md#webcontentssendchannel-args) | undefined | Native current-document event to isolated preload |
+| isOffscreen() | boolean | False for supported native window/view presentation; throws after destruction |
 | [isDestroyed()](#contentsisdestroyed) | boolean | Observe owner destruction |
+
+`isOffscreen()` returns false for current BrowserWindow and WebContentsView contents,
+including hidden windows. Electron offscreen rendering remains unsupported; this
+query does not enable capture, paint events or an offscreen rendering mode.
 
 Access through window.webContents; it is not exported as a standalone constructor.
 Event subscriptions use the supported EventEmitter subset. There is no general

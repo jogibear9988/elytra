@@ -1,6 +1,8 @@
 /** Bounded JSON/byte copies keep clipboard providers independent of the JS heap. */
-#include "ClipboardHost.h"
+#include "../platform/GCIncludes.h"
+
 #include "Clipboard.h"
+#include "ClipboardHost.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>

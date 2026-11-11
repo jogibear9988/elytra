@@ -19,6 +19,8 @@ namespace Firefly {
 // those tokens and admits only the validated data graph.
 class BridgeData {
 public:
+    enum class WireProfile { Default, ApplicationIpc };
+
     struct Limits {
         size_t values { 4096 };
         size_t properties { 4096 };
@@ -28,9 +30,16 @@ public:
         // Explicit opt-in. Public realm/process bridges use BinaryPolicy;
         // default data-only snapshots still refuse binary.
         size_t binary_bytes { 0 };
+        // Large application messages opt in separately; public cross-world
+        // publication and utility transport keep the original smaller ceilings.
+        size_t wire_bytes { 1024 * 1024 };
+        size_t total_array_length { 16384 };
+        WireProfile wire_profile { WireProfile::Default };
     };
 
-    using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&)>;
+    // Source parent is a native capture-time identity, never the caller's this.
+    // A root function has no containing object and receives nullptr.
+    using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&, JS::Object*)>;
     // Native identity policy only: replace designated ordinary capability modules
     // with empty data nodes before inspecting any properties. Never JS callbacks.
     using RedactObject = Function<bool(JS::Object&)>;
@@ -46,6 +55,9 @@ public:
 
     static ErrorOr<BridgeData> capture(
         JS::Value, JS::Realm&, Limits, CaptureFunction = {}, RedactObject = {}, ReadAccessor = {});
+    // IPC copies ordinary class-instance own data, discarding its prototype. It
+    // never exports functions or reads accessors; publication stays stricter.
+    static ErrorOr<BridgeData> capture_ipc(JS::Value, JS::Realm&, Limits);
     // Versioned, data-only wire graph; validates bytes/schema/budgets before JS allocation.
     ErrorOr<ByteString> encode_wire(Limits) const;
 
@@ -55,6 +67,9 @@ public:
         JS::Realm&, MaterializeFunction = {}, Materialization = Materialization::Frozen) const;
 
 private:
+    static ErrorOr<BridgeData> capture_impl(
+        JS::Value, JS::Realm&, Limits, CaptureFunction, RedactObject, ReadAccessor, bool ipc_data);
+
     BridgeData() = default;
     ErrorOr<void> validate_wire_graph(Limits) const;
 

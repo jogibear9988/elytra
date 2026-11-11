@@ -24,10 +24,18 @@ classic import-map/touch bootstraps remain available. App/package notices are ke
 under licenses, outside the served web root.
 Node/npm are build tools, not bundled renderer or main-process engines.
 
-Use a fresh --output directory for a second staging run. Source checkouts with local
-changes or a different origin reject. The upstream Monaco preparation modifies its
+The output directory must not already exist. Reuse a staging location after retiring
+its previous generated output instead of keeping a full copy per trial. Source
+checkouts with local changes or a different origin reject; Finder's .DS_Store
+metadata is preserved and excluded from that source check. The upstream Monaco preparation modifies its
 installed node_modules, not the pinned Git source. Upstream's own package lock is
 also included in the staged application for provenance.
+
+BUILD.json also records designerShell hashes for the current Firefly entry, server,
+smoke script and HTML window controls. Both native packagers compare the staged
+files with the maintained sample and verify the recorded HTML overlay. Rebuild the
+Designer after changing those files; an older compiled web bundle alone is not a
+current sample package.
 
 The Mite main process serves only the compiled public web tree on an ephemeral
 127.0.0.1 port. Firefly loads that origin in an ordinary isolated BrowserWindow.
@@ -99,8 +107,10 @@ native Release inputs and package_linux.py. The renderer CI now builds this pinn
 production bundle, stages/strips/archives it, extracts it under spaces/Unicode and
 runs the same server/security/edit/Monaco/native window-control assertions as macOS.
 Only a passing run uploads linux-designer-package-candidate with its original
-version/source metadata and SHA-256. This gate is newly added and native Designer
-Linux acceptance is still pending; an archive command alone is not proof of it.
+version/source metadata and SHA-256. Source 197cd2a passed that gate on Ubuntu
+24.04 x64 with X11, Xvfb and Openbox; the linked guide records the exact successful
+run and artifact. New source/engine revisions require fresh acceptance. This is
+an experimental Actions artifact, not a published portable Linux release.
 Compatible host glibc, X11 and host graphics/audio services remain required.
 
 ## Native acceptance
@@ -124,7 +134,7 @@ is a sample-local test, not a public Firefly privileged IPC bridge or a security
 Locally the full test passes on macOS ARM64. A separate actual LibWeb compositor
 capture was inspected at build/designer-mite-ladybird.png. Its toolbar, palette,
 docking layout, canvas and Monaco stylesheet editor render. Native desktop pixel
-presentation on the locked host still needs an unlocked-session review. All designer
+presentation of the Designer still needs a manual visual review. All designer
 commands, drag/drop, worker modes, collaboration/WebRTC, GPU/LLM, downloads, external
 npm loading and offline behavior are not yet verified. Some optional upstream demo
 features contact external services. Browser/engine capabilities determine support.

@@ -6,3 +6,10 @@ if(NOT FIREFLY_RUST_ORIGIN_FINGERPRINT MATCHES "^[0-9a-f]+$")
     message(FATAL_ERROR "Missing owned Rust origin build fingerprint")
 endif()
 string(APPEND RUSTC_TARGET_FLAGS " --cfg=firefly_origin_build_${FIREFLY_RUST_ORIGIN_FINGERPRINT}")
+
+# Keep interpreter-only LibJS warning-clean through a checked exact-item composition.
+include("${FIREFLY_SOURCE_DIR}/mite/cmake/RustNoJit.cmake")
+
+# Route the pinned WebAudio implementation through an owned source root. The initial routed leaf is
+# unchanged; enforcement is a separate native slice.
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/autoplay/Rust.cmake")

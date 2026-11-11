@@ -8,6 +8,7 @@
 #include <AK/JsonObject.h>
 #include <LibCore/EventLoop.h>
 #include <LibJS/Runtime/AbstractOperations.h>
+#include <LibJS/Runtime/PrimitiveString.h>
 #include <QTimer>
 #include <UI/Qt/WebContentView.h>
 
@@ -15,13 +16,15 @@ namespace Firefly {
 using BridgeDetail::text;
 
 Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::EventLoop& gui,
-    std::optional<int>& exit_code, bool electron_compat)
+    std::optional<int>& exit_code, bool electron_compat,
+    std::function<std::optional<bool>()> sandbox_launch_policy)
     : vm(vm)
     , realm(realm)
     , jobs(jobs)
     , gui(gui)
     , exit_code(exit_code)
     , electron_compat(electron_compat)
+    , sandbox_launch_policy(std::move(sandbox_launch_policy))
 {
     application_menu = std::make_unique<ApplicationMenu>(*context,
         [this](int generation, int command, bool checked, QWidget* focused, int modifiers) {
@@ -39,9 +42,24 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
             metadata.set("generation"sv, generation);
             metadata.set("command"sv, command);
             metadata.set("checked"sv, checked);
-            metadata.set("modifiers"sv, modifiers);
+            metadata.set("modifiers"sv, modifiers & 15);
+            metadata.set("triggeredByAccelerator"sv, (modifiers & 16) != 0);
             enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
         });
+    dock_menu = std::make_unique<ApplicationMenu>(
+        *context,
+        [this](int generation, int command, bool checked, QWidget*, int modifiers) {
+            if (stopping)
+                return;
+            JsonObject metadata;
+            metadata.set("generation"sv, generation);
+            metadata.set("command"sv, command);
+            metadata.set("checked"sv, checked);
+            metadata.set("modifiers"sv, modifiers & 15);
+            metadata.set("triggeredByAccelerator"sv, (modifiers & 16) != 0);
+            enqueue(0, "dock-menu-click", metadata.serialized().to_byte_string());
+        },
+        true);
     ipc_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [this] {
         expire_ipc_events();
         expire_permissions();
@@ -63,8 +81,17 @@ Bridge::Impl::~Impl()
     stop();
 }
 
+JS::Completion Bridge::Impl::retired_binding(JS::VM& vm)
+{
+    GC::Root error { JS::Error::create(vm.realm(), "Application host is stopped"_utf16) };
+    error->define_direct_property("code"_utf16,
+        JS::PrimitiveString::create(vm, "ERR_FIREFLY_APP_EXITED"_utf16), JS::default_attributes);
+    return JS::throw_completion(error);
+}
+
 void Bridge::Impl::stop()
 {
+    revoke_native_captures();
     if (stopping)
         return;
     stopping = true;
@@ -101,6 +128,8 @@ void Bridge::Impl::stop()
         network_state->stop();
     if (application_menu)
         application_menu->stop();
+    if (dock_menu)
+        dock_menu->stop();
     while (!windows.empty())
         close_contents(windows.begin()->first, true);
     context.reset(); // Cancel queued Qt callbacks before the Mite VM goes away.

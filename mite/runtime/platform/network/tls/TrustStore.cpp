@@ -1,5 +1,6 @@
 /** Keep OS trust loading separate from the VM/record adapter and fail closed on errors. */
 #include "platform/network/tls/TrustStore.h"
+#include "platform/WindowsSockets.h"
 #include <initializer_list>
 #include <openssl/err.h>
 #include <openssl/x509.h>

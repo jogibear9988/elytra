@@ -5,6 +5,8 @@
 
 #include "BuiltinSources.h"
 #include "UpstreamVersion.h"
+#include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Timing.h"
 #include <AK/ScopeGuard.h>
@@ -18,7 +20,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <llhttp.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
@@ -234,15 +235,16 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(
             return JS::Array::create_from(vm.realm(), keys);
         },
         0, JS::default_attributes);
-    host->define_native_function(
-        realm, "exit"_utf16,
-        [exit_state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32() || !vm.argument(1).is_object())
-                return vm.throw_completion<JS::TypeError>("Invalid internal process exit"_utf16);
-            auto code = TRY(emit_process_exit(
-                vm, vm.argument(1).as_object(), *exit_state, vm.argument(0).as_i32(), false));
-            std::exit(code);
-        },
+    host->define_native_function(realm, "exit"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(exit_state)),
+            [](auto& exit_state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32() || !vm.argument(1).is_object())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal process exit"_utf16);
+                auto code = TRY(emit_process_exit(
+                    vm, vm.argument(1).as_object(), *exit_state, vm.argument(0).as_i32(), false));
+                std::exit(code);
+            }),
         2, JS::default_attributes);
     auto source
         = Utf16String::from_utf8(StringView(MITE_PROCESS_SOURCE, sizeof(MITE_PROCESS_SOURCE) - 1));

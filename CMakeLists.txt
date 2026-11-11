@@ -50,6 +50,7 @@ if(ENABLE_LTO_FOR_RELEASE
 endif()
 include(lagom_install_options)
 include(rust_crate)
+include(mite/cmake/RustNoJit.cmake)
 include(targets)
 add_library(JSClangPlugin INTERFACE)
 add_library(GenericClangPlugin INTERFACE)
@@ -66,6 +67,7 @@ find_package(zmij CONFIG REQUIRED)
 find_package(mimalloc CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(ICU 78.3 EXACT REQUIRED COMPONENTS data i18n uc)
+include(mite/cmake/IcuData.cmake)
 find_path(LLVM_LIBC_INCLUDE_DIR NAMES llvm-libc/shared/math.h REQUIRED)
 pkg_check_modules(LIBPSL REQUIRED IMPORTED_TARGET libpsl)
 pkg_check_modules(libtommath REQUIRED IMPORTED_TARGET libtommath)
@@ -91,6 +93,12 @@ foreach(
     add_subdirectory("${LADYBIRD_SOURCE_DIR}/Libraries/${library}" "Libraries/${library}")
 endforeach()
 
+# Public LibJS realm/context headers expose GC::Heap, whose public threading dependency supplies
+# pthread headers on Windows. The static upstream LibJS target keeps GC private; propagate that
+# header contract for our standalone embedding consumers as the upstream shared-build interface
+# already does.
+target_link_libraries(LibJSStandalone INTERFACE LibGC)
+
 include(mite/cmake/RustAggregate.cmake)
 mite_aggregate_rust()
 include(mite/cmake/ExecutionContextAdapter.cmake)
@@ -102,6 +110,27 @@ add_executable(mite mite/cli/main.cpp)
 target_link_libraries(mite PRIVATE mite-runtime)
 include(CTest)
 if(BUILD_TESTING)
+    # Compile real SDK/libuv types in every supported include order. Windows assertions check
+    # Winsock layouts/signatures; these fixtures make no OS calls.
+    foreach(order RANGE 0 2)
+        add_library(mite-uv-headers-${order} OBJECT mite/tests/platform/UVHeaders.cpp)
+        target_link_libraries(mite-uv-headers-${order} PRIVATE mite-runtime)
+        target_compile_definitions(mite-uv-headers-${order} PRIVATE MITE_UV_HEADER_ORDER=${order})
+        add_dependencies(mite mite-uv-headers-${order})
+    endforeach()
+    # OpenSSL's public ssl.h also imports Winsock. Keep real SDK header-order coverage independent
+    # of which runtime source happens to compile first.
+    foreach(order RANGE 0 5)
+        add_library(mite-openssl-headers-${order} OBJECT mite/tests/platform/SSLHeaders.cpp)
+        target_link_libraries(mite-openssl-headers-${order} PRIVATE mite-runtime)
+        target_compile_definitions(mite-openssl-headers-${order}
+                                   PRIVATE MITE_SSL_HEADER_ORDER=${order})
+        add_dependencies(mite mite-openssl-headers-${order})
+    endforeach()
+    add_test(NAME mite-uv-header-boundary COMMAND "${Python3_EXECUTABLE}"
+                                                  "${CMAKE_SOURCE_DIR}/tooling/check_uv_headers.py")
+    add_test(NAME mite-uv-header-guard
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_uv_headers.py")
     add_executable(firefly-startup-probe firefly/native/platform/StartupProbe.cpp)
     add_dependencies(mite firefly-startup-probe)
     add_test(NAME firefly-startup-options COMMAND "$<TARGET_FILE:firefly-startup-probe>")
@@ -119,6 +148,34 @@ if(BUILD_TESTING)
     add_test(NAME mite-rust-lock-guard
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_mite_rust_lock.py")
+    add_test(
+        NAME mite-rust-nojit-driver
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/rust-nojit/test_driver.py"
+                --compiler "${CMAKE_CXX_COMPILER}")
+    add_test(NAME firefly-hub-lifecycle-guard
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_lifecycle.py")
+    add_test(NAME firefly-hub-connection-guard
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_connection.py")
+    add_test(NAME firefly-x11-manager-ordering
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_x11_manager.py")
+    add_test(NAME firefly-designer-shell
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_designer_shell.py")
+    add_test(NAME firefly-hub-frontend-headers
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_frontend_headers.py")
+    add_test(NAME firefly-hub-header-policy
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_header_policy.py")
+    add_test(NAME firefly-canvas-file-adapters
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_canvas_file_adapters.py")
+    add_test(NAME firefly-timer-map-adapter
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_timer_map_adapter.py")
     add_executable(mite-embedded-host mite/tests/embedding/Host.cpp)
     target_link_libraries(mite-embedded-host PRIVATE mite-runtime)
     # The documented build target must produce every enabled CTest fixture.
@@ -668,3 +725,7 @@ endif()
 include(mite/cmake/SizeOptimization.cmake)
 elytra_enable_size_optimization()
 install(TARGETS mite RUNTIME DESTINATION bin)
+if(LADYBIRD_ICU_DATA_FILE)
+    # The pinned loader resolves this relative to the installed executable.
+    install(FILES "${LADYBIRD_ICU_DATA_FILE}" DESTINATION share/Lagom/icu)
+endif()

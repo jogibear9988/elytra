@@ -3,6 +3,7 @@
 #include "Navigation.h"
 #include "Response.h"
 #include "native/ipc/bytes/Channel.h"
+#include "native/platform/QueueSnapshots.h"
 #include "native/protocol/files/RequestPacket.h"
 #include <LibCore/Timer.h>
 #include <LibWeb/DOM/Document.h>
@@ -66,6 +67,10 @@ private:
 
     void sweep();
 
+    void remove_job(u32);
+
+    static void wake_clients();
+
     RefPtr<Bytes::Channel> m_channel;
     GC::Root<Web::DOM::Document> m_document;
     OwnPtr<Navigation> m_navigation;
@@ -75,6 +80,9 @@ private:
     u64 const m_epoch;
     u32 m_next { 0 };
     u32 m_last_pumped { 0 };
+    QueueSnapshotClock m_diagnostics;
+    size_t m_active { 0 };
+    size_t m_waiting_url_bytes { 0 };
     bool m_revoked { false };
     bool m_scheduled { false };
     AK::ThreadID m_thread { AK::ThreadID::current() };

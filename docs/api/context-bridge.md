@@ -90,8 +90,22 @@ objects/arrays with own data properties. Functions require validated source-worl
 ownership. Publication may read the trusted source getters described below. Proxies,
 bound functions, custom prototypes, symbols, DOM/native objects and promises embedded
 directly in an API graph remain unsupported. Function
-arguments/results pass through bounded data copies; document-supplied function arguments
-are proxied as described below, and a returned Promise is bridged.
+arguments/results pass through bounded copies; document-supplied function arguments
+are proxied as described below, and a returned Promise is bridged. Published API
+methods retain their original source object as this, including extracted methods
+and calls using call/apply. A page cannot choose a different privileged receiver.
+Within one captured graph, aliases of a function use the first encountered parent,
+following Electron's function cache.
+
+Published methods can return supported ordinary graphs containing source functions,
+including their own receiver object. Result containers are independent mutable
+copies; functions use
+guarded proxies with the same source-parent rule. Existing live function/parent
+proxies are reused. Results never run getters and still reject host objects, custom
+prototypes, raw IPC capabilities and unsupported values. Native Promise results use
+the same graph exporter, with the existing thenable safety check; a Promise fulfilled
+with a bare function remains unsupported. Standalone internal function endpoints
+and document callback results retain their data-only result policy.
 Page getters/proxies are rejected without running their traps. This stricter policy
 and bounded graphs are intentional differences from general Electron value support.
 
@@ -101,6 +115,10 @@ bridge. Unsupported graphs and exhausted budgets throw; no unlimited graph or
 universal browser-object membrane is provided. Foreign exceptions are sanitized;
 Node/Electron error text and stacks are not preserved. Navigation/detach revokes
 function endpoints and pending work; copied inert data can remain reachable.
+Returned function endpoints count toward that cumulative 64-endpoint limit until
+revocation, even if their page proxies are collected. Repeated returns of the same
+live function/parent pair reuse their endpoint; dynamically creating many distinct
+functions can exhaust the limit.
 
 Only expose narrow functions appropriate for all documents in the window. A
 function's ability to access its isolated closure is not privileged access to the
@@ -200,8 +218,10 @@ No methods, expandos, getters or listener bookkeeping are copied from the module
 An individual raw IPC method still rejects, as does a copied object containing one.
 Normal IPC serialization has no module-redaction exception. Prefer the narrow
 payload wrapper above even though the supported empty-port IPC event now crosses
-this boundary. This does not yet support Code-OSS's unchanged full preload graph
-(source accessors, process/options, webFrame/webUtils and ports remain outstanding).
+this boundary. The explicitly adapted Code-OSS preload now publishes its window
+configuration and loads the Workbench graph. Method receiver/result handling now
+passes the native publication fixture and the actual first Workbench initialization.
+Full startup and renderer/utility port transfer remain unaccepted.
 
 This follows [Electron's documented ipcRenderer boundary](https://www.electronjs.org/docs/latest/api/context-bridge#exposing-ipcrenderer).
 The actual Electron 45.2.3 positive fixture strips the IPC methods but retains own
@@ -215,7 +235,7 @@ exact emptiness/freezing checked separately for Firefly. See
 
 ArrayBuffer, typed arrays and DataView now cross the contextBridge in API
 publication, function arguments/results, native Promise results and both directions
-of document callbacks. There are at most 64 KiB of distinct complete backing stores
+of document callbacks. There are at most 1 MiB of distinct complete backing stores
 per graph. Multiple views share one destination backing store, retaining view type,
 byte offset, length, graph cycles and aliases. Each crossing creates independent
 storage; it neither shares nor detaches source buffers. A Uint8Array subclass is
@@ -223,7 +243,12 @@ normalized to Uint8Array, without invoking subclass/constructor/iterator/getter
 hooks. Buffer-shaped Uint8Array subclasses follow that rule; there is still no
 Buffer global in sandboxed preloads/documents.
 
-Plain object/array containers remain frozen. Copied binary storage and views are
+Plain object/array containers published in the initial API remain frozen.
+Synchronous function and Promise result containers are mutable destination copies,
+including nested objects/arrays; changing them does not change source state.
+This follows [Electron45.2.3 result copying](https://github.com/electron/electron/blob/v45.2.3/shell/renderer/api/electron_api_context_bridge.cc),
+where DeepFreeze applies to API publication rather than function fulfillment.
+Copied binary storage and views are
 **writable**, including a view published inside an otherwise frozen API. JavaScript
 cannot freeze nonempty typed arrays; freezing an ArrayBuffer would not freeze its
 bytes. Binary expandos and custom prototypes are omitted. Shared, detached,
@@ -239,9 +264,12 @@ See [ADR 0140](../architecture/0140-context-bridge-binary-copies.md).
 
 This realm boundary now connects to the bounded [native binary IPC subset](ipc.md#data-and-resource-limits):
 ipcRenderer.invoke/send and webContents.send copy the supported buffers/views over
-the document-bound raw byte channel. The same 64 KiB distinct backing-store budget
-applies at each crossing. MessagePorts, large-file streaming, shared memory and
-zero-copy remain unfinished.
+the document-bound raw byte channel. Both application IPC and contextBridge permit
+1 MiB of distinct complete backing storage per graph. Small views still charge
+their entire backing buffer, and distinct buffers share the graph's aggregate
+ceiling. Utility messages and native port messages retain their separate 64-KiB
+binary budget. Large-file streaming, shared memory and zero-copy remain separate
+capabilities.
 
 ## Files, budgets and errors
 
@@ -278,3 +306,33 @@ are not a complete security review or platform certification.
 
 See [security](../guides/security.md), [compatibility](../compatibility/firefly-0.1.md)
 and [ADR 0068](../architecture/0068-public-commonjs-preload.md).
+
+Registered native standard custom schemes with nonopaque document origins also
+admit configured top-level preloads. The actual Code-OSS vscode-file start now
+exposes window.vscode; its configuration IPC still blocks editor startup. This
+does not grant a scheme-wide preload or bypass native context/channel ownership.
+
+Cross-world data copies now use a separate source profile:65,536 values,
+131,072 properties,4Mi UTF-16 string/key units, depth64, array length65,536 and
+131,072 cumulative array lengths. This admits full application configuration,
+with a1MiB binary ceiling. It does not admit class prototypes, Proxies,
+native capabilities or arbitrary getters. Snapshot and destination allocation are
+synchronous; the application IPC wire queue's aggregate byte quota does not cover
+these copies. See [ADR0193](../architecture/0193-bounded-large-application-ipc.md)
+for scope and separately recorded acceptance.
+
+With FIREFLY_IPC_BYTES_DIAGNOSTIC=1, native Promise-bridge failures also emit a
+fixed stage (source rejection, result capture/publication or revoked ownership)
+and allowlisted native-copy reasons. Source-call diagnostics additionally report
+fixed error-kind/code/role categories, capped at 64 entries. Source values, raw API names and exception
+messages are never included; page-visible rejection remains sanitized.
+
+The pinned Code-OSS Electron protocol sends complete serialized VSBuffer RPC
+packets through ipcRenderer.send. Its catch-all send wrapper can hide synchronous
+contextBridge quota failures, dropping the RPC before native transport. The
+context-only binary allowance now matches application IPC's existing1MiB ceiling
+and BridgeData's independent hard maximum. This is a bounded copy policy change,
+not unlimited Electron structured clone or proof that every Code-OSS packet fits.
+The focused native binary fixture now checks exact1MiB copies, aggregate overflow
+and a tiny view over an oversized backing store; fresh runtime execution of that
+updated boundary remains required.

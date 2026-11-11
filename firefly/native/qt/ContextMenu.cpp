@@ -3,20 +3,20 @@
  * chrome behavior remains separate from the public desktop Menu API.
  */
 
-#include <LibWebView/Menu.h>
 #include <QAction>
 #include <QMenu>
+#include <UI/Qt/Actions.h>
 #include <UI/Qt/Menu.h>
 #include <UI/Qt/StringUtils.h>
 
 // WebContentView's toolkit seam. Upstream's Menu.cpp assumes its tabbed browser
 // Application; Firefly hosts a view in its own window instead.
 namespace Ladybird {
-static void populate(QMenu& target, WebView::Menu& source)
+static void populate(QMenu& target, Menu& source)
 {
     for (auto const& item : source.items()) {
         item.visit(
-            [&](NonnullRefPtr<WebView::Action> const& action) {
+            [&](NonnullRefPtr<Action> const& action) {
                 auto* native = target.addAction(qstring_from_ak_string(action->text()));
                 native->setEnabled(action->enabled());
                 native->setVisible(action->visible());
@@ -33,17 +33,17 @@ static void populate(QMenu& target, WebView::Menu& source)
                         }
                     });
             },
-            [&](NonnullRefPtr<WebView::Menu> const& menu) {
+            [&](NonnullRefPtr<Menu> const& menu) {
                 auto* child = target.addMenu(qstring_from_ak_string(menu->title()));
                 child->menuAction()->setVisible(menu->visible());
                 populate(*child, *menu);
             },
-            [&](WebView::Separator const&) { target.addSeparator(); });
+            [&](Separator const&) { target.addSeparator(); });
     }
 }
 
 void execute_context_menu_later(
-    QPointer<QMenu>& shown, QWidget& parent, WebView::Menu& source, QPoint const& position)
+    QPointer<QMenu>& shown, QWidget& parent, Menu& source, QPoint const& position)
 {
     if (shown)
         shown->deleteLater();

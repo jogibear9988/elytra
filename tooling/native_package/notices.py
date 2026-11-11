@@ -42,6 +42,14 @@ def copy_runtime_notices(destination, generated=ROOT / "mite/modules/generated")
 def notices(destination, renderer, mite=None):
     destination.mkdir(parents=True)
     copy_runtime_notices(destination / "runtime-js")
+    for name, files in {
+        "sqlite3": ["copyright", "manifest.json"],
+        "native-keymap": ["License.txt", "ThirdPartyNotices.txt", "manifest.json"],
+    }.items():
+        target = destination / "native" / name
+        target.mkdir(parents=True)
+        for filename in files:
+            shutil.copy2(ROOT / "vendor" / name / filename, target / filename)
     shutil.copy2(ROOT / "LICENSE", destination / "Mite-Firefly-MIT.txt")
     shutil.copy2(ROOT / "vendor/ladybird/LICENSE", destination / "Ladybird-BSD-2-Clause.txt")
     shutil.copy2(ROOT / "vendor/ladybird.json", destination / "ladybird-pin.json")

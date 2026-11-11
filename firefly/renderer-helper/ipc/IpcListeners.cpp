@@ -1,6 +1,7 @@
 /** Realm-owned listeners and native event credit; no principal-world callback or raw host export.
  */
 #include "IpcEndpoint.h"
+#include "ports/PortEndpoint.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
@@ -91,15 +92,16 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::listen(JS::VM& vm, ListenerOperati
     return m_exports.ptr();
 }
 
-void IpcEndpoint::receive_event(u32 request, ByteString wire)
+void IpcEndpoint::receive_event(u32 request, ByteString wire,
+    RefPtr<IpcWireReservation> reservation, Vector<Utility::Ports::Identity> ports)
 {
     if (m_owner && m_owner->is_executing()) {
         // Core can be pumped by native work while a source frame is active.
         // Keep only bounded native message data until entering a fresh world frame.
-        Core::deferred_invoke(
-            [self = NonnullRefPtr { *this }, request, wire = move(wire)]() mutable {
-                self->receive_event(request, move(wire));
-            });
+        Core::deferred_invoke([self = NonnullRefPtr { *this }, request, wire = move(wire),
+                                  reservation = move(reservation), ports = move(ports)]() mutable {
+            self->receive_event(request, move(wire), move(reservation), move(ports));
+        });
         return;
     }
 
@@ -113,20 +115,20 @@ void IpcEndpoint::receive_event(u32 request, ByteString wire)
     auto result = owner->run_async_frame([&]() -> JS::ThrowCompletionOr<JS::Value> {
         auto& realm = *owner->realm();
         auto& vm = realm.vm();
-        auto decoded = BridgeData::decode_wire(wire.view(), public_binary_limits());
+        auto decoded = BridgeData::decode_wire(wire.view(), application_ipc_limits());
         if (decoded.is_error())
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"_utf16);
         auto copied
             = TRY(decoded.value().materialize(realm, {}, BridgeData::Materialization::Mutable));
         auto args = GC::Root<JS::Value>::create(copied, SourceLocation::current());
         if (!copied.is_object() || copied.as_object().engine_class_id() != JS_LAYOUT_CLASS_ID_ARRAY)
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event arguments"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event arguments"_utf16);
         auto& array = copied.as_object();
         auto length = TRY(TRY(array.get("length"_utf16)).to_length(vm));
         auto channel = TRY(array.get(0));
         if (length < 1 || length > 65 || !channel.is_string()
             || channel.as_string().length_in_utf16_code_units() > 256)
-            return vm.throw_completion<JS::TypeError>("Invalid IPC event channel"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid IPC event channel"_utf16);
         auto name = channel.as_string().utf16_string();
         // Snapshot registrations before callbacks. Removals during an emit do not
         // erase callbacks already selected for that emit; additions wait for the next.
@@ -137,8 +139,10 @@ void IpcEndpoint::receive_event(u32 request, ByteString wire)
                     { entry.channel, GC::Root { *entry.callback }, entry.id, entry.once });
         GC::Root event { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
         event->define_direct_property("sender"_utf16, m_exports.ptr(), JS::default_attributes);
-        event->define_direct_property(
-            "ports"_utf16, TRY(JS::Array::create(realm, 0)), JS::default_attributes);
+        event->define_direct_property("ports"_utf16,
+            ports.is_empty() ? JS::Value(TRY(JS::Array::create(realm, 0)))
+                             : TRY(m_ports->materialize(realm, ports)),
+            JS::default_attributes);
         GC::RootVector<JS::Value> arguments;
         arguments.append(event.ptr());
         for (size_t i = 1; i < length; ++i)
@@ -158,6 +162,9 @@ void IpcEndpoint::receive_event(u32 request, ByteString wire)
         warnln("ERR_FIREFLY_IPC_LISTENER: renderer event dispatch failed");
     // Application exceptions do not retain credit. This acknowledges transport
     // dispatch, never the result of a listener or its returned Promise.
-    send_packet(ApplicationIpc::Kind::Ack, request, false, {});
+    if (ports.is_empty())
+        send_packet(ApplicationIpc::Kind::Ack, request, false, {});
+    else
+        m_ports->acknowledge_transfer(request);
 }
 }

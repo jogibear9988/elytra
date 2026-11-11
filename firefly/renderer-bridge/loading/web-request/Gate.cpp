@@ -1,11 +1,17 @@
 /** Suspend Fetch without body buffering; each continuation is rooted and settled at most once. */
 #include "Gate.h"
+#include "native/platform/QueueSnapshots.h"
 #include "native/web-request/Headers.h"
+#include "native/web-request/Limits.h"
 #include <AK/JsonArray.h>
 #include <AK/NeverDestroyed.h>
+#include <AK/ScopeGuard.h>
 #include <AK/StringBuilder.h>
 #include <AK/ThreadID.h>
+#include <AK/Time.h>
 #include <AK/Utf8View.h>
+#include <LibCore/EventLoop.h>
+#include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibGC/Weak.h>
 #include <LibHTTP/HeaderList.h>
@@ -47,6 +53,11 @@ namespace {
         GC::Root<Head> head;
         RefPtr<Response> response;
         JsonObject original_headers;
+        MonotonicTime deadline { MonotonicTime::now() + AK::Duration::from_seconds(30) };
+        size_t bytes {};
+        bool accounted {};
+        bool submitted {};
+        bool completed {};
     };
 
     struct State {
@@ -58,13 +69,51 @@ namespace {
         Finish finish;
         std::vector<Logical> logical;
         std::vector<std::shared_ptr<Job>> jobs;
+        QueueSnapshotClock diagnostics;
         u32 next_logical {};
+        size_t bytes {};
+        size_t active {};
+        bool scheduled {};
+        bool pumping {};
+        bool draining {};
+        bool sweeping {};
+        std::vector<Controller*> cancelling;
     };
 
     State& state()
     {
         static NeverDestroyed<State> value;
         return *value;
+    }
+
+    constexpr size_t document_job_limit = 8192;
+    constexpr size_t process_job_limit = 16384;
+    constexpr size_t document_byte_limit = 32 * 1024 * 1024;
+    constexpr size_t process_byte_limit = 64 * 1024 * 1024;
+    constexpr size_t active_limit = 16;
+
+    void pump();
+
+    void schedule()
+    {
+        if (state().scheduled || state().draining || !state().submit || state().jobs.empty())
+            return;
+        state().scheduled = true;
+        Core::deferred_invoke([] {
+            state().scheduled = false;
+            pump();
+        });
+    }
+
+    std::pair<size_t, size_t> document_usage(Web::DOM::Document const* document)
+    {
+        size_t count = 0, bytes = 0;
+        for (auto const& job : state().jobs)
+            if (job->accounted && job->document.ptr() == document) {
+                ++count;
+                bytes += job->bytes;
+            }
+        return { count, bytes };
     }
 
     GC::Ptr<Web::DOM::Document> source(Params const& params)
@@ -84,7 +133,8 @@ namespace {
 
     bool current(Job const& job)
     {
-        return job.epoch == state().policy.epoch && !job.params->is_canceled() && job.document
+        return !state().draining && job.epoch == state().policy.epoch
+            && MonotonicTime::now() < job.deadline && !job.params->is_canceled() && job.document
             && job.document->is_fully_active() && job.document->navigable();
     }
 
@@ -102,10 +152,19 @@ namespace {
         if (found == jobs.end())
             return;
         jobs.erase(found);
+        if (job->accounted) {
+            state().bytes -= job->bytes;
+            job->accounted = false;
+        }
+        if (job->submitted) {
+            --state().active;
+            job->submitted = false;
+        }
+        schedule();
         bool allowed = current(*job) && decision.has_value();
         if (allowed) {
             auto validated = WebRequest::validate_decision(
-                *decision, job->stage == Stage::Headers ? &job->original_headers : nullptr);
+                *decision, &job->original_headers, job->stage == Stage::Before);
             if (validated.is_error())
                 allowed = false;
         }
@@ -115,8 +174,9 @@ namespace {
             allowed = cancel.has_value() && !*cancel;
         }
 
-        if (allowed && job->stage == Stage::Headers) {
-            if (auto value = decision->get("responseHeaders"sv); value.has_value()) {
+        if (allowed) {
+            auto field = job->stage == Stage::Before ? "requestHeaders"sv : "responseHeaders"sv;
+            if (auto value = decision->get(field); value.has_value()) {
                 allowed = value->is_object();
                 auto list = HTTP::HeaderList::create();
                 size_t bytes = 0, count = 0;
@@ -153,13 +213,18 @@ namespace {
                             list->append({ name_bytes, move(text) });
                         }
                     });
-                if (allowed)
-                    job->response->set_header_list(move(list));
+                if (allowed) {
+                    if (job->stage == Stage::Before)
+                        job->params->request()->set_header_list(move(list));
+                    else
+                        job->response->set_header_list(move(list));
+                }
             }
         }
 
         if (!allowed) {
             stop_body(*job);
+            cancel(*job->params);
             auto error = Response::network_error(
                 "Firefly webRequest canceled or retired this request"_string);
             if (job->pending)
@@ -172,21 +237,31 @@ namespace {
         if (job->before) {
             auto next = job->before->function()();
             auto pending = job->pending;
-            next->when_loaded([pending](auto response) { pending->resolve(move(response)); });
+            next->when_loaded(GC::create_function(GC::Heap::the(), GC::captures(pending),
+                [](auto& pending, NonnullRefPtr<Response> response) {
+                    pending->resolve(move(response));
+                }));
         } else if (job->head)
             job->head->function()(job->response.release_nonnull());
     }
 
     Optional<u32> logical_id(Params const& params, Web::DOM::Document& document)
     {
-        sweep();
         for (auto const& record : state().logical)
             if (record.controller.ptr() == params.controller())
                 return record.id;
-        if (state().logical.size() >= 1024 || state().next_logical == 2147483647)
+        sweep();
+        if (state().logical.size() >= WebRequest::logical_request_limit
+            || state().next_logical == 2147483647) {
+            if (state().logical.size() >= WebRequest::logical_request_limit)
+                WebRequest::logical_limit_diagnostic(
+                    WebRequest::LogicalLimitStage::Gate, state().logical.size());
             return {};
+        }
         auto id = ++state().next_logical;
         state().logical.push_back({ id, GC::Weak { *params.controller() }, GC::Weak { document } });
+        WebRequest::logical_retention_diagnostic(
+            WebRequest::LogicalLimitStage::Gate, state().logical.size());
         return id;
     }
 
@@ -252,11 +327,15 @@ namespace {
             result.set("navigation"sv, move(text));
         }
 
-        if (response) {
+        if (response)
             result.set("statusCode"sv, response->status());
+        {
+            // Snapshot the actual request before CORS preflight/transport, not a
+            // fabricated list of automatic HTTP headers added later by the SDK.
+            auto list = response ? response->header_list() : request.header_list();
             JsonObject headers;
             size_t bytes = 0, count = 0;
-            for (auto const& header : response->header_list()->headers()) {
+            for (auto const& header : list->headers()) {
                 bytes += header.name.length() + header.value.length();
                 if (++count > 128 || bytes > 32768)
                     return {};
@@ -276,7 +355,7 @@ namespace {
                 headers.set(name.release_value(), move(array));
             }
 
-            result.set("responseHeaders"sv, move(headers));
+            result.set(response ? "responseHeaders"sv : "requestHeaders"sv, move(headers));
         }
 
         if (result.serialized().byte_count() > 96 * 1024)
@@ -286,31 +365,81 @@ namespace {
 
     bool submit(std::shared_ptr<Job> job)
     {
-        auto data = metadata(*job->params, *job->document, job->response);
-        if (!data.has_value() || !state().submit || state().jobs.size() >= 16)
+        if (!current(*job) || !state().submit || state().jobs.size() >= process_job_limit)
             return false;
-        if (job->stage == Stage::Headers) {
-            auto original = data->get_object("responseHeaders"sv);
-            if (!original.has_value())
-                return false;
-            job->original_headers = original.release_value();
-        }
-
-        state().jobs.push_back(job);
-        auto weak = std::weak_ptr<Job>(job);
-        auto request = state().submit(
-            job->stage, *job->document, data.release_value(), [weak](auto decision) {
-                if (auto owner = weak.lock())
-                    settle(move(owner), move(decision));
-            });
-        if (request.is_error()) {
-            settle(job, {});
-            return true;
-        }
-
-        job->request = request.release_value();
+        auto usage = document_usage(job->document.ptr());
+        if (usage.first >= document_job_limit)
+            return false;
+        auto data = metadata(*job->params, *job->document, job->response);
+        if (!data.has_value())
+            return false;
+        auto bytes = data->serialized().byte_count();
+        if (bytes > document_byte_limit - usage.second
+            || bytes > process_byte_limit - state().bytes)
+            return false;
+        job->bytes = bytes;
+        job->accounted = true;
+        state().bytes += bytes;
+        state().jobs.push_back(move(job));
+        schedule();
         return true;
     }
+
+    void pump()
+    {
+        if (state().pumping || state().draining || !state().submit)
+            return;
+        state().pumping = true;
+        ScopeGuard done([] { state().pumping = false; });
+        while (!state().draining && state().submit && state().active < active_limit) {
+            auto found = std::find_if(state().jobs.begin(), state().jobs.end(),
+                [](auto const& job) { return !job->submitted; });
+            if (found == state().jobs.end())
+                return;
+            auto job = *found; // Retain roots across synchronous native reentry.
+            if (!current(*job)) {
+                settle(job, {});
+                continue;
+            }
+            // Native identity, URL and headers must still be valid at promotion.
+            auto data = metadata(*job->params, *job->document, job->response);
+            auto usage = document_usage(job->document.ptr());
+            auto bytes = data.has_value() ? data->serialized().byte_count() : 0;
+            if (!data.has_value() || bytes > document_byte_limit - (usage.second - job->bytes)
+                || bytes > process_byte_limit - (state().bytes - job->bytes)) {
+                settle(job, {});
+                continue;
+            }
+            auto original = data->get_object(
+                job->stage == Stage::Headers ? "responseHeaders"sv : "requestHeaders"sv);
+            if (!original.has_value()) {
+                settle(job, {});
+                continue;
+            }
+            state().bytes = state().bytes - job->bytes + bytes;
+            job->bytes = bytes;
+            job->original_headers = original.release_value();
+            job->submitted = true;
+            ++state().active;
+            auto weak = std::weak_ptr<Job>(job);
+            auto request = state().submit(
+                job->stage, *job->document, data.release_value(), [weak](auto decision) {
+                    if (auto owner = weak.lock()) {
+                        owner->completed = true;
+                        settle(move(owner), move(decision));
+                    }
+                });
+            if (request.is_error()) {
+                settle(job, {});
+            } else if (job->submitted) {
+                job->request = request.release_value();
+            } else if (!job->completed && state().cancel) {
+                // A peer may admit after reentrant shutdown/cancellation.
+                state().cancel(request.release_value());
+            }
+        }
+    }
+
 }
 
 void install(Submit submit, Cancel cancel, Finish finish)
@@ -329,10 +458,13 @@ Policy policy()
 
 bool configure(Policy next)
 {
-    if (!next.epoch || next.epoch > 2147483647 || next.epoch < state().policy.epoch)
+    if (state().draining || !next.epoch || next.epoch > 2147483647
+        || next.epoch < state().policy.epoch)
         return false;
     if (next.epoch == state().policy.epoch)
         return next.before == state().policy.before && next.headers == state().policy.headers;
+    state().draining = true;
+    ScopeGuard resume([] { state().draining = false; });
     auto jobs = state().jobs;
     for (auto& job : jobs) {
         if (state().cancel && job->request)
@@ -350,9 +482,27 @@ bool configure(Policy next)
 
 void sweep()
 {
+    if (state().sweeping)
+        return;
+    state().sweeping = true;
+    ScopeGuard done([] { state().sweeping = false; });
+    if (auto after = state().diagnostics.due())
+        std::fprintf(stderr,
+            "FIREFLY_QUEUE_SNAPSHOT stage=web-request-gate after=%u jobs=%zu active=%zu "
+            "waiting=%zu metadata_bytes=%zu logical=%zu epoch=%u\n",
+            after, state().jobs.size(), state().active, state().jobs.size() - state().active,
+            state().bytes, state().logical.size(), state().policy.epoch);
+    auto jobs = state().jobs;
+    for (auto& job : jobs)
+        if (!current(*job)) {
+            if (state().cancel && job->request)
+                state().cancel(job->request);
+            settle(job, {});
+        }
     std::vector<u32> expired;
     std::erase_if(state().logical, [&](auto const& record) {
-        if (record.controller.ptr())
+        if (record.controller.ptr() && record.document.ptr()
+            && record.document.ptr()->is_fully_active())
             return false;
         expired.push_back(record.id);
         return true;
@@ -364,13 +514,18 @@ void sweep()
 
 void shutdown()
 {
+    state().draining = true;
     auto jobs = state().jobs;
-    for (auto& job : jobs)
+    for (auto& job : jobs) {
+        if (state().cancel && job->request)
+            state().cancel(job->request);
         settle(job, {});
+    }
     state().logical.clear();
     state().submit = {};
     state().cancel = {};
     state().finish = {};
+    state().draining = false;
 }
 
 GC::Ref<Pending> before(JS::Realm& realm, Params const& params, GC::Ref<Before> continuation)
@@ -479,9 +634,15 @@ void cancel(Params const& params)
 {
     if (!state().owner.is_current_thread())
         return;
+    auto* controller = params.controller().ptr();
+    if (std::find(state().cancelling.begin(), state().cancelling.end(), controller)
+        != state().cancelling.end())
+        return;
+    state().cancelling.push_back(controller);
+    ScopeGuard done([] { state().cancelling.pop_back(); });
     auto jobs = state().jobs;
     for (auto& job : jobs)
-        if (job->params->controller().ptr() == params.controller().ptr()) {
+        if (job->params->controller().ptr() == controller) {
             if (state().cancel && job->request)
                 state().cancel(job->request);
             settle(job, {});

@@ -31,6 +31,18 @@ BridgeData BridgeData::from_string(Utf16View value)
 ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits,
     CaptureFunction functions, RedactObject redact, ReadAccessor accessors)
 {
+    return capture_impl(
+        value, source, limits, move(functions), move(redact), move(accessors), false);
+}
+
+ErrorOr<BridgeData> BridgeData::capture_ipc(JS::Value value, JS::Realm& source, Limits limits)
+{
+    return capture_impl(value, source, limits, {}, {}, {}, true);
+}
+
+ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source, Limits limits,
+    CaptureFunction functions, RedactObject redact, ReadAccessor accessors, bool ipc_data)
+{
     // Root the whole source graph while the engine allocates key vectors. All
     // traversed objects are exact engine classes and ordinary descriptor reads
     // never call hooks. Only an explicitly supplied publication accessor reader
@@ -44,6 +56,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
     size_t properties = 0;
     size_t units = 0;
     size_t binary_bytes = 0;
+    size_t array_elements = 0;
     auto charge_string = [&](size_t length) -> ErrorOr<void> {
         if (length > limits.string_code_units - units)
             return Error::from_string_literal("Bridge string budget exceeded");
@@ -51,9 +64,12 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
         return {};
     };
 
-    auto visit = [&](auto& self, JS::Value input, size_t depth) -> ErrorOr<size_t> {
+    auto visit
+        = [&](auto& self, JS::Value input, size_t depth, JS::Object* parent) -> ErrorOr<size_t> {
         if (depth > limits.depth)
             return Error::from_string_literal("Bridge depth budget exceeded");
+        // Preserve within-graph function aliases: Electron's object cache also
+        // chooses the first encountered parent for a shared function identity.
         if (input.is_object()) {
             if (auto found = seen.get(&input.as_object()); found.has_value())
                 return *found;
@@ -83,7 +99,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
             if (&function.vm() != &source.vm() || function.realm() != &source)
                 return Error::from_string_literal("Bridge function requires its own source realm");
             node.kind = Kind::Function;
-            node.length = TRY(functions(function));
+            node.length = TRY(functions(function, parent));
         } else if (input.is_object()) {
             auto& object = input.as_object();
             bool typed = JS::TypedArrayBase::is_engine_class_of(object);
@@ -133,7 +149,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
                 seen.set(&object, index);
                 // Capture storage once, even for multiple views and forward
                 // references. Native slots avoid getters/species/iterator hooks.
-                auto backing = TRY(self(self, JS::Value(buffer), depth + 1));
+                auto backing = TRY(self(self, JS::Value(buffer), depth + 1, &object));
                 result.m_nodes[index].buffer = backing;
                 return index;
             }
@@ -177,7 +193,8 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
 
             auto* expected = array ? source.intrinsics().array_prototype().ptr()
                                    : source.intrinsics().object_prototype().ptr();
-            if (object.prototype() != expected && (array || object.prototype()))
+            if ((!ipc_data || array) && object.prototype() != expected
+                && (array || object.prototype()))
                 return Error::from_string_literal("Bridge rejects custom prototypes");
             if (object.has_intrinsic_accessors())
                 return Error::from_string_literal("Bridge rejects intrinsic accessors");
@@ -192,6 +209,10 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
                     || length.value()->value->as_double() > limits.array_length)
                     return Error::from_string_literal("Bridge array length budget exceeded");
                 node.length = static_cast<size_t>(length.value()->value->as_double());
+                if (node.length > limits.total_array_length - array_elements)
+                    return Error::from_string_literal(
+                        "Bridge cumulative array length budget exceeded");
+                array_elements += node.length;
             }
         } else {
             return Error::from_string_literal("Unsupported bridge data type");
@@ -237,7 +258,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
 
             if (result.m_nodes[index].kind == Kind::Array && key == "length"_utf16)
                 continue;
-            auto child = TRY(self(self, value, depth + 1));
+            auto child = TRY(self(self, value, depth + 1, &object));
             result.m_nodes[index].properties.append(
                 { move(key), child, property.enumerable.value_or(false) });
         }
@@ -245,7 +266,7 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
         return index;
     };
 
-    TRY(visit(visit, value, 0));
+    TRY(visit(visit, value, 0, nullptr));
     return result;
 }
 
@@ -254,13 +275,13 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
 {
     GC::Root destination_realm { destination };
     if (m_nodes.is_empty())
-        return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"sv);
+        return destination.vm().throw_completion<JS::TypeError>("Empty bridge snapshot"_utf16);
     if (integrity == Materialization::Frozen) {
         for (auto const& node : m_nodes) {
             if (node.kind == Kind::ArrayBuffer || node.kind == Kind::TypedArray
                 || node.kind == Kind::DataView)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Binary snapshots require explicit mutable materialization"sv);
+                    "Binary snapshots require explicit mutable materialization"_utf16);
         }
     }
 
@@ -283,7 +304,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             auto bytes = ByteBuffer::copy(node.bytes);
             if (bytes.is_error())
                 return destination.vm().throw_completion<JS::RangeError>(
-                    "Cannot allocate bridge binary snapshot"sv);
+                    "Cannot allocate bridge binary snapshot"_utf16);
             values.append(JS::ArrayBuffer::create(destination, bytes.release_value()).ptr());
             break;
         }
@@ -299,12 +320,12 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
         case Kind::Function: {
             if (!functions)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Missing bridge function materializer"sv);
+                    "Missing bridge function materializer"_utf16);
             auto function = TRY(functions(node.length));
             if (!function.is_function() || &function.as_function().vm() != &destination.vm()
                 || function.as_function().realm() != &destination)
                 return destination.vm().throw_completion<JS::TypeError>(
-                    "Invalid bridge function destination"sv);
+                    "Invalid bridge function destination"_utf16);
             values.append(function);
             break;
         }
@@ -325,7 +346,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             continue;
         if (node.buffer >= m_nodes.size() || m_nodes[node.buffer].kind != Kind::ArrayBuffer)
             return destination.vm().throw_completion<JS::TypeError>(
-                "Invalid binary view backing"sv);
+                "Invalid binary view backing"_utf16);
         auto& buffer = static_cast<JS::ArrayBuffer&>(values[node.buffer].as_object());
         auto type = binary_view_type(node.view_type);
         size_t width = node.kind == Kind::TypedArray && type.has_value() ? type->element_size : 1;
@@ -333,7 +354,7 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             || node.byte_offset > buffer.byte_length()
             || node.length > (buffer.byte_length() - node.byte_offset) / width)
             return destination.vm().throw_completion<JS::TypeError>(
-                "Invalid binary view geometry"sv);
+                "Invalid binary view geometry"_utf16);
         if (node.kind == Kind::TypedArray)
             values[i] = JS::TypedArrayBase::create_from_slots(
                 destination, type->kind, buffer, node.length, node.length * width, node.byte_offset)
@@ -364,7 +385,8 @@ JS::ThrowCompletionOr<JS::Value> BridgeData::materialize(
             && (integrity == Materialization::Frozen
                 || (integrity == Materialization::FrozenContainers && !binary))
             && !TRY(value.as_object().set_integrity_level(JS::Object::IntegrityLevel::Frozen)))
-            return destination.vm().throw_completion<JS::TypeError>("Cannot freeze bridge data"sv);
+            return destination.vm().throw_completion<JS::TypeError>(
+                "Cannot freeze bridge data"_utf16);
     }
 
     return values[0];

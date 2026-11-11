@@ -1,5 +1,6 @@
 /** Bounded native zlib work shared by Node-compatible Transform wrappers. */
 #include "platform/compression/Codec.h"
+#include "core/GCCaptures.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/TypedArray.h>
@@ -26,6 +27,8 @@ namespace {
     }
 
     struct Codec {
+        GC_HOLDS_NO_CELL_EDGES;
+
         z_stream stream {};
         bool compress { false };
         bool gzip { false };
@@ -71,12 +74,12 @@ namespace {
             return failure(vm, "ERR_MITE_UNSUPPORTED_API", "Z_PARTIAL_FLUSH is not implemented");
         auto value = vm.argument(0);
         if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object()))
-            return vm.throw_completion<JS::TypeError>("Invalid native zlib bytes"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid native zlib bytes"_utf16);
         auto& array = static_cast<JS::Uint8Array&>(value.as_object());
         auto witness = JS::make_typed_array_with_buffer_witness_record(
             array, JS::ArrayBuffer::Order::SeqCst);
         if (JS::is_typed_array_out_of_bounds(witness))
-            return vm.throw_completion<JS::TypeError>("Detached zlib input"sv);
+            return vm.throw_completion<JS::TypeError>("Detached zlib input"_utf16);
         auto size = JS::typed_array_byte_length(witness);
         if (size > limit)
             return failure(vm, "ERR_OUT_OF_RANGE", "Zlib native step input exceeds one MiB");
@@ -161,15 +164,16 @@ GC::Ref<JS::Object> create_zlib_host(JS::Realm& realm)
                 return failure(vm, "Z_MEM_ERROR", "Could not initialize zlib state");
             state->active = true;
             GC::Root object { JS::Object::create(vm.realm(), nullptr) };
-            object->define_native_function(
-                vm.realm(), "step"_utf16, [state](JS::VM& vm) { return step(vm, *state); }, 2,
-                JS::default_attributes);
-            object->define_native_function(
-                vm.realm(), "close"_utf16,
-                [state](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                    state->close();
-                    return JS::js_undefined();
-                },
+            object->define_native_function(vm.realm(), "step"_utf16,
+                GC::create_function(vm.realm().vm().heap(), GC::captures(shared_capture(state)),
+                    [](auto& state, JS::VM& vm) { return step(vm, *state); }),
+                2, JS::default_attributes);
+            object->define_native_function(vm.realm(), "close"_utf16,
+                GC::create_function(vm.realm().vm().heap(), GC::captures(shared_capture(state)),
+                    [](auto& state, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                        state->close();
+                        return JS::js_undefined();
+                    }),
                 0, JS::default_attributes);
             return JS::Value(object.ptr());
         },

@@ -30,8 +30,9 @@ candidate or native Windows/Linux update was validated in this step.
 ## Current scope and acceptance
 
 The detailed dated entries below supersede the initial historical baseline.
-Mite is a working native LibJS runtime; the latest local macOS Release runtime
-validation has 135 passing CTest suites. Native Linux/Windows CLI baselines have
+Mite is a working native LibJS runtime. The dated entries record exact source
+revisions, build types and suite totals for accepted and candidate validation.
+Native Linux/Windows CLI baselines have
 passed hosted CI; this does not validate each subsequent change on those platforms.
 Each new change still needs its own fresh platform acceptance. Mite remains
 independent of Firefly, LibWeb and graphical libraries.
@@ -11932,6 +11933,2018 @@ snapshot links, verified clean pinned upstream/vcpkg source and executed the
 retained Release CLI. No GUI or application behavior changes in this cleanup.
 The full product/VS Code/upstream-update objective remains active.
 
+
+## 2026-11-10 — Ladybird cdcb9a candidate review (NOT ACCEPTED)
+
+Work continues in build/ladybird-update-2026-11-10 on the isolated
+codex/ladybird-update-2026-11-10 branch. Accepted master is 22f6dcd with the
+97ad425 Ladybird pin and the previously accepted runtime built at 1d18d82.
+The candidate is not merged or released. The first local checkpoint 0e0ce1e
+covers standalone Mite, dependencies, capture ownership and ICU packaging.
+The next coherent step covers the real Hub/frontend/renderer integration below.
+
+Implementation:
+
+- Official upstream cdcb9a308fc9d9f34e3ebd7c5a7e6b5a63972cdf is 859 commits
+  after the accepted pin. Manifest, indexed gitlink and clean checkout agree.
+  Bootstrap uses the unchanged canonical vcpkg manager/baseline. ICU 78.3#3,
+  mimalloc 2.2.7#1 and the shared overrides match the SDK. The aggregate Cargo lock
+  retains exactly the candidate's versions/checksums plus our aggregate crate;
+  its 124-package audit passes. Mite remains independent of LibWeb/Firefly/Qt.
+- LibJS now requires explicit GC captures. Native callbacks expose actual JS
+  edges; borrowed owners revoke an independent lifetime anchor before teardown.
+  The real retained-function regression collects while live, during native
+  destruction and after deletion. SDK error literals use the new UTF-16 contract.
+- The no-JIT SDK has a JIT-only method without its feature guard. An owned exact
+  source composition adds only cfg(feature=jit), preserves Cargo/build inputs
+  and routes every other module back to upstream. Correct nested-module routing
+  fixes the initial Unicode/calendar diagnostics without patching their bodies.
+  Warnings stay fatal and JIT stays disabled. See ADR 0189.
+- Select upstream's full external ICU data branch because Mite needs the native
+  CJK converter mappings. Stage the actual 33,107,232-byte file and hashes;
+  no SDK path or environment override may supply missing runtime resources.
+- Fix the existing quadratic fork JSON framing reader with one-pass scanning and
+  bounded geometric assembly. The original 768KiB fixture and eight-second
+  watchdog pass unchanged; controlled fragmented/Unicode/limit/EOF/reentry/quota
+  tests verify linear-copy bounds. Generated runtime bundles are reproducible.
+- Embed the genuine in-process Hub, share the existing Core/Qt loop and provide
+  an owned minimal frontend without browser stores/startup tabs. Resolve actual
+  canonical view/page/frame/document authority for preload/IPC/permissions and
+  network paths. Preserve renderer launch isolation, pending sandbox selection,
+  native GPU-exit observation and real prepare/setParent/finish view reparenting.
+- Reviewed source compositions preserve exact unrelated bytes, callback ordering,
+  OS permission denial, request/CORS gates, canvas/zoom behavior, AX tree/delta
+  ownership and native file provenance. Regenerated IPC endpoints preserve all
+  245 client and 254 server original SDK message IDs. Vendor sources stay clean.
+- Enforce the same composed RemoteView header across the complete target consumer
+  closure, including aliases and object sources, while keeping standalone
+  Ladybird's original layout. The actual compiler-database guard checks 107
+  commands; real CMake fixtures reject conditional/mixed-layout mistakes.
+- Weak callback proxies clear before incremental destruction of native GC capture
+  boxes. Retire a weak-dead proxy's native endpoint only when no Promise is
+  pending; preserve pending endpoint revocation. Existing callback counts,
+  64-slot reclamation, GC and pending-result assertions remain unchanged.
+  ADR 0190 records the Hub, ABI and collector decisions.
+
+Actual acceptance in this checkout:
+
+- Complete standalone Debug CLI/source aggregate: all 145 suites pass in 130.07 seconds
+  (build/candidate-runtime-145.log). The same reused tree now builds Release,
+  whose full 145-suite run also passes in 54.99 seconds
+  (candidate-cli-release-build.log and candidate-cli-release-145.log). The previous 141-suite run and 140-suite
+  standalone checkpoint are historical, not different current totals.
+- Full native Release Firefly and offscreen binaries compile/link. Logs:
+  candidate-firefly-final-link.log and candidate-header-fixed-build.log.
+  Strict candidate compiler checks also cover 58 bridge/helper, 21 native Host,
+  27 additional Qt/native, 40 composed-source and 38 isolation/protocol TUs.
+- Production/diagnostic helper world and real byte-channel gates pass: early
+  author-script ordering, default-deny control, isolation, frames, calls/Promises,
+  private errors/rejections, timers/observers/listeners, event payloads and native
+  traversal/principal callbacks. The complete helper gate passes again after the
+  callback retirement fix (candidate-helper-final-acceptance.log); the earlier
+  candidate-helper-acceptance.log contains the rejected resource fixture too.
+- Full native isolation passes after correcting incremental callback retirement
+  (candidate-isolation-fixed.log). Real callback release/revoke assertions were
+  not removed or weakened. The original rejected run is retained separately.
+- All ten selected public offscreen suites pass: frames, session permissions,
+  exact native permission boundary, webRequest, canvas pixels/background, zoom,
+  WebContentsView, real window constraints, disabled spellchecking and CPU/GPU
+  policy (candidate-offscreen-acceptance.log).
+- All eleven additional public offscreen integration suites pass: sandbox enable,
+  IPC channel/binary/outbound, preload process/getters/zoom, application paths,
+  command-line policy, tracing and modern response/file protocols with genuine
+  native process identity and generation/cancellation checks
+  (candidate-public-offscreen-acceptance.log).
+- All six headless document resource cases pass, including equal-epoch replay
+  denial and legitimate higher-epoch refresh with six actual resource requests
+  and old-channel retirement (candidate-document-refresh-acceptance.log).
+- Renderer-selected ICU staging, independent bundle copies, Linux hardlink layout,
+  tar/ZIP relocation and actual native CJK decoding pass without environment
+  overrides (candidate-renderer-icu-package.log). Payload and artifact-provenance
+  unit checks pass (candidate-package-rules.log); these are not full app smoke.
+- The pure native controlled Host/sandbox cases pass in candidate-pure-accepted.log
+  (its aggregate stopped at the original isolation assertion). The remaining
+  notification/desktop-capture/power-monitor/webRequest/protocol targets pass
+  as a terminal successful run in candidate-remaining-native-acceptance.log.
+  Controlled providers prove native admission, delivery, GC and teardown; they
+  do not prove real OS notifications, dialogs, permissions or sleep events.
+- Style checks cover 308 Python, 961 JS/config, 573 native and 82 CMake files.
+  The final callback-registry formatting correction passes its focused check.
+  Site validation passes 329 pages and 23,289 local links/resources/fragments.
+
+Rejected evidence and corrections:
+
+- Initial standalone shutdown GC visited a retired ImmediateQueue; revocable
+  anchors and actual retained-function destruction/GC regression fixed it.
+- Initial legacy encoding failed after SDK converter trimming; real full ICU
+  data restores all 1,657 reference comparisons. Initial fork failure was late
+  delivery from quadratic copying, not a child crash; no deadline was increased.
+- The notification composition left a callback decision unnamed because an
+  identity replacement silently did nothing. Name the exact final parameter,
+  reject identity replacements and compile all four actual permission TUs.
+- The first public window crashed in ViewState assignment because original and
+  composed RemoteView headers produced different layouts. Fix consumer include
+  precedence and verify actual header selection rather than changing zoom.
+- The resource duplicate fixture incorrectly sent a newer allowed epoch to an
+  unserved endpoint. Preserve production policy; test true replay denial and
+  higher-epoch refresh separately. ADR 0123 now links its ADR 0175 supersession.
+- The new sandbox launch probe needed an explicit AK link. Its genuine native
+  latch/options tests now execute; syntax-only success was insufficient evidence.
+
+Update acceptance and remaining work before master:
+
+- The local Release package, real helper/resource/dylib/ICU loading, targeted
+  Cocoa/presentation and complete current Designer smoke gates now pass, as scoped
+  in the follow-ups below. Retire temporary package copies after their review
+  evidence is complete; keep the accepted builds and original Finder metadata.
+- Obtain fresh hosted Windows CLI and Linux renderer/macOS package evidence.
+  Linux CLI succeeds at abd65d1; Windows exposed another OpenSSL socket include
+  needing the owned boundary described below. Each subsequent source still needs
+  its own fresh platform result. Native Windows desktop remains unfinished.
+  Local vcpkg objects warn of a
+  macOS 27 build target versus the 14.4 executable minimum, so this host cannot
+  establish back-deployment support. No warnings are hidden to claim it.
+- Update current docs and CI evidence, then consider master promotion. No new
+  alpha release and no working Code-OSS editor are claimed. Accepted native-titlebar
+  Code-OSS startup still stops at webPreferences.autoplayPolicy; its actual value
+  is user-gesture-required, whose media/WebAudio enforcement needs real work.
+
+The integration checkpoint f5e7b5a is pushed on the isolated update branch.
+Direct workflow dispatch via gh could not run because the local CLI has no API
+login; no remote workflow was claimed from that failed command. Extend the four
+existing native workflow push filters to codex/ladybird-update-* so candidates
+receive the same acceptance without a pull request or API dispatch credentials.
+Release publication conditions and workflow token permissions are unchanged.
+Actual remote runs still need observation after this metadata step is pushed.
+Validation: pinned Prettier parses all four workflow files; exact comparison
+proves only their branch filters changed. The native gate, permission and
+publication bodies are byte-identical (candidate-ci-scope-validation.log).
+
+Observed native CI for21b5568: Windows42763478980, Linux CLI42763479045,
+Linux renderer42763478994 and macOS42763479125 all started from the candidate
+push. The macOS job129654408607 failed before compilation in check_macos_cpu.py:
+the old exact flag list rejected the new genuine mite_nojit_build_<hash> marker.
+Alpha publication was skipped. Linux has the same stale validator shape.
+
+Derive the additional allowed marker only from the actual generated
+mite-adapters/rust-nojit/lib.rs SHA256, after the optional origin marker. Keep
+target CPU, fatal warnings and flag order exact. Both CPU regression suites pass
+(two tests each, including missing/wrong/duplicate/reordered/stale/mutated-root
+cases). Actual generated roots/flag order were inspected in both local SDK
+trees; their baseline remains OFF, so this is not represented as baseline CPU
+execution acceptance. A new hosted baseline run is required. No native runtime
+or package test was skipped to bypass the stale validator.
+
+The old Linux CLI job129654406193 completed compilation and passed142/143
+suites. Only file-write-stream/errors rejected the already documented pre-abort
+open difference: Node printed existsSync=true at close while Mite correctly
+printed false. Node may observe either value before its pending open completes;
+Mite deliberately never opens a pre-aborted target. The runner already allowed
+only Node's final empty abort.bin, but its stdout comparison was still too strict.
+Require Mite's complete original false/null/pending/zero-byte observation, allow
+only that one Node close-time boolean to vary, and keep every other line, event,
+descriptor, final file and return/error check exact. Actual local Node/Release
+Mite validation passes all seven writer groups, policy and short-write cases
+(candidate-write-stream-oracle.log). Production code and deadlines are unchanged;
+API documentation now explains both Node observations. Hosted validation remains
+pending until the corrected runner is pushed and executed.
+
+The old Windows native job129654457257 failed compiling EventLoop/Runtime/
+ImmediateQueue: new explicit-GC headers include AK/Time before libuv/Winsock,
+revealing two timeval declarations. Add one owned platform/UV.h boundary: load
+actual AK time types, then scope the same Winsock-only dummy_timeval spelling as
+upstream AK/Windows.h around libuv. Do not import its cpp-only SystemApi initializer
+into runtime headers, change type layouts or fake _TIMEVAL_DEFINED. All16 owned
+Mite/Firefly direct libuv includes now use this boundary; vendor sources are clean.
+
+Three compile-only include-order fixtures are dependencies of the normal mite
+build. Windows branches assert actual SDK timeval layouts, the imported Winsock
+select function pointer type and macro restoration. The maintained source guard
+and its negative fixtures reject direct libuv-header bypasses. Local Release
+Mite and Firefly/offscreen rebuilds pass; the complete CLI/source aggregate now
+passes147/147 in53.47 seconds (candidate-uv-release-build.log,
+candidate-uv-release-147.log, candidate-uv-firefly-build.log). These are Mac
+checks; the real WinSDK assertions still require the next hosted clang-cl build.
+No native Windows acceptance is inferred from local syntax or source tests.
+
+Package snapshot21b5568 stages from clean Release/Release inputs with all10
+physical helpers and full ICU data. Strict nested signatures and original helper
+entitlements/flags pass. The stripped Designer bundle is263,625,085 bytes
+(251.4MiB), of which the empty Firefly app baseline is227,835,245 bytes(217.3MiB).
+This is the default local Release profile, not a size/LTO or fresh-platform claim.
+
+Add a diagnostic-only --helper-directory selector before helper initialization;
+keep production app flags and default diagnostic selection unchanged. The
+selector rejects missing/duplicate/relative/symlink/incomplete directories and
+checks physical helpers/resources and lookup candidates before launch. Extend
+the protocol gate so positive cases genuinely use the selected package, then
+observe a live actual child through the OS: parent/executable identity, mapped
+liblagom libraries and ICU mapping/open-file evidence. No page-supplied path or
+file-existence-only check substitutes for actual loading.
+
+A temporary copied Unicode-path Designer.app passes strict signing, production
+pre-GUI runtime dylib loading without SDK overrides and the actual packaged Mite
+CJK decoders (candidate-package-relocation-loader.log). A second temporary copy
+passes genuine headless production WebContent origin/configuration and actual
+libproc/lsof executable/dylib/ICU evidence with the selected package paths
+(candidate-packaged-helper-relocation-final.log). Both temporary copies are gone.
+The unchanged default/runtime helper cases and new three-case path-policy unit
+suite pass (candidate-package-probe-default-accepted.log). Linux path checks
+follow its manifest-backed firefly-runtime/bin, sidecar resources and root lib
+inventory; those non-native fixtures do not establish Linux execution. Site
+validation passes329 pages/23,291 links (candidate-package-site.log). Native
+Designer HTML/Cocoa smoke remains a separate acceptance requirement.
+
+Retain only current/accepted builds and compact evidence. Master 22f6dcd removed
+obsolete staging/cache copies, reducing the project from 66.8 to 33.6 GiB; do not delete
+its active review worktree, shared installed dependencies or running Designer app.
+The full product/platform/VS Code/release objective remains active.
+
+
+### Candidate follow-up: native shutdown and remaining hosted failures
+
+The next hosted Linux CLI run, 42765988282 at 359fd82, passes. The other
+three native workflows failed: Windows 42765988289 still tests the old direct
+libuv includes (the local da3ef59 correction needs pushing); macOS 42765988615
+reached compilation of a remaining capturing test callback in the power-monitor
+public probe; Linux renderer 42765988473 stopped in independent X11 window-manager
+readiness before renderer compilation. These results do not accept the update.
+
+A targeted local Cocoa batch initially stopped before presentation: two pure Qt
+probes unnecessarily included GC registration without linking the GC runtime.
+Removing those unused includes makes both genuine probes link. The first hidden
+file-input case then exposed a real exit crash: a deferred IPC strong reference
+destroyed ConnectionFromUI after its Hub Application had already been destroyed.
+
+The owned source composition now retires the original Application callbacks while
+the Hub is alive, closes both real IPC endpoints and makes late destructors and
+disconnect handling harmless for retired endpoints. Original upstream cleanup
+bytes and endpoint class layouts are preserved; fingerprint/reversal/drift and
+missing/duplicate seam controls pass. The unchanged hidden file-input regression
+now passes trusted native input, Qt acceptance, SelectedFile IPC, four-MiB text
+and byte contents, basename privacy, cancellation and navigation with clean exit
+(candidate-hidden-file-picker-lifecycle.log). No visible desktop test was run
+in this follow-up; the accepted Designer app remains available for manual testing.
+
+A separate Qt numeric-collation probe catches two ICU implementations being
+linked into pure Qt executables. The initial link-order correction passed the
+full frontend graph, but still failed the smaller picker graph; do not treat
+presence of the shared Unicode dylib alone as proof that Qt calls its ICU copy.
+Actual linked symbols and both native collation probes are the acceptance gate.
+On macOS with the actual shared/external-data Unicode target, present that real
+library before static archive selection through the linker's needed_library
+option, retaining its normal target dependency and rpath. Both actual native
+collation graphs now pass. nm confirms both import ucol_open_78 and
+udata_openChoice_78 rather than defining a second implementation in the executable.
+The Release and Linux renderer workflows include the collation target; Linux
+execution remains unverified.
+
+The genuine retained-endpoint regression now passes both separate processes:
+natural Host shutdown and replacement endpoint identity. It creates actual
+Hub/UI transports, retains real endpoint references after Application destruction,
+checks repeated shutdown and late disconnect handling, and releases genuine
+EventReceiver queued strong references at final thread-queue destruction. Native
+weak endpoint owners must expire without running queued callbacks. The replacement
+case also checks the newer endpoints' singleton, settings and browser callback
+stores. No VM, visible windows or desktop platform is used
+(candidate-hub-lifetime-accepted.log).
+
+Rejected fixture iterations attempted a second process-wide Application and then
+used a live event loop after destroying its queue. Neither is an SDK-supported
+test setup. The accepted fixture uses one Application per process and exactly
+one final queue destruction; no production restart or event-pumping workaround
+was added. The prior genuine hidden-picker crash and its unchanged passing
+regression remain independent evidence. Both lifetime and collation gates are
+included in the existing Release/Linux renderer workflows. Fresh hosted results,
+targeted visible Cocoa acceptance and packaged Designer startup still remain.
+
+The remaining probe callback migration covers power-monitor, locale and menu.
+All native JS callbacks now declare GC::captures; borrowed fixture state uses
+revocable anchors and traces the actual mutable handler roots. The audit finds
+no remaining raw captures in the native test factories. All 26 relevant actual
+candidate translation units pass strict compiler syntax checks. Genuine local
+Release builds pass for the three probes and the menu offscreen graph; actual
+power factory/Host/passive OS queries, locale guards and offscreen Qt menu actions,
+queued callbacks, roles and stale-generation teardown pass
+(candidate-icu-captures-build.log, candidate-test-captures-syntax.log,
+candidate-locale-capture.log, candidate-menu-capture.log). Physical power
+transitions and a fresh hosted macOS run remain separate requirements.
+
+For the Linux X11 driver, wait for Openbox's official post-initialization startup
+callback before creating the independent non-Qt control client. Its advertised
+root property is published earlier than event startup/window management in
+Openbox 3.6.1; the observed unmapped client is consistent with an early event
+being stranded in its private queue. The existing ten-second bound, fresh-server
+requirement and real mapped/decorated control acceptance remain unchanged.
+Five non-GUI tests pass: actual marker command/order, missing callback, exited
+manager, unmapped client and missing decorations, including process/temp cleanup.
+The native Linux Xvfb gate still needs hosted execution after pushing; these
+controlled tests do not establish actual X11 acceptance.
+
+After registering the new Hub connection composition guard and non-GUI X11
+ordering tests, the complete standalone Release aggregate passes 149/149 in
+109.83 seconds (candidate-final-cli-149.log). The actual Ladybird checkout remains
+clean at the manifest/gitlink pin. Repository-wide style checks pass for 314 Python,
+961 JS/web/config, 579 native and 82 CMake files; the subsequently added native
+lifetime fixture and workflow/build integration also pass focused style checks.
+
+### Candidate follow-up: Cocoa acceptance and current Designer shell
+
+Linux CLI run 42892218480 succeeds at exact source abd65d1. Windows, Linux
+renderer and macOS package workflows are still running at this checkpoint.
+The engine remains a candidate; no new alpha or working Code-OSS is claimed.
+
+One batched local native macOS run passes all four required component gates
+(candidate-cocoa-current-acceptance.log): hidden file input, real mouse/key input,
+viewport resize, native painted capture, navigation/close, genuine owned renderer
+crash reporting, hidden first-mouse/native view recreation and actual AppKit safe
+areas, hidden title-bar geometry/recreation and real toolbar pixels, native button
+hit targets and HTML drag regions. The captured page was visually inspected.
+The accepted Designer was not running before this batch; no unrelated app was closed.
+
+Restaging from clean abd65d1 Release inputs passes strict nested signing. But the
+reused Designer assets contained a November 5 Firefly shell: its old smoke code
+returned success after three markers and never performed the current native
+minimize/HTML-close assertions. The full unchanged acceptance correctly rejects it.
+An upstream demo pin alone did not establish current maintained sample files.
+
+Add shared designerShell metadata: six current maintained source hashes, the
+deterministic controls overlay and actual final index digest. The builder records
+it after bundling; both native packagers verify the actual files against current
+owned sources and their record before creating output. The Designer acceptance
+driver also rejects a stale shell before launching any server or GUI. Generic
+Linux apps with unrelated metadata remain usable. This is stale-artifact detection,
+not an authenticated upstream source or native execution certificate.
+
+Ten controlled tests pass, including stale/missing files, source updates,
+tampered bytes with a rehashed manifest, index/overlay drift, generic metadata,
+both packagers leaving no output on rejection, and Finder metadata preservation.
+The actual obsolete local stage is independently rejected. A genuine pinned
+Designer rebuild reuses the existing source/dependencies, builds 19 entry points
+and five workers, omits 139.4 MiB of module/build payload, and passes all six
+current shell hashes and index verification. Source checks exclude only basename
+.DS_Store; all other tracked/untracked changes still block. Original Finder data
+is preserved in place (candidate-designer-stale-stage.log,
+candidate-designer-current-build.log, candidate-designer-shell-tests.log,
+candidate-designer-shell-current.log).
+
+The registered firefly-designer-shell CTest passes its ten cases; the previous
+complete runtime aggregate remains 149/149. Focused source/CMake formatting and
+diff checks pass. The fresh full packaged Designer smoke is still pending at
+the shell-guard implementation commit. The packaging guide/sample README also correct stale Linux wording:
+the extracted package gate passed at 197cd2a on Ubuntu 24.04 x64 Xvfb/Openbox,
+verified again against successful run 42379262065; a newer engine needs new evidence.
+
+The following actual package acceptance closes that pending local gate: clean
+d45560e3543d7c7a05822b91db87e104a931f236, Release CLI/renderer, production bundled
+Designer, stripped native symbols and strict nested ad-hoc signatures. The full
+unchanged native Designer test passes editing/round-trip, Monaco, principal-world
+privilege absence, window capability/server security, actual HTML controls,
+native minimize and HTML close. Its retained output includes all stage and
+required success markers with empty stderr
+(candidate-current-packaged-designer-acceptance.log, designer-last-ui.log).
+This is actual macOS app execution, not just server or file-existence checks.
+Framework is 227,865,540 bytes (217.3 MiB); Designer is 263,643,704 bytes
+(251.4 MiB), before archive compression. The staging location was reused and its
+Finder metadata restored; superseded package contents were removed. The existing
+canonical upstream clone and installed build dependencies were reused.
+
+Site build and validation pass 329 pages and 23,294 local links/resources/fragments
+(candidate-designer-shell-site-check.log). Native Linux archive acceptance and
+macOS CI remain pending for this candidate; the scoped local macOS result does
+not accept Windows or complete the whole project.
+
+Make the shared overlay writer explicitly emit UTF-8/LF bytes on Windows too.
+A real file-I/O regression starts from Unicode/CRLF input and checks the final
+bytes; the shell suite now passes eleven cases. This keeps the persisted index
+digest independent of native text-mode newline conversion. The packaged macOS
+index already has those same bytes, so no additional GUI run is needed.
+The full test run also exposed the notice test importing an unused re-export from
+package_macos after formatting removed it. Import the actual native_package.notices
+owner instead; license-copy and tampered-license rejection assertions are unchanged.
+
+### Candidate follow-up: shared Windows socket boundary for OpenSSL
+
+Windows run 42892218435, native job 130096084744 at abd65d1, compiles past the
+previous libuv conflict but fails TLS Client.cpp through TrustStore.h:
+OpenSSL ssl.h/e_ostime.h imports WinSDK winsock2.h after AK/Time, redeclaring
+timeval. The libuv-only boundary did not protect that separate public header path.
+
+Generalize the owned boundary to platform/WindowsSockets.h. On Windows it loads
+actual AK time declarations and imports real WinSDK Winsock using the same scoped
+dummy_timeval spelling as AK/Windows.h. UV delegates to it, and all eight owned
+OpenSSL include groups import it first. No fake time-layout macro, SDK source
+edit, cpp-only SystemApi import or new Firefly dependency enters standalone Mite.
+The boundary is empty on POSIX. A genuine WinSDK-only sandbox probe keeps its
+independent socket import; that narrow exemption does not allow OpenSSL bypasses.
+
+Six additional compile-only SSL header orders join the normal Mite target, along
+with the existing three libuv orders. They cover GC/runtime/SSL-first, UV-first,
+upstream Windows boundary coexistence and the real public TrustStore header.
+Native Windows branches assert actual SDK field/layout, Winsock select/SSL_new
+function signatures and macro restoration. Maintained-source guards and five
+negative/control cases pass. Windows execution of those ABI assertions remains
+pending a fresh clang-cl CI result; local builds do not establish it.
+
+Actual local Release Mite plus all nine compile fixtures build successfully.
+The complete runtime aggregate passes 150/150 in 113.09 seconds, including real
+crypto/TLS differential checks and the unchanged license-copy negative controls
+(candidate-windows-sockets-cli-build.log,
+candidate-windows-sockets-cli-150-final.log). The rejected first aggregate retained
+149 passing suites and the stale notice-import failure; no runtime assertion was
+removed. Actual Firefly/offscreen and safe-storage backend probe build/link pass
+(candidate-windows-sockets-firefly-build.log). No extra GUI or OS keychain test
+was run for an empty POSIX header branch. Repository-wide style passes 316 Python,
+961 JS/web/config, 581 native and 82 CMake files, plus focused checks for the final
+overlay/notice changes. Ladybird remains clean at the manifest/gitlink pin.
+Fresh hosted Windows and renderer/package acceptance, then master promotion,
+remain required. The full product/VS Code/native Windows/release goal stays active.
+
+### Candidate follow-up: public GC headers for standalone consumers
+
+Linux CLI run 42896891703 succeeds at 4b6705a. Windows run 42896891726,
+job 130112322078, now compiles and links the complete mite-runtime library,
+including the corrected OpenSSL paths. It then fails building the independent
+ExecutionContext embedding probe: public Realm/ExecutionContext headers expose
+GC::Heap, which now includes pthread.h, while the static LibJS target keeps GC's
+usage requirements private. The runtime had received those include directories
+through other dependencies; this standalone consumer correctly exposed the gap.
+
+Propagate LibGC through our LibJSStandalone interface, matching upstream's
+existing shared-build interface. Its real public LibThreading dependency supplies
+the actual Windows pthread include/library requirements. Do not add a fake header,
+attach unrelated Mite services to the probe or alter vendor targets/sources.
+Actual local Release Mite and the standalone embedding probe build/link, and
+its genuine null deallocation/realm ownership/moved-context test passes
+(candidate-public-gc-headers-build.log,
+candidate-public-gc-headers-acceptance.log). CMake formatting/diff checks pass.
+Windows compiler and runtime acceptance still require the next hosted result.
+The follow-up comment layout matches the pinned CMake formatter; the interface
+dependency and native validation scope are unchanged.
+
+The autoplay feature is being developed separately; its new untracked files are
+not part of this engine-fix commit. The engine review branch keeps only the
+required update fixes so its platform CI can complete independently.
+
+## 2026-11-10 — Native autoplay media component for Code-OSS
+
+Work continues separately on codex/autoplay-policy-2026-11-10 in the existing
+review directory/build trees. The engine CI branch remains independently pushed
+through aae76b4; its source is not mixed with this unfinished feature. Master still
+uses the accepted engine. No full app/source clone or extra SDK build was added.
+
+Implement a real LibWeb media policy component for the Code-OSS constructor's
+user-gesture-required value, plus no-user-gesture-required. Public preference
+admission stays rejected until WebAudio and authenticated transport are complete.
+ADR 0191 records the exact pinned Chromium reference and remaining requirements;
+document-user-activation-required is not implemented by substituting sticky state.
+
+The owned native policy accepts bounded atomic context/generation/value snapshots.
+Eight fingerprinted HTMLMediaElement seams preserve every unrelated upstream byte
+and all class layouts: initialization/destruction, adoption, play, explicit load,
+audible change, trusted native controls and admission before SDK file/allowlist/
+sticky bypasses. Element state has no GC edges; actual destruction erases it.
+
+Actual Release LibWeb/module/probe build and twelve no-GUI/no-audio component groups
+pass (autoplay-media-native-canonical.log): original unmanaged SDK behavior;
+explicit file/HTTP override; transient versus sticky and independent elements;
+load/source persistence; video-only mute exception and unmute reblocking; volume
+unlock; genuine Page media-menu dispatch; adoption/policy changes; separate
+contexts/atomic invalid snapshots; real GC; a real remote-top/local-child graph;
+and actual local-opener one-play authorization without a permanent child unlock.
+These exercise genuine play Promises and pause state without playable media or
+audio output. Native C++ activation is not physical-input or cross-process proof.
+
+The first link correctly exposed missing direct LibURL linkage and an SDK-hidden
+control method. Link its actual dependency and dispatch the real exported Page
+context-menu path instead of exporting a test shim. Independent headless clients
+also reuse native allocator namespaces; the fixture assigns real native IDs using
+the SDK reconstruction API. Different BiDi UUIDs deliberately remain. Inspection
+found those UUIDs differ from remote top-level IDs, so production policy lookup now
+uses canonical native namespace/local IDs consistently. The remote fixture proves
+that mapping without simulating IPC. Four source-preservation/drift/refusal tests
+and strict compiler checks pass. Ladybird remains unmodified.
+
+Remaining: actual Rust AudioContext gating/lazy graph startup, activation and pending
+Promise cleanup, trusted before-script defaults/revocation/frame transport, public
+option validation and actual helper/app acceptance. VS Code still stops before a
+window at autoplayPolicy; this component alone does not advertise that API.
+
+## 2026-11-10 — Pinned WebAudio Rust build routing
+
+Route the real libweb_bindings_rust crate root and web_audio module through owned,
+fingerprinted sources without modifying upstream Cargo manifests, features,
+generated bindings or notices. In this commit the AudioContext implementation is
+byte-identical to the pinned SDK. Unknown, repeated, missing or drifted modules
+fail explicitly. Native compiler argv/exit transport preserves Unicode, empty
+arguments and quoting; the existing no-JIT/origin/cache chain remains intact.
+
+An exact generated-root cfg fingerprint follows the origin and no-JIT markers.
+Both CPU validators enforce its actual source hash and ordering without relaxing
+CPU, warning or frame-pointer requirements. Their six test groups pass. The
+native driver test uses real clang++ and rustc for routing/module resolution and
+negative checks; it does not claim WebAudio execution or Windows acceptance.
+
+The actual Release libweb_bindings_rust-build target passes
+(autoplay-rust-routing-native-build.log). All nineteen emitted Cargo commands
+carry the three exact ordered markers and -Dwarnings; the real Cargo dependency
+file includes the owned AudioContext leaf, whose bytes equal upstream. The actual
+LibWeb/media probe links this Rust output and all twelve media groups pass.
+A separate check-firefly-autoplay-rust-routing target makes the source/driver
+checks repeatable without coupling standalone Mite to LibWeb.
+
+Pinned Chromium inspection corrects the next implementation step: user-gesture
+WebAudio authorization queries transient activation at construction, resume or
+source start, only for cross-origin-to-outermost contexts. A generic activation
+notification must not unlock pending contexts. ADR 0191 now records that rule and
+both independent scheduled-source and buffer-source entry points. Actual lazy
+renderer creation, promise cleanup and authenticated public transport remain
+unfinished; no public autoplay value is admitted and Code-OSS still cannot start.
+
+## 2026-11-10 — Windows engine test portability after successful native build
+
+The aae76b4 native Windows job compiles and links Mite and runs 147 suites:
+138 pass, nine fail. Five failures are fixture portability defects: escaped
+Windows paths in the UV guard; Rust-generated forward-slash source paths;
+CRLF conversion in Hub source-integrity input; CRLF in the X11 marker fixture;
+and Designer byte mutations that accidentally rewrote all line endings.
+Preserve exact bytes/path representations instead of relaxing the assertions.
+
+Local UV guard (five cases), Hub integrity, X11 ordering (five cases), Designer
+shell (eleven cases), and native Rust no-JIT driver/nested-module/argv checks pass.
+No Ninja, desktop or audio tests were run for these fixture-only changes. The
+remaining Windows fork/reference pipe, watcher GC and filename failures still
+need investigation. Native Windows desktop support remains unfinished.
+
+## 2026-11-10 — Wait for actual native menu dispatch in hosted acceptance
+
+The older macOS Release job at abd65d1 reaches the native menu test after its
+preceding runtime/protocol gates pass, then fails the new-window dispatch check.
+The same fixture remains in aae76b4. It assumes a fixed 15 ms delay is sufficient
+for native dispatch although the quit test already uses bounded observation.
+Use a two-second bounded wait for the actual callback count, retain the exact
+callback/checked assertions, and report real native generation/signal/delivery
+counters on failure. No sleep duration is increased and no success is synthesized.
+JS formatting and diff checks pass; hosted native execution is still required.
+No local GUI test is launched for this timing-fixture correction.
+
+## 2026-11-10 — Native Windows short-path watcher admission
+
+The hosted Windows fs.watch failure reports ts\initial.txt instead of initial.txt.
+Inspection of pinned libuv's Windows backend identifies the actual cause: it
+expands a change path to its long spelling but subtracts the original watched
+short-path directory length (the hosted temp root includes RUNNER~1).
+Expand only native short-name aliases with bounded GetLongPathNameW queries before
+uv_fs_event_start. Preserve junction/symlink identity and full recursive filenames;
+do not strip basenames or silently rewrite notifications. Translate actual Win32
+failures through libuv and fail before allocating an event handle.
+
+Add a real Windows short/long-alias comparison using Win32 paths to the same
+directory, actual watchers for both spellings, Unicode root names and recursive
+nested-name assertions. Filesystems without distinct 8.3 aliases report that exact
+missing test capability. Native Windows execution remains pending hosted CI.
+Actual local Release Mite build and complete Node/Mite event watcher comparison
+pass (windows-watch-path-build.log, windows-watch-path-local-acceptance.log).
+Strict native syntax and UV boundary checks pass. No GUI tests were run.
+
+## 2026-11-10 — Portable fork, stat-watcher collection and framed Windows pipes
+
+The Windows runtime job at aae76b4 exposed two oracle assumptions and one
+unsupported transport assumption. Preserve production ownership and all existing
+assertions while testing the actual platform contracts:
+
+- The independent-child reference failed in Node before Mite was exercised.
+  libuv assigns non-detached Windows children to a kill-on-parent-exit Job Object;
+  unref only changes event-loop liveness. Request detached:true only on Windows,
+  retaining the original POSIX case and the exact parent-exit/child-acknowledgement
+  checks and deadlines. Mite already has the actual native detached spawn path.
+- Final stat-watcher reclamation collected inside active native dispatch frames.
+  Windows conservatively scans those stacks, including expired callback slots.
+  Use the existing real embedded-host idle collection boundary after dispatch
+  unwinds, as the event-watcher GC gate already does. Keep the in-callback
+  unwatch/forced-GC reentry, active-root checks, twelve collection turns, deadline
+  and exact final callback/watcher weak-reference reclamation assertions.
+- The named-pipe binary exchange failed in Node's Windows reference. Its libuv
+  shutdown emulates EOF with a 50 ms timer that can close both pipe directions;
+  waiting for request EOF before replying cannot establish directional half-close.
+  Retain the original POSIX half-close test unchanged. Windows instead uses a
+  separate fixed-length framed duplex exchange: actual 3 MiB + 29 byte payload,
+  Unicode endpoints, both string/object overloads, exact request/reply bytes and
+  counters, real backpressure/drain in both directions and native listener cleanup.
+  API and compatibility docs explicitly state the Windows half-close limitation.
+
+Validation: the complete actual Node/Mite fork suite, genuine embedded stat-watcher
+GC gate and complete POSIX pipe suite pass locally against build/upstream-review.
+The new framed exchange also passes in both Node and Mite over real Unix sockets;
+this validates its framing/backpressure logic, not Windows transport behavior.
+Windows execution of these repairs remains pending hosted CI. No runtime policy,
+GUI test, timeout increase, fabricated event or skipped integrity assertion is used.
+
+## 2026-11-10 — Real native autoplay and direct Code-OSS startup priority
+
+Implement native Rust AudioContext admission through three reversible pinned
+leaves, never a Window activation observer or JavaScript media shim. Genuine lazy
+renderer/output acquisition is shared by constructor, resume and both independent
+source-start paths. Transient authorization is sampled at those operations only;
+user suspension prevents automatic playback but can retain valid source-start
+authorization. Opaque native setting revisions prevent reuse across policy changes
+or removal/readdition. Queued publication revalidates without sampling activation,
+stops revoked graphs, rejects pending/current/future resumes and enters the actual
+promise/statechange execution context. Already-running dynamic policy replacement
+is outside this immutable public-option slice.
+
+Owned helpers enter fail-closed mode before session/author initialization. Strict
+metadata-only snapshots carry canonical native IDs, generations and explicit
+upstream-default records. Unknown/removed owned contexts deny, unmanaged SDK
+contexts preserve their original behavior. Strip all policy records before canvas
+and preload/script processing. BrowserWindow and WebContentsView snapshot the two
+explicit supported values and store their native enum before page configuration;
+document-user-activation-required remains explicitly unsupported. The exact
+HighlightAPI preference is accepted for already-enabled native CSS.highlights;
+arbitrary Blink switches and deprecated script-paste settings remain unsupported.
+
+Actual Release Rust crate, LibWeb and Firefly/helper builds succeed. Thirteen real
+media groups pass, including the production metadata decoder/defaults/revocation;
+ten null-audio graph groups pass. The final inactive-document pending-promise
+fixture still fails and its subsequent GC case has not run; the audio target is
+NOT green. A corrected queued rejection now enters its actual realm execution
+context after a genuine Rust panic exposed the omission. Source composition,
+CPU policy and native compiler checks pass. Evidence: autoplay-audio-rust-build.log,
+autoplay-native-media-audio-acceptance.log, autoplay-firefly-codeoss-build.log.
+
+The user now requests fewer tests and prioritizes an actual VS Code start. Stop
+expanding component suites; use direct startup evidence and only immediate blocker
+checks. The accepted Designer was reopened on request and is left running. No
+additional Designer or broad GUI suite is launched. Code-OSS renderer assets and
+its explicit local legacy-paste adaptation are being prepared separately in the
+existing stage; no accepted workbench/open-edit-save run exists yet. The direct
+Cocoa startup now passes autoplay and rejects enableBlinkFeatures (entry log above
+is actually autoplay-codeoss-entry.log); the prepared exact HighlightAPI admission
+requires one final incremental host rebuild. The unavailable offscreen Qt plugin
+was refused explicitly, so the real diagnostic used Cocoa without a GUI suite.
+
+## 2026-11-10 — Explicit Code-OSS legacy-paste startup adaptation
+
+The exact pinned windows.ts enables Electron's deprecated synchronous script-paste
+mode. Preserve ordinary Node/Electron behavior and the original source outside
+one import/assignment seam. Only the verified experimental local Mite/LibJS profile
+omits that request; publish a separate immutable legacy-paste diagnostic at the
+actual omission. Preserve the existing cache diagnostic and its gates. The general
+Firefly option remains explicitly unsupported. No clipboard permission or fake
+paste implementation is added: desktop Code-OSS uses webContents.paste(), whose
+actual native action integration remains required.
+
+The existing focused Node/Mite window-preference runner passes eighteen scenarios,
+including original/adapted behavior and pinned source/license/drift controls. The
+new windows.ts fixture matches the actual pinned source and retains notices.
+No broad runtime suite or GUI test is added. The application overlay is generated
+in the existing review build; the single existing compiled Code-OSS tree is being
+refreshed separately with real renderer resources before the next direct start.
+
+## 2026-11-10 — Stage real Code-OSS renderer assets in the existing tree
+
+The previous diagnostic compiler omitted renderer HTML/CSS/fonts. Add opt-in
+renderer-assets and verified refresh modes. Preserve the upstream dev bootstrap
+and real CSS import-map loader, stage bounded exact production assets plus the
+locked codicon font, and create one relative internal out-to-src alias. Do not
+clone another source/app tree or copy dependencies again. Refresh verifies the
+old manifest and every owned file, refuses edits/unowned collisions and symlinked
+new parents, preserves unchanged files/Finder data and publishes completion last.
+
+The three focused real-compiler integrity cases pass. Actual compilation of the
+single existing code-oss-window-cache-final tree succeeds with 12,342 input files
+and 805 renderer assets (33,994,409 bytes); no extra application copy is created.
+Evidence: codeoss-renderer-assets-build.log. The first real Cocoa entry with this
+stage passes autoplay, HighlightAPI and the audited legacy-paste adaptation and
+allocates native window id 1. It remains empty: optional TouchBar construction
+fails first; lifecycle cleanup also exposes missing webContents.isOffscreen().
+Evidence: codeoss-renderer-assets-start.log. This is an actual native window,
+not accepted workbench rendering or open/edit/save support. No broad test suite is
+run; the next changes target those two observed startup faults.
+
+## 2026-11-10 — Native presentation query for the real Code-OSS window
+
+Add webContents.isOffscreen() with the usual destroyed-owner guard. All admitted
+BrowserWindow/WebContentsView contents use native window/view presentation, so the
+actual supported answer is false, including hidden windows. The unsupported
+offscreen creation option still rejects; do not invent paint/capture capability.
+This resolves the observed Code-OSS lifecycle method lookup after its first real
+native window allocation. The actual incremental Firefly build succeeds
+(codeoss-offscreen-query-build.log); the next direct entry uses the rebuilt host.
+No additional component or GUI suite is run.
+
+## 2026-11-10 — Disable optional TouchBar only in the local Code-OSS adapter
+
+The first real Code-OSS window stops in unconditional TouchBar construction.
+General Firefly TouchBar remains unsupported. The exact pinned application overlay
+now skips only that constructor action in verified experimental local Mite/LibJS
+mode and publishes an immutable opt-out reason. Ordinary Node/Electron keeps the
+original constructor and updates. Unexpected local TouchBar updates reject with
+ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE before accessing missing native groups;
+no fake TouchBar objects or hardware behavior are added.
+
+The existing focused Node/Mite window-preference runner passes eighteen scenarios,
+including pinned constructor/update body projections, original/adapted behavior,
+reversal and drift refusal. The same application stage/overlay is being refreshed
+in place; no native rebuild or additional GUI suite is required for this overlay.
+The next direct startup will determine the next real editor blocker.
+
+## 2026-11-10 — Genuine request-header interception for Code-OSS startup
+
+The next real constructor fault is marketplace onBeforeSendHeaders registration.
+Implement that API through the existing authenticated held Before request: snapshot
+the actual Fetch HeaderList, validate/copy it through native ownership checks, run
+onBeforeRequest then onBeforeSendHeaders, and apply validated requestHeaders to the
+actual Request before preflight/transport. The same policy edits real net.fetch
+and net.request init headers on each redirect hop. No new packet kind, fabricated
+callback or header-only metadata simulation is used. Existing cancellation,
+epoch/ownership/queue limits and utility containment remain in force.
+
+Host and framing changes reject explicitly. This snapshot precedes SDK automatic
+Cookie/Host/framing fields and is not final wire-header parity. Document that
+partial scope. Focused existing Node/Mite policy checks pass; native Gate, Qt auth,
+Broker and Headers strict compilers pass. The actual Firefly build succeeds
+(codeoss-request-headers-build.log). No broad suite or separate GUI check runs;
+the next Code-OSS entry will exercise registration and continue toward its renderer.
+
+## 2026-11-10 — Real stylesheet inventory for the development workbench
+
+The prepared scripts-disabled dependency tree has no native ripgrep executable.
+For the local development renderer only, generate the exact sorted inventory of
+508 actually staged CSS files and record its generated-file hash in the compile
+manifest. Adapt the pinned CSS development service before rgDiskPath to read that
+inventory only in verified local LibJS mode. Ordinary Node/Electron discovery and
+the genuine upstream Blob/import-map/stylesheet-link loader remain unchanged.
+Missing, malformed, duplicate, unsorted or escaping paths fail explicitly. Native
+ripgrep search of user files remains outside this development-discovery adapter.
+
+Focused genuine Node/Mite checks pass for the original Node branch, all 508 real
+paths, and explicit malformed/missing refusals; the pinned source reverses exactly
+and rejects drift. The single existing stage refresh succeeds with 12,343 input
+files (codeoss-css-inventory-refresh.log). A single direct Code-OSS run now observes
+the rebuilt request-header host plus this stage; no extra GUI/component suite is
+started. Real workbench/open-edit-save acceptance remains unproven.
+
+## 2026-11-10 — Real document-window metadata at the editor load boundary
+
+The latest actual Code-OSS entry passes marketplace header registration and reaches
+window#load, then fails isDocumentEdited. Add the four real BrowserWindow methods
+for dirty state and represented filename. Both JS and native setters validate
+boolean/string types; all methods use existing destroyed/window-kind guards.
+Queries/setters use QWidget's actual window-modified/file-path state. Verified Qt
+Cocoa source maps these properties to NSWindow.documentEdited/representedFilename;
+other Qt platforms expose metadata without claiming Cocoa proxy chrome.
+
+Strict native Host compilation and the actual complete incremental Firefly build
+pass (codeoss-document-window-build.log). No new GUI/component suite runs. The
+next direct startup batches all four methods and uses the required development
+renderer environment rather than relaunching for each method. Prior startup
+proof: codeoss-request-headers-start.log. Workbench acceptance remains unproven.
+
+## 2026-11-10 — Use the prepared development renderer and owned optional-UI profile
+
+Source inspection proves VSCODE_DEV=1 is required: isBuilt is its negation,
+windowImpl selects workbench-dev.html only then, and CSS development discovery is
+otherwise skipped in favor of a nonexistent production bundle. Keep
+VSCODE_DEV_SERVER_URL unset so the actual staged modules are loaded. Document the
+contract. The probe's newly owned native-titlebar profile also disables the omitted
+TouchBar only for explicit local Mite mode; existing user profiles and ordinary
+Node/Electron settings stay unchanged. JS syntax/diff checks pass. No new test or
+GUI launch is added for this small configuration change.
+
+The actual development-mode entry passes both document queries and reaches
+updateConfiguration; its next missing method is isFullScreen, with a separately
+caught getNativeWindowHandle lookup. The batched query/handle implementation and
+one native rebuild are underway. Evidence: codeoss-dev-renderer-start.log. The
+workbench URL has not yet been loaded successfully, so no editor pass is claimed.
+
+## 2026-11-10 — Native fullscreen queries and Cocoa window-handle bytes
+
+Add the next actual Code-OSS configuration queries as a batch. isFullScreen reads
+the real QWidget state. isSimpleFullScreen returns false because no legacy Electron
+mode is admitted; both fullscreen setters still reject explicitly after type
+validation. This does not claim fullscreen-transition/event parity.
+
+Cocoa getNativeWindowHandle copies the actual WId/NSView pointer representation
+into a fresh typed array/Buffer, without rounding through JS Number. Verified Qt
+Cocoa source returns its real native view; other backend mappings remain explicitly
+unsupported. Existing owner/destruction guards apply, and the byte copy does not
+retain the native object. API docs record the lifetime and platform limits.
+
+Strict Host compilation and the actual incremental Firefly build pass
+(codeoss-window-queries-build.log). No GUI/component suite is added. The next
+single direct entry batches these queries with the prior document metadata,
+header interception and real development renderer assets. Successful renderer or
+workbench loading remains unverified until that entry produces actual evidence.
+
+## 2026-11-11 — Complete the already-disabled remote/update application gates
+
+The actual native-window entry now passes configuration queries and schedules
+loading, then fails in afterWindowOpen: the local profile deliberately omitted
+remote-resource scheme privileges, but the application still unconditionally
+registered its remote handler. Guard that registration/unregistration pair only
+in local mode, matching the existing disabled-remote contract and request/CLI
+rejections. General Firefly protocol admission remains unchanged and strict.
+The new guard preserves every other previously adapted source byte.
+
+The same trace reveals a Darwin updater bug in this experiment: the real base
+service already reaches Disabled, then the subclass subscribes to unavailable
+native autoUpdater events. Only verified local Mite skips those subscriptions
+AFTER checking the actual Disabled state. Unexpected state throws
+ERR_CODE_OSS_LOCAL_UPDATER_UNSUPPORTED. Ordinary Node/Electron retains original
+subscriptions; no fake EventEmitter or native update capability is added.
+
+Focused Node/Mite adapter behavior, exact pinned-source reversal/drift and combined
+overlay preparation pass. No GUI/Ninja or broad suite is run for these guards.
+The next combined stage refresh is intentionally batched with genuine SQLite and
+keyboard-layout adapters: native state.vscdb and native-keymap failures are now
+observed actual startup dependencies (codeoss-native-window-load.log). A rendered
+workbench/open-edit-save run still has not been established.
+
+## 2026-11-11 — Final Windows forged-fd denial and Linux picker ICU retention
+
+Authoritative f7c6117 CI narrows Windows to 146/147 passing suites: real fork,
+framing, liveness and detached-child cases pass, while a forged missing descriptor
+fast-fails in the UCRT before the expected denial. Probe only that descriptor with
+a scoped thread-local invalid-parameter handler, restoring the embedder's handler
+on all exits. Validate the actual CRT/native pipe handle before uv_guess_handle;
+keep the original denial text/exit 9. POSIX continues using the same libuv probe.
+
+Linux renderer compiles, then its Qt-view collation probe passes while lightweight
+picker collation fails to acquire ICU data. In the shared/external-data case retain
+the real LibUnicode owner before other libraries using scoped no-as-needed, matching
+the existing macOS needed-library fix. Do not add a second data loader or alter
+vendor code, global linker policy or the unchanged numeric collation assertions.
+
+Local Runtime strict compilation, formatting and existing five UV boundary/source
+checks pass. Native Windows invalid-descriptor behavior and Linux collation still
+require the next hosted results. No Ninja or GUI test is run for these isolated
+CI repairs. Actual failed run IDs: Windows42910820776/job130166222903 and Linux
+renderer42910820714/job130166305311. The engine branch stays independently reviewable
+while the new SQLite/keyboard Code-OSS work is compiled separately.
+
+## 2026-11-11 — Genuine standalone SQLite and native keyboard services
+
+Implement private mite:sqlite and mite:native-keymap extensions, maintained ESM
+facades and exact-package Code-OSS adapters. No Node/V8/N-API or Qt/LibWeb dependency
+is added to standalone Mite. SQLite uses real worker-thread connections/prepared
+statements, bounded FIFO/callback ownership, cancellation, finalization and actual
+on-disk transactions. Pin direct vcpkg sqlite3 3.53.4#2 and retain its notices.
+The OS provider reads actual macOS TIS/Carbon metadata and 119 physical mappings;
+referenced 500 ms polling matches the original addon callback liveness. Other
+keyboard platforms fail explicitly. ADR 0192 records ownership/language/scope.
+
+The first SDK configure correctly refused language enabling in deferred code;
+Carbon uses only C APIs, so compile its unchanged provider as C++ and remove the
+unnecessary Objective-C/ARC setup. Actual Firefly build succeeds. Standalone cache
+had manifest install disabled and selected system SQLite3.54; install ONLY the
+pinned missing sqlite3 package from the existing cache, clear the two SQLite path
+cache entries and rebuild in the same tree. Prefer modern CMake SQLite3::SQLite3
+when available, retaining the older target for CMake3.30 compatibility.
+
+Actual standalone Release build and the focused SQLite test pass: real file header,
+Unicode/NUL/text/blob bindings, prepared transactions/rollback, close/reopen and
+independent Python SQLite row/integrity verification. Actual OS queries return
+layoutPresent:true, keys:119 and iso:true. Mite's loader dependencies contain no Qt
+or LibWeb. Evidence: codeoss-native-mite-{configure,build}.log,
+codeoss-sqlite-disk-acceptance.log, codeoss-keymap-query.log and
+codeoss-native-services-final-build.log. Physical layout change acceptance remains
+unverified; no GUI or broad runtime suite is run.
+
+Safe additive package refresh verifies every old adapter and original new loader/
+package hash before mutation, refuses removal/drift, and reuses dependencies. The
+single Code-OSS stage refresh succeeds with both genuine package adapters and
+the completed disabled-service guards, without another dependency copy
+(codeoss-native-packages-refresh.log). Actual imports of both adapted npm entries
+in rebuilt standalone Mite return sqlite:3.53.4 and keymap:119
+(codeoss-native-package-import.log). This proves real package selection, not an
+editor run; the next combined application start remains required.
+
+
+## 2026-11-11 — Run CLI children in Mite before desktop bootstrap
+
+Code-OSS shell environment discovery reexecutes its host with
+ELECTRON_RUN_AS_NODE=1 and -p. Firefly now selects genuine standalone Mite for
+that exact environment value before Qt/desktop initialization; existing explicit
+fork/utility role validation remains earlier. Add -p/--print to evaluate a script
+and print its actual completion using JavaScript string conversion, documenting
+the difference from Node object inspection. No Node/V8 or desktop host is loaded.
+
+Combined Release Firefly/WebContent build succeeds in the reused renderer-review
+cache (codeoss-preload-start-build.log). Actual CLI invocation prints
+shell-marker{"mite":"0.1.0","platform":"darwin"}shell-marker and exits zero,
+without a GUI. The next batched Code-OSS run also includes the separately reviewed
+native focus/recent-document/preload changes. No broad runtime suite is run.
+
+## 2026-11-11 — Preserve native Linux fork acceptance backend
+
+Linux renderer run 42921362015 at 7e876e1 failed in check-firefly-fork before
+transport execution. The target selected the available offscreen test frontend,
+and its runner replaced the workflow's xcb setting; production startup correctly
+refused that unsupported Linux backend. Select the offscreen fork frontend only
+on macOS. Linux retains the production executable and existing isolated Xvfb/xcb
+environment. The native startup guard and fork assertions remain unchanged.
+Source/diff checks pass; no local build, GUI run or remote success is claimed.
+Fresh hosted Linux execution is required.
+
+
+## 2026-11-11 — Admit owned custom-origin preloads and native window startup APIs
+
+The actual vscode-file workbench previously skipped PreloadSession's fixed
+file/http/https filter, so window.vscode was undefined before any workbench
+imports. Admit additionally only native-launcher registered standard schemes
+with a nonopaque actual document origin. Preserve configured top-level native
+context selection, isolated realm ownership and document/channel revocation.
+No author globals or custom-scheme name alone can grant preload authority.
+
+Add real BrowserWindow.getFocusedWindow/isFocused Qt activation queries and
+macOS app.addRecentDocument/clearRecentDocuments through NSDocumentController.
+Recents use readiness/owner/path/shutdown guards; other platforms fail explicitly.
+The APIs never open a file, but recents operations really modify the app's OS list.
+Facade/bundle and native strict compilation pass, followed by the single combined
+Release Firefly/WebContent build (codeoss-preload-start-build.log). No broad suites
+or new GUI test framework is run.
+
+The first diagnostic omitted --disable-crash-reporter and stopped before windows;
+retain that failed evidence (codeoss-preload-start.log). The corrected reused-profile
+run (codeoss-preload-renderer-start.log) reaches the actual vscode-file document
+and now exposes window.vscode: the prior preloadGlobals TypeError is gone. Focus,
+recents and shell CLI errors are gone. Main lifecycle reaches phase4. The next
+renderer failure is a sanitized bridge promise rejection; window configuration
+remains unresolved after10seconds. NO working editor/workbench-ready claim is made.
+SQLite/keymap remain real; spdlog bindings and sync-require ESM diagnostics remain.
+
+
+## 2026-11-11 — Separate ordinary IPC class data from contextBridge publication
+
+Static tracing of the actual Code-OSS window configuration finds a mandatory
+VSBuffer native-window handle and URI instances. Native IPC previously shared
+contextBridge's plain-prototype capture restriction, so these genuine data
+objects could not be serialized. Add capture_ipc only for main encodeIpc and
+renderer invoke/send arguments: exact ordinary class-instance own data becomes
+plain copied data; prototypes are discarded without consulting inherited hooks.
+Keep contextBridge capture/publication and utility bootstrap policy unchanged.
+Functions, Proxies, host objects, own accessors, modified array prototypes and
+all existing byte/value/depth budgets remain restricted.
+
+Add opt-in fixed-stage/allowlisted-code main IPC diagnostics using the existing
+FIREFLY_IPC_BYTES_DIAGNOSTIC flag; never print channel names, payloads, environment
+or arbitrary error messages. This will distinguish serialization/handler/dispatch
+failure on the next actual batched start. The current sanitized bridge failure
+alone does not establish which stage failed, and Code-OSS's10second warning also
+fires after rejection; do not infer a pending request from that warning.
+
+Four actual strict compilation commands pass; regenerated bundle verification,
+combined Release Firefly/WebContent/isolation build and the single headless native
+isolation executable pass (codeoss-ipc-data-build.log and
+codeoss-ipc-data-roundtrip.log). Added URI/VSBuffer-shaped own-field/binary/cycle/
+alias/GC roundtrip and negative boundary checks; these are not an actual complete
+Code-OSS configuration capture. No additional desktop launch or broad suite is run.
+The editor/workbench remains unaccepted pending its next combined startup.
+
+
+## 2026-11-11 — Carry real Code-OSS configuration in bounded logical IPC messages
+
+The actual class-policy start reaches FIREFLY_IPC_BYTES_READY, then the diagnostic
+confirms result-serialization failure (codeoss-ipc-class-start.log). Independently
+inspect the actual staged NLS file:34,273 messages,1,708,956 UTF-16 text units,
+160,255 key units and1,814,024 JSON bytes. It cannot fit the old value/string/array/
+wire budgets. This identifies a real additional startup blocker without another
+GUI experiment or replacing configuration with synthetic data.
+
+Implement shared native FIM2 contiguous fragmentation above unchanged128KiB
+physical frames, retaining FIM1 for small messages. Validate identity/offset/size
+before bounded allocation, reject interleaving, enforce first-fragment30seconds
+and release onEOF/revoke/timeout. Main/helper queues retain logical cursors and
+refill through16physicalcredits rather than enqueue everyfragment. Shared RAII
+leases follow payloads through partial and deferred delivery:combined16MiB/doc,
+64MiB/process. A timed-out partially sent message retires the channel.
+
+Application graph/wire policy now explicitly admits65,536nodes,131,072properties,
+4MiUTF16units/depth64/65,536arraylength/131,072cumulativearraylength,1MiBbinary and
+16MiBwire. Default wire, utility and main-only port policies remain separate.
+The config next crosses contextBridge, so add a separate capture-only graphsize
+profile with the same text headroom and original64KiBbinary ceiling. Type,
+function/getter authority, redaction, frozencontainers and revocation policies
+remain. Also enforce cumulative arraylength before capture materialization;
+negative oversized-array fixtures move to65537 to exercise the new real boundary.
+ADR0193 records scope, language, quotas and remaining copying/JSON overhead.
+
+Combined Release Firefly/WebContent/nativeprobe build passes
+(codeoss-large-config-build.log). Focused native fragmentation probe passes up to
+16MiB with independentvectors/malformedtransitions/reset/move/quotaownership
+(codeoss-fragment-component.log). The actual staged catalog roundtrip encodes
+7,490,980wirebytes and compares every translation, then passes the actual async
+contextBridge path with fullUTF16equality/frozencontainers/GC/revoke
+(codeoss-real-nls-roundtrip.log). Existing headless isolation boundary executable
+also passes (codeoss-context-boundary-regression.log); no broad suite is run.
+
+A direct app-entry start now replaces the diagnostic importer for actual launch
+validation. It terminates before windows:console's object ToString throws on a
+null-prototype path descriptor under trace logging (codeoss-large-config-direct.log).
+This is terminal, not an observation timeout. Fix the genuine console issue before
+another batched start; do not claim an actual config transport/editor pass yet.
+
+
+## 2026-11-11 — Keep real startup logging safe for null-prototype objects
+
+Actual direct Code-OSS trace logging hit console's application ToString while
+printing null-prototype path descriptors and terminated before BrowserWindow.
+Use LibJS's native side-effect-free class rendering for objects/functions;
+primitives retain their existing conversion/stream/flush contract. Real native
+Error objects preserve safe data name/message and internal captured stack,
+without reading app stack/name/message accessors. This is not nested Node
+inspection or util.format parity. Document the partial contract.
+
+Runtime strict compilation and final Release Firefly build pass
+(codeoss-safe-console-final-build.log). The focused actual Firefly standalone-Mite
+role passes null-prototype/array/function/Proxy/revoked-Proxy/coercion/accessor and
+Error-diagnostic checks with zero app hooks, including throwing name/message/stack
+getters and unchanged primitive output (codeoss-safe-console-acceptance.log).
+Register the owned fixture in the existing runtime runner for later CI; no broad
+runtime suite is run locally.
+
+Actual direct entry now stays alive, opens window1 and reaches real vscode-file
+navigation/document/IPC-ready with no main result-serialization diagnostic
+(codeoss-real-config-direct.log; main39971/helper39975 observed live). A sanitized
+bridge Promise rejection still prevents window config from completing; generic
+rejection does not identify whether source preload or copying failed. Do not claim
+workbench/editor acceptance. Investigate that existing process/source before any
+further desktop restart.
+
+## 2026-11-11 — Linux CI: acknowledge admitted renderer events before callbacks
+
+Engine run42927578665/job130217870091 ataae29db builds the Linux renderer and
+passes the corrected same-executable fork boundary. The public IPC event fixture
+prints PASS and exits0, but its reentrant window-close listener exposes an ACK
+ordering race: native teardown closes the channel before the post-listener ACK,
+producing ERR_FIREFLY_IPC_SEND for an already admitted event.
+
+Move the successful private ACK before application dispatch, after native graph,
+identity, history and quota validation. It acknowledges native admission, not
+listener completion. End the sender-state borrow before invoking application
+code; keep refusal, timeout and channel-failure handling unchanged. The existing
+public regression and its stderr assertion remain unchanged. Strict native
+compilation and diff checks are the focused local validation; fresh hosted Linux
+execution is still required. No GUI or broad suite is run for this correction.
+
+
+## 2026-11-11 — Distinguish isolated Promise failures without leaking source data
+
+The latest direct start has no main IPC result-serialization diagnostic, but its
+sanitized Promise rejection still cannot identify source failure versus copying.
+Static tracing confirms WorldJobGuard already restores owner execution around
+async jobs; existing zoom/process fixtures exercise IPC continuations. Do not
+remove these authority guards based on speculation.
+
+Add optional native FunctionBridge diagnostics for revoked ownership, rejected
+source Promise, result capture and result publication, plus only allowlisted
+native copy reasons. Do not inspect/log source values, API names or exception
+messages, and keep the page-visible sanitized TypeError. Actual Release host/helper
+build passes including the fixed revocation marker
+(codeoss-context-diagnostic-final-build.log). No new GUI or broad suite is run
+for diagnostics. The owned failed Code-OSS group39971 was verified and
+terminated; both main39971 and helper39975 are now absent. Accepted Designer was
+not touched. Next batched direct start should use the same private profile,
+VSCODE_DEV=1, ELYTRA_CODE_OSS_LOCAL_DESKTOP=1, FIREFLY_IPC_BYTES_DIAGNOSTIC=1 and
+--disable-crash-reporter, then classify the actual native stage before fixing it.
+
+## 2026-11-11 — Preserve large application wire values through native JS views
+
+Static review finds the concrete remaining128KiB boundary in WireValue::wire_bytes.
+Native main replyIpc silently retires the document channel when that adapter rejects
+its large Uint8Array, explaining a source Promise failure without an encode-stage
+failure. Introduce an explicit ApplicationMessage native policy for application
+host decode/reply/outbound paths; preserve the SingleFrame default for utilities
+and main-only ports. No JS caller can select the native policy directly.
+
+Extend the actual NLS fixture through wire_value and wire_bytes, requiring the old
+default to reject and the application policy to preserve all7,490,980bytes before
+decode and real async contextBridge publication. Combined Release build and focused
+native fixture pass (codeoss-wire-boundary-utility-build.log,
+codeoss-native-wire-value-catalog.log). Add allowlisted native source-Error reason comparisons;
+never log source text/API names or run error accessors. Fixed-stage main
+missing-handler/inactive-frame diagnostics are batched with the next utility step. Ordinary rejection stays
+sanitized. Bundle verification and host/helper builds pass.
+
+The refreshed direct app start now passes configuration and reaches actual
+workbench.desktop.main module imports (codeoss-wire-value-direct.log). It fails
+fetching the17th direct module import; the3,097bytefile exists and the SDK error
+branch proves fetch/module-map/MIME failure rather than syntax failure. No config
+warning or bridge/IPCfailure diagnostic occurs. Secondary openDevTools is unsupported
+and is not the cause. Main45021/helper45032 were observed; only that failed owned
+processgroup was then terminated. Next work is bounded queuing behind the eight
+active custom-resource fetch slots; no working editor/workbench-ready claim.
+
+## 2026-11-11 — Correct no-session utility network ownership
+
+Remove the temporary blanket exclusion between active session webRequest filters
+and all utility children. The exact official Electron45.2.3 source distinguishes
+explicit-session utilities from the default system network context: only the
+former installs ProxyingURLLoaderFactory interception. The pinned Code-OSS utility
+fork supplies no session/partition. Our existing utility Bootstrap exports genuine
+independent Electron-net; its no-session transport must not inherit main filters.
+
+Primary evidence: [Electron utility factory lines539–557](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557)
+and [versioned utility options](https://github.com/electron/electron/blob/v45.2.3/docs/api/utility-process.md).
+Keep session/partition and respondToAuthRequestsFromMainProcess:true explicitly
+unsupported. Main/renderer filter admission, cancellation, generation and failure
+guards remain intact; this is not shared-session or auth-forwarding support.
+
+Add a focused main-only real child/loopback fixture that checks main cancellation
+prevents endpoint access, a no-session utility net.fetch reaches that endpoint,
+and main filters remain active afterward. Update only the old exclusion assertions
+in the existing public fixture. Native strict compilation/source checks are recorded
+with the final build; genuine fixture execution is pending the root's rebuilt host.
+No GUI, broad suite, utility session sharing or working editor acceptance is claimed.
+
+## 2026-11-11 — Native named utilities and independently owned networking
+
+Add immutable native serviceName metadata (bounded UTF-8, default Node Utility
+Process). Real abnormal exits emit app child-process-gone with actual PID, label,
+reason and exit code before the child's exit event; clean exit0 emits only child
+exit. Signal exitCode is a documented negative-signal difference; process metrics
+and authentication forwarding remain unsupported. No process title is fabricated.
+
+The focused no-window actual fixture passes native exit0/7 attribution and event
+ordering (codeoss-utility-service-name.log). The independent-network fixture passes
+real loopback requests from the child while the main session filter cancels the
+same endpoint before and after (codeoss-utility-independent-net.log). Both use the
+existing static offscreen test frontend with no BrowserWindow or UI automation.
+Combined Release host/helper/offscreen/nativeprobe build passes
+(codeoss-wire-boundary-utility-build.log); controlled factory/native strict checks
+also pass. No broad utility suite is run locally. Main fixed-stage missing-handler
+and inactive-frame diagnostics are included in the regenerated verified bundle.
+
+## 2026-11-11 — Explicit local Code-OSS utility authentication opt-out
+
+The pinned utility wrapper always requests main-process authentication forwarding,
+which remains genuinely unsupported. Add a reversible exact-source transform and
+owned ESM helper only to the existing explicit verified local Mite experiment:
+true becomes false, with immutable available:false/requested:true disclosure at
+process._vscodeLibJSUtilityAuthStatus. False/undefined remain unchanged. Unverified
+or malformed local options fail explicitly; ordinary Node/Electron retain original
+values. This is not network authentication support or a default Electron behavior
+change. Pin the exact official6531648 source/hash and preserve its notices.
+
+Focused source reversal/missing/duplicate/drift plus7Node/Mite helper scenarios
+pass; related window-preference18scenarios pass. Repair the existing local-app-main
+remote protocol pair's stale reverse fixture while retaining full upstream byte
+equality and security assertions; the focused local-desktop Node/Mite check passes.
+
+Refresh the same stage with all three existing native package adaptations, NLS
+and real renderer assets. The verified compiler succeeds for12,344sourcefiles
+(codeoss-utility-auth-stage-refresh.log), then update only verified generated
+canonical overlay files in place (24owned), leaving all Finder metadata untouched.
+No dependencies/app/source copy or extra desktop test is created. Actual run still
+fails during renderer module loading before shared-process construction, so the
+opt-out's complete Code-OSS path remains unaccepted.
+
+## 2026-11-11 — Queue large renderer module graphs behind bounded fetch slots
+
+Actual Code-OSS now reaches workbench module imports, but the protocol-fetch client
+previously refused admission beyond eight outstanding loads. The SDK error path is
+fetch failure, not parse failure, and the named17th direct-import file exists.
+Keep eight active loads/document and64/helper process; add bounded FIFO waiting
+admission:8192retainedjobs/document,16384/process,32MiB/document and64MiB/process
+waiting URL metadata. Native file/server and byte-channel credits do not increase.
+
+Queued cancellation never reaches the parent. Promotion rechecks scope and the
+original30second deadline; completion/cancel/revoke releases counts, URL bytes,
+active slots and callback owners, and wakes other live clients fairly. Bodies
+retain the existing round-robin credit behavior. These are helper-process limits,
+not a new cross-helper global scheduling guarantee.
+
+Actual strict compilation and combined Release host/helper/protocolprobe build
+pass (codeoss-module-queue-build.log). The targeted real parent/JavaScript-child
+burst mode passes64HEAD requests with one queued abort, exactly63parent
+ authorizations, all remaining completions and bounded pending cleanup
+(codeoss-module-queue-burst.log). No desktop or broad protocol suite is run for
+this change. Actual complete Workbench graph acceptance remains the next combined
+application step.
+
+## 2026-11-11 — Keep Linux profile acceptance independent of Cocoa-only theme
+
+Engine04287d5 Linuxrun42931263994/job130230296830 passes the formerly failing
+IPC event and outbound gates. Its next failure is the app-paths fixture calling
+a nativeTheme API that Linux explicitly does not implement. Retain every profile,
+cookie/storage, language, sandbox/PID and real file/database assertion; check
+explicit theme setter/getter ERR_FIREFLY_UNSUPPORTED_API on non-macOS in both write
+and read launches. Cocoa retains exact dark-page and persisted preference checks.
+Do not weaken isolation or invent a Linux theme implementation.
+
+JS/Python syntax, formatting and diff checks pass; no GUI/build/broad test is run
+for this fixture repair. Subsequent workflow gates were read for another obvious
+Cocoa-only theme dependency; none was found. Fresh hosted Linux execution remains
+required; no Linux native-theme support is advertised.
+
+## 2026-11-11 — Keep renderer diagnostics off the user's desktop
+
+Add an explicit test-only local Code-OSS offscreen option using the existing real
+application/static-QOffscreenIntegrationPlugin frontend. Exact diagnostic executable
+basename, QT_QPA_PLATFORM=offscreen, flag1 and verified local engine/cache policy are
+required. Only optional acceptFirstMouse is omitted; native production guards and
+Node/Electron/normal-Mite preferences remain unchanged. Immutable status explicitly
+sets desktopAccepted:false. This is no substitute for Cocoa editor acceptance.
+
+Focused exact-source/reversal/drift and existing18Node/Mite preference checks pass,
+plus production preservation, malformed/mismatched diagnostic rejection and genuine
+firefly-view-offscreen standalone-role checks. Refresh the same12,344file stage
+with existing native dependency adapters and real assets
+(codeoss-offscreen-stage-refresh.log); leave Finder metadata/dependencies untouched.
+Actual offscreen Code-OSS enters its renderer and reproduces the module-import
+failure without a desktop window (codeoss-offscreen-module-start.log). The owned
+failed process47077/helper47081 was verified and stopped. Later debugging can use
+this component mode until a substantive renderer milestone warrants Cocoa UI.
+
+## 2026-11-11 — Admit the actual Workbench module graph through request policy
+
+The actual offscreen Code-OSS entry exposed a second independent admission limit:
+webRequest rejected the 17th concurrent decision before the protocol fetch client.
+Queue decisions behind the existing 16 active helper slots, preserving the broker's
+64-process bound. Bound retained decisions to 8,192/document and 16,384/helper and
+serialized metadata to 32/64 MiB. Recheck native document/policy identity, original
+30-second deadline and metadata on promotion. Cancellation, denial and retirement
+release queued roots, byte accounting and logical identities; successful body EOF
+retains the existing finish hook. Do not retire identities at response-head arrival
+or between redirects. SDK body-error cleanup still needs a complete audit.
+
+Harmonize the independent retained logical-identity limit at 16,384 across Gate,
+helper Session and main Broker; the former Session/Broker limit of 1,024 rejected
+the larger graph even after active decision queuing worked. Active, wire and body
+credit quotas remain unchanged. Opt-in bounded fixed-stage native diagnostics carry
+no URLs, headers or payloads. Forward only their boolean through the SDK's existing
+LIBWEB_ diagnostic environment prefix; upstream sources remain unchanged.
+
+Focused actual native component evidence: 32 GET bodies pass the real file channel
+(codeoss-module-fetch-get-burst.log); 32 requests pass Gate plus FileServer with a
+controlled denial of request 17, 31 verified bodies, peak 16 decisions and complete
+logical cleanup (codeoss-web-request-queue-burst.log). This component callback does
+not substitute for main Broker acceptance. Release host/helper/offscreen builds
+pass (codeoss-web-request-queue-build.log, codeoss-web-request-logical-build.log).
+No broad suite or visible GUI run is added.
+
+Actual Code-OSS then passes retained counts 1,024/1,025 in all three native layers
+without the previous module exception (codeoss-logical-cap-start.log). Its renderer
+is alive but idle before renderer hello/window-ready; no editor or editing success
+is claimed. A read-only native process sample shows event-loop waiting rather than
+active module compilation. Next inspect bounded native queue states and module
+loading/evaluation to identify the remaining wait; prioritize this over broad tests.
+
+Add two opt-in snapshots (5/30 seconds) to existing native sweeps, without another
+poller or application data. Actual codeoss-idle-snapshot-start.log reaches zero
+active/queued requests in all four transport layers at 30 seconds. The corrected
+fixed ModuleMap observer keeps src/out URL identities separate despite their disk
+alias: codeoss-module-state-start.log confirms all three central out/workbench
+records are fetched with no parse/rethrow error, while transport queues are empty.
+Fetched is not evaluated; editor acceptance remains open. Native performance-entry
+observation was omitted because that SDK symbol is not exported; no upstream ABI
+change is introduced for diagnostics. Combined Release host/helper/offscreen build
+passes (codeoss-idle-snapshot-build.log), as does the corrected observer build
+(codeoss-module-state-build.log). No broad suite or desktop test is run.
+
+## 2026-11-11 — Linux CI: bind opted-in helper reports to the application directory
+
+Engine run42935630484/job130244908069 atef319d2 passes the complete85-target
+runtime/menu/IPC batch, including the corrected renderer send admission ACK and
+same-executable fork boundary. The next actual failure is crashReporter: the
+configured directory contains the recovered Browser report but not the expected
+WebContent report (test_crash_reporter.py:100).
+
+Hub initialization reads CrashReportStore::the().directory() before public
+crashReporter.start(), fixing the singleton to its default directory. The owned
+start() previously initialized only a temporary store at the selected app path;
+helper exit saving still uses the singleton. On explicit start(), bind the actual
+singleton to the configured directory and initialize through it. No startup
+handler or report recovery is enabled implicitly, and upstream is unchanged.
+The existing regression already launches its helper before start() and still
+requires both private reports and exact metadata. Focused native strict syntax
+and diff checks pass; actual Linux rerun remains required. No local GUI, Ninja
+or broad suite is run for this correction.
+
+## 2026-11-11 — Locate the pending Workbench module graph without executing it
+
+Actual codeoss-module-environment-start.log confirms empty transport queues and
+fetched central workbench modules without parse/rethrow errors at 5/30 seconds,
+but no source-module environments. The bootstrap has its environment. This points
+to graph loading/linking, not an active native transport backlog; do not claim
+module evaluation or editor readiness.
+
+Add a bounded read-only native descendant snapshot on the existing two diagnostic
+ticks: 8,192 targets, 65,536 edges, 8 MiB URL keys, deduplicated source records.
+Use native requested_modules, URL parsing and exact native import-map entries;
+do not call the SDK resolver (it mutates the resolved-module set), link/evaluate
+or application JavaScript. Explicitly count scoped/prefix/unsupported attribute
+resolution as skipped. Report only fixed scheme/state totals, callback counts,
+budget truncation and VM stack depth. Independently summarize real import-map
+targets so Blob-backed CSS modules remain observable. No URL/source data is logged.
+Strict native compilation and the Release helper/offscreen build pass
+(codeoss-module-graph-build.log). No broad test or visible GUI run is added.
+
+Actual graph snapshot: 5,261 targets, 52,732 edges, no skipped/truncated cases,
+empty VM stack; 395 Blob modules are fetched, but 22 custom-scheme modules still
+have one pending callback each although transport queues are empty. This exposed
+the terminal/head-authorization race described below.
+
+## 2026-11-11 — Keep empty modules alive until header authorization completes
+
+Native file service correctly sends Complete without body credit for empty files
+and HEAD. The response adapter previously marked completion and released its
+unresolved PendingResponse before an asynchronous webRequest headers decision;
+the Client then dropped the last response owner and the weak header continuation
+could never settle the module. The actual compiled source includes empty modules.
+
+Separate wire completion from admitted-head completion. Retain the pending response
+and Client job until authorization settles; then resolve HEAD or a genuine empty
+GET body and finish it without granting late credit to a retired native request.
+An explicit native completion callback releases the active Client slot promptly.
+Denial after wire completion retires locally without sending a late Cancel;
+duplicate frames, timeout, cancellation and native document checks remain enforced.
+
+Release helper/offscreen build passes (codeoss-empty-module-build.log). The actual
+Code-OSS rerun now fetches all 5,261 graph targets with zero loading/missing/error
+entries; all three central source-module environments are created. The former
+22-module hang is gone. Workbench execution now raises a contextBridge call refusal
+(codeoss-empty-module-start.log); editor/window-ready and open/edit/save remain
+unaccepted. No broad suite or visible GUI test is run. HEAD's staged completion is
+covered by the same native state path but still needs its focused delayed-header
+regression; this actual application evidence specifically covers empty JS GETs.
+
+## 2026-11-11 — Attribute the first Workbench bridge invocation failure
+
+Add bounded opt-in fixed-stage diagnostics to FunctionBridge invocation, preserving
+every caller/document/reentry/quota check and keeping source values/messages out of
+logs. The Release host/helper diagnostic build passes
+(codeoss-bridge-invoke-build.log). Actual Code-OSS now identifies
+invoke-result-capture, rather than source execution or caller rejection
+(codeoss-bridge-invoke-start.log). The generic page error remains sanitized.
+
+The pinned preload's on/once/removeListener wrappers return this. Our isolated
+function entry always uses undefined as the receiver; sloppy methods therefore
+return the isolated global, which correctly fails the data-only result boundary.
+Electron45.2.3 instead retains the source parent as its proxy's fixed receiver:
+[official implementation](https://github.com/electron/electron/blob/v45.2.3/shell/renderer/api/electron_api_context_bridge.cc).
+Next preserve validated source-parent method binding and support bounded function
+results through the existing publication owner; do not admit source globals or
+use caller-supplied receivers. No GUI or broad suite is run for this diagnosis.
+
+## 2026-11-11 — Cover delayed header admission with early empty-body completion
+
+The existing native response probe now deterministically retains the real header
+decision while delivering Metadata plus Complete for zero-length GET and HEAD.
+Its four allow/deny cases require the pending response to remain unresolved until
+the decision, survive GC, then settle with exactly one completion and no late
+native cancellation. Allowed GET reads clean empty EOF; HEAD has no body. A
+duplicate terminal frame cannot change callback accounting. The direct fixture
+explicitly retires its logical identity and does not claim full Fetch handover.
+
+The focused existing component runner passes in under one second, including these
+cases (codeoss-empty-module-regression.log). Its rebuilt native probe passes
+(codeoss-empty-module-regression-build.log). Set the older direct dispatch
+fixture's optional completed callback explicitly to satisfy strict designated
+initializer checks. No GUI or broader suite is run.
+
+## 2026-11-11 — Refresh the current Code-OSS blocker summary
+
+Replace the stale introductory startup checkpoint with the actual module-graph,
+empty-response and bridge-result observations. Keep historical checkpoint rows
+explicitly historical and retain not-supported status and outstanding SharedProcess,
+ports, native platform and editing acceptance requirements. Correct the API guide's
+old list claiming trusted source getters/configuration publication were still absent.
+Method binding and function-valued results remain the next step, not accepted yet.
+Documentation-only: no desktop or broad test run.
+
+## 2026-11-11 — Preserve contextBridge method receivers and bounded function results
+
+Capture validated source-parent metadata for functions; root and trace that exact
+receiver in the endpoint, clear it on revoke and ignore caller-controlled this.
+Keep within-graph first-parent aliases, matching the pinned Electron cache. A weak
+publication owner exports supported sync/Promise result graphs without accessors;
+reused source-function/parent proxies let listener wrappers return their receiver
+without exposing a source global or consuming another endpoint on every call.
+New result exports roll back on failure, including Promise thenable-safety failure.
+Existing realm, native capability redaction, prototype, quota and lifetime checks
+remain enforced. The cumulative 64-endpoint limit remains until revocation; bare
+function Promise fulfillment and standalone/callback higher-order results are still
+unsupported. No pruning or unlimited membrane is claimed.
+
+The Release host/helper/offscreen/isolation build passes
+(codeoss-bridge-receiver-build.log). Run only the existing publication fixture with
+the new --context-bridge selector: native source receiver, hostile extracted.call,
+GC, frozen method return and 80-call reuse all pass alongside its existing guard
+and rollback assertions (codeoss-bridge-receiver-probe.log). No full isolation suite
+or desktop test is run. Actual Code-OSS now reaches workbench#open and fails at the
+local remote-resource factory guard (codeoss-bridge-receiver-start.log), beyond
+the prior bridge refusal. Editor/window-ready remains unaccepted.
+
+## 2026-11-11 — Reject remote resource use rather than unused provider factories
+
+The real Workbench constructs browser resource services even for a local window.
+Move the explicit local-desktop refusal inside the two returned URI callbacks,
+before resource.with; provider factory creation itself no longer throws. Retain
+doRequest's refusal and the local constructor's no-channel-registration guard.
+This enables no remote URL generation, transport or remote-workspace support.
+The exact pinned transforms/reversal and missing/duplicate seams plus focused
+Node/Mite policy checks pass; ordinary behavior remains unchanged.
+
+Refresh the same verified stage in place with all native package adapters, NLS
+and real renderer assets: 12,344 files and 24 owned overlay records pass
+(codeoss-remote-provider-refresh.log). No dependency/source/app copy or Finder
+metadata removal is performed. Actual offscreen Code-OSS now logs
+Renderer->SharedProcess#connect, before acquirePort and main onWindowConnection,
+then fails explicitly at Utility native MessagePort transfer is not implemented
+(codeoss-remote-provider-start.log). Source-call refusals and the separate 64 KiB
+contextBridge binary argument limit also occur. Next implement genuine native
+main/utility and renderer port handoff; no editor-ready/editing acceptance or
+unimplemented API allowance is claimed. No broad suite or visible GUI test is run.
+
+
+## 2026-11-11 — Repair stale Electron alias expectation after hosted Linux gates
+
+Hosted Linux renderer run [42943597905](https://github.com/jogibear9988/elytra/actions/runs/42943597905)
+at engine commit `135c5e9` completes native renderer/helper compilation, protocol,
+realm isolation, sandbox, X11, service ownership and real application/preload/IPC
+checks. It then fails the opt-in Electron alias fixture because that fixture still
+requires `desktopCapturer` to be absent. The maintained partial main-process facade
+is now exported; unavailable OS providers remain explicit failures.
+
+Update only the alias assertion to require the same desktopCapturer singleton
+through Firefly, ESM Electron alias and CommonJS alias, with a callable getSources.
+Do not enumerate sources or request capture permissions. Preserve the remaining
+npm precedence, opt-in/default behavior, engine identity and isolated preload/page
+checks. JavaScript syntax, maintained formatting and diff checks pass locally;
+fresh hosted execution is still required. Packaging and Designer steps were skipped
+by the failing job and are not accepted by this result. The concurrent macOS release
+run is left untouched. No local GUI, native build or broad test suite is run.
+
+## Next Code-OSS slice — Genuine utility and renderer port ownership
+
+The actual SharedProcess trace now requires two distinct transfers. Its connect()
+creates MessageChannelMain and sends port2 to the utility, then sends port1 through
+the requesting webContents. The pinned preload forwards event.ports using genuine
+window.postMessage, so ordinary JavaScript port-shaped wrappers cannot satisfy it.
+
+Current main ports (firefly/core/message-ports/index.mjs) are realm-local queues.
+The utility fd3 transport is a private length-framed pipe without descriptor
+attachments; passing integer descriptors or enabling libuv IPC framing alone would
+not implement cross-platform transfer. The proposed first implementation slice is
+a bounded native endpoint broker over that private pipe: authenticated endpoint
+IDs/generations, ownership committed only after admission, backpressure, ordered
+close, child-exit revocation and transfer rollback. Then connect a document-bound
+renderer adapter to genuine LibWeb MessagePorts, with exact page/document/epoch
+authentication and navigation/crash revocation. Main/utility component acceptance
+must precede the actual renderer SharedProcess handshake. This is planned work,
+not native endpoint support. ContextBridge's 64 KiB binary copy limit is a separate
+observed requirement; do not claim zero-copy or relax boundary checks to skip it.
+
+## 2026-11-11 — Native main-to-utility MessagePort transfer
+
+Implement the first genuine cross-process port leg, not permission to serialize
+port-shaped JavaScript objects. Owned C++ utility/ports codec and ledger extend the
+existing private child pipe with strict FUP1 transfer/data/ACK/close frames. Routes
+are native-issued per child, monotonic/non-reused and generation-checked; malformed,
+forged or replayed attachment requests fail closed. Wire admission is transactional
+before changing JavaScript ownership. The backing view must belong to the exact
+realm and have fixed, nonshared, non-detached storage. No upstream source or Mite
+dependency direction changes. [ADR 0194](architecture/0194-native-utility-port-relay.md)
+records the C++ integration choice, ownership and remaining renderer design.
+
+Keep 16 messages/1 MiB per route/direction and reserve 4 MiB send plus 4 MiB receive
+per child; simultaneous duplex traffic cannot falsely overrun a combined shared
+window. Exact FIFO consumption ACKs refund native credit. Writable notifications
+retry blocked data/control writes without duplicate delivery. Legacy payloads and
+the physical 16-write/2 MiB pipe bound remain. Preserve retired issued identities
+at child exit while its pipe drains. At most 256 native routes/child and the existing
+256-record/4 MiB wrapper limits remain enforced; no zero-copy claim is made.
+
+The shared wrapper core now binds to private native links. It preserves queued data,
+detaches old owners only after admission, stages incoming wrappers before rechecking
+lifetime/quota, and closes rootless remote records without invalid finalizer tokens.
+Recheck all transfer entries after descriptor reentry before native admission.
+Channel EOF/exit preserves queued peer-close notification. Reverse/nested native
+transfers, queued transferred endpoints and forwarding native-backed endpoints
+remain explicit refusals before ownership changes. Renderer DOM transfer is not
+implemented by this first leg.
+
+Release host/static-offscreen/protocol builds pass (codeoss-utility-ports-build.log,
+codeoss-utility-port-admission-build.log, codeoss-utility-port-final-build.log).
+The pure native codec/ledger probe passes malformed IDs/replay, FIFO credit,
+duplex budgets, retirement and quota controls (codeoss-utility-port-protocol.log).
+The real no-window Mite child fixture passes native full-write admission failure
+without detaching the old endpoint, queued-before-transfer data, 32 independent
+4 KiB binary snapshots with delayed start, bidirectional FIFO, ordered peer close
+and actual PID/exit retirement (codeoss-utility-ports-final.log). Controlled adapter
+checks and generated-source verification pass separately. No broad local suite or
+visible GUI test is run. Add a focused CMake gate and enable the active feature
+branch in hosted Linux renderer CI; fresh platform acceptance is still required.
+
+Actual offscreen Code-OSS progresses to a real file-watcher utility fork and now
+refuses webContents.postMessage port/data delivery rather than the old utility-port
+transfer (codeoss-utility-port-start.log). SharedProcess separately refuses its
+implicit development inspector flags; source audit identifies the generated
+--nolazy/--experimental-network-inspection/--inspect=5879 defaults. Next implement
+the genuine document-bound renderer leg and an explicitly disclosed pinned local
+adaptation for that implicit inspector. Explicit user debug requests must still
+fail. SharedProcess service/editor/window-ready/open-edit-save remain unaccepted.
+
+## 2026-11-11 — Disclose the implicit SharedProcess inspector omission
+
+The pinned development parser synthesizes port 5879 without a user debug request,
+which makes SharedProcess add --nolazy, --experimental-network-inspection and
+--inspect=5879. The native utility correctly refuses these unimplemented flags.
+Add an exact reversible source adaptation only for verified local LibJS/no-cache
+execution: omit that exact implicit development result and publish immutable
+process._vscodeLibJSSharedProcessDebugStatus with available:false and the omitted
+flags/reason. Built no-debug and ordinary Node/Electron preserve original results.
+Explicit inspector arguments, including empty values, fail in the helper and the
+early native-switch engine guard. No general utility flag acceptance is added.
+
+Pin the complete official shared-process-main.ts input and preserve its license.
+Focused source reversal/drift, ten Node/Mite helper scenarios and the existing
+local/engine negative cases pass. Refresh the same stage with all three native
+package adapters, NLS and renderer assets: 12,345 real source files and 26 owned
+overlay files verified (codeoss-shared-inspector-refresh.log), no copied dependencies
+or Finder metadata removal. Actual offscreen entry now forks shared-process PID
+68220 and file-watcher PID68221 without the earlier engine-flag refusal
+(codeoss-shared-inspector-start.log). It still rejects renderer port delivery;
+SharedProcess service readiness and the editor remain unaccepted. No broad suite
+or visible GUI test is run.
+
+## 2026-11-11 — Genuine document-bound renderer MessagePorts
+
+Implement the second Code-OSS port leg: webContents.postMessage admits endpoint
+transfers transactionally to the exact renderer document/realm/epoch. The helper
+creates genuine SDK DOM MessagePorts; preload event.ports can be transferred by
+ordinary window.postMessage into the principal realm. Broker the utility-backed
+peer through the shared main ownership core. Keep separate port frame sequences,
+transfer ACKs, bounded native ledgers and document wire queues. Stale epochs cannot
+reach a newer document; navigation/crash/teardown revoke the route. Unsupported
+reverse/nested/utility-to-utility transfers remain explicit refusals.
+
+Native credit follows actual SDK dequeue, not post_message queue admission or JS
+listener callbacks. Compose only exact pinned Rust leaves through the existing
+owned compiler driver and native weak observer registry; vendor is unchanged.
+Observation moves with legitimate DOM transfers, validates thread/VM/document,
+never roots JavaScript, and separates receiver consumption from forwarding close
+so preceding accepted messages drain. See ADR 0195 for ownership and limits.
+
+Actual Release SDK/Rust/main/helper/static-offscreen build passes
+(codeoss-renderer-ports-build.log); the final exact-array length descriptor fix
+also builds (codeoss-renderer-port-admission-build.log). The focused offscreen
+public fixture passes both genuine principal DOM handoff and real utility/native
+DOM relay: delayed start, 32 independent 4 KiB snapshots, FIFO, old-owner detachment,
+ordered close and actual child PID/exit (codeoss-renderer-ports-native.log).
+The separate native no-listener/GC observer probe is provided with strict compile
+evidence, not yet runtime acceptance. No broad local suite or visible GUI is run.
+
+Restart only the task-owned actual Code-OSS diagnostic after rebuilding the SDK.
+The actual entry now forks shared-process PID73274 and watcher PID73275, then logs
+Renderer->UtilityProcess#createWorkerChannel: connection established
+(codeoss-renderer-ports-start.log). This passes the earlier renderer-port refusal.
+Current concrete errors include synchronous CJS require of uuid14 from deviceid
+and contextBridge argument capture's 64 KiB binary budget. SharedProcess service
+readiness, window-ready, editor open/edit/save and other platforms remain unaccepted.
+The candidate remains on codex/autoplay-policy-2026-11-10, not master acceptance.
+
+## 2026-11-11 — Delegate renderer-port acceptance to hosted CI
+
+Add the new native no-listener/GC observer and static-offscreen renderer/utility
+relay targets to hosted Linux renderer CI. This adds future independent platform
+evidence without taking the local desktop or running a broad local suite. The
+workflow has not yet accepted this new gate; macOS's focused fixture result above
+must not be described as Linux acceptance.
+
+## 2026-11-11 — Bounded contextBridge binary packets for actual RPC startup
+
+Code-OSS's Electron Protocol.send serializes complete VSBuffer RPC packets and
+catches synchronous send exceptions as shutdown. The observed 64 KiB contextBridge
+argument refusal can therefore silently drop an RPC before native IPC. Raise only
+the context copy profile to application IPC's existing 1 MiB backing-store ceiling;
+retain BridgeData's independent 1 MiB hard limit, full-backing/aggregate charging,
+copy ownership, type rules and all utility/port 64 KiB limits. Update the existing
+binary fixture for exact 1 MiB, aggregate overflow and tiny oversized-backing views.
+
+Add bounded source-call diagnostics containing only fixed allowlisted reason,
+engine error kind, native code category and function-role category, never raw
+messages, names, stacks or payloads. This distinguishes actual unsupported preload
+process calls from transport failures. Strict source compilation passes. Native
+Release host/helper/static-offscreen rebuild passes (codeoss-context-rpc-build.log).
+Fresh execution of the expanded boundary fixture is deferred; no broad local suite
+or visible GUI is run. Actual startup acceptance is recorded separately below.
+
+## 2026-11-11 — Actual device identity through asynchronous UUID and native storage
+
+Add optional --mite-deviceid compilation for exact @vscode/deviceid0.1.5. Under
+actual Mite only, its already-async missing-ID branch imports genuine uuid14 rather
+than synchronously requiring ESM. Its exact storage leaf uses real node:fs/promises
+read/write/access and mkdir(recursive), avoiding fs-extra's unsupported legacy
+constants dependency. Existing stored IDs, paths and error handling remain; no fake
+identity or replacement entropy is used. Node/Electron keep original paths.
+Pin both edited inputs, package, index and license; preserve the upstream raw
+CRLF bytes through checkout attributes rather than reformatting pinned inputs.
+Package provenance and refresh
+validation cover both changed outputs while preserving prior one-file adapters.
+
+Focused actual Node/Mite generation and persisted readback pass in isolated fresh
+HOME directories, along with reversible/drift/refresh/edited-sidecar refusals.
+Refresh the same stage with the four package flags, NLS and renderer assets:
+12,345 compiled source files and 26 owned overlay records verified, no duplicated
+package/dependency tree or Finder metadata removal (codeoss-deviceid-refresh.log).
+
+Actual offscreen entry restarted as PID75285 with the new native bridge and stage
+(codeoss-context-rpc-start.log). It no longer reports the earlier synchronous ESM
+require or binary-bytes refusal and again establishes the utility watcher channel.
+Fixed safe diagnostics now identify repeated IPC send admission-limit failures,
+which are the next startup issue to address. SharedProcess service readiness,
+window-ready, editing, package and cross-platform acceptance remain open. No broad
+local suite or visible GUI is run.
+
+## 2026-11-11 — Queue renderer startup bursts before native admission
+
+Safe diagnostics identify ipc-send's old 16-pending rejection, before serialization.
+Code-OSS catches these exceptions and drops initial RPC subscriptions. Add a bounded
+FIFO for both send and invoke, retaining 16 active/document and 64/renderer plus
+256 waiting/document and 1024/renderer. Snapshot and reserve existing wire bytes at
+call time, move the reservation on promotion, and publish native control/wire only
+when active and physical credit are available. Wake other waiting documents on
+release, preserve request ordering, and avoid destructor reentry through the weak
+endpoint registry. See ADR 0196 for exact totals and ownership.
+
+Deadlines begin at the original call. Unsent expiry settles individually; admitted
+expiry retires the channel rather than reusing credit still held by main. Already
+received deferred replies win. Update the existing overflow fixture to the bounded
+waiting queue and refresh the port/binary compatibility rows. Strict native syntax,
+formatting and diff checks pass. Release host/helper/static-offscreen build passes
+(codeoss-ipc-admission-build.log). No broad local IPC suite or visible GUI is run;
+the updated overflow fixture has not yet received fresh runtime acceptance.
+The actual pinned desktop entry restarted as PID76522 and reports zero context
+bridge failures in this run, passing the earlier dropped-send burst. It now reads
+Workbench configuration and reaches native menu construction. New concrete errors
+are unsupported MenuItem accelerator and implicit AgentHost utility engine flags
+(codeoss-ipc-admission-start.log); the renderer/file-watcher channel still connects.
+This is further startup progress, not window-ready or editor acceptance.
+
+
+## 2026-11-11 — Disclose implicit AgentHost inspector omission
+
+The next actual entry reaches AgentHostProcessManager and repeatedly refuses its
+utility engine flags. Pin electronAgentHostStarter.ts and adapt only its implicit
+local development inspector through an owned helper, following the SharedProcess
+policy. Keep the agent enabled and publish immutable unavailable-inspector status;
+omit only --nolazy / --inspect=5878 under verified local Mite/LibJS/no-cache mode.
+Explicit inspect-agenthost / inspect-brk-agenthost (including empty values) fail in
+the helper and early engine policy. Preserve Node/Electron/built parser results.
+
+Focused actual Node/Mite helper cases, exact pin/reversal/drift and overlay planning
+pass. Refresh the same stage: 12,346 source files and 28 owned overlay records,
+all four package adapters, NLS and renderer assets retained
+(codeoss-agent-host-refresh.log). No actual AgentHost services or inspector
+acceptance is claimed yet. No broad local suite or visible GUI is run.
+
+## 2026-11-11 — Bounded native utility and entry phase evidence
+
+Add opt-in fixed utility initialization/handler and capped native frame counters,
+plus generic standalone-Mite ESM entry/Promise-state diagnostics. Inspect no source,
+paths, environment contents or payloads. The module gate is MITE_MODULE_DIAGNOSTIC;
+Firefly utility records retain FIREFLY_IPC_BYTES_DIAGNOSTIC. This distinguishes
+entry evaluation from configuration/ready messaging when tracing real Code-OSS
+children. Normal execution semantics and runtime dependency direction are unchanged.
+Actual compile-database strict syntax passes all four implementation units and
+format/diff checks pass. The next combined native build/application run is still
+required; diagnostics are evidence tools, not accepted SharedProcess services.
+No new test framework, broad local suite or GUI launch is introduced.
+
+## 2026-11-11 — Native menu accelerators and demanded role providers
+
+Implement bounded Electron single-key accelerator parsing with native defensive
+schema validation and real QAction ApplicationShortcut delivery. Preserve aliases,
+plus/punctuation/F1–F24 and navigation keys; reject unsupported chords/media/keypad
+forms. Track actual native shortcut activation into triggeredByAccelerator; retain
+bounded userSettingsLabel only in JavaScript. Add Cocoa-owned Windows/Help/Services
+registrations with duplicate-before-replacement validation and ownership-safe
+restoration, actual hide/hideOthers/unhide/front and focused window minimize/zoom.
+Offscreen/other platforms explicitly refuse the missing Cocoa provider.
+
+Editing roles use real focused canonical view/frame operations, system plaintext
+clipboard, document/renderer/epoch guards and bounded async selection work. Rich
+clipboard/Monaco semantics remain unaccepted. The SDK cut path is asynchronous and
+not transactionally reversible; docs state stale/oversized reply behavior. Keep
+all integration owned; Ladybird sources remain unchanged.
+
+Existing controlled Node menu policy and generated-bundle reproduction pass.
+Strict native compilation passes the expanded menu/provider/bridge units. Combined
+Release host/helper/offscreen build passes (codeoss-native-menu-build.log), also
+compiling the native entry/utility diagnostics. Do not run a broad local suite.
+
+Batch one actual Cocoa Code-OSS launch (PID79252, codeoss-native-menu-start.log),
+then stop only that owned diagnostic group. The native entry Promise fulfills;
+main now reports app.dock.setMenu unavailable, and the renderer stops before its
+Workbench graph because saved partsSplash.layoutInfo is an immutable returned
+contextBridge object. A CUA read-only window lookup times out, so there is no
+visual/editor acceptance. New native role registration, physical shortcuts and
+editing remain unaccepted; subsequent work returns to source/background diagnosis.
+
+## 2026-11-11 — Match mutable Electron function and Promise result copies
+
+Actual Cocoa startup with saved partsSplash fails at showDefaultSplash's legitimate
+layout mutation before importing the Workbench graph. Compare pinned Electron45.2.3
+context-bridge source: sync returns and Promise fulfillment copy into the target;
+DeepFreeze applies only to exposeInMainWorld publication. Our result paths wrongly
+used FrozenContainers. Correct only result materialization to Mutable in the public
+graph exporter and standalone sync/Promise endpoints. Keep initial API publication
+frozen, function receiver guards, argument policy, raw capability redaction and
+copy/type/authority budgets unchanged. Do not patch Code-OSS around the mismatch.
+
+Adjust existing isolation fixture expectations to mutable independent results;
+explicitly mutate nested/array results and verify source state remains unchanged.
+Strict actual compile-database syntax passes all five changed units, formatting
+and diff checks pass. The next combined native build/application run is required;
+no broad local suite or additional GUI is run for this correction.
+
+## 2026-11-11 — Genuine owned macOS Dock menu and result-copy continuation
+
+Implement app.dock.setMenu/getMenu on macOS with a separate native Dock-mode menu
+owner, Qt's real setAsDockMenu, separate generations/dispatch and bounded JS/native
+graph validation. Reject application/Dock shared ownership. Build a candidate and
+verify native replacement before committing maps/generation or deleting the old
+menu. Preserve the original preceding Qt native Dock registration across updates;
+restore it only while still ours, before Qt deletion (the native delegate retains
+its menu). Other Dock methods and offscreen/non-Cocoa providers fail explicitly.
+
+The existing controlled Node menu policy, generated-source checks and six strict
+native translation units pass. Combined Release native build passes with the
+mutable-result correction (codeoss-result-dock-build.log). Native Cocoa Dock clicks
+and physical shortcuts remain unaccepted; do not repeat the prior Cocoa batch.
+
+Restart the task-owned actual entry offscreen as PID81512
+(codeoss-result-dock-start.log). The saved splash no longer blocks imports: 5,261
+module targets fetch/link without missing/loading/parse errors. The helper reports
+no contextBridge copy/send failure. Actual AgentHost child PID81529 now starts,
+then native module-entry diagnostics show rejection on missing node:inspector.
+The utility watcher renderer channel connects again. Another renderer utility
+request still refuses engine flags, under investigation. The offscreen provider
+correctly refuses macOS Services menu registration; this is not Cocoa acceptance.
+SharedProcess/AgentHost readiness, window-ready and editing remain open.
+
+## 2026-11-11 — Real builtin prerequisites for Code-OSS child imports
+
+The actual AgentHost import rejects node:inspector. Add a native inactive-endpoint
+url() query and maintained ESM inspector facade; open/close/waitForDebugger/Session
+explicitly refuse the absent backend. Importable inactive query is a disclosed
+extension over Node built without inspector, not a fake debugger or V8 dependency.
+
+Static shared-process audit identifies real pre-entry imports: X509Certificate,
+fs/promises.chmod/rm/mkdtemp. Implement genuine OpenSSL PEM/DER certificate parsing,
+canonical PEM/JSON and independent raw DER with 1 MiB input bound; other X509
+operations remain explicit refusals. Add real libuv permission changes, secure
+temporary directories and file/final-symlink removal in sync/callback/Promise forms.
+force ignores only ENOENT; directory rm is ERR_FS_EISDIR, recursive/retry removal
+remains unsupported. Keep Mite independent and reuse existing native providers.
+
+Combined Release host/helper/static-offscreen build passes
+(codeoss-child-builtins-build.log). Focused actual Mite runtime checks pass inactive
+inspector/refusals, owned filesystem mutation, and Node/Mite X509 byte-identical
+canonicalization/ownership/invalid-input checks (codeoss-inspector-native.log,
+codeoss-fs-mutation-native.log, codeoss-x509-native.log). Existing Node filesystem
+reference and generated-source verification pass. No broad local suite or GUI run.
+
+Actual entry restarted offscreen as PID85471 with the current local extension
+adaptation (codeoss-child-builtins-start.log): Main->SharedProcess#connect and
+Renderer->SharedProcess#connect now both report connection established. The real
+watcher channel still connects. AgentHost now rejects node:async_hooks rather than
+inspector; the real extension child now reaches undici and rejects node:querystring
+rather than native fork flags. No SharedProcess service-completeness, window-ready
+or usable editor acceptance is inferred from a port handshake. The offscreen
+macOS menu provider refusal remains intentional and Cocoa interaction is unaccepted.
+
+## 2026-11-11 — Disclose implicit extension-host options without disabling the process
+
+Pin the actual renderer local-process-extension-host.ts defaults. Before async
+host creation/debug-port/shell-env work, validate the verified local engine policy
+and reject explicit debug, break, profiling, test/development and unknown options.
+After async work, revalidate and match the exact generated defaults before omitting
+them. Preserve Node/Electron's original path and do not evaluate local policy there.
+Disclose unavailable inspector/network inspection and unapplied IPv4-first DNS
+ordering in an immutable renderer status. Do not claim the DNS option is honored.
+
+The main utility source adaptation additionally replaces the unsupported unsigned
+library relaxation with false under the same strict local mode. It does not add
+N-API loading or entitlement support. Explicit raw CLI debug/profiling flags still
+fail early. No generic execArgv stripping or fake runtime versions are added.
+
+Focused source reversal/drift, thirteen Node/Mite extension-policy scenarios and
+seven utility-auth scenarios pass. Refresh the existing canonical stage to 12,347
+compiled files / 30 owned overlay records, preserving four package adapters and
+Finder metadata (codeoss-extension-host-refresh.log). Actual offscreen startup now
+forks the extension child and reaches undici/node:querystring instead of refusing
+engine flags (codeoss-child-builtins-start.log). This is process/import progress,
+not extension activation or debugger acceptance. No broad suite or GUI run.
+
+## 2026-11-11 — Genuine public querystring parser for extension dependencies
+
+The actual extension child reaches undici's required node:querystring import.
+Expose the full maintained Node24 parser/stringifier already pinned for legacy URL,
+sharing its exact percent encoder and query implementation instead of a stringify
+stub. Support parse/decode, stringify/encode, escape, unescape and unescapeBuffer,
+custom codecs/separators/maxKeys, duplicate/null-prototype maps and forgiving byte
+decoding. Keep existing source/license pins and ESM authoring conventions.
+
+Focused Node and actual-Mite factory controls pass; generated bundles reproduce.
+Native Release host/helper/offscreen build passes (codeoss-querystring-build.log),
+and the actual public builtin contract passes (codeoss-querystring-native.log).
+No broad local URL/runtime suite or GUI is run. The audited next undici hurdle is
+its unguarded Node-version metadata read; no fake versions.node is added and no
+whole-package networking/extension acceptance is inferred from this binding.
+
+## 2026-11-11 — Genuine async context and Node diagnostic primitives
+
+Implement native GC-traced AsyncLocalStorage/AsyncResource context frames. Promise
+callbacks capture at registration through the existing VM make/call JobCallback
+hooks, preserving prior hooks/data; direct awaited resume jobs also capture at
+enqueue. Carry owned resource frames through timers/ticks/microtasks/immediates,
+worker completions, network/DNS/watchers and child callbacks. Restore scopes on
+return/throw, revoke native facade ownership on shutdown, and root opaque jobs,
+metadata and fresh carriers before any allocation. No Node/V8 or LibWeb dependency.
+
+Match measured Node24 frame disable/snapshot and per-storage run restoration
+behavior. Reserve enclosing run slots before admitting another storage, so quota
+failure cannot corrupt prior bindings or replace a completed result. Keep resource
+scope around uncaught callback error reporting. Constructor options, createHook
+and executionAsyncResource remain explicit refusals; process rejection-notification
+context and unvalidated external embedding callbacks remain outside acceptance.
+
+Add nine genuine util/types engine-slot predicates and shared util.types identity,
+without tags/getters/proxy traps. Add stream-backed basic Console, preserving the
+existing global object/methods and Code-OSS logging wrappers; advanced formatting
+and methods explicitly fail. Add maintained Node24-derived diagnostics channels,
+real subscriptions/tracing/bound stores and genuine NODE_DEBUG stderr logging.
+Pin sources/licenses. No import-only placeholders or inactive instrumentation stub.
+
+Combined Release host/helper/offscreen builds pass (codeoss-async-context-build.log,
+codeoss-async-context-final-build.log). Actual Mite passes seven propagation groups,
+plus the two source-review regressions for uncaught error contexts and restoration
+quota (codeoss-async-context-final-native.log, codeoss-async-errors-native.log,
+codeoss-async-quota-native.log). Actual Node/Mite brand/Console and diagnostics
+fixtures pass, including bound native ALS stores and real debug stderr
+(codeoss-types-console-native.log, codeoss-diagnostics-channel-native.log,
+codeoss-debuglog-native.log). Keep testing focused; no broad suite or GUI run.
+
+The actual offscreen entry with the initial Undici metadata adapter progresses
+past async_hooks/querystring and retains both SharedProcess connections, then
+reaches Undici's optional worker feature probe (codeoss-async-context-start.log).
+An audited capability guard now reports genuinely absent markAsUncloneable rather
+than inventing Worker APIs; the subsequent run reaches the absent ambient
+MessagePort assertion (codeoss-worker-feature-start.log). Both are package
+capability assumptions under investigation, not accepted workers or editor use.
+
+## 2026-11-11 — Audit Undici capabilities and defer real diff-worker construction
+
+Pin undici7.29.1 package/license and its complete 113-file runtime JavaScript
+inventory. Add an explicit compiler package adapter for genuine Mite capability
+queries: preserve unknown Node-version fields as undefined; use actual builtin
+inventory to report absent optional worker markAsUncloneable; make the necessarily
+false MessagePort brand trait explicit when no such ambient class exists. Keep
+other ambient classes strict and Node/Electron unchanged. Publish immutable
+unavailable status, without fabricated versions, Worker/MessagePort classes or IDs.
+Protect three transformed files plus all 110 unchanged audit files in refresh.
+
+The actual agent graph separately imports Worker eagerly in diffComputeService,
+though construction is lazy. Pin that source and move only constructor resolution
+to its original demand site through an owned helper. Preserve genuine Node/Electron
+workers and source arguments/listeners. Mite service registration needs no Worker;
+actual diff attempts fail explicitly with unavailable status. Do not return empty
+diffs, disable the agent or claim a worker backend.
+
+Focused actual Node/Mite capability, conflict/drift/provenance and diff-policy
+controls pass. Safely migrate the exact known earlier one/two-file owned Undici
+adapter after stopping only the verified diagnostic process; restore only proven
+owned inputs and byte-splice only that package record. Preserve other four adapters,
+back up the exact previous metadata, then canonical refresh reuses the same stage:
+12,348 compiled files and 32 owned overlay records
+(codeoss-undici-webidl-migration.log, codeoss-diff-webidl-refresh.log).
+
+Actual offscreen entry PID96800 retains both SharedProcess handshakes and advances
+past the previous optional worker/ambient MessagePort failures. New concrete errors
+are undici's util.inspect.custom and the agent graph's missing copyFileSync export
+(codeoss-diff-webidl-start.log). The offscreen Cocoa-only Services menu refusal is
+expected. No editor/extension activation/agent diff/network acceptance is claimed;
+no broad local suite or GUI run.
+
+## 2026-11-11 — Real custom inspection and file-copy imports
+
+The actual extension child reaches util.inspect.custom in Undici Headers, and
+the agent graph rejects the missing copyFileSync export. Implement genuine bounded
+inspect/format/formatWithOptions, registered custom symbol, real receiver/options/
+callback dispatch, own-data formatting, Map/Set/cycles and native date/regexp values.
+Do not introduce an inspect-shaped placeholder; unsupported advanced introspection
+fails explicitly and nested calls share resource limits.
+
+Add actual uv_fs_copyfile through the existing filesystem worker/context pipeline,
+with sync/callback/Promise forms, snapshotted paths, EXCL/FICLONE/FICLONE_FORCE
+constants, native errors and destination metadata. Preserve real forced-clone
+failures, including libuv destination removal behavior; no atomic/recursive promise.
+
+Native strict compilation and focused Node reference fixtures pass. Combined
+Release host/helper/offscreen build passes (codeoss-inspect-copy-build.log).
+Actual Mite fixtures pass real formatter/custom hooks and copy bytes/flags/errors/
+path ownership/async context (codeoss-inspect-native.log,
+codeoss-copy-file-native.log). No broad local suite or GUI run. A read-only actual
+agent-graph audit identifies remaining eager filesystem/key/trust imports; future
+implementations must be real operations, especially signature verification.
+
+## 2026-11-11 — Real filesystem, key verification and extra trust startup slice
+
+Implement actual libuv links/readlink/symlinks/timestamps, native RAII directory
+streams and bounded recursive cp; path ReadStream reuses real FileHandle reads.
+Recursive copies preserve byte identity or reject non-UTF8 names/link targets,
+refuse self/cycle copies and leave partial output on error without destructive
+rollback. Add genuine OpenSSL public P-256 JWK admission and ES256/P1363 verification;
+wrong keys/tampering fail, unsupported cryptographic operations explicitly reject.
+
+Capture extra CA input before user JS and share actual parsed roots between TLS
+and getCACertificates('extra'). Correct the initial getenv probe to use libuv's
+required real destination buffer. Invalid configured trust fails closed. Pin and
+adapt @vscode/fs-copyfile2 to genuine libuv copies/native macOS volume capability
+queries; directory copies use the real bounded copier. Preserve original package
+behavior under Node/Electron and audit transformed bytes/licenses.
+
+Combined Release host/helper/offscreen builds pass
+(codeoss-filesystem-trust-verify-build.log, codeoss-extra-ca-fix-build.log).
+Focused actual macOS Mite P256, filesystem primitives, path-stream and extra-CA
+unset/valid/invalid fixtures pass (codeoss-crypto-verify-native.log,
+codeoss-filesystem-primitives-native.log, codeoss-path-read-stream-native.log,
+codeoss-extra-ca-{unset,valid,invalid}-native.log). Dedicated added-root network
+handshake and fresh Linux/Windows acceptance remain open. One shared CodeOSS stage
+refresh applies all six adapters, retaining 12,348 compiled files/32 overlay files.
+
+User-requested actual visible Cocoa start PID3942 ran, with evidence in
+codeoss-visible-user-start.log. Extension host progresses to missing crypto.getHashes;
+menu construction hits the 256-item cap. No complete editor, extension activation,
+menu acceptance or open/edit/save claim. Continue these actual blockers; local GUI
+runs remain infrequent. Current work is on the review branch, not yet master.
+
+## 2026-11-11 — Framework menu admission and real digest capability queries
+
+Fix the actual CodeOSS 257th-menu-item failure in Firefly, without application
+changes. Electron has no corresponding 256-item ceiling. Align JavaScript/native
+admission at 2048 items and 1 MiB UTF-8 metadata while retaining depth, ownership,
+generation, role and stale-action checks. The focused actual native offscreen test
+installs all 2048 QActions, dispatches the last command, and rejects item 2049 and
+excess metadata without replacing accepted state (codeoss-large-menu-native.log).
+Physical Cocoa menu interaction remains unaccepted.
+
+Implement getHashes from real OpenSSL names/aliases, filtered through the same
+provider initialization as createHash; return independent sorted arrays and bound
+native enumeration. Combined Release host/offscreen build and actual Mite digest
+fixture pass (codeoss-hashes-menu-build.log, codeoss-hashes-native.log).
+
+Actual CodeOSS offscreen PID6474 progresses beyond getHashes and the menu item cap;
+main/renderer SharedProcess connections remain established. New concrete extension
+and agent failures are missing node:worker_threads through proxy-agent. A DOM port
+admission refusal also needs diagnosis: its current shared error covers frame,
+route, count and byte-budget failures, so it does not yet prove a queue burst. Cocoa Services role refusal is expected in
+the explicit offscreen provider. Evidence: codeoss-hashes-menu-start.log. No accepted
+extensions, native menu interaction or editor workflow is claimed; no new GUI run.
+
+User permits temporary development adaptations only with a documented reason and
+tracked removal/replacement requirement; retain unchanged CodeOSS as the target.
+Add the adaptation TODO inventory and link it from the roadmap/current status.
+Also preserve the missing npm fs-copyfile MIT attribution from pinned CodeOSS
+cglicenses.json, with exact license provenance/hash; original pinned bytes remain
+unchanged (including upstream trailing whitespace).
+
+## 2026-11-11 — Identify the actual renderer port refusal
+
+Add at most sixteen scalar-only refusal diagnostics per renderer endpoint under
+the existing byte-diagnostic opt-in. Preserve admission and close behavior. The
+previous generic queue error covered six conditions; distinguish encoding, retired
+route, oversized frame, queued-message count and byte budgets without payloads,
+URLs, capability identifiers or environment data.
+
+Release helper/host/offscreen build passes (codeoss-port-reason-build.log).
+The actual offscreen CodeOSS start PID8156 proves route-messages exhaustion:
+64 waiting messages / 55,396 queued bytes, an 841-byte next frame, no physical
+queue backlog and no native send credit (codeoss-port-refusal-start.log). This is
+now a demonstrated count/consumer-flow issue, not a frame-size inference. Diagnose
+actual receiver/ack progression before changing resource policy. Existing
+worker_threads and offscreen Cocoa-role refusals remain separate. No new GUI run.
+
+## 2026-11-11 — Promote validated development checkpoints to master
+
+Merge the reviewed CodeOSS startup checkpoints through c809d37 into master at the
+user's explicit request for direct commits/pushes without pull requests. Retain the
+local artifact-retention history and Finder metadata from master's cleanup commit.
+Ladybird gitlink and manifest select cdcb9a together; owned adapters/build composition
+preserve upstream source bytes. Earlier candidate-only/master-pin statements above
+are historical checkpoints, superseded by this promotion.
+
+Local Release host/helper/offscreen builds and the focused native filesystem,
+crypto, TLS snapshot and large-menu fixtures recorded above pass. Hosted updated
+Linux acceptance is still running at an earlier checkpoint; fresh Windows/macOS CI
+and release acceptance remain open. Promotion is development-source availability,
+not a complete CodeOSS/platform/release-support claim. Worker implementation remains
+uncommitted in the active review worktree and is not part of this merge. No new GUI
+run or release is performed by promotion.
 
 ## Resume
 

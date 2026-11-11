@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include "core/GCCaptures.h"
+#include "core/async/Context.h"
+#include "platform/UV.h"
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
@@ -15,14 +18,15 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
 class ImmediateQueue;
 
-class EventLoop {
+class EventLoop : public NativeCaptureOwner<EventLoop> {
 public:
+    void visit_capture_edges(GC::Cell::Visitor&) const;
+
     EventLoop(JS::VM&, void (*report_exception)(JS::Value));
 
     ~EventLoop();
@@ -34,6 +38,11 @@ public:
 
     // Weak targets must remain rooted through synchronous code and its microtasks.
     void keep_weak_target(JS::Value);
+
+    AsyncContext& async_context()
+    {
+        return *m_async_context;
+    }
 
     int run_until_idle();
     // GUI hosts call this on the owner thread without blocking their native loop.
@@ -122,6 +131,7 @@ private:
     static void dispatch_timer(uv_timer_t*);
 
     JS::VM& m_vm;
+    std::unique_ptr<AsyncContext> m_async_context;
     void (*m_report_exception)(JS::Value);
 
     uv_loop_t m_loop {};
@@ -150,6 +160,7 @@ private:
     std::vector<ReportedRejection> m_reported_rejections;
     GC::Root<JS::FunctionObject> m_process_error_handler;
     GC::Root<JS::Promise> m_entry_promise;
+    int m_diagnostic_entry_state { -1 };
     bool m_entry_exception_delivered { false };
     bool m_delivering_fatal { false };
     std::unordered_map<uint64_t, Timer*> m_timers;

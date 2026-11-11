@@ -6,6 +6,7 @@
 
 #include "BuiltinSources.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -22,9 +23,11 @@
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Signals.h"
 #include "platform/process/Timing.h"
+#include "platform/system/Inspector.h"
 #include "platform/system/OS.h"
 #include "platform/text/Encoding.h"
 #include "platform/text/URL.h"
+#include "platform/util/Types.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -54,6 +57,8 @@ static constexpr std::string_view assert_exports[] = { "AssertionError", "ok", "
     "doesNotMatch", "strict", "Assert", "CallTracker", "partialDeepStrictEqual" };
 static constexpr std::string_view readline_exports[] = { "Interface", "createInterface",
     "clearLine", "clearScreenDown", "cursorTo", "moveCursor", "emitKeypressEvents" };
+static constexpr std::string_view diagnostics_channel_exports[]
+    = { "channel", "hasSubscribers", "subscribe", "tracingChannel", "unsubscribe", "Channel" };
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
@@ -69,17 +74,32 @@ static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", 
     "fsyncSync", "fdatasync", "fdatasyncSync", "constants", "Stats", "Dirent", "promises",
     "readFile", "readFileSync", "writeFile", "writeFileSync", "appendFile", "appendFileSync",
     "access", "accessSync", "exists", "existsSync", "stat", "statSync", "lstat", "lstatSync",
-    "mkdir", "mkdirSync", "rmdir", "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync",
-    "readdir", "readdirSync", "WriteStream", "createWriteStream", "watchFile", "unwatchFile",
-    "watch", "realpath", "realpathSync" };
+    "mkdir", "mkdirSync", "chmod", "chmodSync", "mkdtemp", "mkdtempSync", "rm", "rmSync", "rmdir",
+    "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync",
+    "WriteStream", "createWriteStream", "watchFile", "unwatchFile", "watch", "realpath",
+    "realpathSync", "copyFile", "copyFileSync", "link", "linkSync", "readlink", "readlinkSync",
+    "symlink", "symlinkSync", "utimes", "utimesSync", "opendir", "opendirSync", "Dir", "cp",
+    "ReadStream", "createReadStream" };
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
-          "mkdir", "rmdir", "unlink", "rename", "readdir", "realpath" };
+          "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath",
+          "copyFile", "link", "readlink", "symlink", "utimes", "opendir", "cp" };
+static constexpr std::string_view async_hooks_exports[] = { "AsyncLocalStorage", "AsyncResource",
+    "executionAsyncId", "triggerAsyncId", "executionAsyncResource", "createHook" };
+static constexpr std::string_view querystring_exports[]
+    = { "parse", "decode", "stringify", "encode", "escape", "unescape", "unescapeBuffer" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
-static constexpr std::string_view util_exports[]
-    = { "TextEncoder", "TextDecoder", "promisify", "inherits" };
+static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder", "promisify",
+    "inherits", "types", "debuglog", "debug", "inspect", "format", "formatWithOptions" };
+static constexpr std::string_view util_types_exports[]
+    = { "isArrayBuffer", "isSharedArrayBuffer", "isAnyArrayBuffer", "isArrayBufferView",
+          "isTypedArray", "isUint8Array", "isDataView", "isProxy", "isPromise" };
+static constexpr std::string_view console_exports[]
+    = { "Console", "log", "info", "debug", "warn", "error", "dir", "assert", "table", "time",
+          "timeEnd", "timeLog", "count", "countReset", "group", "groupCollapsed", "groupEnd",
+          "clear", "trace", "dirxml", "profile", "profileEnd", "timeStamp" };
 static constexpr std::string_view module_exports[]
     = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };
@@ -104,6 +124,8 @@ static constexpr std::string_view dns_promises_exports[]
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage",
     "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES",
     "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
+static constexpr std::string_view inspector_exports[]
+    = { "url", "open", "close", "waitForDebugger", "Session" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness",
     "freemem", "homedir", "hostname", "loadavg", "platform", "release", "tmpdir", "totalmem",
     "type", "uptime", "version", "machine", "cpus", "networkInterfaces", "userInfo", "getPriority",
@@ -117,17 +139,21 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues" };
+    "getHashes", "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
+    "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
 static constexpr std::string_view tls_exports[]
-    = { "connect", "TLSSocket", "createServer", "createSecureContext" };
+    = { "connect", "TLSSocket", "createServer", "createSecureContext", "getCACertificates" };
 static constexpr std::string_view https_exports[]
     = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "diagnostics_channel",
+        { MITE_DIAGNOSTICS_CHANNEL_SOURCE, sizeof(MITE_DIAGNOSTICS_CHANNEL_SOURCE) - 1 },
+        diagnostics_channel_exports },
     { "module", { MITE_MODULE_SOURCE, sizeof(MITE_MODULE_SOURCE) - 1 }, module_exports },
     { "perf_hooks", { MITE_PERF_HOOKS_SOURCE, sizeof(MITE_PERF_HOOKS_SOURCE) - 1 },
         perf_hooks_exports },
@@ -139,6 +165,8 @@ static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
+    { "inspector", { MITE_INSPECTOR_SOURCE, sizeof(MITE_INSPECTOR_SOURCE) - 1 },
+        inspector_exports },
     { "os", { MITE_OS_SOURCE, sizeof(MITE_OS_SOURCE) - 1 }, os_exports },
     { "tls", { MITE_TLS_SOURCE, sizeof(MITE_TLS_SOURCE) - 1 }, tls_exports },
     { "https", { MITE_HTTPS_SOURCE, sizeof(MITE_HTTPS_SOURCE) - 1 }, https_exports },
@@ -151,6 +179,13 @@ static constexpr BuiltinDefinition definitions[] = {
     { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 },
         string_decoder_exports },
     { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
+    { "util/types", { MITE_UTIL_TYPES_SOURCE, sizeof(MITE_UTIL_TYPES_SOURCE) - 1 },
+        util_types_exports },
+    { "console", { MITE_CONSOLE_SOURCE, sizeof(MITE_CONSOLE_SOURCE) - 1 }, console_exports },
+    { "async_hooks", { MITE_ASYNC_HOOKS_SOURCE, sizeof(MITE_ASYNC_HOOKS_SOURCE) - 1 },
+        async_hooks_exports },
+    { "querystring", { MITE_QUERYSTRING_SOURCE, sizeof(MITE_QUERYSTRING_SOURCE) - 1 },
+        querystring_exports },
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
     { "fs/promises", {}, fs_promises_exports },
@@ -323,20 +358,22 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "stream" || name == "string_decoder") {
-        host->define_native_function(
-            m_realm, "require"_utf16,
-            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_string())
-                    return error(
-                        "ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);
-                auto encoded
-                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                auto name = string(encoded);
-                if (!name.starts_with("node:"))
-                    return error(
-                        "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected portable runtime dependency");
-                return TRY(builtin(name.substr(5)));
-            },
+        host->define_native_function(m_realm, "require"_utf16,
+            GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto* self = &captured_self.get();
+
+                    if (!vm.argument(0).is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Internal builtin name must be a string", true);
+                    auto encoded
+                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                    auto name = string(encoded);
+                    if (!name.starts_with("node:"))
+                        return self->error("ERR_MITE_UNSUPPORTED_BUILTIN",
+                            "Unexpected portable runtime dependency");
+                    return TRY(self->builtin(name.substr(5)));
+                }),
             1, JS::default_attributes);
         if (name == "string_decoder") {
             auto native = create_encoding_host(m_realm);
@@ -463,13 +500,45 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
 
+    if (name == "inspector") {
+        host->define_direct_property(
+            "native"_utf16, create_inspector_host(m_realm), JS::default_attributes);
+    }
+
+    if (name == "util/types")
+        host->define_direct_property(
+            "native"_utf16, create_util_types_host(m_realm), JS::default_attributes);
+
+    if (name == "console") {
+        host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
+        host->define_direct_property(
+            "types"_utf16, TRY(builtin("util/types")), JS::default_attributes);
+        // Preserve the original global logger and Code-OSS's existing pipe wrappers
+        // without evaluating a replaced global accessor during builtin construction.
+        auto console = m_realm.global_object().get_without_side_effects("console"_utf16);
+        host->define_direct_property("console"_utf16,
+            console.is_object() ? console : JS::js_undefined(), JS::default_attributes);
+    }
+
     if (name == "util") {
+        host->define_direct_property(
+            "types"_utf16, TRY(builtin("util/types")), JS::default_attributes);
         host->define_direct_property(
             "native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
         host->define_direct_property(
             "timers"_utf16, TRY(builtin("timers")), JS::default_attributes);
         host->define_direct_property(
             "timerPromises"_utf16, TRY(builtin("timers/promises")), JS::default_attributes);
+    }
+
+    if (name == "async_hooks")
+        host->define_direct_property("native"_utf16,
+            m_event_loop.async_context().create_host(m_realm), JS::default_attributes);
+
+    if (name == "querystring") {
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property(
+            "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
 
     if (name == "url") {
@@ -549,12 +618,14 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     VERIFY(initializer.is_function());
     GC::Root globals_factory { initializer.as_function() };
     GC::Root globals_host { JS::Object::create(m_realm, nullptr) };
-    globals_host->define_native_function(
-        m_realm, "keepAlive"_utf16,
-        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            loop.keep_weak_target(vm.argument(0));
-            return JS::js_undefined();
-        },
+    globals_host->define_native_function(m_realm, "keepAlive"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(m_event_loop)),
+            [](auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
+
+                loop.keep_weak_target(vm.argument(0));
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     auto globals = TRY(JS::call(m_vm, *globals_factory, JS::js_undefined(), globals_host.ptr()));
     VERIFY(globals.is_object());
@@ -600,14 +671,17 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
         "signals"_utf16, TRY(constants->get("signals"_utf16)), JS::default_attributes);
     signal_host->define_direct_property(
         "native"_utf16, native_signals.ptr(), JS::default_attributes);
-    signal_host->define_native_function(
-        m_realm, "installErrorHandler"_utf16,
-        [&loop = m_event_loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid process error dispatcher"sv);
-            loop.set_process_error_handler(&vm.argument(0).as_function());
-            return JS::js_undefined();
-        },
+    signal_host->define_native_function(m_realm, "installErrorHandler"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(m_event_loop)),
+            [](auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
+
+                if (!vm.argument(0).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid process error dispatcher"_utf16);
+                loop.set_process_error_handler(&vm.argument(0).as_function());
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     auto events_source = JS::Script::parse(
         Utf16String::from_utf8(
@@ -679,24 +753,26 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     fetch_host->define_direct_property(
         "decompression"_utf16, decoder.ptr(), JS::default_attributes);
     // Transport modules stay lazy: Headers/Response-only programs need no sockets.
-    fetch_host->define_native_function(
-        m_realm, "require"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(vm.argument(0).to_utf16_string(vm));
-            auto bytes = MUST(name.utf16_view().to_byte_string());
-            auto module = string(bytes);
-            if (module != "node:http" && module != "node:https" && module != "node:stream"
-                && module != "node:crypto")
-                return error(
-                    "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
-            if (m_transport_captured) {
-                auto found = m_transport_dependencies.find(module);
-                VERIFY(found != m_transport_dependencies.end());
-                return found->second.ptr();
-            }
+    fetch_host->define_native_function(m_realm, "require"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
 
-            return TRY(builtin(module.substr(5)));
-        },
+                auto name = TRY(vm.argument(0).to_utf16_string(vm));
+                auto bytes = MUST(name.utf16_view().to_byte_string());
+                auto module = string(bytes);
+                if (module != "node:http" && module != "node:https" && module != "node:stream"
+                    && module != "node:crypto")
+                    return self->error(
+                        "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected fetch transport dependency");
+                if (self->m_transport_captured) {
+                    auto found = self->m_transport_dependencies.find(module);
+                    VERIFY(found != self->m_transport_dependencies.end());
+                    return found->second.ptr();
+                }
+
+                return TRY(self->builtin(module.substr(5)));
+            }),
         1, JS::default_attributes);
     fetch_host->define_direct_property("platform"_utf16,
         JS::PrimitiveString::create(
@@ -753,8 +829,12 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     auto webcrypto = TRY(cryptography->get("webcrypto"_utf16));
     VERIFY(webcrypto.is_object());
     m_web_crypto = webcrypto.as_object();
-    GC::Root crypto_getter { JS::NativeFunction::create(
-        m_realm, [this](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return m_web_crypto.ptr(); },
+    GC::Root crypto_getter { JS::NativeFunction::create(m_realm,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+                return self->m_web_crypto.ptr();
+            }),
         0, "get crypto"_utf16) };
     m_realm.global_object().define_direct_accessor("crypto"_utf16, crypto_getter.ptr(), nullptr,
         JS::Attribute::Enumerable | JS::Attribute::Configurable);
@@ -765,6 +845,7 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
         TRY(builtin("child_process"));
 
     TRY(install_policy_watcher());
+    TRY(install_storage_and_keyboard());
     return {};
 }
 
@@ -811,14 +892,18 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::builtin_module(std::str
     // share this registry and the same object returned by CommonJS require.
     TRY(builtin(name));
     if (!m_builtin_bridge) {
-        auto bridge = JS::NativeFunction::create(
-            m_realm,
-            [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_string())
-                    return error("ERR_INVALID_ARG_TYPE", "Builtin name must be a string", true);
-                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                return TRY(builtin(string(bytes)));
-            },
+        auto bridge = JS::NativeFunction::create(m_realm,
+            GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto* self = &captured_self.get();
+
+                    if (!vm.argument(0).is_string())
+                        return self->error(
+                            "ERR_INVALID_ARG_TYPE", "Builtin name must be a string", true);
+                    auto bytes
+                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                    return TRY(self->builtin(string(bytes)));
+                }),
             1, "getBuiltin"_utf16);
         m_builtin_bridge = JS::SyntheticModule::create_default_export_synthetic_module(
             m_realm, bridge, "mite:internal/builtin")

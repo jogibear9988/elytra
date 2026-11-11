@@ -21,6 +21,28 @@ def files(directory):
     }
 
 
+def same_stdout(name, node_stdout, mite_stdout):
+    """Keep exact output except Node's documented pre-abort open/close race."""
+    if name != "errors":
+        return node_stdout == mite_stdout
+    node_lines = node_stdout.splitlines(keepends=True)
+    mite_lines = mite_stdout.splitlines(keepends=True)
+    prefix = 'cancel abort ["error:ABORT_ERR","close"] '
+    mite_abort = prefix + "false null true 0\n"
+    node_abort = {mite_abort, prefix + "true null true 0\n"}
+    # Require exactly one complete observation; do not hide changed events, descriptor
+    # ownership, pending state, byte counts, extra lines or Mite opening the target.
+    if mite_lines.count(mite_abort) != 1:
+        return False
+    index = mite_lines.index(mite_abort)
+    return (
+        len(node_lines) == len(mite_lines)
+        and node_lines[index] in node_abort
+        and node_lines[:index] == mite_lines[:index]
+        and node_lines[index + 1 :] == mite_lines[index + 1 :]
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mite", required=True, type=Path)
@@ -76,7 +98,7 @@ def main():
                 )
             passed = (
                 all(result.returncode == 0 and not result.stderr for result in results)
-                and results[0].stdout == results[1].stdout
+                and same_stdout(name, results[0].stdout, results[1].stdout)
                 and same_files
             )
             print(f"{'PASS' if passed else 'FAIL'} file-write-stream/{name}", flush=True)

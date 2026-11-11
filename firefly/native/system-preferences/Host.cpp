@@ -1,5 +1,6 @@
 /** Typed native boundaries and bounded owner-thread delivery of passive notifications. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "Provider.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -16,6 +17,9 @@
 
 namespace Firefly::SystemPreferences {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
+
     struct Subscription {
         std::string kind;
         unsigned queued {};
@@ -331,111 +335,118 @@ std::shared_ptr<Controller> install_host(
     auto state = std::make_shared<Controller::State>();
     state->receiver = &receiver;
     state->notify = std::move(notify);
-    host.define_native_function(
-        realm, "preferencesGetDefault"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(text(vm, vm.argument(0), 4096));
-            auto requested = TRY(type(vm));
-            return checked_value(
-                vm, TRY(backend(vm, *state))->get_user_default(name, requested), requested);
-        },
+    host.define_native_function(realm, "preferencesGetDefault"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto name = TRY(text(vm, vm.argument(0), 4096));
+                auto requested = TRY(type(vm));
+                return checked_value(
+                    vm, TRY(backend(vm, *state))->get_user_default(name, requested), requested);
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "preferencesSetDefault"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(text(vm, vm.argument(0), 4096));
-            auto requested = TRY(type(vm));
-            auto bytes = TRY(raw(vm, vm.argument(2), 512 * 1024));
-            auto document = QJsonDocument::fromJson("[" + bytes + "]");
-            if (!document.isArray() || document.array().size() != 1)
-                return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid preference value JSON");
-            QJsonValue value = document.array()[0];
-            if (requested == "boolean" ? !value.isBool()
-                                       : (!value.isString() || !valid(value.toString())
-                                             || value.toString().toUtf8().size() > 65536))
-                return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid typed preference value");
-            auto result = normalize(
-                TRY(backend(vm, *state))->set_user_default(name, requested, bytes.toStdString()));
-            if (!result.code.empty())
-                return fail(vm, result.code, result.message);
-            return JS::js_undefined();
-        },
-        3, JS::default_attributes);
-    host.define_native_function(
-        realm, "preferencesMediaStatus"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto requested = TRY(text(vm, vm.argument(0), 64));
-            if (requested != "camera" && requested != "microphone" && requested != "screen")
-                return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown media permission type");
-            return checked_value(
-                vm, TRY(backend(vm, *state))->media_access_status(requested), "media");
-        },
-        1, JS::default_attributes);
-    host.define_native_function(
-        realm, "preferencesSubscribe"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(identity(vm, true));
-            auto center = TRY(kind(vm));
-            std::optional<std::string> name;
-            if (!vm.argument(2).is_null())
-                name = TRY(text(vm, vm.argument(2), 4096));
-            auto* provider = TRY(backend(vm, *state));
-            {
-                std::lock_guard lock(state->mutex);
-                if (state->pending.size() >= 64)
-                    return fail(vm, "ERR_FIREFLY_SYSTEM_PREFERENCES_LIMIT",
-                        "Too many preference subscriptions");
-                if (id <= state->last_id)
-                    return fail(vm, data_code, "Preference subscription ID reused");
-                state->last_id = id;
-                state->pending.emplace(id, Controller::State::Subscription { center, 0, false });
-            }
-
-            auto result = normalize(provider->subscribe(
-                id, center, name, [weak = std::weak_ptr(state), id](Event event) {
-                    post(weak, id, std::move(event));
-                }));
-            if (!result.code.empty()) {
-                {
-                    std::lock_guard lock(state->mutex);
-                    state->pending.erase(id);
-                }
-
-                provider->unsubscribe(id, center);
-                return fail(vm, result.code, result.message);
-            }
-
-            return JS::js_undefined();
-        },
-        3, JS::default_attributes);
-    host.define_native_function(
-        realm, "preferencesUnsubscribe"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(identity(vm, false));
-            auto center = TRY(kind(vm));
-            {
-                std::lock_guard lock(state->mutex);
-                auto found = state->pending.find(id);
-                if (found == state->pending.end() || found->second.kind != center)
-                    return JS::js_undefined();
-                state->pending.erase(found);
-            }
-
-            if (state->provider) {
-                auto result = normalize(state->provider->unsubscribe(id, center));
+    host.define_native_function(realm, "preferencesSetDefault"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto name = TRY(text(vm, vm.argument(0), 4096));
+                auto requested = TRY(type(vm));
+                auto bytes = TRY(raw(vm, vm.argument(2), 512 * 1024));
+                auto document = QJsonDocument::fromJson("[" + bytes + "]");
+                if (!document.isArray() || document.array().size() != 1)
+                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid preference value JSON");
+                QJsonValue value = document.array()[0];
+                if (requested == "boolean" ? !value.isBool()
+                                           : (!value.isString() || !valid(value.toString())
+                                                 || value.toString().toUtf8().size() > 65536))
+                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Invalid typed preference value");
+                auto result = normalize(TRY(backend(vm, *state))
+                        ->set_user_default(name, requested, bytes.toStdString()));
                 if (!result.code.empty())
                     return fail(vm, result.code, result.message);
-            }
+                return JS::js_undefined();
+            }),
+        3, JS::default_attributes);
+    host.define_native_function(realm, "preferencesMediaStatus"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto requested = TRY(text(vm, vm.argument(0), 64));
+                if (requested != "camera" && requested != "microphone" && requested != "screen")
+                    return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown media permission type");
+                return checked_value(
+                    vm, TRY(backend(vm, *state))->media_access_status(requested), "media");
+            }),
+        1, JS::default_attributes);
+    host.define_native_function(realm, "preferencesSubscribe"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(identity(vm, true));
+                auto center = TRY(kind(vm));
+                std::optional<std::string> name;
+                if (!vm.argument(2).is_null())
+                    name = TRY(text(vm, vm.argument(2), 4096));
+                auto* provider = TRY(backend(vm, *state));
+                {
+                    std::lock_guard lock(state->mutex);
+                    if (state->pending.size() >= 64)
+                        return fail(vm, "ERR_FIREFLY_SYSTEM_PREFERENCES_LIMIT",
+                            "Too many preference subscriptions");
+                    if (id <= state->last_id)
+                        return fail(vm, data_code, "Preference subscription ID reused");
+                    state->last_id = id;
+                    state->pending.emplace(
+                        id, Controller::State::Subscription { center, 0, false });
+                }
 
-            return JS::js_undefined();
-        },
+                auto result = normalize(provider->subscribe(
+                    id, center, name, [weak = std::weak_ptr(state), id](Event event) {
+                        post(weak, id, std::move(event));
+                    }));
+                if (!result.code.empty()) {
+                    {
+                        std::lock_guard lock(state->mutex);
+                        state->pending.erase(id);
+                    }
+
+                    provider->unsubscribe(id, center);
+                    return fail(vm, result.code, result.message);
+                }
+
+                return JS::js_undefined();
+            }),
+        3, JS::default_attributes);
+    host.define_native_function(realm, "preferencesUnsubscribe"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(identity(vm, false));
+                auto center = TRY(kind(vm));
+                {
+                    std::lock_guard lock(state->mutex);
+                    auto found = state->pending.find(id);
+                    if (found == state->pending.end() || found->second.kind != center)
+                        return JS::js_undefined();
+                    state->pending.erase(found);
+                }
+
+                if (state->provider) {
+                    auto result = normalize(state->provider->unsubscribe(id, center));
+                    if (!result.code.empty())
+                        return fail(vm, result.code, result.message);
+                }
+
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "preferencesShutdown"_utf16,
-        [state](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            shutdown(*state);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "preferencesShutdown"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                shutdown(*state);
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

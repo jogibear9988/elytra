@@ -7,7 +7,7 @@ from pathlib import Path
 from prepare_permission_hooks import adapt as permission_adapt
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "cd63de48c088f7d0127206ea464cd073728a6c645a117539c32326c49cf97930"
+EXPECTED = "ec5fed5d57c4aab14cc2bee6ef1b7a20cbd03c189b7e8c89e1663747a89f3ee2"
 SEAM = "    if (auto* webdriver_bidi = WebDriverBiDi::the())\n        webdriver_bidi->did_receive_event(*this, navigable_id, name, move(params));"
 HOOK = "    if (Firefly::receive_native_ipc(*this, navigable_id, name, params)) return;\n"
 

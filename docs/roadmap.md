@@ -98,3 +98,13 @@ For a coherent implementation commit, update its reference, relevant example/tes
 compatibility state and PROGRESS together. For documentation-only commits, record
 what was researched, written, linked and executed; leave platform/API acceptance
 claims unchanged unless new evidence was obtained.
+
+## Remove temporary Code-OSS development workarounds
+
+- [ ] Resolve and remove each behavior-changing workaround in the
+  [adaptation inventory](development/code-oss-adaptations.md), retaining its reason,
+  genuine framework replacement and acceptance requirement until removal is proven.
+- [ ] Validate the upstream Code-OSS entry without those workarounds; separately
+  disclose any unavoidable build-time integration or native-package replacement.
+- [ ] Accept native menus, extension activation and workspace open/edit/save on
+  the actual application before claiming practical VS Code support.

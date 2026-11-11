@@ -3,11 +3,11 @@
 Current distributable output is experimental macOS ARM64 packaging. The
 [Alpha 2 release](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 contains verified source `19ad113` with unchanged CI version `0.1.0-dev.118`.
-The scoped Linux X11 application gate passes, while Linux dependency-complete
-package acceptance and native Windows desktop/package acceptance remain unfinished.
-An [experimental Linux stager](../development/linux-packaging.md) now creates
-launcher/resource/library/license archives; its native extracted-app gate must pass
-before those candidates can be treated as verified distributions.
+The experimental Linux archive and extracted Designer gate passed at source
+197cd2a on Ubuntu 24.04 x64 with X11, Xvfb and Openbox. See the exact
+[Linux package evidence and host limits](../development/linux-packaging.md).
+New revisions still require fresh native acceptance; portable Linux distributions
+and native Windows desktop/package acceptance remain unfinished.
 No complete cross-platform release has been established; required release jobs
 fail until their native gates pass.
 
@@ -30,6 +30,11 @@ The packager records pins, host, architecture, signing and source/build state. N
 live inside apps and alongside archives. Treat those records as part of the artifact;
 keep them with a shared build. Inspect actual BUILD.json rather than assuming a file
 named macos or windows has passed the required native tests.
+
+The Designer's BUILD.json includes designerShell hashes for its maintained Firefly
+entry, server, smoke script and window controls. Native packagers reject an older
+or incomplete sample shell before creating output. Rebuild the Designer when those
+sources change, even if its pinned upstream browser bundle has not changed.
 
 ## Package size modes
 

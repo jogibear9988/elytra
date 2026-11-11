@@ -112,7 +112,8 @@ function fixture() {
       throw error('ERR_FIREFLY_UNSUPPORTED_API', name);
     },
     transport,
-    () => state.registry
+    () => state.registry,
+    () => state.requestPolicy
   );
   return { api, state, net: api.net, error };
 }
@@ -610,6 +611,73 @@ function protocols(state, handled, responder) {
     'Shutdown aborts owned protocol request before native network provider stop'
   );
   console.log('PASS handled fetch caller abort body cancellation and shutdown ownership cleanup');
+}
+
+{
+  const { net, state, api } = fixture();
+  const snapshots = [];
+  let sequence = 0;
+  state.requestPolicy = {
+    allocateId: () => (sequence += 2),
+
+    async intercept(stage, details) {
+      if (stage !== 'before') {
+        return {};
+      }
+      snapshots.push(details);
+      const fields = { ...details.requestHeaders, 'x-policy-added': ['real-value'] };
+      delete fields['x-policy-remove'];
+      return { requestHeaders: fields };
+    }
+  };
+  state.responses.push(new Response('fetch-body'), new Response('request-body'));
+  const response = await net.fetch('http://first.test/headers', {
+    headers: { 'x-original': 'fetch-original', 'x-policy-remove': 'remove' }
+  });
+  check((await response.text()) === 'fetch-body', 'Fetch retains real response body');
+  const request = net.request({
+    url: 'http://first.test/request-headers',
+    headers: {
+      'x-original': 'request-original',
+      'x-policy-remove': 'remove'
+    }
+  });
+  const received = new Promise((resolve, reject) => {
+    request.on('error', reject);
+
+    request.on('response', async (incoming) => {
+      try {
+        let body = '';
+        for await (const chunk of incoming) {
+          body += chunk.toString();
+        }
+        resolve(body);
+      } catch (failure) {
+        reject(failure);
+      }
+    });
+  });
+  request.end();
+  check((await received) === 'request-body', 'ClientRequest retains real response stream');
+  check(
+    snapshots.length === 2 &&
+      snapshots[0].requestHeaders['x-original'][0] === 'fetch-original' &&
+      snapshots[1].requestHeaders['x-original'][0] === 'request-original',
+    'Both APIs expose actual pre-transport header snapshots'
+  );
+  check(
+    state.calls.every(
+      (call) =>
+        call.headers.get('x-policy-added') === 'real-value' && !call.headers.has('x-policy-remove')
+    ),
+    'Both APIs apply policy additions and removals to actual transport headers'
+  );
+  check(
+    snapshots.every((details) => details.requestHeaders['x-policy-remove'][0] === 'remove'),
+    'Applying decisions does not mutate the private original snapshot'
+  );
+  api.stop();
+  console.log('PASS main net request header snapshots and genuine transport header mutations');
 }
 
 console.log('DONE controlled net policy');

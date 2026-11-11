@@ -11,6 +11,7 @@ mite script.js [arguments...]
 mite script.mjs [arguments...]
 mite script.cjs [arguments...]
 mite -e 'console.log("hello")'
+mite -p 'JSON.stringify(process.env)'
 mite --help
 mite --version
 ```
@@ -19,6 +20,7 @@ mite --version
 | --- | --- |
 | Entry file | Load according to extension/package type; trailing arguments are exposed through process.argv |
 | -e source / --eval source | Evaluate source text as a script; not a CommonJS module wrapper |
+| -p source / --print source | Evaluate as a script and print its completion using JavaScript string conversion; objects do not receive Node util.inspect formatting |
 | --help | Print usage; supported as the sole argument, exit 0 |
 | --version | Print current development version and LibJS identity; supported as the sole argument, exit 0 |
 | No arguments | Print usage, exit 1; there is no interactive REPL |

@@ -11,7 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentServer.ipc"
 GENERATOR = ROOT / "vendor/ladybird/Meta/Generators/generate_ipc_definitions.py"
-INPUT_SHA = "f07a0c368d61fb6f8b1761de77c437e6c56e0ef7184146aaf4676ef49e6784c3"
+INPUT_SHA = "d8ff0d3e9c1576491914986b8ca73e35ae620db5e153f7974caf55c03672c7ac"
 GENERATOR_SHA = "16c0220e4d722ee081ac1237cfe47f821ed7059cbd3f9c9c5914c6fac7b90c97"
 INCLUDE = "#include <LibIPC/FireflyBootstrap.h>\n"
 METHOD = "\n    [NotRouted] firefly_connect_byte_channel(IPC::TransportHandle handle, u64 high, u64 low) =|\n"

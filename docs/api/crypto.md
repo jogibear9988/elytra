@@ -311,3 +311,48 @@ See [the HMAC/equality design](../architecture/0071-native-hmac-and-byte-compari
 HMAC/equality exports are included in [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 at `19ad113`, whose native macOS/Linux/Windows Release CLI suites all pass.
 Alpha 1 predates these exports; later changes need their own platform acceptance.
+
+## X509Certificate: canonical certificate data
+
+`new X509Certificate(pemOrDer)` parses real certificate data with OpenSSL.
+Supported inputs are strings and exact ArrayBuffer/typed-array/DataView byte ranges,
+with a 1 MiB input bound. `toString()` and `toJSON()` return canonical PEM;
+`raw` returns an independent Buffer of DER bytes. Mutating input or a returned raw
+buffer does not change the stored certificate. Invalid certificates fail parsing.
+
+This initial subset serves Code-OSS certificate normalization. Subject/issuer,
+identity matching, trust/signature verification, public-key export and other X509
+fields/operations remain explicitly unsupported. Parsing alone does not establish
+trust or HTTPS verification; the existing TLS trust path remains separate.
+The focused Node/Mite fixture passes PEM/DER canonicalization, exact view ranges,
+JSON, storage ownership, invalid data and Mite-specific bounds/receiver checks on
+the current macOS native build. Fresh Linux/Windows X509 acceptance remains pending.
+
+## Public P-256 keys and synchronous signature verification
+
+`createPublicKey({ key: jwk, format: 'jwk' })` accepts public EC/P-256 JWKs with
+canonical 32-byte base64url x/y coordinates. OpenSSL validates the actual curve
+point and retains an independent public SPKI snapshot. The returned key exposes
+`type: 'public'`, `asymmetricKeyType: 'ec'` and
+`asymmetricKeyDetails.namedCurve: 'prime256v1'`.
+
+`verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature)` performs
+real synchronous OpenSSL ES256 verification. Data accepts UTF-8 strings or byte
+views, limited to 1 MiB. Signatures are 64-byte P1363 r/s values; wrong signatures,
+wrong keys and altered messages return false. The focused macOS Mite vector fixture
+also covers invalid curve points, DataView offsets and JWK mutation isolation.
+
+Other curves/formats/digests, private keys, signing, asynchronous verification,
+key export/equality and additional options explicitly reject. This is a partial
+KeyObject/verify API; fresh native Linux/Windows acceptance remains open.
+
+## getHashes()
+
+Return a fresh sorted array of unique digest names/aliases that the current
+OpenSSL provider can actually initialize through Mite's `createHash` backend.
+Arguments are ignored, matching Node. Mutating one result does not affect later
+queries. Provider/build configuration determines the names; unavailable legacy
+algorithms are excluded. Native enumeration is limited to 1024 names, 256 bytes
+per name, 64 KiB of text and 8192 visited entries, with explicit limit errors.
+The focused macOS Mite fixture initializes every advertised digest and checks
+SHA-256/384/512 vectors; fresh Linux/Windows acceptance remains open.

@@ -1,3 +1,4 @@
+#include "native/platform/GCIncludes.h"
 /** Actual public factory -> exact native Host -> OS Provider, without a desktop application. */
 #include "core/EventLoop.h"
 #include "core/Runtime.h"
@@ -19,6 +20,26 @@ int main(int argc, char** argv)
     auto receiver = std::make_unique<QObject>();
     std::shared_ptr<Firefly::PowerMonitor::Controller> controller;
     GC::Root<JS::FunctionObject> handler;
+
+    struct HandlerCapture : Mite::NativeCaptureOwner<HandlerCapture> {
+        explicit HandlerCapture(GC::Root<JS::FunctionObject>& value)
+            : handler(value)
+        {
+        }
+
+        ~HandlerCapture()
+        {
+            revoke_native_captures();
+        }
+
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(handler.ptr());
+        }
+
+        GC::Root<JS::FunctionObject>& handler;
+    } captured { handler };
+
     JS::VM* owner = nullptr;
     Mite::EventLoop* loop = nullptr;
     std::function<void(std::string)> deliver;
@@ -46,15 +67,16 @@ int main(int argc, char** argv)
         loop = &jobs;
         GC::Root native { JS::Object::create(realm, nullptr) };
         controller = Firefly::PowerMonitor::install_host(realm, *native, *receiver, deliver);
-        native->define_native_function(
-            realm, "setHandler"_utf16,
-            [&](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_function())
-                    return vm.throw_completion<JS::TypeError>(
-                        "Power probe handler must be callable"_utf16);
-                handler = vm.argument(0).as_function();
-                return JS::js_undefined();
-            },
+        native->define_native_function(realm, "setHandler"_utf16,
+            GC::create_function(realm.heap(), GC::captures(Mite::native_reference(captured)),
+                [](auto& captured, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& handler = captured.get().handler;
+                    if (!vm.argument(0).is_function())
+                        return vm.throw_completion<JS::TypeError>(
+                            "Power probe handler must be callable"_utf16);
+                    handler = vm.argument(0).as_function();
+                    return JS::js_undefined();
+                }),
             1, JS::default_attributes);
         native->define_native_function(
             realm, "collect"_utf16,

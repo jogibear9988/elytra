@@ -8,3 +8,5 @@ ErrorOr<void> check_bridge_wire(JS::VM&, JS::Realm&, JS::Realm&);
 ErrorOr<void> check_binary_wire(JS::VM&, JS::Realm&, JS::Realm&);
 
 ErrorOr<void> check_binary_views(JS::VM&, JS::Realm&, JS::Realm&);
+
+ErrorOr<void> check_large_bridge_catalog(JS::VM&, JS::Realm&, JS::Realm&, char const* filename);

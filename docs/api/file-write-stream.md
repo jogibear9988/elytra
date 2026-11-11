@@ -74,9 +74,13 @@ this is not protection against another caller explicitly closing/reusing that fd
 
 A pre-aborted path stream deliberately does not open/create/truncate the target.
 Node may leave an empty file from an already submitted open; Mite chooses absence
-of that side effect. This is an intentional compatibility difference. Later abort
-can leave partial output and does not roll back filesystem changes. The focused gate accepts the documented pre-aborted difference; exact arbitrary
-late-abort timing/bytes are not a general Node compatibility guarantee.
+of that side effect. Its open may finish before or after the close event, so the
+close-time file-existence observation can differ too. The focused gate permits
+only Node’s boolean timing variation, requires Mite to perform no open, and
+compares all other events and file contents exactly. This is an intentional
+compatibility difference. Later abort can leave partial output and does not roll
+back filesystem changes. Exact arbitrary late-abort timing/bytes are not a
+general Node compatibility guarantee.
 
 The runner compares actual Node/Mite event observations and resulting file bytes,
 including UTF-8, flags/start, numeric/handle ownership, manual-handle closure,

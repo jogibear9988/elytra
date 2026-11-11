@@ -4,6 +4,7 @@
  */
 
 #include "platform/text/URL.h"
+#include "core/GCCaptures.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/TypedArray.h>
@@ -72,122 +73,123 @@ namespace {
 GC::Ref<JS::Object> create_url_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
-    host->define_native_function(
-        realm, "parse"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(argument(vm, 0));
-            Optional<URL::URL> base;
-            if (!vm.argument(1).is_undefined()) {
-                auto value = TRY(argument(vm, 1));
-                base = URL::Parser::basic_parse(value.utf16_view());
-                if (!base.has_value())
+    host->define_native_function(realm, "parse"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(argument(vm, 0));
+                Optional<URL::URL> base;
+                if (!vm.argument(1).is_undefined()) {
+                    auto value = TRY(argument(vm, 1));
+                    base = URL::Parser::basic_parse(value.utf16_view());
+                    if (!base.has_value())
+                        return JS::js_null();
+                }
+
+                auto parsed = URL::Parser::basic_parse(input.utf16_view(),
+                    base.has_value() ? Optional<URL::URL const&>(*base)
+                                     : Optional<URL::URL const&> {});
+                if (!parsed.has_value())
                     return JS::js_null();
-            }
-
-            auto parsed = URL::Parser::basic_parse(input.utf16_view(),
-                base.has_value() ? Optional<URL::URL const&>(*base) : Optional<URL::URL const&> {});
-            if (!parsed.has_value())
-                return JS::js_null();
-            return JS::Value(record(realm, *parsed));
-        },
+                return JS::Value(record(realm, *parsed));
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "update"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto href = TRY(argument(vm, 0));
-            auto parsed = URL::Parser::basic_parse(href.utf16_view());
-            VERIFY(parsed.has_value());
-            auto key = TRY(argument(vm, 1));
-            auto value = TRY(argument(vm, 2));
-            auto input = value.utf16_view();
-            auto& url = *parsed;
-            if (key == "protocol"_utf16) {
-                auto protocol = Utf16String::formatted("{}:", input);
-                URL::Parser::basic_parse(
-                    protocol.utf16_view(), url, URL::Parser::State::SchemeStart);
-            } else if (key == "username"_utf16) {
-                if (!url.cannot_have_a_username_or_password_or_port())
-                    url.set_username(input);
-            } else if (key == "password"_utf16) {
-                if (!url.cannot_have_a_username_or_password_or_port())
-                    url.set_password(input);
-            } else if (key == "host"_utf16 || key == "hostname"_utf16) {
-                if (!url.has_an_opaque_path())
-                    URL::Parser::basic_parse(input, url,
-                        key == "host"_utf16 ? URL::Parser::State::Host
-                                            : URL::Parser::State::Hostname);
-            } else if (key == "port"_utf16) {
-                if (!url.cannot_have_a_username_or_password_or_port()) {
+    host->define_native_function(realm, "update"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto href = TRY(argument(vm, 0));
+                auto parsed = URL::Parser::basic_parse(href.utf16_view());
+                VERIFY(parsed.has_value());
+                auto key = TRY(argument(vm, 1));
+                auto value = TRY(argument(vm, 2));
+                auto input = value.utf16_view();
+                auto& url = *parsed;
+                if (key == "protocol"_utf16) {
+                    auto protocol = Utf16String::formatted("{}:", input);
+                    URL::Parser::basic_parse(
+                        protocol.utf16_view(), url, URL::Parser::State::SchemeStart);
+                } else if (key == "username"_utf16) {
+                    if (!url.cannot_have_a_username_or_password_or_port())
+                        url.set_username(input);
+                } else if (key == "password"_utf16) {
+                    if (!url.cannot_have_a_username_or_password_or_port())
+                        url.set_password(input);
+                } else if (key == "host"_utf16 || key == "hostname"_utf16) {
+                    if (!url.has_an_opaque_path())
+                        URL::Parser::basic_parse(input, url,
+                            key == "host"_utf16 ? URL::Parser::State::Host
+                                                : URL::Parser::State::Hostname);
+                } else if (key == "port"_utf16) {
+                    if (!url.cannot_have_a_username_or_password_or_port()) {
+                        if (input.is_empty())
+                            url.set_port({});
+                        else
+                            URL::Parser::basic_parse(input, url, URL::Parser::State::Port);
+                    }
+                } else if (key == "pathname"_utf16) {
+                    if (!url.has_an_opaque_path()) {
+                        url.set_path({});
+                        URL::Parser::basic_parse(input, url, URL::Parser::State::PathStart);
+                    }
+                } else if (key == "search"_utf16) {
                     if (input.is_empty())
-                        url.set_port({});
-                    else
-                        URL::Parser::basic_parse(input, url, URL::Parser::State::Port);
-                }
-            } else if (key == "pathname"_utf16) {
-                if (!url.has_an_opaque_path()) {
-                    url.set_path({});
-                    URL::Parser::basic_parse(input, url, URL::Parser::State::PathStart);
-                }
-            } else if (key == "search"_utf16) {
-                if (input.is_empty())
-                    url.set_query({});
-                else {
-                    if (input.starts_with("?"_utf16))
-                        input = input.substring_view(1);
-                    url.set_query(""sv);
-                    URL::Parser::basic_parse(input, url, URL::Parser::State::Query);
+                        url.set_query({});
+                    else {
+                        if (input.starts_with("?"_utf16))
+                            input = input.substring_view(1);
+                        url.set_query(""sv);
+                        URL::Parser::basic_parse(input, url, URL::Parser::State::Query);
+                    }
+
+                    strip_opaque_spaces(url);
+                } else if (key == "hash"_utf16) {
+                    if (input.is_empty())
+                        url.set_fragment({});
+                    else {
+                        if (input.starts_with("#"_utf16))
+                            input = input.substring_view(1);
+                        url.set_fragment(""sv);
+                        URL::Parser::basic_parse(input, url, URL::Parser::State::Fragment);
+                    }
+
+                    strip_opaque_spaces(url);
                 }
 
-                strip_opaque_spaces(url);
-            } else if (key == "hash"_utf16) {
-                if (input.is_empty())
-                    url.set_fragment({});
-                else {
-                    if (input.starts_with("#"_utf16))
-                        input = input.substring_view(1);
-                    url.set_fragment(""sv);
-                    URL::Parser::basic_parse(input, url, URL::Parser::State::Fragment);
-                }
-
-                strip_opaque_spaces(url);
-            }
-
-            return JS::Value(record(realm, url));
-        },
+                return JS::Value(record(realm, url));
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "decodeForm"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(argument(vm, 0));
-            auto utf8 = MUST(input.utf16_view().to_utf8());
-            struct Pair {
-                Utf16String name, value;
-            };
+    host->define_native_function(realm, "decodeForm"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(argument(vm, 0));
+                auto utf8 = MUST(input.utf16_view().to_utf8());
+                struct Pair {
+                    Utf16String name, value;
+                };
 
-            Vector<Pair> pairs;
-            URL::FFI::rust_url_form_urlencoded_parse(
-                { reinterpret_cast<u8 const*>(
-                      utf8.bytes_as_string_view().characters_without_null_termination()),
-                    utf8.bytes_as_string_view().length() },
-                &pairs,
-                [](void* context, URL::FFI::RustUrlByteSlice name,
-                    URL::FFI::RustUrlByteSlice value) {
-                    static_cast<Vector<Pair>*>(context)->append(
-                        { Utf16String::from_utf8(
-                              { reinterpret_cast<char const*>(name.data), name.length }),
-                            Utf16String::from_utf8(
-                                { reinterpret_cast<char const*>(value.data), value.length }) });
-                });
-            GC::RootVector<JS::Value> result;
-            for (auto const& pair : pairs) {
-                GC::RootVector<JS::Value> fields;
-                fields.append(JS::PrimitiveString::create(vm, pair.name));
-                fields.append(JS::PrimitiveString::create(vm, pair.value));
-                result.append(JS::Array::create_from(realm, fields));
-            }
+                Vector<Pair> pairs;
+                URL::FFI::rust_url_form_urlencoded_parse(
+                    { reinterpret_cast<u8 const*>(
+                          utf8.bytes_as_string_view().characters_without_null_termination()),
+                        utf8.bytes_as_string_view().length() },
+                    &pairs,
+                    [](void* context, URL::FFI::RustUrlByteSlice name,
+                        URL::FFI::RustUrlByteSlice value) {
+                        static_cast<Vector<Pair>*>(context)->append(
+                            { Utf16String::from_utf8(
+                                  { reinterpret_cast<char const*>(name.data), name.length }),
+                                Utf16String::from_utf8(
+                                    { reinterpret_cast<char const*>(value.data), value.length }) });
+                    });
+                GC::RootVector<JS::Value> result;
+                for (auto const& pair : pairs) {
+                    GC::RootVector<JS::Value> fields;
+                    fields.append(JS::PrimitiveString::create(vm, pair.name));
+                    fields.append(JS::PrimitiveString::create(vm, pair.value));
+                    result.append(JS::Array::create_from(realm, fields));
+                }
 
-            return JS::Value(JS::Array::create_from(realm, result));
-        },
+                return JS::Value(JS::Array::create_from(realm, result));
+            }),
         1, JS::default_attributes);
     host->define_native_function(
         realm, "encodeForm"_utf16,
@@ -218,17 +220,18 @@ GC::Ref<JS::Object> create_url_host(JS::Realm& realm)
             return text(vm, output);
         },
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "decodePath"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(argument(vm, 0));
-            auto encoded = MUST(input.utf16_view().to_utf8());
-            auto decoded = URL::percent_decode(encoded);
-            auto array = TRY(JS::Uint8Array::create(realm, decoded.length()));
-            if (!decoded.is_empty())
-                array->viewed_array_buffer()->overwrite(0, decoded.characters(), decoded.length());
-            return JS::Value(array);
-        },
+    host->define_native_function(realm, "decodePath"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(argument(vm, 0));
+                auto encoded = MUST(input.utf16_view().to_utf8());
+                auto decoded = URL::percent_decode(encoded);
+                auto array = TRY(JS::Uint8Array::create(realm, decoded.length()));
+                if (!decoded.is_empty())
+                    array->viewed_array_buffer()->overwrite(
+                        0, decoded.characters(), decoded.length());
+                return JS::Value(array);
+            }),
         1, JS::default_attributes);
     host->define_native_function(
         realm, "asciiHost"_utf16,

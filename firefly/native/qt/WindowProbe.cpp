@@ -1,5 +1,7 @@
 /** Drive a real Ladybird Qt view for native input, painting, navigation and renderer-loss
  * acceptance. */
+#include "hub/Frontend.h"
+#include "hub/Host.h"
 #include <LibCore/ArgsParser.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Promise.h>
@@ -22,12 +24,59 @@
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
 namespace Firefly {
-class WindowApplication final : public WebView::Application {
-    WEB_VIEW_APPLICATION(WindowApplication)
+class WindowApplication final {
+    AK_ALLOC_WITH_KMALLOC;
+
 public:
-    WindowApplication()
-        : WebView::Application(ByteString(FIREFLY_LADYBIRD_DIRECTORY))
+    static ErrorOr<OwnPtr<WindowApplication>> create(Main::Arguments arguments)
     {
+        auto application = make<WindowApplication>();
+        application->m_arguments.append(arguments.strings.first());
+        application->m_arguments.append("--disable-sql-database"sv);
+        application->m_arguments.append("--disable-content-blocker"sv);
+        for (size_t index = 1; index < arguments.strings.size(); ++index) {
+            auto argument = arguments.strings[index];
+            if (argument == "--probe-self-test"sv) {
+                application->m_self_test = true;
+                continue;
+            }
+
+            if (argument == "--probe-capture"sv) {
+                if (++index == arguments.strings.size())
+                    return Error::from_string_literal("Missing owned probe argument");
+                application->m_capture = ByteString(arguments.strings[index]);
+                continue;
+            }
+
+            if (argument.starts_with("--probe-capture="sv)) {
+                application->m_capture = ByteString(argument.substring_view(16));
+                continue;
+            }
+
+            application->m_arguments.append(argument);
+        }
+
+        application->m_argc = arguments.argc;
+        application->m_qt = make<QApplication>(application->m_argc, arguments.argv);
+
+        Core::EventLoopManager::install(*new Ladybird::EventLoopManagerQt);
+        application->m_loop = &Core::EventLoop::initialize_for_current_thread();
+        static_cast<Ladybird::EventLoopImplementationQt&>(application->m_loop->impl())
+            .set_main_loop();
+        QObject::connect(application->m_qt.ptr(), &QApplication::lastWindowClosed,
+            application->m_qt.ptr(), [owner = application.ptr()] {
+                owner->m_loop->quit(owner->m_self_test && !owner->m_passed ? 1 : 0);
+            });
+        application->m_hub = make<HubHost>(
+            *application->m_loop, ByteString(FIREFLY_LADYBIRD_DIRECTORY),
+            [] { HubFrontend::initialize(); },
+            [] {
+                // run_window's stack-owned widgets retire before this owner.
+                HubFrontend::shutdown();
+            });
+        arguments.strings = application->m_arguments.span();
+        TRY(application->m_hub->initialize(arguments));
+        return application;
     }
 
     ErrorOr<int> run_window()
@@ -77,7 +126,14 @@ public:
                     QCoreApplication::sendEvent(view, &press);
                     QCoreApplication::sendEvent(view, &release);
                     QTimer::singleShot(1000, &window, [&] {
-                        view->request_internal_page_info(WebView::PageInfoType::Text)
+                        if (!HubFrontend::canonical_view(*view).has_value()) {
+                            warnln("Native Hub view retired before input result query");
+                            m_loop->quit(1);
+                            return;
+                        }
+
+                        HubFrontend::canonical_view(*view)
+                            ->request_internal_page_info(WebView::PageInfoType::Text)
                             ->when_resolved([&](auto const& text) {
                                 if (!text.contains("CLICK_OK"sv) || !text.contains("KEY_OK"sv)
                                     || !text.contains("RESIZE_OK"sv)) {
@@ -140,7 +196,14 @@ public:
                 });
             } else if (stage == 2) {
                 stage = 3;
-                view->request_internal_page_info(WebView::PageInfoType::Text)
+                if (!HubFrontend::canonical_view(*view).has_value()) {
+                    warnln("Native Hub view retired before navigation result query");
+                    m_loop->quit(1);
+                    return;
+                }
+
+                HubFrontend::canonical_view(*view)
+                    ->request_internal_page_info(WebView::PageInfoType::Text)
                     ->when_resolved([&](auto const& text) {
                         if (!text.contains("NEXT_NAVIGATION_OK"sv)) {
                             warnln("Navigation failed: {}", text);
@@ -170,40 +233,19 @@ public:
     }
 
 private:
-    void create_platform_arguments(Core::ArgsParser& parser) override
+    static WebView::BrowserOptions const& browser_options()
     {
-        parser.add_option(m_self_test, "Exercise the native fixture", "probe-self-test");
-        parser.add_option(m_capture, "Capture the native window", "probe-capture", 0, "path");
-    }
-
-    void create_platform_options(WebView::BrowserOptions& browser, WebView::RequestServerOptions&,
-        WebView::WebContentOptions&) override
-    {
-        browser.disable_sql_database = WebView::DisableSQLDatabase::Yes;
-        browser.enable_content_blocker = WebView::EnableContentBlocker::No;
-    }
-
-    bool should_coordinate_browser_process() const override
-    {
-        return false;
-    }
-
-    Core::EventLoop& create_platform_event_loop() override
-    {
-        m_qt = make<QApplication>(arguments().argc, arguments().argv);
-        Core::EventLoopManager::install(*new Ladybird::EventLoopManagerQt);
-        m_loop = &Core::EventLoop::initialize_for_current_thread();
-        static_cast<Ladybird::EventLoopImplementationQt&>(m_loop->impl()).set_main_loop();
-        QObject::connect(m_qt.ptr(), &QApplication::lastWindowClosed, m_qt.ptr(),
-            [&] { m_loop->quit(m_self_test && !m_passed ? 1 : 0); });
-        return *m_loop;
+        return WebView::Application::browser_options();
     }
 
     bool m_self_test { false };
     bool m_passed { false };
     ByteString m_capture;
+    int m_argc {}; // QApplication borrows this until its own destruction.
     OwnPtr<QApplication> m_qt;
     Core::EventLoop* m_loop { nullptr };
+    Vector<StringView> m_arguments;
+    OwnPtr<HubHost> m_hub;
 };
 }
 

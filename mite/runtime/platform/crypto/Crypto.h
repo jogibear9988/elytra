@@ -11,6 +11,7 @@ class EventLoop;
 GC::Ref<JS::Object> create_hmac_host(JS::Realm&);
 
 GC::Ref<JS::Object> create_hash_host(JS::Realm&);
+GC::Ref<JS::Object> create_x509_host(JS::Realm&);
 
 GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm&, EventLoop&);
 }

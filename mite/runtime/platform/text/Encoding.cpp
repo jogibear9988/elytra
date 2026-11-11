@@ -5,6 +5,7 @@
  */
 
 #include "platform/text/Encoding.h"
+#include "core/GCCaptures.h"
 #include <AK/UnicodeUtils.h>
 #include <AK/Utf16StringBuilder.h>
 #include <LibGC/CellAllocator.h>
@@ -161,16 +162,17 @@ namespace {
 GC::Ref<JS::Object> create_encoding_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
-    host->define_native_function(
-        realm, "byteView"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(buffer_source(vm, vm.argument(0)));
-            if (!input.length)
-                return JS::Value(TRY(JS::Uint8Array::create(realm, 0)));
-            return JS::Value(JS::TypedArrayBase::create_from_slots(realm,
-                JS::TypedArrayBase::Kind::Uint8Array, *input.buffer,
-                JS::ByteLength { input.length }, JS::ByteLength { input.length }, input.offset));
-        },
+    host->define_native_function(realm, "byteView"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(buffer_source(vm, vm.argument(0)));
+                if (!input.length)
+                    return JS::Value(TRY(JS::Uint8Array::create(realm, 0)));
+                return JS::Value(JS::TypedArrayBase::create_from_slots(realm,
+                    JS::TypedArrayBase::Kind::Uint8Array, *input.buffer,
+                    JS::ByteLength { input.length }, JS::ByteLength { input.length },
+                    input.offset));
+            }),
         1, JS::default_attributes);
     host->define_native_function(
         realm, "standardize"_utf16,
@@ -189,100 +191,104 @@ GC::Ref<JS::Object> create_encoding_host(JS::Realm& realm)
                 vm, Utf16String::from_utf8({ reinterpret_cast<char const*>(canonical), length }));
         },
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "createDecoder"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(vm.argument(0).to_utf16_string(vm));
-            auto encoded = MUST(name.utf16_view().to_utf8());
-            auto canonical = TextCodec::get_standardized_encoding(encoded);
-            VERIFY(canonical.has_value());
-            auto state = vm.heap().allocate<DecoderState>(
-                *canonical, vm.argument(1).to_boolean(), vm.argument(2).to_boolean());
-            if (!state->valid())
-                return vm.throw_completion<JS::TypeError>("Native decoder is unavailable"_utf16);
-            return JS::NativeFunction::create(
-                realm,
-                [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                    auto input = TRY(buffer_source(vm, vm.argument(0)));
-                    auto flush = vm.argument(1).to_boolean() ? TextCodec::Flush::No
-                                                             : TextCodec::Flush::Yes;
-                    auto output = input.length
-                        ? input.buffer->with_readonly_bytes(input.offset, input.length,
-                              [&](ReadonlyBytes bytes) { return state->decode(bytes, flush); })
-                        : state->decode({}, flush);
-                    if (output.is_error()) {
-                        auto error = JS::TypeError::create(
-                            vm.realm(), "The encoded data was not valid"_utf16);
-                        error->define_direct_property("code"_utf16,
-                            JS::PrimitiveString::create(
-                                vm, "ERR_ENCODING_INVALID_ENCODED_DATA"_utf16),
-                            JS::default_attributes);
-                        return JS::throw_completion(error);
-                    }
+    host->define_native_function(realm, "createDecoder"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto name = TRY(vm.argument(0).to_utf16_string(vm));
+                auto encoded = MUST(name.utf16_view().to_utf8());
+                auto canonical = TextCodec::get_standardized_encoding(encoded);
+                VERIFY(canonical.has_value());
+                auto state = vm.heap().allocate<DecoderState>(
+                    *canonical, vm.argument(1).to_boolean(), vm.argument(2).to_boolean());
+                if (!state->valid())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Native decoder is unavailable"_utf16);
+                return JS::NativeFunction::create(realm,
+                    GC::create_function(realm.vm().heap(), GC::captures(state),
+                        [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                            auto input = TRY(buffer_source(vm, vm.argument(0)));
+                            auto flush = vm.argument(1).to_boolean() ? TextCodec::Flush::No
+                                                                     : TextCodec::Flush::Yes;
+                            auto output = input.length
+                                ? input.buffer->with_readonly_bytes(input.offset, input.length,
+                                      [&](ReadonlyBytes bytes) {
+                                          return state->decode(bytes, flush);
+                                      })
+                                : state->decode({}, flush);
+                            if (output.is_error()) {
+                                auto error = JS::TypeError::create(
+                                    vm.realm(), "The encoded data was not valid"_utf16);
+                                error->define_direct_property("code"_utf16,
+                                    JS::PrimitiveString::create(
+                                        vm, "ERR_ENCODING_INVALID_ENCODED_DATA"_utf16),
+                                    JS::default_attributes);
+                                return JS::throw_completion(error);
+                            }
 
-                    return JS::PrimitiveString::create(vm, output.release_value());
-                },
-                2, "decodeText"_utf16);
-        },
+                            return JS::PrimitiveString::create(vm, output.release_value());
+                        }),
+                    2, "decodeText"_utf16);
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "encode"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(vm.argument(0).to_utf16_string(vm));
-            auto bytes = MUST(input.utf16_view().to_utf8());
-            auto array = TRY(JS::Uint8Array::create(realm, bytes.bytes_as_string_view().length()));
-            if (!bytes.is_empty())
-                array->viewed_array_buffer()->overwrite(0,
-                    bytes.bytes_as_string_view().characters_without_null_termination(),
-                    bytes.bytes_as_string_view().length());
-            return JS::Value(array);
-        },
+    host->define_native_function(realm, "encode"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(vm.argument(0).to_utf16_string(vm));
+                auto bytes = MUST(input.utf16_view().to_utf8());
+                auto array
+                    = TRY(JS::Uint8Array::create(realm, bytes.bytes_as_string_view().length()));
+                if (!bytes.is_empty())
+                    array->viewed_array_buffer()->overwrite(0,
+                        bytes.bytes_as_string_view().characters_without_null_termination(),
+                        bytes.bytes_as_string_view().length());
+                return JS::Value(array);
+            }),
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "encodeInto"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto input = TRY(vm.argument(0).to_utf16_string(vm));
-            if (!vm.argument(1).is_object()
-                || !JS::Uint8Array::is_engine_class_of(vm.argument(1).as_object()))
-                return invalid_input(vm);
-            auto destination = TRY(buffer_source(vm, vm.argument(1)));
-            size_t read = 0, written = 0;
-            auto string = input.utf16_view();
-            auto* target
-                = destination.length ? destination.buffer->data_at(destination.offset) : nullptr;
-            while (read < string.length_in_code_units()) {
-                u32 point = string.code_unit_at(read);
-                size_t units = 1;
-                if (point >= 0xd800 && point <= 0xdbff) {
-                    if (read + 1 < string.length_in_code_units()) {
-                        u32 next = string.code_unit_at(read + 1);
-                        if (next >= 0xdc00 && next <= 0xdfff) {
-                            point = 0x10000 + ((point - 0xd800) << 10) + next - 0xdc00;
-                            units = 2;
+    host->define_native_function(realm, "encodeInto"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto input = TRY(vm.argument(0).to_utf16_string(vm));
+                if (!vm.argument(1).is_object()
+                    || !JS::Uint8Array::is_engine_class_of(vm.argument(1).as_object()))
+                    return invalid_input(vm);
+                auto destination = TRY(buffer_source(vm, vm.argument(1)));
+                size_t read = 0, written = 0;
+                auto string = input.utf16_view();
+                auto* target = destination.length ? destination.buffer->data_at(destination.offset)
+                                                  : nullptr;
+                while (read < string.length_in_code_units()) {
+                    u32 point = string.code_unit_at(read);
+                    size_t units = 1;
+                    if (point >= 0xd800 && point <= 0xdbff) {
+                        if (read + 1 < string.length_in_code_units()) {
+                            u32 next = string.code_unit_at(read + 1);
+                            if (next >= 0xdc00 && next <= 0xdfff) {
+                                point = 0x10000 + ((point - 0xd800) << 10) + next - 0xdc00;
+                                units = 2;
+                            } else
+                                point = 0xfffd;
                         } else
                             point = 0xfffd;
-                    } else
+                    } else if (point >= 0xdc00 && point <= 0xdfff)
                         point = 0xfffd;
-                } else if (point >= 0xdc00 && point <= 0xdfff)
-                    point = 0xfffd;
-                u8 bytes[4];
-                size_t count = 0;
-                (void)AK::UnicodeUtils::code_point_to_utf8(
-                    point, [&](char value) { bytes[count++] = static_cast<u8>(value); });
-                if (count > destination.length - written)
-                    break;
-                memcpy(target + written, bytes, count);
-                read += units;
-                written += count;
-            }
+                    u8 bytes[4];
+                    size_t count = 0;
+                    (void)AK::UnicodeUtils::code_point_to_utf8(
+                        point, [&](char value) { bytes[count++] = static_cast<u8>(value); });
+                    if (count > destination.length - written)
+                        break;
+                    memcpy(target + written, bytes, count);
+                    read += units;
+                    written += count;
+                }
 
-            auto result = JS::Object::create(realm, realm.intrinsics().object_prototype());
-            result->define_direct_property(
-                "read"_utf16, JS::Value(static_cast<double>(read)), JS::default_attributes);
-            result->define_direct_property(
-                "written"_utf16, JS::Value(static_cast<double>(written)), JS::default_attributes);
-            return JS::Value(result);
-        },
+                auto result = JS::Object::create(realm, realm.intrinsics().object_prototype());
+                result->define_direct_property(
+                    "read"_utf16, JS::Value(static_cast<double>(read)), JS::default_attributes);
+                result->define_direct_property("written"_utf16,
+                    JS::Value(static_cast<double>(written)), JS::default_attributes);
+                return JS::Value(result);
+            }),
         2, JS::default_attributes);
     return host;
 }

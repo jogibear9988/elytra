@@ -24,8 +24,8 @@ void Bridge::Impl::initialize_protocols()
             if (stopping)
                 return false;
             for (auto const& [id, state] : windows)
-                if (!state.closing && state.view->has_traversable()
-                    && state.view->traversable().id() == root)
+                if (!state.closing && state.native_view() && state.native_view()->has_traversable()
+                    && state.native_view()->traversable().id() == root)
                     return true;
             return false;
         },
@@ -37,11 +37,13 @@ void Bridge::Impl::initialize_protocols()
         },
         [this](auto root, auto const& navigation, auto const& url) {
             for (auto& [id, state] : windows) {
-                if (state.closing || !state.pending || !state.view->has_traversable()
-                    || state.view->traversable().id() != root || !state.requested_url.has_value()
+                if (state.closing || !state.pending || !state.native_view()
+                    || !state.native_view()->has_traversable()
+                    || state.native_view()->traversable().id() != root
+                    || !state.requested_url.has_value()
                     || !state.requested_url->equals(url, URL::ExcludeFragment::Yes))
                     continue;
-                auto current = state.view->traversable().ongoing_navigation_id();
+                auto current = state.native_view()->traversable().ongoing_navigation_id();
                 if (current.has_value() && *current != navigation)
                     continue;
                 state.pending = false;
@@ -53,9 +55,10 @@ void Bridge::Impl::initialize_protocols()
             if (stopping || !Protocols::apply_file_policy(generation, active))
                 return;
             for (auto& [id, state] : windows) {
-                if (state.closing || !state.view->has_traversable())
+                if (state.closing || !state.native_view()
+                    || !state.native_view()->has_traversable())
                     continue;
-                state.view->traversable().for_each_hosting_page([&](auto& page) {
+                state.native_view()->traversable().for_each_hosting_page([&](auto& page) {
                     send_file_policy(page);
                     if (active) {
                         auto refreshed = protocols->refresh_document(page);

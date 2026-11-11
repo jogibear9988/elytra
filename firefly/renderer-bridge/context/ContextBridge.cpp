@@ -4,10 +4,12 @@
  */
 
 #include "context/ContextBridge.h"
+#include "context/Boundary.h"
 #include "context/CallbackBridge.h"
 #include "context/Snapshot.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
+#include <LibGC/Function.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
@@ -70,19 +72,87 @@ size_t ContextBridge::callback_proxy_count()
     return m_callbacks ? m_callbacks->proxy_count() : 0;
 }
 
+// Reuse exact function/parent capabilities, not a caller-selected receiver. A
+// weak target cache avoids keeping unreachable principal proxies alive forever.
+ErrorOr<size_t> ContextBridge::export_function(JS::FunctionObject& function, JS::Object* receiver,
+    Vector<NonnullRefPtr<FunctionBridge>>& pending, GC::RootVector<JS::Value>& functions)
+{
+    auto append_existing = [&](auto const& owners) -> Optional<size_t> {
+        for (auto const& owner : owners) {
+            if (auto* proxy = owner->matching_proxy(function, receiver)) {
+                auto index = functions.size();
+                functions.append(JS::Value(proxy));
+                return index;
+            }
+        }
+
+        return {};
+    };
+
+    if (auto found = append_existing(m_functions); found.has_value())
+        return *found;
+    if (auto found = append_existing(pending); found.has_value())
+        return *found;
+    if (m_functions.size() + pending.size() >= 64)
+        return Error::from_string_literal("Bridge function budget exceeded");
+    auto exported = TRY(
+        FunctionBridge::create(*m_source, function, *m_document, m_callbacks, receiver, this));
+    auto index = functions.size();
+    pending.append(exported.owner);
+    functions.append(exported.function);
+    return index;
+}
+
+ErrorOr<JS::Value> ContextBridge::copy_result(JS::Value value, bool promise_result)
+{
+    if (m_revoked || m_publishing || !m_source || m_source->is_detached()
+        || !m_document->is_fully_active())
+        return Error::from_string_literal("Bridge result belongs to a revoked document");
+    NonnullRefPtr protect { *this };
+    auto source = m_source;
+    GC::Root document { *m_document };
+    Vector<NonnullRefPtr<FunctionBridge>> pending;
+    GC::RootVector<JS::Value> functions;
+    bool committed = false;
+    ScopeGuard rollback([&] {
+        if (!committed)
+            for (auto& owner : pending)
+                owner->revoke();
+    });
+    // Unlike initial publication, results never execute application accessors.
+    auto snapshot = TRY(capture_to_principal(
+        *source, value, [&](JS::FunctionObject& function, JS::Object* receiver) -> ErrorOr<size_t> {
+            return export_function(function, receiver, pending, functions);
+        }));
+    // Electron freezes the initially published API, not snapshots returned by
+    // proxied calls (including Promise fulfillment). Destination mutations stay
+    // isolated because materialization creates independent ordinary containers.
+    auto result = snapshot.materialize(
+        document->window()->principal_realm(),
+        [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> { return functions[index]; },
+        BridgeData::Materialization::Mutable);
+    if (result.is_error() || (promise_result && !Boundary::resolve_safe(result.value()))
+        || m_revoked || source->is_detached() || !document->is_fully_active())
+        return Error::from_string_literal("Cannot publish bridge result");
+    for (auto& owner : pending)
+        m_functions.append(move(owner));
+    committed = true;
+    return result.release_value();
+}
+
 GC::Ref<JS::Object> ContextBridge::exports()
 {
     VERIFY(!m_revoked && !m_source->is_detached());
     auto& realm = *m_source->realm();
     GC::Root object { JS::Object::create(realm, nullptr) };
-    auto function = JS::NativeFunction::create(
-        realm,
-        [weak = make_weak_ptr()](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto owner = weak.strong_ref();
-            if (!owner)
-                return vm.throw_completion<JS::TypeError>("Context bridge is revoked"sv);
-            return owner->expose(vm);
-        },
+    auto function = JS::NativeFunction::create(realm,
+        GC::create_function((realm).vm().heap(), GC::captures(make_weak_ptr()),
+            [](auto& weak, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto owner = weak.strong_ref();
+                if (!owner)
+                    return vm.throw_completion<JS::TypeError>("Context bridge is revoked"_utf16);
+                return owner->expose(vm);
+            }),
         2, "exposeInMainWorld"_utf16, GC::Ptr<JS::Realm> { realm });
     object->define_direct_property("exposeInMainWorld"_utf16, function, {});
     VERIFY(MUST(object->set_integrity_level(JS::Object::IntegrityLevel::Frozen)));
@@ -95,7 +165,7 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
         || !m_source->is_executing() || !m_document->is_fully_active()
         || vm.current_realm() != m_source->realm())
         return vm.throw_completion<JS::TypeError>(
-            "Context bridge is revoked or called from another realm"sv);
+            "Context bridge is revoked or called from another realm"_utf16);
     // Native function [[Realm]] is selected even when a foreign script calls
     // it. Require the first actual script/owner frame, through call/apply, to
     // belong to the source as well. An active source alone is not authority
@@ -108,10 +178,11 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
         return false;
     });
     if (!caller_is_source)
-        return vm.throw_completion<JS::TypeError>("Bridge publication requires a source caller"sv);
+        return vm.throw_completion<JS::TypeError>(
+            "Bridge publication requires a source caller"_utf16);
     if (!vm.argument(0).is_string() || !vm.argument(0).as_string().length_in_utf16_code_units()
         || vm.argument(0).as_string().length_in_utf16_code_units() > 256 || m_publications >= 64)
-        return vm.throw_completion<JS::TypeError>("Invalid or excessive bridge namespace"sv);
+        return vm.throw_completion<JS::TypeError>("Invalid or excessive bridge namespace"_utf16);
     NonnullRefPtr source { *m_source };
     GC::Root document { *m_document };
     GC::Root source_realm { *source->realm() };
@@ -123,9 +194,9 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
     auto& global = target.global_object();
     auto existing = global.internal_get_own_property(key);
     if (existing.is_error())
-        return vm.throw_completion<JS::TypeError>("Cannot inspect bridge namespace"sv);
+        return vm.throw_completion<JS::TypeError>("Cannot inspect bridge namespace"_utf16);
     if (existing.value().has_value())
-        return vm.throw_completion<JS::TypeError>("Bridge namespace already exists"sv);
+        return vm.throw_completion<JS::TypeError>("Bridge namespace already exists"_utf16);
 
     Vector<NonnullRefPtr<FunctionBridge>> pending;
     GC::RootVector<JS::Value> functions;
@@ -141,14 +212,10 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
     size_t getter_calls = 0;
     auto snapshot = capture_to_principal(
         *source, vm.argument(1),
-        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
-            if (!active() || m_functions.size() + pending.size() >= 64)
-                return Error::from_string_literal("Bridge function budget exceeded");
-            auto exported = TRY(FunctionBridge::create(*source, function, *document, callbacks));
-            size_t id = functions.size();
-            pending.append(exported.owner);
-            functions.append(exported.function);
-            return id;
+        [&](JS::FunctionObject& function, JS::Object* receiver) -> ErrorOr<size_t> {
+            if (!active())
+                return Error::from_string_literal("Bridge publication revoked");
+            return export_function(function, receiver, pending, functions);
         },
         [&](JS::Object& receiver, JS::FunctionObject& getter) -> ErrorOr<JS::Value> {
             auto id = getter.engine_class_id();
@@ -166,12 +233,13 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
             return value.release_value();
         });
     if (snapshot.is_error() || !active())
-        return vm.throw_completion<JS::TypeError>("Unsupported or excessive bridge API"sv);
+        return vm.throw_completion<JS::TypeError>("Unsupported or excessive bridge API"_utf16);
     // Getter side effects can create a principal property while capture runs.
     // Never overwrite a namespace that appeared after the initial check.
     auto collision = global.internal_get_own_property(key);
     if (collision.is_error() || collision.value().has_value())
-        return vm.throw_completion<JS::TypeError>("Bridge namespace changed during publication"sv);
+        return vm.throw_completion<JS::TypeError>(
+            "Bridge namespace changed during publication"_utf16);
     auto value = snapshot.value().materialize(
         target,
         [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
@@ -181,7 +249,7 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
         BridgeData::Materialization::FrozenContainers);
     // Do not return a principal-realm exception object to the source world.
     if (value.is_error())
-        return vm.throw_completion<JS::TypeError>("Cannot materialize bridge API"sv);
+        return vm.throw_completion<JS::TypeError>("Cannot materialize bridge API"_utf16);
     auto api = GC::Root<JS::Value>::create(value.release_value(), SourceLocation::current());
     JS::PropertyDescriptor descriptor {
         .value = api.value(), .writable = false, .enumerable = true, .configurable = false
@@ -189,7 +257,7 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
 
     auto defined = global.internal_define_own_property(key, descriptor);
     if (defined.is_error() || !defined.value())
-        return vm.throw_completion<JS::TypeError>("Cannot publish bridge API"sv);
+        return vm.throw_completion<JS::TypeError>("Cannot publish bridge API"_utf16);
     for (auto& function : pending)
         m_functions.append(move(function));
     ++m_publications;

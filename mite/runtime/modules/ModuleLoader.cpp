@@ -5,6 +5,7 @@
  */
 
 #include "modules/ModuleLoader.h"
+#include "core/GCCaptures.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModulePaths.h"
 #include "modules/ModuleSource.h"
@@ -23,6 +24,43 @@
 #include <iterator>
 
 namespace Mite {
+ModuleLoader::~ModuleLoader()
+{
+    revoke_native_captures();
+}
+
+void ModuleLoader::visit_capture_edges(GC::Cell::Visitor& visitor) const
+{
+    visitor.visit(m_realm);
+    visitor.visit(m_promise_constructor.ptr());
+    visitor.visit(m_process.ptr());
+    visitor.visit(m_commonjs_cache.ptr());
+    visitor.visit(m_filesystem_native.ptr());
+    visitor.visit(m_main_module.ptr());
+    visitor.visit(m_commonjs_bridge.ptr());
+    visitor.visit(m_commonjs_lexer.ptr());
+    visitor.visit(m_commonjs_esm_exports.ptr());
+    visitor.visit(m_builtin_bridge.ptr());
+    visitor.visit(m_host_bridge.ptr());
+    visitor.visit(m_abort_hooks.ptr());
+    visitor.visit(m_web_streams.ptr());
+    visitor.visit(m_web_stream_state.ptr());
+    visitor.visit(m_web_transport.ptr());
+    visitor.visit(m_web_crypto.ptr());
+    visitor.visit(m_http_client_hooks.ptr());
+    visitor.visit(m_tls_client_hooks.ptr());
+    visitor.visit(m_resolve_hook_dispatcher.ptr());
+    visitor.visit(m_promisify_state.ptr());
+    for (auto const& entry : m_builtins)
+        visitor.visit(entry.second.ptr());
+    for (auto const& entry : m_modules)
+        visitor.visit(entry.second.ptr());
+    for (auto const& entry : m_transport_dependencies)
+        visitor.visit(entry.second.ptr());
+    for (auto const& entry : m_host_modules)
+        visitor.visit(entry.second.exports.ptr());
+}
+
 namespace fs = std::filesystem;
 
 GC_DEFINE_ALLOCATOR(ModuleSource);
@@ -232,6 +270,12 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     // arbitrary names from the private host URL namespace.
     if (specifier == "mite:policy-watcher")
         return URL::Parser::basic_parse("mite-host:mite-policy-watcher"sv).release_value();
+    if (specifier == "mite:fs-copyfile")
+        return URL::Parser::basic_parse("mite-host:mite-fs-copyfile"sv).release_value();
+    if (specifier == "mite:sqlite")
+        return URL::Parser::basic_parse("mite-host:mite-sqlite"sv).release_value();
+    if (specifier == "mite:native-keymap")
+        return URL::Parser::basic_parse("mite-host:mite-native-keymap"sv).release_value();
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
     auto base = URL::Parser::basic_parse(view(referrer));
@@ -302,18 +346,20 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
             "Unknown module file extension: " + path_string(extension), true);
     if (extension != ".json" && !TRY(is_es_module(path))) {
         if (!m_commonjs_bridge) {
-            auto bridge = JS::NativeFunction::create(
-                m_realm,
-                [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                    if (!vm.argument(0).is_string())
-                        return error(
-                            "ERR_INVALID_ARG_TYPE", "Module filename must be a string", true);
-                    auto bytes
-                        = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                    auto name = std::u8string(
-                        reinterpret_cast<char8_t const*>(bytes.characters()), bytes.length());
-                    return commonjs_namespace_snapshot(fs::path(name), vm.argument(1));
-                },
+            auto bridge = JS::NativeFunction::create(m_realm,
+                GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+                    [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                        auto* self = &captured_self.get();
+
+                        if (!vm.argument(0).is_string())
+                            return self->error(
+                                "ERR_INVALID_ARG_TYPE", "Module filename must be a string", true);
+                        auto bytes
+                            = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                        auto name = std::u8string(
+                            reinterpret_cast<char8_t const*>(bytes.characters()), bytes.length());
+                        return self->commonjs_namespace_snapshot(fs::path(name), vm.argument(1));
+                    }),
                 2, "loadCommonJS"_utf16);
             m_commonjs_bridge = JS::SyntheticModule::create_default_export_synthetic_module(
                 m_realm, bridge, "mite:internal/cjs")
@@ -397,13 +443,13 @@ JS::ThrowCompletionOr<GC::Ref<JS::Promise>> ModuleLoader::run_entry()
     GC::Root loading { module->load_requested_modules(nullptr).promise() };
     auto result = TRY(JS::new_promise_capability(m_vm, m_promise_constructor.ptr()));
     GC::Root result_root { result };
-    auto execute = JS::NativeFunction::create(
-        m_realm,
-        [module](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            TRY(module->link(vm));
-            auto evaluation = TRY(module->evaluate(vm));
-            return evaluation->promise();
-        },
+    auto execute = JS::NativeFunction::create(m_realm,
+        GC::create_function(m_realm.vm().heap(), GC::captures(module),
+            [](auto& module, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                TRY(module->link(vm));
+                auto evaluation = TRY(module->evaluate(vm));
+                return evaluation->promise();
+            }),
         0, "evaluateEntry"_utf16);
     static_cast<JS::Promise&>(*loading).perform_then(execute, JS::js_undefined(), result);
     return static_cast<JS::Promise&>(*result->promise());
@@ -594,55 +640,65 @@ JS::Completion ModuleLoader::require_error(JS::Completion completion, JS::Object
 GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
     fs::path const& filename, GC::Ref<JS::Object> module)
 {
-    auto require = JS::NativeFunction::create(
-        m_realm,
-        [this, filename, module](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string())
-                return error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
-            auto request = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto resolved = resolve_require_hooked(string(request), filename);
-            if (resolved.is_error())
-                return require_error(resolved.release_error(), *module);
-            auto target = resolved.release_value();
-            if (!target.host.empty())
-                return m_host_modules.at(target.host).exports.ptr();
-            if (!target.builtin.empty()) {
-                if (!target.identifier.starts_with("node:")) {
-                    auto cached = TRY(
-                        m_commonjs_cache->get(Utf16String::from_utf8_with_replacement_character(
-                            view(target.identifier))));
-                    if (cached.is_object())
-                        return cached.as_object().get("exports"_utf16);
+    auto require = JS::NativeFunction::create(m_realm,
+        GC::create_function(m_realm.vm().heap(),
+            GC::captures(native_reference(*this), filename, module),
+            [](auto& captured_self, auto& filename, auto& module,
+                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                if (!vm.argument(0).is_string())
+                    return self->error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
+                auto request
+                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto resolved = self->resolve_require_hooked(string(request), filename);
+                if (resolved.is_error())
+                    return self->require_error(resolved.release_error(), *module);
+                auto target = resolved.release_value();
+                if (!target.host.empty())
+                    return self->m_host_modules.at(target.host).exports.ptr();
+                if (!target.builtin.empty()) {
+                    if (!target.identifier.starts_with("node:")) {
+                        auto cached = TRY(self->m_commonjs_cache->get(
+                            Utf16String::from_utf8_with_replacement_character(
+                                view(target.identifier))));
+                        if (cached.is_object())
+                            return cached.as_object().get("exports"_utf16);
+                    }
+
+                    return TRY(self->builtin(target.builtin));
                 }
 
-                return TRY(builtin(target.builtin));
-            }
-
-            return load_commonjs(target.path, module);
-        },
+                return self->load_commonjs(target.path, module);
+            }),
         1, "require"_utf16);
     require->define_direct_property("cache"_utf16, m_commonjs_cache.ptr(), JS::default_attributes);
     require->define_direct_property("main"_utf16,
         m_main_module ? JS::Value(m_main_module.ptr()) : JS::js_undefined(),
         JS::default_attributes);
-    require->define_native_function(
-        m_realm, "resolve"_utf16,
-        [this, filename, module](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string())
-                return error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
-            if (vm.argument_count() > 1 && !vm.argument(1).is_undefined())
-                return error(
-                    "ERR_MITE_UNSUPPORTED_API", "require.resolve options are not implemented yet");
-            auto request = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto resolved = resolve_require_hooked(string(request), filename);
-            if (resolved.is_error())
-                return require_error(resolved.release_error(), *module);
-            auto target = resolved.release_value();
-            if (!target.builtin.empty() && !known_builtin(target.builtin))
-                return error(
-                    "MODULE_NOT_FOUND", "Cannot resolve unknown builtin: " + target.builtin);
-            return js_string(vm, target.identifier);
-        },
+    require->define_native_function(m_realm, "resolve"_utf16,
+        GC::create_function(m_realm.vm().heap(),
+            GC::captures(native_reference(*this), filename, module),
+            [](auto& captured_self, auto& filename, auto& module,
+                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                if (!vm.argument(0).is_string())
+                    return self->error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
+                if (vm.argument_count() > 1 && !vm.argument(1).is_undefined())
+                    return self->error("ERR_MITE_UNSUPPORTED_API",
+                        "require.resolve options are not implemented yet");
+                auto request
+                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto resolved = self->resolve_require_hooked(string(request), filename);
+                if (resolved.is_error())
+                    return self->require_error(resolved.release_error(), *module);
+                auto target = resolved.release_value();
+                if (!target.builtin.empty() && !known_builtin(target.builtin))
+                    return self->error(
+                        "MODULE_NOT_FOUND", "Cannot resolve unknown builtin: " + target.builtin);
+                return js_string(vm, target.identifier);
+            }),
         1, JS::default_attributes);
     return require;
 }

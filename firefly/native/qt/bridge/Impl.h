@@ -10,6 +10,7 @@
 #include "../../menu/ApplicationMenu.h"
 #include "../../net/Host.h"
 #include "../../notifications/Host.h"
+#include "../../platform/GCIncludes.h"
 #include "../../power-monitor/Host.h"
 #include "../../power-save-blocker/Host.h"
 #include "../../sandbox/policy/Policy.h"
@@ -18,15 +19,19 @@
 #include "../../tracing/Recorder.h"
 #include "../Bridge.h"
 #include "../ContentView.h"
+#include "../hub/Frontend.h"
 #include "TransportHooks.h"
+#include "core/GCCaptures.h"
 #include "native/file-picker/Picker.h"
 #include "native/frames/Registry.h"
 #include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
+#include "native/utility/ports/Ledger.h"
 #include "native/web-request/Broker.h"
 #include "native/window/Constraints.h"
 #include "native/window/FirstMouse.h"
 #include "native/window/TitleBar.h"
+#include "renderer-bridge/autoplay/Policy.h"
 #include <AK/ByteString.h>
 #include <AK/JsonValue.h>
 #include <AK/Optional.h>
@@ -35,13 +40,17 @@
 #include <AK/Variant.h>
 #include <LibCore/Timer.h>
 #include <LibGC/Root.h>
+#include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/FunctionObject.h>
 #include <LibJS/Runtime/Object.h>
+#include <LibJS/Runtime/Realm.h>
+#include <LibJS/Runtime/VM.h>
 #include <LibURL/URL.h>
 #include <LibWebCommon/HTML/CrossProcessId.h>
 #include <QObject>
 #include <QString>
 #include <array>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -54,14 +63,55 @@ namespace WebView {
 class WebContentPage;
 }
 
-#include "native/ipc/application/Message.h"
+#include "native/ipc/application/Fragment.h"
+#include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/preload/ProcessConfig.h"
 
 namespace Firefly {
 class ChromeWindow;
 
-struct Bridge::Impl {
+struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
+    void visit_capture_edges(GC::Cell::Visitor& visitor) const
+    {
+        visitor.visit(handler.ptr());
+
+        visitor.visit(api.ptr());
+
+        visitor.visit(permission_check.ptr());
+    }
+
+    static JS::Completion retired_binding(JS::VM&);
+
+    // A method pointer is native code; the only borrowed object travels through
+    // the explicit revocable owner anchor, including during final VM collection.
+    template <auto method> auto native_binding()
+    {
+        return GC::create_function(realm.heap(), GC::captures(Mite::native_reference(*this)),
+            [](auto& owner, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* current = owner.try_get();
+
+                if (!current)
+                    return retired_binding(vm);
+
+                return (current->*method)(vm);
+            });
+    }
+
+    template <auto method, typename Extra> auto native_binding(Extra extra)
+    {
+        return GC::create_function(realm.heap(),
+            GC::captures(Mite::native_reference(*this), move(extra)),
+            [](auto& owner, auto& argument, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* current = owner.try_get();
+
+                if (!current)
+                    return retired_binding(vm);
+
+                return (current->*method)(vm, argument);
+            });
+    }
+
     struct Preload {
         String source;
         String filename;
@@ -81,6 +131,10 @@ struct Bridge::Impl {
         {
         }
 
+        WebView::ViewImplementation* native_view() const;
+
+        bool owns_page(WebView::WebContentPage const&) const;
+
         // Canonical content identity never changes when its QWidget is reparented.
         // window is non-null only for WindowMain; child ownership is owner_id.
         ChromeWindow* window;
@@ -93,6 +147,7 @@ struct Bridge::Impl {
         std::vector<int> child_ids;
         std::array<int, 4> view_bounds { 0, 0, 0, 0 };
         bool desired_visible { true };
+        Autoplay::Policy autoplay_policy { Autoplay::Policy::UpstreamDefault };
         u32 background_rgb { 0xffffff };
         u32 background_generation { 1 };
         bool closing { false };
@@ -115,6 +170,7 @@ struct Bridge::Impl {
             bool payload { false };
             bool history { false };
             ByteString wire {};
+            RefPtr<IpcWireReservation> reservation {};
             ByteString url {};
             MonotonicTime deadline {};
         };
@@ -124,11 +180,31 @@ struct Bridge::Impl {
         RefPtr<Bytes::Channel> ipc_byte_channel {};
         u64 ipc_byte_epoch { 0 };
         bool ipc_byte_ready { false };
-        Vector<ByteString> ipc_byte_queue {};
+
+        struct OutgoingPacket {
+            ApplicationIpc::Kind kind;
+            u32 request;
+            bool success;
+            ByteString wire;
+            size_t offset;
+            RefPtr<IpcWireReservation> reservation {};
+        };
+
+        Vector<OutgoingPacket> ipc_byte_queue {};
+        NonnullRefPtr<IpcWireBudget> ipc_wire_budget { adopt_ref(*new IpcWireBudget) };
+        ApplicationIpc::FragmentReassembler ipc_reassembler;
+        RefPtr<IpcWireReservation> ipc_receive_reservation;
+        Optional<MonotonicTime> ipc_fragment_deadline;
         Vector<RefPtr<Bytes::Channel>> ipc_admission_probes {};
         Optional<MonotonicTime> ipc_byte_deadline {};
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
+        Utility::Ports::Ledger renderer_ports;
+        u32 renderer_port_next { 0 };
+        u32 renderer_port_incoming_last { 0 };
+        std::unordered_map<u32, MonotonicTime> port_event_pending;
+        bool renderer_port_writable_queued { false };
+        std::shared_ptr<size_t> editing_budget {};
         u32 ipc_outgoing_next { 0 };
         std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
         FilePicker* file_picker { nullptr };
@@ -140,6 +216,7 @@ struct Bridge::Impl {
     Core::EventLoop& gui;
     std::optional<int>& exit_code;
     bool electron_compat;
+    std::function<std::optional<bool>()> sandbox_launch_policy;
     std::unique_ptr<QObject> context { std::make_unique<QObject>() };
     GC::Root<JS::FunctionObject> handler;
     GC::Root<JS::Object> api;
@@ -151,6 +228,7 @@ struct Bridge::Impl {
     size_t ipc_outgoing_count { 0 };
     RefPtr<Core::Timer> ipc_timer;
     std::unique_ptr<ApplicationMenu> application_menu;
+    std::unique_ptr<ApplicationMenu> dock_menu;
     Tracing::Recorder tracing;
     SandboxPolicy::Policy sandbox;
     RefPtr<Protocols::FileRoutes> protocols;
@@ -222,7 +300,7 @@ struct Bridge::Impl {
     bool complete_permission(int, u64, bool);
 
     Impl(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
-        bool electron_compat);
+        bool electron_compat, std::function<std::optional<bool>()> sandbox_launch_policy);
 
     ~Impl();
 
@@ -270,11 +348,43 @@ struct Bridge::Impl {
     void ready_ipc_packet(int, u32 request);
 
     void dispatch_ipc_packet(int, ByteString document, ByteString realm_id, u32 request, bool event,
-        ByteString wire, ByteString url);
+        ByteString wire, ByteString url, RefPtr<IpcWireReservation>);
 
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 
     void expire_ipc_events();
+
+    void install_editing(JS::Object&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_edit_contents(JS::VM&);
+
+    void install_renderer_ports(JS::Object&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_port_epoch(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_port_transfer(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_consume_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_close_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_encode_port_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_decode_port_ipc(JS::VM&);
+
+    State* renderer_port_state(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> renderer_port_action(JS::VM&, int);
+
+    void receive_renderer_port(int, ApplicationIpc::Kind, u32, ByteString);
+
+    void reset_renderer_ports(int);
+
+    void emit_renderer_port(int, u64, ByteString, ByteString = {});
+
+    bool queue_renderer_port(int, ByteString const&);
 
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);
@@ -287,7 +397,8 @@ struct Bridge::Impl {
 
     void close_contents(int, bool immediate = false);
 
-    Optional<int> create_view(Optional<Preload>, double zoom_factor = 1.0);
+    Optional<int> create_view(Optional<Preload>, double zoom_factor = 1.0,
+        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault);
 
     void setup_content_callbacks(int);
 
@@ -303,6 +414,8 @@ struct Bridge::Impl {
 
     void install_zoom(JS::Object&);
 
+    JS::ThrowCompletionOr<Autoplay::Policy> read_autoplay(JS::VM&, size_t index);
+
     static JS::ThrowCompletionOr<double> read_zoom(JS::VM&, size_t index, bool optional = false);
 
     void install_constraints(JS::Object&);
@@ -315,7 +428,8 @@ struct Bridge::Impl {
     Variant<int, WindowCreationError> create(int width, int height, QString const& title, bool show,
         bool frame, Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
         u32 background_rgb = 0xffffff, WindowLimits const& limits = {},
-        Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0);
+        Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0,
+        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);
@@ -329,6 +443,118 @@ struct Bridge::Impl {
 
     void configure_preloads(WebView::WebContentPage&);
 
+    // Typed native bodies remain ordinary member methods; GC closures hold only declared captures.
+    JS::ThrowCompletionOr<JS::Value> native_background_set_contents_background(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_background_contents_background(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_background_lookup_color(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_constraints_get_constraint(JS::VM&, bool maximum);
+
+    JS::ThrowCompletionOr<JS::Value> native_constraints_set_constraint(JS::VM&, bool maximum);
+
+    JS::ThrowCompletionOr<JS::Value> native_frames_snapshot(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_handler(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_encode_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_decode_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_reply_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_create(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_destroy(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_destroy_now(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_exit(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_load(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_action(
+        JS::VM&, void (*action)(ChromeWindow&));
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_window_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_center_window(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_focused(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_focused_window(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_minimized(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_maximized(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_pid(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_fullscreen(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_window_handle(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_document_edited(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_document_edited(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_represented_filename(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_represented_filename(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_title(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_title_text(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_quit(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_permissions_configure(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_permissions_complete(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_create_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_attach_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_detach_view(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_set_view_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_view_bounds(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_set_view_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_view_visible(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_close_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_focus_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_owner_window(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_child_view_ids(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_views_focused_contents(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_webrequest_configure(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_webrequest_complete(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_zoom_set_contents_zoom(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_zoom_contents_zoom(JS::VM&);
+
     GC::Ref<JS::Object> install();
+
+    JS::ThrowCompletionOr<JS::Value> native_host_enable_sandbox(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_spell_check_disabled(JS::VM&);
 };
 }

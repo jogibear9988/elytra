@@ -3,7 +3,12 @@
  * Every operation returns owned byte snapshots; no provider retains JS buffers.
  */
 #include "platform/network/tls/Client.h"
+#include "core/GCCaptures.h"
+#include "platform/WindowsSockets.h"
+#include "platform/network/tls/ExtraCertificates.h"
 #include "platform/network/tls/TrustStore.h"
+#include <LibGC/Root.h>
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/ValueInlines.h>
@@ -62,6 +67,8 @@ namespace {
     }
 
     struct Client {
+        GC_HOLDS_NO_CELL_EDGES;
+
         SSL_CTX* context { nullptr };
         SSL* ssl { nullptr };
         bool ready { false };
@@ -111,7 +118,7 @@ namespace {
     JS::ThrowCompletionOr<std::string> string(JS::VM& vm, JS::Value value)
     {
         if (!value.is_string())
-            return vm.throw_completion<JS::TypeError>("Invalid internal TLS string"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal TLS string"_utf16);
         auto view = value.as_string().utf16_string_view();
         if (!view.validate())
             return failure(vm, "ERR_INVALID_ARG_VALUE", "TLS strings must be well-formed UTF-16");
@@ -124,12 +131,12 @@ namespace {
         if (value.is_undefined())
             return std::vector<unsigned char> {};
         if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object()))
-            return vm.throw_completion<JS::TypeError>("Invalid internal TLS bytes"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal TLS bytes"_utf16);
         auto& array = static_cast<JS::Uint8Array&>(value.as_object());
         auto witness = JS::make_typed_array_with_buffer_witness_record(
             array, JS::ArrayBuffer::Order::SeqCst);
         if (JS::is_typed_array_out_of_bounds(witness))
-            return vm.throw_completion<JS::TypeError>("Detached TLS input"sv);
+            return vm.throw_completion<JS::TypeError>("Detached TLS input"_utf16);
         auto size = JS::typed_array_byte_length(witness);
         if (size > record_limit)
             return failure(vm, "ERR_TLS_BUFFER_LIMIT", "TLS record operation exceeds one MiB");
@@ -265,6 +272,9 @@ namespace {
         if (ca.is_undefined()) {
             if (!load_tls_system_trust(client->context))
                 return failure(vm, "ERR_TLS_TRUST_STORE", "System TLS trust store is unavailable");
+            if (!load_tls_extra_certificates(client->context))
+                return failure(vm, "ERR_TLS_EXTRA_CA_CERTS",
+                    "Configured extra TLS certificates are unavailable");
         } else {
             auto pem = TRY(string(vm, ca));
             auto* bio = BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size()));
@@ -319,18 +329,22 @@ namespace {
         GC::Root handle { JS::Object::create(realm, nullptr) };
         for (auto [name, operation] :
             { std::pair { "receive", 0 }, { "write", 1 }, { "shutdown", 2 } }) {
-            handle->define_native_function(
-                realm, Utf16String::from_utf8(StringView(name, strlen(name))),
-                [client, operation](JS::VM& vm) { return step(vm, *client, operation); }, 1,
-                JS::default_attributes);
+            handle->define_native_function(realm,
+                Utf16String::from_utf8(StringView(name, strlen(name))),
+                GC::create_function(realm.vm().heap(),
+                    GC::captures(shared_capture(client), operation),
+                    [](auto& client, auto& operation, JS::VM& vm) {
+                        return step(vm, *client, operation);
+                    }),
+                1, JS::default_attributes);
         }
 
-        handle->define_native_function(
-            realm, "close"_utf16,
-            [client](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                client->close();
-                return JS::js_undefined();
-            },
+        handle->define_native_function(realm, "close"_utf16,
+            GC::create_function(realm.vm().heap(), GC::captures(shared_capture(client)),
+                [](auto& client, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    client->close();
+                    return JS::js_undefined();
+                }),
             0, JS::default_attributes);
         return handle.ptr();
     }
@@ -340,6 +354,19 @@ GC::Ref<JS::Object> create_tls_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
     host->define_native_function(realm, "create"_utf16, create, 7, JS::default_attributes);
+    host->define_native_function(
+        realm, "extraCertificates"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto const& snapshot = tls_extra_certificates();
+            if (!snapshot.error.empty())
+                return failure(vm, "ERR_TLS_EXTRA_CA_CERTS", snapshot.error.c_str());
+            GC::Root result { TRY(JS::Array::create(vm.realm(), snapshot.certificates.size())) };
+            for (size_t index = 0; index < snapshot.certificates.size(); ++index)
+                result->define_direct_property(
+                    index, text(vm, snapshot.certificates[index].c_str()), JS::default_attributes);
+            return result.ptr();
+        },
+        0, JS::default_attributes);
     return host;
 }
 }

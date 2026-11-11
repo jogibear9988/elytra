@@ -1,4 +1,5 @@
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
 #include "platform/process/WindowsArguments.h"
@@ -15,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <thread>
 
@@ -26,6 +28,64 @@ static void protected_signal_handler(int)
     protected_signal_seen = 1;
 }
 #endif
+
+/** Native test owner outlives Mite::run; callback roots remain observable to GC. */
+struct HostCallbackState : Mite::NativeCaptureOwner<HostCallbackState> {
+    GC::Root<JS::FunctionObject> pulse;
+    GC::Root<JS::PromiseCapability> idle_collection;
+    size_t pump_count {};
+
+    void visit_capture_edges(GC::Cell::Visitor& visitor) const
+    {
+        visitor.visit(pulse.ptr());
+        visitor.visit(idle_collection.ptr());
+    }
+};
+
+/** Exercise a retained GC function across native teardown and forced collections. */
+struct RetiredCaptureProbe : Mite::NativeCaptureOwner<RetiredCaptureProbe> {
+    GC::Root<JS::Object> object;
+    JS::VM& vm;
+    size_t& visits;
+
+    RetiredCaptureProbe(JS::Realm& realm, size_t& visits)
+        : object(JS::Object::create(realm, nullptr))
+        , vm(realm.vm())
+        , visits(visits)
+    {
+    }
+
+    ~RetiredCaptureProbe()
+    {
+        revoke_native_captures();
+        // Match real shutdown hooks: GC may run before native members retire.
+        vm.heap().collect_garbage();
+    }
+
+    void visit_capture_edges(GC::Cell::Visitor& visitor) const
+    {
+        ++visits;
+        visitor.visit(object.ptr());
+    }
+};
+
+static JS::ThrowCompletionOr<void> verify_retired_capture(JS::Realm& realm)
+{
+    size_t visits = 0;
+    auto owner = std::make_unique<RetiredCaptureProbe>(realm, visits);
+    GC::Root callback { GC::create_function(realm.vm().heap(),
+        GC::captures(Mite::native_reference(*owner)),
+        [](auto& reference) { return reference.try_get() != nullptr; }) };
+    realm.vm().heap().collect_garbage();
+    if (!(*callback)() || !visits)
+        return realm.vm().throw_completion<JS::Error>("Live native capture was not traced"_utf16);
+    auto live_visits = visits;
+    owner.reset();
+    realm.vm().heap().collect_garbage();
+    if ((*callback)() || visits != live_visits)
+        return realm.vm().throw_completion<JS::Error>("Retired native capture was visited"_utf16);
+    return {};
+}
 
 static int run_host(int argc, char** argv)
 {
@@ -42,17 +102,19 @@ static int run_host(int argc, char** argv)
             return 98;
     }
 #endif
-    GC::Root<JS::FunctionObject> pulse;
-    GC::Root<JS::PromiseCapability> idle_collection;
+    HostCallbackState callback_state;
+    auto& pulse = callback_state.pulse;
+    auto& idle_collection = callback_state.idle_collection;
+    auto& pump_count = callback_state.pump_count;
     JS::VM* owner_vm = nullptr;
     bool initialized = false;
-    size_t pump_count = 0;
     Mite::HostHooks hooks;
     hooks.allow_process_signals = std::getenv("MITE_TEST_ALLOW_SIGNALS") != nullptr;
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& loop) -> JS::ThrowCompletionOr<void> {
         initialized = true;
         owner_vm = &vm;
+        TRY(verify_retired_capture(realm));
         if (auto* path = getenv("MITE_EMBED_FAIL_INIT_WORK_PATH")) {
             TRY(loop.queue_work([path = std::string(path)] { std::ifstream blocked(path); },
                 GC::create_function(vm.heap(),
@@ -63,45 +125,48 @@ static int run_host(int argc, char** argv)
         if (getenv("MITE_EMBED_FAIL_INIT"))
             return vm.throw_completion<JS::Error>("Embedded host initialization failed"_utf16);
         auto host = JS::Object::create(realm, nullptr);
-        host->define_native_function(
-            realm, "onPulse"_utf16,
-            [&](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!vm.argument(0).is_function())
-                    return vm.throw_completion<JS::TypeError>(
-                        "Host pulse requires a callback"_utf16);
-                pulse = vm.argument(0).as_function();
-                return JS::js_undefined();
-            },
+        host->define_native_function(realm, "onPulse"_utf16,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(callback_state)),
+                [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& pulse = state.get().pulse;
+                    if (!vm.argument(0).is_function())
+                        return vm.throw_completion<JS::TypeError>(
+                            "Host pulse requires a callback"_utf16);
+                    pulse = vm.argument(0).as_function();
+                    return JS::js_undefined();
+                }),
             1, JS::default_attributes);
-        host->define_native_function(
-            realm, "reenterPump"_utf16,
-            [&loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!loop.is_busy())
-                    return vm.throw_completion<JS::Error>(
-                        "External callback must hold a host turn"_utf16);
-                return JS::Value(loop.pump_once());
-            },
+        host->define_native_function(realm, "reenterPump"_utf16,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(loop)),
+                [](auto& owner, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& loop = owner.get();
+                    if (!loop.is_busy())
+                        return vm.throw_completion<JS::Error>(
+                            "External callback must hold a host turn"_utf16);
+                    return JS::Value(loop.pump_once());
+                }),
             0, JS::default_attributes);
-        host->define_native_function(
-            realm, "pumpCount"_utf16,
-            [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                return JS::Value(static_cast<double>(pump_count));
-            },
+        host->define_native_function(realm, "pumpCount"_utf16,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(callback_state)),
+                [](auto& state, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    return JS::Value(static_cast<double>(state.get().pump_count));
+                }),
             0, JS::default_attributes);
-        host->define_native_function(
-            realm, "activeTimerCount"_utf16,
-            [&loop](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                unsigned count = 0;
-                uv_walk(
-                    &loop.native_loop(),
-                    [](uv_handle_t* handle, void* data) {
-                        if (handle->type == UV_TIMER && !uv_is_closing(handle)
-                            && uv_is_active(handle))
-                            ++*static_cast<unsigned*>(data);
-                    },
-                    &count);
-                return JS::Value(count);
-            },
+        host->define_native_function(realm, "activeTimerCount"_utf16,
+            GC::create_function(vm.heap(), GC::captures(Mite::native_reference(loop)),
+                [](auto& owner, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& loop = owner.get();
+                    unsigned count = 0;
+                    uv_walk(
+                        &loop.native_loop(),
+                        [](uv_handle_t* handle, void* data) {
+                            if (handle->type == UV_TIMER && !uv_is_closing(handle)
+                                && uv_is_active(handle))
+                                ++*static_cast<unsigned*>(data);
+                        },
+                        &count);
+                    return JS::Value(count);
+                }),
             0, JS::default_attributes);
         auto state = JS::Object::create(realm, nullptr);
         state->define_direct_property("count"_utf16, JS::Value(0), JS::default_attributes);
@@ -157,14 +222,16 @@ static int run_host(int argc, char** argv)
                 return JS::js_undefined();
             },
             0, JS::default_attributes);
-        realm.global_object().define_native_function(
-            realm, "collectHostGarbageAtIdle"_utf16,
-            [&idle_collection, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                if (!idle_collection)
-                    idle_collection = TRY(JS::new_promise_capability(
-                        vm, realm.intrinsics().promise_constructor().ptr()));
-                return idle_collection->promise();
-            },
+        realm.global_object().define_native_function(realm, "collectHostGarbageAtIdle"_utf16,
+            GC::create_function(vm.heap(),
+                GC::captures(Mite::native_reference(callback_state), realm),
+                [](auto& state, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto& idle_collection = state.get().idle_collection;
+                    if (!idle_collection)
+                        idle_collection = TRY(JS::new_promise_capability(
+                            vm, realm.intrinsics().promise_constructor().ptr()));
+                    return idle_collection->promise();
+                }),
             0, JS::default_attributes);
         realm.global_object().define_direct_property(
             "embeddedHost"_utf16, host, JS::default_attributes);

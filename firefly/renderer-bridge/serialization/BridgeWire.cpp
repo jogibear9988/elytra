@@ -3,6 +3,7 @@
  * resource bounds before allocating destination JavaScript values.
  */
 
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BinaryView.h"
 #include "serialization/BridgeData.h"
 #include <AK/HashTable.h>
@@ -17,16 +18,25 @@
 namespace Firefly {
 namespace {
     static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559);
-    constexpr size_t max_wire_bytes = 1024 * 1024;
-    constexpr size_t max_total_array_length = 16384;
     constexpr size_t binary_header_bytes = 8;
 
     ErrorOr<void> check_limits(BridgeData::Limits limits)
     {
-        BridgeData::Limits maximum;
+        if (limits.wire_profile != BridgeData::WireProfile::Default
+            && limits.wire_profile != BridgeData::WireProfile::ApplicationIpc)
+            return Error::from_string_literal("Unknown wire limits profile");
+        auto maximum = limits.wire_profile == BridgeData::WireProfile::ApplicationIpc
+            ? application_ipc_limits()
+            : BridgeData::Limits {};
+        // Binary snapshots were already an explicit bounded opt-in.
+        if (limits.wire_profile == BridgeData::WireProfile::Default)
+            maximum.binary_bytes = 1024 * 1024;
         if (limits.values > maximum.values || limits.properties > maximum.properties
             || limits.string_code_units > maximum.string_code_units || limits.depth > maximum.depth
-            || limits.array_length > maximum.array_length || limits.binary_bytes > max_wire_bytes)
+            || limits.array_length > maximum.array_length
+            || limits.binary_bytes > maximum.binary_bytes || limits.wire_bytes > maximum.wire_bytes
+            || limits.total_array_length > maximum.total_array_length
+            || limits.wire_bytes < binary_header_bytes)
             return Error::from_string_literal("Wire limits exceed hard maximum");
         return {};
     }
@@ -78,9 +88,9 @@ namespace {
         return number >= length;
     }
 
-    ErrorOr<void> preflight(StringView bytes)
+    ErrorOr<void> preflight(StringView bytes, size_t wire_bytes)
     {
-        if (bytes.is_empty() || bytes.length() > max_wire_bytes)
+        if (bytes.is_empty() || bytes.length() > wire_bytes)
             return Error::from_string_literal("Wire byte budget exceeded");
         size_t depth = 0;
         bool quoted = false, escaped = false;
@@ -151,7 +161,7 @@ ErrorOr<void> BridgeData::validate_wire_graph(Limits limits) const
         if (node.kind == Kind::Array) {
             if (node.length > limits.array_length)
                 return Error::from_string_literal("Wire array length exceeded");
-            TRY(charge(array_length, node.length, max_total_array_length));
+            TRY(charge(array_length, node.length, limits.total_array_length));
             // Account for the implicit own length descriptor as capture does.
             TRY(charge(properties, 1, limits.properties));
             TRY(charge(strings, 6, limits.string_code_units));
@@ -267,13 +277,13 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
     TRY(envelope.append(binary ? 2 : 1));
     TRY(envelope.append(move(nodes)));
     auto result = JsonValue(move(envelope)).serialized().to_byte_string();
-    TRY(preflight(result));
+    TRY(preflight(result, limits.wire_bytes));
     if (!binary)
         return result;
     // Only graph metadata is JSON. Payload bytes remain raw, including NUL and
     // non-UTF-8. This format must never be passed through a JS/UTF-8 string API.
-    if (result.length() > max_wire_bytes - binary_header_bytes
-        || binary_bytes > max_wire_bytes - binary_header_bytes - result.length())
+    if (result.length() > limits.wire_bytes - binary_header_bytes
+        || binary_bytes > limits.wire_bytes - binary_header_bytes - result.length())
         return Error::from_string_literal("Binary wire byte budget exceeded");
     auto output = TRY(
         ByteBuffer::create_uninitialized(binary_header_bytes + result.length() + binary_bytes));
@@ -295,7 +305,7 @@ ErrorOr<ByteString> BridgeData::encode_wire(Limits limits) const
 ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
 {
     TRY(check_limits(limits));
-    if (bytes.is_empty() || bytes.length() > max_wire_bytes)
+    if (bytes.is_empty() || bytes.length() > limits.wire_bytes)
         return Error::from_string_literal("Wire byte budget exceeded");
     bool binary = bytes.starts_with("FFB2"sv);
     auto metadata = bytes;
@@ -314,7 +324,8 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
             return Error::from_string_literal("Binary wire payload budget exceeded");
     }
 
-    TRY(preflight(metadata)); // Bound bytes/JSON recursion before allocating the parser tree.
+    // Bound bytes/JSON recursion before allocating the parser tree.
+    TRY(preflight(metadata, limits.wire_bytes));
     auto parsed = TRY(JsonValue::from_string(metadata));
     if (!parsed.is_array() || parsed.as_array().size() != 2
         || TRY(integer(parsed.as_array()[0], 2)) != (binary ? 2 : 1)
@@ -386,8 +397,8 @@ ErrorOr<BridgeData> BridgeData::decode_wire(StringView bytes, Limits limits)
             if (node.kind == Kind::TypedArray)
                 node.view_type = static_cast<u8>(TRY(integer(row[field++], 255)));
             node.buffer = TRY(integer(row[field++], rows.size() - 1));
-            node.byte_offset = TRY(integer(row[field++], max_wire_bytes));
-            node.length = TRY(integer(row[field], max_wire_bytes));
+            node.byte_offset = TRY(integer(row[field++], limits.wire_bytes));
+            node.length = TRY(integer(row[field], limits.wire_bytes));
             break;
         }
 

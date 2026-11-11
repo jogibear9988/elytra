@@ -1,5 +1,7 @@
 /** Validate native strings independently; no engine switch is silently acknowledged. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
+#include "../platform/NativeCaptures.h"
 #include "State.h"
 #include <AK/String.h>
 #include <LibJS/Runtime/Error.h>
@@ -42,32 +44,35 @@ namespace {
 
 void install_host(JS::Realm& realm, JS::Object& host, State& state)
 {
-    host.define_native_function(
-        realm, "commandLineRead"_utf16,
-        [&state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(string(vm, vm.argument(0), 128));
-            if (!State::valid_name(name))
-                return fail(vm, { "ERR_INVALID_ARG_VALUE", "Invalid switch name" });
-            if (vm.argument(1).to_boolean())
-                return JS::Value(state.has(name));
-            auto value = state.value(name);
-            auto text = String::from_utf8(StringView(value.data(), value.size()));
-            if (text.is_error())
-                return fail(vm, { "ERR_INVALID_ARG_VALUE", "Initial switch value is not UTF-8" });
-            return JS::PrimitiveString::create(vm, Utf16String::from_utf8(text.value()));
-        },
+    host.define_native_function(realm, "commandLineRead"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = *TRY(Firefly::live_native_capture(vm, state_capture));
+                auto name = TRY(string(vm, vm.argument(0), 128));
+                if (!State::valid_name(name))
+                    return fail(vm, { "ERR_INVALID_ARG_VALUE", "Invalid switch name" });
+                if (vm.argument(1).to_boolean())
+                    return JS::Value(state.has(name));
+                auto value = state.value(name);
+                auto text = String::from_utf8(StringView(value.data(), value.size()));
+                if (text.is_error())
+                    return fail(
+                        vm, { "ERR_INVALID_ARG_VALUE", "Initial switch value is not UTF-8" });
+                return JS::PrimitiveString::create(vm, Utf16String::from_utf8(text.value()));
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "commandLineChange"_utf16,
-        [&state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(string(vm, vm.argument(0), 128));
-            std::optional<std::string> value;
-            if (!vm.argument(1).is_null())
-                value = TRY(string(vm, vm.argument(1), 32768));
-            if (auto error = state.change(name, std::move(value)); error.has_value())
-                return fail(vm, *error);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "commandLineChange"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = *TRY(Firefly::live_native_capture(vm, state_capture));
+                auto name = TRY(string(vm, vm.argument(0), 128));
+                std::optional<std::string> value;
+                if (!vm.argument(1).is_null())
+                    value = TRY(string(vm, vm.argument(1), 32768));
+                if (auto error = state.change(name, std::move(value)); error.has_value())
+                    return fail(vm, *error);
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
 }
 }

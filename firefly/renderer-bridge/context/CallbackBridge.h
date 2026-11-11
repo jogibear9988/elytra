@@ -60,11 +60,18 @@ private:
 class CallbackEndpoint final : public RefCounted<CallbackEndpoint>,
                                public Weakable<CallbackEndpoint> {
 public:
+    void visit_edges(GC::Cell::Visitor&) const;
+
     ~CallbackEndpoint();
 
     static ErrorOr<CallbackExport> create(CallbackRegistry&, JS::FunctionObject&);
 
     void revoke();
+
+    bool has_pending() const
+    {
+        return !m_pending.is_empty();
+    }
 
 private:
     CallbackEndpoint(CallbackRegistry&, JS::FunctionObject&);

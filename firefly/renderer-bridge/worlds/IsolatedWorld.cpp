@@ -106,22 +106,24 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::evaluate(Utf16View source)
 }
 
 JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call(
-    JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments)
+    JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments, JS::Value receiver)
 {
     if (is_detached() || function.realm() != realm())
         return m_vm.throw_completion<JS::Error>(
-            "Function does not belong to a live isolated world"sv);
+            "Function does not belong to a live isolated world"_utf16);
     GC::Root protect_function { function };
-    return execute([&] { return JS::call(m_vm, function, JS::js_undefined(), arguments); });
+    auto protect_receiver = GC::Root<JS::Value>::create(receiver, SourceLocation::current());
+    return execute([&] { return JS::call(m_vm, function, receiver, arguments); });
 }
 
 JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call_from_callback(
-    JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments)
+    JS::FunctionObject& function, ReadonlySpan<JS::Value> arguments, JS::Value receiver)
 {
     if (!m_evaluating || is_detached() || function.realm() != realm() || m_callback_depth >= 32)
         return m_vm.throw_completion<JS::Error>("Invalid nested callback entry"_utf16);
     NonnullRefPtr protect { *this };
     GC::Root protect_function { function };
+    auto protect_receiver = GC::Root<JS::Value>::create(receiver, SourceLocation::current());
     auto context = JS::ExecutionContext::create(0, ReadonlySpan<JS::Value> {}, 0);
     context->realm = realm();
     ++m_callback_depth;
@@ -130,7 +132,7 @@ JS::ThrowCompletionOr<JS::Value> IsolatedWorld::call_from_callback(
         VERIFY(m_vm.pop_execution_context() == context.ptr());
         --m_callback_depth;
     });
-    return JS::call(m_vm, function, JS::js_undefined(), arguments);
+    return JS::call(m_vm, function, receiver, arguments);
 }
 
 JS::ThrowCompletionOr<JS::Value> IsolatedWorld::run_async_frame(

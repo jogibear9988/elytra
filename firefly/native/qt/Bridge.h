@@ -6,6 +6,7 @@
 #pragma once
 #include <AK/ByteString.h>
 #include <LibGC/Ptr.h>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -29,7 +30,8 @@ namespace Firefly {
 class Bridge {
 public:
     Bridge(JS::VM&, JS::Realm&, Mite::EventLoop&, Core::EventLoop&, std::optional<int>&,
-        bool electron_compat = false);
+        bool electron_compat = false,
+        std::function<std::optional<bool>()> sandbox_launch_policy = {});
 
     ~Bridge();
 
@@ -38,6 +40,9 @@ public:
 
     // Queue lifecycle delivery after the main entry has installed its JS handler.
     void ready();
+
+    // Internal embedding teardown; revoke callbacks and destroy widgets while Hub/Qt still live.
+    void stop();
 
     void gpu_info_update();
 

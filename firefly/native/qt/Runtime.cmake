@@ -6,19 +6,24 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
+if(APPLE)
+    target_sources(firefly-application-menu PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm")
+    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm"
+        PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(firefly-application-menu PRIVATE "-framework Cocoa")
+else()
+    target_sources(firefly-application-menu PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesUnsupported.cpp")
+endif()
 add_library(firefly-app-paths STATIC "${CMAKE_CURRENT_LIST_DIR}/../app-paths/Paths.cpp")
 target_link_libraries(firefly-app-paths PUBLIC Qt::Core LibCore AK)
 add_library(firefly-sandbox-policy STATIC "${CMAKE_CURRENT_LIST_DIR}/../sandbox/policy/Policy.cpp")
 add_library(firefly-command-line STATIC "${CMAKE_CURRENT_LIST_DIR}/../command-line/State.cpp")
 add_library(firefly-tracing STATIC "${CMAKE_CURRENT_LIST_DIR}/../tracing/Recorder.cpp")
 target_link_libraries(firefly-tracing PUBLIC Qt::Core)
-if(APPLE)
-    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleMac.mm")
-    target_link_libraries(firefly-locale PUBLIC Qt::Core "-framework Foundation")
-else()
-    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/../locale/LocaleLinux.cpp")
-    target_link_libraries(firefly-locale PUBLIC Qt::Core)
-endif()
+include("${FIREFLY_SOURCE_DIR}/firefly/native/locale/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/native/recent-documents/Targets.cmake")
 add_custom_target(
     check-firefly-js
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_firefly_js.py"
@@ -112,12 +117,17 @@ add_executable(firefly-sandbox-policy-probe
                "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/Policy.cpp")
 target_include_directories(firefly-sandbox-policy-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(firefly-sandbox-policy-probe PRIVATE firefly-sandbox-policy)
+add_executable(firefly-sandbox-launch-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/LaunchPolicyProbe.cpp")
+target_link_libraries(firefly-sandbox-launch-probe PRIVATE firefly-sandbox-policy LibWebView AK)
 add_custom_target(
     check-firefly-sandbox-policy
     COMMAND "$<TARGET_FILE:firefly-sandbox-policy-probe>"
+    COMMAND "$<TARGET_FILE:firefly-sandbox-launch-probe>"
     COMMAND "$<TARGET_FILE:firefly-protocol-registration-probe>"
             "${FIREFLY_SOURCE_DIR}/firefly/tests/sandbox/policy.mjs"
-    DEPENDS firefly-sandbox-policy-probe firefly-protocol-registration-probe
+    DEPENDS firefly-sandbox-policy-probe firefly-sandbox-launch-probe
+            firefly-protocol-registration-probe
     VERBATIM)
 add_executable(firefly-command-line-probe
                "${FIREFLY_SOURCE_DIR}/firefly/tests/command-line/State.cpp")
@@ -235,6 +245,8 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/IpcChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/OutboundIpc.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Editing.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/PortChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
@@ -252,6 +264,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../power-monitor/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../power-save-blocker/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../shell/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../recent-documents/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../system-preferences/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../net/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../global-shortcut/Host.cpp"
@@ -281,6 +294,7 @@ target_compile_definitions(firefly-application
 target_link_libraries(
     firefly-application
     PUBLIC firefly-qt-view
+           firefly-port-wire
            firefly-mite
            firefly-clipboard-protocol
            firefly-runtime-paths
@@ -290,6 +304,7 @@ target_link_libraries(
            firefly-power-monitor
            firefly-power-save-blocker
            firefly-shell
+           firefly-recent-documents
            firefly-system-preferences
            firefly-network-state
            firefly-global-shortcut
@@ -364,7 +379,9 @@ endif()
 # hosted native/Xvfb acceptance supplies the desktop backend.
 set(fork_driver firefly)
 set(fork_driver_options)
-if(TARGET firefly-view-offscreen)
+# Linux's production startup requires the isolated native X11 backend, even
+# when the test-only offscreen static plugin is available to other probes.
+if(APPLE AND TARGET firefly-view-offscreen)
     set(fork_driver firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
 endif()
@@ -586,6 +603,7 @@ if(APPLE)
                 check-firefly-message-ports
                 check-firefly-message-port-lifetime
                 check-firefly-utility-process
+                check-firefly-utility-ports
                 check-firefly-web-contents-view
                 check-firefly-safe-storage-backend
                 check-firefly-safe-storage-public

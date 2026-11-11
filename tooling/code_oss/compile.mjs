@@ -1,7 +1,8 @@
 /**
  * Build-only compilation of a diagnostic Code-OSS source tree. Preserve real
- * imports and application algorithms; this does not install packages, build the
- * workbench assets, type-check the project or claim a distributable app.
+ * imports and application algorithms; this does not install packages or
+ * type-check the project or claim a distributable app. Optional renderer assets
+ * retain the upstream dev CSS import-map path, with verified in-place refresh.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,7 +12,15 @@ import { fileURLToPath } from 'node:url';
 import { transformSync, version } from '../runtime-js/node_modules/esbuild/lib/main.js';
 import { preparedDependencies } from './dependency-graph.mjs';
 import { createNLS } from './nls.mjs';
+import { verifiedRefresh, checkRefreshPlan } from './compile-refresh.mjs';
+import { runtimeAsset, rendererAssets } from './renderer-assets.mjs';
 import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
+import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
+import { planSQLite, applySQLite } from './sqlite.mjs';
+import { planDeviceId, applyDeviceId } from './deviceid.mjs';
+import { planUndici, applyUndici } from './undici.mjs';
+import { planFsCopyfile, applyFsCopyfile } from './fs-copyfile.mjs';
+import { verifyPackageAdditions } from './package-adaptations.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -20,7 +29,14 @@ const { values } = parseArgs({
     overlay: { type: 'string' },
     dependencies: { type: 'string' },
     nls: { type: 'boolean', default: false },
-    'mite-policy-watcher': { type: 'boolean', default: false }
+    refresh: { type: 'boolean', default: false },
+    'renderer-assets': { type: 'boolean', default: false },
+    'mite-policy-watcher': { type: 'boolean', default: false },
+    'mite-native-keymap': { type: 'boolean', default: false },
+    'mite-sqlite': { type: 'boolean', default: false },
+    'mite-deviceid': { type: 'boolean', default: false },
+    'mite-undici': { type: 'boolean', default: false },
+    'mite-fs-copyfile': { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -52,13 +68,14 @@ for (const input of [source, overlay].filter(Boolean)) {
     throw new Error('Output overlaps input tree');
   }
 }
-try {
-  fs.lstatSync(output);
-  throw new Error('Output must be fresh');
-} catch (error) {
-  if (error.code !== 'ENOENT') {
-    throw error;
+let refresh;
+if (fs.existsSync(output)) {
+  if (!values.refresh) {
+    throw new Error('Output must be fresh (or use verified --refresh)');
   }
+  refresh = verifiedRefresh(output);
+} else if (values.refresh) {
+  throw Error('--refresh requires an existing owned compiled tree');
 }
 const replacements = new Map();
 let adaptations;
@@ -95,12 +112,18 @@ const paths = new Set();
 function collect(directory) {
   for (const entry of fs.readdirSync(path.join(source, directory), { withFileTypes: true })) {
     const relative = `${directory}/${entry.name}`;
+    if (entry.name === '.DS_Store') {
+      continue;
+    }
     if (entry.isSymbolicLink()) {
       throw new Error(`Source symlink requires explicit handling: ${relative}`);
     }
     if (entry.isDirectory()) {
       collect(relative);
-    } else if (/\.(ts|js|json)$/.test(relative) && !relative.endsWith('.d.ts')) {
+    } else if (
+      (/\.(ts|js|json)$/.test(relative) && !relative.endsWith('.d.ts')) ||
+      (values['renderer-assets'] && runtimeAsset(relative))
+    ) {
       paths.add(relative);
     }
   }
@@ -170,10 +193,52 @@ if (JSON.parse(planned.get('package.json')).type !== 'module') {
 const dependencies =
   values.dependencies &&
   preparedDependencies(values.dependencies, planned.get('package.json'), pin.revision);
-if (values['mite-policy-watcher'] && !dependencies) {
-  throw Error('--mite-policy-watcher requires a verified prepared dependency tree');
+const packageSelectors = [
+  ['mite-policy-watcher', planPolicyWatcher, applyPolicyWatcher],
+  ['mite-native-keymap', planNativeKeymap, applyNativeKeymap],
+  ['mite-sqlite', planSQLite, applySQLite],
+  ['mite-deviceid', planDeviceId, applyDeviceId],
+  ['mite-undici', planUndici, applyUndici],
+  ['mite-fs-copyfile', planFsCopyfile, applyFsCopyfile]
+];
+if (packageSelectors.some(([option]) => values[option]) && !dependencies) {
+  throw Error('Native package adapters require a verified prepared dependency tree');
 }
-const policyWatcher = values['mite-policy-watcher'] ? planPolicyWatcher(dependencies.root) : null;
+const packagePlans = packageSelectors
+  .filter(([option]) => values[option])
+  .map(([, plan, apply]) => ({ plan: plan(dependencies.root), apply }));
+let packageAdditions = packagePlans;
+const assets = values['renderer-assets']
+  ? rendererAssets(source, dependencies, paths, planned, inputs)
+  : undefined;
+if (
+  refresh &&
+  (!!refresh.previous.nls !== !!nls || (!!refresh.previous.rendererAssets && !assets))
+) {
+  throw Error('Refresh must preserve existing NLS/renderer build modes');
+}
+if (refresh && !!refresh.previous.runtimeDependencies !== !!dependencies) {
+  throw Error('Refresh must preserve prepared dependency mode');
+}
+if (refresh && dependencies) {
+  const old = refresh.previous.runtimeDependencies;
+  if (
+    !old ||
+    old.lockSha256 !==
+      dependencies.report.sourceInputs.find((item) => item.path === 'pnpm-lock.yaml')?.sha256 ||
+    old.revision !== pin.revision ||
+    !fs.existsSync(path.join(output, 'node_modules'))
+  ) {
+    throw Error('Refresh dependency graph differs');
+  }
+  // Verify every old adapter and each newly selected ORIGINAL loader+manifest
+  // before any stage write. Removal or modification of an old adapter is refused.
+  packageAdditions = verifyPackageAdditions(
+    output,
+    refresh.previous.packageAdaptations ?? [],
+    packagePlans
+  );
+}
 if (dependencies && (within(dependencies.root, output) || within(output, dependencies.root))) {
   throw new Error('Output overlaps dependency input tree');
 }
@@ -197,7 +262,20 @@ planned.set(
             }
           : undefined,
         adaptations,
-        packageAdaptations: policyWatcher ? [policyWatcher.record] : undefined,
+        rendererAssets: assets,
+        refreshedFromSha256: refresh?.manifestSha256,
+        rootFiles: [
+          'LICENSE.txt',
+          'ThirdPartyNotices.txt',
+          'package.json',
+          'product.json',
+          'ELYTRA-LICENSE.txt'
+        ]
+          .filter((name) => planned.has(name))
+          .map((output) => ({ output, outputSha256: sha256(planned.get(output)) })),
+        packageAdaptations: packagePlans.length
+          ? packagePlans.map(({ plan }) => plan.record)
+          : undefined,
         nls: nls?.report(),
         generated: nls
           ? [...nls.artifacts()].map(([output, data]) => ({ output, outputSha256: sha256(data) }))
@@ -209,29 +287,57 @@ planned.set(
     ) + '\n'
   )
 );
-// All transforms and overlay checks finish before creating output.
-fs.mkdirSync(output);
+// All transforms, aliases and refresh checks finish before any write.
+if (assets && fs.lstatSync(path.join(output, 'out'), { throwIfNoEntry: false })) {
+  const alias = path.join(output, 'out');
+  if (!fs.lstatSync(alias).isSymbolicLink() || fs.readlinkSync(alias) !== 'src') {
+    throw Error('Renderer out alias conflicts with existing output');
+  }
+}
+
+if (refresh) {
+  checkRefreshPlan(output, refresh, planned);
+  // A killed refresh must not retain an apparently completed old build record.
+  fs.renameSync(
+    path.join(output, 'ELYTRA-COMPILE.json'),
+    path.join(output, 'ELYTRA-COMPILE.previous.json')
+  );
+} else {
+  fs.mkdirSync(output);
+}
 for (const [name, data] of planned) {
   if (name === 'ELYTRA-COMPILE.json') {
     continue;
   }
   const destination = path.join(output, name);
   fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, data);
+  if (!fs.existsSync(destination) || !fs.readFileSync(destination).equals(data)) {
+    fs.writeFileSync(destination, data);
+  }
 }
-if (dependencies) {
+if (dependencies && !refresh) {
   fs.cpSync(path.join(dependencies.root, 'node_modules'), path.join(output, 'node_modules'), {
     recursive: true,
     dereference: false,
     verbatimSymlinks: true
   });
-  if (policyWatcher) {
-    applyPolicyWatcher(output, policyWatcher);
-  }
   fs.copyFileSync(
     path.join(dependencies.root, 'ELYTRA-DEPENDENCIES.json'),
     path.join(output, 'ELYTRA-DEPENDENCIES.json')
   );
+}
+if (dependencies) {
+  if (!refresh) {
+    packageAdditions = verifyPackageAdditions(output, [], packagePlans);
+  }
+  for (const { plan, apply } of packageAdditions) {
+    apply(output, plan);
+  }
+}
+if (assets && !fs.existsSync(path.join(output, 'out'))) {
+  // Relative and internal: preserve one physical module tree. Failure on a host
+  // without symlink privilege is explicit; no Windows acceptance is implied.
+  fs.symlinkSync('src', path.join(output, 'out'), 'dir');
 }
 // A killed or failed copy must not leave an apparently completed build record.
 fs.writeFileSync(path.join(output, 'ELYTRA-COMPILE.json'), planned.get('ELYTRA-COMPILE.json'));

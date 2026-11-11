@@ -1,4 +1,5 @@
 #include "FunctionBridgeTest.h"
+#include "CaptureSlot.h"
 #include "context/FunctionBridge.h"
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
@@ -45,7 +46,7 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
             if(arg?.mode==='throw') throw new Proxy({}, {get(){throwTraps++;throw 1}});
             if(arg?.mode==='function') return ()=>1;
             if(arg?.mode==='promise') return Promise.resolve(1);
-            if(arg?.mode==='big') return new Array(4097);
+            if(arg?.mode==='big') return new Array(65537);
             return {arg,other,alias:arg,ownThis:this===undefined,
                 safe:arg && Object.getPrototypeOf(arg)===Object.prototype && Object.isFrozen(arg)};
         };
@@ -64,12 +65,12 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
         exported.owner->revoke();
         source->detach();
     });
-    source_realm->global_object().define_native_function(
-        *source_realm, "nativeReenter"_utf16,
-        [&](JS::VM& inner_vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto nested = JS::call(inner_vm, *exported.function, JS::js_undefined());
-            return JS::Value(nested.is_error());
-        },
+    source_realm->global_object().define_native_function(*source_realm, "nativeReenter"_utf16,
+        GC::create_function(vm.heap(), GC::captures(exported.function),
+            [](auto& function, JS::VM& inner_vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto nested = JS::call(inner_vm, *function, JS::js_undefined());
+                return JS::Value(nested.is_error());
+            }),
         0, JS::default_attributes);
     for (auto code :
         { u"new Proxy(endpoint,{get(){throwTraps++;throw 1}})"sv, u"endpoint.bind(null)"sv }) {
@@ -90,7 +91,7 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
             const a={n:5}; a.self=a;
             const x=bridgeCall.call({untrusted:true},a,a);
             return x.arg!==a && x.arg===x.alias && x.arg===x.other && x.arg.self===x.arg &&
-                x.arg.n===5 && x.ownThis && x.safe && Object.isFrozen(x) && Object.isFrozen(x.arg) &&
+                x.arg.n===5 && x.ownThis && x.safe && !Object.isFrozen(x) && !Object.isFrozen(x.arg) &&
                 Object.getPrototypeOf(x)===Object.prototype && Object.isFrozen(bridgeCall) &&
                 bridgeCall.constructor('return typeof sourceSecret')()==='undefined';
         })()
@@ -138,13 +139,19 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
     // Revoke and detach during the source frame. The in-flight call must not
     // publish its otherwise valid result or destroy the still-running context.
     RefPtr<Firefly::FunctionBridge> active;
-    source->realm()->global_object().define_native_function(
-        *source->realm(), "revokeInside"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            active->revoke();
-            source->detach();
-            return JS::js_undefined();
-        },
+    Firefly::Tests::CaptureSlot active_slot { active };
+    Firefly::Tests::CaptureSlot source_slot { source };
+    source->realm()->global_object().define_native_function(*source->realm(), "revokeInside"_utf16,
+        GC::create_function(vm.heap(),
+            GC::captures(Mite::native_reference(active_slot), Mite::native_reference(source_slot)),
+            [](auto& active_ref, auto& source_ref, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& active = active_ref.get().value;
+                auto& source = source_ref.get().value;
+
+                active->revoke();
+                source->detach();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     auto reentrant = source->evaluate(u"(()=>{revokeInside();return {secret:'must not cross'}})"sv);
     if (reentrant.is_error())

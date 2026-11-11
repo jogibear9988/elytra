@@ -4,6 +4,7 @@
  */
 
 #include "platform/network/HTTP.h"
+#include "core/GCCaptures.h"
 #include <AK/Utf16StringBuilder.h>
 #include <LibGC/CellAllocator.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -285,19 +286,22 @@ GC_DEFINE_ALLOCATOR(HTTPParser);
 GC::Ref<JS::Object> create_http_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
-    host->define_native_function(
-        realm, "createParser"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto maximum = vm.argument(0);
-            if (!maximum.is_number() || !std::isfinite(maximum.as_double())
-                || std::trunc(maximum.as_double()) != maximum.as_double() || maximum.as_double() < 1
-                || maximum.as_double() > 2147483647)
-                return vm.throw_completion<JS::TypeError>("Invalid HTTP header limit"_utf16);
-            auto parser = vm.heap().allocate<HTTPParser>(static_cast<size_t>(maximum.as_double()),
-                vm.argument(1).to_boolean(), vm.argument(2).to_boolean());
-            return JS::NativeFunction::create(
-                realm, [parser](JS::VM& vm) { return parser->execute(vm); }, 1, "parseHTTP"_utf16);
-        },
+    host->define_native_function(realm, "createParser"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto maximum = vm.argument(0);
+                if (!maximum.is_number() || !std::isfinite(maximum.as_double())
+                    || std::trunc(maximum.as_double()) != maximum.as_double()
+                    || maximum.as_double() < 1 || maximum.as_double() > 2147483647)
+                    return vm.throw_completion<JS::TypeError>("Invalid HTTP header limit"_utf16);
+                auto parser
+                    = vm.heap().allocate<HTTPParser>(static_cast<size_t>(maximum.as_double()),
+                        vm.argument(1).to_boolean(), vm.argument(2).to_boolean());
+                return JS::NativeFunction::create(realm,
+                    GC::create_function(realm.vm().heap(), GC::captures(parser),
+                        [](auto& parser, JS::VM& vm) { return parser->execute(vm); }),
+                    1, "parseHTTP"_utf16);
+            }),
         1, JS::default_attributes);
     auto methods = MUST(JS::Array::create(realm, 0));
     size_t index = 0;

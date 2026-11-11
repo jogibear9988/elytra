@@ -1,3 +1,4 @@
+#include "CaptureSlot.h"
 /** Trusted source getter snapshots retain atomic publication, ownership and strict other
  * boundaries. */
 #include "PublicationGetterTest.h"
@@ -23,18 +24,18 @@ ErrorOr<void> check_publication_getters(JS::VM& vm, Web::DOM::Document& document
         "contextBridge"_utf16, bridge->exports(), JS::default_attributes);
     source->realm()->global_object().define_native_function(
         *source->realm(), "getterCollect"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             vm.heap().collect_garbage();
             return JS::js_undefined();
         },
         0, JS::default_attributes);
-    source->realm()->global_object().define_native_function(
-        *source->realm(), "getterClaim"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            target.global_object().define_direct_property(
-                "__ffGetterCollision"_utf16, JS::Value(17), JS::default_attributes);
-            return JS::js_undefined();
-        },
+    source->realm()->global_object().define_native_function(*source->realm(), "getterClaim"_utf16,
+        GC::create_function(vm.heap(), GC::captures(target),
+            [](auto& target, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                target.global_object().define_direct_property(
+                    "__ffGetterCollision"_utf16, JS::Value(17), JS::default_attributes);
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     ScopeGuard cleanup([&] { source->detach(); });
     size_t stage = 0;
@@ -154,12 +155,12 @@ ErrorOr<void> check_publication_getters(JS::VM& vm, Web::DOM::Document& document
     if (bridge->function_count() != count)
         return Error::from_string_literal("Getter quota/collision consumed function slots");
     // Revoke while a getter is running; inert source effects remain, no API may commit.
-    source->realm()->global_object().define_native_function(
-        *source->realm(), "getterRevoke"_utf16,
-        [bridge](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            bridge->revoke();
-            return JS::js_undefined();
-        },
+    source->realm()->global_object().define_native_function(*source->realm(), "getterRevoke"_utf16,
+        GC::create_function(vm.heap(), GC::captures(bridge->make_weak_ptr()),
+            [](auto& bridge, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                bridge->revoke();
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
     TRY(check(uR"JS(
         let rejected=false;try{contextBridge.exposeInMainWorld('__ffGetterRevoked',{get value(){getterRevoke();return 1}})}

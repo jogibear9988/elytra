@@ -16,7 +16,7 @@ export default function createWebRequest(
   abortHooks
 ) {
   const maximum = 0x7fffffff;
-  const handlers = { before: null, headers: null };
+  const handlers = { before: null, sendHeaders: null, headers: null };
   const pending = new Set();
   const resources = new Set([
     'mainFrame',
@@ -83,7 +83,13 @@ export default function createWebRequest(
       throw error('ERR_INVALID_ARG_TYPE', 'webRequest callback requires a decision object');
     }
     for (const key of Object.keys(value)) {
-      if (key !== 'cancel' && !(stage === 'headers' && key === 'responseHeaders')) {
+      if (
+        key !== 'cancel' &&
+        !(
+          (stage === 'headers' && key === 'responseHeaders') ||
+          (stage === 'sendHeaders' && key === 'requestHeaders')
+        )
+      ) {
         unsupported('webRequest decision ' + key);
       }
     }
@@ -91,9 +97,11 @@ export default function createWebRequest(
       throw error('ERR_INVALID_ARG_TYPE', 'webRequest cancel must be a boolean');
     }
     const result = { cancel: value.cancel === true };
-    if (!result.cancel && value.responseHeaders !== undefined) {
-      result.responseHeaders = headers(value.responseHeaders);
+    const field = stage === 'sendHeaders' ? 'requestHeaders' : 'responseHeaders';
+    if (!result.cancel && value[field] !== undefined) {
+      result[field] = headers(value[field]);
       for (const name of [
+        ...(stage === 'sendHeaders' ? ['host'] : []),
         'content-length',
         'transfer-encoding',
         'connection',
@@ -108,9 +116,7 @@ export default function createWebRequest(
             .filter(([key]) => key.toLowerCase() === name)
             .flatMap(([, items]) => items);
 
-        if (
-          JSON.stringify(values(result.responseHeaders)) !== JSON.stringify(values(originalHeaders))
-        ) {
+        if (JSON.stringify(values(result[field])) !== JSON.stringify(values(originalHeaders))) {
           unsupported('webRequest response framing header ' + name);
         }
       }
@@ -159,6 +165,12 @@ export default function createWebRequest(
           throw error('ERR_FIREFLY_OBJECT_DESTROYED', 'Request document is no longer active');
         }
       }
+    }
+    if (data.stage === 'sendHeaders') {
+      const original = headers(data.requestHeaders);
+      result.requestHeaders = Object.fromEntries(
+        Object.entries(original).map(([name, values]) => [name, values.join(', ')])
+      );
     }
     if (data.stage === 'headers') {
       if (
@@ -215,40 +227,28 @@ export default function createWebRequest(
       throw error('ERR_OUT_OF_RANGE', 'Request policy generation exhausted');
     }
     const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
-    // This guard rejects before changing the installed policy. The independent
-    // utility transport cannot yet forward decisions to the parent session.
-    const enabled = next.before !== null || next.headers !== null;
-    if (native.utility) {
-      if (typeof native.utility.setRequestPolicy !== 'function') {
-        unsupported('Utility session request containment');
-      }
-      native.utility.setRequestPolicy(
-        enabled || handlers.before !== null || handlers.headers !== null || !healthy
-      );
-    }
+    // Utility processes currently accept no session/partition. Electron gives
+    // these children their own system network context; they are not clients of
+    // defaultSession interception. Main/renderer policy remains independent.
     ++epoch;
     configuring = true;
     try {
       invalidate();
-      native.webRequest.configure(epoch, next.before !== null, next.headers !== null);
+      native.webRequest.configure(
+        epoch,
+        next.before !== null || next.sendHeaders !== null,
+        next.headers !== null
+      );
       if (!active()) {
         throw error('ERR_FIREFLY_SESSION_CLOSED', 'Session closed during request configuration');
       }
       Object.assign(handlers, next);
       healthy = true;
-      if (!enabled) {
-        native.utility?.setRequestPolicy(false);
-      }
     } catch (failure) {
-      handlers.before = handlers.headers = null;
+      handlers.before = handlers.sendHeaders = handlers.headers = null;
       healthy = false;
-      // Admission may have failed after updating helper policy. Keep transport
-      // fail-closed until an explicit, successful configuration repairs it.
-      try {
-        native.utility?.setRequestPolicy(true);
-      } catch {
-        // A nested shutdown already killed utilities; preserve admission failure.
-      }
+      // A failed native configuration poisons only this session policy until
+      // an explicit successful configuration repairs its authenticated routing.
       throw failure;
     } finally {
       configuring = false;
@@ -279,7 +279,7 @@ export default function createWebRequest(
       !healthy ||
       configuring ||
       data.epoch !== current ||
-      !['before', 'headers'].includes(stage)
+      !['before', 'sendHeaders', 'headers'].includes(stage)
     ) {
       finish({ cancel: true });
       return;
@@ -297,7 +297,12 @@ export default function createWebRequest(
     }
     // Applications commonly mutate details.responseHeaders in place. Keep a
     // private original for framing validation before handing them the record.
-    const originalHeaders = stage === 'headers' ? headers(details.responseHeaders) : undefined;
+    const originalHeaders =
+      stage === 'headers'
+        ? headers(details.responseHeaders)
+        : stage === 'sendHeaders'
+          ? headers(data.requestHeaders)
+          : undefined;
     if (pending.size >= 64) {
       finish({ cancel: true });
       return;
@@ -359,19 +364,40 @@ export default function createWebRequest(
     }
   }
 
+  function runStages(stage, data, complete, signal) {
+    if (stage !== 'before') {
+      run(stage, data, complete, signal);
+      return;
+    }
+    // Both callbacks run while the actual native request is suspended, before
+    // preflight/transport. This is not a snapshot of later automatic Cookie/Host.
+    run(
+      'before',
+      data,
+      (result) => {
+        if (result.cancel || !handlers.sendHeaders) {
+          complete(result);
+          return;
+        }
+        run('sendHeaders', data, complete, signal);
+      },
+      signal
+    );
+  }
+
   function dispatch(data) {
     if (!data || !id(data.token) || !id(data.epoch)) {
       return;
     }
 
-    run(data.stage, data, (value) =>
+    runStages(data.stage, data, (value) =>
       native.webRequest.complete(data.token, data.epoch, JSON.stringify(value))
     );
   }
 
   function intercept(stage, data, signal) {
     return new Promise((resolve, reject) => {
-      run(
+      runStages(
         stage,
         { ...data, epoch },
         (value) => {
@@ -391,7 +417,7 @@ export default function createWebRequest(
       return;
     }
     stopped = true;
-    handlers.before = handlers.headers = null;
+    handlers.before = handlers.sendHeaders = handlers.headers = null;
     invalidate();
     if (epoch && epoch < maximum) {
       native.webRequest.configure(++epoch, false, false);
@@ -403,12 +429,15 @@ export default function createWebRequest(
       register('before', args);
     },
 
+    onBeforeSendHeaders(...args) {
+      register('sendHeaders', args);
+    },
+
     onHeadersReceived(...args) {
       register('headers', args);
     }
   };
   for (const name of [
-    'onBeforeSendHeaders',
     'onSendHeaders',
     'onResponseStarted',
     'onBeforeRedirect',

@@ -4,10 +4,33 @@
 #include <LibJS/Runtime/JobCallback.h>
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/DOM/DOMEventListener.h>
+#include <LibWeb/DOM/Event.h>
 #include <LibWeb/DOM/MutationObserver.h>
+#include <LibWeb/HTML/EventHandler.h>
 #include <LibWeb/HTML/Timer.h>
 
 namespace Firefly {
+void WorldJobGuard::State::visit_edges(GC::Cell::Visitor& visitor) const
+{
+    // A queued job may own the policy state, never its weak registration keys.
+    // Values remain reachable only through their actual live event/target, as
+    // in the existing Event/EventTarget edge visitors; no realm is rooted here.
+    for (auto const& record : handler_maps) {
+        if (!record.realm.ptr() || !record.target.ptr())
+            continue;
+        for (auto const& handler : *record.map)
+            visitor.visit_ephemeron(*record.target.ptr(), JS::Value(handler.value.ptr()));
+    }
+
+    for (auto const& record : event_values) {
+        if (!record.event.ptr())
+            continue;
+        for (auto const& copy : record.copies)
+            if (copy.target.ptr())
+                visitor.visit_ephemeron(*record.event.ptr(), copy.value);
+    }
+}
+
 WorldJobGuard::WorldJobGuard(JS::VM& vm)
     : m_state(adopt_ref(*new State(vm)))
 {

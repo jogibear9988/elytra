@@ -1,5 +1,6 @@
 /** Marshal plain OS results onto the main owner before queuing the established VM bridge event. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "Provider.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -16,6 +17,8 @@
 
 namespace Firefly::DesktopCapture {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
     // The mutex protects only posting versus owner teardown. JS values never live
     // here. Pending IDs and notify are accessed on the QObject owner thread only.
     std::mutex mutex;
@@ -108,29 +111,33 @@ std::shared_ptr<Controller> install_host(
     auto state = std::make_shared<Controller::State>();
     state->receiver = &receiver;
     state->notify = std::move(notify);
-    host.define_native_function(
-        realm, "desktopCaptureStart"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(request_id(vm));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Desktop capture dispatcher stopped");
-            if (state->pending.size() >= 8)
-                return fail(vm, "ERR_FIREFLY_CAPTURE_LIMIT", "Too many native desktop requests");
-            if (id <= state->last_id || !state->pending.insert(id).second)
-                return fail(vm, "ERR_FIREFLY_CAPTURE_DATA", "Reused desktop capture request ID");
-            state->last_id = id;
-            enumerate([weak = std::weak_ptr(state), id](
-                          Result result) { post(weak, id, std::move(result)); });
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "desktopCaptureStart"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(request_id(vm));
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Desktop capture dispatcher stopped");
+                if (state->pending.size() >= 8)
+                    return fail(
+                        vm, "ERR_FIREFLY_CAPTURE_LIMIT", "Too many native desktop requests");
+                if (id <= state->last_id || !state->pending.insert(id).second)
+                    return fail(
+                        vm, "ERR_FIREFLY_CAPTURE_DATA", "Reused desktop capture request ID");
+                state->last_id = id;
+                enumerate([weak = std::weak_ptr(state), id](
+                              Result result) { post(weak, id, std::move(result)); });
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "desktopCaptureCancel"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            state->pending.erase(TRY(request_id(vm)));
-            // Cancellation removes delivery authority, not the provider's OS slot.
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "desktopCaptureCancel"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                state->pending.erase(TRY(request_id(vm)));
+                // Cancellation removes delivery authority, not the provider's OS slot.
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

@@ -27,6 +27,7 @@ namespace {
 
     std::atomic<Configuration const*> published { nullptr };
     bool attempted { false };
+    bool embedded_profile { false };
     NeverDestroyed<ByteString> requested_directory;
     NeverDestroyed<AK::ThreadID> owner { AK::ThreadID::current() };
 
@@ -117,6 +118,18 @@ namespace {
     }
 }
 
+void begin_embedded_profile()
+{
+    verify_owner();
+    embedded_profile = true;
+}
+
+bool owns_embedded_profile()
+{
+    verify_owner();
+    return embedded_profile;
+}
+
 ByteString directory()
 {
     verify_owner();
@@ -161,7 +174,12 @@ ErrorOr<void> start(StringView text)
     auto path = config->directory;
     auto* immutable = config.leak_ptr();
     published.store(immutable, std::memory_order_release);
-    return WebView::CrashReportStore(path).initialize_browser_crash_handler();
+    // Hub initialization can already have read the browser store's directory.
+    // Bind that same store only on explicit opt-in: helper exit/report recovery
+    // uses its directory even for helpers launched before start().
+    auto& store = WebView::CrashReportStore::the();
+    store.set_directory(move(path));
+    return store.initialize_browser_crash_handler();
 }
 
 ByteString parameters()

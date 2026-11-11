@@ -1,6 +1,7 @@
 /** Bounded libuv watchers with VM roots, exclusive Mite ownership and host disposition restore. */
 #include "Signals.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include <AK/NeverDestroyed.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -73,6 +74,12 @@ namespace {
 #endif
 
     struct State {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            for (auto const& entry : watches)
+                visitor.visit(entry.second->callback.ptr());
+        }
+
         JS::VM& vm;
         EventLoop& loop;
         bool allow;
@@ -148,74 +155,76 @@ GC::Ref<JS::Object> create_signal_host(JS::Realm& realm, EventLoop& loop, bool a
             state->close(state->watches.begin()->first);
     });
     auto host = JS::Object::create(realm, nullptr);
-    host->define_native_function(
-        realm, "start"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32() || !vm.argument(1).is_function())
-                return failure(vm, "ERR_INVALID_ARG_TYPE", "Invalid native signal subscription");
-            int number = vm.argument(0).as_i32();
-            if (!state->allow)
-                return failure(vm, "ERR_MITE_SIGNAL_HOST_POLICY",
-                    "This host has not enabled process signal subscriptions");
-            if (!permitted(number))
-                return failure(vm, "ERR_MITE_UNSUPPORTED_SIGNAL",
-                    "This signal is not supported by Mite's native watcher policy");
-            if (state->stopped || state->watches.contains(number))
-                return failure(
-                    vm, "ERR_MITE_SIGNAL_STATE", "Signal subscription is closed or already active");
-            if (state->handles >= 32)
-                return failure(vm, "ERR_MITE_SIGNAL_LIMIT", "Too many pending signal handles");
-            std::lock_guard lock(ownership->mutex);
-            if (ownership->signals.contains(number))
-                return failure(
-                    vm, "ERR_MITE_SIGNAL_OWNED", "Another runtime owns this process signal");
-            auto* watch = new Watch { state, {}, GC::Root { vm.argument(1).as_function() } };
+    host->define_native_function(realm, "start"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32() || !vm.argument(1).is_function())
+                    return failure(
+                        vm, "ERR_INVALID_ARG_TYPE", "Invalid native signal subscription");
+                int number = vm.argument(0).as_i32();
+                if (!state->allow)
+                    return failure(vm, "ERR_MITE_SIGNAL_HOST_POLICY",
+                        "This host has not enabled process signal subscriptions");
+                if (!permitted(number))
+                    return failure(vm, "ERR_MITE_UNSUPPORTED_SIGNAL",
+                        "This signal is not supported by Mite's native watcher policy");
+                if (state->stopped || state->watches.contains(number))
+                    return failure(vm, "ERR_MITE_SIGNAL_STATE",
+                        "Signal subscription is closed or already active");
+                if (state->handles >= 32)
+                    return failure(vm, "ERR_MITE_SIGNAL_LIMIT", "Too many pending signal handles");
+                std::lock_guard lock(ownership->mutex);
+                if (ownership->signals.contains(number))
+                    return failure(
+                        vm, "ERR_MITE_SIGNAL_OWNED", "Another runtime owns this process signal");
+                auto* watch = new Watch { state, {}, GC::Root { vm.argument(1).as_function() } };
 #ifndef _WIN32
-            if (sigaction(number, nullptr, &watch->previous) != 0) {
-                delete watch;
-                return failure(
-                    vm, "ERR_MITE_SIGNAL_STATE", "Cannot inspect host signal disposition");
-            }
+                if (sigaction(number, nullptr, &watch->previous) != 0) {
+                    delete watch;
+                    return failure(
+                        vm, "ERR_MITE_SIGNAL_STATE", "Cannot inspect host signal disposition");
+                }
 
-            if (watch->previous.sa_handler != SIG_DFL && watch->previous.sa_handler != SIG_IGN) {
-                delete watch;
-                return failure(
-                    vm, "ERR_MITE_SIGNAL_OWNED", "An existing host handler owns this signal");
-            }
+                if (watch->previous.sa_handler != SIG_DFL
+                    && watch->previous.sa_handler != SIG_IGN) {
+                    delete watch;
+                    return failure(
+                        vm, "ERR_MITE_SIGNAL_OWNED", "An existing host handler owns this signal");
+                }
 #endif
-            int status = uv_signal_init(&state->loop.native_loop(), &watch->handle);
-            if (status) {
-                delete watch;
-                return failure(vm, uv_err_name(status), uv_strerror(status));
-            }
+                int status = uv_signal_init(&state->loop.native_loop(), &watch->handle);
+                if (status) {
+                    delete watch;
+                    return failure(vm, uv_err_name(status), uv_strerror(status));
+                }
 
-            watch->handle.data = watch;
-            ++state->handles;
-            uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
-            status = uv_signal_start(&watch->handle, delivered, number);
-            if (status) {
-                watch->callback = nullptr;
-                uv_close(reinterpret_cast<uv_handle_t*>(&watch->handle), closed);
-                return failure(vm, uv_err_name(status), uv_strerror(status));
-            }
+                watch->handle.data = watch;
+                ++state->handles;
+                uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
+                status = uv_signal_start(&watch->handle, delivered, number);
+                if (status) {
+                    watch->callback = nullptr;
+                    uv_close(reinterpret_cast<uv_handle_t*>(&watch->handle), closed);
+                    return failure(vm, uv_err_name(status), uv_strerror(status));
+                }
 
-            watch->active = true;
+                watch->active = true;
 #ifndef _WIN32
-            VERIFY(sigaction(number, nullptr, &watch->installed) == 0);
+                VERIFY(sigaction(number, nullptr, &watch->installed) == 0);
 #endif
-            state->watches.emplace(number, watch);
-            ownership->signals.emplace(number, watch);
-            return JS::js_undefined();
-        },
+                state->watches.emplace(number, watch);
+                ownership->signals.emplace(number, watch);
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "stop"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32())
-                return failure(vm, "ERR_INVALID_ARG_TYPE", "Invalid native signal number");
-            state->close(vm.argument(0).as_i32());
-            return JS::js_undefined();
-        },
+    host->define_native_function(realm, "stop"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32())
+                    return failure(vm, "ERR_INVALID_ARG_TYPE", "Invalid native signal number");
+                state->close(vm.argument(0).as_i32());
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     return host;
 }

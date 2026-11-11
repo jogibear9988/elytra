@@ -3,6 +3,7 @@
 #include "Arguments.h"
 #include "loading/protocol/Client.h"
 #include "loading/protocol/Dispatch.h"
+#include "loading/web-request/Gate.h"
 #include "native/protocol/OriginPolicy.h"
 #include "native/protocol/files/Server.h"
 #include <AK/Array.h>
@@ -10,6 +11,7 @@
 #include <LibCore/ElapsedTimer.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/System.h>
+#include <LibGC/Function.h>
 #include <LibIPC/StartupTransport.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
@@ -25,6 +27,7 @@
 #endif
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <thread>
 
@@ -66,13 +69,16 @@ ErrorOr<JS::Value> run(JS::Realm& realm, Utf16View source)
     return result.release_value();
 }
 
-ErrorOr<void> wait(JS::Realm& realm, Function<bool()> predicate, int seconds = 10)
+ErrorOr<void> wait(JS::Realm& realm, GC::Ref<GC::Function<bool()>> predicate, int seconds = 10)
 {
     auto timer = Core::Timer::create_single_shot(AK::Duration::from_seconds(seconds), [] { });
     timer->start();
-    Web::HTML::main_thread_event_loop().spin_until(
-        GC::create_function(realm.heap(), [&] { return predicate() || !timer->is_active(); }));
-    if (!predicate()) {
+    Web::HTML::main_thread_event_loop().spin_until(GC::create_function(realm.heap(),
+        GC::captures(predicate, timer->make_weak_ptr<Core::Timer>()),
+        [](auto& predicate, auto& timer) {
+            return (*predicate)() || !timer || !timer->is_active();
+        }));
+    if (!(*predicate)()) {
         auto detail = run(realm, u"globalThis.channelResult"sv);
         if (!detail.is_error())
             warnln("JavaScript channel result: {}",
@@ -87,12 +93,13 @@ ErrorOr<void> wait(JS::Realm& realm, Function<bool()> predicate, int seconds = 1
 ErrorOr<void> wait_script(JS::Realm& realm, Utf16View expression, int seconds = 10)
 {
     auto text = Utf16String::from_utf16(expression);
-    return wait(
-        realm,
-        [&] {
-            auto result = run(realm, text);
-            return !result.is_error() && result.value().is_boolean() && result.value().as_bool();
-        },
+    return wait(realm,
+        GC::create_function(realm.heap(), GC::captures(realm, text),
+            [](auto& realm, auto& text) {
+                auto result = run(realm, text);
+                return !result.is_error() && result.value().is_boolean()
+                    && result.value().as_bool();
+            }),
         seconds);
 }
 
@@ -138,6 +145,37 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             client->revoke();
     };
 
+    struct GateCounters {
+        size_t calls {}, active {}, peak {}, finished {};
+    };
+
+    auto gate = std::make_shared<GateCounters>();
+    if (mode == "gate-burst"sv) {
+        Firefly::WebRequestGate::install(
+            [gate](auto stage, auto&, JsonObject,
+                Firefly::WebRequestGate::Completion completion) -> ErrorOr<u32> {
+                if (stage != Firefly::WebRequestGate::Stage::Before)
+                    return Error::from_string_literal("Unexpected controlled gate stage");
+                auto id = static_cast<u32>(++gate->calls);
+                ++gate->active;
+                gate->peak = max(gate->peak, gate->active);
+                Core::deferred_invoke([gate, id, completion = move(completion)]() mutable {
+                    --gate->active;
+                    JsonObject decision;
+                    decision.set("cancel"sv, id == 17);
+                    completion(move(decision));
+                });
+                return id;
+            },
+            [](u32) {}, [gate](u32) { ++gate->finished; });
+        if (!Firefly::WebRequestGate::configure({ 1, true, false }))
+            return Error::from_string_literal("Controlled native gate policy setup failed");
+    }
+    ScopeGuard gate_cleanup([&] {
+        if (mode == "gate-burst"sv)
+            Firefly::WebRequestGate::shutdown();
+    });
+
     if (mode == "body"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
@@ -177,21 +215,56 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
             ]).then(()=>channelResult='ok',e=>channelResult='error:'+e.message);
         )JS"sv));
         TRY(wait_script(realm, u"channelResult==='ok'"sv));
+    } else if (mode == "gate-burst"sv) {
+        TRY(run(realm, uR"JS(
+            globalThis.channelResult='pending';
+            Promise.allSettled(Array.from({length:32},()=>fetch('app://bundle/body').then(async r=>{
+                const bytes=new Uint8Array(await r.arrayBuffer());
+                if(r.status!==200 || bytes.length!==4099 ||
+                    !bytes.every((v,i)=>v===((i*37+11)&255))) throw Error('gated GET body');
+            }))).then(results=>{
+                channelResult=results.filter(r=>r.status==='fulfilled').length===31 &&
+                    results.filter(r=>r.status==='rejected').length===1 ? 'gate-burst':'bad';
+            },()=>channelResult='bad');
+        )JS"sv));
+        TRY(wait_script(realm, u"channelResult==='gate-burst'"sv));
+        if (gate->calls != 32 || gate->active || gate->peak != 16 || gate->finished != 32)
+            return Error::from_string_literal("Native security gate burst ownership mismatch");
+    } else if (mode == "burst"sv) {
+        TRY(run(realm, uR"JS(
+            globalThis.channelResult='pending';
+            Promise.all(Array.from({length:32},()=>fetch('app://bundle/body').then(async r=>{
+                const bytes=new Uint8Array(await r.arrayBuffer());
+                if(r.status!==200 || bytes.length!==4099 ||
+                    !bytes.every((v,i)=>v===((i*37+11)&255))) throw Error('queued GET body');
+            }))).then(()=>channelResult='burst',()=>channelResult='bad');
+        )JS"sv));
+        TRY(wait_script(realm, u"channelResult==='burst'"sv));
     } else if (mode == "quota"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
-            Promise.allSettled(Array.from({length:9},()=>fetch('app://bundle/body').then(r=>r.arrayBuffer())))
-                .then(results=>{
-                    const accepted=results.filter(r=>r.status==='fulfilled');
-                    const denied=results.filter(r=>r.status==='rejected');
-                    const valid=accepted.length===8 && denied.length===1 && accepted.every(r=>{
-                        const bytes=new Uint8Array(r.value);
-                        return bytes.length===4194323 && bytes[0]===11 && bytes[4194322]===165;
-                    });
-                    channelResult=valid?'quota':'bad';
-                },()=>channelResult='bad');
+            const controllers=Array.from({length:64},()=>new AbortController());
+            const requests=controllers.map(controller=>fetch('app://bundle/body',{
+                method:'HEAD',signal:controller.signal
+            }).then(async r=>{
+                if(r.status!==200 || r.headers.get('content-length')!=='4194323' ||
+                    (await r.arrayBuffer()).byteLength!==0) throw Error('queued HEAD');
+                return true;
+            }));
+            // Fetch jobs enter the native waiting queue before its deferred
+            // transport pump. Cancel a request well beyond the eight active slots.
+            queueMicrotask(()=>controllers[32].abort());
+            Promise.allSettled(requests).then(results=>{
+                const accepted=results.filter(r=>r.status==='fulfilled');
+                const denied=results.filter(r=>r.status==='rejected');
+                channelResult=accepted.length===63 && denied.length===1 &&
+                    results[32].status==='rejected' && results[32].reason.name==='AbortError'
+                    ?'quota':'bad';
+            },()=>channelResult='bad');
         )JS"sv));
         TRY(wait_script(realm, u"channelResult==='quota'"sv));
+        // The common bounded wait below also requires every native terminal
+        // frame to retire before teardown; Promise settlement alone is earlier.
     } else if (mode == "scope"sv) {
         GC::Root other { create_document() };
         auto& other_realm = other->relevant_settings_object().realm();
@@ -252,7 +325,9 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     }
 
     if (client)
-        TRY(wait(realm, [&] { return !client->pending(); }));
+        TRY(wait(realm,
+            GC::create_function(realm.heap(), GC::captures(client->make_weak_ptr()),
+                [](auto& client) { return client && !client->pending(); })));
     TRY(wait_script(realm,
         u"['process','require','firefly','electron'].every(k=>typeof globalThis[k]==='undefined')"sv));
     outln("PASS actual JavaScript fetch over native process channel {}: body/stream settlement and "
@@ -390,7 +465,9 @@ ErrorOr<void> parent(StringView path, StringView mode)
         if (server->pending() || server->files()
             || calls
                 != static_cast<size_t>(mode == "body"sv              ? 3
-                        : mode == "quota"sv                          ? 8
+                        : mode == "quota"sv                          ? 63
+                        : mode == "burst"sv                          ? 32
+                        : mode == "gate-burst"sv                     ? 31
                         : mode.is_one_of("scope"sv, "abort-early"sv) ? 0
                                                                      : 1))
             return Error::from_string_literal("Native fetch admission/file cleanup mismatch");
@@ -415,9 +492,9 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     IPC::HandleBroker::install(make<IPC::LocalHandleBroker>());
 #endif
     if (arguments.argc != 3
-        || !arguments.strings[1].is_one_of("body"sv, "stream"sv, "quota"sv, "scope"sv, "abort"sv,
-            "abort-early"sv, "reader-cancel"sv, "revoke"sv, "drop"sv, "peerloss"sv, "malformed"sv,
-            "epoch"sv, "future"sv, "silence"sv))
+        || !arguments.strings[1].is_one_of("body"sv, "stream"sv, "quota"sv, "burst"sv,
+            "gate-burst"sv, "scope"sv, "abort"sv, "abort-early"sv, "reader-cancel"sv, "revoke"sv,
+            "drop"sv, "peerloss"sv, "malformed"sv, "epoch"sv, "future"sv, "silence"sv))
         return Error::from_string_literal(
             "Expected fetch-channel mode and native-authorized file path");
     TRY(parent(arguments.strings[2], arguments.strings[1]));

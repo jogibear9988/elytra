@@ -226,7 +226,6 @@ app
       ports.port2.close();
       for (const options of [
         { execArgv: ['--expose-gc'] },
-        { serviceName: 'Elytra utility acceptance' },
         { allowLoadingUnsignedLibraries: true },
         { respondToAuthRequestsFromMainProcess: true }
       ]) {

@@ -1,0 +1,11 @@
+# The native UI and standalone Hub probes share the same owned locale provider.
+include_guard(GLOBAL)
+if(APPLE)
+    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/LocaleMac.mm")
+    target_link_libraries(firefly-locale PUBLIC Qt::Core "-framework Foundation")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_library(firefly-locale STATIC "${CMAKE_CURRENT_LIST_DIR}/LocaleLinux.cpp")
+    target_link_libraries(firefly-locale PUBLIC Qt::Core)
+else()
+    message(FATAL_ERROR "No native Firefly locale provider for this desktop backend")
+endif()

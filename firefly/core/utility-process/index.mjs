@@ -1,5 +1,16 @@
 /** Native owned utility children. Main and utility realms exchange bounded binary snapshots. */
-export default function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths) {
+import decodePortPacket from '../message-ports/packets.mjs';
+
+export default function createUtilityProcesses(
+  native,
+  codec,
+  EventEmitter,
+  Readable,
+  app,
+  paths,
+  childProcessGone,
+  channels
+) {
   const owned = new Set();
   let stopped = false;
 
@@ -68,8 +79,12 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
         unsupported(`utilityProcess ${key}`);
       }
     }
-    if (options.serviceName !== undefined) {
-      unsupported('Utility service naming and app process metrics');
+    const serviceName =
+      options.serviceName === undefined
+        ? 'Node Utility Process'
+        : text(options.serviceName, 'serviceName');
+    if (new TextEncoder().encode(serviceName).length > 4096) {
+      fail('ERR_OUT_OF_RANGE', 'serviceName exceeds its UTF-8 byte limit');
     }
     const env = options.env ?? process.env;
     if (!env || typeof env !== 'object' || Array.isArray(env)) {
@@ -91,7 +106,8 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
       args: strings(args, 'args'),
       cwd: options.cwd === undefined ? '' : text(options.cwd, 'cwd'),
       env: environment,
-      stdio: modes(options.stdio)
+      stdio: modes(options.stdio),
+      serviceName: serviceName || 'Node Utility Process'
     };
   }
 
@@ -115,9 +131,22 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
         exited: false,
         killed: false,
         stdout: null,
-        stderr: null
+        stderr: null,
+        link: null
       };
       authority.set(this, state);
+      if (channels) {
+        state.link = channels.connect({
+          send: (id, generation, wire) => native.sendPort(state.id, id, generation, wire),
+
+          close: (id, generation) => native.closePort(state.id, id, generation),
+
+          consume: (id, generation, size) => native.consumePort(state.id, id, generation, size),
+
+          blocked: (status) =>
+            typeof native.portQueueFull === 'number' && status === native.portQueueFull
+        });
+      }
       state.stdout = spec.stdio[1] === 'pipe' ? output() : null;
       state.stderr = spec.stdio[2] === 'pipe' ? output() : null;
       owned.add(this);
@@ -154,9 +183,42 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
             if (state.exited && !state.stdout && !state.stderr) {
               owned.delete(this);
             }
+          } else if (kind === 'port-writable') {
+            state.link?.writable();
+          } else if (kind === 'port-data' || kind === 'port-close') {
+            try {
+              if (!state.link) {
+                unsupported('Utility native MessagePort routing');
+              }
+              const packet = decodePortPacket(value, kind);
+              if (kind === 'port-data') {
+                state.link.receive(packet.id, packet.generation, packet.wire);
+              } else {
+                state.link.closed(packet.id, packet.generation);
+              }
+            } catch (failure) {
+              state.link?.disconnect();
+              native.kill(state.id);
+              this.emit('error', failure);
+            }
+          } else if (kind === 'close') {
+            state.link?.disconnect();
           } else if (kind === 'data') {
             this.emit('message', codec.decodeIpc(value));
+          } else if (kind === 'gone') {
+            const details = JSON.parse(value);
+            if (
+              details.type !== 'Utility' ||
+              details.name !== spec.serviceName ||
+              details.pid !== state.pid ||
+              !Number.isInteger(details.exitCode) ||
+              !['abnormal-exit', 'crashed', 'killed'].includes(details.reason)
+            ) {
+              fail('ERR_FIREFLY_UTILITY_CHANNEL', 'Invalid native utility exit details');
+            }
+            childProcessGone?.(details);
           } else if (kind === 'exit') {
+            state.link?.disconnect();
             state.exited = true;
             state.pid = undefined;
             this.emit('exit', value);
@@ -165,6 +227,7 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
               owned.delete(this);
             }
           } else if (kind === 'error') {
+            state.link?.disconnect();
             this.emit(
               'error',
               Object.assign(new Error(String(value)), {
@@ -174,11 +237,13 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
           }
         });
       } catch (failure) {
+        state.link?.disconnect();
         owned.delete(this);
         throw failure;
       }
       state.id = result.id;
       if (result.status) {
+        state.link?.disconnect();
         owned.delete(this);
         state.exited = true;
         state.stdout?.destroy();
@@ -205,11 +270,28 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
       if (stopped || state.exited) {
         return;
       }
-      if (transfer !== undefined && (!Array.isArray(transfer) || transfer.length)) {
-        unsupported('Utility native MessagePort transfer');
-      }
       const wire = codec.encodeIpc(message);
-      const status = native.send(state.id, wire);
+      let status;
+      if (transfer !== undefined && (!Array.isArray(transfer) || transfer.length)) {
+        if (!state.link || typeof native.sendTransfer !== 'function') {
+          unsupported('Utility native MessagePort transfer');
+        }
+        const plan = state.link.prepare(transfer);
+        const result = native.sendTransfer(state.id, wire, plan.count);
+        if (!result || result.status !== 0) {
+          fail('ERR_FIREFLY_UTILITY_CHANNEL', 'Utility port transfer admission failed');
+        }
+        try {
+          plan.commit(result.ports);
+        } catch (failure) {
+          state.link.disconnect();
+          native.kill(state.id);
+          throw failure;
+        }
+        status = 0;
+      } else {
+        status = native.send(state.id, wire);
+      }
       if (status) {
         fail('ERR_FIREFLY_UTILITY_CHANNEL', `Utility channel send failed (${status})`);
       }
@@ -243,6 +325,9 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
       return;
     }
     stopped = true;
+    for (const child of owned) {
+      authority.get(child).link?.disconnect();
+    }
     native?.shutdown();
     for (const child of owned) {
       const state = authority.get(child);

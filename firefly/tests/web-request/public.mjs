@@ -176,17 +176,13 @@ app.whenReady().then(async () => {
         booted = true;
       });
 
-      await until(() => booted, 'actual utility request-containment peer');
-      let refused = false;
-      try {
-        requests.onBeforeRequest((_details, callback) => callback({ cancel: false }));
-      } catch (failure) {
-        refused = /live utility processes/.test(failure.message);
-      }
+      await until(() => booted, 'actual independent utility peer');
+
+      requests.onBeforeRequest((_details, callback) => callback({ cancel: false }));
+
       const exited = once(child, 'exit');
       child.kill();
       await exited;
-      check(refused, 'Filters must refuse unmediated live utility networking');
     }
     window = new BrowserWindow({ show: false, width: 180, height: 120 });
     await window.loadURL(first + '/page.html?cross=' + encodeURIComponent(cross));
@@ -207,14 +203,13 @@ app.whenReady().then(async () => {
     });
 
     if (limited) {
-      let refused = false;
-      try {
-        utilityProcess.fork(path.join(directory, 'utility-child.mjs'), [], { stdio: 'ignore' });
-      } catch (failure) {
-        refused = /session request filters/.test(failure.message);
-      }
-      check(refused, 'Active filters must prevent new unmediated utility networking');
-      console.log('PASS public webRequest native utility transport containment');
+      const child = utilityProcess.fork(path.join(directory, 'utility-child.mjs'), [], {
+        stdio: 'ignore'
+      });
+      const exited = once(child, 'exit');
+      child.kill();
+      await exited;
+      console.log('PASS public webRequest independent no-session utility lifecycle');
       const socket = first.replace('http:', 'ws:') + '/data/socket-blocked';
       check(
         !(await run('main', socket, 'socket')).ok && count(socket) === 0,

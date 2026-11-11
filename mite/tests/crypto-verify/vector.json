@@ -1,0 +1,17 @@
+{
+  "provenance": "Generated owned public test vector with Node24/OpenSSL; private key was never written.",
+  "jwk": {
+    "kty": "EC",
+    "x": "B6RsrhWKjGOKSZZmePw88NClefYeIQLYbjRd_yJngkU",
+    "y": "fHpCla1GO07ly-ORAjeku--Y1etvtGOUJzSPaIFkIcQ",
+    "crv": "P-256"
+  },
+  "wrong": {
+    "kty": "EC",
+    "x": "zsybbtmvRGhND9lf5KugbZXYma7t042FHK4HYcieH_s",
+    "y": "QDYFn99K_JCqypsMPp0xCsvL-DuWC10aFY_6yxlB_kw",
+    "crv": "P-256"
+  },
+  "message": "Mite native ES256 ownership acceptance",
+  "signature": "7I1mDfc1gBH8e0RWv7xnSS6FC2fOVa-VBMdktB2jk237zZj9QCEk-z_R7V0J-tF1RAGlTJCuv6FS6WvwatNtvQ"
+}

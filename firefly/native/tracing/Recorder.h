@@ -1,5 +1,6 @@
 /** Main-thread native duration events; bounded recording owns no VM or renderer data. */
 #pragma once
+#include "../../../mite/runtime/core/NativeCaptureLifetime.h"
 #include <QByteArray>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -9,8 +10,18 @@
 #include <deque>
 
 namespace Firefly::Tracing {
-class Recorder {
+class Recorder : public Mite::NativeCaptureOwner<Recorder> {
 public:
+    ~Recorder()
+    {
+        this->revoke_native_captures();
+    }
+
+    template <typename Visitor> void visit_capture_edges(Visitor&) const
+    {
+        // Only native policy/Qt data; callbacks are native transport hooks.
+    }
+
     static constexpr size_t capacity = 8192;
     static QStringList categories();
 

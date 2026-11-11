@@ -1,8 +1,28 @@
 /** Main-owned application-menu graph; native actions carry IDs, never JS callbacks. */
+import createAccelerators from './accelerator.mjs';
+import { itemCount, wireBytes } from './limits.mjs';
+
 export default function createMenus(native, error, unsupported, quit, resolveWindow) {
+  const encoder = new TextEncoder();
+  const encode = encoder.encode.bind(encoder);
+  const accelerator = createAccelerators(error, unsupported, process.platform);
+  const editRoles = new Set([
+    'cut',
+    'copy',
+    'paste',
+    'pasteAndMatchStyle',
+    'undo',
+    'redo',
+    'selectAll'
+  ]);
+  const nativeRoles = new Set(['hide', 'hideOthers', 'unhide', 'front']);
+  const menuRoles = new Set(['window', 'help', 'services']);
   const menuState = new WeakMap();
   const itemState = new WeakMap();
   let current = null;
+  let dockCurrent = null;
+  let dockGeneration = 0;
+  let dockCommands = new Map();
   const building = new Set();
   let generation = 0;
   let nextCommand = 0;
@@ -16,7 +36,9 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     'visible',
     'checked',
     'click',
-    'role'
+    'role',
+    'accelerator',
+    'userSettingsLabel'
   ]);
 
   function text(value, name) {
@@ -39,6 +61,7 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
   function graph(menu) {
     const seen = new Set();
     const ids = new Set();
+    const roles = new Set();
     const map = new Map();
 
     function walk(value, depth, enabled = true, visible = true) {
@@ -55,14 +78,20 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         if (map.has(data.command)) {
           throw error('ERR_INVALID_ARG_VALUE', 'Repeated MenuItem');
         }
-        if (map.size >= 256) {
-          throw error('ERR_OUT_OF_RANGE', 'At most 256 menu items');
+        if (map.size >= itemCount) {
+          throw error('ERR_OUT_OF_RANGE', `At most ${itemCount} menu items`);
         }
         if (data.id && ids.has(data.id)) {
           throw error('ERR_INVALID_ARG_VALUE', 'Duplicate menu item id');
         }
         if (data.id) {
           ids.add(data.id);
+        }
+        if (menuRoles.has(data.role)) {
+          if (roles.has(data.role)) {
+            throw error('ERR_INVALID_ARG_VALUE', 'Repeated native menu role');
+          }
+          roles.add(data.role);
         }
         map.set(data.command, {
           item,
@@ -75,6 +104,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
           enabled: data.enabled,
           visible: data.visible,
           checked: data.checked,
+          ...(data.accelerator == null ? {} : { accelerator: accelerator(data.accelerator) }),
+          ...(menuRoles.has(data.role) ? { role: data.role } : {}),
           submenu: data.submenu
             ? walk(data.submenu, depth + 1, enabled && data.enabled, visible && data.visible)
             : []
@@ -91,14 +122,57 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     }
     const snapshot =
       menu === null ? { items: null, map: new Map(), menus: new Set() } : graph(menu);
+    for (const command of snapshot.map.keys()) {
+      if (dockCommands.has(command)) {
+        unsupported('sharing an installed application and Dock menu');
+      }
+    }
     const wire = JSON.stringify({ schema: 1, generation: generation + 1, items: snapshot.items });
-    if (wire.length > 64 * 1024) {
+    if (encode(wire).byteLength > wireBytes) {
       throw error('ERR_OUT_OF_RANGE', 'Menu wire budget exceeded');
     }
     native.menuApply(wire);
     ++generation;
     current = menu;
     commands = snapshot.map;
+  }
+
+  function installDock(menu) {
+    if (!menuState.has(menu)) {
+      throw error('ERR_INVALID_ARG_TYPE', 'Dock menu must be a Menu');
+    }
+    if (
+      typeof native.dockMenuApply !== 'function' ||
+      typeof native.dockMenuAvailable !== 'function' ||
+      !native.dockMenuAvailable()
+    ) {
+      unsupported('app.dock.setMenu provider');
+    }
+    if (dockGeneration === 2147483647) {
+      throw error('ERR_OUT_OF_RANGE', 'Dock menu generation exhausted');
+    }
+    const snapshot = graph(menu);
+    for (const [command, entry] of snapshot.map) {
+      if (commands.has(command)) {
+        unsupported('sharing an installed application and Dock menu');
+      }
+      const data = itemState.get(entry.item);
+      if (data.accelerator != null || menuRoles.has(data.role)) {
+        unsupported('Dock menu accelerator/native submenu role');
+      }
+    }
+    const wire = JSON.stringify({
+      schema: 1,
+      generation: dockGeneration + 1,
+      items: snapshot.items
+    });
+    if (encode(wire).byteLength > wireBytes) {
+      throw error('ERR_OUT_OF_RANGE', 'Dock menu wire budget exceeded');
+    }
+    native.dockMenuApply(wire);
+    ++dockGeneration;
+    dockCurrent = menu;
+    dockCommands = snapshot.map;
   }
 
   function update(item, key, value) {
@@ -108,6 +182,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     try {
       if (current && commands.has(data.command)) {
         install(current);
+      } else if (dockCurrent && dockCommands.has(data.command)) {
+        installDock(dockCurrent);
       }
     } catch (failure) {
       data[key] = previous;
@@ -126,9 +202,26 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         }
       }
       const role = value.role;
-      if (role !== undefined && !['quit', 'close'].includes(role)) {
+      if (role !== undefined && typeof role !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'MenuItem role must be a string');
+      }
+      if (
+        role !== undefined &&
+        !['quit', 'close', 'minimize', 'zoom'].includes(role) &&
+        !nativeRoles.has(role) &&
+        !menuRoles.has(role) &&
+        !(editRoles.has(role) && typeof native.editContents === 'function')
+      ) {
         unsupported(`MenuItem role ${role}`);
       }
+      if (
+        (nativeRoles.has(role) || menuRoles.has(role)) &&
+        (typeof native.menuRoleAvailable !== 'function' || !native.menuRoleAvailable(role))
+      ) {
+        unsupported(`MenuItem native role ${role}`);
+      }
+      const acceleratorValue = value.accelerator;
+      accelerator(acceleratorValue);
       const submenu =
         value.submenu === undefined
           ? null
@@ -150,12 +243,18 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       }
       if (
         (type === 'separator' || type === 'submenu') &&
-        (value.click !== undefined || role !== undefined)
+        (value.click !== undefined || (role !== undefined && !menuRoles.has(role)))
       ) {
         unsupported('click/role on a separator or submenu');
       }
-      if (role !== undefined && type !== 'normal') {
+      if (role !== undefined && type !== 'normal' && !(type === 'submenu' && menuRoles.has(role))) {
         unsupported('role on non-normal item');
+      }
+      if (menuRoles.has(role) && type !== 'submenu') {
+        unsupported('menu role requires a submenu');
+      }
+      if (acceleratorValue != null && (type === 'submenu' || type === 'separator')) {
+        unsupported('accelerator on a separator or submenu');
       }
       if (value.checked !== undefined && type !== 'checkbox') {
         unsupported('checked on a non-checkbox item');
@@ -167,6 +266,11 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         command: ++nextCommand,
         parent: null,
         role,
+        accelerator: acceleratorValue,
+        userSettingsLabel:
+          value.userSettingsLabel === undefined
+            ? undefined
+            : text(value.userSettingsLabel, 'userSettingsLabel'),
         submenu,
         type,
         id: text(value.id === undefined ? '' : value.id, 'id'),
@@ -204,6 +308,29 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
           }
         });
       }
+      Object.defineProperty(this, 'accelerator', {
+        enumerable: true,
+
+        get: () => data.accelerator,
+
+        set: (value) => {
+          accelerator(value);
+          if (value != null && (type === 'submenu' || type === 'separator')) {
+            unsupported('accelerator on a separator or submenu');
+          }
+          update(this, 'accelerator', value);
+        }
+      });
+      Object.defineProperty(this, 'userSettingsLabel', {
+        enumerable: true,
+
+        get: () => data.userSettingsLabel,
+
+        set: (value) => {
+          data.userSettingsLabel =
+            value === undefined ? undefined : text(value, 'userSettingsLabel');
+        }
+      });
       Object.defineProperty(this, 'click', {
         enumerable: true,
 
@@ -282,7 +409,10 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       if (!Number.isInteger(position) || position < 0 || position > list.length) {
         throw error('ERR_OUT_OF_RANGE', 'Invalid menu insertion index');
       }
-      if (current && graph(current).menus.has(this)) {
+      if (
+        (current && graph(current).menus.has(this)) ||
+        (dockCurrent && graph(dockCurrent).menus.has(this))
+      ) {
         unsupported('structural changes to an installed application menu');
       }
       if (data.parent) {
@@ -308,15 +438,44 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       return null;
     }
   }
+  const dock = {
+    setMenu(menu) {
+      if (this !== dock) {
+        throw error('ERR_INVALID_ARG_TYPE', 'Illegal Dock receiver');
+      }
+      installDock(menu);
+    },
+
+    getMenu() {
+      if (this !== dock) {
+        throw error('ERR_INVALID_ARG_TYPE', 'Illegal Dock receiver');
+      }
+      return dockCurrent;
+    }
+  };
+  for (const method of [
+    'bounce',
+    'cancelBounce',
+    'downloadFinished',
+    'setBadge',
+    'getBadge',
+    'hide',
+    'show',
+    'isVisible',
+    'setIcon'
+  ]) {
+    dock[method] = () => unsupported('app.dock.' + method);
+  }
   return {
     Menu,
     MenuItem,
+    dock,
 
-    dispatch(windowId, event) {
-      if (event.generation !== generation) {
+    dispatch(windowId, event, dockEvent = false) {
+      if (event.generation !== (dockEvent ? dockGeneration : generation)) {
         return;
       }
-      const found = commands.get(event.command);
+      const found = (dockEvent ? dockCommands : commands).get(event.command);
       if (!found?.eligible) {
         return;
       }
@@ -336,6 +495,20 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         quit();
       } else if (data.role === 'close') {
         window?.close();
+      } else if (data.role === 'minimize') {
+        window?.minimize();
+      } else if (data.role === 'zoom') {
+        if (window) {
+          if (window.isMaximized()) {
+            window.unmaximize();
+          } else {
+            window.maximize();
+          }
+        }
+      } else if (nativeRoles.has(data.role)) {
+        native.menuRole(data.role);
+      } else if (editRoles.has(data.role)) {
+        native.editContents(0, data.role);
       } else if (data.click) {
         Reflect.apply(data.click, undefined, [
           item,
@@ -344,7 +517,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
             shiftKey: !!(event.modifiers & 1),
             ctrlKey: !!(event.modifiers & 2),
             altKey: !!(event.modifiers & 4),
-            metaKey: !!(event.modifiers & 8)
+            metaKey: !!(event.modifiers & 8),
+            triggeredByAccelerator: event.triggeredByAccelerator === true
           }
         ]);
       }

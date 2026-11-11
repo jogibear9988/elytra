@@ -1,5 +1,7 @@
 import createPromisify from './promisify.mjs';
 import inherits from './inherits.mjs';
+import createDebugLog from './debuglog.mjs';
+import createInspection from './inspect.mjs';
 
 /**
  * TextEncoder and stateful TextDecoder facades. Native conversion owns codec state and byte-
@@ -10,6 +12,7 @@ import inherits from './inherits.mjs';
  */
 export default function createEncodingModule(host) {
   const native = host.native;
+  const debuglog = createDebugLog(host);
   const promisify = createPromisify(host.promisifyState);
   const encoders = new WeakSet();
   const decoders = new WeakMap();
@@ -128,5 +131,14 @@ export default function createEncodingModule(host) {
       enumerable: true
     });
   }
-  return { TextEncoder, TextDecoder, promisify, inherits };
+  return {
+    TextEncoder,
+    TextDecoder,
+    promisify,
+    inherits,
+    debuglog,
+    debug: debuglog,
+    ...createInspection(host),
+    ...(host.types ? { types: host.types } : {})
+  };
 }

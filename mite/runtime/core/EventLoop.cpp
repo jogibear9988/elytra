@@ -5,9 +5,11 @@
 
 #include "core/EventLoop.h"
 #include "MiteBootstrap.h"
+#include "core/GCCaptures.h"
 #include "core/ImmediateQueue.h"
 
 #include <AK/TemporaryChange.h>
+#include <LibGC/DeferGC.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
@@ -16,6 +18,8 @@
 #include <LibJS/Script.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace Mite {
@@ -28,6 +32,7 @@ struct EventLoop::Timer {
         , repeating(repeat)
         , callback(callback)
         , receiver(receiver)
+        , context(owner.async_context().capture())
     {
     }
 
@@ -37,11 +42,42 @@ struct EventLoop::Timer {
     uv_timer_t handle {};
     GC::Root<JS::FunctionObject> callback;
     GC::Root<JS::Object> receiver;
+    GC::Root<AsyncCarrier> context;
     GC::RootVector<JS::Value> arguments;
 };
 
+void EventLoop::visit_capture_edges(GC::Cell::Visitor& visitor) const
+{
+    m_async_context->visit_capture_edges(visitor);
+    visitor.visit(m_process_error_handler.ptr());
+    visitor.visit(m_entry_promise.ptr());
+    for (auto const& value : m_finalizers)
+        visitor.visit(value);
+    for (auto const& value : m_kept_values)
+        visitor.visit(value);
+    for (auto const& value : m_jobs)
+        visitor.visit(value);
+    for (auto const& value : m_ticks)
+        visitor.visit(value);
+    for (auto const& value : m_rejections)
+        visitor.visit(value);
+    for (auto const& value : m_handled_rejections)
+        visitor.visit(value);
+    for (auto const& entry : m_timers) {
+        visitor.visit(entry.second->context.ptr());
+        visitor.visit(entry.second->callback.ptr());
+        visitor.visit(entry.second->receiver.ptr());
+        for (auto const& value : entry.second->arguments)
+            visitor.visit(value);
+    }
+
+    if (m_immediates)
+        m_immediates->visit_capture_edges(visitor);
+}
+
 EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
     : m_vm(vm)
+    , m_async_context(std::make_unique<AsyncContext>(vm))
     , m_report_exception(report_exception)
     , m_original_finalizer_hook(move(vm.host_enqueue_finalization_registry_cleanup_job))
 {
@@ -62,10 +98,20 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
           };
 
     m_vm.host_enqueue_promise_job = [this](JS::PromiseJob job, GC::Ptr<JS::Realm> realm) {
-        m_jobs.append(GC::create_function(m_vm.heap(), [job, realm] {
-            (void)realm;
-            return job.run();
-        }));
+        // PromiseJob owns private engine edges. Keep GC deferred until the job
+        // and its new context are both committed to the rooted job queue.
+        GC::DeferGC defer_gc { m_vm.heap() };
+        GC::Root context { m_async_context->capture() };
+        m_jobs.append(GC::create_function(m_vm.heap(),
+            GC::captures(job, realm, context.ptr(), native_reference(*this)),
+            [](auto& job, auto& realm, auto& context, auto& ref) {
+                AsyncContext::Scope scope(ref.get().async_context(), context);
+                (void)realm;
+                auto result = job.run();
+                if (result.is_error())
+                    ref.get().fail(result.error_value());
+                return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
+            }));
     };
 
     m_vm.host_promise_job_queue_is_empty = [this] { return m_jobs.is_empty(); };
@@ -82,6 +128,7 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
 
 EventLoop::~EventLoop()
 {
+    revoke_native_captures();
     m_shutting_down = true;
     m_process_error_handler = nullptr;
     m_entry_promise = nullptr;
@@ -109,13 +156,15 @@ struct EventLoop::Work {
     EventLoop& owner;
     std::function<void()> execute;
     GC::Root<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete;
+    GC::Root<AsyncCarrier> context;
     uv_work_t request {};
 };
 
 JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
     GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete)
 {
-    auto* work = new Work { *this, std::move(execute), GC::Root { complete }, {} };
+    auto* work = new Work { *this, std::move(execute), GC::Root { complete },
+        GC::Root { m_async_context->capture() }, {} };
     work->request.data = work;
     int result = uv_queue_work(
         &m_loop, &work->request,
@@ -130,6 +179,7 @@ JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
                     owner.fail(
                         JS::Error::create(owner.m_vm.realm(), "Native work request failed"_utf16));
                 } else {
+                    AsyncContext::Scope context(owner.async_context(), work->context.ptr());
                     auto result = work->complete->function()();
                     if (result.is_error())
                         owner.fail(result.error_value());
@@ -162,61 +212,93 @@ static JS::Completion invalid_callback(JS::VM& vm)
 JS::ThrowCompletionOr<JS::Value> EventLoop::install(JS::Realm& realm)
 {
     auto& global = realm.global_object();
-    global.define_native_function(
-        realm, "__miteEnqueueTick"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto callback = vm.argument(0);
-            if (!callback.is_function())
-                return invalid_callback(vm);
-            m_ticks.append(GC::create_function(vm.heap(), [this, callback] {
-                return JS::call(m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
-            }));
-            return JS::js_undefined();
-        },
-        1, JS::default_attributes);
-    global.define_native_function(
-        realm, "queueMicrotask"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto callback = vm.argument(0);
-            if (!callback.is_function())
-                return invalid_callback(vm);
-            m_jobs.append(GC::create_function(vm.heap(), [this, callback] {
-                return JS::call(m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
-            }));
-            return JS::js_undefined();
-        },
-        1, JS::default_attributes);
-    global.define_native_function(
-        realm, "__miteScheduleTimer"_utf16, [this](JS::VM&) { return schedule_timer(); }, 4,
-        JS::default_attributes);
-    global.define_native_function(
-        realm, "__miteCancelTimer"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = vm.argument(0);
-            if (id.is_number() && id.as_double() >= 1 && id.as_double() < 9007199254740992.0
-                && std::trunc(id.as_double()) == id.as_double())
-                cancel_timer(static_cast<uint64_t>(id.as_double()));
-            return JS::js_undefined();
-        },
-        1, JS::default_attributes);
-    global.define_native_function(
-        realm, "__miteRefTimer"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = vm.argument(0);
-            if (id.is_number() && id.as_double() >= 1 && id.as_double() < 9007199254740992.0
-                && std::trunc(id.as_double()) == id.as_double()) {
-                auto found = m_timers.find(static_cast<uint64_t>(id.as_double()));
-                if (found != m_timers.end()) {
-                    auto* handle = reinterpret_cast<uv_handle_t*>(&found->second->handle);
-                    if (vm.argument(1).to_boolean())
-                        uv_ref(handle);
-                    else
-                        uv_unref(handle);
-                }
-            }
+    global.define_native_function(realm, "__miteEnqueueTick"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
 
-            return JS::js_undefined();
-        },
+                auto callback = vm.argument(0);
+                if (!callback.is_function())
+                    return invalid_callback(vm);
+                GC::Root context { self->async_context().capture() };
+                self->m_ticks.append(GC::create_function(vm.heap(),
+                    GC::captures(native_reference(*self), callback, context.ptr()),
+                    [](auto& captured_self, auto& callback, auto& context) {
+                        AsyncContext::Scope scope(captured_self.get().async_context(), context);
+                        auto* self = &captured_self.get();
+
+                        auto result = JS::call(
+                            self->m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
+                        if (result.is_error())
+                            self->fail(result.error_value());
+                        return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
+                    }));
+                return JS::js_undefined();
+            }),
+        1, JS::default_attributes);
+    global.define_native_function(realm, "queueMicrotask"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                auto callback = vm.argument(0);
+                if (!callback.is_function())
+                    return invalid_callback(vm);
+                GC::Root context { self->async_context().capture() };
+                self->m_jobs.append(GC::create_function(vm.heap(),
+                    GC::captures(native_reference(*self), callback, context.ptr()),
+                    [](auto& captured_self, auto& callback, auto& context) {
+                        AsyncContext::Scope scope(captured_self.get().async_context(), context);
+                        auto* self = &captured_self.get();
+
+                        auto result = JS::call(
+                            self->m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
+                        if (result.is_error())
+                            self->fail(result.error_value());
+                        return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
+                    }));
+                return JS::js_undefined();
+            }),
+        1, JS::default_attributes);
+    global.define_native_function(realm, "__miteScheduleTimer"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) {
+                auto* self = &captured_self.get();
+                return self->schedule_timer();
+            }),
+        4, JS::default_attributes);
+    global.define_native_function(realm, "__miteCancelTimer"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                auto id = vm.argument(0);
+                if (id.is_number() && id.as_double() >= 1 && id.as_double() < 9007199254740992.0
+                    && std::trunc(id.as_double()) == id.as_double())
+                    self->cancel_timer(static_cast<uint64_t>(id.as_double()));
+                return JS::js_undefined();
+            }),
+        1, JS::default_attributes);
+    global.define_native_function(realm, "__miteRefTimer"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+
+                auto id = vm.argument(0);
+                if (id.is_number() && id.as_double() >= 1 && id.as_double() < 9007199254740992.0
+                    && std::trunc(id.as_double()) == id.as_double()) {
+                    auto found = self->m_timers.find(static_cast<uint64_t>(id.as_double()));
+                    if (found != self->m_timers.end()) {
+                        auto* handle = reinterpret_cast<uv_handle_t*>(&found->second->handle);
+                        if (vm.argument(1).to_boolean())
+                            uv_ref(handle);
+                        else
+                            uv_unref(handle);
+                    }
+                }
+
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
     m_immediates->install(realm);
     auto parsed = JS::Script::parse(Utf16String::from_utf8(StringView(
@@ -284,6 +366,7 @@ void EventLoop::dispatch_timer(uv_timer_t* handle)
     if (owner.m_status)
         return;
     TemporaryChange turn(owner.m_running_turn, true);
+    AsyncContext::Scope context(owner.async_context(), timer.context.ptr());
     if (!timer.repeating)
         owner.cancel_timer(timer.id);
     auto result = JS::call(owner.m_vm, *timer.callback, JS::Value(timer.receiver.ptr()),
@@ -543,6 +626,18 @@ void EventLoop::checkpoint()
             || !m_handled_rejections.is_empty()));
     // Match ClearKeptObjects at the end of the complete checkpoint, not between
     // Promise/nextTick jobs. The roots also cover the pinned engine's weak traces.
+    if (m_entry_promise && std::getenv("MITE_MODULE_DIAGNOSTIC")) {
+        auto state = static_cast<int>(m_entry_promise->state());
+        if (state != m_diagnostic_entry_state) {
+            m_diagnostic_entry_state = state;
+            auto* label = m_entry_promise->state() == JS::Promise::State::Pending ? "pending"
+                : m_entry_promise->state() == JS::Promise::State::Fulfilled       ? "fulfilled"
+                                                                                  : "rejected";
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-state state=%s\n",
+                static_cast<int>(uv_os_getpid()), label);
+        }
+    }
+
     m_kept_values.clear();
     m_kept_cells.clear();
     m_vm.finish_execution_generation();

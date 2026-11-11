@@ -1,4 +1,7 @@
 /** Utility-realm parentPort: bounded binary snapshots over the native parent channel. */
+import createMessageChannels from '../message-ports/index.mjs';
+import decodePortPacket from '../message-ports/packets.mjs';
+
 export default function createParentPort(native, EventEmitter, codec) {
   const schedule = setImmediate;
   const queue = [];
@@ -7,6 +10,16 @@ export default function createParentPort(native, EventEmitter, codec) {
   let started = false;
   let closed = false;
   let retired = false;
+  const channels = createMessageChannels(codec, EventEmitter, failure);
+  const link = channels.connect({
+    send: (id, generation, wire) => native.sendPort(id, generation, wire),
+
+    close: (id, generation) => native.closePort(id, generation),
+
+    consume: (id, generation, size) => native.consumePort(id, generation, size),
+
+    blocked: (status) => typeof native.portQueueFull === 'number' && status === native.portQueueFull
+  });
 
   function failure(code, message) {
     return Object.assign(new Error(message), { code });
@@ -21,6 +34,7 @@ export default function createParentPort(native, EventEmitter, codec) {
     retired = true;
     queue.length = 0;
     queuedBytes = 0;
+    link.disconnect();
     native.close();
 
     schedule(() => port.emit('error', error));
@@ -53,7 +67,7 @@ export default function createParentPort(native, EventEmitter, codec) {
         return;
       }
       try {
-        port.emit('message', { data, ports: [] });
+        port.emit('message', { data, ports: entry.ports });
       } finally {
         pump();
       }
@@ -122,9 +136,34 @@ export default function createParentPort(native, EventEmitter, codec) {
     if (kind === 'close') {
       // Keep accepted messages ahead of the terminal event, even in one native batch.
       closed = true;
+      link.disconnect();
       queue.push({ close: true });
       pump();
-    } else if (kind === 'message') {
+    } else if (kind === 'port-writable') {
+      link.writable();
+    } else if (kind === 'port-data' || kind === 'port-close') {
+      try {
+        const packet = decodePortPacket(value, kind);
+        if (kind === 'port-data') {
+          link.receive(packet.id, packet.generation, packet.wire);
+        } else {
+          link.closed(packet.id, packet.generation);
+        }
+      } catch {
+        abort(failure('ERR_FIREFLY_UTILITY_CHANNEL', 'Invalid utility port frame'));
+      }
+    } else if (kind === 'message' || kind === 'port-transfer') {
+      let ports = [];
+      if (kind === 'port-transfer') {
+        try {
+          const packet = decodePortPacket(value, kind);
+          ports = link.adopt(packet.descriptors);
+          value = packet.wire;
+        } catch {
+          abort(failure('ERR_FIREFLY_UTILITY_CHANNEL', 'Invalid utility port transfer'));
+          return;
+        }
+      }
       if (!(value instanceof Uint8Array)) {
         abort(failure('ERR_FIREFLY_UTILITY_CHANNEL', 'Invalid utility parent frame'));
         return;
@@ -133,7 +172,7 @@ export default function createParentPort(native, EventEmitter, codec) {
         abort(failure('ERR_FIREFLY_UTILITY_LIMIT', 'Utility parent queue budget exceeded'));
         return;
       }
-      queue.push({ wire: value });
+      queue.push({ wire: value, ports });
       queuedBytes += value.byteLength;
       pump();
     } else if (kind === 'error') {

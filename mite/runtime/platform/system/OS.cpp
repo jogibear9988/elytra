@@ -4,6 +4,7 @@
  */
 
 #include "platform/system/OS.h"
+#include "platform/UV.h"
 #include "platform/system/OSNetmask.h"
 #include <AK/HashMap.h>
 #include <AK/ScopeGuard.h>
@@ -17,7 +18,6 @@
 #include <cstdio>
 #include <cstring>
 #include <limits.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
@@ -211,10 +211,10 @@ namespace {
     {
         auto value = vm.argument(index);
         if (!value.is_number())
-            return vm.throw_completion<JS::TypeError>("Invalid internal priority argument"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal priority argument"_utf16);
         auto number = value.as_double();
         if (!std::isfinite(number) || std::trunc(number) != number || number < min || number > max)
-            return vm.throw_completion<JS::TypeError>("Invalid internal priority range"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal priority range"_utf16);
         return static_cast<int>(number);
     }
 
@@ -285,7 +285,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
         realm, "getenv"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (!vm.argument(0).is_string())
-                return vm.throw_completion<JS::TypeError>("Invalid internal environment key"sv);
+                return vm.throw_completion<JS::TypeError>("Invalid internal environment key"_utf16);
             auto key = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
             return read_text(
                 vm, "uv_os_getenv",
@@ -299,7 +299,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
         realm, "query"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
             if (!vm.argument(0).is_string())
-                return vm.throw_completion<JS::TypeError>("Invalid internal OS query"sv);
+                return vm.throw_completion<JS::TypeError>("Invalid internal OS query"_utf16);
             auto name = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
             if (name == "networkInterfaces")
                 return network_interfaces(vm);
@@ -343,7 +343,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_os_host(JS::Realm& realm)
                 return array.ptr();
             }
 
-            return vm.throw_completion<JS::TypeError>("Unknown internal OS query"sv);
+            return vm.throw_completion<JS::TypeError>("Unknown internal OS query"_utf16);
         },
         1, JS::default_attributes);
     return *host;

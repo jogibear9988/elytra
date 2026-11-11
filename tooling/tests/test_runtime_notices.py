@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import tempfile
-from package_macos import copy_runtime_notices
+from native_package.notices import copy_runtime_notices
 
 ROOT = Path(__file__).resolve().parents[2]
 

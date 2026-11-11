@@ -333,3 +333,31 @@ Batch this targeted visible gate for substantive chrome changes; use CLI policy
 and offscreen rejection checks for routine admission/documentation work. The
 macOS release builder includes the gate. Other title-bar modes and platform
 implementations remain explicit unsupported work.
+
+## Inspect a relocated packaged helper without a window
+
+The diagnostic renderer probe accepts --helper-directory for a physical package
+helper directory. This is a probe option, not an application startup flag. Supply
+a canonical absolute path; duplicate, relative, incomplete or symlinked directories
+fail before launching a helper. The normal compiled helper selection stays unchanged.
+
+```sh
+python3 tooling/tests/test_protocol_configuration.py \
+  --probe build/renderer/bin/firefly-protocol-renderer-probe \
+  --helper "/physical/path/Designer.app/Contents/MacOS/WebContent" \
+  --helper-directory "/physical/path/Designer.app/Contents/MacOS"
+```
+
+All positive configuration/origin cases use the selected package. A bounded manual
+headless case reads the actual child executable, loaded liblagom libraries and
+ICU mapping/open-file evidence through the OS; it does not infer loading from file
+existence or a page-supplied path. macOS requires Contents/lib and Contents/Resources.
+The Linux sidecar observer requires firefly-runtime/bin, the package BUILD.json
+resource/library inventory and the actual shared libraries under the package's lib.
+Unsupported observation platforms fail explicitly. The package-layout unit fixtures
+are path-policy tests, not native Linux execution evidence.
+
+This gate checks genuine helper startup/resources without displaying a desktop
+window. It does not replace public application, Designer HTML or Cocoa presentation
+acceptance. Use temporary copied/extracted packages and remove them after recording
+the compact result.

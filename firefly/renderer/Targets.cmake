@@ -1,5 +1,12 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
+add_library(firefly-port-wire STATIC
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp")
+target_include_directories(firefly-port-wire PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
+target_sources(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/ports/Observer.cpp")
+target_include_directories(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+
 add_library(firefly-preload-config STATIC
             "${FIREFLY_SOURCE_DIR}/firefly/native/preload/ProcessConfig.cpp")
 target_link_libraries(firefly-preload-config PUBLIC AK)
@@ -52,11 +59,13 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/web-request/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/canvas/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/canvas/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/autoplay/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/files/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/permissions/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/crash/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/bytes/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/application/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/files/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/protocol/Targets.cmake")
 # Retain upstream's process boundary: Skia must stay in Compositor, including when our frontend is
@@ -153,6 +162,58 @@ add_custom_target(
     DEPENDS firefly-isolation-probe check-firefly-wire
     USES_TERMINAL VERBATIM)
 
+# Exercise real media elements and their native activation paths without Qt, playable media or an OS
+# audio output. Public preference admission is separate.
+add_executable(
+    firefly-autoplay-media-probe
+    "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/MediaProbe.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/autoplay/Session.cpp")
+target_include_directories(
+    firefly-autoplay-media-probe PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge"
+                                         "${FIREFLY_SOURCE_DIR}/firefly")
+target_link_libraries(
+    firefly-autoplay-media-probe
+    PRIVATE LibWeb
+            LibJS
+            LibGC
+            LibURL
+            LibCore
+            LibMain
+            AK)
+ladybird_check_skia_confinement(firefly-autoplay-media-probe)
+add_custom_target(
+    check-firefly-autoplay-media
+    COMMAND "$<TARGET_FILE:firefly-autoplay-media-probe>"
+    DEPENDS firefly-autoplay-media-probe
+    VERBATIM)
+
+# Actual Rust graph, Promise lifecycle and wall-clock null playback. No device factory is reachable
+# from this diagnostic PageClient.
+add_executable(firefly-autoplay-audio-probe
+               "${FIREFLY_SOURCE_DIR}/firefly/tests/autoplay/AudioProbe.cpp")
+target_include_directories(firefly-autoplay-audio-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+target_link_libraries(
+    firefly-autoplay-audio-probe
+    PRIVATE LibWeb
+            LibIPC
+            LibWebCommon
+            LibJS
+            LibGC
+            LibAudio
+            LibMedia
+            LibGfx
+            LibURL
+            LibCore
+            LibMain
+            AK)
+ladybird_check_skia_confinement(firefly-autoplay-audio-probe)
+add_custom_target(
+    check-firefly-autoplay-audio
+    COMMAND "$<TARGET_FILE:firefly-autoplay-audio-probe>"
+    DEPENDS firefly-autoplay-audio-probe
+    VERBATIM)
+
 if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
@@ -160,7 +221,9 @@ endif()
 # Native Windows console probes need the same owned runtime DLL deployment as upstream helpers. This
 # does not enable the unfinished desktop/production runtime.
 if(WIN32)
-    foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe)
+    target_link_libraries(firefly-renderer-probe PRIVATE shell32)
+    foreach(probe firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe
+                  firefly-autoplay-media-probe firefly-autoplay-audio-probe)
         ladybird_windows_bin(${probe} CONSOLE)
     endforeach()
 endif()

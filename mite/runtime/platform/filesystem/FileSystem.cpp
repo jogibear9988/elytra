@@ -6,7 +6,10 @@
 
 #include "platform/filesystem/FileSystem.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "modules/ModulePaths.h"
+#include "platform/UV.h"
+#include "platform/filesystem/Directory.h"
 #include "platform/filesystem/EventWatcher.h"
 #include "platform/filesystem/StatSnapshot.h"
 #include "platform/filesystem/StatWatcher.h"
@@ -19,13 +22,13 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
 #include <string>
 #include <sys/stat.h>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
@@ -78,16 +81,19 @@ namespace {
     using namespace ModulePaths;
 
     struct NativeRequest {
-        std::string operation, path, dest;
+        GC_HOLDS_NO_CELL_EDGES;
+
+        std::string operation, path, dest, target_for_type;
         std::vector<unsigned char> data;
         int flags {}, mode {};
+        double atime {}, mtime {};
         int descriptor { -1 };
         int64_t position { -1 };
         size_t length {};
         int number {};
-        bool recursive {}, with_file_types {};
+        bool recursive {}, with_file_types {}, force {}, auto_type {};
         int error {};
-        std::string syscall, error_path, created;
+        std::string syscall, error_path, created, error_code;
         uv_stat_t stat {};
 
         struct Entry {
@@ -265,6 +271,28 @@ namespace {
             return;
         }
 
+        if (op == "rm") {
+            // lstat deliberately does not follow a final symlink. Recursive
+            // deletion is not admitted by the public facade in this slice.
+            FsRequest stat;
+            auto status = uv_fs_lstat(nullptr, &stat.value, path, nullptr);
+            if (status == UV_ENOENT && request.force)
+                return;
+            if (record(request, status, "lstat", request.path) < 0)
+                return;
+            if ((stat.value.statbuf.st_mode & S_IFMT) == S_IFDIR) {
+                record(request, UV_EISDIR, "rm", request.path);
+                request.error_code = "ERR_FS_EISDIR";
+                return;
+            }
+
+            FsRequest unlink;
+            status = uv_fs_unlink(nullptr, &unlink.value, path, nullptr);
+            if (status != UV_ENOENT || !request.force)
+                record(request, status, "unlink", request.path);
+            return;
+        }
+
         if (op == "mkdir" && request.recursive) {
             auto bytes = reinterpret_cast<char8_t const*>(request.path.data());
             mkdir_recursive(
@@ -293,9 +321,47 @@ namespace {
             result = uv_fs_unlink(nullptr, &call.value, path, nullptr);
         else if (op == "rename")
             result = uv_fs_rename(nullptr, &call.value, path, request.dest.c_str(), nullptr);
+        else if (op == "link")
+            result = uv_fs_link(nullptr, &call.value, path, request.dest.c_str(), nullptr);
+        else if (op == "symlink") {
+            int flags = request.flags;
+#ifdef _WIN32
+            if (request.auto_type) {
+                FsRequest target;
+                auto status
+                    = uv_fs_stat(nullptr, &target.value, request.target_for_type.c_str(), nullptr);
+                if (status == 0 && (target.value.statbuf.st_mode & S_IFMT) == S_IFDIR)
+                    flags = UV_FS_SYMLINK_DIR;
+                else if (status < 0 && status != UV_ENOENT && status != UV_ENOTDIR) {
+                    record(request, status, "stat", request.target_for_type);
+                    return;
+                }
+            }
+#endif
+            result
+                = uv_fs_symlink(nullptr, &call.value, path, request.dest.c_str(), flags, nullptr);
+        } else if (op == "utime")
+            result = uv_fs_utime(nullptr, &call.value, path, request.atime, request.mtime, nullptr);
+        else if (op == "readlink") {
+            result = uv_fs_readlink(nullptr, &call.value, path, nullptr);
+            if (!result) {
+                auto* bytes = static_cast<unsigned char const*>(call.value.ptr);
+                request.data.assign(bytes, bytes + strlen(reinterpret_cast<char const*>(bytes)));
+            }
+        } else if (op == "copyfile")
+            result = uv_fs_copyfile(
+                nullptr, &call.value, path, request.dest.c_str(), request.flags, nullptr);
         else if (op == "mkdir")
             result = uv_fs_mkdir(nullptr, &call.value, path, request.mode, nullptr);
-        else if (op == "rmdir")
+        else if (op == "chmod")
+            result = uv_fs_chmod(nullptr, &call.value, path, request.mode, nullptr);
+        else if (op == "mkdtemp") {
+            // libuv/OS atomically creates one fresh directory; no exists-then-create race.
+            auto pattern = request.path + "XXXXXX";
+            result = uv_fs_mkdtemp(nullptr, &call.value, pattern.c_str(), nullptr);
+            if (!result)
+                request.created = call.value.path;
+        } else if (op == "rmdir")
             result = uv_fs_rmdir(nullptr, &call.value, path, nullptr);
         else if (op == "readdir") {
             result = uv_fs_scandir(nullptr, &call.value, path, 0, nullptr);
@@ -388,15 +454,17 @@ namespace {
                 StringView(uv_strerror(request.error), strlen(uv_strerror(request.error)))));
         error->define_direct_property(
             "errno"_utf16, JS::Value(request.error), JS::default_attributes);
-        error->define_direct_property(
-            "code"_utf16, text(vm, uv_err_name(request.error)), JS::default_attributes);
+        error->define_direct_property("code"_utf16,
+            text(vm, request.error_code.empty() ? uv_err_name(request.error) : request.error_code),
+            JS::default_attributes);
         error->define_direct_property(
             "syscall"_utf16, text(vm, request.syscall), JS::default_attributes);
         if (request.descriptor < 0 && request.syscall != "read" && request.syscall != "write"
             && request.syscall != "close")
             error->define_direct_property(
                 "path"_utf16, text(vm, display_path(request.error_path)), JS::default_attributes);
-        if (request.operation == "rename")
+        if (request.operation == "rename" || request.operation == "copyfile"
+            || request.operation == "link" || request.operation == "symlink")
             error->define_direct_property(
                 "dest"_utf16, text(vm, display_path(request.dest)), JS::default_attributes);
         return error;
@@ -411,8 +479,12 @@ namespace {
             return JS::Value(request.number);
         if (request.operation == "read")
             return byte_array(realm, request.data.data(), request.data.size());
-        if (request.operation == "readFile" || request.operation == "realpath")
+        if (request.operation == "readFile" || request.operation == "realpath"
+            || request.operation == "readlink")
             return byte_array(realm, request.data.data(), request.data.size());
+        if (request.operation == "mkdtemp")
+            return byte_array(realm, reinterpret_cast<unsigned char const*>(request.created.data()),
+                request.created.size());
         if (request.operation == "mkdir" && !request.created.empty())
             return JS::Value(text(vm, request.created));
         if (request.operation == "stat" || request.operation == "lstat"
@@ -474,6 +546,12 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
     CONSTANT(O_TRUNC);
     CONSTANT(O_APPEND);
     constants->define_direct_property(
+        "COPYFILE_EXCL"_utf16, JS::Value(UV_FS_COPYFILE_EXCL), JS::Attribute::Enumerable);
+    constants->define_direct_property(
+        "COPYFILE_FICLONE"_utf16, JS::Value(UV_FS_COPYFILE_FICLONE), JS::Attribute::Enumerable);
+    constants->define_direct_property("COPYFILE_FICLONE_FORCE"_utf16,
+        JS::Value(UV_FS_COPYFILE_FICLONE_FORCE), JS::Attribute::Enumerable);
+    constants->define_direct_property(
         "O_SYNC"_utf16, JS::Value(UV_FS_O_SYNC), JS::Attribute::Enumerable);
     CONSTANT(F_OK);
     CONSTANT(R_OK);
@@ -493,83 +571,127 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
 #endif
 #undef CONSTANT
     host->define_direct_property("constants"_utf16, constants, JS::default_attributes);
-    host->define_native_function(
-        realm, "own"_utf16,
-        [&realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_int32() || vm.argument(0).as_i32() < 0)
-                return vm.throw_completion<JS::TypeError>(
-                    "Invalid private filesystem descriptor"_utf16);
-            auto owner = vm.heap().allocate<FileOwner>(vm.argument(0).as_i32());
-            return JS::NativeFunction::create(
-                realm,
-                [owner](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                    return JS::Value(owner->release());
-                },
-                0, "releaseFile"_utf16);
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "run"_utf16,
-        [&realm, &loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto spec = TRY(vm.argument(0).to_object(vm));
-            auto request = std::make_shared<NativeRequest>();
-            auto operation = TRY(TRY(spec->get("op"_utf16)).to_utf16_string(vm));
-            request->operation = string(MUST(operation.utf16_view().to_byte_string()));
-            auto path = TRY(spec->get("path"_utf16));
-            if (path.is_number())
-                request->descriptor = TRY(path.to_i32(vm));
-            else
-                request->path = TRY(path_argument(vm, path));
-            if (request->path.find('\0') != std::string::npos)
-                return vm.throw_completion<JS::TypeError>("Invalid private filesystem path"_utf16);
-            if (request->operation == "rename") {
-                request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
-                if (request->dest.find('\0') != std::string::npos)
+    host->define_native_function(realm, "own"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm),
+            [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_int32() || vm.argument(0).as_i32() < 0)
                     return vm.throw_completion<JS::TypeError>(
-                        "Invalid private filesystem destination"_utf16);
-            }
+                        "Invalid private filesystem descriptor"_utf16);
+                auto owner = vm.heap().allocate<FileOwner>(vm.argument(0).as_i32());
+                return JS::NativeFunction::create(realm,
+                    GC::create_function(realm.vm().heap(), GC::captures(owner),
+                        [](auto& owner, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                            return JS::Value(owner->release());
+                        }),
+                    0, "releaseFile"_utf16);
+            }),
+        1, JS::default_attributes);
+    host->define_native_function(realm, "run"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm, native_reference(loop)),
+            [](auto& realm, auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
 
-            auto position = TRY(spec->get("position"_utf16));
-            if (position.is_string()) {
-                auto encoded = MUST(position.as_string().utf16_string_view().to_byte_string());
-                auto parsed = std::from_chars(encoded.characters(),
-                    encoded.characters() + encoded.length(), request->position);
-                if (parsed.ec != std::errc {}
-                    || parsed.ptr != encoded.characters() + encoded.length())
+                auto spec = TRY(vm.argument(0).to_object(vm));
+                auto request = std::make_shared<NativeRequest>();
+                auto operation = TRY(TRY(spec->get("op"_utf16)).to_utf16_string(vm));
+                request->operation = string(MUST(operation.utf16_view().to_byte_string()));
+                auto path = TRY(spec->get("path"_utf16));
+                if (path.is_number())
+                    request->descriptor = TRY(path.to_i32(vm));
+                else
+                    request->path = TRY(path_argument(vm, path));
+                if (request->path.find('\0') != std::string::npos)
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid private filesystem path"_utf16);
+                if (request->operation == "rename" || request->operation == "copyfile"
+                    || request->operation == "link" || request->operation == "symlink") {
+                    request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
+                    if (request->dest.find('\0') != std::string::npos)
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid private filesystem destination"_utf16);
+                }
+
+                if (request->operation == "symlink") {
+                    request->auto_type = TRY(spec->get("autoType"_utf16)).to_boolean();
+                    if (request->auto_type) {
+                        request->target_for_type
+                            = TRY(path_argument(vm, TRY(spec->get("targetForType"_utf16))));
+                        if (request->target_for_type.find('\0') != std::string::npos)
+                            return vm.throw_completion<JS::TypeError>(
+                                "Invalid private symlink target"_utf16);
+                    }
+                }
+
+                auto position = TRY(spec->get("position"_utf16));
+                if (position.is_string()) {
+                    auto encoded = MUST(position.as_string().utf16_string_view().to_byte_string());
+                    auto parsed = std::from_chars(encoded.characters(),
+                        encoded.characters() + encoded.length(), request->position);
+                    if (parsed.ec != std::errc {}
+                        || parsed.ptr != encoded.characters() + encoded.length())
+                        return vm.throw_completion<JS::RangeError>(
+                            "Invalid private filesystem position"_utf16);
+                }
+
+                auto length = TRY(spec->get("length"_utf16));
+                if (!length.is_undefined())
+                    request->length = TRY(length.to_u32(vm));
+                request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
+                request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
+                if (request->operation == "utime") {
+                    auto atime = TRY(spec->get("atime"_utf16));
+                    auto mtime = TRY(spec->get("mtime"_utf16));
+                    if (!atime.is_number() || !mtime.is_number()
+                        || !std::isfinite(atime.as_double()) || !std::isfinite(mtime.as_double()))
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid private filesystem timestamps"_utf16);
+                    request->atime = atime.as_double();
+                    request->mtime = mtime.as_double();
+                }
+
+                if (request->operation == "symlink" && request->flags != 0
+                    && request->flags != UV_FS_SYMLINK_DIR
+                    && request->flags != UV_FS_SYMLINK_JUNCTION)
                     return vm.throw_completion<JS::RangeError>(
-                        "Invalid private filesystem position"_utf16);
-            }
+                        "Invalid private symlink flags"_utf16);
+                if (request->operation == "copyfile"
+                    && (request->flags < 0
+                        || (request->flags
+                            & ~(UV_FS_COPYFILE_EXCL | UV_FS_COPYFILE_FICLONE
+                                | UV_FS_COPYFILE_FICLONE_FORCE))))
+                    return vm.throw_completion<JS::RangeError>(
+                        "Invalid private copyfile flags"_utf16);
+                request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
+                request->force = TRY(spec->get("force"_utf16)).to_boolean();
+                request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
+                if (request->operation == "writeFile" || request->operation == "write") {
+                    auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));
+                    request->data.assign(data.begin(), data.end());
+                }
 
-            auto length = TRY(spec->get("length"_utf16));
-            if (!length.is_undefined())
-                request->length = TRY(length.to_u32(vm));
-            request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
-            request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
-            request->recursive = TRY(spec->get("recursive"_utf16)).to_boolean();
-            request->with_file_types = TRY(spec->get("withFileTypes"_utf16)).to_boolean();
-            if (request->operation == "writeFile" || request->operation == "write") {
-                auto data = TRY(path_argument(vm, TRY(spec->get("data"_utf16))));
-                request->data.assign(data.begin(), data.end());
-            }
+                auto callback = vm.argument(1);
+                if (callback.is_undefined()) {
+                    execute(*request);
+                    return result(vm, realm, *request);
+                }
 
-            auto callback = vm.argument(1);
-            if (callback.is_undefined()) {
-                execute(*request);
-                return result(vm, realm, *request);
-            }
+                auto complete = GC::create_function(vm.heap(),
+                    GC::captures(realm, shared_capture(request), callback),
+                    [](auto& realm, auto& request,
+                        auto& callback) -> JS::ThrowCompletionOr<JS::Value> {
+                        auto& vm = realm.vm();
 
-            auto complete = GC::create_function(
-                vm.heap(), [&vm, &realm, request, callback]() -> JS::ThrowCompletionOr<JS::Value> {
-                    auto value = result(vm, realm, *request);
-                    JS::Value args[] = { value.is_error() ? value.error_value() : JS::js_null(),
-                        value.is_error() ? JS::js_undefined() : value.value() };
-                    return JS::call(
-                        vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> { args, 2 });
-                });
-            TRY(loop.queue_work([request] { execute(*request); }, complete));
-            return JS::js_undefined();
-        },
+                        auto value = result(vm, realm, *request);
+                        JS::Value args[] = { value.is_error() ? value.error_value() : JS::js_null(),
+                            value.is_error() ? JS::js_undefined() : value.value() };
+                        return JS::call(
+                            vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> { args, 2 });
+                    });
+                TRY(loop.queue_work([request] { execute(*request); }, complete));
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
+    install_directory_host(realm, *host, loop);
     install_stat_watcher_host(realm, *host, loop);
     install_event_watcher_host(realm, *host, loop);
     return host;

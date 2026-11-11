@@ -6,6 +6,7 @@
 #pragma once
 #include "context/FunctionBridge.h"
 #include <AK/Weakable.h>
+#include <LibGC/RootVector.h>
 
 namespace Firefly {
 // Native renderer publication engine. Public preload selection/IPC transport
@@ -18,6 +19,8 @@ public:
     ~ContextBridge();
 
     GC::Ref<JS::Object> exports();
+
+    ErrorOr<JS::Value> copy_result(JS::Value, bool promise_result = false);
 
     void revoke();
 
@@ -34,6 +37,9 @@ private:
     ContextBridge(IsolatedWorld&, Web::DOM::Document&, CallbackRegistry&);
 
     JS::ThrowCompletionOr<JS::Value> expose(JS::VM&);
+
+    ErrorOr<size_t> export_function(JS::FunctionObject&, JS::Object*,
+        Vector<NonnullRefPtr<FunctionBridge>>&, GC::RootVector<JS::Value>&);
 
     RefPtr<IsolatedWorld> m_source;
     RefPtr<CallbackRegistry> m_callbacks;

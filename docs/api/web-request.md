@@ -21,7 +21,8 @@ requests.onHeadersReceived((details, callback) => {
 
 ## Registration
 
-`onBeforeRequest([filter,] listener)` and `onHeadersReceived([filter,] listener)`
+`onBeforeRequest([filter,] listener)`, `onBeforeSendHeaders([filter,] listener)`
+and `onHeadersReceived([filter,] listener)`
 each retain one listener. A later registration replaces that stage's listener;
 passing null removes it. They do not accumulate like EventEmitter listeners.
 Registration requires app readiness and native enforcement.
@@ -41,7 +42,7 @@ characters. Unknown filter options and unsupported decisions fail explicitly.
 
 ## Details and decisions
 
-Both listeners receive `(details, callback)`. Details contain a stable numeric id,
+All three listeners receive `(details, callback)`. Details contain a stable numeric id,
 url, method, resourceType, referrer, timestamp and frame. Renderer requests also
 carry webContentsId, webContents and a canonical native frame proxy. Frame data is
 derived from the actual helper, page and document, independently of preload IPC.
@@ -52,6 +53,19 @@ Call `callback({ cancel: true })` to reject the request. `{ cancel: false }` or 
 allows it. Duplicate or retired callbacks have no effect. A thrown listener or an
 invalid decision cancels unresolved work. Before-request cancellation occurs before
 the HTTP transport or privileged custom/file handler is invoked.
+
+The send-headers listener receives requestHeaders as header-name/string pairs.
+Return `{ requestHeaders: { ...details.requestHeaders, 'X-Application': 'Firefly' } }`
+to replace the request header list. Omitted fields in that replacement are removed.
+Before-request runs first; cancellation skips send-headers. Both use the existing
+authenticated held request before transport, so custom header additions/removals
+alter the actual native Fetch request before CORS preflight and main net transports
+before every redirect hop.
+
+This is a partial snapshot of explicitly captured request headers. SDK transport
+headers such as automatic Cookie, Host and framing fields are added later; final
+wire-header visibility and casing are not promised. Registration does not enable
+a separate final transport-header event.
 
 Headers listeners additionally receive statusCode and responseHeaders, a record of
 header-name to string arrays. Native Fetch currently normalizes names to lowercase;
@@ -66,8 +80,9 @@ CR/LF or forbidden control characters. Limits are 128 names, 128 values per name
 and 32 KiB of header data, with an additional total-field limit in the renderer.
 Changing or removing content-length, transfer-encoding, connection, trailer,
 upgrade, keep-alive, proxy-connection or te is unsupported. Unchanged copies are
-accepted. RedirectURL, statusLine overrides, request-header edits and the other
-webRequest event stages remain unsupported.
+accepted. Request-header decisions also cannot add, remove or change Host.
+RedirectURL, statusLine overrides and the other webRequest event stages remain
+unsupported.
 
 ## Scope and lifecycle
 
@@ -78,10 +93,23 @@ shutdown cannot authorize a retired continuation. Pending decisions are bounded
 to 64 in the main policy and native broker, 16 per helper, with 30-second deadlines.
 Native request IDs are odd; main net IDs are even and neither is reused.
 
+Document requests wait in FIFO order behind those active decision slots. The
+renderer retains at most 8,192 queued/active decisions per document and 16,384 per
+helper, with serialized metadata bounded to 32 MiB/document and 64 MiB/helper.
+Queue time counts toward the original 30-second deadline. Promotion rechecks the
+document, policy epoch, cancellation and metadata quotas. These limits do not
+increase the active native broker limits.
+
+Logical request identities span multiple decision stages and body streaming;
+their separate limit is 16,384 per helper in the renderer, helper session and main
+broker. Normal body completion, cancellation and document retirement release them.
+Native SDK body-error cleanup still needs a complete audit; a loaded response head
+alone is not body completion. This is bounded admission, not unlimited concurrency.
+
 The current renderer scope covers document requests and authenticated top-level
 navigation. Worker requests and unbound/subframe navigation fail closed when
 interception is active. WebSocket handshakes currently bypass upstream Fetch and
-therefore fail explicitly before connect while either handler is active. Worker
+therefore fail explicitly before connect while a blocking handler is active. Worker
 policy reads are thread-safe; actual worker/socket interception remains open.
 This is not full browser-session coverage. Existing helper
 policy changes propagate over an ordered asynchronous channel; registration is not
@@ -90,11 +118,18 @@ policy before VM initialization. Filter allowance never grants filesystem access
 or bypasses the independent protocol ownership rules.
 
 Main net.fetch and net.request consult the same policy before every redirect hop
-and before exposing response headers. Utility networking cannot yet forward to
-this policy: registering active filters with live utility children is refused,
-and utilityProcess.fork is refused while filters are active. This temporary
-restriction needs replacement with parent-mediated utility decisions for VS Code.
-Direct node:http and node:https belong to Mite, outside the desktop Session API.
+and before exposing response headers. Utility processes currently accept no
+`session` or `partition`: their Electron-net transport uses an independent system
+context and does not inherit `defaultSession.webRequest` handlers. Registering
+main filters and running these no-session utilities can coexist. Explicit utility
+session/partition selection and main-process authentication forwarding remain
+unsupported. Direct node:http, node:https and global fetch belong to Mite,
+outside the desktop Session API.
+
+This distinction follows [Electron45.2.3's utility network factory](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557):
+only the explicit-session branch installs its ProxyingURLLoaderFactory for
+webRequest interception; the no-session branch selects the system network context.
+See also the [versioned utility options](https://github.com/electron/electron/blob/v45.2.3/docs/api/utility-process.md).
 
 The public API follows the [Electron WebRequest reference](https://www.electronjs.org/docs/latest/api/web-request)
 and [filter structure](https://www.electronjs.org/docs/latest/api/structures/web-request-filter)

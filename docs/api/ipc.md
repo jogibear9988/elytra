@@ -119,16 +119,27 @@ Listener return values are ignored, including Promises; they are not serialized
 or awaited and do not become invoke replies. Application failures are not delivered
 back to send callers.
 
-Events and invokes share the 16 endpoint / 64 renderer / 64 native-host outstanding
-budgets and monotonic request IDs. A private native acknowledgement releases event
-credit after synchronous listener dispatch, or after an ignored event. This ACK is
-not exposed to application JavaScript and creates no reply Promise. Native quota
-stays reserved through history ordering and VM-busy retries. Removing a document/
-window reclaims its slots; dispatch rechecks ownership before any callback and
-again before ACK, so a listener may destroy its own window safely.
+Events and invokes share 16 active calls per endpoint, 64 per renderer and 64
+across the native host, with monotonic request IDs. The renderer additionally
+admits a FIFO of at most 256 waiting calls per document and 1024 per renderer.
+Waiting sends and invokes retain immutable encoded snapshots under the same
+16-MiB document / 64-MiB process wire reservation budget. Both native control
+markers and graph frames are published only when active credit is available;
+later invokes cannot overtake earlier queued sends. A private native acknowledgement releases event
+credit after authenticated native admission, before application listeners run.
+This ACK is not exposed to application JavaScript, creates no reply Promise and
+is not a listener-completion receipt. Native quota stays reserved through history
+ordering and VM-busy retries. Removing a document/window reclaims its slots;
+dispatch checks ownership before admission and does not access sender state after
+application callbacks, so a listener may destroy its own window safely.
 
-Local validation/exhaustion throws immediately. A later main admission refusal or
-unanswered 30-second event deadline releases local credit and writes an explicit
+Local validation or waiting-queue/wire-budget exhaustion throws immediately.
+The original 30-second deadline starts at logical admission, includes FIFO wait
+and never restarts on native publication. Unsent expiration releases its snapshot
+without publishing a marker; replies/ACKs and teardown wake other waiting document
+endpoints fairly. Expiration of an already admitted request retires its document
+channel rather than recycling credit while main or fragment state is unknown.
+A later main admission refusal or unanswered event deadline releases local credit and writes an explicit
 ERR_FIREFLY_IPC_SEND helper diagnostic. There is no delivery receipt or retry API;
 send returning undefined is not proof the application processed a message. This
 bounded alpha behavior differs from Electron's unbounded application-facing send
@@ -240,8 +251,22 @@ references, array holes and view type/offset/length/backing aliases. A Buffer
 normalizes to Uint8Array. Each recipient owns writable independent storage; no
 source storage is shared or detached. Custom binary prototypes/expandos are omitted.
 
-The aggregate binary budget is **64 KiB of distinct complete backing stores per
-graph**, even when sending only a small view. Shared, detached, resizable and
+Main/preload IPC now also snapshots ordinary class instances such as URI and
+VSBuffer: own data fields cross as ordinary destination objects, while custom
+prototypes and inherited methods/getters do not cross. Cycles, aliases and binary
+fields use the same budgets. Own accessors, functions, proxies and native host
+objects remain rejected without invoking their hooks. This separate IPC policy
+does not relax contextBridge publication or page-call copying. The new instance
+case passes a focused native roundtrip; full application acceptance remains separate. Utility
+process messaging retains its existing narrower capture policy.
+
+With `FIREFLY_IPC_BYTES_DIAGNOSTIC=1`, main IPC failure diagnostics include only a
+fixed failure stage and an allowlisted error code; channels, payloads, environment
+and exception messages are excluded. A window-configuration timeout can also
+follow a rejected configuration Promise; it does not alone prove pending IPC.
+
+The aggregate binary budget is **1 MiB of distinct complete backing stores per
+application IPC graph**, even when sending only a small view. Shared, detached, resizable and
 out-of-bounds storage is refused. Functions, accessors, proxies, symbols, host/DOM
 objects, Date, Map/Set, File/Blob, transferable objects and other special classes
 remain unsupported. Data capture rejects getters/proxies without running their
@@ -265,13 +290,23 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | --- | --- |
 | Channel | String, at most 256 UTF-16 code units |
 | Arguments | At most 64 after the channel |
-| Graph | 4096 values, 4096 properties, depth 64, array length 4096 |
-| All graph strings/keys | 65536 UTF-16 code units |
-| Application frame / graph payload | 128 KiB including the 20-byte application header / at most 131052 bytes of encoded graph |
-| Distinct binary backing storage | 64 KiB per graph |
-| Native unsent frame queue | At most 48 per document/direction, in addition to the byte-channel credit of 16 |
-| Pending invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
-| Request deadline | 30 seconds; intentionally bounded alpha policy |
+| Graph | 65536 values, 131072 properties, depth 64, array length 65536; cumulative array lengths 131072 |
+| All graph strings/keys | 4 Mi UTF-16 code units |
+| Physical application frame / logical graph | 128 KiB / 16 MiB; native fragmentation preserves request/document identity |
+| Distinct binary backing storage | 1 MiB per application IPC or contextBridge graph |
+| Native unsent logical queue | At most 48 per document/direction, refilled through 16 physical-frame credits |
+| Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
+| Active invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
+| Renderer FIFO waiting calls | 256 per document / 1024 per renderer, within the retained wire budgets |
+| Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
+
+These are the new source application-channel limits. ContextBridge uses its own
+capture-only graph profile and 1-MiB binary ceiling; utility messaging and
+main-only ports retain their separate contracts. Large logical messages use strict
+contiguous fragments and are delivered only when complete. Small FIM1 frames keep
+their format. See [ADR 0193](../architecture/0193-bounded-large-application-ipc.md).
+Fresh large-message component and actual application evidence are distinguished
+in PROGRESS.md; earlier small-message acceptance does not prove these new limits.
 
 Invalid arguments reject with `ERR_INVALID_ARG_TYPE`; unsupported graphs reject
 with `ERR_FIREFLY_IPC_SERIALIZATION`. Local request exhaustion rejects with
@@ -336,3 +371,9 @@ Native probes check fixed application framing, byte limits and private wire extr
 without property hooks. The document-channel batch also sends real unknown-realm,
 wrong-document and duplicate native handles and requires each to be closed without
 an application packet. These local macOS tests are not general platform certification.
+
+The private native wire-view adapter has a distinct application-message policy:
+large invoke/reply/send graphs can pass through the host's Uint8Array storage up
+to the logical bound. Utility and main-only port callers keep the single-frame
+default. The actual catalog check includes this adapter as well as graph encoding;
+a graph-only roundtrip does not verify the full host boundary.

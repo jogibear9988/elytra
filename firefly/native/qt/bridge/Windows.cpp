@@ -8,6 +8,7 @@
 #include <LibJS/Runtime/VM.h>
 #include <LibRequests/NetworkError.h>
 #include <LibWebView/WebContentPage.h>
+#include <QPointer>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWindow>
@@ -19,7 +20,7 @@ JS::ThrowCompletionOr<Bridge::Impl::State*> Bridge::Impl::state(JS::VM& vm)
     if (!vm.argument(0).is_int32())
         return vm.throw_completion<JS::TypeError>("Invalid web contents ID"_utf16);
     auto found = windows.find(vm.argument(0).as_i32());
-    if (found == windows.end() || found->second.closing)
+    if (found == windows.end() || found->second.closing || !found->second.native_view())
         return vm.throw_completion<JS::Error>("WebContents has been destroyed"_utf16);
     return &found->second;
 }
@@ -55,7 +56,8 @@ void Bridge::Impl::destroy(int id, bool immediate)
 Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, int height,
     QString const& title, bool show, bool frame, Optional<Preload> preload, bool use_content_size,
     Optional<int> x, Optional<int> y, u32 background_rgb, WindowLimits const& limits,
-    Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor)
+    Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor,
+    Autoplay::Policy autoplay_policy)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
@@ -115,6 +117,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     windows.at(id).size_constraints = constraints;
     windows.at(id).accept_first_mouse = first_mouse.value_or(false);
     windows.at(id).background_rgb = background_rgb;
+    windows.at(id).autoplay_policy = autoplay_policy;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
         reset_ipc(id);
@@ -146,8 +149,18 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
         timer->setInterval(250);
         auto active = std::make_shared<bool>(false), pending = std::make_shared<bool>(false);
         auto epoch = std::make_shared<unsigned>(0), requested = std::make_shared<unsigned>(0);
-        view->on_received_js_console_result = [window, active, pending, epoch, requested](
-                                                  WebView::DebuggerValue result) {
+        auto* native = windows.at(id).native_view();
+        VERIFY(native);
+        auto previous_console = move(native->on_received_js_console_result);
+        native->on_received_js_console_result = [weak_window = QPointer<ChromeWindow>(window),
+                                                    original = move(previous_console), active,
+                                                    pending, epoch,
+                                                    requested](WebView::DebuggerValue result) {
+            if (original)
+                original(result);
+            auto* window = weak_window.data();
+            if (!window)
+                return;
             if (!*pending)
                 return;
             *pending = false;
@@ -191,7 +204,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
                 return;
             *pending = true;
             *requested = *epoch;
-            view->js_console_input(
+            content_engine_view(*view).js_console_input(
                 "typeof __fireflyRegionSnapshot === 'function' ? __fireflyRegionSnapshot() : '[]'"_string);
         });
         view->on_load_start = [this, id, window, active, epoch] {
@@ -202,7 +215,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
         };
         // Install only browser-side CSS/layout code, with no native bindings.
         view->on_load_finish = [view, active](auto const&) {
-            view->run_javascript(MUST(String::from_utf8(
+            content_engine_view(*view).run_javascript(MUST(String::from_utf8(
                 StringView(FIREFLY_APP_REGIONS_SOURCE, sizeof(FIREFLY_APP_REGIONS_SOURCE) - 1))));
             *active = true;
         };

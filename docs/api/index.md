@@ -21,11 +21,20 @@ depth still required alongside the implementation.
 [Mite runtime API](mite.md) covers entry points, modules, globals and Node-style
 built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
+The [async-context reference](async-hooks.md) covers native Promise/resource
+propagation, ownership and supported AsyncLocalStorage/AsyncResource operations.
+The [native type predicates](util-types.md), [Console basics](console.md) and
+[diagnostics channels/debug logging](diagnostics-channel.md) describe their partial
+Node-compatible contracts and actual runtime evidence.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
+The [querystring reference](querystring.md) covers the shared parser, custom codecs
+and malformed-percent behavior.
 The [legacy URL reference](url-legacy.md) describes source-pinned parse/Url, native
 IDNA and query/format behavior alongside the WHATWG constructors.
+The [inspector state reference](inspector.md) describes the inactive endpoint query
+and explicit debugger-backend refusals.
 The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and the
 fixed process runtime timeOrigin; timeline/profiling APIs remain absent.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
@@ -54,6 +63,10 @@ The [Blob/File/FormData reference](blob-formdata.md) covers immutable bytes, fil
 metadata, multipart uploads and body consumers.
 The [decompression reference](decompression.md) describes native Web Stream gzip/
 deflate decoding, automatic Fetch content handling, pressure and integrity limits.
+The [file-copy reference](fs-copy-file.md) covers real sync/callback/Promise copy,
+clone flags and destination error behavior.
+The [filesystem mutation reference](filesystem-mutations.md) covers real chmod,
+secure mkdtemp and bounded nonrecursive rm.
 The [filesystem event reference](event-watcher.md) covers fs.watch, native events,
 recursive platform policy, abort and ownership. The [canonical path reference](realpath.md)
 describes realpath sync/callback/promises and native entry points.

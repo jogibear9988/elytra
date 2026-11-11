@@ -1,5 +1,6 @@
 /** Trusted synchronous observations and weak, owner-thread delivery of passive native events. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
 #include "Provider.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -18,6 +19,8 @@
 
 namespace Firefly::PowerMonitor {
 struct Controller::State {
+    // Native provider IDs/metadata only; notify is an owner-scoped native transport.
+    using HoldsNoCellEdges = void;
     std::mutex mutex;
     QObject* receiver {};
     std::function<void(std::string)> notify;
@@ -150,116 +153,122 @@ std::shared_ptr<Controller> install_host(
     auto state = std::make_shared<Controller::State>();
     state->receiver = &receiver;
     state->notify = std::move(notify);
-    host.define_native_function(
-        realm, "powerMonitorCapabilities"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
-            QJsonArray names;
-            for (auto const& name : TRY(capabilities(vm, *state)))
-                names.append(QString::fromStdString(name));
-            return json(vm, QJsonDocument(names));
-        },
+    host.define_native_function(realm, "powerMonitorCapabilities"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
+                QJsonArray names;
+                for (auto const& name : TRY(capabilities(vm, *state)))
+                    names.append(QString::fromStdString(name));
+                return json(vm, QJsonDocument(names));
+            }),
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "powerMonitorQuery"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
-            if (!vm.argument(0).is_string())
-                return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a power query name");
-            auto name = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            auto kind = name == "idle-time"sv ? Query::IdleTime
-                : name == "idle-state"sv      ? Query::IdleState
-                : name == "thermal-state"sv   ? Query::ThermalState
-                : name == "battery-power"sv   ? Query::BatteryPower
-                                              : Query::SpeedLimit;
-            if (kind == Query::SpeedLimit && name != "speed-limit"sv)
-                return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown power query");
-            int threshold = 60;
-            if (kind == Query::IdleState) {
-                auto value = vm.argument(1);
-                if (!value.is_number() || !std::isfinite(value.as_double())
-                    || std::floor(value.as_double()) != value.as_double())
-                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Idle threshold must be an integer");
-                if (value.as_double() <= 0 || value.as_double() > 2147483647)
-                    return fail(vm, "ERR_OUT_OF_RANGE", "Idle threshold out of range");
-                threshold = static_cast<int>(value.as_double());
-            }
+    host.define_native_function(realm, "powerMonitorQuery"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
+                if (!vm.argument(0).is_string())
+                    return fail(vm, "ERR_INVALID_ARG_TYPE", "Expected a power query name");
+                auto name = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                auto kind = name == "idle-time"sv ? Query::IdleTime
+                    : name == "idle-state"sv      ? Query::IdleState
+                    : name == "thermal-state"sv   ? Query::ThermalState
+                    : name == "battery-power"sv   ? Query::BatteryPower
+                                                  : Query::SpeedLimit;
+                if (kind == Query::SpeedLimit && name != "speed-limit"sv)
+                    return fail(vm, "ERR_INVALID_ARG_VALUE", "Unknown power query");
+                int threshold = 60;
+                if (kind == Query::IdleState) {
+                    auto value = vm.argument(1);
+                    if (!value.is_number() || !std::isfinite(value.as_double())
+                        || std::floor(value.as_double()) != value.as_double())
+                        return fail(
+                            vm, "ERR_INVALID_ARG_TYPE", "Idle threshold must be an integer");
+                    if (value.as_double() <= 0 || value.as_double() > 2147483647)
+                        return fail(vm, "ERR_OUT_OF_RANGE", "Idle threshold out of range");
+                    threshold = static_cast<int>(value.as_double());
+                }
 
-            auto result = query(kind, threshold);
-            if (!result.code.empty())
-                return fail(vm, result.code, result.message);
-            QJsonValue value;
-            if (kind == Query::IdleTime || kind == Query::SpeedLimit) {
-                if (!std::isfinite(result.number) || result.number < 0
-                    || result.number > (kind == Query::IdleTime ? 9007199254740991.0 : 100.0)
-                    || std::floor(result.number) != result.number)
-                    return fail(
-                        vm, "ERR_FIREFLY_POWER_MONITOR_DATA", "Invalid native power number");
-                value = result.number;
-            } else if (kind == Query::BatteryPower) {
-                value = result.flag;
-            } else {
-                static std::unordered_set<std::string> const idle { "active", "idle", "locked",
-                    "unknown" };
+                auto result = query(kind, threshold);
+                if (!result.code.empty())
+                    return fail(vm, result.code, result.message);
+                QJsonValue value;
+                if (kind == Query::IdleTime || kind == Query::SpeedLimit) {
+                    if (!std::isfinite(result.number) || result.number < 0
+                        || result.number > (kind == Query::IdleTime ? 9007199254740991.0 : 100.0)
+                        || std::floor(result.number) != result.number)
+                        return fail(
+                            vm, "ERR_FIREFLY_POWER_MONITOR_DATA", "Invalid native power number");
+                    value = result.number;
+                } else if (kind == Query::BatteryPower) {
+                    value = result.flag;
+                } else {
+                    static std::unordered_set<std::string> const idle { "active", "idle", "locked",
+                        "unknown" };
 
-                static std::unordered_set<std::string> const thermal { "unknown", "nominal", "fair",
-                    "serious", "critical" };
-                if (!(kind == Query::IdleState ? idle : thermal).contains(result.text))
-                    return fail(vm, "ERR_FIREFLY_POWER_MONITOR_DATA", "Invalid native power state");
-                value = QString::fromStdString(result.text);
-            }
+                    static std::unordered_set<std::string> const thermal { "unknown", "nominal",
+                        "fair", "serious", "critical" };
+                    if (!(kind == Query::IdleState ? idle : thermal).contains(result.text))
+                        return fail(
+                            vm, "ERR_FIREFLY_POWER_MONITOR_DATA", "Invalid native power state");
+                    value = QString::fromStdString(result.text);
+                }
 
-            return json(vm, QJsonDocument(QJsonObject { { "value", value } }));
-        },
+                return json(vm, QJsonDocument(QJsonObject { { "value", value } }));
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "powerMonitorStart"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(epoch(vm));
-            if (state->stopped)
-                return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
-            if (TRY(capabilities(vm, *state)).empty())
-                return fail(
-                    vm, "ERR_FIREFLY_POWER_UNAVAILABLE", "No native power events available");
-            if (id <= state->last_epoch || state->epoch)
-                return fail(
-                    vm, "ERR_FIREFLY_POWER_MONITOR_LIMIT", "Power epoch reused or still active");
-            state->last_epoch = id;
-            state->epoch = id;
-            auto provider = Provider::create([weak = std::weak_ptr(state), id](Event event) {
-                post(weak, id, std::move(event));
-            });
-            state->provider = provider;
-            auto result = provider ? provider->start()
-                                   : Result { 0, {}, false, "ERR_FIREFLY_POWER_UNAVAILABLE",
-                                         "Native power observers unavailable" };
+    host.define_native_function(realm, "powerMonitorStart"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(epoch(vm));
+                if (state->stopped)
+                    return fail(vm, "ERR_FIREFLY_APP_EXITED", "Power monitor stopped");
+                if (TRY(capabilities(vm, *state)).empty())
+                    return fail(
+                        vm, "ERR_FIREFLY_POWER_UNAVAILABLE", "No native power events available");
+                if (id <= state->last_epoch || state->epoch)
+                    return fail(vm, "ERR_FIREFLY_POWER_MONITOR_LIMIT",
+                        "Power epoch reused or still active");
+                state->last_epoch = id;
+                state->epoch = id;
+                auto provider = Provider::create([weak = std::weak_ptr(state), id](Event event) {
+                    post(weak, id, std::move(event));
+                });
+                state->provider = provider;
+                auto result = provider ? provider->start()
+                                       : Result { 0, {}, false, "ERR_FIREFLY_POWER_UNAVAILABLE",
+                                             "Native power observers unavailable" };
 
-            if (!result.code.empty()) {
-                state->epoch = 0;
-                state->provider.reset();
-                if (provider)
-                    provider->stop();
-                return fail(vm, result.code, result.message);
-            }
+                if (!result.code.empty()) {
+                    state->epoch = 0;
+                    state->provider.reset();
+                    if (provider)
+                        provider->stop();
+                    return fail(vm, result.code, result.message);
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "powerMonitorStop"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto id = TRY(epoch(vm));
-            if (state->epoch == id) {
-                state->epoch = 0;
-                auto provider = std::move(state->provider);
-                if (provider)
-                    provider->stop();
-            }
+    host.define_native_function(realm, "powerMonitorStop"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(state)),
+            [](auto& state_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& state = state_capture.value;
+                auto id = TRY(epoch(vm));
+                if (state->epoch == id) {
+                    state->epoch = 0;
+                    auto provider = std::move(state->provider);
+                    if (provider)
+                        provider->stop();
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
     return std::make_shared<Controller>(state);
 }

@@ -1,5 +1,6 @@
 /** Files stay in the main process; queued application callbacks carry bounded metadata only. */
 #include "Files.h"
+#include "native/protocol/Diagnostics.h"
 #include "native/protocol/OriginPolicy.h"
 #include <AK/JsonObject.h>
 #include <LibURL/Parser.h>
@@ -270,6 +271,7 @@ void FileRoutes::request(
         || (!found->value.document && !url->equals(found->value.url, URL::ExcludeFragment::Yes))
         || m_pending.size() >= process_file_request_limit
         || m_next_token == NumericLimits<u64>::max()) {
+        diagnostic(DiagnosticStage::RouteScope, m_pending.size(), EACCES);
         (void)complete(Error::from_errno(EACCES));
         return;
     }
@@ -279,6 +281,7 @@ void FileRoutes::request(
     auto route = m_routes.find(url->scheme());
     if (route == m_routes.end()
         || found->value.targets.try_set(ByteString(url->scheme())).is_error()) {
+        diagnostic(DiagnosticStage::RouteMissing, m_pending.size(), EACCES);
         (void)complete(Error::from_errno(EACCES));
         return;
     }
@@ -412,6 +415,8 @@ bool FileRoutes::reply_response(u64 token, ErrorOr<StreamResponseHead> head)
 
     auto complete = move(pending->value.complete);
     if (head.is_error()) {
+        diagnostic(DiagnosticStage::RouteResponse, m_pending.size(),
+            head.error().is_errno() ? head.error().code() : 0);
         m_pending.remove(pending);
         return complete(head.release_error());
     }

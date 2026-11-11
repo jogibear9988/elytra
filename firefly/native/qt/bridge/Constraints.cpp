@@ -60,38 +60,15 @@ JS::ThrowCompletionOr<WindowLimits> Bridge::Impl::read_limits(JS::VM& vm, size_t
 void Bridge::Impl::install_constraints(JS::Object& host)
 {
     auto getter = [&](Utf16View name, bool maximum) {
-        host.define_native_function(
-            realm, Utf16String::from_utf16(name),
-            [this, maximum](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto* current = TRY(window_state(vm));
-                auto size = maximum ? current->size_constraints->maximum()
-                                    : current->size_constraints->minimum();
-                JsonArray pair;
-                MUST(pair.append(size.width()));
-                MUST(pair.append(size.height()));
-                return BridgeDetail::text(vm, JsonValue(move(pair)).serialized());
-            },
-            1, JS::default_attributes);
+        host.define_native_function(realm, Utf16String::from_utf16(name),
+            native_binding<&Impl::native_constraints_get_constraint>(maximum), 1,
+            JS::default_attributes);
     };
 
     auto setter = [&](Utf16View name, bool maximum) {
-        host.define_native_function(
-            realm, Utf16String::from_utf16(name),
-            [this, maximum](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto* current = TRY(window_state(vm));
-                auto width = dimension(vm.argument(1)), height = dimension(vm.argument(2));
-                if (!width.has_value() || !height.has_value())
-                    return preload_error(vm, "ERR_OUT_OF_RANGE",
-                        "Window constraint must be an integer in 0..16384"sv);
-                bool accepted = maximum
-                    ? current->size_constraints->set_maximum({ *width, *height })
-                    : current->size_constraints->set_minimum({ *width, *height });
-                if (!accepted)
-                    return preload_error(
-                        vm, "ERR_FIREFLY_WINDOW_CONSTRAINT", "Native window is unavailable"sv);
-                return JS::js_undefined();
-            },
-            3, JS::default_attributes);
+        host.define_native_function(realm, Utf16String::from_utf16(name),
+            native_binding<&Impl::native_constraints_set_constraint>(maximum), 3,
+            JS::default_attributes);
     };
 
     getter("minimumSize"_utf16, false);
@@ -99,4 +76,32 @@ void Bridge::Impl::install_constraints(JS::Object& host)
     setter("setMinimumSize"_utf16, false);
     setter("setMaximumSize"_utf16, true);
 }
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_constraints_get_constraint(
+    JS::VM& vm, bool maximum)
+{
+    auto* current = TRY(window_state(vm));
+    auto size
+        = maximum ? current->size_constraints->maximum() : current->size_constraints->minimum();
+    JsonArray pair;
+    MUST(pair.append(size.width()));
+    MUST(pair.append(size.height()));
+    return BridgeDetail::text(vm, JsonValue(move(pair)).serialized());
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_constraints_set_constraint(
+    JS::VM& vm, bool maximum)
+{
+    auto* current = TRY(window_state(vm));
+    auto width = dimension(vm.argument(1)), height = dimension(vm.argument(2));
+    if (!width.has_value() || !height.has_value())
+        return preload_error(
+            vm, "ERR_OUT_OF_RANGE", "Window constraint must be an integer in 0..16384"sv);
+    bool accepted = maximum ? current->size_constraints->set_maximum({ *width, *height })
+                            : current->size_constraints->set_minimum({ *width, *height });
+    if (!accepted)
+        return preload_error(vm, "ERR_FIREFLY_WINDOW_CONSTRAINT", "Native window is unavailable"sv);
+    return JS::js_undefined();
+}
+
 }

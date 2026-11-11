@@ -1,4 +1,5 @@
 #include "ContextBridgeTest.h"
+#include "CaptureSlot.h"
 #include "context/ContextBridge.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16StringBuilder.h>
@@ -66,13 +67,35 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         Object.isFrozen(api) && Object.isFrozen(api.nested) && Object.isFrozen(api.array) && Object.isFrozen(api.nested.fn) &&
         Object.getPrototypeOf(api)===Object.prototype && Object.getPrototypeOf(api.array)===Array.prototype &&
         Object.getPrototypeOf(api.nested.fn)===Function.prototype && api.__proto__.safe===true &&
-        api.nested.fn(1).n===42 && Object.isFrozen(api.nested.fn(1)) &&
+        api.nested.fn(1).n===42 && !Object.isFrozen(api.nested.fn(1)) &&
         descriptor.enumerable && !descriptor.writable && !descriptor.configurable && __ffContextScalar===42 &&
         typeof apiSecret==='undefined' && typeof contextBridge==='undefined';
     )JS"sv));
     auto count = owner->function_count();
     if (count != 3)
         return Error::from_string_literal("Duplicate API functions were not shared");
+    TRY(check(uR"JS(
+        const receiver={n:7,on(){return this},value(){return this.n}};
+        contextBridge.exposeInMainWorld('__ffReceiverApi',receiver);
+        true;
+    )JS"sv,
+        true));
+    vm.heap().collect_garbage();
+    TRY(check(uR"JS(
+        const api=__ffReceiverApi, extracted=api.on;
+        for(let i=0;i<80;i++) {
+            const returned=extracted.call({n:99});
+            if(returned.value()!==7 || returned.on!==api.on || Object.isFrozen(returned))
+                throw Error('Source receiver was lost or caller-controlled');
+            returned.n=99;
+            if(returned.n!==99 || returned.value()!==7)
+                throw Error('Result mutation leaked into the source receiver');
+        }
+        extracted.call(null).value()===7;
+    )JS"sv));
+    count = owner->function_count();
+    if (count != 5)
+        return Error::from_string_literal("Returned receiver methods consumed duplicate endpoints");
     TRY(check(uR"JS(
         globalThis.apiTraps=0;
         const failures=[
@@ -81,7 +104,7 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
           {good:()=>1,bad:new Proxy(()=>1,{get(){apiTraps++;throw 1}})},
           {bad:(()=>1).bind(null)}, {bad:Object.create({})}, {bad:Symbol()}, {bad:1n}, {bad:Promise.resolve(1)},
           Object.fromEntries(Array.from({length:65},(_,i)=>['f'+i,()=>i])),
-          {good:()=>1,bad:new Array(4097)}
+          {good:()=>1,bad:new Array(65537)}
         ];
         for(const api of failures){let rejected=false;try{contextBridge.exposeInMainWorld('__ffFailedApi',api)}catch(e){rejected=e instanceof TypeError}if(!rejected)throw Error('Unsafe API accepted');}
         let duplicate=false;try{contextBridge.exposeInMainWorld('__ffContextApi',{n:1})}catch(e){duplicate=e instanceof TypeError}
@@ -127,10 +150,11 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     TRY(check(u"!Object.hasOwn(globalThis,'__ffForeignApi')"sv));
     target.global_object().define_direct_property(
         "__ffLeakedPublisher"_utf16, publisher, JS::default_attributes);
-    source->realm()->global_object().define_native_function(
-        *source->realm(), "principalPublicationProbe"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            auto parsed = JS::Script::parse(uR"JS(
+    source->realm()->global_object().define_native_function(*source->realm(),
+        "principalPublicationProbe"_utf16,
+        GC::create_function(vm.heap(), GC::captures(target),
+            [](auto& target, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto parsed = JS::Script::parse(uR"JS(
                 (()=>{let rejected=0;
                     for(const run of [()=>__ffLeakedPublisher('__ffBadReentry',1),
                         ()=>__ffLeakedPublisher.call(null,'__ffBadReentry',1),
@@ -140,12 +164,12 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
                     return rejected===3 && !Object.hasOwn(globalThis,'__ffBadReentry');
                 })()
             )JS"_utf16,
-                target);
-            if (parsed.is_error())
-                return JS::js_undefined();
-            GC::Root script { parsed.release_value() };
-            return vm.run(*script);
-        },
+                    target);
+                if (parsed.is_error())
+                    return JS::js_undefined();
+                GC::Root script { parsed.release_value() };
+                return vm.run(*script);
+            }),
         0, JS::default_attributes);
     TRY(check(u"principalPublicationProbe()"sv, true));
     source->realm()->global_object().define_direct_property(
@@ -168,5 +192,83 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     outln("PASS atomic nested context APIs: frozen copies/cycles/function aliases, "
           "traps/rollback/budgets and detach revocation");
+    return {};
+}
+
+ErrorOr<void> check_large_context_bridge(
+    JS::VM& vm, Firefly::IsolatedWorld& source, Web::DOM::Document& document)
+{
+    auto owner = TRY(Firefly::ContextBridge::create(source, document));
+    auto& target = document.window()->principal_realm();
+    source.realm()->global_object().define_direct_property(
+        "largeContextBridge"_utf16, owner->exports(), JS::default_attributes);
+    ScopeGuard cleanup([&] {
+        owner->revoke();
+        source.realm()->global_object().define_direct_property(
+            "largeContextBridge"_utf16, JS::js_undefined(), JS::default_attributes);
+    });
+    auto expected_value = source.evaluate(u"JSON.stringify(largeCatalog)"sv);
+    if (expected_value.is_error() || !expected_value.value().is_string())
+        return Error::from_string_literal("Large context source catalog is unavailable");
+    // Own the complete expected UTF-16 text independently of source GC cells.
+    auto expected = expected_value.value().as_string().utf16_string();
+    auto published = source.evaluate(uR"JS(
+        largeContextBridge.exposeInMainWorld('__ffLargeContextApi', {
+            async resolve(){return {nls:{messages:largeCatalog}}}
+        }); true;
+    )JS"sv);
+    if (published.is_error() || !published.value().is_boolean() || !published.value().as_bool())
+        return Error::from_string_literal("Large context API publication failed");
+    auto principal = [&](Utf16View code) -> JS::ThrowCompletionOr<JS::Value> {
+        auto parsed = JS::Script::parse(Utf16String::from_utf16(code), target);
+        if (parsed.is_error())
+            return JS::js_undefined();
+        GC::Root script { parsed.release_value() };
+        return vm.run(*script);
+    };
+
+    auto started = principal(uR"JS(
+        globalThis.largeContextState='pending';
+        __ffLargeContextApi.resolve().then(value=>{
+            globalThis.largeContextJSON=JSON.stringify(value.nls.messages);
+            value.localOnly=true;
+            value.nls.localOnly=true;
+            value.nls.messages.push('destination-only');
+            globalThis.largeContextMutable=!Object.isFrozen(value)&&!Object.isFrozen(value.nls)&&
+                !Object.isFrozen(value.nls.messages)&&value.localOnly&&value.nls.localOnly;
+            globalThis.largeContextState='fulfilled';
+        },()=>{globalThis.largeContextState='rejected'});
+        true;
+    )JS"sv);
+    if (started.is_error() || !started.value().is_boolean() || !started.value().as_bool())
+        return Error::from_string_literal("Large context async call failed");
+    vm.heap().collect_garbage();
+    vm.save_execution_context_stack();
+    {
+        ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+        Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
+    }
+
+    vm.heap().collect_garbage();
+    auto copied = target.global_object().get_without_side_effects("largeContextJSON"_utf16);
+    auto mutable_copy
+        = target.global_object().get_without_side_effects("largeContextMutable"_utf16);
+    auto state = target.global_object().get_without_side_effects("largeContextState"_utf16);
+    if (!copied.is_string() || copied.as_string().utf16_string() != expected
+        || !mutable_copy.is_boolean() || !mutable_copy.as_bool() || !state.is_string()
+        || state.as_string().utf16_string_view() != u"fulfilled"sv)
+        return Error::from_string_literal("Large context async catalog mismatch or rejection");
+    auto unchanged_source = source.evaluate(u"JSON.stringify(largeCatalog)"sv);
+    if (unchanged_source.is_error() || !unchanged_source.value().is_string()
+        || unchanged_source.value().as_string().utf16_string() != expected)
+        return Error::from_string_literal("Mutable result changed the source catalog");
+    owner->revoke();
+    auto revoked = principal(uR"JS(
+        (()=>{try{__ffLargeContextApi.resolve();return false}catch(e){return e instanceof TypeError}})()
+    )JS"sv);
+    if (revoked.is_error() || !revoked.value().is_boolean() || !revoked.value().as_bool())
+        return Error::from_string_literal("Large context API did not revoke");
+    outln("PASS actual large catalog contextBridge async return: complete UTF-16 equality, "
+          "mutable independent result containers, GC and revocation");
     return {};
 }

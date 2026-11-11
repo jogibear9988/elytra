@@ -1,5 +1,6 @@
 /** Track native timer/observer ownership and release work on world detachment. */
 #include "worlds/jobs/State.h"
+#include <LibGC/Function.h>
 #include <LibGC/WeakInlines.h>
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
@@ -124,7 +125,8 @@ void WorldJobGuard::State::add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& 
         NonnullRefPtr self { *this };
         Web::HTML::queue_a_microtask(nullptr,
             GC::create_function(vm.heap(),
-                [self, record, global_root = GC::Ref { *window }, timer_root = GC::Ref { timer }] {
+                GC::captures(self, record, GC::Ref { *window }, GC::Ref { timer }),
+                [](auto& self, auto& record, auto& global_root, auto& timer_root) {
                     (void)global_root;
                     (void)timer_root;
                     self->cancel_timer(record);

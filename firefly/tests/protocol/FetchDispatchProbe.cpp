@@ -7,6 +7,7 @@
 #include <AK/WeakPtr.h>
 #include <LibCore/EventLoop.h>
 #include <LibCore/Timer.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
 #include <LibURL/Parser.h>
@@ -67,6 +68,7 @@ public:
                             self->m_jobs.remove(id);
                         }
                     },
+                .completed = {},
             }));
         Vector<HTTP::Header> headers;
         TRY(headers.try_append({ "Cache-Control", "no-store" }));
@@ -221,11 +223,12 @@ ErrorOr<void> wait(JS::Realm& realm, Utf16View predicate)
     deadline->start();
     auto text = Utf16String::from_utf16(predicate);
     auto& vm = realm.vm();
-    Web::HTML::main_thread_event_loop().spin_until(
-        GC::create_function(realm.heap(), [&realm, text, deadline] {
+    Web::HTML::main_thread_event_loop().spin_until(GC::create_function(realm.heap(),
+        GC::captures(realm, text, deadline->make_weak_ptr<Core::Timer>()),
+        [](auto& realm, auto& text, auto& deadline) {
             auto result = run(realm, text);
             return result.is_error() || (result.value().is_boolean() && result.value().as_bool())
-                || !deadline->is_active();
+                || !deadline || !deadline->is_active();
         }));
     auto result = TRY(run(realm, predicate));
     if (!result.is_boolean() || !result.as_bool()) {

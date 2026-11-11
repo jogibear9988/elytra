@@ -14,6 +14,16 @@ the pin and contains no staged, unstaged or untracked source changes. These are
 local integrity checks, not cryptographic proof of upstream provenance. Obtain
 candidate commits from the official repository in .gitmodules / the manifest.
 
+## Candidate CI without a pull request
+
+Use a codex/ladybird-update-* branch for an isolated engine review. Pushing that
+branch runs the existing Windows/Linux CLI, Linux renderer and macOS Release
+package workflows when their normal path filters match. This uses the same native
+acceptance commands as master; it does not create a pull request or publish an
+alpha. Master stays on its accepted pin until the applicable update gates pass.
+Record the exact tested commit and workflow results before promotion. Unverified
+platforms and native Windows desktop gaps must remain explicit.
+
 ## Review one candidate
 
 1. Start with a clean source tree and a passing baseline. Fetch the official

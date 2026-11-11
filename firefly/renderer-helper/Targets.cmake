@@ -15,6 +15,7 @@ add_executable(
     FireflyWebContent
     "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/autoplay/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
@@ -103,6 +104,7 @@ if(FIREFLY_BUILD_RUNTIME)
         FireflyRuntimeWebContent
         "${CMAKE_CURRENT_LIST_DIR}/Entry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/canvas/Session.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/autoplay/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Session.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/web-request/Startup.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/permissions/Session.cpp"
@@ -113,6 +115,7 @@ if(FIREFLY_BUILD_RUNTIME)
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcEndpoint.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcListeners.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ipc/IpcChannel.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ipc/ports/PortEndpoint.cpp"
         ${firefly_renderer_platform_sources})
     add_dependencies(FireflyRuntimeWebContent check-firefly-upstream check-firefly-renderer-hooks)
     target_include_directories(FireflyRuntimeWebContent PRIVATE "${CMAKE_CURRENT_LIST_DIR}"
@@ -120,6 +123,7 @@ if(FIREFLY_BUILD_RUNTIME)
     target_link_libraries(
         FireflyRuntimeWebContent
         PRIVATE webcontentservice
+                firefly-port-wire
                 firefly-web-request-wire
                 firefly-isolated-world
                 LibSandbox
@@ -198,6 +202,8 @@ endif()
 ladybird_check_skia_confinement(firefly-protocol-renderer-probe)
 add_custom_target(
     check-firefly-protocol-renderer
+    COMMAND "${Python3_EXECUTABLE}"
+            "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_package_layout.py"
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_protocol_configuration.py"
         --probe "$<TARGET_FILE:firefly-protocol-renderer-probe>" --helper

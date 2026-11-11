@@ -8,6 +8,9 @@
 #include "core/errors/StackTrace.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
+#include "platform/UV.h"
+#include "platform/network/tls/ExtraCertificates.h"
+#include "platform/process/InheritedPipe.h"
 #include "platform/process/ProcessHost.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
@@ -22,7 +25,6 @@
 #include <LibJS/Runtime/Promise.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
-#include <uv.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -65,9 +67,35 @@ static void report_exception(JS::Value value)
 static JS::ThrowCompletionOr<JS::Value> print(JS::VM& vm, FILE* stream)
 {
     for (size_t i = 0; i < vm.argument_count(); ++i) {
-        auto text = TRY(vm.argument(i).to_utf16_string(vm));
+        auto value = vm.argument(i);
         if (i)
             fputc(' ', stream);
+        if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
+            auto& error = static_cast<JS::Error&>(value.as_object());
+            // Inspect data properties only. Accessor overrides must never run
+            // while reporting the application's original failure.
+            auto name = error.get_without_side_effects("name"_utf16);
+            auto message = error.get_without_side_effects("message"_utf16);
+            write_text(
+                stream, name.is_string() ? name.as_string().utf16_string_view() : "Error"_utf16);
+            if (message.is_string() && message.as_string().length_in_utf16_code_units()) {
+                fputs(": ", stream);
+                write_text(stream, message.as_string().utf16_string_view());
+            }
+
+            auto stack = error.stack_string();
+            if (!stack.is_empty()) {
+                fputc('\n', stream);
+                write_text(stream, stack);
+            }
+
+            continue;
+        }
+        // Logging must not invoke application coercion, getters, or Proxy traps.
+        // LibJS renders object class labels directly, including null-prototype
+        // objects and functions; primitive conversion retains existing output.
+        auto text = value.is_object() ? value.to_utf16_string_without_side_effects()
+                                      : TRY(value.to_utf16_string(vm));
         write_text(stream, text);
     }
 
@@ -87,7 +115,8 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     }
 
     if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--help")) {
-        puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite "
+        puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite -p "
+             "<source>\n       mite "
              "--version");
         return argc == 1 ? 1 : 0;
     }
@@ -104,7 +133,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         }
         // Validate before reading the entry or creating a loop: otherwise a
         // missing inherited fd can be reused by our own libuv wakeup pipe.
-        if (uv_guess_handle(3) != UV_NAMED_PIPE) {
+        if (!Mite::is_inherited_ipc_pipe(3)) {
             fputs("mite: fork-child inherited channel is not a pipe\n", stderr);
             return 9;
         }
@@ -126,9 +155,11 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     std::filesystem::path native_filename;
     std::string source;
     int script_arg = 1;
-    if (std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
+    bool print_completion
+        = std::string_view(argv[1]) == "-p" || std::string_view(argv[1]) == "--print";
+    if (print_completion || std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
         if (argc < 3) {
-            fputs("mite: --eval requires source text\n", stderr);
+            fputs("mite: --eval/--print requires source text\n", stderr);
             return 9;
         }
 
@@ -252,6 +283,9 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         return 1;
     }
 
+    // Node-compatible extra trust is an immutable process-start snapshot, never
+    // reinterpreted after application JavaScript changes the environment.
+    capture_tls_extra_certificates();
     auto entry_path
         = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);
@@ -297,7 +331,13 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         report_exception(module_format.error_value());
         status = 1;
     } else if (module_format.value()) {
+        if (std::getenv("MITE_MODULE_DIAGNOSTIC"))
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-begin\n",
+                static_cast<int>(uv_os_getpid()));
         auto result = modules.run_entry();
+        if (std::getenv("MITE_MODULE_DIAGNOSTIC"))
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-submitted error=%d\n",
+                static_cast<int>(uv_os_getpid()), result.is_error());
         if (result.is_error()) {
             event_loop.uncaught_exception(result.error_value(), true);
             status = event_loop.status() ? event_loop.status() : drive();
@@ -336,7 +376,23 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
             event_loop.uncaught_exception(result.error_value());
             status = event_loop.status() ? event_loop.status() : drive();
         } else {
-            status = drive();
+            // Print the actual script completion before driving asynchronous work.
+            // This uses normal string conversion, including errors from user hooks.
+            auto completion = result.release_value();
+            if (print_completion) {
+                auto text = completion.to_utf16_string(*vm);
+                if (text.is_error()) {
+                    event_loop.uncaught_exception(text.error_value());
+                    status = event_loop.status();
+                } else {
+                    write_text(stdout, text.value());
+                    fputc('\n', stdout);
+                    fflush(stdout);
+                }
+            }
+
+            if (!status)
+                status = drive();
         }
     }
 

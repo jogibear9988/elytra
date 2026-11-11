@@ -28,7 +28,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * host spellings that WHATWG URL canonicalizes. Node's deprecation diagnostics
  * and its unrelated URL resolution API are outside this slice.
  */
-export default function createLegacyUrl(native) {
+import createQueryCodec from './querystring-codec.mjs';
+import createQueryStringModule from './querystring.mjs';
+
+export default function createLegacyUrl(native, Buffer) {
   const StringPrototypeCharCodeAt = (value, index) => value.charCodeAt(index);
 
   const StringPrototypeIndexOf = (value, search) => value.indexOf(search);
@@ -59,184 +62,13 @@ export default function createLegacyUrl(native) {
     }
   }
 
-  const hexTable = Array.from(
-    { length: 256 },
-    (_, value) => '%' + value.toString(16).toUpperCase().padStart(2, '0')
-  );
-  const noEscapeQuery = Array.from({ length: 128 }, (_, value) =>
-    /[A-Za-z0-9!\-._~'()*]/.test(String.fromCharCode(value)) ? 1 : 0
-  );
-  const noEscapeAuth = noEscapeQuery.slice();
-  noEscapeAuth[58] = 1;
-  class ERR_INVALID_URI extends URIError {
-    constructor() {
-      super('URI malformed');
-      this.code = 'ERR_INVALID_URI';
-    }
-  }
-  // Exact Node legacy encoder, including its code-unit behavior. It deliberately
-  // differs from modern USVString conversion and encodeURIComponent for malformed UTF-16.
-  function encodeStr(str, noEscapeTable, hexTable) {
-    const len = str.length;
-    if (len === 0) {
-      return '';
-    }
-
-    let out = '';
-    let lastPos = 0;
-    let i = 0;
-
-    outer: for (; i < len; i++) {
-      let c = StringPrototypeCharCodeAt(str, i);
-
-      // ASCII
-      while (c < 0x80) {
-        if (noEscapeTable[c] !== 1) {
-          if (lastPos < i) {
-            out += StringPrototypeSlice(str, lastPos, i);
-          }
-          lastPos = i + 1;
-          out += hexTable[c];
-        }
-
-        if (++i === len) {
-          break outer;
-        }
-
-        c = StringPrototypeCharCodeAt(str, i);
-      }
-
-      if (lastPos < i) {
-        out += StringPrototypeSlice(str, lastPos, i);
-      }
-
-      // Multi-byte characters ...
-      if (c < 0x800) {
-        lastPos = i + 1;
-        out += hexTable[0xc0 | (c >> 6)] + hexTable[0x80 | (c & 0x3f)];
-        continue;
-      }
-      if (c < 0xd800 || c >= 0xe000) {
-        lastPos = i + 1;
-        out +=
-          hexTable[0xe0 | (c >> 12)] +
-          hexTable[0x80 | ((c >> 6) & 0x3f)] +
-          hexTable[0x80 | (c & 0x3f)];
-        continue;
-      }
-      // Surrogate pair
-      ++i;
-
-      // This branch should never happen because all URLSearchParams entries
-      // should already be converted to USVString. But, included for
-      // completion's sake anyway.
-      if (i >= len) {
-        throw new ERR_INVALID_URI();
-      }
-
-      const c2 = StringPrototypeCharCodeAt(str, i) & 0x3ff;
-
-      lastPos = i + 1;
-      c = 0x10000 + (((c & 0x3ff) << 10) | c2);
-      out +=
-        hexTable[0xf0 | (c >> 18)] +
-        hexTable[0x80 | ((c >> 12) & 0x3f)] +
-        hexTable[0x80 | ((c >> 6) & 0x3f)] +
-        hexTable[0x80 | (c & 0x3f)];
-    }
-    if (lastPos === 0) {
-      return str;
-    }
-    if (lastPos < len) {
-      return out + StringPrototypeSlice(str, lastPos);
-    }
-    return out;
-  }
+  const { hexTable, noEscapeAuth, encodeStr } = createQueryCodec();
 
   function encodeAuth(value) {
     return encodeStr(value, noEscapeAuth, hexTable);
   }
 
-  function decodeQuery(value) {
-    value = value.replaceAll('+', ' ');
-    if (!/%[0-9a-f]{2}/i.test(value)) {
-      return value;
-    }
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      // Node querystring's unescapeBuffer fallback retains each undecoded UTF-16
-      // code unit's low byte, then performs forgiving UTF-8 decoding. Encode that
-      // exact byte sequence before using the native form decoder solely as UTF-8 decoder.
-      const bytes = [];
-      for (let index = 0; index < value.length; ++index) {
-        const pair = value.slice(index + 1, index + 3);
-        if (value[index] === '%' && /^[0-9a-f]{2}$/i.test(pair)) {
-          bytes.push(hexTable[parseInt(pair, 16)]);
-          index += 2;
-        } else {
-          bytes.push(hexTable[value.charCodeAt(index) & 255]);
-        }
-      }
-      return native.decodeForm('value=' + bytes.join(''))[0]?.[1] ?? '';
-    }
-  }
-
-  const querystring = {
-    parse(value) {
-      const result = Object.create(null);
-      // querystring's 1000-key budget counts empty '&' segments too. Bound
-      // the source before forgiving form decoding rather than trimming its pairs.
-      let end = -1;
-      for (let count = 0; count < 1000; ++count) {
-        end = value.indexOf('&', end + 1);
-        if (end === -1) {
-          break;
-        }
-      }
-      const selected = end === -1 ? value : value.slice(0, end);
-      for (const pair of selected.split('&')) {
-        if (!pair) {
-          continue;
-        }
-        const equal = pair.indexOf('=');
-        const name = decodeQuery(equal < 0 ? pair : pair.slice(0, equal));
-        const item = decodeQuery(equal < 0 ? '' : pair.slice(equal + 1));
-        if (!Object.hasOwn(result, name)) {
-          result[name] = item;
-        } else if (Array.isArray(result[name])) {
-          result[name].push(item);
-        } else {
-          result[name] = [result[name], item];
-        }
-      }
-      return result;
-    },
-
-    stringify(value) {
-      const pairs = [];
-
-      const scalar = (item) =>
-        typeof item === 'string' ||
-        typeof item === 'boolean' ||
-        (typeof item === 'number' && Number.isFinite(item)) ||
-        typeof item === 'bigint'
-          ? String(item)
-          : '';
-
-      for (const name of Object.keys(value)) {
-        const items = Array.isArray(value[name]) ? value[name] : [value[name]];
-        for (const item of items) {
-          pairs.push(
-            encodeStr(name, noEscapeQuery, hexTable) +
-              '=' +
-              encodeStr(scalar(item), noEscapeQuery, hexTable)
-          );
-        }
-      }
-      return pairs.join('&');
-    }
-  };
+  const querystring = createQueryStringModule({ Buffer });
   const CHAR_SPACE = 32;
   const CHAR_TAB = 9;
   const CHAR_CARRIAGE_RETURN = 13;

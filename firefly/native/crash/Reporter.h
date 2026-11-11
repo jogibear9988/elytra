@@ -8,6 +8,12 @@
 #include <LibWebView/ProcessType.h>
 
 namespace Firefly::CrashReporting {
+// Set by the trusted embedder before upstream profile initialization.
+// Browser report migration and automatic disposal must not own application reports.
+WEBVIEW_API void begin_embedded_profile();
+
+WEBVIEW_API bool owns_embedded_profile();
+
 WEBVIEW_API ByteString directory();
 
 WEBVIEW_API ErrorOr<void> set_directory(StringView);

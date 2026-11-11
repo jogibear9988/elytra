@@ -8,6 +8,7 @@
 #include "context/ContextBridge.h"
 #include "ipc/IpcEndpoint.h"
 #include "loading/FileModules.h"
+#include "native/protocol/OriginPolicy.h"
 #include "preload/Process.h"
 #include "preload/WebFrame.h"
 #include "worlds/WorldJobGuard.h"
@@ -15,6 +16,7 @@
 #include <AK/JsonObject.h>
 #include <AK/Utf16StringBuilder.h>
 #include <LibCore/Timer.h>
+#include <LibGC/Function.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/Intrinsics.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -102,26 +104,28 @@ namespace {
         imports->define_direct_property("ipcRenderer"_utf16, ipc.exports(), {});
         imports->define_direct_property("webFrame"_utf16, create_web_frame(world, document), {});
         VERIFY(MUST(imports->set_integrity_level(JS::Object::IntegrityLevel::Frozen)));
-        GC::Root require { JS::NativeFunction::create(
-            realm,
-            [weak = world.make_weak_ptr(), module = GC::Ref { *imports },
-                electron_compat = preload.electron_compat](
-                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto owner = weak.strong_ref();
-                if (!owner || owner->is_detached() || !owner->is_executing())
-                    return vm.throw_completion<JS::TypeError>("Preload require is revoked"sv);
-                if (vm.argument(0).is_string()
-                    && (vm.argument(0).as_string().utf16_string_view() == "firefly"_utf16
-                        || (electron_compat
-                            && vm.argument(0).as_string().utf16_string_view() == "electron"_utf16)))
-                    return module;
-                auto error = JS::Error::create(
-                    vm.realm(), "Module is not available in this sandboxed preload"_utf16);
-                error->define_direct_property("code"_utf16,
-                    JS::PrimitiveString::create(vm, "ERR_FIREFLY_UNSUPPORTED_API"_utf16),
-                    JS::default_attributes);
-                return JS::throw_completion(error);
-            },
+        GC::Root require { JS::NativeFunction::create(realm,
+            GC::create_function((realm).vm().heap(),
+                GC::captures(world.make_weak_ptr(), GC::Ref { *imports }, preload.electron_compat),
+                [](auto& weak, auto& module, auto& electron_compat,
+                    JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                    auto owner = weak.strong_ref();
+                    if (!owner || owner->is_detached() || !owner->is_executing())
+                        return vm.throw_completion<JS::TypeError>(
+                            "Preload require is revoked"_utf16);
+                    if (vm.argument(0).is_string()
+                        && (vm.argument(0).as_string().utf16_string_view() == "firefly"_utf16
+                            || (electron_compat
+                                && vm.argument(0).as_string().utf16_string_view()
+                                    == "electron"_utf16)))
+                        return module;
+                    auto error = JS::Error::create(
+                        vm.realm(), "Module is not available in this sandboxed preload"_utf16);
+                    error->define_direct_property("code"_utf16,
+                        JS::PrimitiveString::create(vm, "ERR_FIREFLY_UNSUPPORTED_API"_utf16),
+                        JS::default_attributes);
+                    return JS::throw_completion(error);
+                }),
             1, "require"_utf16, GC::Ptr<JS::Realm> { realm }) };
         GC::Root module { JS::Object::create(realm, realm.intrinsics().object_prototype()) };
         module->define_direct_property("exports"_utf16,
@@ -177,7 +181,13 @@ namespace {
             return;
         auto document = local->active_document();
         auto const& url = document->url();
-        if (url.scheme() != "file"sv && url.scheme() != "http"sv && url.scheme() != "https"sv)
+        // Only native launcher registration can admit a custom application origin.
+        // A scheme spelling alone never selects a preload: the configured native
+        // context below and the realm/document-bound IPC channel remain mandatory.
+        bool builtin
+            = url.scheme() == "file"sv || url.scheme() == "http"sv || url.scheme() == "https"sv;
+        if (!builtin
+            && (!Protocols::is_standard_scheme(url.scheme()) || document->origin().is_opaque()))
             return;
         auto handle = Web::WebDriver::BiDi::navigable_id(navigable);
         auto source = session->sources.find(handle);

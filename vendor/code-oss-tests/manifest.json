@@ -278,6 +278,38 @@
     "window-impl-main.ts": {
       "upstream": "src/vs/platform/windows/electron-main/windowImpl.ts",
       "sha256": "1cbccb2910b4763702be823fb5e49e532f49845694e473893f3f52cbb6ee0e0a"
+    },
+    "window-defaults-main.ts": {
+      "upstream": "src/vs/platform/windows/electron-main/windows.ts",
+      "sha256": "087b784eec1f1f565e7eed9cd8b315102a9900888df28c79dc1cd30bde8c36e0"
+    },
+    "css-development-service.ts": {
+      "upstream": "src/vs/platform/cssDev/node/cssDevService.ts",
+      "sha256": "3b6c452087f79f3aafbde34285fd94f6c5d69730522441ad362d989bcda088b6"
+    },
+    "darwin-update-service.ts": {
+      "upstream": "src/vs/platform/update/electron-main/updateService.darwin.ts",
+      "sha256": "8eead08ba810059a02dfeaf24e09ba69b45ef987b06e0e6680931c210cc5fd6b"
+    },
+    "utility-process-main.ts": {
+      "upstream": "src/vs/platform/utilityProcess/electron-main/utilityProcess.ts",
+      "sha256": "991465758e745c162bb97506fdbc2227b38d40704042367cde4c9fa38a14aea8"
+    },
+    "shared-process-main.ts": {
+      "upstream": "src/vs/platform/sharedProcess/electron-main/sharedProcess.ts",
+      "sha256": "ef759e2e771b0a6e16be5dc579a56200fe131b6ae9a5763d6d42259036068bd7"
+    },
+    "electronAgentHostStarter.ts": {
+      "upstream": "src/vs/platform/agentHost/electron-main/electronAgentHostStarter.ts",
+      "sha256": "50140c223133999f91d336ad2b6ddc0601fa25ee3689455d477879b6cf3e6f31"
+    },
+    "local-process-extension-host.ts": {
+      "upstream": "src/vs/workbench/services/extensions/electron-browser/localProcessExtensionHost.ts",
+      "sha256": "725eff5c31fd5832e55c0cfa4f131efe0bb3cda4433342e90e56bb93da4f191d"
+    },
+    "diffComputeService.ts": {
+      "upstream": "src/vs/platform/agentHost/node/diffComputeService.ts",
+      "sha256": "d33579abe20a405fdc4737d3e7ef2367eadbc41b7d5854b5fe30f77a78bf74de"
     }
   }
 }

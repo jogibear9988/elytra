@@ -1,5 +1,6 @@
 {
   "events": "mite/modules/core/events.mjs",
+  "diagnostics_channel": "mite/modules/core/diagnostics-channel.mjs",
   "process": "mite/modules/core/process.mjs",
   "process_stdio": "mite/modules/core/process-stdio.mjs",
   "process_events": "mite/modules/core/process-events.mjs",
@@ -8,12 +9,17 @@
   "perf_hooks": "mite/modules/core/perf-hooks.mjs",
   "buffer": "mite/modules/core/buffer.mjs",
   "url": "mite/modules/core/url.mjs",
+  "async_hooks": "mite/modules/core/async-hooks.mjs",
+  "querystring": "mite/modules/core/querystring.mjs",
   "util": "mite/modules/core/util.mjs",
+  "util-types": "mite/modules/core/util-types.mjs",
+  "console": "mite/modules/core/console.mjs",
   "fs": "mite/modules/filesystem/fs.mjs",
   "net": "mite/modules/network/net.mjs",
   "dns": "mite/modules/network/dns.mjs",
   "http": "mite/modules/network/http.mjs",
   "os": "mite/modules/system/os.mjs",
+  "inspector": "mite/modules/system/inspector.mjs",
   "policy-watcher": "mite/modules/system/policy-watcher.mjs",
   "crypto": "mite/modules/crypto/index.mjs",
   "child_process": "mite/modules/process/child-process.mjs",
@@ -24,5 +30,7 @@
   "fetch": "mite/runtime/bootstrap/fetch/index.mjs",
   "decompression": "mite/runtime/bootstrap/compression/decompression.mjs",
   "zlib": "mite/modules/compression/zlib.mjs",
-  "readline": "mite/modules/core/readline/index.mjs"
+  "readline": "mite/modules/core/readline/index.mjs",
+  "sqlite": "mite/modules/storage/sqlite.mjs",
+  "native-keymap": "mite/modules/system/native-keymap.mjs"
 }

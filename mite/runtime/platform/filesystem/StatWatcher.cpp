@@ -1,6 +1,7 @@
 /** Real libuv stat polling with bounded active/closing handles and owner-thread snapshots. */
 #include "platform/filesystem/StatWatcher.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "platform/filesystem/StatSnapshot.h"
 #include "platform/filesystem/WatcherSupport.h"
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -22,9 +23,17 @@ namespace {
         uint64_t id;
         uv_fs_poll_t handle {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct State {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(realm);
+            for (auto const& entry : active)
+                visitor.visit(entry.second->callback.ptr());
+        }
+
         JS::Realm& realm;
         EventLoop& loop;
         std::unordered_map<uint64_t, Watch*> active;
@@ -72,66 +81,69 @@ void install_stat_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& lo
         while (!state->active.empty())
             state->close(*state->active.begin()->second);
     });
-    host.define_native_function(
-        realm, "statWatchStart"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto path = TRY(WatcherSupport::path_argument(vm, vm.argument(0)));
-            auto interval = vm.argument(1);
-            if (!interval.is_number() || !std::isfinite(interval.as_double())
-                || interval.as_double() < 0 || interval.as_double() > 0xffffffffu
-                || std::floor(interval.as_double()) != interval.as_double()
-                || !vm.argument(3).is_function())
-                return vm.throw_completion<JS::TypeError>(
-                    "Invalid internal stat watcher arguments"sv);
-            GC::Root result { JS::Object::create(state->realm, nullptr) };
-            int status = state->stopped                                          ? UV_ECANCELED
-                : state->handles >= 256 || state->next_id >= 9007199254740992ULL ? UV_ENOSPC
-                                                                                 : 0;
-            uint64_t id {};
-            if (!status) {
-                auto* watch = new Watch { state, state->next_id++, {},
-                    GC::Root { vm.argument(3).as_function() } };
-                id = watch->id;
-                status = uv_fs_poll_init(&state->loop.native_loop(), &watch->handle);
-                if (status)
-                    delete watch;
-                else {
-                    ++state->handles;
-                    watch->handle.data = watch;
-                    state->active.emplace(watch->id, watch);
-                    status = uv_fs_poll_start(
-                        &watch->handle,
-                        [](uv_fs_poll_t* handle, int status, uv_stat_t const* previous,
-                            uv_stat_t const* current) {
-                            auto& watch = *static_cast<Watch*>(handle->data);
-                            auto& owner = *watch.owner;
-                            if (!watch.callback || owner.stopped)
-                                return;
-                            owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
-                                GC::Root callback { watch.callback };
-                                uv_stat_t zero {};
-                                GC::Root current_raw { make_stat_snapshot(
-                                    owner.realm, current ? *current : zero) };
-                                GC::Root previous_raw { make_stat_snapshot(
-                                    owner.realm, previous ? *previous : zero) };
-                                return JS::call(owner.realm.vm(), *callback, JS::js_undefined(),
-                                    JS::Value(status), current_raw.ptr(), previous_raw.ptr());
-                            });
-                        },
-                        path.c_str(), static_cast<unsigned>(interval.as_double()));
+    host.define_native_function(realm, "statWatchStart"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto path = TRY(WatcherSupport::path_argument(vm, vm.argument(0)));
+                auto interval = vm.argument(1);
+                if (!interval.is_number() || !std::isfinite(interval.as_double())
+                    || interval.as_double() < 0 || interval.as_double() > 0xffffffffu
+                    || std::floor(interval.as_double()) != interval.as_double()
+                    || !vm.argument(3).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal stat watcher arguments"_utf16);
+                GC::Root result { JS::Object::create(state->realm, nullptr) };
+                int status = state->stopped                                          ? UV_ECANCELED
+                    : state->handles >= 256 || state->next_id >= 9007199254740992ULL ? UV_ENOSPC
+                                                                                     : 0;
+                uint64_t id {};
+                if (!status) {
+                    auto* watch = new Watch { state, state->next_id++, {},
+                        GC::Root { vm.argument(3).as_function() },
+                        GC::Root { state->loop.async_context().capture() } };
+                    id = watch->id;
+                    status = uv_fs_poll_init(&state->loop.native_loop(), &watch->handle);
                     if (status)
-                        state->close(*watch);
-                    else if (!vm.argument(2).to_boolean())
-                        uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
+                        delete watch;
+                    else {
+                        ++state->handles;
+                        watch->handle.data = watch;
+                        state->active.emplace(watch->id, watch);
+                        status = uv_fs_poll_start(
+                            &watch->handle,
+                            [](uv_fs_poll_t* handle, int status, uv_stat_t const* previous,
+                                uv_stat_t const* current) {
+                                auto& watch = *static_cast<Watch*>(handle->data);
+                                auto& owner = *watch.owner;
+                                if (!watch.callback || owner.stopped)
+                                    return;
+                                owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                                    AsyncContext::Scope context(
+                                        owner.loop.async_context(), watch.context.ptr());
+                                    GC::Root callback { watch.callback };
+                                    uv_stat_t zero {};
+                                    GC::Root current_raw { make_stat_snapshot(
+                                        owner.realm, current ? *current : zero) };
+                                    GC::Root previous_raw { make_stat_snapshot(
+                                        owner.realm, previous ? *previous : zero) };
+                                    return JS::call(owner.realm.vm(), *callback, JS::js_undefined(),
+                                        JS::Value(status), current_raw.ptr(), previous_raw.ptr());
+                                });
+                            },
+                            path.c_str(), static_cast<unsigned>(interval.as_double()));
+                        if (status)
+                            state->close(*watch);
+                        else if (!vm.argument(2).to_boolean())
+                            uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
+                    }
                 }
-            }
 
-            result->define_direct_property(
-                "id"_utf16, JS::Value(static_cast<double>(id)), JS::default_attributes);
-            result->define_direct_property(
-                "status"_utf16, JS::Value(status), JS::default_attributes);
-            return result.ptr();
-        },
+                result->define_direct_property(
+                    "id"_utf16, JS::Value(static_cast<double>(id)), JS::default_attributes);
+                result->define_direct_property(
+                    "status"_utf16, JS::Value(status), JS::default_attributes);
+                return result.ptr();
+            }),
         4, JS::default_attributes);
     host.define_native_function(
         realm, "statWatchError"_utf16,
@@ -139,26 +151,26 @@ void install_stat_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& lo
             return WatcherSupport::error(vm, "watchFile");
         },
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "statWatchStop"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* watch = state->get(vm.argument(0)))
-                state->close(*watch);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "statWatchStop"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* watch = state->get(vm.argument(0)))
+                    state->close(*watch);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "statWatchRef"_utf16,
-        [state](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* watch = state->get(vm.argument(0))) {
-                if (vm.argument(1).to_boolean())
-                    uv_ref(reinterpret_cast<uv_handle_t*>(&watch->handle));
-                else
-                    uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
-            }
+    host.define_native_function(realm, "statWatchRef"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
+            [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* watch = state->get(vm.argument(0))) {
+                    if (vm.argument(1).to_boolean())
+                        uv_ref(reinterpret_cast<uv_handle_t*>(&watch->handle));
+                    else
+                        uv_unref(reinterpret_cast<uv_handle_t*>(&watch->handle));
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
 }
 }

@@ -1,4 +1,4 @@
-# FileHandle.createReadStream
+# File read streams
 
 Status: **partial**, tested locally on macOS with real files under Node 24.15.0,
 Mite and the non-GUI native GC host. Fresh Linux/Windows execution remains open.
@@ -23,8 +23,13 @@ try {
 The method returns a Node-compatible Readable subset supporting async iteration,
 pipe and the existing data/error/end/close/destroy contract. bytesRead reports the
 number of delivered file bytes; path is undefined for a descriptor-backed stream.
-Full fs.ReadStream constructor/instance/field/method identity and path-based
-fs.createReadStream are not implemented by this slice. The separate
+Path-based `fs.createReadStream(path[, options])` and `fs.ReadStream` now reuse
+this native engine. Path streams expose `path`, `fd`, `pending`, `open` and `ready`,
+and own the asynchronously opened FileHandle. Supplied descriptors/FileHandles
+reuse their actual lease. Custom filesystem backends remain unsupported.
+The focused native path fixture passes range reads, close ordering and pre-abort
+on macOS; full ReadStream field/event parity and fresh Linux/Windows execution
+remain unverified. The separate
 [write-stream implementation](file-write-stream.md) now supplies fs.createWriteStream
 and FileHandle.createWriteStream, with its own validation and limits.
 

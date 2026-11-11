@@ -1,11 +1,17 @@
 #include "BridgeDataTest.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
+#include "serialization/WireValue.h"
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16View text)
 {
@@ -32,6 +38,55 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
             return Error::from_string_literal("Bridge source fixture threw");
         return Firefly::BridgeData::capture(value.value(), source, limits);
     };
+
+    // IPC uses own data from real class instances (Code-OSS URI/VSBuffer shapes),
+    // while contextBridge publication must continue rejecting those prototypes.
+    auto ipc_value = run(vm, source, uR"JS(
+        (()=>{ globalThis.ipcPrototypeReads=0;
+          class URI { constructor(){this.scheme='vscode-file';this.path='/workbench'}
+            get inherited(){ipcPrototypeReads++;throw 1} }
+          class VSBuffer {constructor(buffer){this.buffer=buffer;this.byteLength=buffer.byteLength}}
+          const uri=new URI(), view=new Uint8Array([1,2,255]);
+          const value={uri,alias:uri,handle:new VSBuffer(view)};value.self=value;return value;
+        })()
+    )JS"sv);
+    if (ipc_value.is_error()
+        || !Firefly::BridgeData::capture(ipc_value.value(), source, {}).is_error())
+        return Error::from_string_literal("Publication accepted custom instance");
+    Firefly::BridgeData::Limits ipc_limits;
+    ipc_limits.binary_bytes = 65536;
+    auto ipc = TRY(Firefly::BridgeData::capture_ipc(ipc_value.value(), source, ipc_limits));
+    auto ipc_wire = TRY(ipc.encode_wire(ipc_limits));
+    auto ipc_decoded = TRY(Firefly::BridgeData::decode_wire(ipc_wire, ipc_limits));
+    vm.heap().collect_garbage();
+    auto ipc_copy
+        = ipc_decoded.materialize(target, {}, Firefly::BridgeData::Materialization::Mutable);
+    if (ipc_copy.is_error())
+        return Error::from_string_literal("IPC instance materialization failed");
+    target.global_object().define_direct_property(
+        "ipcCopy"_utf16, ipc_copy.value(), JS::default_attributes);
+    TRY(check(uR"JS(
+        ipcCopy.self===ipcCopy && ipcCopy.uri===ipcCopy.alias &&
+        Object.getPrototypeOf(ipcCopy.uri)===Object.prototype &&
+        !('inherited' in ipcCopy.uri) && ipcCopy.uri.path==='/workbench' &&
+        Object.getPrototypeOf(ipcCopy.handle)===Object.prototype &&
+        ipcCopy.handle.buffer instanceof Uint8Array && ipcCopy.handle.buffer[2]===255
+    )JS"sv,
+        target));
+    for (auto code :
+        { u"new Proxy({},{ownKeys(){throw 1}})"sv, u"new (class {get own(){throw 1}})()"sv,
+            u"(()=>{class C{};const c=new C;Object.defineProperty(c,'x',{get(){ipcPrototypeReads++;throw 1}});return c})()"sv,
+            u"new (class {constructor(){this.fn=()=>1}})()"sv }) {
+        auto bad = run(vm, source, code);
+        // An inherited getter is not copied or executed, unlike an own accessor.
+        bool inherited_only = code == u"new (class {get own(){throw 1}})()"sv;
+        if (bad.is_error()
+            || Firefly::BridgeData::capture_ipc(bad.value(), source, ipc_limits).is_error()
+                == inherited_only)
+            return Error::from_string_literal("IPC custom-instance rejection mismatch");
+    }
+
+    TRY(check(u"ipcPrototypeReads===0"sv, source));
 
     auto snapshot = TRY(capture(uR"JS(
         (() => {
@@ -167,5 +222,64 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
     vm.heap().collect_garbage();
     TRY(check(u"copied.a.n===42 && Object.isFrozen(copied)"sv, target));
     outln("PASS bridge depth/value/property/string/sparse-length budgets and GC after rejection");
+    return {};
+}
+
+// Optional focused acceptance reads the real staged catalog; it never launches a window.
+ErrorOr<void> check_large_bridge_catalog(
+    JS::VM& vm, JS::Realm& source, JS::Realm& target, char const* filename)
+{
+    std::error_code failure;
+    auto size = std::filesystem::file_size(filename, failure);
+    if (failure || size > 4 * 1024 * 1024)
+        return Error::from_string_literal("Missing or oversized catalog fixture");
+    std::ifstream input(filename, std::ios::binary);
+    std::string bytes(std::istreambuf_iterator<char>(input), {});
+    if (input.bad() || bytes.size() != size)
+        return Error::from_string_literal("Cannot read catalog fixture");
+    auto text = TRY(Utf16String::try_from_utf8(StringView(bytes.data(), bytes.size())));
+    auto value = run(vm, source, text);
+    if (value.is_error() || !value.value().is_object())
+        return Error::from_string_literal("Catalog is not a JavaScript array");
+    source.global_object().define_direct_property(
+        "largeCatalog"_utf16, value.value(), JS::default_attributes);
+    auto configuration = run(vm, source, u"({nls:{messages:largeCatalog}})"sv);
+    if (configuration.is_error())
+        return Error::from_string_literal("Catalog configuration construction failed");
+    auto limits = Firefly::application_ipc_limits();
+    if (!Firefly::BridgeData::capture_ipc(
+            configuration.value(), source, Firefly::public_binary_limits())
+            .is_error())
+        return Error::from_string_literal("Default capture unexpectedly admitted full catalog");
+    auto graph = TRY(Firefly::BridgeData::capture_ipc(configuration.value(), source, limits));
+    auto wire = TRY(graph.encode_wire(limits));
+    auto wrapped = Firefly::wire_value(source, wire);
+    if (wrapped.is_error())
+        return Error::from_string_literal("Catalog native wire view construction failed");
+    auto wire_root = GC::Root<JS::Value>::create(wrapped.value(), SourceLocation::current());
+    if (!Firefly::wire_bytes(wrapped.value(), source).is_error())
+        return Error::from_string_literal("Single-frame wire policy admitted full catalog");
+    auto extracted = TRY(
+        Firefly::wire_bytes(wrapped.value(), source, Firefly::WireValuePolicy::ApplicationMessage));
+    if (extracted != wire)
+        return Error::from_string_literal("Catalog native wire view changed payload");
+    if (!Firefly::BridgeData::decode_wire(wire, Firefly::public_binary_limits()).is_error())
+        return Error::from_string_literal("Default wire policy unexpectedly admitted full catalog");
+    auto decoded = TRY(Firefly::BridgeData::decode_wire(extracted, limits));
+    vm.heap().collect_garbage();
+    auto copy = decoded.materialize(target, {}, Firefly::BridgeData::Materialization::Mutable);
+    if (copy.is_error())
+        return Error::from_string_literal("Catalog materialization failed");
+    target.global_object().define_direct_property(
+        "largeCopy"_utf16, copy.value(), JS::default_attributes);
+    auto original_json = run(vm, source, u"JSON.stringify(largeCatalog)"sv);
+    if (original_json.is_error() || !original_json.value().is_string())
+        return Error::from_string_literal("Source catalog comparison failed");
+    auto expected = Utf16String::from_utf16(original_json.value().as_string().utf16_string_view());
+    auto copied_json = run(vm, target, u"JSON.stringify(largeCopy.nls.messages)"sv);
+    if (copied_json.is_error() || !copied_json.value().is_string()
+        || copied_json.value().as_string().utf16_string_view() != expected.utf16_view())
+        return Error::from_string_literal("Full catalog roundtrip changed translation data");
+    outln("PASS complete staged translation catalog roundtrip, wire={} bytes", wire.length());
     return {};
 }

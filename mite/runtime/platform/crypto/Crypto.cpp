@@ -5,6 +5,9 @@
 
 #include "platform/crypto/Crypto.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
+#include "platform/UV.h"
+#include "platform/crypto/CryptoVerify.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -13,7 +16,6 @@
 #include <cmath>
 #include <cstring>
 #include <memory>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
@@ -37,10 +39,10 @@ namespace {
     {
         auto value = vm.argument(0);
         if (!value.is_number())
-            return vm.throw_completion<JS::TypeError>("Invalid internal random size"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal random size"_utf16);
         auto size = value.as_double();
         if (!std::isfinite(size) || size < 0 || size > 2147483647.0 || std::trunc(size) != size)
-            return vm.throw_completion<JS::RangeError>("Invalid internal random size"sv);
+            return vm.throw_completion<JS::RangeError>("Invalid internal random size"_utf16);
         return static_cast<size_t>(size);
     }
 
@@ -55,6 +57,8 @@ namespace {
     }
 
     struct RandomRequest {
+        GC_HOLDS_NO_CELL_EDGES;
+
         std::vector<unsigned char> bytes;
         int status { 0 };
     };
@@ -65,6 +69,8 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm& realm, EventLoop& loo
     GC::Root host { JS::Object::create(realm, nullptr) };
     host->define_direct_property("hmac"_utf16, create_hmac_host(realm), JS::default_attributes);
     host->define_direct_property("hash"_utf16, create_hash_host(realm), JS::default_attributes);
+    host->define_direct_property("x509"_utf16, create_x509_host(realm), JS::default_attributes);
+    host->define_direct_property("verify"_utf16, create_verify_host(realm), JS::default_attributes);
     host->define_native_function(
         realm, "webRandomFill"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -109,55 +115,62 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm& realm, EventLoop& loo
             return value;
         },
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "random"_utf16,
-        [&realm, &loop](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto size = TRY(requested_size(vm));
-            auto callback = vm.argument(1);
-            if (callback.is_undefined()) {
-                GC::Root result { TRY(JS::Uint8Array::create(realm, size)) };
-                if (size) {
-                    auto status = uv_random(nullptr, nullptr,
-                        result->viewed_array_buffer()->data_at(0), size, 0, nullptr);
-                    if (status)
-                        return JS::throw_completion(entropy_error(vm, status));
-                }
+    host->define_native_function(realm, "random"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(realm, native_reference(loop)),
+            [](auto& realm, auto& captured_loop, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& loop = captured_loop.get();
 
-                return result.ptr();
-            }
-
-            if (!callback.is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid internal random callback"sv);
-            auto request = std::make_shared<RandomRequest>();
-            request->bytes.resize(size);
-            auto complete = GC::create_function(
-                vm.heap(), [&vm, &realm, request, callback]() -> JS::ThrowCompletionOr<JS::Value> {
-                    // Do not leave external byte storage in an unreachable GC closure
-                    // until a later collection. The completed worker no longer uses it.
-                    auto bytes = std::move(request->bytes);
-                    if (request->status) {
-                        std::vector<unsigned char>().swap(bytes);
-                        return JS::call(
-                            vm, callback, JS::js_undefined(), entropy_error(vm, request->status));
+                auto size = TRY(requested_size(vm));
+                auto callback = vm.argument(1);
+                if (callback.is_undefined()) {
+                    GC::Root result { TRY(JS::Uint8Array::create(realm, size)) };
+                    if (size) {
+                        auto status = uv_random(nullptr, nullptr,
+                            result->viewed_array_buffer()->data_at(0), size, 0, nullptr);
+                        if (status)
+                            return JS::throw_completion(entropy_error(vm, status));
                     }
 
-                    GC::Root result { TRY(JS::Uint8Array::create(realm, bytes.size())) };
-                    if (!bytes.empty())
-                        result->viewed_array_buffer()->overwrite(0, bytes.data(), bytes.size());
-                    std::vector<unsigned char>().swap(bytes);
-                    return JS::call(
-                        vm, callback, JS::js_undefined(), JS::js_null(), JS::Value(result.ptr()));
-                });
-            TRY(loop.queue_work(
-                [request] {
-                    // Worker owns native bytes only; it never touches a VM or JS backing store.
-                    if (!request->bytes.empty())
-                        request->status = uv_random(nullptr, nullptr, request->bytes.data(),
-                            request->bytes.size(), 0, nullptr);
-                },
-                complete));
-            return JS::js_undefined();
-        },
+                    return result.ptr();
+                }
+
+                if (!callback.is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal random callback"_utf16);
+                auto request = std::make_shared<RandomRequest>();
+                request->bytes.resize(size);
+                auto complete = GC::create_function(vm.heap(),
+                    GC::captures(realm, shared_capture(request), callback),
+                    [](auto& realm, auto& request,
+                        auto& callback) -> JS::ThrowCompletionOr<JS::Value> {
+                        auto& vm = realm.vm();
+
+                        // Do not leave external byte storage in an unreachable GC closure
+                        // until a later collection. The completed worker no longer uses it.
+                        auto bytes = std::move(request->bytes);
+                        if (request->status) {
+                            std::vector<unsigned char>().swap(bytes);
+                            return JS::call(vm, callback, JS::js_undefined(),
+                                entropy_error(vm, request->status));
+                        }
+
+                        GC::Root result { TRY(JS::Uint8Array::create(realm, bytes.size())) };
+                        if (!bytes.empty())
+                            result->viewed_array_buffer()->overwrite(0, bytes.data(), bytes.size());
+                        std::vector<unsigned char>().swap(bytes);
+                        return JS::call(vm, callback, JS::js_undefined(), JS::js_null(),
+                            JS::Value(result.ptr()));
+                    });
+                TRY(loop.queue_work(
+                    [request] {
+                        // Worker owns native bytes only; it never touches a VM or JS backing store.
+                        if (!request->bytes.empty())
+                            request->status = uv_random(nullptr, nullptr, request->bytes.data(),
+                                request->bytes.size(), 0, nullptr);
+                    },
+                    complete));
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
     host->define_native_function(
         realm, "uuid"_utf16,

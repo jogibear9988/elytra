@@ -43,3 +43,9 @@ Generation/statistics/wait/flush modes must fail explicitly, without fabricated
 markers or measurements. The owned helper is an application adaptation, not a
 Mite builtin. main.ts is pinned for source provenance; the complete local source
 diagnostic is separate from the cache component's CI acceptance.
+
+`window-defaults-main.ts` preserves the exact `windows.ts` source and MIT header
+at the manifest revision. The opt-in local-desktop overlay changes only its
+legacy `enableDeprecatedPaste: true` assignment through an owned helper;
+ordinary Node/Electron retains the value. This is an application omission,
+not synchronous script-clipboard support or native desktop paste acceptance.

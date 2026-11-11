@@ -15,6 +15,7 @@
 #include <AK/JsonObject.h>
 #include <LibCore/System.h>
 #include <LibCore/Timer.h>
+#include <LibGC/Function.h>
 #include <LibGC/Root.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <LibWeb/DOM/BindingsGlue.h>
@@ -168,49 +169,49 @@ namespace {
                 if (world->evaluate(u"__fireflyCopySource.answer=99"sv).is_error())
                     fail("Cannot mutate probe source"sv);
                 auto weak_world = world->make_weak_ptr();
-                GC::Root detach_probe { JS::NativeFunction::create(
-                    *world->realm(),
-                    [weak_world](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-                        if (auto owner = weak_world.strong_ref())
-                            owner->detach();
-                        return JS::js_undefined();
-                    },
+                GC::Root detach_probe { JS::NativeFunction::create(*world->realm(),
+                    GC::create_function((*world->realm()).vm().heap(), GC::captures(weak_world),
+                        [](auto& weak_world, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                            if (auto owner = weak_world.strong_ref())
+                                owner->detach();
+                            return JS::js_undefined();
+                        }),
                     0, "__fireflyDetachWorldProbe"_utf16, GC::Ptr<JS::Realm> { *world->realm() }) };
                 world->realm()->global_object().define_direct_property(
                     "__fireflyDetachWorldProbe"_utf16, detach_probe.ptr(), JS::default_attributes);
                 // Fixture-only native publication of a traversal wrapper, never its
                 // raw callback. This makes the cross-world getter test observable.
-                GC::Root publish_filter { JS::NativeFunction::create(
-                    *world->realm(),
-                    [weak_document = GC::Weak { *document }](
-                        JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                        auto document = weak_document.ptr();
-                        if (!document || !document->is_fully_active()
-                            || !vm.argument(0).is_object())
-                            return vm.throw_completion<JS::TypeError>(
-                                "Invalid traversal fixture"sv);
-                        auto& value = vm.argument(0).as_object();
-                        auto& page = document->window()->principal_realm();
-                        auto publish = [&](auto& traversal) {
-                            auto wrapper = Web::Bindings::wrap(
-                                Web::Bindings::host_defined_wrapper_world(page), page,
-                                GC::Ref { traversal });
-                            page.global_object().define_direct_property(
-                                "__fireflyNativeTraversalProbe"_utf16, wrapper,
-                                JS::default_attributes);
-                        };
+                GC::Root publish_filter { JS::NativeFunction::create(*world->realm(),
+                    GC::create_function((*world->realm()).vm().heap(),
+                        GC::captures(GC::Weak { *document }),
+                        [](auto& weak_document, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                            auto document = weak_document.ptr();
+                            if (!document || !document->is_fully_active()
+                                || !vm.argument(0).is_object())
+                                return vm.throw_completion<JS::TypeError>(
+                                    "Invalid traversal fixture"_utf16);
+                            auto& value = vm.argument(0).as_object();
+                            auto& page = document->window()->principal_realm();
+                            auto publish = [&](auto& traversal) {
+                                auto wrapper = Web::Bindings::wrap(
+                                    Web::Bindings::host_defined_wrapper_world(page), page,
+                                    GC::Ref { traversal });
+                                page.global_object().define_direct_property(
+                                    "__fireflyNativeTraversalProbe"_utf16, wrapper,
+                                    JS::default_attributes);
+                            };
 
-                        if (auto* iterator
-                            = Web::Bindings::impl_from<Web::DOM::NodeIterator>(&value))
-                            publish(*iterator);
-                        else if (auto* walker
-                            = Web::Bindings::impl_from<Web::DOM::TreeWalker>(&value))
-                            publish(*walker);
-                        else
-                            return vm.throw_completion<JS::TypeError>(
-                                "Invalid traversal fixture"sv);
-                        return JS::js_undefined();
-                    },
+                            if (auto* iterator
+                                = Web::Bindings::impl_from<Web::DOM::NodeIterator>(&value))
+                                publish(*iterator);
+                            else if (auto* walker
+                                = Web::Bindings::impl_from<Web::DOM::TreeWalker>(&value))
+                                publish(*walker);
+                            else
+                                return vm.throw_completion<JS::TypeError>(
+                                    "Invalid traversal fixture"_utf16);
+                            return JS::js_undefined();
+                        }),
                     1, "__fireflyPublishTraversalProbe"_utf16,
                     GC::Ptr<JS::Realm> { *world->realm() }) };
                 world->realm()->global_object().define_direct_property(

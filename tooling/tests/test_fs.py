@@ -47,6 +47,8 @@ def main():
     cases = [
         ("sync.mjs", 0, None),
         ("async.mjs", 0, None),
+        ("mutation.mjs", 0, None),
+        ("path-read-stream.mjs", 0, None),
         ("validation.cjs", 0, None),
         ("concurrent.mjs", 0, None),
         ("callback-throw.cjs", 1, "fs callback fixture"),

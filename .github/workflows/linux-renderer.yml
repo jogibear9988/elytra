@@ -1,7 +1,7 @@
 name: Native Linux renderer acceptance
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/ladybird-update-*', 'codex/autoplay-policy-*']
     paths:
       - '.github/workflows/linux-renderer.yml'
       - '.github/actions/linux-environment/**'
@@ -121,7 +121,7 @@ jobs:
           FIREFLY_TEST_ISOLATED_X11=1 QT_QPA_PLATFORM=xcb xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_x11_geometry.py --probe build/linux-renderer/bin/firefly-x11-geometry-probe 2>&1 | tee build/linux-renderer-x11-geometry.log
           cmake --build build/linux-renderer --target firefly-preload-probe --parallel 3 2>&1 | tee build/linux-renderer-helper-build.log
           cmake --build build/linux-renderer --target firefly-renderer-probe firefly-isolation-probe firefly-wire-process-probe --parallel 3 2>&1 | tee build/linux-renderer-probes-build.log
-          cmake --build build/linux-renderer --target firefly-window-probe --parallel 3 2>&1 | tee build/linux-renderer-window-build.log
+          cmake --build build/linux-renderer --target firefly-window-probe check-firefly-qt-icu check-firefly-hub-lifetime --parallel 3 2>&1 | tee build/linux-renderer-window-build.log
       - name: Verify dependency adapter and unmodified upstream
         run: |
           python tooling/renderer_dependencies.py --check build/linux-renderer/renderer-manifest
@@ -205,9 +205,13 @@ jobs:
           ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_protocol_registration.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-protocol-host.log
-          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing check-firefly-command-line check-firefly-enable-sandbox check-firefly-app-paths check-firefly-app-locale check-firefly-ipc-events check-firefly-ipc-outbound check-firefly-ipc-channel check-firefly-ipc-binary check-firefly-message-ports check-firefly-message-port-lifetime check-firefly-utility-process check-firefly-fork check-firefly-web-contents-view check-firefly-safe-storage-backend check-firefly-safe-storage-public check-firefly-preload-getters check-firefly-preload-process check-firefly-preload-zoom check-firefly-file-picker check-firefly-file-input --parallel 3 2>&1 | tee build/linux-renderer-menu.log
+          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing check-firefly-command-line check-firefly-enable-sandbox check-firefly-app-paths check-firefly-app-locale check-firefly-ipc-events check-firefly-ipc-outbound check-firefly-ipc-channel check-firefly-ipc-binary check-firefly-message-ports check-firefly-message-port-lifetime check-firefly-utility-process check-firefly-utility-ports check-firefly-fork check-firefly-web-contents-view check-firefly-safe-storage-backend check-firefly-safe-storage-public check-firefly-preload-getters check-firefly-preload-process check-firefly-preload-zoom check-firefly-file-picker check-firefly-file-input --parallel 3 2>&1 | tee build/linux-renderer-menu.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_crash_reporter.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-crash-reporter.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_public_protocol.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-public-protocol.log
+      - name: Genuine DOM port consumption and offscreen utility relay
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-dom-port-observer check-firefly-renderer-ports --parallel 3 2>&1 | tee build/linux-renderer-dom-ports.log
       - name: Actual opt-in Electron import alias and isolated preload policy
         env:
           QT_QPA_PLATFORM: xcb

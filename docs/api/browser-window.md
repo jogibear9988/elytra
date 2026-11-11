@@ -27,6 +27,8 @@ webContents. options defaults to an empty object; arrays/null/nonobjects reject.
 | webPreferences | Object with only the restricted values below; omitted/null uses defaults |
 | webPreferences.contextIsolation | true only |
 | webPreferences.nodeIntegration | false only |
+| webPreferences.enableBlinkFeatures | Exact string HighlightAPI only; native LibWeb CSS.highlights is already enabled. Other names/lists and disableBlinkFeatures are unsupported |
+| webPreferences.autoplayPolicy | Experimental: user-gesture-required or no-user-gesture-required; document-user-activation-required remains unsupported. Omission preserves the SDK default |
 | webPreferences.zoomFactor | Finite numeric factor 0.3..5, default 1; [browser zoom](web-contents.md#browser-zoom) |
 | webPreferences.spellcheck | false only; currently disabled by default. [Native spelling policy](#native-spelling-policy) |
 | webPreferences.sandbox | true by default; boolean false is overridden after early [app.enableSandbox()](app.md#appenablesandbox), otherwise explicitly rejected |
@@ -73,6 +75,12 @@ show:true is also supported.
 | getMinimumSize(), getMaximumSize() | Fresh [width, height] outer DIP limits; zero means no requested limit |
 | setMinimumSize(width, height), setMaximumSize(width, height) | Set outer DIP limits, each integer 0..16384; returns undefined |
 | center() | Use native AppKit window centering on macOS |
+| isFocused() | Query current native Qt window activation; throws after destruction |
+| isFullScreen() | Current native Qt fullscreen state |
+| isSimpleFullScreen() | False; legacy simple-fullscreen mode is unsupported |
+| getNativeWindowHandle() | Fresh pointer-sized Buffer containing the actual NSView* on Cocoa; other backends reject |
+| isDocumentEdited() / setDocumentEdited(edited) | Native Qt window-modified state; setter requires boolean |
+| getRepresentedFilename() / setRepresentedFilename(filename) | Native Qt document filename; setter requires string, empty string clears it |
 | setTitle(title) | undefined; title must be string |
 | getTitle() | Native window title string |
 | setBackgroundColor(color), getBackgroundColor() | Opaque native canvas base; getter returns uppercase #RRGGBB. [Scope](window-background.md) |
@@ -319,6 +327,37 @@ window can remain maximized. To explicitly request normal size use unmaximize.
 Return native state booleans. They are observations, not requests. Minimized and
 maximized state must not be inferred solely from isVisible or from window size.
 
+`BrowserWindow.getFocusedWindow()` returns the live owned window currently active
+in Qt's native window system, or null when none is active. Instance `isFocused()`
+queries that same native activation state. Focus is not inferred from cached
+JavaScript events or from whether a window is merely visible.
+
+### Fullscreen queries and native handles
+
+`isFullScreen()` queries the actual Qt window state. `isSimpleFullScreen()` returns
+false because legacy simple-fullscreen mode cannot be enabled. `setFullScreen()`
+and `setSimpleFullScreen()` explicitly reject; these queries do not implement
+fullscreen transitions.
+
+`getNativeWindowHandle()` returns a fresh Buffer containing the native-byte-order,
+pointer-sized representation of the real Cocoa `NSView*`, without converting it
+to a JavaScript number. It is available only on the Cocoa backend. Hidden/offscreen
+test backends and currently unverified Windows/Linux handle mappings reject
+explicitly. The buffer does not retain the view; handles can change when native
+surfaces are recreated. All these methods reject destroyed owners.
+
+### Document metadata
+
+`isDocumentEdited()` / `setDocumentEdited(boolean)` query and update the real
+Qt window-modified state. `getRepresentedFilename()` /
+`setRepresentedFilename(string)` query and update its document file path; the
+empty string clears the represented filename. All four reject destroyed owners.
+On Cocoa, Qt maps these setters to `NSWindow.documentEdited` and
+`NSWindow.representedFilename`, including the native document proxy/dirty marker.
+Other Qt platforms retain window metadata but do not provide macOS document-proxy
+UI; no equivalent Windows/Linux native chrome behavior is claimed. These methods
+do not save files, detect filesystem changes or implement an unsaved-work prompt.
+
 ### window.setTitle(title) / window.getTitle()
 
 setTitle takes a string, including the empty string, and returns undefined.
@@ -461,6 +500,12 @@ Electron reference. Native Windows/Linux remain unverified. See the
 Native HTML [file inputs](file-input.md) now have a bounded owned Qt chooser path.
 See its limits, lifecycle, helper validation and missing path/provenance APIs.
 
+
+`webPreferences.enableBlinkFeatures: 'HighlightAPI'` is accepted for BrowserWindow
+and WebContentsView because the pinned LibWeb engine already exposes native
+`CSS.highlights`/`HighlightRegistry`. It does not toggle Blink or enable arbitrary
+engine features. Unknown feature names, comma-separated lists, non-string values
+and `disableBlinkFeatures` fail explicitly.
 
 ## Native spelling policy
 

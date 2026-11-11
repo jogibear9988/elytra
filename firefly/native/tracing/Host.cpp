@@ -1,5 +1,7 @@
 /** Native validation independently rejects unsupported categories and configuration. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
+#include "../platform/NativeCaptures.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
@@ -38,34 +40,40 @@ void install_host(JS::Realm& realm, JS::Object& host, Recorder& recorder)
                     .toJson(QJsonDocument::Compact));
         },
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "traceStart"_utf16,
-        [&recorder](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string()
-                || vm.argument(0).as_string().utf16_string_view().length_in_code_units() > 4096)
-                return vm.throw_completion<JS::TypeError>("Invalid tracing configuration"_utf16);
-            auto bytes = vm.argument(0).as_string().utf16_string_view().to_utf8();
-            QString error;
-            if (bytes.is_error()
-                || !recorder.start(
-                    QByteArray(
-                        bytes.value().bytes_as_string_view().characters_without_null_termination(),
-                        bytes.value().byte_count()),
-                    error))
-                return vm.throw_completion<JS::TypeError>(
-                    "Invalid or unsupported native tracing configuration"_utf16);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "traceStart"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(recorder)),
+            [](auto& recorder_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& recorder = *TRY(Firefly::live_native_capture(vm, recorder_capture));
+                if (!vm.argument(0).is_string()
+                    || vm.argument(0).as_string().utf16_string_view().length_in_code_units() > 4096)
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid tracing configuration"_utf16);
+                auto bytes = vm.argument(0).as_string().utf16_string_view().to_utf8();
+                QString error;
+                if (bytes.is_error()
+                    || !recorder.start(QByteArray(bytes.value()
+                                                      .bytes_as_string_view()
+                                                      .characters_without_null_termination(),
+                                           bytes.value().byte_count()),
+                        error))
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid or unsupported native tracing configuration"_utf16);
+                return JS::js_undefined();
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "traceFinish"_utf16,
-        [&recorder](
-            JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> { return text(vm, recorder.finish()); },
+    host.define_native_function(realm, "traceFinish"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(recorder)),
+            [](auto& recorder_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& recorder = *TRY(Firefly::live_native_capture(vm, recorder_capture));
+                return text(vm, recorder.finish());
+            }),
         0, JS::default_attributes);
-    host.define_native_function(
-        realm, "traceUsage"_utf16,
-        [&recorder](
-            JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(recorder.usage()); },
+    host.define_native_function(realm, "traceUsage"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(recorder)),
+            [](auto& recorder_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& recorder = *TRY(Firefly::live_native_capture(vm, recorder_capture));
+                return JS::Value(recorder.usage());
+            }),
         0, JS::default_attributes);
 }
 }

@@ -28,6 +28,7 @@ void Bridge::Impl::reset_ipc(int id)
     if (found == windows.end())
         return;
     auto& window = found->second;
+    reset_renderer_ports(id);
     // Frame identity belongs to the native canonical document, not an IPC
     // realm. First preload binding must preserve a frame read before IPC.
     // Registry validation retires replaced documents/hosts independently.
@@ -42,6 +43,9 @@ void Bridge::Impl::reset_ipc(int id)
         probe->close();
     window.ipc_admission_probes.clear();
     window.ipc_byte_queue.clear();
+    window.ipc_reassembler.reset();
+    window.ipc_receive_reservation = nullptr;
+    window.ipc_fragment_deadline.clear();
     window.ipc_byte_epoch = 0;
     window.ipc_byte_ready = false;
     window.ipc_byte_deadline.clear();
@@ -61,16 +65,21 @@ void Bridge::Impl::reset_ipc(int id)
 
 ByteString Bridge::Impl::active_ipc_document(State const& window)
 {
-    auto const& doc = window.view->page().traversable().active_document();
+    auto* view = window.native_view();
+    if (!view || !view->has_traversable())
+        return {};
+    auto const& doc = view->traversable().active_document();
     return ByteString::formatted("{}:{}", doc.id().namespace_id, doc.id().local_id);
 }
 
 bool Bridge::Impl::ipc_current(int id, ByteString const& document, ByteString const& realm_id)
 {
     auto found = windows.find(id);
-    return found != windows.end() && !found->second.closing
-        && found->second.view->page().routed_connection() && found->second.ipc_document == document
-        && found->second.ipc_realm == realm_id && active_ipc_document(found->second) == document;
+    return found != windows.end() && !found->second.closing && found->second.native_view()
+        && found->second.native_view()->has_traversable()
+        && found->second.native_view()->page().routed_connection()
+        && found->second.ipc_document == document && found->second.ipc_realm == realm_id
+        && active_ipc_document(found->second) == document;
 }
 
 void Bridge::Impl::send_ipc_reply(int id, ByteString const& document, ByteString const& realm_id,
@@ -106,7 +115,7 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
     if (document->to_byte_string() != actual_key)
         return;
     for (auto& [id, window] : windows) {
-        if (window.closing || !window.preload.has_value() || &page.view() != window.view)
+        if (window.closing || !window.preload.has_value() || !window.owns_page(page))
             continue;
         if (active_ipc_document(window) != actual_key)
             return;
@@ -144,7 +153,8 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
                     auto found = state.ipc_packets.find(request);
                     if (found != state.ipc_packets.end()) {
                         found->second.history = true;
-                        found->second.url = state.view->page()
+                        found->second.url = state.native_view()
+                                                ->page()
                                                 .traversable()
                                                 .active_document_url()
                                                 .serialize()
@@ -162,13 +172,42 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
 void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
 {
     auto& window = windows.at(id);
-    auto decoded = ApplicationIpc::decode_message(bytes);
-    if (decoded.is_error() || decoded.value().epoch != epoch) {
+    auto required = ApplicationIpc::FragmentReassembler::required_bytes(bytes, epoch);
+    if (required.is_error()) {
         retire_ipc_channel(id);
         return;
     }
 
-    auto const& packet = decoded.value();
+    if (!window.ipc_reassembler.active()) {
+        window.ipc_receive_reservation = window.ipc_wire_budget->reserve(required.value());
+        if (!window.ipc_receive_reservation) {
+            retire_ipc_channel(id);
+            return;
+        }
+    }
+
+    auto decoded = window.ipc_reassembler.accept(bytes, epoch);
+    if (decoded.is_error()) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    if (!decoded.value().has_value()) {
+        // A slow peer cannot refresh this fixed first-fragment deadline.
+        if (!window.ipc_fragment_deadline.has_value())
+            window.ipc_fragment_deadline = MonotonicTime::now() + AK::Duration::from_seconds(30);
+        return;
+    }
+
+    window.ipc_fragment_deadline.clear();
+    auto reservation = move(window.ipc_receive_reservation);
+    auto packet = decoded.release_value().release_value();
+    if (packet.kind == ApplicationIpc::Kind::PortControl
+        || packet.kind == ApplicationIpc::Kind::PortAck) {
+        receive_renderer_port(id, packet.kind, packet.request, move(packet.payload));
+        return;
+    }
+
     if (packet.kind == ApplicationIpc::Kind::Ack) {
         if (window.ipc_outgoing.erase(packet.request))
             --ipc_outgoing_count;
@@ -182,9 +221,8 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     }
 
     window.ipc_last = packet.request;
-    auto wire = ByteString(
-        StringView(reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size()));
-    if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error()) {
+    auto wire = move(packet.payload);
+    if (BridgeData::decode_wire(wire.view(), application_ipc_limits()).is_error()) {
         retire_ipc_channel(id);
         return;
     }
@@ -195,6 +233,7 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     auto& pending = window.ipc_packets.at(packet.request);
     pending.payload = true;
     pending.wire = move(wire);
+    pending.reservation = move(reservation);
     ready_ipc_packet(id, packet.request);
 }
 
@@ -250,30 +289,42 @@ void Bridge::Impl::ready_ipc_packet(int id, u32 request)
     window.ipc_packets.erase(found);
     QTimer::singleShot(0, context.get(),
         [this, id, doc = window.ipc_document, realm_id = window.ipc_realm, request,
-            event = packet.event, wire = move(packet.wire), url = move(packet.url)] {
-            dispatch_ipc_packet(id, doc, realm_id, request, event, wire, url);
+            event = packet.event, wire = move(packet.wire), url = move(packet.url),
+            reservation = move(packet.reservation)] {
+            dispatch_ipc_packet(id, doc, realm_id, request, event, wire, url, reservation);
         });
 }
 
 void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString realm_id,
-    u32 request, bool event, ByteString wire, ByteString url)
+    u32 request, bool event, ByteString wire, ByteString url,
+    RefPtr<IpcWireReservation> reservation)
 {
     if (stopping || !ipc_current(id, document, realm_id) || !handler)
         return;
     if (jobs.is_busy()) {
         QTimer::singleShot(1, context.get(),
-            [this, id, document, realm_id, request, event, wire = move(wire), url = move(url)] {
-                dispatch_ipc_packet(id, document, realm_id, request, event, wire, url);
+            [this, id, document, realm_id, request, event, wire = move(wire), url = move(url),
+                reservation = move(reservation)] {
+                dispatch_ipc_packet(id, document, realm_id, request, event, wire, url, reservation);
             });
         return;
     }
 
-    auto& window = windows.at(id);
-    if (!window.ipc_pending.contains(request))
-        return;
+    {
+        auto& window = windows.at(id);
+        if (!window.ipc_pending.contains(request))
+            return;
+        if (event) {
+            window.ipc_pending.erase(request);
+            --ipc_pending_count;
+        }
+    }
+
     if (event) {
-        window.ipc_pending.erase(request);
-        --ipc_pending_count;
+        // Acknowledge native admission before application code can destroy the
+        // sender. This releases private credit, not a listener-completion receipt.
+        auto ack = MUST(BridgeData::from_string(u""sv).encode_wire({}));
+        send_ipc_reply(id, document, realm_id, request, true, ack);
     }
 
     jobs.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
@@ -292,9 +343,5 @@ void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString r
     });
     if (jobs.status())
         gui.quit(jobs.status());
-    if (event && ipc_current(id, document, realm_id)) {
-        auto ack = MUST(BridgeData::from_string(u""sv).encode_wire({}));
-        send_ipc_reply(id, document, realm_id, request, true, ack);
-    }
 }
 }

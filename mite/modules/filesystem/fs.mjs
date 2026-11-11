@@ -3,6 +3,9 @@ import createReadStream from './read-stream.mjs';
 import createWriteStreams from './write-stream.mjs';
 import createStatWatchers from './stat-watcher.mjs';
 import createEventWatchers from './event-watcher.mjs';
+import createDirectories from './directory.mjs';
+import createCopyTree from './copy-tree.mjs';
+import createPathReadStreams from './path-read-stream.mjs';
 
 /**
  * Filesystem overloads, descriptor ownership and FileHandle lifetime. Native operations
@@ -291,7 +294,7 @@ export default function createFileSystemModule(host) {
         const buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
         return encoding ? buffer.toString(encoding) : buffer;
       };
-    } else if (op === 'realpath') {
+    } else if (op === 'realpath' || op === 'readlink') {
       const opts = options(argument);
       const encoding = codec(opts.encoding === undefined ? 'utf8' : opts.encoding, true);
 
@@ -333,8 +336,94 @@ export default function createFileSystemModule(host) {
       spec.recursive = !!opts.recursive;
 
       convert = (value) => value;
-    } else if (op === 'rename') {
+    } else if (op === 'chmod') {
+      if (typeof argument !== 'number' && typeof argument !== 'string') {
+        fail('ERR_INVALID_ARG_TYPE', 'mode must be a number or octal string');
+      }
+      spec.mode = mode(argument, 0);
+    } else if (op === 'mkdtemp') {
+      const opts = options(argument);
+      const encoding = codec(opts.encoding === undefined ? 'utf8' : opts.encoding, true);
+
+      convert = (raw) => {
+        let buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        if (windows) {
+          // Native namespace conversion must not turn a relative public prefix
+          // into an absolute returned path. libuv appends exactly six ASCII bytes.
+          buffer = Buffer.concat([Buffer.from(parentPath), buffer.subarray(-6)]);
+        }
+        return encoding === 'buffer' ? buffer : buffer.toString(encoding || 'utf8');
+      };
+    } else if (op === 'rm') {
+      if (argument !== undefined && (argument === null || typeof argument !== 'object')) {
+        fail('ERR_INVALID_ARG_TYPE', 'rm options must be an object');
+      }
+      const opts = options(argument);
+      for (const name of ['force', 'recursive']) {
+        if (opts[name] !== undefined && typeof opts[name] !== 'boolean') {
+          fail('ERR_INVALID_ARG_TYPE', `${name} must be a boolean`);
+        }
+      }
+      for (const name of ['maxRetries', 'retryDelay']) {
+        if (opts[name] !== undefined) {
+          integer(opts[name], 0, 0xffffffff, name);
+        }
+      }
+      if (opts.recursive || opts.maxRetries || opts.retryDelay) {
+        unsupported('Recursive rm and removal retry options');
+      }
+      spec.force = !!opts.force;
+    } else if (op === 'utime') {
+      const timestamp = (value) => {
+        if (value instanceof Date) {
+          value = Date.prototype.getTime.call(value) / 1000;
+        } else if (typeof value === 'string' && value.trim()) {
+          value = Number(value);
+        }
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          fail('ERR_INVALID_ARG_TYPE', 'Timestamp must be a finite number, numeric string or Date');
+        }
+        return value < 0 ? Date.now() / 1000 : value;
+      };
+
+      spec.atime = timestamp(argument);
+      spec.mtime = timestamp(data);
+    } else if (op === 'rename' || op === 'copyfile' || op === 'link' || op === 'symlink') {
       spec.dest = nativePath(path(argument));
+      if (op === 'symlink') {
+        if (windows) {
+          const target =
+            typeof parentPath === 'string' ? parentPath : Buffer.from(parentPath).toString('utf8');
+          spec.targetForType = nativePath(host.path.resolve(spec.dest, '..', target));
+          spec.autoType = data == null;
+          spec.path =
+            data === 'junction'
+              ? spec.targetForType
+              : host.path.isAbsolute(target)
+                ? nativePath(target)
+                : target.replace(/\//g, '\\');
+        }
+
+        if (data === undefined || data === null || data === 'file') {
+          spec.flags = 0;
+        } else if (data === 'dir') {
+          spec.flags = 1;
+        } else if (data === 'junction') {
+          spec.flags = 2;
+        } else {
+          fail('ERR_INVALID_ARG_VALUE', 'Invalid symlink type');
+        }
+      }
+      if (op === 'copyfile') {
+        if (data !== undefined && data !== null && typeof data !== 'number') {
+          fail('ERR_INVALID_ARG_TYPE', 'mode must be a number');
+        }
+        const flags = data == null ? 0 : Math.trunc(data);
+        if (!Number.isFinite(flags) || flags < 0 || flags > 7) {
+          fail('ERR_OUT_OF_RANGE', 'mode must contain only COPYFILE flags', RangeError);
+        }
+        spec.flags = flags;
+      }
     } else if (op === 'rmdir') {
       if (options(argument).recursive) {
         unsupported('Recursive rmdir');
@@ -391,10 +480,12 @@ export default function createFileSystemModule(host) {
       if (
         op === 'readFile' ||
         op === 'realpath' ||
+        op === 'readlink' ||
         op === 'stat' ||
         op === 'lstat' ||
         op === 'readdir' ||
         op === 'mkdir' ||
+        op === 'mkdtemp' ||
         op === 'open' ||
         op === 'fstat'
       ) {
@@ -416,9 +507,14 @@ export default function createFileSystemModule(host) {
     'stat',
     'lstat',
     'mkdir',
+    'chmod',
+    'mkdtemp',
+    'rm',
     'rmdir',
     'unlink',
     'rename',
+    'link',
+    'readlink',
     'readdir',
     'fstat',
     'ftruncate',
@@ -447,6 +543,33 @@ export default function createFileSystemModule(host) {
       };
     }
   }
+
+  Object.assign(fs, createDirectories(host, { path, nativePath, Dirent, codec }));
+
+  fs.symlinkSync = (target, dest, type) => sync('symlink', target, dest, type);
+
+  fs.symlink = function (target, dest, type, callback) {
+    if (typeof type === 'function') {
+      callback = type;
+      type = undefined;
+    }
+    callbackOperation('symlink', target, dest, type, callback);
+  };
+
+  fs.utimesSync = (pathname, atime, mtime) => sync('utime', pathname, atime, mtime);
+
+  fs.utimes = (pathname, atime, mtime, callback) =>
+    callbackOperation('utime', pathname, atime, mtime, callback);
+
+  fs.copyFileSync = (src, dest, mode) => sync('copyfile', src, dest, mode);
+
+  fs.copyFile = function (src, dest, mode, callback) {
+    if (typeof mode === 'function') {
+      callback = mode;
+      mode = undefined;
+    }
+    callbackOperation('copyfile', src, dest, mode, callback);
+  };
 
   // Both public forms use the platform canonicalizer; no JS symlink-walking fallback.
   const realpathCallback = fs.realpath;
@@ -875,9 +998,18 @@ export default function createFileSystemModule(host) {
     'stat',
     'lstat',
     'mkdir',
+    'chmod',
+    'mkdtemp',
+    'rm',
     'rmdir',
     'unlink',
     'rename',
+    'copyFile',
+    'opendir',
+    'readlink',
+    'symlink',
+    'utimes',
+    'link',
     'readdir'
   ]) {
     promises[op] = function (...args) {
@@ -903,5 +1035,18 @@ export default function createFileSystemModule(host) {
   namedPromisify(fs.read, ['bytesRead', 'buffer'], host.promisifyState);
   namedPromisify(fs.write, ['bytesWritten', 'buffer'], host.promisifyState);
   fs.promises = promises;
+  const copyTree = createCopyTree(fs, host, path);
+  fs.cp = copyTree.cp;
+  promises.cp = copyTree.promiseCopy;
+  Object.assign(
+    fs,
+    createPathReadStreams(fs, host, { path, flags, mode }, (handle) => {
+      const acquire = writeLeases.get(handle);
+      if (!acquire) {
+        fail('ERR_INVALID_ARG_TYPE', 'fd must be a FileHandle');
+      }
+      return acquire();
+    })
+  );
   return fs;
 }

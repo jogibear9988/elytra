@@ -110,7 +110,7 @@ int Bridge::Impl::permission_contents(WebView::WebContentPage& page, Permissions
     if (!active)
         return 0;
     for (auto const& [id, state] : windows)
-        if (!state.closing && state.view == &page.view())
+        if (!state.closing && state.owns_page(page))
             return id;
     return 0;
 }
@@ -129,9 +129,9 @@ void Bridge::Impl::broadcast_permissions()
     std::unordered_set<WebView::WebContentClient*> clients;
     for (auto& [id, state] : windows) {
         (void)id;
-        if (state.closing || !state.view->has_traversable())
+        if (state.closing || !state.native_view() || !state.native_view()->has_traversable())
             continue;
-        state.view->traversable().for_each_hosting_page([&](auto& page) {
+        state.native_view()->traversable().for_each_hosting_page([&](auto& page) {
             if (page.is_open() && clients.insert(&page.client()).second)
                 configure_permission_page(page);
         });
@@ -321,11 +321,11 @@ void Bridge::Impl::expire_permissions()
     // unusable historical document IDs until the next top-level navigation.
     std::erase_if(permission_grants, [&](auto const& grant) {
         auto owner = windows.find(grant.contents);
-        if (owner == windows.end() || owner->second.closing
-            || !owner->second.view->has_traversable())
+        if (owner == windows.end() || owner->second.closing || !owner->second.native_view()
+            || !owner->second.native_view()->has_traversable())
             return true;
         bool active = false;
-        owner->second.view->traversable().for_each_hosting_page([&](auto& page) {
+        owner->second.native_view()->traversable().for_each_hosting_page([&](auto& page) {
             if (active || !page.is_open())
                 return;
             page.for_each_navigable_with_a_hosted_active_document([&](auto const& navigable) {
@@ -352,35 +352,36 @@ void Bridge::Impl::expire_permissions()
 void Bridge::Impl::install_permissions(JS::Object& host)
 {
     auto object = JS::Object::create(realm, nullptr);
-    object->define_native_function(
-        realm, "configure"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto epoch = positive_id(vm.argument(0));
-            auto callback = vm.argument(1);
-            if (!epoch.has_value() || static_cast<u64>(*epoch) <= permission_epoch
-                || (!callback.is_null() && !callback.is_function()) || !vm.argument(2).is_boolean())
-                return preload_error(
-                    vm, "ERR_INVALID_ARG_VALUE", "Invalid permission configuration"sv);
-            if (stopping)
-                return preload_error(vm, "ERR_FIREFLY_APP_EXITED", "Application has exited"sv);
-            permission_epoch = *epoch;
-            permission_check = callback.is_null() ? nullptr : &callback.as_function();
-            permission_requests = vm.argument(2).as_bool();
-            reset_permissions(0);
-            broadcast_permissions();
-            return JS::js_undefined();
-        },
-        3, JS::default_attributes);
-    object->define_native_function(
-        realm, "complete"_utf16,
-        [this](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto token = positive_id(vm.argument(0)), epoch = positive_id(vm.argument(1));
-            if (!token.has_value() || !epoch.has_value() || !vm.argument(2).is_boolean())
-                return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid permission decision"sv);
-            return JS::Value(
-                !stopping && complete_permission(*token, *epoch, vm.argument(2).as_bool()));
-        },
-        3, JS::default_attributes);
+    object->define_native_function(realm, "configure"_utf16,
+        native_binding<&Impl::native_permissions_configure>(), 3, JS::default_attributes);
+    object->define_native_function(realm, "complete"_utf16,
+        native_binding<&Impl::native_permissions_complete>(), 3, JS::default_attributes);
     host.define_direct_property("permissions"_utf16, object, JS::default_attributes);
 }
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_permissions_configure(JS::VM& vm)
+{
+    auto epoch = positive_id(vm.argument(0));
+    auto callback = vm.argument(1);
+    if (!epoch.has_value() || static_cast<u64>(*epoch) <= permission_epoch
+        || (!callback.is_null() && !callback.is_function()) || !vm.argument(2).is_boolean())
+        return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid permission configuration"sv);
+    if (stopping)
+        return preload_error(vm, "ERR_FIREFLY_APP_EXITED", "Application has exited"sv);
+    permission_epoch = *epoch;
+    permission_check = callback.is_null() ? nullptr : &callback.as_function();
+    permission_requests = vm.argument(2).as_bool();
+    reset_permissions(0);
+    broadcast_permissions();
+    return JS::js_undefined();
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_permissions_complete(JS::VM& vm)
+{
+    auto token = positive_id(vm.argument(0)), epoch = positive_id(vm.argument(1));
+    if (!token.has_value() || !epoch.has_value() || !vm.argument(2).is_boolean())
+        return preload_error(vm, "ERR_INVALID_ARG_VALUE", "Invalid permission decision"sv);
+    return JS::Value(!stopping && complete_permission(*token, *epoch, vm.argument(2).as_bool()));
+}
+
 }

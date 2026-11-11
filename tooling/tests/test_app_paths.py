@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import selectors
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -20,7 +21,10 @@ PAGE = b"""<!doctype html><title>PENDING</title><script>
 try {
   const stage = new URL(location.href).searchParams.get('stage');
   if (typeof process !== 'undefined' || typeof require !== 'undefined') throw Error('page privileges');
-  if (navigator.languages[0] !== 'de-DE' || !matchMedia('(prefers-color-scheme: dark)').matches) throw Error('early language/theme');
+  if (navigator.languages[0] !== 'de-DE') throw Error('early language');
+  const theme = new URL(location.href).searchParams.get('theme');
+  if (theme !== 'dark' && theme !== 'unsupported') throw Error('missing native theme contract');
+  if (theme === 'dark' && !matchMedia('(prefers-color-scheme: dark)').matches) throw Error('early native theme');
   if (stage === 'write') {
     localStorage.setItem('elytra-persistence', 'actual-native-storage');
     document.cookie = 'elytraPersistence=actual-native-cookie; Max-Age=600; Path=/';
@@ -90,6 +94,8 @@ def launch(binary, root, origin, stage):
             stderr,
         )
         assert "VERIFICATION FAILED" not in stderr, stderr
+        if sys.platform != "darwin":
+            assert "PASS native theme explicitly unsupported; profile checks retained" in prefix + stdout
         print((prefix + stdout).strip())
         print(json.dumps(state))
     finally:
@@ -127,22 +133,25 @@ def main():
             origin = f"http://127.0.0.1:{server.server_port}"
             for stage in ("write", "read"):
                 launch(args.firefly.resolve(), root, origin, stage)
-            preferences = root / "preferences"
-            preferences.mkdir()
-            for source in ("dark", "system"):
-                result = run(
-                    args.firefly.resolve(),
-                    ROOT / "firefly/tests/app-paths/preferences.mjs",
-                    preferences,
-                    source,
-                )
-                assert result.returncode == 0, result
-                value = json.loads(result.stdout.strip())
-                assert (
-                    value["themeSource"] == source
-                    and value["appearance"]["interfaceTheme"] == source
-                    and value["appearance"]["websiteColorScheme"] == source
-                ), value
+            # Only Cocoa has an implemented nativeTheme backend. Other platforms
+            # assert its explicit rejection inside every full persistence launch.
+            if sys.platform == "darwin":
+                preferences = root / "preferences"
+                preferences.mkdir()
+                for source in ("dark", "system"):
+                    result = run(
+                        args.firefly.resolve(),
+                        ROOT / "firefly/tests/app-paths/preferences.mjs",
+                        preferences,
+                        source,
+                    )
+                    assert result.returncode == 0, result
+                    value = json.loads(result.stdout.strip())
+                    assert (
+                        value["themeSource"] == source
+                        and value["appearance"]["interfaceTheme"] == source
+                        and value["appearance"]["websiteColorScheme"] == source
+                    ), value
             databases = [
                 file
                 for file in (root / "session/data").rglob("*")

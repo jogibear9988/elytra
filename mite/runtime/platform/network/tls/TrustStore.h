@@ -1,5 +1,6 @@
 /** Populate OpenSSL's default client trust from the host without copying roots into apps. */
 #pragma once
+#include "platform/WindowsSockets.h"
 #include <openssl/ssl.h>
 
 namespace Mite {

@@ -1,5 +1,6 @@
 /** Native argv snapshot and transactional supported-engine switches, independent of Qt/LibWeb. */
 #pragma once
+#include "../../../mite/runtime/core/NativeCaptureLifetime.h"
 #include <functional>
 #include <map>
 #include <optional>
@@ -12,8 +13,19 @@ struct Failure {
     std::string message;
 };
 
-class State {
+class State : public Mite::NativeCaptureOwner<State> {
 public:
+    ~State()
+    {
+        this->revoke_native_captures();
+    }
+
+    template <typename Visitor> void visit_capture_edges(Visitor&) const
+    {
+        // Only native policy/Qt data; callbacks are native transport hooks.
+    }
+
+    // Native engine-policy adapter only; never a JS callback container.
     using Apply = std::function<std::optional<Failure>(
         std::string_view, std::optional<std::string> const&, bool initial)>;
     State(int argc, char** argv, Apply);

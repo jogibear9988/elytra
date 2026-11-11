@@ -1,5 +1,6 @@
 /** Preserve upstream fetch policy; expose no provider registration to JavaScript or workers. */
 #include "Dispatch.h"
+#include "native/protocol/Diagnostics.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
 #include <LibHTTP/HeaderList.h>
@@ -158,17 +159,24 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
                 "Custom protocol request is outside the admitted provider scope"_string));
     };
 
-    if (!provider)
-        return deny(); // Active native file policy must fail closed before filesystem access.
+    if (!provider) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::DispatchNoProvider);
+        return deny();
+    } // Active native file policy must fail closed before filesystem access.
     bool navigation = request->is_navigation_request();
     auto& handler = navigation ? provider->navigation : provider->handler;
     if (!provider->active || !handler
-        || !(navigation ? allows_navigation_request(params) : allows_request(params)))
+        || !(navigation ? allows_navigation_request(params) : allows_request(params))) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::DispatchScope);
         return deny();
+    }
     // Retain provider through callback reentrancy, including native revocation.
     auto result = handler(params);
-    if (result.is_error() || result.value()->finished())
+    if (result.is_error() || result.value()->finished()) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::DispatchHandler, 0,
+            result.is_error() && result.error().is_errno() ? result.error().code() : 0);
         return deny();
+    }
     auto response = result.release_value();
     GC::Root pending { response->pending() };
     if (!provider->active)

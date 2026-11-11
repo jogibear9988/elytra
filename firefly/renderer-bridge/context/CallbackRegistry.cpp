@@ -32,9 +32,19 @@ bool CallbackRegistry::active() const
 void CallbackRegistry::sweep()
 {
     m_entries.remove_all_matching([](auto const& entry) {
-        // An in-flight Promise can outlive its JS proxy. Keep its weak owner
-        // registered for document revocation even after that proxy is collected.
-        return !entry.owner;
+        auto owner = entry.owner.strong_ref();
+        if (!owner)
+            return true;
+        // Weak JS pointers clear during marking, but GC::Function capture boxes
+        // release their native owners only during incremental sweep. Do not keep
+        // a dead proxy's budget or principal roots until that later destruction.
+        // An in-flight Promise still needs this entry for document revocation.
+        if (!entry.proxy.ptr() && !owner->has_pending()) {
+            owner->revoke();
+            return true;
+        }
+
+        return false;
     });
 }
 

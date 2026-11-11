@@ -14,11 +14,18 @@ export default function createIpcChannel(config) {
   let bytes = 0;
   let messageBytes = 0;
   let scheduled = false;
+  // Scan each arriving byte once. A bounded geometric accumulator avoids both
+  // quadratic frame copying and unbounded metadata for one-byte fragments.
+  // Repeated full-frame rescanning can starve a child's actual watchdog.
+  const indexOfByte = Uint8Array.prototype.indexOf;
+  const frameDecoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
   let incoming = Buffer.alloc(0);
+  let incomingBytes = 0;
   let closed = false;
   let disconnecting = false;
   let shutting = false;
   let announced = false;
+  let ended = false;
   let explicitRef = null;
 
   function error(code, message, Type = Error) {
@@ -90,6 +97,7 @@ export default function createIpcChannel(config) {
     }
     closed = true;
     incoming = Buffer.alloc(0);
+    incomingBytes = 0;
     removeHooks();
     native.close();
     announce();
@@ -213,6 +221,7 @@ export default function createIpcChannel(config) {
       if (!closed) {
         closed = true;
         incoming = Buffer.alloc(0);
+        incomingBytes = 0;
         removeHooks();
         announce();
       }
@@ -229,7 +238,11 @@ export default function createIpcChannel(config) {
       return;
     }
     if (kind === 'end') {
-      if (incoming.length) {
+      if (ended) {
+        return;
+      }
+      ended = true;
+      if (incomingBytes) {
         report(error('ERR_IPC_CHANNEL_DATA', 'Incomplete IPC JSON frame'));
       }
       target.connected = false;
@@ -237,34 +250,49 @@ export default function createIpcChannel(config) {
       drain();
       return;
     }
-    if (kind !== 'data') {
+    if (kind !== 'data' || ended) {
       return;
     }
-    incoming = Buffer.concat([
-      incoming,
-      Buffer.from(value.buffer, value.byteOffset, value.byteLength)
-    ]);
-    while (!closed) {
-      const newline = incoming.indexOf(10);
-      if (newline === -1) {
-        if (incoming.length >= 1048576) {
-          report(error('ERR_IPC_CHANNEL_DATA', 'IPC JSON frame exceeds budget'));
-          close();
-        }
+    // Native reads already own their bytes. Snapshot once here as well so the
+    // maintained factory cannot retain a mutable caller view in policy hosts.
+    const chunk = Buffer.from(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+    let offset = 0;
+    while (!closed && offset < chunk.length) {
+      const newline = indexOfByte.call(chunk, 10, offset);
+      const end = newline === -1 ? chunk.length : newline;
+      const part = chunk.subarray(offset, end);
+      if (incomingBytes + part.length >= 1048576) {
+        report(error('ERR_IPC_CHANNEL_DATA', 'IPC JSON frame exceeds budget'));
+        close();
         return;
       }
-      const frame = incoming.subarray(0, newline);
-      incoming = incoming.subarray(newline + 1);
+      if (part.length) {
+        const required = incomingBytes + part.length;
+        if (required > incoming.length) {
+          let capacity = Math.max(1024, incoming.length);
+          while (capacity < required) {
+            capacity *= 2;
+          }
+          const grown = Buffer.alloc(capacity);
+          grown.set(incoming.subarray(0, incomingBytes));
+          incoming = grown;
+        }
+        incoming.set(part, incomingBytes);
+        incomingBytes = required;
+      }
+      if (newline === -1) {
+        return;
+      }
+      const frame = incoming.subarray(0, incomingBytes);
+      incoming = Buffer.alloc(0);
+      incomingBytes = 0;
+      offset = newline + 1;
       let message;
       try {
-        if (newline + 1 > 1048576) {
-          throw Error('IPC JSON frame exceeds budget');
-        }
-        const json = frame.toString('utf8');
-        if (!Buffer.from(json, 'utf8').equals(frame)) {
-          throw Error('Invalid IPC UTF-8');
-        }
-        message = JSON.parse(json);
+        // Fatal decoding preserves the old reject-invalid-UTF8 contract without
+        // encoding and comparing every byte again. ignoreBOM keeps an initial
+        // BOM visible to JSON.parse, which must reject it as before.
+        message = JSON.parse(frameDecoder.decode(frame));
       } catch {
         report(error('ERR_IPC_CHANNEL_DATA', 'Invalid IPC JSON frame'));
         close();

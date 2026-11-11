@@ -4,6 +4,7 @@
 import _support
 
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -48,6 +49,59 @@ def referenced(binary, mode):
                 child.communicate(timeout=5)
 
 
+def windows_aliases(executables):
+    if os.name != "nt":
+        print("SKIP Windows short/long alias acceptance: native Windows required", flush=True)
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    for name in ["GetShortPathNameW", "GetLongPathNameW"]:
+        function = getattr(kernel, name)
+        function.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        function.restype = wintypes.DWORD
+
+    def alias(function, value):
+        needed = function(str(value), None, 0)
+        if not needed:
+            raise ctypes.WinError(ctypes.get_last_error())
+        buffer = ctypes.create_unicode_buffer(needed)
+        length = function(str(value), buffer, needed)
+        if not length or length >= needed:
+            raise ctypes.WinError(ctypes.get_last_error())
+        return buffer.value
+
+    with tempfile.TemporaryDirectory(prefix="mite-event-alias-") as directory:
+        for label, binary in executables:
+            work = Path(directory) / (label + " long directory for real alias")
+            work.mkdir()
+            short = alias(kernel.GetShortPathNameW, work)
+            long = alias(kernel.GetLongPathNameW, work)
+            assert os.path.samefile(short, long), "Native aliases must identify the same directory"
+            if short.casefold() == long.casefold():
+                print(
+                    "SKIP Windows short/long alias acceptance: filesystem supplied no distinct 8.3 alias for "
+                    + long,
+                    flush=True,
+                )
+                continue
+            result = subprocess.run(
+                [binary, str(ROOT / "mite/tests/event-watcher/windows-alias.mjs"), short, long],
+                cwd=work,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=10,
+            )
+            assert result.returncode == 0 and not result.stderr, (label, short, long, result)
+            assert (
+                result.stdout
+                == "PASS actual Windows short/long aliases preserve Unicode root and nested filenames\n"
+            ), result
+            print(label + ": " + result.stdout, end="", flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mite", type=Path)
@@ -59,6 +113,7 @@ def main():
     executables = [("Node", args.node)]
     if not args.reference_only:
         executables.append(("Mite", str(args.mite.resolve())))
+    windows_aliases(executables)
     for fixture in [
         "main",
         "recursive",

@@ -117,6 +117,8 @@ def main():
     # power assertions: exercise controlled dispatch/providers plus read-only OS
     # observations before the separate desktop/package acceptance batch.
     native_services = [
+        "check-firefly-qt-icu",
+        "check-firefly-hub-lifetime",
         "check-firefly-crash-directory",
         "check-firefly-desktop-capture-host",
         "check-firefly-desktop-capture-provider",
@@ -289,11 +291,21 @@ def main():
             shutil.copytree(item, directory / item.name, symlinks=True)
         else:
             shutil.copy2(item, directory / item.name)
+        if name == "mite":
+            # The standalone archive must carry the same external ICU resource as
+            # its tested bin/mite; the app bundles own independent resource copies.
+            shutil.copytree(stage / "share", directory / "share")
         shutil.copytree(stage / "licenses", directory / "licenses")
         shutil.copy2(stage / "BUILD.json", directory / "BUILD.json")
         provider_report = stage / ("OPENSSL-" + item.stem + ".json")
         if provider_report.is_file():
             shutil.copy2(provider_report, directory / "OPENSSL.json")
+        hashes = {
+            file.relative_to(directory).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest()
+            for file in sorted(directory.rglob("*"))
+            if file.is_file() and not file.is_symlink()
+        }
+        (directory / "SHA256SUMS.json").write_text(json.dumps(hashes, indent=2) + "\n")
         base = destination / f"{name}-{version_tag}-{suffix}"
         if sys.platform == "darwin":
             run(

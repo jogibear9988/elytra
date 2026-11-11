@@ -1,11 +1,125 @@
 /* Generated from firefly/core/api.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// firefly/core/menu/accelerator.mjs
+function createAccelerators(error, unsupported, platform) {
+  const modifiers = /* @__PURE__ */ new Map([
+    ["shift", 1],
+    ["control", 2],
+    ["ctrl", 2],
+    ["alt", 4],
+    ["commandorcontrol", platform === "darwin" ? 8 : 2],
+    ["cmdorctrl", platform === "darwin" ? 8 : 2],
+    ["super", 8],
+    ["meta", 8]
+  ]);
+  if (platform === "darwin") {
+    modifiers.set("command", 8);
+    modifiers.set("cmd", 8);
+    modifiers.set("option", 4);
+  }
+  const names = /* @__PURE__ */ new Map([
+    ["space", "Space"],
+    ["tab", "Tab"],
+    ["enter", "Enter"],
+    ["return", "Enter"],
+    ["escape", "Escape"],
+    ["esc", "Escape"],
+    ["backspace", "Backspace"],
+    ["delete", "Delete"],
+    ["insert", "Insert"],
+    ["home", "Home"],
+    ["end", "End"],
+    ["pageup", "PageUp"],
+    ["pagedown", "PageDown"],
+    ["up", "Up"],
+    ["down", "Down"],
+    ["left", "Left"],
+    ["right", "Right"],
+    ["plus", "+"]
+  ]);
+  return (value) => {
+    if (value === void 0 || value === null) {
+      return null;
+    }
+    if (typeof value !== "string") {
+      throw error("ERR_INVALID_ARG_TYPE", "accelerator must be a string or null");
+    }
+    if (!value || value.length > 256 || /[^\x20-\x7e]/.test(value)) {
+      throw error("ERR_INVALID_ARG_VALUE", "accelerator must be a bounded ASCII chord");
+    }
+    const parts = value === "+" ? ["Plus"] : value.split("+").map((part) => part.trim());
+    if (parts.length >= 2 && parts.at(-1) === "" && parts.at(-2) === "") {
+      parts.splice(-2, 2, "Plus");
+    }
+    let key;
+    let flags = 0;
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (modifiers.has(lower)) {
+        flags |= modifiers.get(lower);
+        continue;
+      }
+      if ([
+        "command",
+        "cmd",
+        "option",
+        "altgr",
+        "capslock",
+        "numlock",
+        "scrolllock",
+        "printscreen"
+      ].includes(lower) || /^(media|volume|num)/.test(lower)) {
+        unsupported("Menu accelerator platform/key " + part);
+      }
+      let current = names.get(lower);
+      if (!current && /^[a-z0-9]$/i.test(part)) {
+        current = part.toUpperCase();
+      }
+      if (!current && /^f(?:[1-9]|1[0-9]|2[0-4])$/i.test(part)) {
+        current = part.toUpperCase();
+      }
+      if (!current && part.length === 1 && /^[!"#$%&'()*,\-./:;<=>?@[\]\\^_`{|}~]$/.test(part)) {
+        current = part;
+      }
+      if (!current || key !== void 0) {
+        throw error("ERR_INVALID_ARG_VALUE", "accelerator needs exactly one supported key");
+      }
+      key = current;
+    }
+    if (!key) {
+      throw error("ERR_INVALID_ARG_VALUE", "accelerator needs a key");
+    }
+    return { key, modifiers: flags };
+  };
+}
+
+// firefly/core/menu/limits.mjs
+var itemCount = 2048;
+var wireBytes = 1024 * 1024;
+
 // firefly/core/menu/index.mjs
 function createMenus(native, error, unsupported, quit, resolveWindow) {
+  const encoder = new TextEncoder();
+  const encode = encoder.encode.bind(encoder);
+  const accelerator = createAccelerators(error, unsupported, process.platform);
+  const editRoles = /* @__PURE__ */ new Set([
+    "cut",
+    "copy",
+    "paste",
+    "pasteAndMatchStyle",
+    "undo",
+    "redo",
+    "selectAll"
+  ]);
+  const nativeRoles = /* @__PURE__ */ new Set(["hide", "hideOthers", "unhide", "front"]);
+  const menuRoles = /* @__PURE__ */ new Set(["window", "help", "services"]);
   const menuState = /* @__PURE__ */ new WeakMap();
   const itemState = /* @__PURE__ */ new WeakMap();
   let current = null;
+  let dockCurrent = null;
+  let dockGeneration = 0;
+  let dockCommands = /* @__PURE__ */ new Map();
   const building = /* @__PURE__ */ new Set();
   let generation = 0;
   let nextCommand = 0;
@@ -19,7 +133,9 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
     "visible",
     "checked",
     "click",
-    "role"
+    "role",
+    "accelerator",
+    "userSettingsLabel"
   ]);
   function text(value, name) {
     if (typeof value !== "string") {
@@ -39,6 +155,7 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
   function graph(menu) {
     const seen = /* @__PURE__ */ new Set();
     const ids = /* @__PURE__ */ new Set();
+    const roles = /* @__PURE__ */ new Set();
     const map = /* @__PURE__ */ new Map();
     function walk(value, depth, enabled = true, visible = true) {
       if (depth > 8 || seen.has(value)) {
@@ -54,14 +171,20 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         if (map.has(data.command)) {
           throw error("ERR_INVALID_ARG_VALUE", "Repeated MenuItem");
         }
-        if (map.size >= 256) {
-          throw error("ERR_OUT_OF_RANGE", "At most 256 menu items");
+        if (map.size >= itemCount) {
+          throw error("ERR_OUT_OF_RANGE", `At most ${itemCount} menu items`);
         }
         if (data.id && ids.has(data.id)) {
           throw error("ERR_INVALID_ARG_VALUE", "Duplicate menu item id");
         }
         if (data.id) {
           ids.add(data.id);
+        }
+        if (menuRoles.has(data.role)) {
+          if (roles.has(data.role)) {
+            throw error("ERR_INVALID_ARG_VALUE", "Repeated native menu role");
+          }
+          roles.add(data.role);
         }
         map.set(data.command, {
           item,
@@ -74,6 +197,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
           enabled: data.enabled,
           visible: data.visible,
           checked: data.checked,
+          ...data.accelerator == null ? {} : { accelerator: accelerator(data.accelerator) },
+          ...menuRoles.has(data.role) ? { role: data.role } : {},
           submenu: data.submenu ? walk(data.submenu, depth + 1, enabled && data.enabled, visible && data.visible) : []
         };
       });
@@ -85,14 +210,52 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
       throw error("ERR_OUT_OF_RANGE", "Menu generation exhausted");
     }
     const snapshot = menu === null ? { items: null, map: /* @__PURE__ */ new Map(), menus: /* @__PURE__ */ new Set() } : graph(menu);
+    for (const command of snapshot.map.keys()) {
+      if (dockCommands.has(command)) {
+        unsupported("sharing an installed application and Dock menu");
+      }
+    }
     const wire = JSON.stringify({ schema: 1, generation: generation + 1, items: snapshot.items });
-    if (wire.length > 64 * 1024) {
+    if (encode(wire).byteLength > wireBytes) {
       throw error("ERR_OUT_OF_RANGE", "Menu wire budget exceeded");
     }
     native.menuApply(wire);
     ++generation;
     current = menu;
     commands = snapshot.map;
+  }
+  function installDock(menu) {
+    if (!menuState.has(menu)) {
+      throw error("ERR_INVALID_ARG_TYPE", "Dock menu must be a Menu");
+    }
+    if (typeof native.dockMenuApply !== "function" || typeof native.dockMenuAvailable !== "function" || !native.dockMenuAvailable()) {
+      unsupported("app.dock.setMenu provider");
+    }
+    if (dockGeneration === 2147483647) {
+      throw error("ERR_OUT_OF_RANGE", "Dock menu generation exhausted");
+    }
+    const snapshot = graph(menu);
+    for (const [command, entry] of snapshot.map) {
+      if (commands.has(command)) {
+        unsupported("sharing an installed application and Dock menu");
+      }
+      const data = itemState.get(entry.item);
+      if (data.accelerator != null || menuRoles.has(data.role)) {
+        unsupported("Dock menu accelerator/native submenu role");
+      }
+    }
+    const wire = JSON.stringify({
+      schema: 1,
+      generation: dockGeneration + 1,
+      items: snapshot.items
+    });
+    if (encode(wire).byteLength > wireBytes) {
+      throw error("ERR_OUT_OF_RANGE", "Dock menu wire budget exceeded");
+    }
+    native.dockMenuApply(wire);
+    ++dockGeneration;
+    dockCurrent = menu;
+    dockCommands = snapshot.map;
   }
   function update(item, key, value) {
     const data = itemState.get(item);
@@ -101,6 +264,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
     try {
       if (current && commands.has(data.command)) {
         install(current);
+      } else if (dockCurrent && dockCommands.has(data.command)) {
+        installDock(dockCurrent);
       }
     } catch (failure) {
       data[key] = previous;
@@ -118,9 +283,17 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         }
       }
       const role = value.role;
-      if (role !== void 0 && !["quit", "close"].includes(role)) {
+      if (role !== void 0 && typeof role !== "string") {
+        throw error("ERR_INVALID_ARG_TYPE", "MenuItem role must be a string");
+      }
+      if (role !== void 0 && !["quit", "close", "minimize", "zoom"].includes(role) && !nativeRoles.has(role) && !menuRoles.has(role) && !(editRoles.has(role) && typeof native.editContents === "function")) {
         unsupported(`MenuItem role ${role}`);
       }
+      if ((nativeRoles.has(role) || menuRoles.has(role)) && (typeof native.menuRoleAvailable !== "function" || !native.menuRoleAvailable(role))) {
+        unsupported(`MenuItem native role ${role}`);
+      }
+      const acceleratorValue = value.accelerator;
+      accelerator(acceleratorValue);
       const submenu = value.submenu === void 0 ? null : Array.isArray(value.submenu) ? Menu.buildFromTemplate(value.submenu) : value.submenu;
       if (submenu !== null && !menuState.has(submenu)) {
         throw error("ERR_INVALID_ARG_TYPE", "submenu must be a Menu or template");
@@ -135,11 +308,17 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
       if (value.click !== void 0 && typeof value.click !== "function") {
         throw error("ERR_INVALID_ARG_TYPE", "click must be callable");
       }
-      if ((type === "separator" || type === "submenu") && (value.click !== void 0 || role !== void 0)) {
+      if ((type === "separator" || type === "submenu") && (value.click !== void 0 || role !== void 0 && !menuRoles.has(role))) {
         unsupported("click/role on a separator or submenu");
       }
-      if (role !== void 0 && type !== "normal") {
+      if (role !== void 0 && type !== "normal" && !(type === "submenu" && menuRoles.has(role))) {
         unsupported("role on non-normal item");
+      }
+      if (menuRoles.has(role) && type !== "submenu") {
+        unsupported("menu role requires a submenu");
+      }
+      if (acceleratorValue != null && (type === "submenu" || type === "separator")) {
+        unsupported("accelerator on a separator or submenu");
       }
       if (value.checked !== void 0 && type !== "checkbox") {
         unsupported("checked on a non-checkbox item");
@@ -151,6 +330,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         command: ++nextCommand,
         parent: null,
         role,
+        accelerator: acceleratorValue,
+        userSettingsLabel: value.userSettingsLabel === void 0 ? void 0 : text(value.userSettingsLabel, "userSettingsLabel"),
         submenu,
         type,
         id: text(value.id === void 0 ? "" : value.id, "id"),
@@ -180,6 +361,24 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
           }
         });
       }
+      Object.defineProperty(this, "accelerator", {
+        enumerable: true,
+        get: () => data.accelerator,
+        set: (value2) => {
+          accelerator(value2);
+          if (value2 != null && (type === "submenu" || type === "separator")) {
+            unsupported("accelerator on a separator or submenu");
+          }
+          update(this, "accelerator", value2);
+        }
+      });
+      Object.defineProperty(this, "userSettingsLabel", {
+        enumerable: true,
+        get: () => data.userSettingsLabel,
+        set: (value2) => {
+          data.userSettingsLabel = value2 === void 0 ? void 0 : text(value2, "userSettingsLabel");
+        }
+      });
       Object.defineProperty(this, "click", {
         enumerable: true,
         get: () => data.click,
@@ -250,7 +449,7 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
       if (!Number.isInteger(position) || position < 0 || position > list.length) {
         throw error("ERR_OUT_OF_RANGE", "Invalid menu insertion index");
       }
-      if (current && graph(current).menus.has(this)) {
+      if (current && graph(current).menus.has(this) || dockCurrent && graph(dockCurrent).menus.has(this)) {
         unsupported("structural changes to an installed application menu");
       }
       if (data.parent) {
@@ -275,14 +474,42 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
       return null;
     }
   }
+  const dock = {
+    setMenu(menu) {
+      if (this !== dock) {
+        throw error("ERR_INVALID_ARG_TYPE", "Illegal Dock receiver");
+      }
+      installDock(menu);
+    },
+    getMenu() {
+      if (this !== dock) {
+        throw error("ERR_INVALID_ARG_TYPE", "Illegal Dock receiver");
+      }
+      return dockCurrent;
+    }
+  };
+  for (const method of [
+    "bounce",
+    "cancelBounce",
+    "downloadFinished",
+    "setBadge",
+    "getBadge",
+    "hide",
+    "show",
+    "isVisible",
+    "setIcon"
+  ]) {
+    dock[method] = () => unsupported("app.dock." + method);
+  }
   return {
     Menu,
     MenuItem,
-    dispatch(windowId, event) {
-      if (event.generation !== generation) {
+    dock,
+    dispatch(windowId, event, dockEvent = false) {
+      if (event.generation !== (dockEvent ? dockGeneration : generation)) {
         return;
       }
-      const found = commands.get(event.command);
+      const found = (dockEvent ? dockCommands : commands).get(event.command);
       if (!found?.eligible) {
         return;
       }
@@ -302,6 +529,20 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         quit();
       } else if (data.role === "close") {
         window?.close();
+      } else if (data.role === "minimize") {
+        window?.minimize();
+      } else if (data.role === "zoom") {
+        if (window) {
+          if (window.isMaximized()) {
+            window.unmaximize();
+          } else {
+            window.maximize();
+          }
+        }
+      } else if (nativeRoles.has(data.role)) {
+        native.menuRole(data.role);
+      } else if (editRoles.has(data.role)) {
+        native.editContents(0, data.role);
       } else if (data.click) {
         Reflect.apply(data.click, void 0, [
           item,
@@ -310,7 +551,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
             shiftKey: !!(event.modifiers & 1),
             ctrlKey: !!(event.modifiers & 2),
             altKey: !!(event.modifiers & 4),
-            metaKey: !!(event.modifiers & 8)
+            metaKey: !!(event.modifiers & 8),
+            triggeredByAccelerator: event.triggeredByAccelerator === true
           }
         ]);
       }
@@ -1953,7 +2195,7 @@ function requestFilter(value, error, unsupported) {
 // firefly/core/session/web-request.mjs
 function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromDocument, error, unsupported, abortHooks) {
   const maximum = 2147483647;
-  const handlers = { before: null, headers: null };
+  const handlers = { before: null, sendHeaders: null, headers: null };
   const pending = /* @__PURE__ */ new Set();
   const resources = /* @__PURE__ */ new Set([
     "mainFrame",
@@ -2013,7 +2255,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_INVALID_ARG_TYPE", "webRequest callback requires a decision object");
     }
     for (const key of Object.keys(value)) {
-      if (key !== "cancel" && !(stage === "headers" && key === "responseHeaders")) {
+      if (key !== "cancel" && !(stage === "headers" && key === "responseHeaders" || stage === "sendHeaders" && key === "requestHeaders")) {
         unsupported("webRequest decision " + key);
       }
     }
@@ -2021,9 +2263,11 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_INVALID_ARG_TYPE", "webRequest cancel must be a boolean");
     }
     const result = { cancel: value.cancel === true };
-    if (!result.cancel && value.responseHeaders !== void 0) {
-      result.responseHeaders = headers(value.responseHeaders);
+    const field = stage === "sendHeaders" ? "requestHeaders" : "responseHeaders";
+    if (!result.cancel && value[field] !== void 0) {
+      result[field] = headers(value[field]);
       for (const name of [
+        ...stage === "sendHeaders" ? ["host"] : [],
         "content-length",
         "transfer-encoding",
         "connection",
@@ -2034,7 +2278,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
         "te"
       ]) {
         const values = (record) => Object.entries(record).filter(([key]) => key.toLowerCase() === name).flatMap(([, items]) => items);
-        if (JSON.stringify(values(result.responseHeaders)) !== JSON.stringify(values(originalHeaders))) {
+        if (JSON.stringify(values(result[field])) !== JSON.stringify(values(originalHeaders))) {
           unsupported("webRequest response framing header " + name);
         }
       }
@@ -2073,6 +2317,12 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
           throw error("ERR_FIREFLY_OBJECT_DESTROYED", "Request document is no longer active");
         }
       }
+    }
+    if (data.stage === "sendHeaders") {
+      const original = headers(data.requestHeaders);
+      result.requestHeaders = Object.fromEntries(
+        Object.entries(original).map(([name, values]) => [name, values.join(", ")])
+      );
     }
     if (data.stage === "headers") {
       if (!Number.isInteger(data.statusCode) || data.statusCode < 100 || data.statusCode > 599 || data.statusLine !== void 0 && (typeof data.statusLine !== "string" || data.statusLine.length > 8192 || /[\r\n\0]/.test(data.statusLine))) {
@@ -2116,35 +2366,23 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_OUT_OF_RANGE", "Request policy generation exhausted");
     }
     const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
-    const enabled = next.before !== null || next.headers !== null;
-    if (native.utility) {
-      if (typeof native.utility.setRequestPolicy !== "function") {
-        unsupported("Utility session request containment");
-      }
-      native.utility.setRequestPolicy(
-        enabled || handlers.before !== null || handlers.headers !== null || !healthy
-      );
-    }
     ++epoch;
     configuring = true;
     try {
       invalidate();
-      native.webRequest.configure(epoch, next.before !== null, next.headers !== null);
+      native.webRequest.configure(
+        epoch,
+        next.before !== null || next.sendHeaders !== null,
+        next.headers !== null
+      );
       if (!active()) {
         throw error("ERR_FIREFLY_SESSION_CLOSED", "Session closed during request configuration");
       }
       Object.assign(handlers, next);
       healthy = true;
-      if (!enabled) {
-        native.utility?.setRequestPolicy(false);
-      }
     } catch (failure) {
-      handlers.before = handlers.headers = null;
+      handlers.before = handlers.sendHeaders = handlers.headers = null;
       healthy = false;
-      try {
-        native.utility?.setRequestPolicy(true);
-      } catch {
-      }
       throw failure;
     } finally {
       configuring = false;
@@ -2167,7 +2405,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       unsubscribe?.();
       complete(value);
     }
-    if (!active() || !healthy || configuring || data.epoch !== current || !["before", "headers"].includes(stage)) {
+    if (!active() || !healthy || configuring || data.epoch !== current || !["before", "sendHeaders", "headers"].includes(stage)) {
       finish({ cancel: true });
       return;
     }
@@ -2182,7 +2420,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       finish({ cancel: false });
       return;
     }
-    const originalHeaders = stage === "headers" ? headers(details.responseHeaders) : void 0;
+    const originalHeaders = stage === "headers" ? headers(details.responseHeaders) : stage === "sendHeaders" ? headers(data.requestHeaders) : void 0;
     if (pending.size >= 64) {
       finish({ cancel: true });
       return;
@@ -2225,11 +2463,29 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw failure;
     }
   }
+  function runStages(stage, data, complete, signal) {
+    if (stage !== "before") {
+      run(stage, data, complete, signal);
+      return;
+    }
+    run(
+      "before",
+      data,
+      (result) => {
+        if (result.cancel || !handlers.sendHeaders) {
+          complete(result);
+          return;
+        }
+        run("sendHeaders", data, complete, signal);
+      },
+      signal
+    );
+  }
   function dispatch(data) {
     if (!data || !id(data.token) || !id(data.epoch)) {
       return;
     }
-    run(
+    runStages(
       data.stage,
       data,
       (value) => native.webRequest.complete(data.token, data.epoch, JSON.stringify(value))
@@ -2237,7 +2493,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
   }
   function intercept(stage, data, signal) {
     return new Promise((resolve, reject) => {
-      run(
+      runStages(
         stage,
         { ...data, epoch },
         (value) => {
@@ -2256,7 +2512,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       return;
     }
     stopped = true;
-    handlers.before = handlers.headers = null;
+    handlers.before = handlers.sendHeaders = handlers.headers = null;
     invalidate();
     if (epoch && epoch < maximum) {
       native.webRequest.configure(++epoch, false, false);
@@ -2266,12 +2522,14 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
     onBeforeRequest(...args) {
       register("before", args);
     },
+    onBeforeSendHeaders(...args) {
+      register("sendHeaders", args);
+    },
     onHeadersReceived(...args) {
       register("headers", args);
     }
   };
   for (const name of [
-    "onBeforeSendHeaders",
     "onSendHeaders",
     "onResponseStarted",
     "onBeforeRedirect",
@@ -2298,6 +2556,22 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
 function createMainIpc(native, EventEmitter, error, frameForDocument) {
   const ipcHandlers = /* @__PURE__ */ new Map();
   const ipcRequests = /* @__PURE__ */ new Map();
+  const diagnostic = process.env.FIREFLY_IPC_BYTES_DIAGNOSTIC === "1";
+  function failed(stage, failure) {
+    if (!diagnostic) {
+      return;
+    }
+    try {
+      const descriptor = failure && typeof failure === "object" ? Object.getOwnPropertyDescriptor(failure, "code") : void 0;
+      const code = descriptor && "value" in descriptor && [
+        "ERR_FIREFLY_IPC_SERIALIZATION",
+        "ERR_FIREFLY_OBJECT_DESTROYED",
+        "ERR_FIREFLY_UNSUPPORTED_API"
+      ].includes(descriptor.value) ? descriptor.value : "UNCLASSIFIED";
+      console.warn(`FIREFLY_IPC_FAILURE stage=${stage} code=${code}`);
+    } catch {
+    }
+  }
   function channelName(channel) {
     if (typeof channel !== "string" || channel.length > 256) {
       throw error("ERR_INVALID_ARG_TYPE", "channel must be a string of at most 256 UTF-16 units");
@@ -2387,7 +2661,8 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       let wire;
       try {
         wire = native.encodeIpc(value);
-      } catch {
+      } catch (failure) {
+        failed("result-serialization", failure);
         success = false;
         wire = native.encodeIpc("IPC result is not supported bounded data");
       }
@@ -2414,6 +2689,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       const channel = channelName(args.shift());
       const record = ipcHandlers.get(channel);
       if (!record) {
+        failed("missing-handler");
         finish(false, `No handler registered for '${channel}'`);
         return;
       }
@@ -2422,6 +2698,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       }
       const event = senderEvent(window, data);
       if (!event) {
+        failed("inactive-frame");
         finish(false, "IPC sender frame is no longer active");
         return;
       }
@@ -2429,6 +2706,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       Promise.resolve(result).then(
         (value) => finish(true, value),
         (failure) => {
+          failed("handler-rejection", failure);
           let message = "IPC handler rejected";
           try {
             if (typeof failure?.message === "string") {
@@ -2440,6 +2718,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
         }
       );
     } catch (failure) {
+      failed("dispatch", failure);
       let message = "IPC handler rejected";
       try {
         if (typeof failure?.message === "string") {
@@ -2461,7 +2740,7 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
   const positive = (value) => Number.isInteger(value) && value > 0 && value <= 2147483647;
   const text = (value) => typeof value === "string" && value.length <= 65536;
   const destroyed = () => error("ERR_FIREFLY_OBJECT_DESTROYED", "Render frame is no longer active");
-  const invalid = () => error("ERR_FIREFLY_FRAME_DATA", "Invalid native frame snapshot");
+  const invalid2 = () => error("ERR_FIREFLY_FRAME_DATA", "Invalid native frame snapshot");
   function sweep() {
     for (const [token, entry] of objects) {
       if (!contentsAlive(entry.contents) || !entry.object.deref()) {
@@ -2490,16 +2769,16 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
       return null;
     }
     if (typeof wire !== "string" || wire.length > 2 * 1024 * 1024) {
-      throw invalid();
+      throw invalid2();
     }
     let data;
     try {
       data = JSON.parse(wire);
     } catch {
-      throw invalid();
+      throw invalid2();
     }
     if (!data || data.contentsId !== contents || !Array.isArray(data.frames) || data.frames.length > 256) {
-      throw invalid();
+      throw invalid2();
     }
     const rows = /* @__PURE__ */ new Map();
     const documents = /* @__PURE__ */ new Set();
@@ -2507,11 +2786,11 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     const routes = /* @__PURE__ */ new Set();
     for (const row of data.frames) {
       if (!row || typeof row !== "object" || !positive(row.token) || rows.has(row.token) || typeof row.document !== "string" || !/^[1-9]\d{0,19}:[1-9]\d{0,19}$/.test(row.document) || documents.has(row.document) || !positive(row.frameTreeNodeId) || treeIds.has(row.frameTreeNodeId) || !positive(row.processId) || !positive(row.osProcessId) || !positive(row.routingId) || !text(row.url) || !text(row.origin) || !(row.parent === null || positive(row.parent)) || !positive(row.top)) {
-        throw invalid();
+        throw invalid2();
       }
       const route = `${row.processId}/${row.routingId}`;
       if (routes.has(route)) {
-        throw invalid();
+        throw invalid2();
       }
       rows.set(row.token, row);
       documents.add(row.document);
@@ -2520,26 +2799,26 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     }
     if (data.mainFrame === null) {
       if (rows.size !== 0) {
-        throw invalid();
+        throw invalid2();
       }
     } else if (!positive(data.mainFrame) || !rows.has(data.mainFrame)) {
-      throw invalid();
+      throw invalid2();
     }
     for (const row of rows.values()) {
       if (row.top !== data.mainFrame || row.parent === null !== (row.token === data.mainFrame)) {
-        throw invalid();
+        throw invalid2();
       }
       const seen = /* @__PURE__ */ new Set();
       let cursor = row;
       while (cursor.parent !== null) {
         if (seen.has(cursor.token) || seen.size >= 128 || !rows.has(cursor.parent)) {
-          throw invalid();
+          throw invalid2();
         }
         seen.add(cursor.token);
         cursor = rows.get(cursor.parent);
       }
       if (cursor.token !== data.mainFrame) {
-        throw invalid();
+        throw invalid2();
       }
     }
     if (!contentsIds) {
@@ -2565,7 +2844,7 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     const existing = cached?.object.deref();
     if (existing) {
       if (cached.contents !== contents) {
-        throw invalid();
+        throw invalid2();
       }
       return existing;
     }
@@ -3308,13 +3587,243 @@ function createTitleBar(native, error, unsupported) {
   };
 }
 
+// firefly/core/message-ports/remote.mjs
+function createRemoteLinks(hooks) {
+  const links = /* @__PURE__ */ new Set();
+  const shift = Array.prototype.shift;
+  const apply2 = Reflect.apply;
+  function descriptor(value) {
+    return value && Number.isInteger(value.id) && value.id > 0 && value.id <= 2147483647 && Number.isInteger(value.generation) && value.generation > 0 && value.generation <= 2147483647;
+  }
+  function connect(transport) {
+    const routes = /* @__PURE__ */ new Map();
+    let disconnected = false;
+    let flushing = false;
+    function valid(values) {
+      if (disconnected || !Array.isArray(values) || values.length > 16) {
+        throw hooks.error("ERR_FIREFLY_PORT_TRANSFER", "Invalid native port attachment");
+      }
+      const ids = /* @__PURE__ */ new Set();
+      for (const value of values) {
+        if (!descriptor(value) || ids.has(value.id) || routes.has(value.id)) {
+          throw hooks.error("ERR_FIREFLY_PORT_TRANSFER", "Duplicate or invalid native port route");
+        }
+        ids.add(value.id);
+      }
+    }
+    function disconnect() {
+      if (disconnected) {
+        return;
+      }
+      disconnected = true;
+      links.delete(link);
+      const owned = [...routes.values()];
+      routes.clear();
+      for (const route of owned) {
+        route.closed = true;
+        route.acks.length = 0;
+        hooks.close(route.record, false);
+      }
+    }
+    function accepted(status) {
+      if (!status) {
+        return true;
+      }
+      if (transport.blocked(status)) {
+        return false;
+      }
+      disconnect();
+      return false;
+    }
+    function flush() {
+      if (flushing || disconnected) {
+        return;
+      }
+      flushing = true;
+      try {
+        for (const route of routes.values()) {
+          if (route.closing) {
+            if (accepted(transport.close(route.id, route.generation))) {
+              route.closed = true;
+              route.acks.length = 0;
+              routes.delete(route.id);
+            }
+            continue;
+          }
+          while (route.acks.length && !disconnected) {
+            if (!accepted(transport.consume(route.id, route.generation, route.acks[0]))) {
+              break;
+            }
+            apply2(shift, route.acks, []);
+          }
+        }
+      } finally {
+        flushing = false;
+      }
+    }
+    function bind(record, value) {
+      const route = {
+        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
+        id: value.id,
+        generation: value.generation,
+        record,
+        acks: [],
+        closing: false,
+        closed: false,
+        send(wire) {
+          return !disconnected && !route.closing && accepted(transport.send(route.id, route.generation, wire));
+        },
+        requestClose() {
+          if (!disconnected && !route.closed) {
+            route.closing = true;
+            route.acks.length = 0;
+            flush();
+          }
+        }
+      };
+      record.remote = route;
+      record.started = true;
+      routes.set(route.id, route);
+      return route;
+    }
+    const link = {
+      /** Prepare entirely before native admission; failed writes leave every source owner attached. */
+      prepare(transfer) {
+        if (disconnected) {
+          throw hooks.error("ERR_FIREFLY_PORT_CHANNEL", "Native port link is closed");
+        }
+        const moves = hooks.transfers(transfer, null, null);
+        for (const move of moves) {
+          if (move.record.peer?.remote && !transport.allowNativeRelay) {
+            throw hooks.error(
+              "ERR_FIREFLY_UNSUPPORTED_API",
+              "Forwarding a native-backed port is not implemented"
+            );
+          }
+          if (move.record.queue.some((entry) => entry.ports?.length)) {
+            throw hooks.error(
+              "ERR_FIREFLY_UNSUPPORTED_API",
+              "Queued native port attachments are not implemented"
+            );
+          }
+        }
+        function unchanged() {
+          for (const move of moves) {
+            if (move.owned.record !== move.record || move.owned.detached || move.record.closed || move.record.lease.generation !== move.generation) {
+              throw hooks.error(
+                "ERR_FIREFLY_PORT_TRANSFER",
+                "Port ownership changed while preparing native transfer"
+              );
+            }
+          }
+        }
+        unchanged();
+        let committed = false;
+        return {
+          count: moves.length,
+          commit(values) {
+            valid(values);
+            if (committed || values.length !== moves.length) {
+              disconnect();
+              throw hooks.error(
+                "ERR_FIREFLY_PORT_TRANSFER",
+                "Native port attachment count changed"
+              );
+            }
+            unchanged();
+            committed = true;
+            for (let index = 0; index < moves.length; index++) {
+              const move = moves[index];
+              hooks.detach(move);
+              bind(move.record, values[index]);
+              hooks.pump(move.record);
+            }
+          }
+        };
+      },
+      /** Incoming attachments become genuine native-backed utility endpoints before parent-event delivery. */
+      adopt(values) {
+        valid(values);
+        hooks.capacity(values.length * 2);
+        const owners = values.map(() => hooks.shell());
+        valid(values);
+        hooks.capacity(values.length * 2);
+        const ports = [];
+        const allocated = [];
+        try {
+          for (let index = 0; index < values.length; index++) {
+            const local = hooks.endpoint();
+            allocated.push(local);
+            const remote = hooks.endpoint();
+            allocated.push(remote);
+            local.peer = remote;
+            remote.peer = local;
+            bind(remote, values[index]);
+            ports.push(hooks.attach(local, owners[index]));
+          }
+        } catch (failure) {
+          for (const record of allocated) {
+            hooks.close(record, false);
+          }
+          disconnect();
+          throw failure;
+        }
+        return ports;
+      },
+      receive(id, generation, wire) {
+        const route = routes.get(id);
+        if (!route || route.generation !== generation || route.closed || route.closing || disconnected) {
+          return;
+        }
+        const size = hooks.size(wire);
+        const ack = () => {
+          if (!route.closed && !route.closing && !disconnected) {
+            route.acks.push(size);
+            flush();
+          }
+        };
+        if (!hooks.deliver(route.record.peer, wire, ack)) {
+          route.requestClose();
+        }
+      },
+      closed(id, generation) {
+        const route = routes.get(id);
+        if (!route || route.generation !== generation) {
+          return;
+        }
+        route.closed = true;
+        route.acks.length = 0;
+        routes.delete(id);
+        hooks.close(route.record, false);
+      },
+      writable() {
+        flush();
+        if (!disconnected) {
+          for (const route of routes.values()) {
+            hooks.pump(route.record);
+          }
+        }
+      },
+      disconnect
+    };
+    links.add(link);
+    return link;
+  }
+  function shutdown() {
+    for (const link of [...links]) {
+      link.disconnect();
+    }
+  }
+  return { connect, shutdown };
+}
+
 // firefly/core/message-ports/index.mjs
 function createMessageChannels(native, EventEmitter, error) {
   const states = /* @__PURE__ */ new WeakMap();
-  const apply = Reflect.apply;
+  const apply2 = Reflect.apply;
   const weakSet = WeakMap.prototype.set;
   const weakGet = WeakMap.prototype.get;
-  const define = Object.defineProperty;
+  const define2 = Object.defineProperty;
   const shift = Array.prototype.shift;
   const isArray = Array.isArray;
   const descriptor = Object.getOwnPropertyDescriptor;
@@ -3334,8 +3843,11 @@ function createMessageChannels(native, EventEmitter, error) {
   let sequence = 0;
   let totalBytes = 0;
   let stopped = false;
+  function ownerOf(record) {
+    return record.owner ? apply2(deref, record.owner, []) : void 0;
+  }
   function append(array, value) {
-    define(array, `${array.length}`, {
+    define2(array, `${array.length}`, {
       value,
       writable: true,
       enumerable: true,
@@ -3343,7 +3855,7 @@ function createMessageChannels(native, EventEmitter, error) {
     });
   }
   function state(port) {
-    const value = apply(weakGet, states, [port]);
+    const value = apply2(weakGet, states, [port]);
     if (!value) {
       throw error("ERR_INVALID_THIS", "Invalid MessagePortMain receiver");
     }
@@ -3364,7 +3876,7 @@ function createMessageChannels(native, EventEmitter, error) {
     if (!entry || entry.lease.generation !== generation) {
       return;
     }
-    const record = apply(deref, entry.weak, []);
+    const record = apply2(deref, entry.weak, []);
     if (record) {
       close(record, true);
     } else {
@@ -3376,10 +3888,10 @@ function createMessageChannels(native, EventEmitter, error) {
     return { port, owner: new Weak(port), gcToken: {} };
   }
   function attach(record, staged) {
-    apply(weakSet, states, [staged.port, { record, detached: false }]);
+    apply2(weakSet, states, [staged.port, { record, detached: false }]);
     record.owner = staged.owner;
     record.gcToken = staged.gcToken;
-    apply(register, finalizers, [
+    apply2(register, finalizers, [
       staged.port,
       { id: record.lease.id, generation: record.lease.generation },
       staged.gcToken
@@ -3391,12 +3903,15 @@ function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.notified = true;
-    (retainedOwner ?? apply(deref, record.owner, []))?.emit("close");
+    (retainedOwner ?? ownerOf(record))?.emit("close");
   }
-  function consume(record, entry) {
+  function consume(record, entry, delivered = true) {
     record.lease.count--;
     record.lease.bytes -= entry.size;
     totalBytes -= entry.size;
+    if (delivered) {
+      entry.ack?.();
+    }
   }
   function discard(record) {
     const pending = record.queue;
@@ -3405,9 +3920,9 @@ function createMessageChannels(native, EventEmitter, error) {
       if (entry.close) {
         continue;
       }
-      consume(record, entry);
+      consume(record, entry, false);
       for (const port of entry.ports) {
-        const owned = apply(weakGet, states, [port]);
+        const owned = apply2(weakGet, states, [port]);
         if (owned?.record) {
           close(owned.record, true);
         }
@@ -3419,17 +3934,20 @@ function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.closed = true;
+    record.remote?.requestClose();
     const peer = record.peer;
     record.peer = null;
     if (peer && peer.peer === record) {
       peer.peer = null;
     }
-    apply(unregister, finalizers, [record.gcToken]);
+    if (record.gcToken) {
+      apply2(unregister, finalizers, [record.gcToken]);
+    }
     discard(record);
     release(record.lease);
     if (!stopped) {
       if (local) {
-        const owner = apply(deref, record.owner, []);
+        const owner = ownerOf(record);
         tick(() => notify(record, owner));
       } else {
         notify(record);
@@ -3454,12 +3972,24 @@ function createMessageChannels(native, EventEmitter, error) {
       if (stopped || record.closed || !record.started || !record.queue.length) {
         return;
       }
-      const owner = apply(deref, record.owner, []);
+      if (record.remote) {
+        const entry2 = record.queue[0];
+        if (entry2.close) {
+          apply2(shift, record.queue, []);
+          close(record, false);
+        } else if (record.remote.send(entry2.wire)) {
+          apply2(shift, record.queue, []);
+          consume(record, entry2);
+          pump(record);
+        }
+        return;
+      }
+      const owner = ownerOf(record);
       if (!owner) {
         close(record, true);
         return;
       }
-      const entry = apply(shift, record.queue, []);
+      const entry = apply2(shift, record.queue, []);
       if (entry.close) {
         close(record, false);
         return;
@@ -3470,7 +4000,7 @@ function createMessageChannels(native, EventEmitter, error) {
         data = native.decodeIpc(entry.wire);
       } catch (failure) {
         for (const port of entry.ports) {
-          const owned = apply(weakGet, states, [port]);
+          const owned = apply2(weakGet, states, [port]);
           if (owned?.record) {
             close(owned.record, true);
           }
@@ -3489,10 +4019,10 @@ function createMessageChannels(native, EventEmitter, error) {
   }
   function sweep() {
     for (const entry of [...records.values()]) {
-      const record = apply(deref, entry.weak, []);
+      const record = apply2(deref, entry.weak, []);
       if (!record) {
         release(entry.lease);
-      } else if (!apply(deref, record.owner, [])) {
+      } else if (!record.remote && !ownerOf(record)) {
         close(record, true);
       }
     }
@@ -3511,7 +4041,8 @@ function createMessageChannels(native, EventEmitter, error) {
       started: false,
       closed: false,
       notified: false,
-      scheduled: false
+      scheduled: false,
+      remote: null
     };
     records.set(lease.id, { weak: new Weak(record), lease });
     return record;
@@ -3534,7 +4065,7 @@ function createMessageChannels(native, EventEmitter, error) {
         throw error("ERR_INVALID_ARG_TYPE", "Port transfer entries must be own data values");
       }
       const port = itemDescriptor.value;
-      const owned = apply(weakGet, states, [port]);
+      const owned = apply2(weakGet, states, [port]);
       if (!owned || owned.detached || !owned.record) {
         throw error("ERR_INVALID_ARG_TYPE", "Transfer entry is not an owned MessagePortMain");
       }
@@ -3564,6 +4095,48 @@ function createMessageChannels(native, EventEmitter, error) {
     }
     return moves;
   }
+  const remote = createRemoteLinks({
+    error,
+    transfers,
+    shell,
+    attach,
+    endpoint,
+    pump,
+    close,
+    size: (wire) => apply2(byteLength, wire, []),
+    capacity(count) {
+      sweep();
+      if (stopped || records.size + count > 256) {
+        throw error("ERR_FIREFLY_PORT_LIMIT", "At most 256 live endpoints are supported");
+      }
+    },
+    detach(move) {
+      const target = move.record;
+      apply2(unregister, finalizers, [target.gcToken]);
+      move.owned.detached = true;
+      move.owned.record = null;
+      target.lease.generation++;
+      target.owner = null;
+      target.started = false;
+      target.scheduled = false;
+    },
+    deliver(record, wire, ack) {
+      if (stopped || !record || record.closed) {
+        return false;
+      }
+      const size = apply2(byteLength, wire, []);
+      if (record.lease.count >= 64 || record.lease.bytes + size > 1048576 || totalBytes + size > 4194304) {
+        close(record, true);
+        return false;
+      }
+      append(record.queue, { wire, size, ports: [], ack });
+      record.lease.count++;
+      record.lease.bytes += size;
+      totalBytes += size;
+      pump(record);
+      return true;
+    }
+  });
   class MessagePortMain extends EventEmitter {
     constructor(key) {
       super();
@@ -3580,6 +4153,12 @@ function createMessageChannels(native, EventEmitter, error) {
       const destination = record.peer;
       const generation = record.lease.generation;
       const moves = transfers(transfer, record, destination);
+      if (destination?.remote && moves.length) {
+        throw error(
+          "ERR_FIREFLY_UNSUPPORTED_API",
+          "Port attachments over a native port are not implemented"
+        );
+      }
       let wire;
       try {
         wire = native.encodeIpc(message);
@@ -3589,7 +4168,10 @@ function createMessageChannels(native, EventEmitter, error) {
           "Port message requires the supported bounded data/binary graph"
         );
       }
-      const size = apply(byteLength, wire, []);
+      const size = apply2(byteLength, wire, []);
+      if (destination?.remote && size > destination.remote.maxPayload) {
+        throw error("ERR_FIREFLY_PORT_LIMIT", "Port message exceeds its native frame limit");
+      }
       if (destination && !destination.closed && (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304)) {
         throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
       }
@@ -3624,7 +4206,7 @@ function createMessageChannels(native, EventEmitter, error) {
       for (let index = 0; index < moves.length; index++) {
         const move = moves[index];
         const target = move.record;
-        apply(unregister, finalizers, [target.gcToken]);
+        apply2(unregister, finalizers, [target.gcToken]);
         move.owned.detached = true;
         move.owned.record = null;
         target.lease.generation++;
@@ -3684,8 +4266,9 @@ function createMessageChannels(native, EventEmitter, error) {
   }
   function shutdown() {
     stopped = true;
+    remote.shutdown();
     for (const entry of [...records.values()]) {
-      const record = apply(deref, entry.weak, []);
+      const record = apply2(deref, entry.weak, []);
       if (record) {
         close(record, true);
       } else {
@@ -3693,11 +4276,194 @@ function createMessageChannels(native, EventEmitter, error) {
       }
     }
   }
-  return { MessageChannelMain, shutdown };
+  return { MessageChannelMain, shutdown, connect: remote.connect };
+}
+
+// firefly/core/message-ports/packets.mjs
+var ByteArray = Uint8Array;
+var apply = Reflect.apply;
+var typed = Object.getPrototypeOf(ByteArray.prototype);
+var getters = Object.getOwnPropertyDescriptors(typed);
+var tag = getters[Symbol.toStringTag].get;
+var define = Object.defineProperty;
+var maxFrame = 128 * 1024;
+function invalid() {
+  throw Object.assign(new Error("Invalid utility port packet"), {
+    code: "ERR_FIREFLY_UTILITY_CHANNEL"
+  });
+}
+function decodePortPacket(value, expected) {
+  let bytes;
+  let size;
+  let buffer;
+  let baseOffset;
+  try {
+    if (apply(tag, value, []) !== "Uint8Array") {
+      invalid();
+    }
+    size = apply(getters.byteLength.get, value, []);
+    if (size < 16 || size > maxFrame) {
+      invalid();
+    }
+    buffer = apply(getters.buffer.get, value, []);
+    baseOffset = apply(getters.byteOffset.get, value, []);
+    bytes = new ByteArray(buffer, baseOffset, size);
+  } catch {
+    invalid();
+  }
+  if (bytes[0] !== 70 || bytes[1] !== 85 || bytes[2] !== 80 || bytes[3] !== 49 || bytes[6] !== 0 || bytes[7] !== 0) {
+    invalid();
+  }
+  const number = (offset2) => bytes[offset2] * 16777216 + bytes[offset2 + 1] * 65536 + bytes[offset2 + 2] * 256 + bytes[offset2 + 3];
+  const positive = (value2) => value2 > 0 && value2 <= 2147483647;
+  const kind = bytes[4];
+  const count = bytes[5];
+  const id = number(8);
+  const generation = number(12);
+  const required = expected === "port-transfer" ? 1 : expected === "port-data" ? 2 : expected === "port-close" ? 3 : 0;
+  if (!required || kind !== required) {
+    invalid();
+  }
+  const descriptors = [];
+  let offset = 16;
+  if (kind === 1) {
+    if (!count || count > 16 || id || generation || size <= offset + count * 8) {
+      invalid();
+    }
+    for (let index = 0; index < count; index++) {
+      const portId = number(offset);
+      const portGeneration = number(offset + 4);
+      if (!positive(portId) || !positive(portGeneration)) {
+        invalid();
+      }
+      for (let previous = 0; previous < index; previous++) {
+        if (descriptors[previous].id === portId) {
+          invalid();
+        }
+      }
+      define(descriptors, `${index}`, {
+        value: { id: portId, generation: portGeneration },
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      offset += 8;
+    }
+  } else if (count || !positive(id) || !positive(generation) || (kind === 3 ? size !== 16 : size <= 16)) {
+    invalid();
+  }
+  return {
+    id,
+    generation,
+    descriptors,
+    wire: new ByteArray(buffer, baseOffset + offset, size - offset)
+  };
+}
+
+// firefly/core/message-ports/renderer.mjs
+function createRendererPorts(native, channels, error) {
+  const links = /* @__PURE__ */ new Map();
+  const apply2 = Reflect.apply;
+  const byteLength = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(Uint8Array.prototype),
+    "byteLength"
+  ).get;
+  function disconnect(id) {
+    const current2 = links.get(id);
+    if (current2) {
+      links.delete(id);
+      current2.link.disconnect();
+    }
+  }
+  function current(id, epoch) {
+    const old = links.get(id);
+    if (old?.epoch === epoch) {
+      return old;
+    }
+    disconnect(id);
+    const link = channels.connect({
+      send: (route, generation, wire) => native.sendRendererPort(id, epoch, route, generation, wire),
+      close: (route, generation) => native.closeRendererPort(id, epoch, route, generation),
+      consume: (route, generation, size) => native.consumeRendererPort(id, epoch, route, generation, size),
+      blocked: (status) => status === native.rendererPortQueueFull,
+      // The other peer can already belong to a utility: this is the actual
+      // SharedProcess relay. Utility-to-utility forwarding remains refused.
+      allowNativeRelay: true,
+      maxPayload: 128 * 1024 - 20 - 16
+    });
+    const record = { epoch, link };
+    links.set(id, record);
+    return record;
+  }
+  function post(id, channel, message, transfer) {
+    if (typeof channel !== "string" || channel.length > 256) {
+      throw error("ERR_INVALID_ARG_TYPE", "postMessage requires a bounded channel string");
+    }
+    const wire = native.encodeIpc([channel, message]);
+    if (transfer === void 0 || Array.isArray(transfer) && transfer.length === 0) {
+      native.sendIpc(id, wire);
+      return;
+    }
+    if (typeof native.portEpoch !== "function" || typeof native.sendPortTransfer !== "function") {
+      throw error(
+        "ERR_FIREFLY_UNSUPPORTED_API",
+        "Native renderer port delivery is not implemented"
+      );
+    }
+    const epoch = native.portEpoch(id);
+    if (typeof epoch !== "string" || !epoch.length) {
+      throw error("ERR_FIREFLY_IPC_NOT_READY", "No active document for port delivery");
+    }
+    const owner = current(id, epoch);
+    const plan = owner.link.prepare(transfer);
+    if (apply2(byteLength, wire, []) > 128 * 1024 - 20 - 16 - plan.count * 8) {
+      throw error("ERR_FIREFLY_PORT_LIMIT", "Port attachment message exceeds its native frame");
+    }
+    const result = native.sendPortTransfer(id, epoch, wire, plan.count);
+    if (!result || result.status !== 0 || result.epoch !== epoch) {
+      throw error("ERR_FIREFLY_PORT_CHANNEL", "Native document port admission failed");
+    }
+    try {
+      plan.commit(result.ports);
+    } catch (failure) {
+      disconnect(id);
+      throw failure;
+    }
+  }
+  function dispatch(id, type, data) {
+    const owner = links.get(id);
+    if (!owner || !data || data.epoch !== owner.epoch) {
+      return;
+    }
+    if (type === "renderer-port-revoked") {
+      disconnect(id);
+    } else if (type === "renderer-port-writable") {
+      owner.link.writable();
+    } else if (type === "renderer-port-data" || type === "renderer-port-close") {
+      try {
+        const kind = type === "renderer-port-data" ? "port-data" : "port-close";
+        const packet = decodePortPacket(data.wire, kind);
+        if (kind === "port-data") {
+          owner.link.receive(packet.id, packet.generation, packet.wire);
+        } else {
+          owner.link.closed(packet.id, packet.generation);
+        }
+      } catch (failure) {
+        disconnect(id);
+        throw failure;
+      }
+    }
+  }
+  function shutdown() {
+    for (const id of [...links.keys()]) {
+      disconnect(id);
+    }
+  }
+  return { post, dispatch, disconnect, shutdown };
 }
 
 // firefly/core/utility-process/index.mjs
-function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths) {
+function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths, childProcessGone, channels) {
   const owned = /* @__PURE__ */ new Set();
   let stopped = false;
   function fail(code, message) {
@@ -3760,8 +4526,9 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
         unsupported(`utilityProcess ${key}`);
       }
     }
-    if (options.serviceName !== void 0) {
-      unsupported("Utility service naming and app process metrics");
+    const serviceName = options.serviceName === void 0 ? "Node Utility Process" : text(options.serviceName, "serviceName");
+    if (new TextEncoder().encode(serviceName).length > 4096) {
+      fail("ERR_OUT_OF_RANGE", "serviceName exceeds its UTF-8 byte limit");
     }
     const env = options.env ?? process.env;
     if (!env || typeof env !== "object" || Array.isArray(env)) {
@@ -3783,7 +4550,8 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       args: strings(args, "args"),
       cwd: options.cwd === void 0 ? "" : text(options.cwd, "cwd"),
       env: environment,
-      stdio: modes(options.stdio)
+      stdio: modes(options.stdio),
+      serviceName: serviceName || "Node Utility Process"
     };
   }
   function output() {
@@ -3804,9 +4572,18 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
         exited: false,
         killed: false,
         stdout: null,
-        stderr: null
+        stderr: null,
+        link: null
       };
       authority.set(this, state);
+      if (channels) {
+        state.link = channels.connect({
+          send: (id, generation, wire) => native.sendPort(state.id, id, generation, wire),
+          close: (id, generation) => native.closePort(state.id, id, generation),
+          consume: (id, generation, size) => native.consumePort(state.id, id, generation, size),
+          blocked: (status) => typeof native.portQueueFull === "number" && status === native.portQueueFull
+        });
+      }
       state.stdout = spec.stdio[1] === "pipe" ? output() : null;
       state.stderr = spec.stdio[2] === "pipe" ? output() : null;
       owned.add(this);
@@ -3838,9 +4615,36 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
             if (state.exited && !state.stdout && !state.stderr) {
               owned.delete(this);
             }
+          } else if (kind === "port-writable") {
+            state.link?.writable();
+          } else if (kind === "port-data" || kind === "port-close") {
+            try {
+              if (!state.link) {
+                unsupported("Utility native MessagePort routing");
+              }
+              const packet = decodePortPacket(value, kind);
+              if (kind === "port-data") {
+                state.link.receive(packet.id, packet.generation, packet.wire);
+              } else {
+                state.link.closed(packet.id, packet.generation);
+              }
+            } catch (failure) {
+              state.link?.disconnect();
+              native.kill(state.id);
+              this.emit("error", failure);
+            }
+          } else if (kind === "close") {
+            state.link?.disconnect();
           } else if (kind === "data") {
             this.emit("message", codec.decodeIpc(value));
+          } else if (kind === "gone") {
+            const details = JSON.parse(value);
+            if (details.type !== "Utility" || details.name !== spec.serviceName || details.pid !== state.pid || !Number.isInteger(details.exitCode) || !["abnormal-exit", "crashed", "killed"].includes(details.reason)) {
+              fail("ERR_FIREFLY_UTILITY_CHANNEL", "Invalid native utility exit details");
+            }
+            childProcessGone?.(details);
           } else if (kind === "exit") {
+            state.link?.disconnect();
             state.exited = true;
             state.pid = void 0;
             this.emit("exit", value);
@@ -3848,6 +4652,7 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
               owned.delete(this);
             }
           } else if (kind === "error") {
+            state.link?.disconnect();
             this.emit(
               "error",
               Object.assign(new Error(String(value)), {
@@ -3857,11 +4662,13 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
           }
         });
       } catch (failure) {
+        state.link?.disconnect();
         owned.delete(this);
         throw failure;
       }
       state.id = result.id;
       if (result.status) {
+        state.link?.disconnect();
         owned.delete(this);
         state.exited = true;
         state.stdout?.destroy();
@@ -3884,11 +4691,28 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       if (stopped || state.exited) {
         return;
       }
-      if (transfer !== void 0 && (!Array.isArray(transfer) || transfer.length)) {
-        unsupported("Utility native MessagePort transfer");
-      }
       const wire = codec.encodeIpc(message);
-      const status = native.send(state.id, wire);
+      let status;
+      if (transfer !== void 0 && (!Array.isArray(transfer) || transfer.length)) {
+        if (!state.link || typeof native.sendTransfer !== "function") {
+          unsupported("Utility native MessagePort transfer");
+        }
+        const plan = state.link.prepare(transfer);
+        const result = native.sendTransfer(state.id, wire, plan.count);
+        if (!result || result.status !== 0) {
+          fail("ERR_FIREFLY_UTILITY_CHANNEL", "Utility port transfer admission failed");
+        }
+        try {
+          plan.commit(result.ports);
+        } catch (failure) {
+          state.link.disconnect();
+          native.kill(state.id);
+          throw failure;
+        }
+        status = 0;
+      } else {
+        status = native.send(state.id, wire);
+      }
       if (status) {
         fail("ERR_FIREFLY_UTILITY_CHANNEL", `Utility channel send failed (${status})`);
       }
@@ -3919,6 +4743,9 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       return;
     }
     stopped = true;
+    for (const child of owned) {
+      authority.get(child).link?.disconnect();
+    }
     native?.shutdown();
     for (const child of owned) {
       const state = authority.get(child);
@@ -3940,12 +4767,12 @@ function createSafeStorage(native, app, error, unsupported) {
   const byteLength = BufferClass.byteLength.bind(BufferClass);
   const from = BufferClass.from.bind(BufferClass);
   const limit = 1024 * 1024;
-  const apply = Reflect.apply;
+  const apply2 = Reflect.apply;
   const viewLength = Object.getOwnPropertyDescriptor(
     Object.getPrototypeOf(Uint8Array.prototype),
     "byteLength"
   ).get;
-  function invalid(message) {
+  function invalid2(message) {
     return Object.assign(new TypeError(message), { code: "ERR_INVALID_ARG_TYPE" });
   }
   function ready() {
@@ -3966,7 +4793,7 @@ function createSafeStorage(native, app, error, unsupported) {
     isEncryptionAvailable: available,
     encryptString(plainText) {
       if (typeof plainText !== "string") {
-        throw invalid("safeStorage.encryptString requires a string");
+        throw invalid2("safeStorage.encryptString requires a string");
       }
       if (plainText.length > limit || byteLength(plainText, "utf8") > limit) {
         throw error("ERR_OUT_OF_RANGE", "safeStorage plaintext exceeds its byte budget");
@@ -3977,9 +4804,9 @@ function createSafeStorage(native, app, error, unsupported) {
     decryptString(encrypted) {
       requireEncryption();
       if (!isBuffer(encrypted)) {
-        throw invalid("safeStorage.decryptString requires a Buffer");
+        throw invalid2("safeStorage.decryptString requires a Buffer");
       }
-      const length = apply(viewLength, encrypted, []);
+      const length = apply2(viewLength, encrypted, []);
       if (length > limit + 64) {
         throw error("ERR_OUT_OF_RANGE", "safeStorage ciphertext exceeds its byte budget");
       }
@@ -3990,7 +4817,7 @@ function createSafeStorage(native, app, error, unsupported) {
     },
     setUsePlainTextEncryption(value) {
       if (typeof value !== "boolean") {
-        throw invalid("Plaintext policy must be a boolean");
+        throw invalid2("Plaintext policy must be a boolean");
       }
       if (value) {
         unsupported("Plaintext key storage");
@@ -4102,7 +4929,12 @@ function createViews(native, EventEmitter, makeContents, validatePreferences, re
         throw error("ERR_FIREFLY_APP_EXITED", "Application has exited");
       }
       Object.defineProperty(host, "id", {
-        value: native.createView(prefs.preload, prefs.additionalArguments, prefs.zoomFactor),
+        value: native.createView(
+          prefs.preload,
+          prefs.additionalArguments,
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
+        ),
         enumerable: true
       });
       host._destroyed = false;
@@ -4335,8 +5167,33 @@ function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSp
       throw error("ERR_INVALID_ARG_TYPE", "webPreferences must be an object");
     }
     let zoomFactor = 1;
+    let autoplayPolicy;
     for (const key of Object.keys(prefs)) {
       if (key === "preload" || key === "additionalArguments") {
+        continue;
+      }
+      if (key === "enableBlinkFeatures") {
+        const value = prefs[key];
+        if (typeof value !== "string") {
+          throw error(
+            "ERR_INVALID_ARG_TYPE",
+            "webPreferences.enableBlinkFeatures must be a string"
+          );
+        }
+        if (value !== "HighlightAPI") {
+          unsupported(`webPreferences.enableBlinkFeatures=${value}`);
+        }
+        continue;
+      }
+      if (key === "autoplayPolicy") {
+        const value = prefs[key];
+        if (typeof value !== "string") {
+          throw error("ERR_INVALID_ARG_TYPE", "webPreferences.autoplayPolicy must be a string");
+        }
+        if (!["no-user-gesture-required", "user-gesture-required"].includes(value)) {
+          unsupported(`webPreferences.autoplayPolicy=${value}`);
+        }
+        autoplayPolicy = value;
         continue;
       }
       if (key === "zoomFactor") {
@@ -4381,7 +5238,12 @@ function createWebPreferences(paths, isSandboxRequired, error, unsupported, isSp
     if (additionalArguments.length > 64) {
       throw error("ERR_INVALID_ARG_VALUE", "additionalArguments exceeds 64 entries");
     }
-    return { preload: prefs.preload, additionalArguments, zoomFactor };
+    return {
+      preload: prefs.preload,
+      additionalArguments,
+      zoomFactor,
+      ...autoplayPolicy === void 0 ? {} : { autoplayPolicy }
+    };
   };
 }
 
@@ -4657,31 +5519,31 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
       throw error("ERR_FIREFLY_NOT_READY", "Notification requires app readiness");
     }
   }
-  function invalid(message, code = "ERR_INVALID_ARG_TYPE") {
+  function invalid2(message, code = "ERR_INVALID_ARG_TYPE") {
     return Object.assign(new TypeError(message), { code });
   }
   function text(value, name, limit) {
     if (typeof value !== "string" || value.includes("\0")) {
-      throw invalid(`${name} must be a string without NUL`);
+      throw invalid2(`${name} must be a string without NUL`);
     }
     if (bytes(value, "utf8") > limit) {
-      throw invalid(`${name} exceeds its UTF-8 byte limit`, "ERR_OUT_OF_RANGE");
+      throw invalid2(`${name} exceeds its UTF-8 byte limit`, "ERR_OUT_OF_RANGE");
     }
     return value;
   }
   function actions(value) {
     if (!Array.isArray(value)) {
-      throw invalid("actions must be an array");
+      throw invalid2("actions must be an array");
     }
     const length = value.length;
     if (length > 4) {
-      throw invalid("At most four notification actions are supported", "ERR_OUT_OF_RANGE");
+      throw invalid2("At most four notification actions are supported", "ERR_OUT_OF_RANGE");
     }
     const result = [];
     for (let index = 0; index < length; ++index) {
       const action = value[index];
       if (!action || typeof action !== "object") {
-        throw invalid("Each action must be an object");
+        throw invalid2("Each action must be an object");
       }
       const type = action.type;
       const label = action.text;
@@ -4699,7 +5561,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
   }
   function properties(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw invalid("Notification options must be an object");
+      throw invalid2("Notification options must be an object");
     }
     for (const key of Object.keys(value)) {
       if (!["title", "body", "silent", "actions"].includes(key)) {
@@ -4711,7 +5573,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
     const silent = value.silent;
     const buttons = value.actions;
     if (silent !== void 0 && typeof silent !== "boolean") {
-      throw invalid("silent must be a boolean");
+      throw invalid2("silent must be a boolean");
     }
     return {
       title: text(title === void 0 ? "" : title, "title", 4096),
@@ -4723,7 +5585,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
   function record(object) {
     const value = records.get(object);
     if (!value) {
-      throw invalid("Illegal Notification receiver");
+      throw invalid2("Illegal Notification receiver");
     }
     return value;
   }
@@ -4777,7 +5639,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
     }
     set silent(value) {
       if (typeof value !== "boolean") {
-        throw invalid("silent must be a boolean");
+        throw invalid2("silent must be a boolean");
       }
       record(this).value.silent = value;
     }
@@ -5950,19 +6812,33 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
   function requestDetails(endpoint, method, id) {
     return { id, url: endpoint.href, method, resourceType: "other", referrer: "" };
   }
-  async function beforeRequest(endpoint, method, id, entry) {
+  async function beforeRequest(endpoint, method, id, entry, fields) {
     const policy2 = requestPolicy();
     if (policy2) {
-      await policy2.intercept(
+      const requestHeaders = /* @__PURE__ */ Object.create(null);
+      for (const [name, value] of fields) {
+        requestHeaders[name] = [value];
+      }
+      const result = await policy2.intercept(
         "before",
-        requestDetails(endpoint, method, id),
+        { ...requestDetails(endpoint, method, id), requestHeaders },
         entry.controller.signal
       );
+      if (result.requestHeaders !== void 0) {
+        const patched = new Headers();
+        for (const [name, values] of Object.entries(result.requestHeaders)) {
+          for (const value of values) {
+            patched.append(name, value);
+          }
+        }
+        fields = patched;
+      }
     }
     alive();
     if (entry.controller.signal.aborted) {
       throw abortHooks.reason(entry.controller.signal);
     }
+    return fields;
   }
   async function receivedHeaders(response, endpoint, method, id, entry) {
     const policy2 = requestPolicy();
@@ -6202,7 +7078,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         const registry = custom ? protocols() : null;
         const handled = registry?.canHandle(endpoint.href);
@@ -6433,7 +7309,7 @@ function createNet(native, isReady, isExited, error, unsupported, transport, pro
     try {
       for (let count = 0; ; count++) {
         if (requestPolicy()) {
-          await beforeRequest(endpoint, method, requestId, entry);
+          fields = await beforeRequest(endpoint, method, requestId, entry, fields);
         }
         proxy();
         if (request.destroyed) {
@@ -7487,13 +8363,88 @@ function createGPU(native, isReady, isExited, error, unsupported) {
   return { getFeatureStatus, disableHardwareAcceleration, getInfo };
 }
 
+// firefly/core/app/recent-documents.mjs
+function createRecentDocuments(native, isReady, isExited, error, unsupported) {
+  const bytes = Buffer.byteLength.bind(Buffer);
+  let stopped = false;
+  function alive() {
+    if (stopped || isExited()) {
+      throw error("ERR_FIREFLY_APP_EXITED", "Recent documents are unavailable after app exit");
+    }
+    if (!isReady()) {
+      throw error("ERR_FIREFLY_NOT_READY", "Recent documents require app readiness");
+    }
+  }
+  function invoke(name, args) {
+    alive();
+    const operation = native[name];
+    if (typeof operation !== "function") {
+      return unsupported("app recent documents");
+    }
+    alive();
+    operation.apply(native, args);
+    alive();
+  }
+  return {
+    api: {
+      clearRecentDocuments(...args) {
+        alive();
+        if (args.length) {
+          throw error("ERR_INVALID_ARG_TYPE", "clearRecentDocuments expects no arguments");
+        }
+        invoke("recentDocumentsClear", []);
+      },
+      addRecentDocument(...args) {
+        alive();
+        const value = args[0];
+        if (args.length !== 1 || typeof value !== "string") {
+          throw error("ERR_INVALID_ARG_TYPE", "addRecentDocument expects one path string");
+        }
+        if (!value || value.includes("\0") || value.length > 32768 || bytes(value) > 32768) {
+          throw error(
+            "ERR_INVALID_ARG_VALUE",
+            "Recent document path is empty, invalid or too long"
+          );
+        }
+        for (let i = 0; i < value.length; ++i) {
+          const unit = value.charCodeAt(i);
+          if (unit >= 55296 && unit <= 56319) {
+            const low = value.charCodeAt(++i);
+            if (!(low >= 56320 && low <= 57343)) {
+              throw error(
+                "ERR_INVALID_ARG_VALUE",
+                "Recent document path has an unpaired surrogate"
+              );
+            }
+          } else if (unit >= 56320 && unit <= 57343) {
+            throw error("ERR_INVALID_ARG_VALUE", "Recent document path has an unpaired surrogate");
+          }
+        }
+        invoke("recentDocumentsAdd", [value]);
+      }
+    },
+    stop() {
+      if (!stopped) {
+        stopped = true;
+        native.recentDocumentsStop?.();
+      }
+    }
+  };
+}
+
 // firefly/core/api.mjs
 function createFireflyApi(native, EventEmitter, paths, urls, files, streams, transport) {
   const error = (code, message) => Object.assign(new Error(message), { code });
   const unsupported = (name) => {
     throw error("ERR_FIREFLY_UNSUPPORTED_API", `${name} is not implemented`);
   };
-  const channels = createMessageChannels(native, EventEmitter, error);
+  const bufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
+  const portCodec = {
+    encodeIpc: (value) => typeof native.encodePortIpc === "function" ? native.encodePortIpc(value) : native.encodeIpc(value),
+    decodeIpc: (wire) => typeof native.decodePortIpc === "function" ? native.decodePortIpc(wire) : native.decodeIpc(wire)
+  };
+  const channels = createMessageChannels(portCodec, EventEmitter, error);
+  const rendererPorts = createRendererPorts(native, channels, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
   const titleBar = createTitleBar(native, error, unsupported);
@@ -7515,6 +8466,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
   let quitting = false;
   let exited = false;
   let sandboxRequired = false;
+  const recentDocuments = createRecentDocuments(
+    native,
+    () => ready,
+    () => exited,
+    error,
+    unsupported
+  );
   const zoom2 = createZoomPolicy();
   const preferences = createWebPreferences(
     paths,
@@ -7541,6 +8499,12 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     unsupported
   );
   class App extends EventEmitter {
+    clearRecentDocuments(...args) {
+      return recentDocuments.api.clearRecentDocuments(...args);
+    }
+    addRecentDocument(...args) {
+      return recentDocuments.api.addRecentDocument(...args);
+    }
     getGPUFeatureStatus() {
       return gpu.getFeatureStatus();
     }
@@ -7648,6 +8612,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       }
       exited = true;
       quitting = true;
+      recentDocuments.stop();
       systemPreferencesService.stop();
       network.stop();
       protocols.stop();
@@ -7660,6 +8625,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       power.stop();
       notifications.stop();
       capture.stop();
+      rendererPorts.shutdown();
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
@@ -7760,7 +8726,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     EventEmitter,
     streams?.Readable,
     app,
-    paths
+    paths,
+    (details) => {
+      if (!exited) {
+        app.emit("child-process-gone", event(), details);
+      }
+    },
+    channels
   );
   Object.defineProperty(app, "commandLine", {
     enumerable: true,
@@ -7777,6 +8749,9 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
   );
   const { Menu, MenuItem } = menus;
+  if (process.platform === "darwin") {
+    Object.defineProperty(app, "dock", { enumerable: true, value: menus.dock });
+  }
   const contentTracing = createTracing(native, () => ready, files, paths, error, unsupported);
   const crashReporter = createCrashReporter(native, error, unsupported);
   const protocols = createProtocol(native, () => ready, error, unsupported, transport);
@@ -7828,6 +8803,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       return;
     }
     exited = true;
+    recentDocuments.stop();
     systemPreferencesService.stop();
     network.stop();
     protocols.stop();
@@ -7840,6 +8816,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     power.stop();
     notifications.stop();
     capture.stop();
+    rendererPorts.shutdown();
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
@@ -7876,8 +8853,9 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       alive(this._window);
       return defaultSession;
     }
-    postMessage() {
-      unsupported("webContents.postMessage port/data delivery");
+    postMessage(channel, message, transfer) {
+      alive(this._window);
+      rendererPorts.post(this.id, channel, message, transfer);
     }
     send(channel, ...args) {
       alive(this._window);
@@ -7932,6 +8910,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     set zoomLevel(value) {
       this.setZoomLevel(value);
+    }
+    isOffscreen() {
+      alive(this._window);
+      return false;
     }
     isDestroyed() {
       return this._window._destroyed;
@@ -8099,7 +9081,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           constraintWire,
           firstMouse,
           hiddenTitleBar,
-          prefs.zoomFactor
+          prefs.zoomFactor,
+          prefs.autoplayPolicy
         )
       });
       this.webContents = new WebContents(this, contentsToken);
@@ -8112,6 +9095,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     static getAllWindows() {
       return [...windows.values()];
+    }
+    static getFocusedWindow() {
+      const window = windows.get(native.focusedWindow());
+      return window && !window._destroyed && !window._closing ? window : null;
     }
     static fromId(id) {
       return windows.get(id) ?? null;
@@ -8176,6 +9163,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       alive(this);
       native.focus(this.id);
     }
+    isFocused() {
+      alive(this);
+      return native.windowFocused(this.id);
+    }
     minimize() {
       alive(this);
       native.minimize(this.id);
@@ -8199,6 +9190,54 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     isMaximized() {
       alive(this);
       return native.maximized(this.id);
+    }
+    isFullScreen() {
+      alive(this);
+      return native.windowFullScreen(this.id);
+    }
+    setFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "fullscreen must be a boolean");
+      }
+      unsupported("BrowserWindow.setFullScreen");
+    }
+    isSimpleFullScreen() {
+      alive(this);
+      return false;
+    }
+    setSimpleFullScreen(fullscreen) {
+      alive(this);
+      if (typeof fullscreen !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "fullscreen must be a boolean");
+      }
+      unsupported("BrowserWindow.setSimpleFullScreen");
+    }
+    getNativeWindowHandle() {
+      alive(this);
+      return bufferFrom(native.nativeWindowHandle(this.id));
+    }
+    isDocumentEdited() {
+      alive(this);
+      return native.windowDocumentEdited(this.id);
+    }
+    setDocumentEdited(edited) {
+      alive(this);
+      if (typeof edited !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "edited must be a boolean");
+      }
+      native.setWindowDocumentEdited(this.id, edited);
+    }
+    getRepresentedFilename() {
+      alive(this);
+      return native.representedFilename(this.id);
+    }
+    setRepresentedFilename(filename) {
+      alive(this);
+      if (typeof filename !== "string") {
+        throw error("ERR_INVALID_ARG_TYPE", "filename must be a string");
+      }
+      native.setRepresentedFilename(this.id, filename);
     }
     setTitle(title) {
       alive(this);
@@ -8247,8 +9286,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
   };
   native.setHandler((id, type, data) => {
-    if (type === "menu-click") {
-      menus.dispatch(id, JSON.parse(data));
+    if (type === "menu-click" || type === "dock-menu-click") {
+      menus.dispatch(id, JSON.parse(data), type === "dock-menu-click");
       return;
     }
     if (type === "permission-request") {
@@ -8322,6 +9361,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     if (type === "theme-changed") {
       theme.changed();
+      return;
+    }
+    if (typeof type === "string" && type.startsWith("renderer-port-")) {
+      rendererPorts.dispatch(id, type, data);
       return;
     }
     const win = windows.get(id) ?? views.records.get(id);

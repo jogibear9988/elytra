@@ -4,8 +4,10 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import re
+import shlex
 import subprocess
 import sys
+import tempfile
 import time
 
 from test_renderer import stop
@@ -83,9 +85,28 @@ def managed_window_manager(env, log_path):
     control = None
     observations = {}
     title = f"Firefly X11 WM control {os.getpid()}"
-    with log_path.open("wb") as log:
+    with (
+        tempfile.TemporaryDirectory(prefix="firefly-x11-wm-startup-") as startup_directory,
+        log_path.open("wb") as log,
+    ):
+        startup_marker = Path(startup_directory) / "ready"
+        # Openbox 3.6.1 openbox/openbox.c: screen_annex advertises the WM before
+        # xqueue_listen/window_manage_all. run_startup_cmd runs only after those
+        # and OB_STATE_RUNNING. An early MapRequest can otherwise get stranded
+        # in its private queue while obt/xqueue.c's GLib source tests XPending.
+        # Primary source: https://sources.debian.org/src/openbox/3.6.1-10/openbox/openbox.c/
+        # This barrier only orders the control launch; mapping/decorations below
+        # still independently prove the manager is actually serving clients.
+        startup_command = shlex.join(
+            [
+                sys.executable,
+                "-c",
+                "import sys; open(sys.argv[1], 'xb').write(b'ready\\n')",
+                str(startup_marker),
+            ]
+        )
         manager = subprocess.Popen(
-            ["openbox", "--sm-disable"],
+            ["openbox", "--sm-disable", "--startup", startup_command],
             env=env,
             stdout=log,
             stderr=subprocess.STDOUT,
@@ -95,6 +116,15 @@ def managed_window_manager(env, log_path):
             wait_for(
                 lambda: root_property("_NET_SUPPORTING_WM_CHECK", env), "Openbox advertisement"
             )
+
+            def startup_completed():
+                assert manager.poll() is None, ("Openbox exited during startup", manager.returncode)
+                try:
+                    return startup_marker.read_bytes() == b"ready\n"
+                except FileNotFoundError:
+                    return False
+
+            wait_for(startup_completed, "Openbox post-initialization startup callback")
             control = subprocess.Popen(
                 ["xmessage", "-title", title, "-buttons", "OK:0", "Window-manager readiness"],
                 env=env,

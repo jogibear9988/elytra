@@ -5,6 +5,7 @@
 
 #include "platform/network/DNS.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include "platform/network/Network.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
@@ -31,9 +32,17 @@ namespace {
         Resolver& owner;
         uv_getaddrinfo_t request {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct Resolver {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(realm);
+            for (auto const* request : requests)
+                visitor.visit(request->callback.ptr());
+        }
+
         JS::VM& vm;
         JS::Realm& realm;
         EventLoop& loop;
@@ -87,80 +96,85 @@ GC::Ref<JS::Object> create_dns_host(JS::VM& vm, JS::Realm& realm, EventLoop& loo
             return value;
         },
         1, JS::default_attributes);
-    host->define_native_function(
-        realm, "lookup"_utf16,
-        [resolver](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (!vm.argument(0).is_string() || !vm.argument(3).is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid internal DNS arguments"_utf16);
-            int family = TRY(integer(vm, vm.argument(1)));
-            if (family != 0 && family != 4 && family != 6)
-                return vm.throw_completion<JS::TypeError>("Invalid internal DNS family"_utf16);
-            int flags = TRY(integer(vm, vm.argument(2)));
-            if (flags & ~(AI_ADDRCONFIG | AI_V4MAPPED | AI_ALL))
-                return vm.throw_completion<JS::TypeError>("Invalid internal DNS flags"_utf16);
-            auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-            if (bytes.view().contains('\0'))
-                return JS::Value(UV_EAI_NONAME);
-            std::string hostname(bytes.characters(), bytes.length());
-            addrinfo hints {};
-            hints.ai_family = family == 4 ? AF_INET : family == 6 ? AF_INET6 : AF_UNSPEC;
-            hints.ai_socktype = SOCK_STREAM;
-            hints.ai_flags = flags;
-            auto* request = new Lookup { *resolver, {}, GC::Root { vm.argument(3).as_function() } };
-            request->request.data = request;
-            int status = uv_getaddrinfo(
-                &resolver->loop.native_loop(), &request->request,
-                [](uv_getaddrinfo_t* native, int status, addrinfo* addresses) {
-                    auto* request = static_cast<Lookup*>(native->data);
-                    auto& owner = request->owner;
-                    owner.requests.erase(request);
-                    owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
-                        GC::Root values { TRY(JS::Array::create(owner.realm, 0)) };
-                        std::unordered_set<std::string> seen;
-                        size_t index = 0;
-                        if (!status)
-                            for (auto* item = addresses; item; item = item->ai_next) {
-                                char name[INET6_ADDRSTRLEN] {};
-                                int family = item->ai_family == AF_INET ? 4
-                                    : item->ai_family == AF_INET6       ? 6
-                                                                        : 0;
-                                int error = family == 4
-                                    ? uv_ip4_name(reinterpret_cast<sockaddr_in*>(item->ai_addr),
-                                          name, sizeof(name))
-                                    : family == 6
-                                    ? uv_ip6_name(reinterpret_cast<sockaddr_in6*>(item->ai_addr),
-                                          name, sizeof(name))
-                                    : UV_EINVAL;
-                                if (error || !seen.insert(name).second)
-                                    continue;
-                                auto entry = JS::Object::create(
-                                    owner.realm, owner.realm.intrinsics().object_prototype());
-                                entry->define_direct_property(
-                                    "address"_utf16, text(owner.vm, name), JS::default_attributes);
-                                entry->define_direct_property(
-                                    "family"_utf16, JS::Value(family), JS::default_attributes);
-                                TRY(values->create_data_property_or_throw(index++, entry));
-                            }
+    host->define_native_function(realm, "lookup"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(resolver)),
+            [](auto& resolver, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (!vm.argument(0).is_string() || !vm.argument(3).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal DNS arguments"_utf16);
+                int family = TRY(integer(vm, vm.argument(1)));
+                if (family != 0 && family != 4 && family != 6)
+                    return vm.throw_completion<JS::TypeError>("Invalid internal DNS family"_utf16);
+                int flags = TRY(integer(vm, vm.argument(2)));
+                if (flags & ~(AI_ADDRCONFIG | AI_V4MAPPED | AI_ALL))
+                    return vm.throw_completion<JS::TypeError>("Invalid internal DNS flags"_utf16);
+                auto bytes = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
+                if (bytes.view().contains('\0'))
+                    return JS::Value(UV_EAI_NONAME);
+                std::string hostname(bytes.characters(), bytes.length());
+                addrinfo hints {};
+                hints.ai_family = family == 4 ? AF_INET : family == 6 ? AF_INET6 : AF_UNSPEC;
+                hints.ai_socktype = SOCK_STREAM;
+                hints.ai_flags = flags;
+                auto* request
+                    = new Lookup { *resolver, {}, GC::Root { vm.argument(3).as_function() },
+                          GC::Root { resolver->loop.async_context().capture() } };
+                request->request.data = request;
+                int status = uv_getaddrinfo(
+                    &resolver->loop.native_loop(), &request->request,
+                    [](uv_getaddrinfo_t* native, int status, addrinfo* addresses) {
+                        auto* request = static_cast<Lookup*>(native->data);
+                        auto& owner = request->owner;
+                        owner.requests.erase(request);
+                        owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                            AsyncContext::Scope context(
+                                owner.loop.async_context(), request->context.ptr());
+                            GC::Root values { TRY(JS::Array::create(owner.realm, 0)) };
+                            std::unordered_set<std::string> seen;
+                            size_t index = 0;
+                            if (!status)
+                                for (auto* item = addresses; item; item = item->ai_next) {
+                                    char name[INET6_ADDRSTRLEN] {};
+                                    int family = item->ai_family == AF_INET ? 4
+                                        : item->ai_family == AF_INET6       ? 6
+                                                                            : 0;
+                                    int error = family == 4
+                                        ? uv_ip4_name(reinterpret_cast<sockaddr_in*>(item->ai_addr),
+                                              name, sizeof(name))
+                                        : family == 6 ? uv_ip6_name(reinterpret_cast<sockaddr_in6*>(
+                                                                        item->ai_addr),
+                                                            name, sizeof(name))
+                                                      : UV_EINVAL;
+                                    if (error || !seen.insert(name).second)
+                                        continue;
+                                    auto entry = JS::Object::create(
+                                        owner.realm, owner.realm.intrinsics().object_prototype());
+                                    entry->define_direct_property("address"_utf16,
+                                        text(owner.vm, name), JS::default_attributes);
+                                    entry->define_direct_property(
+                                        "family"_utf16, JS::Value(family), JS::default_attributes);
+                                    TRY(values->create_data_property_or_throw(index++, entry));
+                                }
 
-                        if (!status && !index)
-                            status = UV_EAI_NONAME;
-                        return JS::call(owner.vm, *request->callback, JS::js_undefined(),
-                            JS::Value(status), JS::Value(values.ptr()));
-                    });
-                    uv_freeaddrinfo(addresses);
-                    owner.loop.request_finished();
+                            if (!status && !index)
+                                status = UV_EAI_NONAME;
+                            return JS::call(owner.vm, *request->callback, JS::js_undefined(),
+                                JS::Value(status), JS::Value(values.ptr()));
+                        });
+                        uv_freeaddrinfo(addresses);
+                        owner.loop.request_finished();
+                        delete request;
+                    },
+                    hostname.c_str(), nullptr, &hints);
+                if (status)
                     delete request;
-                },
-                hostname.c_str(), nullptr, &hints);
-            if (status)
-                delete request;
-            else {
-                resolver->requests.insert(request);
-                resolver->loop.request_started();
-            }
+                else {
+                    resolver->requests.insert(request);
+                    resolver->loop.request_started();
+                }
 
-            return JS::Value(status);
-        },
+                return JS::Value(status);
+            }),
         4, JS::default_attributes);
     return host;
 }

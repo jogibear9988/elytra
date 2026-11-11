@@ -5,6 +5,11 @@ Public protocol/session handlers and a Code-OSS workbench launch remain open.
 
 Subsequent public default-session file integration is recorded in
 [ADR 0126](0126-public-file-protocol-routes.md). The status below describes this step.
+[ADR 0175](0175-public-response-protocols.md) later superseded the blanket
+duplicate-ID rule: a trusted higher-epoch grant can refresh the same canonical
+document binding for late file interception. Equal-epoch replay remains rejected.
+The headless resource gate now distinguishes replay rejection from a genuine
+higher-epoch refresh with resource delivery and retirement of the old channel.
 
 ## Decision
 

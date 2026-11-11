@@ -9,7 +9,7 @@ ErrorOr<BridgeData> capture_to_principal(IsolatedWorld& world, JS::Value value,
     if (world.is_detached())
         return Error::from_string_literal("Cannot snapshot a detached world");
     return BridgeData::capture(
-        value, *world.realm(), public_binary_limits(), move(functions),
+        value, *world.realm(), context_bridge_limits(), move(functions),
         [&](JS::Object& object) { return world.object_export_redacted(object); }, move(accessors));
 }
 }

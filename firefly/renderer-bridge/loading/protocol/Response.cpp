@@ -2,12 +2,16 @@
  * abort/flow control. */
 #include "Response.h"
 #include "loading/web-request/Gate.h"
+#include "native/protocol/Diagnostics.h"
 #include "native/protocol/files/FilePacket.h"
 #include "native/protocol/files/ResponseHead.h"
 #include <AK/WeakPtr.h>
+#include <LibGC/Function.h>
 #include <LibHTTP/HeaderList.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
+#include <LibWeb/Fetch/Infrastructure/HTTP/MIME.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
+#include <LibWebCommon/MimeSniff/MimeType.h>
 
 namespace Firefly::ProtocolFetch {
 namespace Engine = Web::Fetch::Engine;
@@ -104,6 +108,7 @@ void Response::fail()
     VERIFY(m_thread == AK::ThreadID::current());
     if (m_finished)
         return;
+    Protocols::diagnostic(Protocols::DiagnosticStage::ResponseFail, m_received);
     m_finished = true;
     WebRequestGate::cancel(*m_params);
     m_gate->detach_transport();
@@ -116,8 +121,12 @@ void Response::fail()
                       "Protocol resource request failed"_string));
     auto callbacks = exchange(m_callbacks, nullptr);
     release_vm_state();
-    if (callbacks && callbacks->callbacks.cancel)
-        callbacks->callbacks.cancel();
+    if (callbacks) {
+        if (m_complete_received && callbacks->callbacks.completed)
+            callbacks->callbacks.completed();
+        else if (callbacks->callbacks.cancel)
+            callbacks->callbacks.cancel();
+    }
 }
 
 void Response::stop()
@@ -128,6 +137,7 @@ void Response::stop()
 
 ErrorOr<void> Response::reject()
 {
+    Protocols::diagnostic(Protocols::DiagnosticStage::ResponseFrame, m_received);
     fail();
     return Error::from_string_literal("Invalid protocol response frame/state/credit");
 }
@@ -169,12 +179,19 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
     // The ordinary upstream HTTP fetch path repeats its own CORS/filter checks.
     if (m_params->request()->response_tainting() == Infrastructure::Request::ResponseTainting::CORS
         && !Web::Fetch::Fetching::cors_check(*m_params->request(), *response)) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ResponseCors);
         // A policy refusal belongs to this request; the well-formed channel
         // remains usable for other resources from the same document.
         fail();
         return;
     }
 
+    if (m_params->request()->destination() == Infrastructure::Request::Destination::Script) {
+        auto mime = Infrastructure::extract_mime_type(response->header_list());
+        if (!mime.has_value() || !mime->is_javascript())
+            Protocols::diagnostic(
+                Protocols::DiagnosticStage::ResponseScriptMime, mime.has_value() ? 1 : 0);
+    }
     if (!m_head->body_null) {
         m_channel = Engine::FetchByteChannel::create(
             { .low = Protocols::file_chunk_limit / 2, .high = Protocols::file_chunk_limit },
@@ -183,7 +200,16 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
             Infrastructure::ResponseBody { NonnullRefPtr { *m_channel }, m_head->content_length });
     }
 
+    m_head_ready = true;
     m_pending->resolve(response);
+    // Resolving the head can reenter transport/cancellation. The owner remains
+    // protected, but its VM roots may already have been released.
+    if (m_finished)
+        return;
+    if (m_complete_received) {
+        finish_complete();
+        return;
+    }
     if (m_channel) {
         m_gate->attach_transport(*m_transport);
         m_gate->grant_credit(m_channel->initial_credit());
@@ -194,7 +220,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
 {
     VERIFY(m_thread == AK::ThreadID::current());
     NonnullRefPtr protect { *this };
-    if (m_finished)
+    if (m_finished || m_complete_received)
         return Error::from_string_literal("Protocol response is already terminal");
     auto decoded = Protocols::decode_file_packet(wire);
     if (decoded.is_error())
@@ -204,6 +230,7 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         return reject();
     using Kind = Protocols::FilePacketKind;
     if (packet.kind == Kind::Cancel) {
+        Protocols::diagnostic(Protocols::DiagnosticStage::ResponseCancel, m_received);
         fail();
         return {};
     }
@@ -238,8 +265,8 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         for (auto const& header : m_head->headers)
             response->header_list()->append(header);
         auto weak = make_weak_ptr();
-        auto continuation = GC::create_function(
-            GC::Heap::the(), [weak](NonnullRefPtr<Infrastructure::Response> accepted) {
+        auto continuation = GC::create_function(GC::Heap::the(), GC::captures(weak),
+            [](auto& weak, NonnullRefPtr<Infrastructure::Response> accepted) {
                 auto owner = weak.strong_ref();
                 if (!owner || owner->m_finished)
                     return;
@@ -279,6 +306,20 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         || (!m_head->body_null && m_head->content_length.has_value()
             && m_received != *m_head->content_length))
         return reject();
+    // Empty files and HEAD can complete before an asynchronous header decision.
+    // Keep the pending response and client slot until that decision is settled.
+    m_complete_received = true;
+    if (m_head_ready)
+        finish_complete();
+    return {};
+}
+
+void Response::finish_complete()
+{
+    NonnullRefPtr protect { *this };
+    VERIFY(m_complete_received && m_head_ready);
+    if (m_finished)
+        return;
     m_finished = true;
     m_gate->detach_transport();
     if (m_channel) {
@@ -286,8 +327,9 @@ ErrorOr<void> Response::receive(ReadonlyBytes wire)
         m_controller->did_complete_network_body(*m_channel);
     }
 
-    m_callbacks = nullptr;
+    auto callbacks = exchange(m_callbacks, nullptr);
     release_vm_state();
-    return {};
+    if (callbacks && callbacks->callbacks.completed)
+        callbacks->callbacks.completed();
 }
 }

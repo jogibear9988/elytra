@@ -1,6 +1,7 @@
 /** Admit one raw endpoint for the exact live configured preload; duplicates cannot revive it. */
 #include "IpcEndpoint.h"
 #include "native/ipc/application/Handshake.h"
+#include "ports/PortEndpoint.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <LibCore/System.h>
@@ -40,8 +41,11 @@ void IpcEndpoint::attach_channel(
                 },
             .on_writable =
                 [weak] {
-                    if (auto owner = weak.strong_ref())
+                    if (auto owner = weak.strong_ref()) {
                         owner->flush_packets();
+                        if (owner->m_ports)
+                            owner->m_ports->writable();
+                    }
                 },
             .on_closed =
                 [weak](auto) {
@@ -68,13 +72,14 @@ bool IpcEndpoint::send_packet(
 {
     if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document->is_fully_active())
         return false;
-    if (wire.length() > ApplicationIpc::wire_limit
+    auto reservation = m_wire_budget->reserve(wire.length());
+    if (!reservation || wire.length() > ApplicationIpc::logical_wire_limit
         || m_byte_queue.size() >= ApplicationIpc::queue_limit) {
         retire_channel();
         return false;
     }
 
-    m_byte_queue.append({ kind, id, success, wire });
+    m_byte_queue.append({ kind, id, success, wire, 0, move(reservation) });
     flush_packets();
     return !m_byte_failed;
 }
@@ -85,18 +90,46 @@ void IpcEndpoint::flush_packets()
         || !m_byte_channel || !m_byte_channel->is_open())
         return;
     while (!m_byte_queue.is_empty() && m_byte_channel->pending_send_count() < Bytes::max_pending) {
-        auto queued = m_byte_queue.take_first();
+        auto& queued = m_byte_queue.first();
         if ((queued.kind == ApplicationIpc::Kind::Invoke
                 || queued.kind == ApplicationIpc::Kind::Send)
-            && !m_pending.contains(queued.request))
+            && !m_pending.contains(queued.request)) {
+            // A partially published message cannot be skipped without corrupting
+            // the peer's strict, noninterleaved logical stream.
+            if (queued.offset) {
+                retire_channel();
+                return;
+            }
+
+            m_byte_queue.remove(0);
             continue;
-        auto packet = MUST(ApplicationIpc::encode_message(
-            queued.kind, queued.success, m_byte_epoch, queued.request, queued.wire.bytes()));
-        if (m_byte_channel->send(packet.bytes()).is_error()) {
+        }
+
+        auto packet = ApplicationIpc::FragmentEncoder::encode_next(queued.kind, queued.success,
+            m_byte_epoch, queued.request, queued.wire.bytes(), queued.offset);
+        if (packet.is_error()) {
+            retire_channel();
+            return;
+        }
+
+        queued.offset = packet.value().next_offset;
+        if (packet.value().complete)
+            m_byte_queue.remove(0);
+        if (m_byte_channel->send(packet.value().bytes.bytes()).is_error()) {
             retire_channel();
             return;
         }
     }
+
+    schedule_admission();
+}
+
+void IpcEndpoint::clear_packets()
+{
+    m_byte_queue.clear();
+    m_reassembler.reset();
+    m_fragment_deadline.clear();
+    m_receive_reservation = nullptr;
 }
 
 void IpcEndpoint::retire_channel()
@@ -104,7 +137,9 @@ void IpcEndpoint::retire_channel()
     if (m_byte_failed)
         return;
     m_byte_failed = true;
-    m_byte_queue.clear();
+    clear_packets();
+    if (m_ports)
+        m_ports->revoke();
     if (m_byte_channel)
         m_byte_channel->close();
     m_byte_channel = nullptr;
@@ -120,27 +155,56 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
 {
     if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document->is_fully_active())
         return;
-    auto decoded = ApplicationIpc::decode_message(bytes);
-    if (decoded.is_error() || decoded.value().epoch != m_byte_epoch) {
+    // Validate declared length/epoch before reserving or allocating reassembly.
+    auto required = ApplicationIpc::FragmentReassembler::required_bytes(bytes, m_byte_epoch);
+    if (required.is_error()) {
         retire_channel();
         return;
     }
 
-    auto const& packet = decoded.value();
+    if (!m_reassembler.active()) {
+        m_receive_reservation = m_wire_budget->reserve(required.value());
+        if (!m_receive_reservation) {
+            retire_channel();
+            return;
+        }
+    }
+
+    auto decoded = m_reassembler.accept(bytes, m_byte_epoch);
+    if (decoded.is_error()) {
+        retire_channel();
+        return;
+    }
+
+    if (!decoded.value().has_value()) {
+        if (!m_fragment_deadline.has_value())
+            m_fragment_deadline = MonotonicTime::now() + AK::Duration::from_seconds(30);
+        return;
+    }
+
+    m_fragment_deadline.clear();
+    auto reservation = move(m_receive_reservation);
+    auto packet = decoded.release_value().release_value();
+    if (packet.kind == ApplicationIpc::Kind::PortControl) {
+        if (packet.payload.length() > ApplicationIpc::wire_limit
+            || !m_ports->receive(packet.request, packet.payload.bytes()))
+            retire_channel();
+        return;
+    }
+
     if (packet.kind != ApplicationIpc::Kind::Reply && packet.kind != ApplicationIpc::Kind::Event) {
         retire_channel();
         return;
     }
 
-    auto wire = ByteString(
-        StringView(reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size()));
-    if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error()) {
+    auto wire = move(packet.payload);
+    if (BridgeData::decode_wire(wire.view(), application_ipc_limits()).is_error()) {
         retire_channel();
         return;
     }
 
     if (packet.kind == ApplicationIpc::Kind::Reply)
-        settle(packet.request, packet.success, wire);
+        settle(packet.request, packet.success, wire, move(reservation));
     else {
         if (packet.request <= m_incoming_last || m_incoming_pending >= 16) {
             retire_channel();
@@ -149,7 +213,7 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
 
         m_incoming_last = packet.request;
         ++m_incoming_pending;
-        receive_event(packet.request, move(wire));
+        receive_event(packet.request, move(wire), move(reservation));
     }
 }
 

@@ -14,8 +14,35 @@ export default function createWebPreferences(
       throw error('ERR_INVALID_ARG_TYPE', 'webPreferences must be an object');
     }
     let zoomFactor = 1;
+    let autoplayPolicy;
     for (const key of Object.keys(prefs)) {
       if (key === 'preload' || key === 'additionalArguments') {
+        continue;
+      }
+      if (key === 'enableBlinkFeatures') {
+        const value = prefs[key];
+        if (typeof value !== 'string') {
+          throw error(
+            'ERR_INVALID_ARG_TYPE',
+            'webPreferences.enableBlinkFeatures must be a string'
+          );
+        }
+        // LibWeb exposes CSS.highlights unconditionally in its native CSS IDL;
+        // this exact Electron compatibility request needs no engine feature toggle.
+        if (value !== 'HighlightAPI') {
+          unsupported(`webPreferences.enableBlinkFeatures=${value}`);
+        }
+        continue;
+      }
+      if (key === 'autoplayPolicy') {
+        const value = prefs[key];
+        if (typeof value !== 'string') {
+          throw error('ERR_INVALID_ARG_TYPE', 'webPreferences.autoplayPolicy must be a string');
+        }
+        if (!['no-user-gesture-required', 'user-gesture-required'].includes(value)) {
+          unsupported(`webPreferences.autoplayPolicy=${value}`);
+        }
+        autoplayPolicy = value;
         continue;
       }
       if (key === 'zoomFactor') {
@@ -71,6 +98,11 @@ export default function createWebPreferences(
     if (additionalArguments.length > 64) {
       throw error('ERR_INVALID_ARG_VALUE', 'additionalArguments exceeds 64 entries');
     }
-    return { preload: prefs.preload, additionalArguments, zoomFactor };
+    return {
+      preload: prefs.preload,
+      additionalArguments,
+      zoomFactor,
+      ...(autoplayPolicy === undefined ? {} : { autoplayPolicy })
+    };
   };
 }

@@ -10,7 +10,7 @@ from generate_byte_bootstrap import GENERATOR, GENERATOR_SHA, message_ids, optio
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentClient.ipc"
-INPUT_SHA = "33ff079ad191935840d46a3d0932cf0ee9b42f6aa19b555565ac1d5d88340093"
+INPUT_SHA = "1f182d6324208db2f644d72b6fca3621de21b152f935b8a6fe104a6a2d875d13"
 METHOD = "\n    [NotRouted] firefly_permission_check(u64 page, u64 document_ns, u64 document_local, u64 epoch, String name) => (bool granted)\n"
 INCLUDE = "#include <LibIPC/FireflyBootstrap.h>\n"
 DECLARATION = "    virtual Messages::WebContentClient::FireflyPermissionCheckResponse firefly_permission_check(u64 page, u64 document_ns, u64 document_local, u64 epoch, String name) = 0;"

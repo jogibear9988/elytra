@@ -16,8 +16,12 @@ def main():
         length = 4 * 1024 * 1024 + 19
         pattern = bytes((i * 37 + 11) & 255 for i in range(256))
         path.write_bytes((pattern * (length // 256 + 1))[:length])
+        small = Path(temporary) / "queued small 世界.bin"
+        small.write_bytes((pattern * 17)[:4099])
         for mode in [
             "body",
+            "burst",
+            "gate-burst",
             "stream",
             "quota",
             "scope",
@@ -33,7 +37,11 @@ def main():
             "silence",
         ]:
             result = subprocess.run(
-                [str(args.probe.resolve()), mode, str(path)],
+                [
+                    str(args.probe.resolve()),
+                    mode,
+                    str(small if mode in ("burst", "gate-burst") else path),
+                ],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",

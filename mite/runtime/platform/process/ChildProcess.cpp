@@ -6,6 +6,8 @@
 
 #include "platform/process/ChildProcess.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
+#include "platform/UV.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -21,7 +23,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <uv.h>
 #include <vector>
 
 namespace Mite {
@@ -35,17 +36,17 @@ namespace {
     JS::ThrowCompletionOr<std::string> string(JS::VM& vm, JS::Value value)
     {
         if (!value.is_string())
-            return vm.throw_completion<JS::TypeError>("Invalid internal process string"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal process string"_utf16);
         auto bytes = MUST(value.as_string().utf16_string_view().to_byte_string());
         if (bytes.contains('\0'))
-            return vm.throw_completion<JS::TypeError>("NUL in internal process string"sv);
+            return vm.throw_completion<JS::TypeError>("NUL in internal process string"_utf16);
         return std::string(bytes.characters(), bytes.length());
     }
 
     JS::ThrowCompletionOr<std::vector<std::string>> strings(JS::VM& vm, JS::Value value)
     {
         if (!value.is_object() || !is<JS::Array>(value.as_object()))
-            return vm.throw_completion<JS::TypeError>("Invalid internal process array"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal process array"_utf16);
         auto& array = value.as_object();
         auto size = TRY(TRY(array.get("length"_utf16)).to_u32(vm));
         std::vector<std::string> result;
@@ -68,7 +69,7 @@ namespace {
         if (!value.is_number() || !std::isfinite(value.as_double())
             || std::trunc(value.as_double()) != value.as_double() || value.as_double() < minimum
             || value.as_double() > maximum)
-            return vm.throw_completion<JS::TypeError>("Invalid internal process integer"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal process integer"_utf16);
         return static_cast<int>(value.as_double());
     }
 
@@ -99,6 +100,7 @@ namespace {
         Service& owner;
         uint64_t id;
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
         uv_process_t process {};
         std::array<Pipe, 4> pipes {};
         size_t handles {};
@@ -111,6 +113,13 @@ namespace {
     };
 
     struct Service {
+        void visit_capture_edges(GC::Cell::Visitor& visitor) const
+        {
+            visitor.visit(realm);
+            for (auto const& entry : children)
+                visitor.visit(entry.second->callback.ptr());
+        }
+
         JS::VM& vm;
         JS::Realm& realm;
         EventLoop& loop;
@@ -152,6 +161,7 @@ namespace {
             if (!child.callback)
                 return;
             loop.dispatch([&] {
+                AsyncContext::Scope context(loop.async_context(), child.context.ptr());
                 return JS::call(vm, *child.callback, JS::js_undefined(), text(vm, kind),
                     JS::Value(index), value, JS::Value(signal));
             });
@@ -199,12 +209,14 @@ namespace {
         uv_write_t request {};
         std::vector<char> bytes;
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct Shutdown {
         Pipe& pipe;
         uv_shutdown_t request {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     JS::ThrowCompletionOr<JS::Value> read_pipe(Service&, Pipe* pipe, bool enabled)
@@ -231,6 +243,8 @@ namespace {
                 auto& owner = child.owner;
                 if (count > 0 && child.callback)
                     owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), child.context.ptr());
                         GC::Root bytes { TRY(
                             JS::Uint8Array::create(owner.realm, static_cast<size_t>(count))) };
                         bytes->viewed_array_buffer()->overwrite(
@@ -261,19 +275,21 @@ namespace {
             return JS::Value(UV_EPIPE);
 
         if (!data.is_object() || !is<JS::Uint8Array>(data.as_object()) || !callback.is_function())
-            return vm.throw_completion<JS::TypeError>("Invalid internal process write"sv);
+            return vm.throw_completion<JS::TypeError>("Invalid internal process write"_utf16);
         auto& array = static_cast<JS::Uint8Array&>(data.as_object());
         auto witness = JS::make_typed_array_with_buffer_witness_record(
             array, JS::ArrayBuffer::Order::SeqCst);
         if (JS::is_typed_array_out_of_bounds(witness))
-            return vm.throw_completion<JS::TypeError>("Detached process write"sv);
+            return vm.throw_completion<JS::TypeError>("Detached process write"_utf16);
         auto size = JS::typed_array_byte_length(witness);
         if (size > (pipe->index == 3 ? 1048576u : 0x7fffffffu))
-            return vm.throw_completion<JS::RangeError>("Process pipe write exceeds byte limit"sv);
+            return vm.throw_completion<JS::RangeError>(
+                "Process pipe write exceeds byte limit"_utf16);
         if (pipe->index == 3
             && (pipe->pending_writes >= 64 || pipe->pending_bytes + size > 4194304))
             return JS::Value(UV_ENOBUFS);
-        auto* write = new Write { *pipe, {}, {}, GC::Root { callback.as_function() } };
+        auto* write = new Write { *pipe, {}, {}, GC::Root { callback.as_function() },
+            GC::Root { pipe->child->owner.loop.async_context().capture() } };
         if (size) {
             auto* bytes = reinterpret_cast<char const*>(
                 array.viewed_array_buffer()->data_at(array.byte_offset()));
@@ -294,6 +310,8 @@ namespace {
                 write->pipe.pending_bytes -= write->bytes.size();
                 if (write->callback)
                     owner.loop.dispatch([&] {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), write->context.ptr());
                         return JS::call(
                             owner.vm, *write->callback, JS::js_undefined(), JS::Value(status));
                     });
@@ -314,8 +332,9 @@ namespace {
         if (!pipe)
             return JS::Value(UV_EPIPE);
         if (!callback.is_function())
-            return vm.throw_completion<JS::TypeError>("Invalid internal process shutdown"sv);
-        auto* shutdown = new Shutdown { *pipe, {}, GC::Root { callback.as_function() } };
+            return vm.throw_completion<JS::TypeError>("Invalid internal process shutdown"_utf16);
+        auto* shutdown = new Shutdown { *pipe, {}, GC::Root { callback.as_function() },
+            GC::Root { pipe->child->owner.loop.async_context().capture() } };
         pipe->child->owner.shutdowns.insert(shutdown);
         shutdown->request.data = shutdown;
         int status = uv_shutdown(
@@ -325,6 +344,8 @@ namespace {
                 owner.shutdowns.erase(shutdown);
                 if (shutdown->callback)
                     owner.loop.dispatch([&] {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), shutdown->context.ptr());
                         return JS::call(
                             owner.vm, *shutdown->callback, JS::js_undefined(), JS::Value(status));
                     });
@@ -359,288 +380,296 @@ GC::Ref<JS::Object> create_child_process_host(JS::VM& vm, JS::Realm& realm, Even
         }
     });
     GC::Root host { JS::Object::create(realm, nullptr) };
-    host->define_native_function(
-        realm, "spawn"_utf16,
-        [service, &realm](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto spec = TRY(vm.argument(0).to_object(vm));
-            if (!vm.argument(1).is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid internal process callback"sv);
-            auto file = TRY(string(vm, TRY(spec->get("file"_utf16))));
-            auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
-            auto environment = TRY(strings(vm, TRY(spec->get("env"_utf16))));
-            auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
-            auto stdio = TRY(TRY(spec->get("stdio"_utf16)).to_object(vm));
-            unsigned int flags = 0;
-            if (TRY(spec->get("detached"_utf16)).to_boolean())
-                flags |= UV_PROCESS_DETACHED;
-            if (TRY(spec->get("windowsHide"_utf16)).to_boolean())
-                flags |= UV_PROCESS_WINDOWS_HIDE;
-            if (TRY(spec->get("windowsVerbatimArguments"_utf16)).to_boolean())
-                flags |= UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS;
-            std::array<int, 4> modes {};
-            for (int i = 0; i < 3; ++i)
-                modes[static_cast<size_t>(i)]
-                    = TRY(integer(vm, TRY(stdio->get(i)), -2, 0x7fffffff));
-            auto extra_mode = TRY(stdio->get(3));
-            bool ipc = !extra_mode.is_undefined();
-            if (ipc && TRY(integer(vm, extra_mode, -3, -3)) != -3)
-                return vm.throw_completion<JS::TypeError>("Invalid internal IPC mode"sv);
-            modes[3] = -3;
-            auto pipe_count = ipc ? 4 : 3;
-            if (args.empty() || file.empty())
-                return vm.throw_completion<JS::TypeError>("Empty internal process command"sv);
-            auto arguments = pointers(args), env = pointers(environment);
-            VERIFY(service->next_id < 9007199254740992ULL);
-            auto* child = new Child { *service, service->next_id++,
-                GC::Root { vm.argument(1).as_function() } };
-            service->children.emplace(child->id, child);
-            std::array<uv_stdio_container_t, 4> handles {};
-            int status = 0;
-            for (int i = 0; i < pipe_count; ++i) {
-                auto mode = modes[static_cast<size_t>(i)];
-                auto& entry = handles[static_cast<size_t>(i)];
-                auto& pipe = child->pipes[static_cast<size_t>(i)];
-                pipe.child = child;
-                pipe.index = i;
-                if (mode == -1 || mode == -3) {
-                    status = uv_pipe_init(&service->loop.native_loop(), &pipe.handle, 0);
-                    if (status)
-                        break;
-                    pipe.initialized = true;
-                    pipe.handle.data = &pipe;
-                    ++child->handles;
-                    entry.flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE
-                        | (i == 3        ? UV_READABLE_PIPE | UV_WRITABLE_PIPE
-                                : i == 0 ? UV_READABLE_PIPE
-                                         : UV_WRITABLE_PIPE));
+    host->define_native_function(realm, "spawn"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service), realm),
+            [](auto& service, auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto spec = TRY(vm.argument(0).to_object(vm));
+                if (!vm.argument(1).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal process callback"_utf16);
+                auto file = TRY(string(vm, TRY(spec->get("file"_utf16))));
+                auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
+                auto environment = TRY(strings(vm, TRY(spec->get("env"_utf16))));
+                auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
+                auto stdio = TRY(TRY(spec->get("stdio"_utf16)).to_object(vm));
+                unsigned int flags = 0;
+                if (TRY(spec->get("detached"_utf16)).to_boolean())
+                    flags |= UV_PROCESS_DETACHED;
+                if (TRY(spec->get("windowsHide"_utf16)).to_boolean())
+                    flags |= UV_PROCESS_WINDOWS_HIDE;
+                if (TRY(spec->get("windowsVerbatimArguments"_utf16)).to_boolean())
+                    flags |= UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS;
+                std::array<int, 4> modes {};
+                for (int i = 0; i < 3; ++i)
+                    modes[static_cast<size_t>(i)]
+                        = TRY(integer(vm, TRY(stdio->get(i)), -2, 0x7fffffff));
+                auto extra_mode = TRY(stdio->get(3));
+                bool ipc = !extra_mode.is_undefined();
+                if (ipc && TRY(integer(vm, extra_mode, -3, -3)) != -3)
+                    return vm.throw_completion<JS::TypeError>("Invalid internal IPC mode"_utf16);
+                modes[3] = -3;
+                auto pipe_count = ipc ? 4 : 3;
+                if (args.empty() || file.empty())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Empty internal process command"_utf16);
+                auto arguments = pointers(args), env = pointers(environment);
+                VERIFY(service->next_id < 9007199254740992ULL);
+                auto* child = new Child { *service, service->next_id++,
+                    GC::Root { vm.argument(1).as_function() },
+                    GC::Root { service->loop.async_context().capture() } };
+                service->children.emplace(child->id, child);
+                std::array<uv_stdio_container_t, 4> handles {};
+                int status = 0;
+                for (int i = 0; i < pipe_count; ++i) {
+                    auto mode = modes[static_cast<size_t>(i)];
+                    auto& entry = handles[static_cast<size_t>(i)];
+                    auto& pipe = child->pipes[static_cast<size_t>(i)];
+                    pipe.child = child;
+                    pipe.index = i;
+                    if (mode == -1 || mode == -3) {
+                        status = uv_pipe_init(&service->loop.native_loop(), &pipe.handle, 0);
+                        if (status)
+                            break;
+                        pipe.initialized = true;
+                        pipe.handle.data = &pipe;
+                        ++child->handles;
+                        entry.flags = static_cast<uv_stdio_flags>(UV_CREATE_PIPE
+                            | (i == 3        ? UV_READABLE_PIPE | UV_WRITABLE_PIPE
+                                    : i == 0 ? UV_READABLE_PIPE
+                                             : UV_WRITABLE_PIPE));
 #ifdef _WIN32
-                    // Raw duplex IPC needs an overlapped child handle: synchronous
-                    // Windows handles can serialize a pending read against writes.
-                    if (i == 3)
-                        entry.flags = static_cast<uv_stdio_flags>(entry.flags | UV_NONBLOCK_PIPE);
+                        // Raw duplex IPC needs an overlapped child handle: synchronous
+                        // Windows handles can serialize a pending read against writes.
+                        if (i == 3)
+                            entry.flags
+                                = static_cast<uv_stdio_flags>(entry.flags | UV_NONBLOCK_PIPE);
 #endif
-                    entry.data.stream = pipe.stream();
-                } else if (mode == -2)
-                    entry.flags = UV_IGNORE;
-                else {
-                    entry.flags = UV_INHERIT_FD;
-                    entry.data.fd = mode;
+                        entry.data.stream = pipe.stream();
+                    } else if (mode == -2)
+                        entry.flags = UV_IGNORE;
+                    else {
+                        entry.flags = UV_INHERIT_FD;
+                        entry.data.fd = mode;
+                    }
                 }
-            }
 
-            if (!status) {
-                uv_process_options_t options {};
-                options.file = file.c_str();
-                options.args = arguments.data();
-                options.env = env.data();
-                options.cwd = cwd.empty() ? nullptr : cwd.c_str();
-                options.stdio = handles.data();
-                options.stdio_count = pipe_count;
-                options.flags = flags;
-                options.exit_cb = [](uv_process_t* process, int64_t code, int signal) {
-                    auto& child = *static_cast<Child*>(process->data);
-                    child.exited = true;
-                    child.owner.close(child.pipes[0]);
-                    child.owner.emit(
-                        child, "exit", -1, JS::Value(static_cast<double>(code)), signal);
-                    child.owner.close(child);
-                };
+                if (!status) {
+                    uv_process_options_t options {};
+                    options.file = file.c_str();
+                    options.args = arguments.data();
+                    options.env = env.data();
+                    options.cwd = cwd.empty() ? nullptr : cwd.c_str();
+                    options.stdio = handles.data();
+                    options.stdio_count = pipe_count;
+                    options.flags = flags;
+                    options.exit_cb = [](uv_process_t* process, int64_t code, int signal) {
+                        auto& child = *static_cast<Child*>(process->data);
+                        child.exited = true;
+                        child.owner.close(child.pipes[0]);
+                        child.owner.emit(
+                            child, "exit", -1, JS::Value(static_cast<double>(code)), signal);
+                        child.owner.close(child);
+                    };
 
-                status = uv_spawn(&service->loop.native_loop(), &child->process, &options);
-                child->process.data = child;
-                child->process_initialized = true;
-                ++child->handles;
-                child->started = !status;
-            }
-
-            GC::Root result { JS::Object::create(realm, nullptr) };
-            result->define_direct_property(
-                "id"_utf16, JS::Value(static_cast<double>(child->id)), JS::default_attributes);
-            result->define_direct_property(
-                "status"_utf16, JS::Value(status), JS::default_attributes);
-            result->define_direct_property("pid"_utf16,
-                status ? JS::js_undefined() : JS::Value(static_cast<double>(child->process.pid)),
-                JS::default_attributes);
-            int mask = child->process_initialized ? 8 : 0;
-            for (size_t i = 0; i < 4; ++i)
-                if (child->pipes[i].initialized)
-                    mask |= i == 3 ? 16 : 1 << i;
-            result->define_direct_property(
-                "handles"_utf16, JS::Value(mask), JS::default_attributes);
-            if (status) {
-                for (auto& pipe : child->pipes)
-                    service->close(pipe);
-                service->close(*child);
-                if (!child->handles) {
-                    service->children.erase(child->id);
-                    delete child;
+                    status = uv_spawn(&service->loop.native_loop(), &child->process, &options);
+                    child->process.data = child;
+                    child->process_initialized = true;
+                    ++child->handles;
+                    child->started = !status;
                 }
-            }
 
-            return result.ptr();
-        },
+                GC::Root result { JS::Object::create(realm, nullptr) };
+                result->define_direct_property(
+                    "id"_utf16, JS::Value(static_cast<double>(child->id)), JS::default_attributes);
+                result->define_direct_property(
+                    "status"_utf16, JS::Value(status), JS::default_attributes);
+                result->define_direct_property("pid"_utf16,
+                    status ? JS::js_undefined()
+                           : JS::Value(static_cast<double>(child->process.pid)),
+                    JS::default_attributes);
+                int mask = child->process_initialized ? 8 : 0;
+                for (size_t i = 0; i < 4; ++i)
+                    if (child->pipes[i].initialized)
+                        mask |= i == 3 ? 16 : 1 << i;
+                result->define_direct_property(
+                    "handles"_utf16, JS::Value(mask), JS::default_attributes);
+                if (status) {
+                    for (auto& pipe : child->pipes)
+                        service->close(pipe);
+                    service->close(*child);
+                    if (!child->handles) {
+                        service->children.erase(child->id);
+                        delete child;
+                    }
+                }
+
+                return result.ptr();
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "read"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto index = TRY(integer(vm, vm.argument(1), 1, 3));
-            auto* pipe = service->pipe(vm.argument(0), index);
-            return read_pipe(*service, pipe, vm.argument(2).to_boolean());
-        },
+    host->define_native_function(realm, "read"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto index = TRY(integer(vm, vm.argument(1), 1, 3));
+                auto* pipe = service->pipe(vm.argument(0), index);
+                return read_pipe(*service, pipe, vm.argument(2).to_boolean());
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "write"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* pipe = service->pipe(vm.argument(0), 0);
-            return write_pipe(vm, pipe, vm.argument(1), vm.argument(2));
-        },
+    host->define_native_function(realm, "write"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* pipe = service->pipe(vm.argument(0), 0);
+                return write_pipe(vm, pipe, vm.argument(1), vm.argument(2));
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "shutdown"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto* pipe = service->pipe(vm.argument(0), 0);
-            return shutdown_pipe(vm, pipe, vm.argument(1));
-        },
+    host->define_native_function(realm, "shutdown"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* pipe = service->pipe(vm.argument(0), 0);
+                return shutdown_pipe(vm, pipe, vm.argument(1));
+            }),
         2, JS::default_attributes);
     // Private fork IPC uses a fourth byte-only duplex stream. It intentionally
     // does not enable libuv handle passing or expose native descriptors to JS.
-    host->define_native_function(
-        realm, "ipcWrite"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return write_pipe(vm, service->pipe(vm.argument(0), 3), vm.argument(1), vm.argument(2));
-        },
+    host->define_native_function(realm, "ipcWrite"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return write_pipe(
+                    vm, service->pipe(vm.argument(0), 3), vm.argument(1), vm.argument(2));
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "ipcShutdown"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return shutdown_pipe(vm, service->pipe(vm.argument(0), 3), vm.argument(1));
-        },
+    host->define_native_function(realm, "ipcShutdown"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return shutdown_pipe(vm, service->pipe(vm.argument(0), 3), vm.argument(1));
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcAttach"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto fd = TRY(integer(vm, vm.argument(0), 3, 3));
-            if (!vm.argument(1).is_function())
-                return vm.throw_completion<JS::TypeError>("Invalid internal child IPC callback"sv);
-            if (service->endpoint_attached || service->stopping)
-                return JS::Value(UV_EALREADY);
-            service->endpoint_attached = true;
-            auto* child = new Child { *service, service->next_id++,
-                GC::Root { vm.argument(1).as_function() } };
-            service->children.emplace(child->id, child);
-            auto& pipe = child->pipes[3];
-            pipe.child = child;
-            pipe.index = 3;
-            auto status = uv_pipe_init(&service->loop.native_loop(), &pipe.handle, 0);
-            if (!status) {
-                pipe.initialized = true;
-                pipe.handle.data = &pipe;
-                ++child->handles;
-                status = uv_pipe_open(&pipe.handle, fd);
-            }
-
-            if (status) {
-                child->callback = nullptr;
-                if (pipe.initialized)
-                    service->close(pipe);
-                else {
-                    service->children.erase(child->id);
-                    delete child;
+    host->define_native_function(realm, "childIpcAttach"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto fd = TRY(integer(vm, vm.argument(0), 3, 3));
+                if (!vm.argument(1).is_function())
+                    return vm.throw_completion<JS::TypeError>(
+                        "Invalid internal child IPC callback"_utf16);
+                if (service->endpoint_attached || service->stopping)
+                    return JS::Value(UV_EALREADY);
+                service->endpoint_attached = true;
+                auto* child = new Child { *service, service->next_id++,
+                    GC::Root { vm.argument(1).as_function() },
+                    GC::Root { service->loop.async_context().capture() } };
+                service->children.emplace(child->id, child);
+                auto& pipe = child->pipes[3];
+                pipe.child = child;
+                pipe.index = 3;
+                auto status = uv_pipe_init(&service->loop.native_loop(), &pipe.handle, 0);
+                if (!status) {
+                    pipe.initialized = true;
+                    pipe.handle.data = &pipe;
+                    ++child->handles;
+                    status = uv_pipe_open(&pipe.handle, fd);
                 }
-            } else
-                service->child_endpoint = child->id;
-            return JS::Value(status);
-        },
-        2, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcRead"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return read_pipe(*service,
-                service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
-                vm.argument(0).to_boolean());
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcWrite"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return write_pipe(vm,
-                service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
-                vm.argument(0), vm.argument(1));
-        },
-        2, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcShutdown"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            return shutdown_pipe(vm,
-                service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
-                vm.argument(0));
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcClose"_utf16,
-        [service](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* pipe
-                = service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3))
-                service->close(*pipe);
-            return JS::js_undefined();
-        },
-        0, JS::default_attributes);
-    host->define_native_function(
-        realm, "childIpcRef"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            if (auto* pipe
-                = service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3)) {
-                if (vm.argument(0).to_boolean())
-                    uv_ref(pipe->base());
-                else
-                    uv_unref(pipe->base());
-            }
 
-            return JS::js_undefined();
-        },
-        1, JS::default_attributes);
-    host->define_native_function(
-        realm, "closePipe"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto index = TRY(integer(vm, vm.argument(1), 0, 3));
-            if (auto* pipe = service->pipe(vm.argument(0), index))
-                service->close(*pipe);
-            return JS::js_undefined();
-        },
+                if (status) {
+                    child->callback = nullptr;
+                    if (pipe.initialized)
+                        service->close(pipe);
+                    else {
+                        service->children.erase(child->id);
+                        delete child;
+                    }
+                } else
+                    service->child_endpoint = child->id;
+                return JS::Value(status);
+            }),
         2, JS::default_attributes);
-    host->define_native_function(
-        realm, "ref"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto index = TRY(integer(vm, vm.argument(1), -1, 3));
-            auto* child = service->get(vm.argument(0));
-            if (!child)
+    host->define_native_function(realm, "childIpcRead"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return read_pipe(*service,
+                    service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
+                    vm.argument(0).to_boolean());
+            }),
+        1, JS::default_attributes);
+    host->define_native_function(realm, "childIpcWrite"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return write_pipe(vm,
+                    service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
+                    vm.argument(0), vm.argument(1));
+            }),
+        2, JS::default_attributes);
+    host->define_native_function(realm, "childIpcShutdown"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return shutdown_pipe(vm,
+                    service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3),
+                    vm.argument(0));
+            }),
+        1, JS::default_attributes);
+    host->define_native_function(realm, "childIpcClose"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* pipe
+                    = service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3))
+                    service->close(*pipe);
                 return JS::js_undefined();
-            uv_handle_t* handle
-                = index == -1 && child->process_initialized && !uv_is_closing(child->base())
-                ? child->base()
-                : nullptr;
-            if (index >= 0)
-                if (auto* pipe = service->pipe(vm.argument(0), index))
-                    handle = pipe->base();
-            if (handle) {
-                if (vm.argument(2).to_boolean())
-                    uv_ref(handle);
-                else
-                    uv_unref(handle);
-            }
+            }),
+        0, JS::default_attributes);
+    host->define_native_function(realm, "childIpcRef"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                if (auto* pipe
+                    = service->pipe(JS::Value(static_cast<double>(service->child_endpoint)), 3)) {
+                    if (vm.argument(0).to_boolean())
+                        uv_ref(pipe->base());
+                    else
+                        uv_unref(pipe->base());
+                }
 
-            return JS::js_undefined();
-        },
+                return JS::js_undefined();
+            }),
+        1, JS::default_attributes);
+    host->define_native_function(realm, "closePipe"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto index = TRY(integer(vm, vm.argument(1), 0, 3));
+                if (auto* pipe = service->pipe(vm.argument(0), index))
+                    service->close(*pipe);
+                return JS::js_undefined();
+            }),
+        2, JS::default_attributes);
+    host->define_native_function(realm, "ref"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto index = TRY(integer(vm, vm.argument(1), -1, 3));
+                auto* child = service->get(vm.argument(0));
+                if (!child)
+                    return JS::js_undefined();
+                uv_handle_t* handle
+                    = index == -1 && child->process_initialized && !uv_is_closing(child->base())
+                    ? child->base()
+                    : nullptr;
+                if (index >= 0)
+                    if (auto* pipe = service->pipe(vm.argument(0), index))
+                        handle = pipe->base();
+                if (handle) {
+                    if (vm.argument(2).to_boolean())
+                        uv_ref(handle);
+                    else
+                        uv_unref(handle);
+                }
+
+                return JS::js_undefined();
+            }),
         3, JS::default_attributes);
-    host->define_native_function(
-        realm, "kill"_utf16,
-        [service](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto signal = TRY(integer(vm, vm.argument(1), 0, 0x7fffffff));
-            auto* child = service->get(vm.argument(0));
-            if (!child || !child->started || child->exited || uv_is_closing(child->base()))
-                return JS::Value(UV_ESRCH);
-            return JS::Value(uv_process_kill(&child->process, signal));
-        },
+    host->define_native_function(realm, "kill"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(service)),
+            [](auto& service, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto signal = TRY(integer(vm, vm.argument(1), 0, 0x7fffffff));
+                auto* child = service->get(vm.argument(0));
+                if (!child || !child->started || child->exited || uv_is_closing(child->base()))
+                    return JS::Value(UV_ESRCH);
+                return JS::Value(uv_process_kill(&child->process, signal));
+            }),
         2, JS::default_attributes);
     host->define_native_function(
         realm, "error"_utf16,

@@ -1,7 +1,7 @@
 name: macOS Release packages
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/ladybird-update-*']
     paths:
       [
         '.github/workflows/macos.yml',

@@ -7,7 +7,7 @@ function namedPromisify(original, names, state) {
 }
 
 // mite/modules/filesystem/read-stream.mjs
-function createReadStream(handle, value, host, closeHandle) {
+function createReadStream(handle, value, host, closeHandle, lifecycle = {}) {
   const unsupported = (name) => {
     throw Object.assign(new Error(`FileHandle.createReadStream ${name} is not implemented`), {
       code: "ERR_MITE_UNSUPPORTED_API"
@@ -56,6 +56,7 @@ function createReadStream(handle, value, host, closeHandle) {
   let stream;
   const onClose = () => stream?.destroy();
   stream = new host.stream.Readable({
+    construct: lifecycle.construct,
     highWaterMark: size,
     autoDestroy: autoClose,
     encoding: value.encoding,
@@ -107,7 +108,10 @@ function createReadStream(handle, value, host, closeHandle) {
   if (!stream.destroyed) {
     handle.on("close", onClose);
   }
-  Object.defineProperties(stream, { bytesRead: { get: () => count }, path: { value: void 0 } });
+  Object.defineProperties(stream, {
+    bytesRead: { get: () => count },
+    path: { value: lifecycle.path }
+  });
   return stream;
 }
 
@@ -726,6 +730,551 @@ function createEventWatchers(host, helpers) {
   return { watch };
 }
 
+// mite/modules/filesystem/directory.mjs
+function createDirectories(host, { path, nativePath, Dirent, codec }) {
+  const Buffer = host.Buffer;
+  const states = /* @__PURE__ */ new WeakMap();
+  function error(code, message, Type = Error) {
+    const value = new Type(message);
+    value.code = code;
+    return value;
+  }
+  function options(value) {
+    if (value === void 0 || value === null) {
+      value = {};
+    }
+    if (typeof value === "string") {
+      value = { encoding: value };
+    }
+    if (typeof value !== "object") {
+      throw error("ERR_INVALID_ARG_TYPE", "Directory options must be an object", TypeError);
+    }
+    if (value.recursive) {
+      throw error("ERR_MITE_UNSUPPORTED_API", "Recursive opendir is not implemented");
+    }
+    const encoding = codec(value.encoding === void 0 ? "utf8" : value.encoding, true) || "utf8";
+    const batch = value.bufferSize === void 0 ? 32 : value.bufferSize;
+    if (typeof batch !== "number") {
+      throw error("ERR_INVALID_ARG_TYPE", "bufferSize must be a number", TypeError);
+    }
+    if (!Number.isInteger(batch) || batch < 1 || batch > 4096) {
+      throw error("ERR_OUT_OF_RANGE", "Directory bufferSize must be 1..4096", RangeError);
+    }
+    return { encoding, batch };
+  }
+  function state(receiver) {
+    if (!states.has(receiver)) {
+      throw new TypeError("Invalid Dir receiver");
+    }
+    return states.get(receiver);
+  }
+  function entry(record, raw) {
+    if (raw === null) {
+      return null;
+    }
+    const bytes = Buffer.from(raw.name.buffer, raw.name.byteOffset, raw.name.byteLength);
+    return new Dirent(
+      record.encoding === "buffer" ? bytes : bytes.toString(record.encoding),
+      record.path,
+      raw.type
+    );
+  }
+  function enqueue(record, op, callback) {
+    if (callback !== void 0 && typeof callback !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "Callback must be a function", TypeError);
+    }
+    if (callback === void 0) {
+      return new Promise(
+        (resolve, reject) => enqueue(record, op, (error2, value) => error2 ? reject(error2) : resolve(value))
+      );
+    }
+    if (record.queue.length >= 256) {
+      throw error("ERR_MITE_FS_LIMIT", "Directory operation queue is full");
+    }
+    record.queue.push({ op, callback });
+    pump(record);
+  }
+  function pump(record) {
+    if (record.running || !record.queue.length) {
+      return;
+    }
+    const item = record.queue.shift();
+    record.running = true;
+    const complete = (failure, raw) => {
+      record.running = false;
+      if (!failure && item.op === "close") {
+        record.closed = true;
+      }
+      let value;
+      if (!failure && item.op === "read") {
+        try {
+          value = entry(record, raw);
+        } catch (error2) {
+          failure = error2;
+        }
+      }
+      try {
+        item.callback(failure, value);
+      } finally {
+        pump(record);
+      }
+    };
+    try {
+      record.handle[item.op](complete);
+    } catch (error2) {
+      process.nextTick(() => complete(error2));
+    }
+  }
+  class Dir {
+    constructor(token, handle, pathname, encoding) {
+      if (token !== states) {
+        throw error("ERR_MITE_UNSUPPORTED_API", "Dir requires fs.opendir");
+      }
+      states.set(this, {
+        handle,
+        path: pathname,
+        encoding,
+        queue: [],
+        running: false,
+        closed: false
+      });
+    }
+    get path() {
+      return state(this).path;
+    }
+    read(callback) {
+      return enqueue(state(this), "read", callback);
+    }
+    close(callback) {
+      return enqueue(state(this), "close", callback);
+    }
+    readSync() {
+      const record = state(this);
+      if (record.running || record.queue.length) {
+        throw error("ERR_DIR_CONCURRENT_OPERATION", "Directory operation is pending");
+      }
+      return entry(record, record.handle.read());
+    }
+    closeSync() {
+      const record = state(this);
+      if (record.running || record.queue.length) {
+        throw error("ERR_DIR_CONCURRENT_OPERATION", "Directory operation is pending");
+      }
+      record.handle.close();
+      record.closed = true;
+    }
+    async *[Symbol.asyncIterator]() {
+      const record = state(this);
+      try {
+        for (; ; ) {
+          const value = await this.read();
+          if (value === null) {
+            break;
+          }
+          yield value;
+        }
+      } finally {
+        if (!record.closed) {
+          await this.close();
+        }
+      }
+    }
+  }
+  if (Symbol.asyncDispose) {
+    Object.defineProperty(Dir.prototype, Symbol.asyncDispose, {
+      value() {
+        return this.close();
+      }
+    });
+  }
+  function opendir(pathname, opts, callback) {
+    if (typeof opts === "function") {
+      callback = opts;
+      opts = void 0;
+    }
+    if (typeof callback !== "function") {
+      throw error("ERR_INVALID_ARG_TYPE", "Callback must be a function", TypeError);
+    }
+    const name = path(pathname);
+    const { encoding, batch } = options(opts);
+    host.native.openDirectory(
+      nativePath(name),
+      batch,
+      (error2, handle) => callback(error2, error2 ? void 0 : new Dir(states, handle, name, encoding))
+    );
+  }
+  function opendirSync(pathname, opts) {
+    const name = path(pathname);
+    const { encoding, batch } = options(opts);
+    return new Dir(states, host.native.openDirectory(nativePath(name), batch), name, encoding);
+  }
+  return { Dir, opendir, opendirSync };
+}
+
+// mite/modules/filesystem/copy-tree.mjs
+function createCopyTree(fs, host, validatePath) {
+  const path = host.path;
+  const p = fs.promises;
+  function fail(code, message, Type = Error) {
+    const error = new Type(message);
+    error.code = code;
+    throw error;
+  }
+  function name(value) {
+    value = validatePath(value);
+    if (typeof value !== "string") {
+      const bytes = host.Buffer.from(value);
+      value = bytes.toString("utf8");
+      if (!host.Buffer.from(value).equals(bytes)) {
+        fail("ERR_MITE_UNSUPPORTED_API", "Non-UTF8 recursive copy paths are not implemented");
+      }
+    }
+    return path.resolve(value);
+  }
+  async function maybeStat(value) {
+    try {
+      return await p.lstat(value);
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        return void 0;
+      }
+      throw error;
+    }
+  }
+  async function canonicalDestination(value) {
+    const suffix = [];
+    for (; ; ) {
+      try {
+        return path.resolve(await p.realpath(value), ...suffix);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          throw error;
+        }
+        const parent = path.dirname(value);
+        if (parent === value) {
+          throw error;
+        }
+        suffix.unshift(path.basename(value));
+        value = parent;
+      }
+    }
+  }
+  function options(value) {
+    if (value === void 0 || value === null) {
+      value = {};
+    }
+    if (typeof value !== "object") {
+      fail("ERR_INVALID_ARG_TYPE", "cp options must be an object", TypeError);
+    }
+    const result = {
+      recursive: false,
+      force: true,
+      errorOnExist: false,
+      dereference: false,
+      preserveTimestamps: false,
+      verbatimSymlinks: false,
+      mode: 0
+    };
+    for (const key of Object.keys(value)) {
+      if (!Object.hasOwn(result, key) && key !== "filter") {
+        fail("ERR_MITE_UNSUPPORTED_API", `cp option ${key} is not implemented`);
+      }
+      if (key === "filter") {
+        if (typeof value[key] !== "function") {
+          fail("ERR_INVALID_ARG_TYPE", "cp filter must be a function", TypeError);
+        }
+      } else if (key === "mode") {
+        if (typeof value.mode !== "number") {
+          fail("ERR_INVALID_ARG_TYPE", "cp mode must be a number", TypeError);
+        }
+        if (!Number.isInteger(value.mode) || value.mode < 0 || value.mode > 7) {
+          fail("ERR_OUT_OF_RANGE", "Invalid cp mode", RangeError);
+        }
+      } else if (typeof value[key] !== "boolean") {
+        fail("ERR_INVALID_ARG_TYPE", `cp ${key} must be a boolean`, TypeError);
+      }
+      result[key] = value[key];
+    }
+    return result;
+  }
+  async function copy(source, destination, opts) {
+    const from = name(source);
+    const to = name(destination);
+    const settings = options(opts);
+    const active = /* @__PURE__ */ new Set();
+    let visited = 0;
+    async function walk(src, dest, depth) {
+      if (depth > 128 || ++visited > 1e5) {
+        fail("ERR_MITE_FS_LIMIT", "Recursive copy traversal budget exceeded");
+      }
+      if (settings.filter && !await settings.filter(src, dest)) {
+        return;
+      }
+      const stat = await (settings.dereference ? p.stat(src) : p.lstat(src));
+      const existing = await maybeStat(dest);
+      if (existing && existing.dev === stat.dev && existing.ino === stat.ino) {
+        fail("ERR_FS_CP_EINVAL", "Source and destination are the same file");
+      }
+      if (stat.isDirectory()) {
+        if (!settings.recursive) {
+          fail("ERR_FS_EISDIR", "Directory copying requires recursive:true");
+        }
+        if (existing && !existing.isDirectory()) {
+          fail("ERR_FS_CP_DIR_TO_NON_DIR", "Cannot copy directory onto non-directory");
+        }
+        const identity = `${stat.dev}:${stat.ino}`;
+        if (active.has(identity)) {
+          fail("ELOOP", "Recursive copy encountered a directory cycle");
+        }
+        const canonical = await p.realpath(src);
+        const target = await canonicalDestination(dest);
+        const relative = path.relative(canonical, target);
+        if (relative === "" || !relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative)) {
+          fail("ERR_FS_CP_EINVAL", "Cannot copy a directory into itself");
+        }
+        active.add(identity);
+        try {
+          if (!existing) {
+            await p.mkdir(dest, { recursive: true, mode: Number(stat.mode) & 511 });
+          }
+          const dir = await p.opendir(src, { encoding: "buffer" });
+          for await (const entry of dir) {
+            const child = entry.name.toString("utf8");
+            if (!host.Buffer.from(child).equals(entry.name)) {
+              fail(
+                "ERR_MITE_UNSUPPORTED_API",
+                "Non-UTF8 recursive directory names are not implemented"
+              );
+            }
+            await walk(path.join(src, child), path.join(dest, child), depth + 1);
+          }
+        } finally {
+          active.delete(identity);
+        }
+      } else {
+        if (existing) {
+          if (existing.isDirectory()) {
+            fail("ERR_FS_CP_NON_DIR_TO_DIR", "Cannot copy non-directory onto directory");
+          }
+          if (!settings.force) {
+            if (settings.errorOnExist) {
+              fail("EEXIST", "Copy destination exists");
+            }
+            return;
+          }
+        }
+        await p.mkdir(path.dirname(dest), { recursive: true });
+        if (stat.isSymbolicLink() && !settings.dereference) {
+          const rawTarget = await p.readlink(src, { encoding: "buffer" });
+          let target = rawTarget.toString("utf8");
+          if (!host.Buffer.from(target).equals(rawTarget)) {
+            fail("ERR_MITE_UNSUPPORTED_API", "Non-UTF8 symbolic link targets are not implemented");
+          }
+          if (!settings.verbatimSymlinks) {
+            target = path.resolve(path.dirname(src), target);
+          }
+          if (existing) {
+            await p.unlink(dest);
+          }
+          let type = "file";
+          try {
+            if ((await p.stat(src)).isDirectory()) {
+              type = "dir";
+            }
+          } catch (error) {
+            if (error.code !== "ENOENT") {
+              throw error;
+            }
+          }
+          await p.symlink(target, dest, type);
+        } else if (stat.isFile()) {
+          if (existing?.isSymbolicLink()) {
+            await p.unlink(dest);
+          }
+          try {
+            await p.copyFile(
+              src,
+              dest,
+              settings.mode | (!settings.force ? fs.constants.COPYFILE_EXCL : 0)
+            );
+          } catch (error) {
+            if (!(error.code === "EEXIST" && !settings.force && !settings.errorOnExist)) {
+              throw error;
+            }
+          }
+          if (settings.preserveTimestamps) {
+            await p.utimes(dest, stat.atime, stat.mtime);
+          }
+        } else {
+          fail("ERR_MITE_UNSUPPORTED_API", "Copying special filesystem objects is not implemented");
+        }
+      }
+    }
+    await walk(from, to, 0);
+  }
+  function cp(src, dest, opts, callback) {
+    if (typeof opts === "function") {
+      callback = opts;
+      opts = void 0;
+    }
+    if (typeof callback !== "function") {
+      fail("ERR_INVALID_ARG_TYPE", "cp callback must be a function", TypeError);
+    }
+    copy(src, dest, opts).then(() => callback(null), callback);
+  }
+  return { cp, promiseCopy: copy };
+}
+
+// mite/modules/filesystem/path-read-stream.mjs
+function createPathReadStreams(fs, host, validate, acquireHandle) {
+  const fail = (code, message) => {
+    throw Object.assign(new TypeError(message), { code });
+  };
+  function ReadStream(filename, value = {}) {
+    if (!new.target) {
+      return new ReadStream(filename, value);
+    }
+    if (typeof value === "string") {
+      value = { encoding: value };
+    }
+    if (!value || typeof value !== "object") {
+      fail("ERR_INVALID_ARG_TYPE", "options must be an object or encoding");
+    }
+    for (const key of Object.keys(value)) {
+      if (![
+        "encoding",
+        "flags",
+        "mode",
+        "fd",
+        "start",
+        "end",
+        "highWaterMark",
+        "autoClose",
+        "emitClose",
+        "signal"
+      ].includes(key)) {
+        fail("ERR_MITE_UNSUPPORTED_API", `ReadStream option ${key} is not implemented`);
+      }
+    }
+    const supplied = value.fd !== void 0 && value.fd !== null;
+    const pathname = supplied ? void 0 : validate.path(filename);
+    const flags = validate.flags(value.flags, "r");
+    const mode = validate.mode(value.mode, 438);
+    const providedHandle = supplied && typeof value.fd === "object" ? value.fd : void 0;
+    if (supplied && !providedHandle && (!Number.isInteger(value.fd) || value.fd < 0 || value.fd > 2147483647)) {
+      fail("ERR_INVALID_ARG_TYPE", "fd must be a descriptor or FileHandle");
+    }
+    const forwarded = {};
+    for (const key of [
+      "encoding",
+      "start",
+      "end",
+      "highWaterMark",
+      "autoClose",
+      "emitClose",
+      "signal"
+    ]) {
+      if (key in value) {
+        forwarded[key] = value[key];
+      }
+    }
+    let lease;
+    let actual = providedHandle;
+    let fd = supplied ? providedHandle ? providedHandle.fd : value.fd : null;
+    let pending = !supplied;
+    let closePromise;
+    const proxy = new host.EventEmitter();
+    const onClose = () => proxy.emit("close");
+    proxy.read = (...args) => {
+      if (actual) {
+        return actual.read(...args);
+      }
+      return new Promise(
+        (resolve, reject) => fs.read(
+          fd,
+          ...args,
+          (error, bytesRead, buffer) => error ? reject(error) : resolve({ bytesRead, buffer })
+        )
+      );
+    };
+    const close = () => {
+      if (closePromise) {
+        return closePromise;
+      }
+      actual?.removeListener("close", onClose);
+      lease?.release();
+      closePromise = fd === null ? Promise.resolve() : actual ? lease ? lease.close() : actual.close() : new Promise(
+        (resolve, reject) => fs.close(fd, (error) => error ? reject(error) : resolve())
+      );
+      return closePromise.finally(() => {
+        fd = null;
+        pending = false;
+      });
+    };
+    let stream;
+    try {
+      if (providedHandle) {
+        lease = acquireHandle(providedHandle);
+      }
+      stream = createReadStream(proxy, forwarded, host, close, {
+        path: pathname,
+        construct(callback) {
+          if (supplied || value.signal?.aborted === true) {
+            pending = false;
+            callback();
+            return;
+          }
+          fs.promises.open(pathname, flags, mode).then(
+            (handle) => {
+              actual = handle;
+              fd = handle.fd;
+              pending = false;
+              actual.on("close", onClose);
+              try {
+                this.emit("open", fd);
+                this.emit("ready");
+              } finally {
+                callback();
+              }
+            },
+            (error) => {
+              pending = false;
+              callback(error);
+            }
+          );
+        }
+      });
+      Object.setPrototypeOf(stream, new.target.prototype);
+      Object.defineProperties(stream, { fd: { get: () => fd }, pending: { get: () => pending } });
+      if (providedHandle && !stream.destroyed) {
+        providedHandle.on("close", onClose);
+      }
+    } catch (error) {
+      lease?.release();
+      throw error;
+    }
+    return stream;
+  }
+  Object.setPrototypeOf(ReadStream, host.stream.Readable);
+  ReadStream.prototype = Object.create(host.stream.Readable.prototype, {
+    constructor: { value: ReadStream, writable: true, configurable: true }
+  });
+  ReadStream.prototype.close = function(callback) {
+    if (callback !== void 0 && typeof callback !== "function") {
+      fail("ERR_INVALID_ARG_TYPE", "callback must be a function");
+    }
+    if (callback) {
+      if (this.closed) {
+        queueMicrotask(callback);
+      } else {
+        this.once("close", callback);
+      }
+    }
+    this.destroy();
+  };
+  return { ReadStream, createReadStream: (filename, options) => new ReadStream(filename, options) };
+}
+
 // mite/modules/filesystem/fs.mjs
 function createFileSystemModule(host) {
   const native = host.native;
@@ -964,7 +1513,7 @@ function createFileSystemModule(host) {
         const buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
         return encoding ? buffer.toString(encoding) : buffer;
       };
-    } else if (op === "realpath") {
+    } else if (op === "realpath" || op === "readlink") {
       const opts = options(argument);
       const encoding = codec(opts.encoding === void 0 ? "utf8" : opts.encoding, true);
       convert = (raw) => {
@@ -999,8 +1548,83 @@ function createFileSystemModule(host) {
       spec.mode = mode(opts.mode, 511);
       spec.recursive = !!opts.recursive;
       convert = (value) => value;
-    } else if (op === "rename") {
+    } else if (op === "chmod") {
+      if (typeof argument !== "number" && typeof argument !== "string") {
+        fail("ERR_INVALID_ARG_TYPE", "mode must be a number or octal string");
+      }
+      spec.mode = mode(argument, 0);
+    } else if (op === "mkdtemp") {
+      const opts = options(argument);
+      const encoding = codec(opts.encoding === void 0 ? "utf8" : opts.encoding, true);
+      convert = (raw) => {
+        let buffer = Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        if (windows) {
+          buffer = Buffer.concat([Buffer.from(parentPath), buffer.subarray(-6)]);
+        }
+        return encoding === "buffer" ? buffer : buffer.toString(encoding || "utf8");
+      };
+    } else if (op === "rm") {
+      if (argument !== void 0 && (argument === null || typeof argument !== "object")) {
+        fail("ERR_INVALID_ARG_TYPE", "rm options must be an object");
+      }
+      const opts = options(argument);
+      for (const name of ["force", "recursive"]) {
+        if (opts[name] !== void 0 && typeof opts[name] !== "boolean") {
+          fail("ERR_INVALID_ARG_TYPE", `${name} must be a boolean`);
+        }
+      }
+      for (const name of ["maxRetries", "retryDelay"]) {
+        if (opts[name] !== void 0) {
+          integer(opts[name], 0, 4294967295, name);
+        }
+      }
+      if (opts.recursive || opts.maxRetries || opts.retryDelay) {
+        unsupported("Recursive rm and removal retry options");
+      }
+      spec.force = !!opts.force;
+    } else if (op === "utime") {
+      const timestamp = (value) => {
+        if (value instanceof Date) {
+          value = Date.prototype.getTime.call(value) / 1e3;
+        } else if (typeof value === "string" && value.trim()) {
+          value = Number(value);
+        }
+        if (typeof value !== "number" || !Number.isFinite(value)) {
+          fail("ERR_INVALID_ARG_TYPE", "Timestamp must be a finite number, numeric string or Date");
+        }
+        return value < 0 ? Date.now() / 1e3 : value;
+      };
+      spec.atime = timestamp(argument);
+      spec.mtime = timestamp(data);
+    } else if (op === "rename" || op === "copyfile" || op === "link" || op === "symlink") {
       spec.dest = nativePath(path(argument));
+      if (op === "symlink") {
+        if (windows) {
+          const target = typeof parentPath === "string" ? parentPath : Buffer.from(parentPath).toString("utf8");
+          spec.targetForType = nativePath(host.path.resolve(spec.dest, "..", target));
+          spec.autoType = data == null;
+          spec.path = data === "junction" ? spec.targetForType : host.path.isAbsolute(target) ? nativePath(target) : target.replace(/\//g, "\\");
+        }
+        if (data === void 0 || data === null || data === "file") {
+          spec.flags = 0;
+        } else if (data === "dir") {
+          spec.flags = 1;
+        } else if (data === "junction") {
+          spec.flags = 2;
+        } else {
+          fail("ERR_INVALID_ARG_VALUE", "Invalid symlink type");
+        }
+      }
+      if (op === "copyfile") {
+        if (data !== void 0 && data !== null && typeof data !== "number") {
+          fail("ERR_INVALID_ARG_TYPE", "mode must be a number");
+        }
+        const flags2 = data == null ? 0 : Math.trunc(data);
+        if (!Number.isFinite(flags2) || flags2 < 0 || flags2 > 7) {
+          fail("ERR_OUT_OF_RANGE", "mode must contain only COPYFILE flags", RangeError);
+        }
+        spec.flags = flags2;
+      }
     } else if (op === "rmdir") {
       if (options(argument).recursive) {
         unsupported("Recursive rmdir");
@@ -1048,7 +1672,7 @@ function createFileSystemModule(host) {
         callback(error2);
         return;
       }
-      if (op === "readFile" || op === "realpath" || op === "stat" || op === "lstat" || op === "readdir" || op === "mkdir" || op === "open" || op === "fstat") {
+      if (op === "readFile" || op === "realpath" || op === "readlink" || op === "stat" || op === "lstat" || op === "readdir" || op === "mkdir" || op === "mkdtemp" || op === "open" || op === "fstat") {
         callback(null, converted);
       } else {
         callback(null);
@@ -1066,9 +1690,14 @@ function createFileSystemModule(host) {
     "stat",
     "lstat",
     "mkdir",
+    "chmod",
+    "mkdtemp",
+    "rm",
     "rmdir",
     "unlink",
     "rename",
+    "link",
+    "readlink",
     "readdir",
     "fstat",
     "ftruncate",
@@ -1095,6 +1724,25 @@ function createFileSystemModule(host) {
       };
     }
   }
+  Object.assign(fs, createDirectories(host, { path, nativePath, Dirent, codec }));
+  fs.symlinkSync = (target, dest, type) => sync("symlink", target, dest, type);
+  fs.symlink = function(target, dest, type, callback) {
+    if (typeof type === "function") {
+      callback = type;
+      type = void 0;
+    }
+    callbackOperation("symlink", target, dest, type, callback);
+  };
+  fs.utimesSync = (pathname, atime, mtime) => sync("utime", pathname, atime, mtime);
+  fs.utimes = (pathname, atime, mtime, callback) => callbackOperation("utime", pathname, atime, mtime, callback);
+  fs.copyFileSync = (src, dest, mode2) => sync("copyfile", src, dest, mode2);
+  fs.copyFile = function(src, dest, mode2, callback) {
+    if (typeof mode2 === "function") {
+      callback = mode2;
+      mode2 = void 0;
+    }
+    callbackOperation("copyfile", src, dest, mode2, callback);
+  };
   const realpathCallback = fs.realpath;
   const realpathSync = fs.realpathSync;
   fs.realpath.native = (...args) => realpathCallback(...args);
@@ -1472,9 +2120,18 @@ function createFileSystemModule(host) {
     "stat",
     "lstat",
     "mkdir",
+    "chmod",
+    "mkdtemp",
+    "rm",
     "rmdir",
     "unlink",
     "rename",
+    "copyFile",
+    "opendir",
+    "readlink",
+    "symlink",
+    "utimes",
+    "link",
     "readdir"
   ]) {
     promises[op] = function(...args) {
@@ -1497,6 +2154,19 @@ function createFileSystemModule(host) {
   namedPromisify(fs.read, ["bytesRead", "buffer"], host.promisifyState);
   namedPromisify(fs.write, ["bytesWritten", "buffer"], host.promisifyState);
   fs.promises = promises;
+  const copyTree = createCopyTree(fs, host, path);
+  fs.cp = copyTree.cp;
+  promises.cp = copyTree.promiseCopy;
+  Object.assign(
+    fs,
+    createPathReadStreams(fs, host, { path, flags, mode }, (handle) => {
+      const acquire = writeLeases.get(handle);
+      if (!acquire) {
+        fail("ERR_INVALID_ARG_TYPE", "fd must be a FileHandle");
+      }
+      return acquire();
+    })
+  );
   return fs;
 }
 return createFileSystemModule;

@@ -1,6 +1,7 @@
 #include "BinaryBridgeTest.h"
 #include "BridgeDataTest.h"
 #include "CallbackBridgeTest.h"
+#include "CaptureSlot.h"
 #include "ContextBridgeTest.h"
 #include "CustomEventTest.h"
 #include "ErrorEventTest.h"
@@ -34,6 +35,7 @@
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Platform/FontPlugin.h>
+#include <cstring>
 
 static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16View source)
 {
@@ -44,7 +46,7 @@ static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16V
     return vm.run(*script);
 }
 
-ErrorOr<int> ladybird_main(Main::Arguments)
+ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     TRY(check_preload_process_configuration());
     TRY(check_file_module_policy());
@@ -70,6 +72,19 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     RefPtr<Firefly::IsolatedWorld> second = TRY(Firefly::IsolatedWorld::create(*window));
     if (first->realm() == second->realm() || first->realm() == &principal)
         return Error::from_string_literal("Worlds must own distinct realms");
+    if (arguments.argc == 3 && std::strcmp(arguments.argv[1], "--ipc-catalog") == 0) {
+        TRY(check_large_bridge_catalog(vm, *first->realm(), *second->realm(), arguments.argv[2]));
+        TRY(check_large_context_bridge(vm, *first, *document));
+        return 0;
+    }
+
+    // Run the publication/receiver boundary alone during application startup
+    // work; the normal probe still includes the complete isolation batch.
+    if (arguments.argc == 2 && std::strcmp(arguments.argv[1], "--context-bridge") == 0) {
+        TRY(check_context_bridge(vm, *document));
+        return 0;
+    }
+
     first->realm()->global_object().define_native_function(
         *first->realm(), "nativeProbe"_utf16,
         +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(42); }, 0,
@@ -182,20 +197,27 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     RefPtr<Firefly::IsolatedWorld> transient = TRY(Firefly::IsolatedWorld::create(*window));
     auto* active_world = transient.ptr();
     GC::Root transient_realm { *transient->realm() };
-    transient_realm->global_object().define_native_function(
-        *transient_realm, "requestDetach"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            active_world->detach();
-            bool revoked = active_world->is_detached() && active_world->realm() == nullptr;
-            transient.clear(); // evaluate must retain its owner until its frame exits.
-            return JS::Value(revoked);
-        },
+    Firefly::Tests::CaptureSlot transient_slot { transient };
+    transient_realm->global_object().define_native_function(*transient_realm, "requestDetach"_utf16,
+        GC::create_function(vm.heap(), GC::captures(Mite::native_reference(transient_slot)),
+            [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& transient = slot.get().value;
+                auto* active_world = transient.ptr();
+
+                active_world->detach();
+                bool revoked = active_world->is_detached() && active_world->realm() == nullptr;
+                transient.clear(); // evaluate must retain its owner until its frame exits.
+                return JS::Value(revoked);
+            }),
         0, JS::default_attributes);
-    transient_realm->global_object().define_native_function(
-        *transient_realm, "nestedEvaluation"_utf16,
-        [&](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
-            return JS::Value(active_world->evaluate(u"true"sv).is_error());
-        },
+    transient_realm->global_object().define_native_function(*transient_realm,
+        "nestedEvaluation"_utf16,
+        GC::create_function(vm.heap(), GC::captures(Mite::native_reference(transient_slot)),
+            [](auto& slot, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* active_world = slot.get().value.ptr();
+
+                return JS::Value(active_world->evaluate(u"true"sv).is_error());
+            }),
         0, JS::default_attributes);
     if (!check(active_world->evaluate(uR"JS(
         !({}).pagePoison && document.pagePrototypePoison===undefined &&

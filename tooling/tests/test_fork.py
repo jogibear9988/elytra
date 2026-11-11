@@ -101,6 +101,12 @@ def main():
                 policy
             )
             print("PASS " + name + " controlled IPC factory reference policy", flush=True)
+            framing = run(binary, "framing-policy", work)
+            assert (
+                framing
+                == "PASS controlled IPC linear fragmented UTF8 framing budgets EOF and reentry\n"
+            ), framing
+            print("PASS " + name + " controlled IPC framing policy", flush=True)
             independent(binary, work, name)
             print(
                 "PASS " + name + " parent exit preserves independently referenced fork child",

@@ -5,6 +5,7 @@
  */
 #include "core/ImmediateQueue.h"
 #include "core/EventLoop.h"
+#include "core/GCCaptures.h"
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -23,6 +24,7 @@ struct ImmediateQueue::Impl {
         GC::Root<JS::FunctionObject> callback;
         GC::Root<JS::Object> receiver;
         GC::RootVector<JS::Value> arguments;
+        GC::Root<AsyncCarrier> context;
         bool referenced { true };
     };
 
@@ -107,6 +109,7 @@ struct ImmediateQueue::Impl {
             update();
             // Keep all callback/receiver/argument roots through its checkpoint.
             // New immediates join the next iteration; ticks/jobs run between calls.
+            AsyncContext::Scope context(owner.async_context(), call->context.ptr());
             owner.dispatch([&] {
                 return JS::call(vm, *call->callback, JS::Value(call->receiver.ptr()),
                     ReadonlySpan<JS::Value> { call->arguments.data(), call->arguments.size() });
@@ -124,7 +127,8 @@ struct ImmediateQueue::Impl {
             return vm.throw_completion<JS::RangeError>("Immediate ID range exhausted"_utf16);
         auto id = next_id++;
         auto call = std::make_unique<Call>(Call { GC::Root { vm.argument(0).as_function() },
-            GC::Root { vm.argument(1).as_object() }, {} });
+            GC::Root { vm.argument(1).as_object() }, {},
+            GC::Root { owner.async_context().capture() } });
         for (size_t i = 2; i < vm.argument_count(); ++i)
             call->arguments.append(vm.argument(i));
         calls.emplace(id, std::move(call));
@@ -166,16 +170,39 @@ ImmediateQueue::ImmediateQueue(EventLoop& owner, JS::VM& vm)
 {
 }
 
-ImmediateQueue::~ImmediateQueue() = default;
+ImmediateQueue::~ImmediateQueue()
+{
+    revoke_native_captures();
+}
+
+void ImmediateQueue::visit_capture_edges(GC::Cell::Visitor& visitor) const
+{
+    if (!m_impl)
+        return;
+    for (auto const& entry : m_impl->calls) {
+        visitor.visit(entry.second->context.ptr());
+        visitor.visit(entry.second->callback.ptr());
+        visitor.visit(entry.second->receiver.ptr());
+        for (auto const& value : entry.second->arguments)
+            visitor.visit(value);
+    }
+}
 
 void ImmediateQueue::install(JS::Realm& realm)
 {
-    realm.global_object().define_native_function(
-        realm, "__miteScheduleImmediate"_utf16, [this](JS::VM&) { return m_impl->schedule(); }, 2,
-        JS::default_attributes);
-    realm.global_object().define_native_function(
-        realm, "__miteControlImmediate"_utf16,
-        [this](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return m_impl->control(); }, 2,
-        JS::default_attributes);
+    realm.global_object().define_native_function(realm, "__miteScheduleImmediate"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) {
+                auto* self = &captured_self.get();
+                return self->m_impl->schedule();
+            }),
+        2, JS::default_attributes);
+    realm.global_object().define_native_function(realm, "__miteControlImmediate"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM&) -> JS::ThrowCompletionOr<JS::Value> {
+                auto* self = &captured_self.get();
+                return self->m_impl->control();
+            }),
+        2, JS::default_attributes);
 }
 }

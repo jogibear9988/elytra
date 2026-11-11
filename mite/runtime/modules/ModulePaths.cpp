@@ -6,8 +6,8 @@
 #include "modules/ModulePaths.h"
 
 #ifdef _WIN32
+#include "platform/UV.h"
 #include <sys/stat.h>
-#include <uv.h>
 #endif
 
 namespace Mite::ModulePaths {

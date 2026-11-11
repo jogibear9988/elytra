@@ -47,16 +47,14 @@ void Bridge::Impl::bind_ipc_channel(int id, WebView::WebContentPage& page,
                     }
 
                     auto hello = ApplicationIpc::decode_hello(bytes);
-                    if (hello.is_error() || hello.value().epoch != epoch
-                        || hello.value().pid != static_cast<u64>(state.view->web_content_pid())
+                    if (hello.is_error() || hello.value().epoch != epoch || !state.native_view()
+                        || hello.value().pid
+                            != static_cast<u64>(state.native_view()->web_content_pid())
                         || hello.value().document_namespace != document.namespace_id
                         || hello.value().document_local != document.local_id
                         || hello.value().navigable_namespace != navigable.namespace_id
                         || hello.value().navigable_local != navigable.local_id) {
-                        state.ipc_byte_channel->close();
-                        state.ipc_byte_ready = false;
-                        state.ipc_byte_deadline.clear();
-                        state.ipc_byte_channel = nullptr;
+                        retire_ipc_channel(id);
                         warnln("ERR_FIREFLY_IPC_BYTES: invalid document channel hello");
                         return;
                     }
@@ -78,8 +76,10 @@ void Bridge::Impl::bind_ipc_channel(int id, WebView::WebContentPage& page,
                 },
             .on_writable =
                 [this, lifetime, id, epoch] {
-                    if (lifetime && !stopping)
+                    if (lifetime && !stopping) {
                         flush_ipc_packets(id, epoch);
+                        emit_renderer_port(id, epoch, "renderer-port-writable");
+                    }
                 },
             .on_closed =
                 [this, lifetime, id, epoch](auto) {
@@ -154,9 +154,13 @@ void Bridge::Impl::retire_ipc_channel(int id)
     if (found == windows.end())
         return;
     auto& state = found->second;
+    reset_renderer_ports(id);
     state.ipc_byte_ready = false;
     state.ipc_byte_deadline.clear();
     state.ipc_byte_queue.clear();
+    state.ipc_reassembler.reset();
+    state.ipc_receive_reservation = nullptr;
+    state.ipc_fragment_deadline.clear();
     state.ipc_packets.clear();
     state.ipc_refused.clear();
     if (state.ipc_byte_channel)
@@ -175,14 +179,14 @@ bool Bridge::Impl::queue_ipc_packet(
     auto& state = windows.at(id);
     if (!state.ipc_byte_channel || !state.ipc_byte_channel->is_open())
         return false;
-    auto frame = ApplicationIpc::encode_message(
-        kind, success, state.ipc_byte_epoch, request, wire.bytes());
-    if (frame.is_error() || state.ipc_byte_queue.size() >= ApplicationIpc::queue_limit) {
+    auto reservation = state.ipc_wire_budget->reserve(wire.length());
+    if (!reservation || wire.length() > ApplicationIpc::logical_wire_limit
+        || state.ipc_byte_queue.size() >= ApplicationIpc::queue_limit) {
         retire_ipc_channel(id);
         return false;
     }
 
-    state.ipc_byte_queue.append(frame.release_value());
+    state.ipc_byte_queue.append({ kind, request, success, wire, 0, move(reservation) });
     flush_ipc_packets(id, state.ipc_byte_epoch);
     return !!state.ipc_byte_channel;
 }
@@ -197,15 +201,31 @@ void Bridge::Impl::flush_ipc_packets(int id, u64 epoch)
         return;
     while (!state.ipc_byte_queue.is_empty()
         && state.ipc_byte_channel->pending_send_count() < Bytes::max_pending) {
-        auto packet = state.ipc_byte_queue.take_first();
-        auto header = MUST(ApplicationIpc::decode_message(packet.bytes()));
-        if (header.kind == ApplicationIpc::Kind::Event
-            && !state.ipc_outgoing.contains(header.request))
+        auto& packet = state.ipc_byte_queue.first();
+        // Never abandon a partially emitted logical message: the peer is already
+        // holding its first fragment. Endpoint timeout retires the entire channel.
+        if (packet.offset == 0 && packet.kind == ApplicationIpc::Kind::Event
+            && !state.ipc_outgoing.contains(packet.request)) {
+            state.ipc_byte_queue.take_first();
             continue;
-        if (state.ipc_byte_channel->send(packet.bytes()).is_error()) {
+        }
+
+        auto fragment = ApplicationIpc::FragmentEncoder::encode_next(
+            packet.kind, packet.success, epoch, packet.request, packet.wire.bytes(), packet.offset);
+        if (fragment.is_error()) {
             retire_ipc_channel(id);
             return;
         }
+
+        auto next = fragment.release_value();
+        if (state.ipc_byte_channel->send(next.bytes.bytes()).is_error()) {
+            retire_ipc_channel(id);
+            return;
+        }
+
+        packet.offset = next.next_offset;
+        if (next.complete)
+            state.ipc_byte_queue.take_first();
     }
 }
 

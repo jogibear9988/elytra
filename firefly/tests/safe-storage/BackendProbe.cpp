@@ -1,4 +1,5 @@
 /** Exercise actual OS keys in a disposable explicit keychain; never use the login keychain. */
+#include "../../../mite/runtime/platform/WindowsSockets.h"
 #include "native/safe-storage/Backend.h"
 #include <algorithm>
 #include <array>

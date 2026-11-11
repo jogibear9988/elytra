@@ -4,6 +4,7 @@ if(NOT DEFINED FIREFLY_SOURCE_DIR)
     message(FATAL_ERROR "Configure with tooling/build_renderer.py")
 endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include("${FIREFLY_SOURCE_DIR}/mite/cmake/IcuData.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/RustOrigin.cmake")
 cmake_path(CONVERT "${FIREFLY_SOURCE_DIR}/firefly/cmake" TO_CMAKE_PATH_LIST firefly_module_path
            NORMALIZE)

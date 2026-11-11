@@ -4,6 +4,7 @@
  * every path. Concurrent credential consumers can temporarily observe UI denial.
  */
 #include "Backend.h"
+#include "../../../mite/runtime/platform/WindowsSockets.h"
 #include <algorithm>
 #include <array>
 #include <cstring>

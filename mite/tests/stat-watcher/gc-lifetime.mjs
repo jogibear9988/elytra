@@ -1,6 +1,9 @@
 /** Genuine uv_fs_poll callback/handle lifetime across explicit embedded LibJS collection. */
 import fs from 'node:fs';
-if (typeof globalThis.collectHostGarbage !== 'function') {
+if (
+  typeof globalThis.collectHostGarbage !== 'function' ||
+  typeof globalThis.collectHostGarbageAtIdle !== 'function'
+) {
   throw Error('Require actual embedded collector host');
 }
 
@@ -61,7 +64,9 @@ await installed.completed;
 // after independent collection turns, as in the existing native I/O GC probes.
 for (let attempt = 0; attempt < 12; attempt++) {
   await turn();
-  collectHostGarbage();
+  // Collect after native dispatch frames unwind: Windows conservatively scans
+  // those stacks, where an expired callback slot is not application ownership.
+  await collectHostGarbageAtIdle();
 }
 check(
   installed.callback.deref() === undefined && installed.watcher.deref() === undefined,

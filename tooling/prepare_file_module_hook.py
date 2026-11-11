@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "1dd94814cadf7d93872b5b81f67bcb9b1b16d24ce0fd681328652fbb09dabe85"
+EXPECTED = "d819c6ecf14e5ef6daedae9a1f0629cc01a3573f34b3253f7bf0a9df4b04c5e7"
 SEAM = "            || is_file_to_file_font_load\n"
 HOOK = "            || Firefly::FileModules::allows(*request)\n"
 PREFIX = '#include "loading/FileModules.h"\n#include "loading/protocol/Dispatch.h"\n#include "native/protocol/OriginPolicy.h"\n#include "loading/web-request/Gate.h"\n'
@@ -26,21 +26,21 @@ FILE_INTERCEPT_HOOK = "        if (auto intercepted = Firefly::ProtocolFetch::di
 
 BEFORE_SEAM = "    if (recursive == Recursive::Yes) {\n        // 12. If response is null, then set response to the result of running the steps corresponding to the first\n"
 BEFORE_HOOK = """    auto firefly_upstream_get_response = get_response;
-    get_response = GC::create_function(realm.heap(), [&realm, fetch_params = NonnullRefPtr { fetch_params }, firefly_upstream_get_response]() -> GC::Ref<PendingResponse> {
+    get_response = GC::create_function<GC::Ref<PendingResponse>()>(GC::Heap::the(), GC::captures(realm, NonnullRefPtr { fetch_params }, firefly_upstream_get_response), [](auto& realm, auto& fetch_params, auto& firefly_upstream_get_response) -> GC::Ref<PendingResponse> {
         return Firefly::WebRequestGate::before(realm, *fetch_params, firefly_upstream_get_response);
     });
 
 """
 HEAD_START = "        response->set_url_list(http_request->url_list());\n\n"
-HEAD_OPEN = """        auto firefly_continue_response = GC::create_function(realm.heap(), [&realm, fetch_params, http_fetch_params, http_request, returned_pending_response, is_authentication_fetch, is_new_connection_fetch, include_credentials](NonnullRefPtr<Infrastructure::Response> response) {
+HEAD_OPEN = """        auto firefly_continue_response = GC::create_function<void(NonnullRefPtr<Infrastructure::Response>)>(GC::Heap::the(), GC::captures(realm, fetch_params, http_fetch_params, http_request, returned_pending_response, is_authentication_fetch, is_new_connection_fetch, include_credentials), [](auto& realm, auto& fetch_params, auto& http_fetch_params, auto& http_request, auto& returned_pending_response, auto& is_authentication_fetch, auto& is_new_connection_fetch, auto& include_credentials, NonnullRefPtr<Infrastructure::Response> response) {
 """
-HEAD_END = "        process_http_network_or_cache_response(realm.global_object(), *fetch_params, *http_request, *response, returned_pending_response, is_authentication_fetch, is_new_connection_fetch, include_credentials);\n    });\n\n    // 18. Return response."
+HEAD_END = "        process_http_network_or_cache_response(realm.global_object(), *fetch_params, *http_request, *response, returned_pending_response, is_authentication_fetch, is_new_connection_fetch, include_credentials);\n    }));\n\n    // 18. Return response."
 HEAD_CLOSE = """        });
         NonnullRefPtr firefly_head_response { *response };
         if (!Firefly::WebRequestGate::headers(*fetch_params, firefly_head_response, firefly_continue_response))
             firefly_continue_response->function()(move(firefly_head_response));
 """
-FINISH_SEAM = "    auto process_response_end_of_body = [fetch_params = NonnullRefPtr { fetch_params }, controller, response_view, setup_report_timing_steps, report_timing_if_appropriate] {\n"
+FINISH_SEAM = "    auto process_response_end_of_body = GC::create_function(GC::Heap::the(), GC::captures(NonnullRefPtr { fetch_params }, controller, response_view, setup_report_timing_steps, report_timing_if_appropriate), [](auto& fetch_params, auto& controller, auto& response_view, auto& setup_report_timing_steps, auto& report_timing_if_appropriate) {\n"
 FINISH_HOOK = "        Firefly::WebRequestGate::finish(*fetch_params);\n"
 WEB_SEAMS = (BEFORE_SEAM, HEAD_START, HEAD_END, FINISH_SEAM)
 
@@ -54,7 +54,7 @@ def adapt(source):
     source = (
         source.replace(BEFORE_SEAM, BEFORE_HOOK + BEFORE_SEAM)
         .replace(HEAD_START, HEAD_START + HEAD_OPEN)
-        .replace(HEAD_END, HEAD_END.replace("\n    });", "\n" + HEAD_CLOSE + "    });", 1))
+        .replace(HEAD_END, HEAD_END.replace("\n    }));", "\n" + HEAD_CLOSE + "    }));", 1))
         .replace(FINISH_SEAM, FINISH_SEAM + FINISH_HOOK)
     )
     return PREFIX + source.replace(SEAM, SEAM + HOOK).replace(
@@ -82,7 +82,7 @@ def main():
         .replace(FILE_INTERCEPT_HOOK + FILE_INTERCEPT_SEAM, FILE_INTERCEPT_SEAM)
         .replace(BEFORE_HOOK + BEFORE_SEAM, BEFORE_SEAM)
         .replace(HEAD_START + HEAD_OPEN, HEAD_START)
-        .replace(HEAD_END.replace("\n    });", "\n" + HEAD_CLOSE + "    });", 1), HEAD_END)
+        .replace(HEAD_END.replace("\n    }));", "\n" + HEAD_CLOSE + "    }));", 1), HEAD_END)
         .replace(FINISH_SEAM + FINISH_HOOK, FINISH_SEAM)
         == original
     )

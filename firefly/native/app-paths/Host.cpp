@@ -1,5 +1,7 @@
 /** Strict UTF-8/path argument validation before any filesystem effect. */
 #include "Host.h"
+#include "../platform/GCIncludes.h"
+#include "../platform/NativeCaptures.h"
 #include "Paths.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -49,35 +51,39 @@ namespace {
 
 void install_host(JS::Realm& realm, JS::Object& host, Paths& paths)
 {
-    host.define_native_function(
-        realm, "appPathGet"_utf16,
-        [&paths](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            QString output;
-            if (auto error = paths.get(TRY(string(vm, vm.argument(0))), output); error.has_value())
-                return fail(vm, *error);
-            return text(vm, output);
-        },
+    host.define_native_function(realm, "appPathGet"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(paths)),
+            [](auto& paths_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& paths = *TRY(Firefly::live_native_capture(vm, paths_capture));
+                QString output;
+                if (auto error = paths.get(TRY(string(vm, vm.argument(0))), output);
+                    error.has_value())
+                    return fail(vm, *error);
+                return text(vm, output);
+            }),
         1, JS::default_attributes);
-    host.define_native_function(
-        realm, "appPathSet"_utf16,
-        [&paths](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            auto name = TRY(string(vm, vm.argument(0)));
-            auto value = TRY(string(vm, vm.argument(1)));
-            if (auto error = paths.set(name, value); error.has_value())
-                return fail(vm, *error);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "appPathSet"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(paths)),
+            [](auto& paths_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& paths = *TRY(Firefly::live_native_capture(vm, paths_capture));
+                auto name = TRY(string(vm, vm.argument(0)));
+                auto value = TRY(string(vm, vm.argument(1)));
+                if (auto error = paths.set(name, value); error.has_value())
+                    return fail(vm, *error);
+                return JS::js_undefined();
+            }),
         2, JS::default_attributes);
-    host.define_native_function(
-        realm, "appLogsSet"_utf16,
-        [&paths](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-            std::optional<QString> path;
-            if (!vm.argument(0).is_undefined())
-                path = TRY(string(vm, vm.argument(0)));
-            if (auto error = paths.set_logs(path); error.has_value())
-                return fail(vm, *error);
-            return JS::js_undefined();
-        },
+    host.define_native_function(realm, "appLogsSet"_utf16,
+        GC::create_function(realm.heap(), GC::captures(Mite::native_reference(paths)),
+            [](auto& paths_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& paths = *TRY(Firefly::live_native_capture(vm, paths_capture));
+                std::optional<QString> path;
+                if (!vm.argument(0).is_undefined())
+                    path = TRY(string(vm, vm.argument(0)));
+                if (auto error = paths.set_logs(path); error.has_value())
+                    return fail(vm, *error);
+                return JS::js_undefined();
+            }),
         0, JS::default_attributes);
 }
 }

@@ -16,6 +16,8 @@ public:
         // Native transport grants; no JS/page setter is installed by this adapter.
         Function<void(u64)> credit;
         Function<void()> cancel;
+        // A terminal packet may precede asynchronous header authorization.
+        Function<void()> completed;
     };
 
     static ErrorOr<NonnullRefPtr<Response>> create(Web::Fetch::Infrastructure::FetchParams const&,
@@ -61,6 +63,8 @@ private:
 
     void finish_head(NonnullRefPtr<Web::Fetch::Infrastructure::Response>);
 
+    void finish_complete();
+
     void fail();
 
     void release_vm_state();
@@ -84,6 +88,8 @@ private:
     u64 m_requested { 0 };
     u64 m_allowance { 0 };
     bool m_finished { false };
+    bool m_head_ready { false };
+    bool m_complete_received { false };
     AK::ThreadID m_thread { AK::ThreadID::current() };
 };
 }

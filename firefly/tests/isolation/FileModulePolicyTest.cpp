@@ -15,7 +15,9 @@ ErrorOr<void> check_file_module_policy()
     request->set_origin(local.origin());
     request->set_mode(Request::Mode::CORS);
     request->set_destination(Request::Destination::Script);
-    auto client = ClientContext { .origin = local.origin(),
+    auto client_origin = local.origin();
+    auto client = ClientContext { .origin = client_origin,
+        .site_for_cookies = client_origin,
         .creation_url = local,
         .top_level_creation_url = {},
         .top_level_origin = {},

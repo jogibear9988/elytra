@@ -38,7 +38,19 @@ try {
   app.setAppLogsPath(path.join(root, 'logs/nested'));
   check(fs.statSync(app.getPath('logs')).isDirectory(), 'real log path');
   app.commandLine.appendSwitch('lang', 'de-DE');
-  nativeTheme.themeSource = 'dark';
+  const themeSupported = process.platform === 'darwin';
+  if (themeSupported) {
+    nativeTheme.themeSource = 'dark';
+  } else {
+    // Native appearance integration is currently verified only on Cocoa.
+    fails(() => {
+      nativeTheme.themeSource = 'dark';
+    }, 'ERR_FIREFLY_UNSUPPORTED_API');
+
+    fails(() => nativeTheme.themeSource, 'ERR_FIREFLY_UNSUPPORTED_API');
+
+    console.log('PASS native theme explicitly unsupported; profile checks retained');
+  }
   app.enableSandbox();
   fs.writeFileSync(path.join(app.getPath('userData'), 'app-setting.txt'), 'persistent app file');
   await app.whenReady();
@@ -49,7 +61,9 @@ try {
 
   check(app.getPath('sessionData') === session, 'profile selection changed at readiness');
   const window = new BrowserWindow({ show: false, webPreferences: { sandbox: false } });
-  await window.loadURL(`${origin}/?stage=${stage}`);
+  await window.loadURL(
+    `${origin}/?stage=${stage}&theme=${themeSupported ? 'dark' : 'unsupported'}`
+  );
   let title;
   for (let attempt = 0; attempt < 500; ++attempt) {
     title = window.webContents.getTitle();
@@ -69,7 +83,7 @@ try {
   check(fs.existsSync(ack), 'external native/profile inspection missing');
   window.destroy();
   console.log(
-    `PASS actual ${stage} userData/sessionData profile, cookies/storage, early language/theme and native sandbox`
+    `PASS actual ${stage} userData/sessionData profile, cookies/storage, early language, platform theme contract and native sandbox`
   );
   app.quit();
 } catch (error) {

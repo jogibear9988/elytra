@@ -1,5 +1,6 @@
 /** Application paths are selected before native profile/session initialization. */
 #pragma once
+#include "../../../mite/runtime/core/NativeCaptureLifetime.h"
 #include <QString>
 #include <optional>
 
@@ -9,8 +10,18 @@ struct Failure {
     char const* message;
 };
 
-class Paths {
+class Paths : public Mite::NativeCaptureOwner<Paths> {
 public:
+    ~Paths()
+    {
+        this->revoke_native_captures();
+    }
+
+    template <typename Visitor> void visit_capture_edges(Visitor&) const
+    {
+        // Only native policy/Qt data; callbacks are native transport hooks.
+    }
+
     explicit Paths(QString application_directory);
 
     std::optional<Failure> get(QString const& name, QString& result);
