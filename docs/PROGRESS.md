@@ -13842,11 +13842,41 @@ codeoss-extra-ca-{unset,valid,invalid}-native.log). Dedicated added-root network
 handshake and fresh Linux/Windows acceptance remain open. One shared CodeOSS stage
 refresh applies all six adapters, retaining 12,348 compiled files/32 overlay files.
 
-User-requested actual visible Cocoa start PID3942 remains open, with evidence in
+User-requested actual visible Cocoa start PID3942 ran, with evidence in
 codeoss-visible-user-start.log. Extension host progresses to missing crypto.getHashes;
 menu construction hits the 256-item cap. No complete editor, extension activation,
 menu acceptance or open/edit/save claim. Continue these actual blockers; local GUI
 runs remain infrequent. Current work is on the review branch, not yet master.
+
+## 2026-11-11 — Framework menu admission and real digest capability queries
+
+Fix the actual CodeOSS 257th-menu-item failure in Firefly, without application
+changes. Electron has no corresponding 256-item ceiling. Align JavaScript/native
+admission at 2048 items and 1 MiB UTF-8 metadata while retaining depth, ownership,
+generation, role and stale-action checks. The focused actual native offscreen test
+installs all 2048 QActions, dispatches the last command, and rejects item 2049 and
+excess metadata without replacing accepted state (codeoss-large-menu-native.log).
+Physical Cocoa menu interaction remains unaccepted.
+
+Implement getHashes from real OpenSSL names/aliases, filtered through the same
+provider initialization as createHash; return independent sorted arrays and bound
+native enumeration. Combined Release host/offscreen build and actual Mite digest
+fixture pass (codeoss-hashes-menu-build.log, codeoss-hashes-native.log).
+
+Actual CodeOSS offscreen PID6474 progresses beyond getHashes and the menu item cap;
+main/renderer SharedProcess connections remain established. New concrete extension
+and agent failures are missing node:worker_threads through proxy-agent. A DOM port
+admission refusal also needs diagnosis: its current shared error covers frame,
+route, count and byte-budget failures, so it does not yet prove a queue burst. Cocoa Services role refusal is expected in
+the explicit offscreen provider. Evidence: codeoss-hashes-menu-start.log. No accepted
+extensions, native menu interaction or editor workflow is claimed; no new GUI run.
+
+User permits temporary development adaptations only with a documented reason and
+tracked removal/replacement requirement; retain unchanged CodeOSS as the target.
+Add the adaptation TODO inventory and link it from the roadmap/current status.
+Also preserve the missing npm fs-copyfile MIT attribution from pinned CodeOSS
+cglicenses.json, with exact license provenance/hash; original pinned bytes remain
+unchanged (including upstream trailing whitespace).
 
 ## Resume
 

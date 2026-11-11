@@ -6,6 +6,7 @@
 #include "core/GCCaptures.h"
 #include "platform/WindowsSockets.h"
 #include "platform/crypto/Crypto.h"
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/TypedArray.h>
@@ -16,6 +17,8 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <optional>
+#include <set>
+#include <string>
 #include <vector>
 
 namespace Mite {
@@ -29,6 +32,62 @@ namespace {
                     vm, Utf16String::from_utf8(StringView(code, strlen(code)))),
                 JS::default_attributes);
         return JS::throw_completion(error);
+    }
+
+    /** The legacy OpenSSL name/alias registry is the same lookup surface used by
+     * createHash below. Admit only methods whose real provider initializes now;
+     * names such as legacy MD4 must not become fictitious supported algorithms. */
+    struct DigestCatalog {
+        static constexpr size_t name_limit = 256;
+        static constexpr size_t count_limit = 1024;
+        static constexpr size_t bytes_limit = 64 * 1024;
+        std::set<std::string> names;
+        size_t bytes { 0 };
+        size_t visits { 0 };
+        bool exceeded { false };
+        bool failed { false };
+    };
+
+    void collect_digest(EVP_MD const*, char const* from, char const*, void* argument)
+    {
+        auto& catalog = *static_cast<DigestCatalog*>(argument);
+        if (catalog.exceeded || catalog.failed || !from)
+            return;
+        if (++catalog.visits > 8192) {
+            catalog.exceeded = true;
+            return;
+        }
+        size_t length = 0;
+        while (length <= DigestCatalog::name_limit && from[length])
+            ++length;
+        if (!length || length > DigestCatalog::name_limit) {
+            catalog.exceeded = true;
+            return;
+        }
+        if (catalog.names.contains(std::string(from, length)))
+            return;
+        // Keep failed capability probes out of subsequent native crypto errors.
+        bool marked = ERR_set_mark() == 1;
+        auto* method = EVP_get_digestbyname(from);
+        std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> context(
+            EVP_MD_CTX_new(), EVP_MD_CTX_free);
+        bool supported = method && EVP_MD_get_size(method) >= 0 && context
+            && EVP_DigestInit_ex(context.get(), method, nullptr) == 1;
+        if (!context)
+            catalog.failed = true;
+        if (marked)
+            ERR_pop_to_mark();
+        else
+            ERR_clear_error();
+        if (!supported)
+            return;
+        if (catalog.names.size() >= DigestCatalog::count_limit
+            || length > DigestCatalog::bytes_limit - catalog.bytes) {
+            catalog.exceeded = true;
+            return;
+        }
+        catalog.names.emplace(from, length);
+        catalog.bytes += length;
     }
 
     struct HashState {
@@ -168,6 +227,28 @@ namespace {
 GC::Ref<JS::Object> create_hash_host(JS::Realm& realm)
 {
     GC::Root host { JS::Object::create(realm, nullptr) };
+    host->define_native_function(
+        realm, "list"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            DigestCatalog catalog;
+            EVP_MD_do_all_sorted(collect_digest, &catalog);
+            if (catalog.exceeded)
+                return hash_error(
+                    vm, "ERR_MITE_CRYPTO_LIMIT", u"Digest enumeration exceeds its native budget"sv);
+            if (catalog.failed)
+                return hash_error(
+                    vm, "ERR_CRYPTO_OPERATION_FAILED", u"Unable to inspect digest providers"sv);
+            auto& realm = vm.realm();
+            GC::Root result { TRY(JS::Array::create(realm, catalog.names.size())) };
+            size_t index = 0;
+            for (auto const& name : catalog.names)
+                result->define_direct_property(index++,
+                    JS::PrimitiveString::create(
+                        vm, Utf16String::from_utf8(StringView(name.data(), name.size()))),
+                    JS::default_attributes);
+            return result.ptr();
+        },
+        0, JS::default_attributes);
     host->define_native_function(realm, "create"_utf16,
         GC::create_function(realm.vm().heap(), GC::captures(realm),
             [](auto& realm, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

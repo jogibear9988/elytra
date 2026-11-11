@@ -342,7 +342,13 @@ function createDigestApi(host) {
   function timingSafeEqual(left, right) {
     return native.hmac.equal(binaryBytes(left), binaryBytes(right));
   }
-  return { createHash, Hash, createHmac, Hmac, timingSafeEqual };
+  function getHashes() {
+    if (typeof native.hash.list !== "function") {
+      fail("native hash enumeration unavailable", Error, "ERR_MITE_UNSUPPORTED_API");
+    }
+    return native.hash.list();
+  }
+  return { createHash, Hash, createHmac, Hmac, timingSafeEqual, getHashes };
 }
 
 // mite/modules/crypto/web-crypto.mjs

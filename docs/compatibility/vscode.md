@@ -7,6 +7,20 @@ Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 
 ## Current priority: first real workbench, then developer workflows
 
+Latest actual visible Cocoa start (2026-11-11): the native process started,
+but complete editor operation is unaccepted. The subsequent non-GUI native build fixes `crypto.getHashes` and the 256-item
+framework menu cap; actual extension/agent startup then reaches missing
+`node:worker_threads`, while a DOM port queue limit also needs investigation. Genuine P-256 verification, filesystem traversal,
+path read streams and extra-CA startup/query fixtures now pass under Mite on macOS.
+The actual startup log is `codeoss-visible-user-start.log`. Native menu interactions,
+window-ready, extension activation and workspace open/edit/save remain open.
+
+Temporary Code-OSS changes are permitted for development, with their reasons and
+removal requirements tracked in the [adaptation TODO inventory](../development/code-oss-adaptations.md).
+The final target is to replace behavior-changing workarounds with genuine framework
+support; an adapted diagnostic run is not evidence of unchanged Code-OSS support.
+
+
 Updated 2026-11-11. The actual pinned Code-OSS desktop entry now creates its
 renderer, resolves the complete English window configuration through native IPC
 and imports the real Workbench graph. The latest offscreen diagnostic observes

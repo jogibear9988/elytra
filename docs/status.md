@@ -1,5 +1,11 @@
 # Current support and tested examples
 
+Latest Code-OSS observation, 2026-11-11: the user-requested native Cocoa process
+starts but complete editor operation remains unaccepted. The subsequent non-GUI build fixes `crypto.getHashes` and the menu item cap.
+Current failures include missing `node:worker_threads` and a DOM port queue limit. See the [current audit](compatibility/vscode.md) and
+[temporary adaptation TODOs](development/code-oss-adaptations.md). The historical
+checkpoints below are scoped evidence, not later startup acceptance.
+
 Reviewed **2026-11-10** against the implementation, example catalog and completed
 native CI logs. Mite and Firefly remain partial implementations. A checked-in
 example, a successful unsupported-API rejection or a green formatting job does

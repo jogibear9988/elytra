@@ -1,6 +1,7 @@
 /** Rebuild validated native trees atomically; retired QAction generations cannot call a new menu.
  */
 #include "ApplicationMenu.h"
+#include "Limits.h"
 #include "Roles.h"
 #include <QAction>
 #include <QApplication>
@@ -101,6 +102,7 @@ namespace {
                     code = static_cast<Qt::Key>(Qt::Key_F1 + number - 1);
             }
         }
+
         if (code == Qt::Key_unknown)
             return false;
         Qt::KeyboardModifiers modifiers;
@@ -153,7 +155,8 @@ namespace {
                         || !MenuRoles::available())))
                 return false;
             if (node.size() < 7 || node.size() > 9 || !integer(node.value("command"), command)
-                || commands.contains(command) || commands.size() >= 256
+                || commands.contains(command)
+                || static_cast<size_t>(commands.size()) >= MenuLimits::item_count
                 || !node.value("label").isString()
                 || node.value("label").toString().toUtf8().size() > 1024
                 || node.value("label").toString().contains(QChar(0))
@@ -169,6 +172,7 @@ namespace {
                     return false;
                 roles.insert(role.toString());
             }
+
             auto children = node.value("submenu").toArray();
             if (type != "submenu" && !children.isEmpty())
                 return false;
@@ -202,6 +206,7 @@ void ApplicationMenu::clear_bars()
         m_dock = nullptr;
         return;
     }
+
     MenuRoles::clear();
     for (auto bar : m_bars) {
         if (!bar)
@@ -246,6 +251,7 @@ void ApplicationMenu::populate(
                 action->setShortcut(shortcut);
                 action->setShortcutContext(Qt::ApplicationShortcut);
             }
+
             target.addAction(action);
             int generation = requested_generation < 0 ? m_generation : requested_generation;
             int command = node.value("command").toInt();
@@ -299,7 +305,8 @@ QMenuBar* ApplicationMenu::create_bar(QWidget* parent)
 
 bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
 {
-    if (m_stopped || metadata.size() > 65536 || (m_dock_mode && !MenuRoles::dock_available())) {
+    if (m_stopped || static_cast<size_t>(metadata.size()) > MenuLimits::wire_bytes
+        || (m_dock_mode && !MenuRoles::dock_available())) {
         error = "Native application menu is stopped or over budget";
         return false;
     }
@@ -326,6 +333,7 @@ bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
             error = "Native Dock menu registration failed";
             return false;
         }
+
         auto previous = m_dock;
         m_dock = menu;
         m_generation = generation;
@@ -334,6 +342,7 @@ bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
         delete previous;
         return true;
     }
+
     clear_bars();
     m_generation = generation;
     m_items = items.toArray();

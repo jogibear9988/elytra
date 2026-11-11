@@ -279,5 +279,13 @@ export default function createDigestApi(host) {
     return native.hmac.equal(binaryBytes(left), binaryBytes(right));
   }
 
-  return { createHash, Hash, createHmac, Hmac, timingSafeEqual };
+  /** Query the active native digest implementations; never hard-code capability names. */
+  function getHashes() {
+    if (typeof native.hash.list !== 'function') {
+      fail('native hash enumeration unavailable', Error, 'ERR_MITE_UNSUPPORTED_API');
+    }
+    return native.hash.list();
+  }
+
+  return { createHash, Hash, createHmac, Hmac, timingSafeEqual, getHashes };
 }

@@ -42,10 +42,12 @@ Electron menu reproduction.
 | menu.items | Frozen snapshot array of the same MenuItem objects |
 | menu.getMenuItemById(id) | Recursive lookup of a nonempty string id, or null |
 
-Application-menu top-level entries must be submenus. Each tree has at most 256
+Application-menu top-level entries must be submenus. Each tree has at most 2048
 items, depth eight and unique nonempty ids. Shared/cyclic submenus and repeated
 MenuItem ownership within a tree are rejected. Structural mutation of an installed
 menu or its submenus is explicitly unsupported; build a replacement menu instead.
+Application and Dock menu metadata is limited to 1 MiB of UTF-8 bytes,
+independently checked by JavaScript and the native boundary. These bounded Firefly policies remain explicit compatibility limits.
 Property changes on installed items republish the native tree. Invalid/rejected
 native updates preserve the previous JavaScript property and installed menu.
 

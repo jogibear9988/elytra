@@ -2,6 +2,7 @@
 #include "Host.h"
 #include "../platform/GCIncludes.h"
 #include "../platform/NativeCaptures.h"
+#include "Limits.h"
 #include "Roles.h"
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -24,7 +25,8 @@ void install_menu_host(
                 [](auto& dock_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                     auto& dock = *TRY(Firefly::live_native_capture(vm, dock_capture));
                     if (!vm.argument(0).is_string()
-                        || vm.argument(0).as_string().length_in_utf16_code_units() > 65536)
+                        || vm.argument(0).as_string().length_in_utf16_code_units()
+                            > MenuLimits::wire_bytes)
                         return vm.throw_completion<JS::TypeError>(
                             "Invalid Dock menu metadata"_utf16);
                     auto bytes = vm.argument(0).as_string().utf16_string_view().to_utf8();
@@ -41,6 +43,7 @@ void install_menu_host(
                 }),
             1, JS::default_attributes);
     }
+
     host.define_native_function(
         realm, "menuRoleAvailable"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -68,6 +71,7 @@ void install_menu_host(
                     JS::default_attributes);
                 return JS::throw_completion(error);
             }
+
             return JS::js_undefined();
         },
         1, JS::default_attributes);
@@ -79,7 +83,7 @@ void install_menu_host(
                     return vm.throw_completion<JS::TypeError>(
                         "Menu metadata must be a string"_utf16);
                 auto view = vm.argument(0).as_string().utf16_string_view();
-                if (view.length_in_code_units() > 65536)
+                if (view.length_in_code_units() > MenuLimits::wire_bytes)
                     return vm.throw_completion<JS::RangeError>(
                         "Menu metadata exceeds budget"_utf16);
                 auto bytes = view.to_utf8();

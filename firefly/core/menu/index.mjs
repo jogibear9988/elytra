@@ -1,7 +1,10 @@
 /** Main-owned application-menu graph; native actions carry IDs, never JS callbacks. */
 import createAccelerators from './accelerator.mjs';
+import { itemCount, wireBytes } from './limits.mjs';
 
 export default function createMenus(native, error, unsupported, quit, resolveWindow) {
+  const encoder = new TextEncoder();
+  const encode = encoder.encode.bind(encoder);
   const accelerator = createAccelerators(error, unsupported, process.platform);
   const editRoles = new Set([
     'cut',
@@ -75,8 +78,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         if (map.has(data.command)) {
           throw error('ERR_INVALID_ARG_VALUE', 'Repeated MenuItem');
         }
-        if (map.size >= 256) {
-          throw error('ERR_OUT_OF_RANGE', 'At most 256 menu items');
+        if (map.size >= itemCount) {
+          throw error('ERR_OUT_OF_RANGE', `At most ${itemCount} menu items`);
         }
         if (data.id && ids.has(data.id)) {
           throw error('ERR_INVALID_ARG_VALUE', 'Duplicate menu item id');
@@ -125,7 +128,7 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       }
     }
     const wire = JSON.stringify({ schema: 1, generation: generation + 1, items: snapshot.items });
-    if (wire.length > 64 * 1024) {
+    if (encode(wire).byteLength > wireBytes) {
       throw error('ERR_OUT_OF_RANGE', 'Menu wire budget exceeded');
     }
     native.menuApply(wire);
@@ -163,7 +166,7 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       generation: dockGeneration + 1,
       items: snapshot.items
     });
-    if (wire.length > 64 * 1024) {
+    if (encode(wire).byteLength > wireBytes) {
       throw error('ERR_OUT_OF_RANGE', 'Dock menu wire budget exceeded');
     }
     native.dockMenuApply(wire);

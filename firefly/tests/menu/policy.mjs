@@ -207,6 +207,81 @@ fails(() => separate.dock.setMenu(appMenu), 'ERR_FIREFLY_UNSUPPORTED_API');
 
 fails(() => separate.dock.bounce(), 'ERR_FIREFLY_UNSUPPORTED_API');
 
+// Full desktop applications publish hundreds of commands. The former 256-item
+// and 64KiB transport ceilings both rejected an otherwise valid native tree.
+let largeWire;
+let largeCalls = 0;
+let nativeInstalls = 0;
+const large = createMenus(
+  {
+    menuApply(wire) {
+      ++nativeInstalls;
+      largeWire = wire;
+    }
+  },
+  error,
+  unsupported,
+  () => {},
+  () => undefined
+);
+const children = Array.from({ length: 2047 }, (_, index) => ({
+  label: `Command ${index}`,
+  id: `large-${index}`,
+
+  click() {
+    ++largeCalls;
+  }
+}));
+const largeMenu = large.Menu.buildFromTemplate([{ label: 'Commands', submenu: children }]);
+large.Menu.setApplicationMenu(largeMenu);
+check(
+  new TextEncoder().encode(largeWire).byteLength > 65536,
+  'large menu genuinely exceeds former wire ceiling'
+);
+const acceptedWire = JSON.parse(largeWire);
+large.dispatch(0, {
+  generation: acceptedWire.generation,
+  command: largeMenu.getMenuItemById('large-2046').commandId,
+  modifiers: 0
+});
+check(largeCalls === 1, 'last command remains addressable beyond former ceiling');
+const previousWire = largeWire;
+
+fails(
+  () =>
+    large.Menu.setApplicationMenu(
+      large.Menu.buildFromTemplate([
+        { label: 'Too many', submenu: [...children, { label: 'Excess' }] }
+      ])
+    ),
+  'ERR_OUT_OF_RANGE'
+);
+
+check(
+  nativeInstalls === 1 &&
+    largeWire === previousWire &&
+    large.Menu.getApplicationMenu() === largeMenu,
+  'item limit rejects before native mutation'
+);
+
+fails(
+  () =>
+    large.Menu.setApplicationMenu(
+      large.Menu.buildFromTemplate([
+        {
+          label: 'UTF8 bytes',
+          submenu: Array.from({ length: 1200 }, () => ({ label: '界'.repeat(300) }))
+        }
+      ])
+    ),
+  'ERR_OUT_OF_RANGE'
+);
+
+check(
+  nativeInstalls === 1 && large.Menu.getApplicationMenu() === largeMenu,
+  'UTF8 wire limit rejects before native mutation'
+);
+
 console.log(
   'PASS menu graph validation, cycles/ids, install rollback, live properties, roles and stale events'
 );

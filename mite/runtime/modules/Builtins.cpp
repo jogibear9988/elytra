@@ -139,7 +139,7 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
 static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
+    "getHashes", "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
     "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };

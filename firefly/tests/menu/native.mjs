@@ -22,7 +22,30 @@ for (const wire of [
   JSON.stringify({ schema: 1.5, generation: 1, items: null }),
   JSON.stringify({ schema: 1, generation: 0, items: null }),
   JSON.stringify({ schema: 1, generation: 1, items: null, unknown: true }),
-  ' '.repeat(65537)
+  ' '.repeat(1024 * 1024 + 1),
+  JSON.stringify({
+    schema: 1,
+    generation: 1,
+    items: [
+      {
+        command: 1,
+        label: 'Too many',
+        type: 'submenu',
+        enabled: true,
+        visible: true,
+        checked: false,
+        submenu: Array.from({ length: 2048 }, (_, i) => ({
+          command: i + 2,
+          label: 'Command',
+          type: 'normal',
+          enabled: true,
+          visible: true,
+          checked: false,
+          submenu: []
+        }))
+      }
+    ]
+  })
 ]) {
   let rejected = false;
   try {
@@ -134,6 +157,30 @@ check(native.trigger(checkbox.commandId), 'native checkbox QAction missing');
 Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Replacement', submenu: [] }]));
 await delay();
 check(calls === 2, 'stale generation called');
+let largeCalls = 0;
+const largeTree = Menu.buildFromTemplate([
+  {
+    label: 'Commands',
+    submenu: Array.from({ length: 2047 }, (_, index) => ({
+      id: `native-large-${index}`,
+      label: `Command ${index}`,
+
+      click() {
+        ++largeCalls;
+      }
+    }))
+  }
+]);
+Menu.setApplicationMenu(largeTree);
+check(
+  native.trigger(largeTree.getMenuItemById('native-large-2046').commandId),
+  'native action beyond former item/wire limits'
+);
+const largeDeadline = Date.now() + 2000;
+while (!largeCalls && Date.now() < largeDeadline) {
+  await delay();
+}
+check(largeCalls === 1, 'large native QAction dispatch');
 Menu.setApplicationMenu(null);
 check(!JSON.parse(native.state()).bar, 'native menu removal');
 console.log(

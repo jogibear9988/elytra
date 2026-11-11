@@ -25,5 +25,14 @@
       "path": "src/copyfile.cc",
       "sha256": "635b3690a406d0d0f85a88cc9b0d3d884f17d4cc20541fe84fe8e9d252ccec60"
     }
-  ]
+  ],
+  "licenseSource": {
+    "repository": "https://github.com/microsoft/vscode",
+    "revision": "6531648f5ace8b77ae799262bdc97bf048461938",
+    "path": "cglicenses.json",
+    "sourceSha256": "c0e5070938cbe9238863410c5fb9a2758904493421d563b071d36a3350ecc5f0",
+    "note": "The npm tarball omits LICENSE; preserve Microsoft\u2019s explicit package attribution from pinned Code-OSS.",
+    "outputPath": "LICENSE",
+    "outputSha256": "305bd7728b695e8748f53cba862c8000ca1d60ab7db87d0ac98931e695dec247"
+  }
 }

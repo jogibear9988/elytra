@@ -345,3 +345,14 @@ also covers invalid curve points, DataView offsets and JWK mutation isolation.
 Other curves/formats/digests, private keys, signing, asynchronous verification,
 key export/equality and additional options explicitly reject. This is a partial
 KeyObject/verify API; fresh native Linux/Windows acceptance remains open.
+
+## getHashes()
+
+Return a fresh sorted array of unique digest names/aliases that the current
+OpenSSL provider can actually initialize through Mite's `createHash` backend.
+Arguments are ignored, matching Node. Mutating one result does not affect later
+queries. Provider/build configuration determines the names; unavailable legacy
+algorithms are excluded. Native enumeration is limited to 1024 names, 256 bytes
+per name, 64 KiB of text and 8192 visited entries, with explicit limit errors.
+The focused macOS Mite fixture initializes every advertised digest and checks
+SHA-256/384/512 vectors; fresh Linux/Windows acceptance remains open.
