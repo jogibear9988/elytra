@@ -12910,6 +12910,33 @@ null-prototype path descriptor under trace logging (codeoss-large-config-direct.
 This is terminal, not an observation timeout. Fix the genuine console issue before
 another batched start; do not claim an actual config transport/editor pass yet.
 
+
+## 2026-11-11 — Keep real startup logging safe for null-prototype objects
+
+Actual direct Code-OSS trace logging hit console's application ToString while
+printing null-prototype path descriptors and terminated before BrowserWindow.
+Use LibJS's native side-effect-free class rendering for objects/functions;
+primitives retain their existing conversion/stream/flush contract. Real native
+Error objects preserve safe data name/message and internal captured stack,
+without reading app stack/name/message accessors. This is not nested Node
+inspection or util.format parity. Document the partial contract.
+
+Runtime strict compilation and final Release Firefly build pass
+(codeoss-safe-console-final-build.log). The focused actual Firefly standalone-Mite
+role passes null-prototype/array/function/Proxy/revoked-Proxy/coercion/accessor and
+Error-diagnostic checks with zero app hooks, including throwing name/message/stack
+getters and unchanged primitive output (codeoss-safe-console-acceptance.log).
+Register the owned fixture in the existing runtime runner for later CI; no broad
+runtime suite is run locally.
+
+Actual direct entry now stays alive, opens window1 and reaches real vscode-file
+navigation/document/IPC-ready with no main result-serialization diagnostic
+(codeoss-real-config-direct.log; main39971/helper39975 observed live). A sanitized
+bridge Promise rejection still prevents window config from completing; generic
+rejection does not identify whether source preload or copying failed. Do not claim
+workbench/editor acceptance. Investigate that existing process/source before any
+further desktop restart.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

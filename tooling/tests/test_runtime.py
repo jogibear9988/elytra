@@ -154,6 +154,17 @@ def main():
         if not passed:
             failures.append(name)
             print(f"Node: {node}\nMite: {mite}", file=sys.stderr)
+    # Object rendering intentionally differs from Node inspection; verify Mite's
+    # no-coercion contract directly instead of equating the formatted output.
+    safe_objects = fixtures.parent / "console" / "safe-objects.mjs"
+    safe_console = run(args.mite, safe_objects)
+    passed = safe_console.returncode == 0 and safe_console.stdout.endswith(
+        "PASS safe native console object logging\n"
+    )
+    print(f"{'PASS' if passed else 'FAIL'} safe console object logging")
+    if not passed:
+        failures.append("safe console object logging")
+        print(safe_console, file=sys.stderr)
     for command, expected in [
         (["-e", "console.log(6 * 7)"], 0),
         (["--version"], 0),

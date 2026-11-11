@@ -54,8 +54,12 @@ clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
 body support. Global Web Crypto supplies native getRandomValues/randomUUID;
 subtle algorithms remain unavailable. See [crypto](crypto.md).
 
-- `console.log(...values)`, `console.error(...values)` and `console.warn(...values)` convert values to strings
-  and join with spaces; Node inspection and format substitutions are not implemented.
+- `console.log(...values)`, `console.error(...values)` and `console.warn(...values)`
+  convert primitives to strings and join with spaces. Objects/functions use safe
+  native class labels without getters, Proxy traps or custom coercion. Native
+  Error objects retain safe data name/message and internally captured stacks;
+  accessor overrides are skipped. Nested Node inspection and format substitutions
+  are not implemented.
   log writes stdout; error/warn write stderr. warn is tested by the actual Code-OSS
   disabled-cache branch and primitive Node differential routing checks.
 - `process.argv`, `argv0`, `execPath`, `pid`, `ppid`, `arch`, `platform`, `version`,
