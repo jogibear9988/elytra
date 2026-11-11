@@ -1,5 +1,19 @@
 /** Main-owned application-menu graph; native actions carry IDs, never JS callbacks. */
+import createAccelerators from './accelerator.mjs';
+
 export default function createMenus(native, error, unsupported, quit, resolveWindow) {
+  const accelerator = createAccelerators(error, unsupported, process.platform);
+  const editRoles = new Set([
+    'cut',
+    'copy',
+    'paste',
+    'pasteAndMatchStyle',
+    'undo',
+    'redo',
+    'selectAll'
+  ]);
+  const nativeRoles = new Set(['hide', 'hideOthers', 'unhide', 'front']);
+  const menuRoles = new Set(['window', 'help', 'services']);
   const menuState = new WeakMap();
   const itemState = new WeakMap();
   let current = null;
@@ -16,7 +30,9 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
     'visible',
     'checked',
     'click',
-    'role'
+    'role',
+    'accelerator',
+    'userSettingsLabel'
   ]);
 
   function text(value, name) {
@@ -39,6 +55,7 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
   function graph(menu) {
     const seen = new Set();
     const ids = new Set();
+    const roles = new Set();
     const map = new Map();
 
     function walk(value, depth, enabled = true, visible = true) {
@@ -64,6 +81,12 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         if (data.id) {
           ids.add(data.id);
         }
+        if (menuRoles.has(data.role)) {
+          if (roles.has(data.role)) {
+            throw error('ERR_INVALID_ARG_VALUE', 'Repeated native menu role');
+          }
+          roles.add(data.role);
+        }
         map.set(data.command, {
           item,
           eligible: enabled && visible && data.enabled && data.visible
@@ -75,6 +98,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
           enabled: data.enabled,
           visible: data.visible,
           checked: data.checked,
+          ...(data.accelerator == null ? {} : { accelerator: accelerator(data.accelerator) }),
+          ...(menuRoles.has(data.role) ? { role: data.role } : {}),
           submenu: data.submenu
             ? walk(data.submenu, depth + 1, enabled && data.enabled, visible && data.visible)
             : []
@@ -126,9 +151,26 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         }
       }
       const role = value.role;
-      if (role !== undefined && !['quit', 'close'].includes(role)) {
+      if (role !== undefined && typeof role !== 'string') {
+        throw error('ERR_INVALID_ARG_TYPE', 'MenuItem role must be a string');
+      }
+      if (
+        role !== undefined &&
+        !['quit', 'close', 'minimize', 'zoom'].includes(role) &&
+        !nativeRoles.has(role) &&
+        !menuRoles.has(role) &&
+        !(editRoles.has(role) && typeof native.editContents === 'function')
+      ) {
         unsupported(`MenuItem role ${role}`);
       }
+      if (
+        (nativeRoles.has(role) || menuRoles.has(role)) &&
+        (typeof native.menuRoleAvailable !== 'function' || !native.menuRoleAvailable(role))
+      ) {
+        unsupported(`MenuItem native role ${role}`);
+      }
+      const acceleratorValue = value.accelerator;
+      accelerator(acceleratorValue);
       const submenu =
         value.submenu === undefined
           ? null
@@ -150,12 +192,18 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
       }
       if (
         (type === 'separator' || type === 'submenu') &&
-        (value.click !== undefined || role !== undefined)
+        (value.click !== undefined || (role !== undefined && !menuRoles.has(role)))
       ) {
         unsupported('click/role on a separator or submenu');
       }
-      if (role !== undefined && type !== 'normal') {
+      if (role !== undefined && type !== 'normal' && !(type === 'submenu' && menuRoles.has(role))) {
         unsupported('role on non-normal item');
+      }
+      if (menuRoles.has(role) && type !== 'submenu') {
+        unsupported('menu role requires a submenu');
+      }
+      if (acceleratorValue != null && (type === 'submenu' || type === 'separator')) {
+        unsupported('accelerator on a separator or submenu');
       }
       if (value.checked !== undefined && type !== 'checkbox') {
         unsupported('checked on a non-checkbox item');
@@ -167,6 +215,11 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         command: ++nextCommand,
         parent: null,
         role,
+        accelerator: acceleratorValue,
+        userSettingsLabel:
+          value.userSettingsLabel === undefined
+            ? undefined
+            : text(value.userSettingsLabel, 'userSettingsLabel'),
         submenu,
         type,
         id: text(value.id === undefined ? '' : value.id, 'id'),
@@ -204,6 +257,29 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
           }
         });
       }
+      Object.defineProperty(this, 'accelerator', {
+        enumerable: true,
+
+        get: () => data.accelerator,
+
+        set: (value) => {
+          accelerator(value);
+          if (value != null && (type === 'submenu' || type === 'separator')) {
+            unsupported('accelerator on a separator or submenu');
+          }
+          update(this, 'accelerator', value);
+        }
+      });
+      Object.defineProperty(this, 'userSettingsLabel', {
+        enumerable: true,
+
+        get: () => data.userSettingsLabel,
+
+        set: (value) => {
+          data.userSettingsLabel =
+            value === undefined ? undefined : text(value, 'userSettingsLabel');
+        }
+      });
       Object.defineProperty(this, 'click', {
         enumerable: true,
 
@@ -336,6 +412,20 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
         quit();
       } else if (data.role === 'close') {
         window?.close();
+      } else if (data.role === 'minimize') {
+        window?.minimize();
+      } else if (data.role === 'zoom') {
+        if (window) {
+          if (window.isMaximized()) {
+            window.unmaximize();
+          } else {
+            window.maximize();
+          }
+        }
+      } else if (nativeRoles.has(data.role)) {
+        native.menuRole(data.role);
+      } else if (editRoles.has(data.role)) {
+        native.editContents(0, data.role);
       } else if (data.click) {
         Reflect.apply(data.click, undefined, [
           item,
@@ -344,7 +434,8 @@ export default function createMenus(native, error, unsupported, quit, resolveWin
             shiftKey: !!(event.modifiers & 1),
             ctrlKey: !!(event.modifiers & 2),
             altKey: !!(event.modifiers & 4),
-            metaKey: !!(event.modifiers & 8)
+            metaKey: !!(event.modifiers & 8),
+            triggeredByAccelerator: event.triggeredByAccelerator === true
           }
         ]);
       }

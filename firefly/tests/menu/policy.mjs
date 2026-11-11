@@ -49,7 +49,15 @@ const { Menu, MenuItem, dispatch } = createMenus(
       : undefined
 );
 
-fails(() => new MenuItem({ accelerator: 'Ctrl+X' }), 'ERR_FIREFLY_UNSUPPORTED_API');
+const acceleratorItem = new MenuItem({ accelerator: 'Ctrl+X', userSettingsLabel: 'ctrl+x' });
+check(
+  acceleratorItem.accelerator === 'Ctrl+X' && acceleratorItem.userSettingsLabel === 'ctrl+x',
+  'Accelerator and JS-only keybinding metadata'
+);
+
+fails(() => new MenuItem({ accelerator: 'AltGr+X' }), 'ERR_FIREFLY_UNSUPPORTED_API');
+
+fails(() => new MenuItem({ accelerator: 'Ctrl+X+Y' }), 'ERR_INVALID_ARG_VALUE');
 
 fails(() => new MenuItem({ role: 'copy' }), 'ERR_FIREFLY_UNSUPPORTED_API');
 
@@ -62,7 +70,7 @@ cycle.push({ label: 'cycle', submenu: cycle });
 
 fails(() => Menu.buildFromTemplate(cycle), 'ERR_INVALID_ARG_VALUE');
 
-const reusable = new MenuItem({ id: 'one', label: 'One' });
+const reusable = new MenuItem({ id: 'one', label: 'One', accelerator: 'Ctrl+X' });
 
 fails(() => Menu.buildFromTemplate([reusable, { id: 'one' }]), 'ERR_INVALID_ARG_VALUE');
 
@@ -73,6 +81,11 @@ const menu = Menu.buildFromTemplate([
 ]);
 Menu.setApplicationMenu(menu);
 const generation = wire.generation;
+check(
+  wire.items[0].submenu[0].accelerator.key === 'X' &&
+    wire.items[0].submenu[0].accelerator.modifiers === 2,
+  'Native canonical shortcut descriptor'
+);
 check(menu.getMenuItemById('one') === reusable, 'recursive lookup');
 
 fails(() => child.append(new MenuItem({ label: 'late' })), 'ERR_FIREFLY_UNSUPPORTED_API');

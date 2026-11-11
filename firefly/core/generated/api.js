@@ -1,8 +1,113 @@
 /* Generated from firefly/core/api.mjs; edit the ESM source. */
 (function () {
 'use strict';
+// firefly/core/menu/accelerator.mjs
+function createAccelerators(error, unsupported, platform) {
+  const modifiers = /* @__PURE__ */ new Map([
+    ["shift", 1],
+    ["control", 2],
+    ["ctrl", 2],
+    ["alt", 4],
+    ["commandorcontrol", platform === "darwin" ? 8 : 2],
+    ["cmdorctrl", platform === "darwin" ? 8 : 2],
+    ["super", 8],
+    ["meta", 8]
+  ]);
+  if (platform === "darwin") {
+    modifiers.set("command", 8);
+    modifiers.set("cmd", 8);
+    modifiers.set("option", 4);
+  }
+  const names = /* @__PURE__ */ new Map([
+    ["space", "Space"],
+    ["tab", "Tab"],
+    ["enter", "Enter"],
+    ["return", "Enter"],
+    ["escape", "Escape"],
+    ["esc", "Escape"],
+    ["backspace", "Backspace"],
+    ["delete", "Delete"],
+    ["insert", "Insert"],
+    ["home", "Home"],
+    ["end", "End"],
+    ["pageup", "PageUp"],
+    ["pagedown", "PageDown"],
+    ["up", "Up"],
+    ["down", "Down"],
+    ["left", "Left"],
+    ["right", "Right"],
+    ["plus", "+"]
+  ]);
+  return (value) => {
+    if (value === void 0 || value === null) {
+      return null;
+    }
+    if (typeof value !== "string") {
+      throw error("ERR_INVALID_ARG_TYPE", "accelerator must be a string or null");
+    }
+    if (!value || value.length > 256 || /[^\x20-\x7e]/.test(value)) {
+      throw error("ERR_INVALID_ARG_VALUE", "accelerator must be a bounded ASCII chord");
+    }
+    const parts = value === "+" ? ["Plus"] : value.split("+").map((part) => part.trim());
+    if (parts.length >= 2 && parts.at(-1) === "" && parts.at(-2) === "") {
+      parts.splice(-2, 2, "Plus");
+    }
+    let key;
+    let flags = 0;
+    for (const part of parts) {
+      const lower = part.toLowerCase();
+      if (modifiers.has(lower)) {
+        flags |= modifiers.get(lower);
+        continue;
+      }
+      if ([
+        "command",
+        "cmd",
+        "option",
+        "altgr",
+        "capslock",
+        "numlock",
+        "scrolllock",
+        "printscreen"
+      ].includes(lower) || /^(media|volume|num)/.test(lower)) {
+        unsupported("Menu accelerator platform/key " + part);
+      }
+      let current = names.get(lower);
+      if (!current && /^[a-z0-9]$/i.test(part)) {
+        current = part.toUpperCase();
+      }
+      if (!current && /^f(?:[1-9]|1[0-9]|2[0-4])$/i.test(part)) {
+        current = part.toUpperCase();
+      }
+      if (!current && part.length === 1 && /^[!"#$%&'()*,\-./:;<=>?@[\]\\^_`{|}~]$/.test(part)) {
+        current = part;
+      }
+      if (!current || key !== void 0) {
+        throw error("ERR_INVALID_ARG_VALUE", "accelerator needs exactly one supported key");
+      }
+      key = current;
+    }
+    if (!key) {
+      throw error("ERR_INVALID_ARG_VALUE", "accelerator needs a key");
+    }
+    return { key, modifiers: flags };
+  };
+}
+
 // firefly/core/menu/index.mjs
 function createMenus(native, error, unsupported, quit, resolveWindow) {
+  const accelerator = createAccelerators(error, unsupported, process.platform);
+  const editRoles = /* @__PURE__ */ new Set([
+    "cut",
+    "copy",
+    "paste",
+    "pasteAndMatchStyle",
+    "undo",
+    "redo",
+    "selectAll"
+  ]);
+  const nativeRoles = /* @__PURE__ */ new Set(["hide", "hideOthers", "unhide", "front"]);
+  const menuRoles = /* @__PURE__ */ new Set(["window", "help", "services"]);
   const menuState = /* @__PURE__ */ new WeakMap();
   const itemState = /* @__PURE__ */ new WeakMap();
   let current = null;
@@ -19,7 +124,9 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
     "visible",
     "checked",
     "click",
-    "role"
+    "role",
+    "accelerator",
+    "userSettingsLabel"
   ]);
   function text(value, name) {
     if (typeof value !== "string") {
@@ -39,6 +146,7 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
   function graph(menu) {
     const seen = /* @__PURE__ */ new Set();
     const ids = /* @__PURE__ */ new Set();
+    const roles = /* @__PURE__ */ new Set();
     const map = /* @__PURE__ */ new Map();
     function walk(value, depth, enabled = true, visible = true) {
       if (depth > 8 || seen.has(value)) {
@@ -63,6 +171,12 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         if (data.id) {
           ids.add(data.id);
         }
+        if (menuRoles.has(data.role)) {
+          if (roles.has(data.role)) {
+            throw error("ERR_INVALID_ARG_VALUE", "Repeated native menu role");
+          }
+          roles.add(data.role);
+        }
         map.set(data.command, {
           item,
           eligible: enabled && visible && data.enabled && data.visible
@@ -74,6 +188,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
           enabled: data.enabled,
           visible: data.visible,
           checked: data.checked,
+          ...data.accelerator == null ? {} : { accelerator: accelerator(data.accelerator) },
+          ...menuRoles.has(data.role) ? { role: data.role } : {},
           submenu: data.submenu ? walk(data.submenu, depth + 1, enabled && data.enabled, visible && data.visible) : []
         };
       });
@@ -118,9 +234,17 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         }
       }
       const role = value.role;
-      if (role !== void 0 && !["quit", "close"].includes(role)) {
+      if (role !== void 0 && typeof role !== "string") {
+        throw error("ERR_INVALID_ARG_TYPE", "MenuItem role must be a string");
+      }
+      if (role !== void 0 && !["quit", "close", "minimize", "zoom"].includes(role) && !nativeRoles.has(role) && !menuRoles.has(role) && !(editRoles.has(role) && typeof native.editContents === "function")) {
         unsupported(`MenuItem role ${role}`);
       }
+      if ((nativeRoles.has(role) || menuRoles.has(role)) && (typeof native.menuRoleAvailable !== "function" || !native.menuRoleAvailable(role))) {
+        unsupported(`MenuItem native role ${role}`);
+      }
+      const acceleratorValue = value.accelerator;
+      accelerator(acceleratorValue);
       const submenu = value.submenu === void 0 ? null : Array.isArray(value.submenu) ? Menu.buildFromTemplate(value.submenu) : value.submenu;
       if (submenu !== null && !menuState.has(submenu)) {
         throw error("ERR_INVALID_ARG_TYPE", "submenu must be a Menu or template");
@@ -135,11 +259,17 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
       if (value.click !== void 0 && typeof value.click !== "function") {
         throw error("ERR_INVALID_ARG_TYPE", "click must be callable");
       }
-      if ((type === "separator" || type === "submenu") && (value.click !== void 0 || role !== void 0)) {
+      if ((type === "separator" || type === "submenu") && (value.click !== void 0 || role !== void 0 && !menuRoles.has(role))) {
         unsupported("click/role on a separator or submenu");
       }
-      if (role !== void 0 && type !== "normal") {
+      if (role !== void 0 && type !== "normal" && !(type === "submenu" && menuRoles.has(role))) {
         unsupported("role on non-normal item");
+      }
+      if (menuRoles.has(role) && type !== "submenu") {
+        unsupported("menu role requires a submenu");
+      }
+      if (acceleratorValue != null && (type === "submenu" || type === "separator")) {
+        unsupported("accelerator on a separator or submenu");
       }
       if (value.checked !== void 0 && type !== "checkbox") {
         unsupported("checked on a non-checkbox item");
@@ -151,6 +281,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         command: ++nextCommand,
         parent: null,
         role,
+        accelerator: acceleratorValue,
+        userSettingsLabel: value.userSettingsLabel === void 0 ? void 0 : text(value.userSettingsLabel, "userSettingsLabel"),
         submenu,
         type,
         id: text(value.id === void 0 ? "" : value.id, "id"),
@@ -180,6 +312,24 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
           }
         });
       }
+      Object.defineProperty(this, "accelerator", {
+        enumerable: true,
+        get: () => data.accelerator,
+        set: (value2) => {
+          accelerator(value2);
+          if (value2 != null && (type === "submenu" || type === "separator")) {
+            unsupported("accelerator on a separator or submenu");
+          }
+          update(this, "accelerator", value2);
+        }
+      });
+      Object.defineProperty(this, "userSettingsLabel", {
+        enumerable: true,
+        get: () => data.userSettingsLabel,
+        set: (value2) => {
+          data.userSettingsLabel = value2 === void 0 ? void 0 : text(value2, "userSettingsLabel");
+        }
+      });
       Object.defineProperty(this, "click", {
         enumerable: true,
         get: () => data.click,
@@ -302,6 +452,20 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
         quit();
       } else if (data.role === "close") {
         window?.close();
+      } else if (data.role === "minimize") {
+        window?.minimize();
+      } else if (data.role === "zoom") {
+        if (window) {
+          if (window.isMaximized()) {
+            window.unmaximize();
+          } else {
+            window.maximize();
+          }
+        }
+      } else if (nativeRoles.has(data.role)) {
+        native.menuRole(data.role);
+      } else if (editRoles.has(data.role)) {
+        native.editContents(0, data.role);
       } else if (data.click) {
         Reflect.apply(data.click, void 0, [
           item,
@@ -310,7 +474,8 @@ function createMenus(native, error, unsupported, quit, resolveWindow) {
             shiftKey: !!(event.modifiers & 1),
             ctrlKey: !!(event.modifiers & 2),
             altKey: !!(event.modifiers & 4),
-            metaKey: !!(event.modifiers & 8)
+            metaKey: !!(event.modifiers & 8),
+            triggeredByAccelerator: event.triggeredByAccelerator === true
           }
         ]);
       }

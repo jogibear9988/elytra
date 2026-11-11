@@ -1,10 +1,13 @@
 /** Rebuild validated native trees atomically; retired QAction generations cannot call a new menu.
  */
 #include "ApplicationMenu.h"
+#include "Roles.h"
 #include <QAction>
 #include <QApplication>
+#include <QEvent>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeySequence>
 #include <QLayout>
 #include <QMenu>
 #include <QSet>
@@ -12,6 +15,29 @@
 
 namespace Firefly {
 namespace {
+    class MenuAction final : public QAction {
+    public:
+        using QAction::QAction;
+
+        bool keyboard_activation() const
+        {
+            return m_keyboard;
+        }
+
+    protected:
+        bool event(QEvent* event) override
+        {
+            bool old = m_keyboard;
+            m_keyboard = event->type() == QEvent::Shortcut;
+            bool handled = QAction::event(event);
+            m_keyboard = old;
+            return handled;
+        }
+
+    private:
+        bool m_keyboard { false };
+    };
+
     bool integer(QJsonValue value, int& result)
     {
         double number = value.toDouble(-1);
@@ -44,7 +70,60 @@ namespace {
         }
     }
 
-    bool validate(QJsonArray const& items, QSet<int>& commands, int depth = 1)
+    bool accelerator(QJsonValue value, QKeySequence& result)
+    {
+        if (!value.isObject())
+            return false;
+        auto chord = value.toObject();
+        auto key = chord.value("key").toString();
+        auto flagsValue = chord.value("modifiers");
+        int flags = flagsValue.toInt(-1);
+        if (chord.size() != 2 || !chord.value("key").isString() || !flagsValue.isDouble()
+            || flags < 0 || flags > 15 || flagsValue.toDouble() != flags)
+            return false;
+        Qt::Key code = Qt::Key_unknown;
+        if (key.size() == 1 && key[0].unicode() >= 33 && key[0].unicode() <= 126
+            && !(key[0] >= QChar('a') && key[0] <= QChar('z')))
+            code = static_cast<Qt::Key>(key[0].unicode());
+        else {
+            static QHash<QString, Qt::Key> const names { { "Space", Qt::Key_Space },
+                { "Tab", Qt::Key_Tab }, { "Enter", Qt::Key_Return }, { "Escape", Qt::Key_Escape },
+                { "Backspace", Qt::Key_Backspace }, { "Delete", Qt::Key_Delete },
+                { "Insert", Qt::Key_Insert }, { "Home", Qt::Key_Home }, { "End", Qt::Key_End },
+                { "PageUp", Qt::Key_PageUp }, { "PageDown", Qt::Key_PageDown },
+                { "Up", Qt::Key_Up }, { "Down", Qt::Key_Down }, { "Left", Qt::Key_Left },
+                { "Right", Qt::Key_Right } };
+            code = names.value(key, Qt::Key_unknown);
+            if (code == Qt::Key_unknown && key.startsWith('F')) {
+                bool valid = false;
+                int number = key.mid(1).toInt(&valid);
+                if (valid && number >= 1 && number <= 24 && key == "F" + QString::number(number))
+                    code = static_cast<Qt::Key>(Qt::Key_F1 + number - 1);
+            }
+        }
+        if (code == Qt::Key_unknown)
+            return false;
+        Qt::KeyboardModifiers modifiers;
+        if (flags & 1)
+            modifiers |= Qt::ShiftModifier;
+        if (flags & 4)
+            modifiers |= Qt::AltModifier;
+#if defined(Q_OS_MACOS)
+        if (flags & 2)
+            modifiers |= Qt::MetaModifier;
+        if (flags & 8)
+            modifiers |= Qt::ControlModifier;
+#else
+        if (flags & 2)
+            modifiers |= Qt::ControlModifier;
+        if (flags & 8)
+            modifiers |= Qt::MetaModifier;
+#endif
+        result = QKeySequence(QKeyCombination(modifiers, code));
+        return !result.isEmpty();
+    }
+
+    bool validate(QJsonArray const& items, QSet<int>& commands, QSet<QString>& roles, int depth = 1)
     {
         if (depth > 8)
             return false;
@@ -54,7 +133,23 @@ namespace {
             auto node = item.toObject();
             int command;
             auto type = node.value("type").toString();
-            if (node.size() != 7 || !integer(node.value("command"), command)
+            static QSet<QString> const fields { "command", "label", "type", "enabled", "visible",
+                "checked", "submenu", "accelerator", "role" };
+            for (auto field = node.begin(); field != node.end(); ++field)
+                if (!fields.contains(field.key()))
+                    return false;
+            QKeySequence shortcut;
+            auto role = node.value("role");
+            if ((node.contains("accelerator")
+                    && (type == "submenu" || type == "separator"
+                        || !accelerator(node.value("accelerator"), shortcut)))
+                || (node.contains("role")
+                    && (!role.isString() || type != "submenu"
+                        || (role.toString() != "window" && role.toString() != "help"
+                            && role.toString() != "services")
+                        || !MenuRoles::available())))
+                return false;
+            if (node.size() < 7 || node.size() > 9 || !integer(node.value("command"), command)
                 || commands.contains(command) || commands.size() >= 256
                 || !node.value("label").isString()
                 || node.value("label").toString().toUtf8().size() > 1024
@@ -66,11 +161,16 @@ namespace {
                 || (depth == 1 && type != "submenu")
                 || (type != "checkbox" && node.value("checked").toBool()))
                 return false;
+            if (node.contains("role")) {
+                if (roles.contains(role.toString()))
+                    return false;
+                roles.insert(role.toString());
+            }
             auto children = node.value("submenu").toArray();
             if (type != "submenu" && !children.isEmpty())
                 return false;
             commands.insert(command);
-            if (type == "submenu" && !validate(children, commands, depth + 1))
+            if (type == "submenu" && !validate(children, commands, roles, depth + 1))
                 return false;
         }
 
@@ -92,6 +192,7 @@ ApplicationMenu::~ApplicationMenu()
 
 void ApplicationMenu::clear_bars()
 {
+    MenuRoles::clear();
     for (auto bar : m_bars) {
         if (!bar)
             continue;
@@ -117,14 +218,23 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
             populate(*menu, node.value("submenu").toArray(),
                 enabled && node.value("enabled").toBool(),
                 visible && node.value("visible").toBool());
+            if (node.contains("role") && !MenuRoles::bind(*menu, node.value("role").toString()))
+                qFatal("Native menu role registration failed after validated admission");
         } else {
-            action = new QAction(node.value("label").toString(), &target);
+            action = new MenuAction(node.value("label").toString(), &target);
             // Set before insertion: Cocoa may infer and merge roles as soon as
             // an action enters a menu, based on translated labels such as Quit.
             action->setMenuRole(QAction::NoRole);
             action->setSeparator(type == "separator");
             action->setCheckable(type == "checkbox");
             action->setChecked(node.value("checked").toBool());
+            if (node.contains("accelerator")) {
+                QKeySequence shortcut;
+                if (!accelerator(node.value("accelerator"), shortcut))
+                    qFatal("Invalid shortcut after validated menu admission");
+                action->setShortcut(shortcut);
+                action->setShortcutContext(Qt::ApplicationShortcut);
+            }
             target.addAction(action);
             int generation = m_generation, command = node.value("command").toInt();
             QObject::connect(action, &QAction::triggered, &m_context,
@@ -147,6 +257,9 @@ void ApplicationMenu::populate(QWidget& target, QJsonArray const& items, bool en
 #endif
                     int flags = (modifiers.testFlag(Qt::ShiftModifier) ? 1 : 0) | (control ? 2 : 0)
                         | (modifiers.testFlag(Qt::AltModifier) ? 4 : 0) | (meta ? 8 : 0);
+                    if (static_cast<MenuAction*>(action)->keyboard_activation()
+                        || MenuRoles::activation_is_keyboard())
+                        flags |= 16;
                     if (m_activate)
                         m_activate(
                             generation, command, checked, QApplication::activeWindow(), flags);
@@ -183,11 +296,12 @@ bool ApplicationMenu::apply(QByteArray const& metadata, QString& error)
     auto object = parsed.object();
     int generation;
     QSet<int> commands;
+    QSet<QString> roles;
     auto items = object.value("items");
     if (!parsed.isObject() || object.size() != 3 || object.value("schema") != QJsonValue(1)
         || !integer(object.value("generation"), generation) || generation <= m_generation
         || (!items.isNull() && !items.isArray())
-        || (items.isArray() && !validate(items.toArray(), commands))) {
+        || (items.isArray() && !validate(items.toArray(), commands, roles))) {
         error = "Invalid native application menu schema, generation or budget";
         return false;
     }

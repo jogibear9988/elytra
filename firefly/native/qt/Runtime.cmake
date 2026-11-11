@@ -6,6 +6,16 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
+if(APPLE)
+    target_sources(firefly-application-menu PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm")
+    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm"
+        PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+    target_link_libraries(firefly-application-menu PRIVATE "-framework Cocoa")
+else()
+    target_sources(firefly-application-menu PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesUnsupported.cpp")
+endif()
 add_library(firefly-app-paths STATIC "${CMAKE_CURRENT_LIST_DIR}/../app-paths/Paths.cpp")
 target_link_libraries(firefly-app-paths PUBLIC Qt::Core LibCore AK)
 add_library(firefly-sandbox-policy STATIC "${CMAKE_CURRENT_LIST_DIR}/../sandbox/policy/Policy.cpp")
@@ -235,6 +245,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/IpcChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/OutboundIpc.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/Editing.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PortChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"

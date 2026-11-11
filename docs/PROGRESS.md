@@ -13579,6 +13579,36 @@ format/diff checks pass. The next combined native build/application run is still
 required; diagnostics are evidence tools, not accepted SharedProcess services.
 No new test framework, broad local suite or GUI launch is introduced.
 
+## 2026-11-11 — Native menu accelerators and demanded role providers
+
+Implement bounded Electron single-key accelerator parsing with native defensive
+schema validation and real QAction ApplicationShortcut delivery. Preserve aliases,
+plus/punctuation/F1–F24 and navigation keys; reject unsupported chords/media/keypad
+forms. Track actual native shortcut activation into triggeredByAccelerator; retain
+bounded userSettingsLabel only in JavaScript. Add Cocoa-owned Windows/Help/Services
+registrations with duplicate-before-replacement validation and ownership-safe
+restoration, actual hide/hideOthers/unhide/front and focused window minimize/zoom.
+Offscreen/other platforms explicitly refuse the missing Cocoa provider.
+
+Editing roles use real focused canonical view/frame operations, system plaintext
+clipboard, document/renderer/epoch guards and bounded async selection work. Rich
+clipboard/Monaco semantics remain unaccepted. The SDK cut path is asynchronous and
+not transactionally reversible; docs state stale/oversized reply behavior. Keep
+all integration owned; Ladybird sources remain unchanged.
+
+Existing controlled Node menu policy and generated-bundle reproduction pass.
+Strict native compilation passes the expanded menu/provider/bridge units. Combined
+Release host/helper/offscreen build passes (codeoss-native-menu-build.log), also
+compiling the native entry/utility diagnostics. Do not run a broad local suite.
+
+Batch one actual Cocoa Code-OSS launch (PID79252, codeoss-native-menu-start.log),
+then stop only that owned diagnostic group. The native entry Promise fulfills;
+main now reports app.dock.setMenu unavailable, and the renderer stops before its
+Workbench graph because saved partsSplash.layoutInfo is an immutable returned
+contextBridge object. A CUA read-only window lookup times out, so there is no
+visual/editor acceptance. New native role registration, physical shortcuts and
+editing remain unaccepted; subsequent work returns to source/background diagnosis.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

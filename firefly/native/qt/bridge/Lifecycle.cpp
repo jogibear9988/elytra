@@ -42,7 +42,8 @@ Bridge::Impl::Impl(JS::VM& vm, JS::Realm& realm, Mite::EventLoop& jobs, Core::Ev
             metadata.set("generation"sv, generation);
             metadata.set("command"sv, command);
             metadata.set("checked"sv, checked);
-            metadata.set("modifiers"sv, modifiers);
+            metadata.set("modifiers"sv, modifiers & 15);
+            metadata.set("triggeredByAccelerator"sv, (modifiers & 16) != 0);
             enqueue(window_id, "menu-click", metadata.serialized().to_byte_string());
         });
     ipc_timer = Core::Timer::create_repeating(AK::Duration::from_seconds(1), [this] {

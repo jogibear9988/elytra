@@ -50,6 +50,7 @@
 #include <QObject>
 #include <QString>
 #include <array>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -203,6 +204,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         u32 renderer_port_incoming_last { 0 };
         std::unordered_map<u32, MonotonicTime> port_event_pending;
         bool renderer_port_writable_queued { false };
+        std::shared_ptr<size_t> editing_budget {};
         u32 ipc_outgoing_next { 0 };
         std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
         FilePicker* file_picker { nullptr };
@@ -350,6 +352,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 
     void expire_ipc_events();
+
+    void install_editing(JS::Object&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_edit_contents(JS::VM&);
 
     void install_renderer_ports(JS::Object&);
 

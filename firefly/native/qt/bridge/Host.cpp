@@ -102,6 +102,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(realm, "enableSandbox"_utf16,
         native_binding<&Impl::native_host_enable_sandbox>(), 0, JS::default_attributes);
     install_menu_host(realm, *host, *application_menu);
+    install_editing(*host);
     Protocols::install_registration_host(realm, *host);
     Protocols::install_file_route_host(
         realm, *host, NonnullRefPtr<Protocols::FileRoutes> { *protocols });
