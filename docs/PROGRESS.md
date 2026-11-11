@@ -12494,6 +12494,25 @@ for this fixture repair. Subsequent workflow gates were read for another obvious
 Cocoa-only theme dependency; none was found. Fresh hosted Linux execution remains
 required; no Linux native-theme support is advertised.
 
+## 2026-11-11 — Linux CI: bind opted-in helper reports to the application directory
+
+Engine run42935630484/job130244908069 atef319d2 passes the complete85-target
+runtime/menu/IPC batch, including the corrected renderer send admission ACK and
+same-executable fork boundary. The next actual failure is crashReporter: the
+configured directory contains the recovered Browser report but not the expected
+WebContent report (test_crash_reporter.py:100).
+
+Hub initialization reads CrashReportStore::the().directory() before public
+crashReporter.start(), fixing the singleton to its default directory. The owned
+start() previously initialized only a temporary store at the selected app path;
+helper exit saving still uses the singleton. On explicit start(), bind the actual
+singleton to the configured directory and initialize through it. No startup
+handler or report recovery is enabled implicitly, and upstream is unchanged.
+The existing regression already launches its helper before start() and still
+requires both private reports and exact metadata. Focused native strict syntax
+and diff checks pass; actual Linux rerun remains required. No local GUI, Ninja
+or broad suite is run for this correction.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
