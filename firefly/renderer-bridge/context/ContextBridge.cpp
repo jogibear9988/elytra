@@ -124,10 +124,13 @@ ErrorOr<JS::Value> ContextBridge::copy_result(JS::Value value, bool promise_resu
         *source, value, [&](JS::FunctionObject& function, JS::Object* receiver) -> ErrorOr<size_t> {
             return export_function(function, receiver, pending, functions);
         }));
+    // Electron freezes the initially published API, not snapshots returned by
+    // proxied calls (including Promise fulfillment). Destination mutations stay
+    // isolated because materialization creates independent ordinary containers.
     auto result = snapshot.materialize(
         document->window()->principal_realm(),
         [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> { return functions[index]; },
-        BridgeData::Materialization::FrozenContainers);
+        BridgeData::Materialization::Mutable);
     if (result.is_error() || (promise_result && !Boundary::resolve_safe(result.value()))
         || m_revoked || source->is_detached() || !document->is_fully_active())
         return Error::from_string_literal("Cannot publish bridge result");

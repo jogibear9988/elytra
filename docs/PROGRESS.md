@@ -13609,6 +13609,23 @@ contextBridge object. A CUA read-only window lookup times out, so there is no
 visual/editor acceptance. New native role registration, physical shortcuts and
 editing remain unaccepted; subsequent work returns to source/background diagnosis.
 
+## 2026-11-11 — Match mutable Electron function and Promise result copies
+
+Actual Cocoa startup with saved partsSplash fails at showDefaultSplash's legitimate
+layout mutation before importing the Workbench graph. Compare pinned Electron45.2.3
+context-bridge source: sync returns and Promise fulfillment copy into the target;
+DeepFreeze applies only to exposeInMainWorld publication. Our result paths wrongly
+used FrozenContainers. Correct only result materialization to Mutable in the public
+graph exporter and standalone sync/Promise endpoints. Keep initial API publication
+frozen, function receiver guards, argument policy, raw capability redaction and
+copy/type/authority budgets unchanged. Do not patch Code-OSS around the mismatch.
+
+Adjust existing isolation fixture expectations to mutable independent results;
+explicitly mutate nested/array results and verify source state remains unchanged.
+Strict actual compile-database syntax passes all five changed units, formatting
+and diff checks pass. The next combined native build/application run is required;
+no broad local suite or additional GUI is run for this correction.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

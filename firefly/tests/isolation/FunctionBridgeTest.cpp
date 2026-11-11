@@ -91,7 +91,7 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
             const a={n:5}; a.self=a;
             const x=bridgeCall.call({untrusted:true},a,a);
             return x.arg!==a && x.arg===x.alias && x.arg===x.other && x.arg.self===x.arg &&
-                x.arg.n===5 && x.ownThis && x.safe && Object.isFrozen(x) && Object.isFrozen(x.arg) &&
+                x.arg.n===5 && x.ownThis && x.safe && !Object.isFrozen(x) && !Object.isFrozen(x.arg) &&
                 Object.getPrototypeOf(x)===Object.prototype && Object.isFrozen(bridgeCall) &&
                 bridgeCall.constructor('return typeof sourceSecret')()==='undefined';
         })()

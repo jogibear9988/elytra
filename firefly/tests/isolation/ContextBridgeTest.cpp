@@ -67,7 +67,7 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         Object.isFrozen(api) && Object.isFrozen(api.nested) && Object.isFrozen(api.array) && Object.isFrozen(api.nested.fn) &&
         Object.getPrototypeOf(api)===Object.prototype && Object.getPrototypeOf(api.array)===Array.prototype &&
         Object.getPrototypeOf(api.nested.fn)===Function.prototype && api.__proto__.safe===true &&
-        api.nested.fn(1).n===42 && Object.isFrozen(api.nested.fn(1)) &&
+        api.nested.fn(1).n===42 && !Object.isFrozen(api.nested.fn(1)) &&
         descriptor.enumerable && !descriptor.writable && !descriptor.configurable && __ffContextScalar===42 &&
         typeof apiSecret==='undefined' && typeof contextBridge==='undefined';
     )JS"sv));
@@ -85,8 +85,11 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
         const api=__ffReceiverApi, extracted=api.on;
         for(let i=0;i<80;i++) {
             const returned=extracted.call({n:99});
-            if(returned.value()!==7 || returned.on!==api.on || !Object.isFrozen(returned))
+            if(returned.value()!==7 || returned.on!==api.on || Object.isFrozen(returned))
                 throw Error('Source receiver was lost or caller-controlled');
+            returned.n=99;
+            if(returned.n!==99 || returned.value()!==7)
+                throw Error('Result mutation leaked into the source receiver');
         }
         extracted.call(null).value()===7;
     )JS"sv));
@@ -228,8 +231,11 @@ ErrorOr<void> check_large_context_bridge(
         globalThis.largeContextState='pending';
         __ffLargeContextApi.resolve().then(value=>{
             globalThis.largeContextJSON=JSON.stringify(value.nls.messages);
-            globalThis.largeContextFrozen=Object.isFrozen(value)&&Object.isFrozen(value.nls)&&
-                Object.isFrozen(value.nls.messages);
+            value.localOnly=true;
+            value.nls.localOnly=true;
+            value.nls.messages.push('destination-only');
+            globalThis.largeContextMutable=!Object.isFrozen(value)&&!Object.isFrozen(value.nls)&&
+                !Object.isFrozen(value.nls.messages)&&value.localOnly&&value.nls.localOnly;
             globalThis.largeContextState='fulfilled';
         },()=>{globalThis.largeContextState='rejected'});
         true;
@@ -245,12 +251,17 @@ ErrorOr<void> check_large_context_bridge(
 
     vm.heap().collect_garbage();
     auto copied = target.global_object().get_without_side_effects("largeContextJSON"_utf16);
-    auto frozen = target.global_object().get_without_side_effects("largeContextFrozen"_utf16);
+    auto mutable_copy
+        = target.global_object().get_without_side_effects("largeContextMutable"_utf16);
     auto state = target.global_object().get_without_side_effects("largeContextState"_utf16);
-    if (!copied.is_string() || copied.as_string().utf16_string() != expected || !frozen.is_boolean()
-        || !frozen.as_bool() || !state.is_string()
+    if (!copied.is_string() || copied.as_string().utf16_string() != expected
+        || !mutable_copy.is_boolean() || !mutable_copy.as_bool() || !state.is_string()
         || state.as_string().utf16_string_view() != u"fulfilled"sv)
         return Error::from_string_literal("Large context async catalog mismatch or rejection");
+    auto unchanged_source = source.evaluate(u"JSON.stringify(largeCatalog)"sv);
+    if (unchanged_source.is_error() || !unchanged_source.value().is_string()
+        || unchanged_source.value().as_string().utf16_string() != expected)
+        return Error::from_string_literal("Mutable result changed the source catalog");
     owner->revoke();
     auto revoked = principal(uR"JS(
         (()=>{try{__ffLargeContextApi.resolve();return false}catch(e){return e instanceof TypeError}})()
@@ -258,6 +269,6 @@ ErrorOr<void> check_large_context_bridge(
     if (revoked.is_error() || !revoked.value().is_boolean() || !revoked.value().as_bool())
         return Error::from_string_literal("Large context API did not revoke");
     outln("PASS actual large catalog contextBridge async return: complete UTF-16 equality, "
-          "frozen containers, GC and revocation");
+          "mutable independent result containers, GC and revocation");
     return {};
 }

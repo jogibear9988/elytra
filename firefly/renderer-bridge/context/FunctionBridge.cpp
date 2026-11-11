@@ -64,6 +64,7 @@ namespace {
                     ? "process-listener"
                     : "ipc-listener";
         }
+
         if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
             auto& object = value.as_object();
             kind = "error";
@@ -90,6 +91,7 @@ namespace {
                 else if (text == u"ERR_INVALID_ARG_TYPE"sv)
                     code = "argument-type";
             }
+
             auto message = object.get_without_side_effects("message"_utf16);
             if (message.is_string() && message.as_string().length_in_utf16_code_units() <= 4096) {
                 auto text = message.as_string().utf16_string_view();
@@ -323,7 +325,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         if (auto publisher = m_publisher.strong_ref())
             return publisher->copy_result(value, true);
         auto data = TRY(capture_to_principal(*m_source, value));
-        auto result = data.materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+        auto result = data.materialize(*target, {}, BridgeData::Materialization::Mutable);
         if (result.is_error())
             return Error::from_string_literal("Cannot publish bridge result");
         return result.release_value();
@@ -446,8 +448,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     auto output = capture_to_principal(*source, result_value);
     if (output.is_error())
         return error("invoke-result-capture", &output.error());
-    auto answer
-        = output.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+    auto answer = output.value().materialize(*target, {}, BridgeData::Materialization::Mutable);
     if (answer.is_error())
         return error("invoke-result-publication");
     return answer.release_value();

@@ -134,7 +134,9 @@ removal, including 70 cycles (ADR 0029). Public preload/contextBridge/IPC remain
 unsupported: async Promise/callback lifetime and validated transport are still open.
 
 Internal function results may now forward actual source Promises to separate
-target Promises with copied/frozen fulfillment and fixed rejection errors. SDK and
+target Promises with copied fulfillment and fixed rejection errors. Initial
+implementation froze fulfillment; the current result-copy correction makes it
+mutable to match Electron while retaining frozen initial API publication. SDK and
 actual helper gates cover pending limits, frame-removal rejection and ignored late
 results (ADR 0030). This revokes forwarding only; source job cancellation, callback
 arguments and transport validation remain open. Public APIs remain unsupported.

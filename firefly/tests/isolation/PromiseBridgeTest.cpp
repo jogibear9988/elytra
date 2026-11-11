@@ -74,7 +74,7 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
     checkpoint();
     TRY(check(uR"JS(
         promiseOrder.join(',')==='sync,fulfilled' && promiseResult.n===42 &&
-        Object.isFrozen(promiseResult) && Object.isFrozen(promiseResult.nested) &&
+        !Object.isFrozen(promiseResult) && !Object.isFrozen(promiseResult.nested) &&
         Object.getPrototypeOf(promiseResult)===Object.prototype &&
         Object.getPrototypeOf(promiseResult.nested)===Array.prototype &&
         promiseErrors.length===3 && promiseErrors.every(e=>e instanceof TypeError &&
@@ -97,7 +97,7 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     checkpoint();
     TRY(check(u"delete Object.prototype.then; poisonRejected && targetThenTraps===0"sv));
-    outln("PASS promise results copy/freeze data asynchronously and bypass source and target then "
+    outln("PASS promise results copy mutable data asynchronously and bypass source and target then "
           "traps");
 
     TRY(check(uR"JS(

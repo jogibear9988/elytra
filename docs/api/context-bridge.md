@@ -98,7 +98,8 @@ Within one captured graph, aliases of a function use the first encountered paren
 following Electron's function cache.
 
 Published methods can return supported ordinary graphs containing source functions,
-including their own receiver object. These results are copied/frozen; functions use
+including their own receiver object. Result containers are independent mutable
+copies; functions use
 guarded proxies with the same source-parent rule. Existing live function/parent
 proxies are reused. Results never run getters and still reject host objects, custom
 prototypes, raw IPC capabilities and unsupported values. Native Promise results use
@@ -242,7 +243,12 @@ normalized to Uint8Array, without invoking subclass/constructor/iterator/getter
 hooks. Buffer-shaped Uint8Array subclasses follow that rule; there is still no
 Buffer global in sandboxed preloads/documents.
 
-Plain object/array containers remain frozen. Copied binary storage and views are
+Plain object/array containers published in the initial API remain frozen.
+Synchronous function and Promise result containers are mutable destination copies,
+including nested objects/arrays; changing them does not change source state.
+This follows [Electron45.2.3 result copying](https://github.com/electron/electron/blob/v45.2.3/shell/renderer/api/electron_api_context_bridge.cc),
+where DeepFreeze applies to API publication rather than function fulfillment.
+Copied binary storage and views are
 **writable**, including a view published inside an otherwise frozen API. JavaScript
 cannot freeze nonempty typed arrays; freezing an ArrayBuffer would not freeze its
 bytes. Binary expandos and custom prototypes are omitted. Shared, detached,
