@@ -13878,6 +13878,22 @@ Also preserve the missing npm fs-copyfile MIT attribution from pinned CodeOSS
 cglicenses.json, with exact license provenance/hash; original pinned bytes remain
 unchanged (including upstream trailing whitespace).
 
+## 2026-11-11 — Identify the actual renderer port refusal
+
+Add at most sixteen scalar-only refusal diagnostics per renderer endpoint under
+the existing byte-diagnostic opt-in. Preserve admission and close behavior. The
+previous generic queue error covered six conditions; distinguish encoding, retired
+route, oversized frame, queued-message count and byte budgets without payloads,
+URLs, capability identifiers or environment data.
+
+Release helper/host/offscreen build passes (codeoss-port-reason-build.log).
+The actual offscreen CodeOSS start PID8156 proves route-messages exhaustion:
+64 waiting messages / 55,396 queued bytes, an 841-byte next frame, no physical
+queue backlog and no native send credit (codeoss-port-refusal-start.log). This is
+now a demonstrated count/consumer-flow issue, not a frame-size inference. Diagnose
+actual receiver/ack progression before changing resource policy. Existing
+worker_threads and offscreen Cocoa-role refusals remain separate. No new GUI run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

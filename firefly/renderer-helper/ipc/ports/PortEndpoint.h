@@ -25,16 +25,26 @@ class PortEndpoint {
 public:
     AK_ALLOC_WITH_KMALLOC;
     explicit PortEndpoint(IpcEndpoint&);
+
     ~PortEndpoint();
+
     bool receive(u32, ReadonlyBytes);
+
     JS::ThrowCompletionOr<JS::Value> materialize(
         JS::Realm&, Vector<Utility::Ports::Identity> const&);
+
     void visit_edges(GC::Cell::Visitor&) const;
+
     void expire();
+
     void writable();
+
     void acknowledge_transfer(u32);
+
     void revoke();
+
     void dispatch(Utility::Ports::Identity, Web::DOM::Event&);
+
     static void dispatch_to(IpcEndpoint&, Utility::Ports::Identity, Web::DOM::Event&);
 
 private:
@@ -54,11 +64,17 @@ private:
     };
 
     static bool validate(void*, Web::HTML::MessagePort&, JS::Realm&);
+
     bool live() const;
+
     bool send(Utility::Ports::Kind, Utility::Ports::Identity, ReadonlyBytes = {});
+
     void flush();
+
     void deliver(Route&);
+
     void close(Utility::Ports::Identity, bool notify);
+
     IpcEndpoint& m_endpoint;
     Utility::Ports::Ledger m_ledger;
     HashMap<u32, Route> m_routes;
@@ -70,5 +86,6 @@ private:
     u32 m_next { 0 };
     bool m_stopped { false };
     bool m_flushing { false };
+    unsigned m_refusal_diagnostics { 0 };
 };
 }

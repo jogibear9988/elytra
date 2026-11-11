@@ -1,6 +1,7 @@
 /** Forward only real SDK port dequeue across the authenticated document channel. */
 #include "PortEndpoint.h"
 #include "ipc/IpcEndpoint.h"
+#include "native/platform/Diagnostics.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/ScopeGuard.h>
@@ -131,6 +132,7 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
             m_routes.set(identity.id, move(route));
             ports.append(identity);
         }
+
         auto reservation = m_endpoint.m_wire_budget->reserve(wire.length());
         if (!reservation)
             return false;
@@ -138,6 +140,7 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
         m_endpoint.receive_event(sequence, move(wire), move(reservation), move(ports));
         return true;
     }
+
     auto state = m_ledger.state(packet.route);
     if (state == P::Ledger::State::Retired)
         return true;
@@ -152,12 +155,14 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
             close(packet.route, false);
         return true;
     }
+
     if (packet.kind == P::Kind::Ack) {
         if (!m_ledger.acknowledge(packet.route, P::read_size(packet.payload)))
             return false;
         flush();
         return true;
     }
+
     if (found->value.peer_closed || packet.kind != P::Kind::Data
         || !m_ledger.received(packet.route, packet.payload.size()))
         return false;
@@ -204,6 +209,7 @@ JS::ThrowCompletionOr<JS::Value> PortEndpoint::materialize(
             close(route.identity, true);
             return vm.throw_completion<JS::TypeError>("Port observation admission failed"_utf16);
         }
+
         forwarder->set_message_event_target(*target);
         route.observation = move(observation);
         route.closing_observation = move(closing);
@@ -214,6 +220,7 @@ JS::ThrowCompletionOr<JS::Value> PortEndpoint::materialize(
             Web::Bindings::host_defined_wrapper_world(realm), realm, GC::Ref { *receiver });
         result->define_direct_property(index, wrapper, JS::default_attributes);
     }
+
     accepted = true;
     return result.ptr();
 }
@@ -245,6 +252,7 @@ void PortEndpoint::deliver(Route& route)
             if (posted.is_exception())
                 return realm.vm().throw_completion<JS::TypeError>("DOM port delivery failed"_utf16);
         }
+
         return JS::js_undefined();
     });
     if (result.is_error())
@@ -259,6 +267,7 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
         close(identity, true);
         return;
     }
+
     auto& message = static_cast<Web::HTML::MessageEvent&>(event);
     if (event.type() != u"message"_utf16_fly_string || !message.message_ports().is_empty()) {
         for (auto port : message.message_ports())
@@ -267,6 +276,7 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
         close(identity, true);
         return;
     }
+
     auto& realm = *m_endpoint.m_owner->realm();
     auto captured = BridgeData::capture(message.data(), realm, public_binary_limits());
     if (captured.is_error()) {
@@ -274,17 +284,42 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
         close(identity, true);
         return;
     }
+
     auto encoded = captured.value().encode_wire(public_binary_limits());
     auto found = m_routes.find(identity.id);
-    if (encoded.is_error() || found == m_routes.end()
-        || encoded.value().length() + P::header_size > ApplicationIpc::wire_limit
-        || found->value.outgoing.size() >= 64
-        || found->value.outgoing_bytes + encoded.value().length() > 1024 * 1024
-        || m_outgoing_bytes + m_control_bytes + encoded.value().length() > 4 * 1024 * 1024) {
+    char const* refusal = nullptr;
+    size_t frame_bytes = encoded.is_error() ? 0 : encoded.value().length();
+    if (encoded.is_error())
+        refusal = "encoding";
+    else if (found == m_routes.end())
+        refusal = "route-retired";
+    else if (frame_bytes + P::header_size > ApplicationIpc::wire_limit)
+        refusal = "frame-bytes";
+    else if (found->value.outgoing.size() >= 64)
+        refusal = "route-messages";
+    else if (found->value.outgoing_bytes + frame_bytes > 1024 * 1024)
+        refusal = "route-bytes";
+    else if (m_outgoing_bytes + m_control_bytes + frame_bytes > 4 * 1024 * 1024)
+        refusal = "endpoint-bytes";
+    if (refusal) {
+        if (ipc_bytes_diagnostics_enabled() && m_refusal_diagnostics < 16) {
+            ++m_refusal_diagnostics;
+            // Fixed enums and bounded counters only. Do not log application
+            // payloads, URLs, document/capability identities or environment data.
+            warnln("FIREFLY_PORT_REFUSAL reason={} frame_bytes={} route_waiting={} route_bytes={} "
+                   "endpoint_bytes={} control_bytes={} physical_waiting={} send_credit={}",
+                refusal, frame_bytes, found == m_routes.end() ? 0 : found->value.outgoing.size(),
+                found == m_routes.end() ? 0 : found->value.outgoing_bytes, m_outgoing_bytes,
+                m_control_bytes, m_endpoint.m_byte_queue.size(),
+                found != m_routes.end() && !encoded.is_error()
+                    && m_ledger.can_send(identity, frame_bytes));
+        }
+
         warnln("ERR_FIREFLY_PORT_LIMIT: DOM port queue exhausted");
         close(identity, true);
         return;
     }
+
     auto wire = encoded.release_value();
     found->value.outgoing_bytes += wire.length();
     m_outgoing_bytes += wire.length();
@@ -305,6 +340,7 @@ void PortEndpoint::close(P::Identity identity, bool notify)
         route->forwarder->discard_pending_messages();
         route->forwarder->close();
     }
+
     m_outgoing_bytes -= route->outgoing_bytes;
     m_ledger.close(identity);
     if (notify && !send(P::Kind::Close, identity))
@@ -323,17 +359,20 @@ void PortEndpoint::flush()
         if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortAck, request, false, {}))
             return;
     }
+
     while (!m_controls.is_empty() && live()
         && m_endpoint.m_byte_queue.size() < ApplicationIpc::queue_limit) {
         if (m_next == 0xffffffffu) {
             m_endpoint.retire_channel();
             return;
         }
+
         auto wire = m_controls.take_first();
         m_control_bytes -= wire.length();
         if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false, wire))
             return;
     }
+
     Vector<P::Identity> ids;
     for (auto const& entry : m_routes)
         ids.append(entry.value.identity);
@@ -359,12 +398,14 @@ void PortEndpoint::flush()
                 m_endpoint.retire_channel();
                 return;
             }
+
             auto frame = m_controls.take_first();
             m_control_bytes -= frame.length();
             if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false, frame))
                 return;
         }
     }
+
     for (auto identity : ids) {
         auto found = m_routes.find(identity.id);
         if (found != m_routes.end() && found->value.close_requested
@@ -392,12 +433,14 @@ void PortEndpoint::expire()
                     m_endpoint.retire_channel();
                     return;
                 }
+
                 auto size = found->value.incoming_sizes.front();
                 found->value.incoming_sizes.pop_front();
                 if (!m_ledger.can_consume(identity, size)) {
                     m_endpoint.retire_channel();
                     return;
                 }
+
                 m_ledger.consumed(identity, size);
                 ++found->value.dequeued;
                 auto payload = P::size_payload(size);
@@ -406,24 +449,29 @@ void PortEndpoint::expire()
                     m_endpoint.retire_channel();
                     return;
                 }
+
                 found = m_routes.find(identity.id);
                 if (found == m_routes.end())
                     return;
             }
         }
+
         if (found->value.closing_observation && found->value.closing_observation->closed.load()) {
             found->value.close_requested = true;
             if (found->value.outgoing.is_empty())
                 close(identity, true);
             continue;
         }
+
         if (found->value.forwarder && found->value.peer_closed
             && found->value.incoming_sizes.empty()) {
             close(identity, false);
             continue;
         }
+
         deliver(found->value);
     }
+
     flush();
 }
 
@@ -440,6 +488,7 @@ void PortEndpoint::acknowledge_transfer(u32 request)
         m_endpoint.retire_channel();
         return;
     }
+
     m_transfer_acks.append(request);
     flush();
 }
@@ -459,6 +508,7 @@ void PortEndpoint::revoke()
             entry.value.forwarder->close();
         }
     }
+
     m_routes.clear();
     m_ledger.clear();
     m_controls.clear();
