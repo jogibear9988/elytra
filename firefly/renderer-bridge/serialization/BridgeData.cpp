@@ -31,6 +31,18 @@ BridgeData BridgeData::from_string(Utf16View value)
 ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limits limits,
     CaptureFunction functions, RedactObject redact, ReadAccessor accessors)
 {
+    return capture_impl(
+        value, source, limits, move(functions), move(redact), move(accessors), false);
+}
+
+ErrorOr<BridgeData> BridgeData::capture_ipc(JS::Value value, JS::Realm& source, Limits limits)
+{
+    return capture_impl(value, source, limits, {}, {}, {}, true);
+}
+
+ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source, Limits limits,
+    CaptureFunction functions, RedactObject redact, ReadAccessor accessors, bool ipc_data)
+{
     // Root the whole source graph while the engine allocates key vectors. All
     // traversed objects are exact engine classes and ordinary descriptor reads
     // never call hooks. Only an explicitly supplied publication accessor reader
@@ -177,7 +189,8 @@ ErrorOr<BridgeData> BridgeData::capture(JS::Value value, JS::Realm& source, Limi
 
             auto* expected = array ? source.intrinsics().array_prototype().ptr()
                                    : source.intrinsics().object_prototype().ptr();
-            if (object.prototype() != expected && (array || object.prototype()))
+            if ((!ipc_data || array) && object.prototype() != expected
+                && (array || object.prototype()))
                 return Error::from_string_literal("Bridge rejects custom prototypes");
             if (object.has_intrinsic_accessors())
                 return Error::from_string_literal("Bridge rejects intrinsic accessors");

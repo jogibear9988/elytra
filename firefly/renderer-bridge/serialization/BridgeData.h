@@ -46,6 +46,9 @@ public:
 
     static ErrorOr<BridgeData> capture(
         JS::Value, JS::Realm&, Limits, CaptureFunction = {}, RedactObject = {}, ReadAccessor = {});
+    // IPC copies ordinary class-instance own data, discarding its prototype. It
+    // never exports functions or reads accessors; publication stays stricter.
+    static ErrorOr<BridgeData> capture_ipc(JS::Value, JS::Realm&, Limits);
     // Versioned, data-only wire graph; validates bytes/schema/budgets before JS allocation.
     ErrorOr<ByteString> encode_wire(Limits) const;
 
@@ -55,6 +58,8 @@ public:
         JS::Realm&, MaterializeFunction = {}, Materialization = Materialization::Frozen) const;
 
 private:
+    static ErrorOr<BridgeData> capture_impl(
+        JS::Value, JS::Realm&, Limits, CaptureFunction, RedactObject, ReadAccessor, bool ipc_data);
     BridgeData() = default;
     ErrorOr<void> validate_wire_graph(Limits) const;
 

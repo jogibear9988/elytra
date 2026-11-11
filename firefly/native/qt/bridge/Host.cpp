@@ -192,7 +192,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_handler(JS::VM& v
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_ipc(JS::VM& vm)
 {
-    auto graph = BridgeData::capture(vm.argument(0), realm, public_binary_limits());
+    auto graph = BridgeData::capture_ipc(vm.argument(0), realm, public_binary_limits());
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION",
             "IPC accepts bounded data and binary copies only"sv);

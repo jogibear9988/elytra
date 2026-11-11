@@ -12839,6 +12839,34 @@ renderer failure is a sanitized bridge promise rejection; window configuration
 remains unresolved after10seconds. NO working editor/workbench-ready claim is made.
 SQLite/keymap remain real; spdlog bindings and sync-require ESM diagnostics remain.
 
+
+## 2026-11-11 — Separate ordinary IPC class data from contextBridge publication
+
+Static tracing of the actual Code-OSS window configuration finds a mandatory
+VSBuffer native-window handle and URI instances. Native IPC previously shared
+contextBridge's plain-prototype capture restriction, so these genuine data
+objects could not be serialized. Add capture_ipc only for main encodeIpc and
+renderer invoke/send arguments: exact ordinary class-instance own data becomes
+plain copied data; prototypes are discarded without consulting inherited hooks.
+Keep contextBridge capture/publication and utility bootstrap policy unchanged.
+Functions, Proxies, host objects, own accessors, modified array prototypes and
+all existing byte/value/depth budgets remain restricted.
+
+Add opt-in fixed-stage/allowlisted-code main IPC diagnostics using the existing
+FIREFLY_IPC_BYTES_DIAGNOSTIC flag; never print channel names, payloads, environment
+or arbitrary error messages. This will distinguish serialization/handler/dispatch
+failure on the next actual batched start. The current sanitized bridge failure
+alone does not establish which stage failed, and Code-OSS's10second warning also
+fires after rejection; do not infer a pending request from that warning.
+
+Four actual strict compilation commands pass; regenerated bundle verification,
+combined Release Firefly/WebContent/isolation build and the single headless native
+isolation executable pass (codeoss-ipc-data-build.log and
+codeoss-ipc-data-roundtrip.log). Added URI/VSBuffer-shaped own-field/binary/cycle/
+alias/GC roundtrip and negative boundary checks; these are not an actual complete
+Code-OSS configuration capture. No additional desktop launch or broad suite is run.
+The editor/workbench remains unaccepted pending its next combined startup.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

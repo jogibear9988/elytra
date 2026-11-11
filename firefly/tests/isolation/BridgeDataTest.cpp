@@ -33,6 +33,54 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
         return Firefly::BridgeData::capture(value.value(), source, limits);
     };
 
+    // IPC uses own data from real class instances (Code-OSS URI/VSBuffer shapes),
+    // while contextBridge publication must continue rejecting those prototypes.
+    auto ipc_value = run(vm, source, uR"JS(
+        (()=>{ globalThis.ipcPrototypeReads=0;
+          class URI { constructor(){this.scheme='vscode-file';this.path='/workbench'}
+            get inherited(){ipcPrototypeReads++;throw 1} }
+          class VSBuffer {constructor(buffer){this.buffer=buffer;this.byteLength=buffer.byteLength}}
+          const uri=new URI(), view=new Uint8Array([1,2,255]);
+          const value={uri,alias:uri,handle:new VSBuffer(view)};value.self=value;return value;
+        })()
+    )JS"sv);
+    if (ipc_value.is_error()
+        || !Firefly::BridgeData::capture(ipc_value.value(), source, {}).is_error())
+        return Error::from_string_literal("Publication accepted custom instance");
+    Firefly::BridgeData::Limits ipc_limits;
+    ipc_limits.binary_bytes = 65536;
+    auto ipc = TRY(Firefly::BridgeData::capture_ipc(ipc_value.value(), source, ipc_limits));
+    auto ipc_wire = TRY(ipc.encode_wire(ipc_limits));
+    auto ipc_decoded = TRY(Firefly::BridgeData::decode_wire(ipc_wire, ipc_limits));
+    vm.heap().collect_garbage();
+    auto ipc_copy
+        = ipc_decoded.materialize(target, {}, Firefly::BridgeData::Materialization::Mutable);
+    if (ipc_copy.is_error())
+        return Error::from_string_literal("IPC instance materialization failed");
+    target.global_object().define_direct_property(
+        "ipcCopy"_utf16, ipc_copy.value(), JS::default_attributes);
+    TRY(check(uR"JS(
+        ipcCopy.self===ipcCopy && ipcCopy.uri===ipcCopy.alias &&
+        Object.getPrototypeOf(ipcCopy.uri)===Object.prototype &&
+        !('inherited' in ipcCopy.uri) && ipcCopy.uri.path==='/workbench' &&
+        Object.getPrototypeOf(ipcCopy.handle)===Object.prototype &&
+        ipcCopy.handle.buffer instanceof Uint8Array && ipcCopy.handle.buffer[2]===255
+    )JS"sv,
+        target));
+    for (auto code :
+        { u"new Proxy({},{ownKeys(){throw 1}})"sv, u"new (class {get own(){throw 1}})()"sv,
+            u"(()=>{class C{};const c=new C;Object.defineProperty(c,'x',{get(){ipcPrototypeReads++;throw 1}});return c})()"sv,
+            u"new (class {constructor(){this.fn=()=>1}})()"sv }) {
+        auto bad = run(vm, source, code);
+        // An inherited getter is not copied or executed, unlike an own accessor.
+        bool inherited_only = code == u"new (class {get own(){throw 1}})()"sv;
+        if (bad.is_error()
+            || Firefly::BridgeData::capture_ipc(bad.value(), source, ipc_limits).is_error()
+                == inherited_only)
+            return Error::from_string_literal("IPC custom-instance rejection mismatch");
+    }
+    TRY(check(u"ipcPrototypeReads===0"sv, source));
+
     auto snapshot = TRY(capture(uR"JS(
         (() => {
             const shared={n:42};

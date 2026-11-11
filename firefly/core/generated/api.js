@@ -2330,6 +2330,22 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
 function createMainIpc(native, EventEmitter, error, frameForDocument) {
   const ipcHandlers = /* @__PURE__ */ new Map();
   const ipcRequests = /* @__PURE__ */ new Map();
+  const diagnostic = process.env.FIREFLY_IPC_BYTES_DIAGNOSTIC === "1";
+  function failed(stage, failure) {
+    if (!diagnostic) {
+      return;
+    }
+    try {
+      const descriptor = failure && typeof failure === "object" ? Object.getOwnPropertyDescriptor(failure, "code") : void 0;
+      const code = descriptor && "value" in descriptor && [
+        "ERR_FIREFLY_IPC_SERIALIZATION",
+        "ERR_FIREFLY_OBJECT_DESTROYED",
+        "ERR_FIREFLY_UNSUPPORTED_API"
+      ].includes(descriptor.value) ? descriptor.value : "UNCLASSIFIED";
+      console.warn(`FIREFLY_IPC_FAILURE stage=${stage} code=${code}`);
+    } catch {
+    }
+  }
   function channelName(channel) {
     if (typeof channel !== "string" || channel.length > 256) {
       throw error("ERR_INVALID_ARG_TYPE", "channel must be a string of at most 256 UTF-16 units");
@@ -2419,7 +2435,8 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       let wire;
       try {
         wire = native.encodeIpc(value);
-      } catch {
+      } catch (failure) {
+        failed("result-serialization", failure);
         success = false;
         wire = native.encodeIpc("IPC result is not supported bounded data");
       }
@@ -2461,6 +2478,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       Promise.resolve(result).then(
         (value) => finish(true, value),
         (failure) => {
+          failed("handler-rejection", failure);
           let message = "IPC handler rejected";
           try {
             if (typeof failure?.message === "string") {
@@ -2472,6 +2490,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
         }
       );
     } catch (failure) {
+      failed("dispatch", failure);
       let message = "IPC handler rejected";
       try {
         if (typeof failure?.message === "string") {

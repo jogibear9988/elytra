@@ -240,6 +240,20 @@ references, array holes and view type/offset/length/backing aliases. A Buffer
 normalizes to Uint8Array. Each recipient owns writable independent storage; no
 source storage is shared or detached. Custom binary prototypes/expandos are omitted.
 
+Main/preload IPC now also snapshots ordinary class instances such as URI and
+VSBuffer: own data fields cross as ordinary destination objects, while custom
+prototypes and inherited methods/getters do not cross. Cycles, aliases and binary
+fields use the same budgets. Own accessors, functions, proxies and native host
+objects remain rejected without invoking their hooks. This separate IPC policy
+does not relax contextBridge publication or page-call copying. The new instance
+case has compile validation; its native roundtrip acceptance is pending. Utility
+process messaging retains its existing narrower capture policy.
+
+With `FIREFLY_IPC_BYTES_DIAGNOSTIC=1`, main IPC failure diagnostics include only a
+fixed failure stage and an allowlisted error code; channels, payloads, environment
+and exception messages are excluded. A window-configuration timeout can also
+follow a rejected configuration Promise; it does not alone prove pending IPC.
+
 The aggregate binary budget is **64 KiB of distinct complete backing stores per
 graph**, even when sending only a small view. Shared, detached, resizable and
 out-of-bounds storage is refused. Functions, accessors, proxies, symbols, host/DOM

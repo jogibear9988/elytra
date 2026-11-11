@@ -153,7 +153,7 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
     GC::Root args { TRY(JS::Array::create(realm, vm.argument_count())) };
     for (size_t i = 0; i < vm.argument_count(); ++i)
         args->define_direct_property(i, vm.argument(i), JS::default_attributes);
-    auto captured = BridgeData::capture(JS::Value(args.ptr()), realm, public_binary_limits());
+    auto captured = BridgeData::capture_ipc(JS::Value(args.ptr()), realm, public_binary_limits());
     if (captured.is_error())
         return reject(
             u"IPC arguments are not supported data"sv, u"ERR_FIREFLY_IPC_SERIALIZATION"sv);
