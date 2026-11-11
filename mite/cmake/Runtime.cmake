@@ -67,6 +67,7 @@ function(mite_add_runtime target root js_target)
         readline
         child_process
         worker_threads
+        tty
         cjs-lexer
         timers_promises)
         string(TOUPPER "${module}" module_upper)
@@ -117,6 +118,8 @@ function(mite_add_runtime target root js_target)
         platform/process/Exit
         platform/process/Timing
         platform/process/Signals
+        # platform/terminal
+        platform/terminal/TTY
         platform/process/ChildProcess
         # platform/filesystem
         platform/filesystem/FileSystem

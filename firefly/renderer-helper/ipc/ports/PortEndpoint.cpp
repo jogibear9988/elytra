@@ -299,7 +299,7 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
         refusal = "route-retired";
     else if (frame_bytes + P::header_size > ApplicationIpc::wire_limit)
         refusal = "frame-bytes";
-    else if (found->value.outgoing.size() >= 64)
+    else if (found->value.outgoing.size() >= waiting_message_limit)
         refusal = "route-messages";
     else if (found->value.outgoing_bytes + frame_bytes > 1024 * 1024)
         refusal = "route-bytes";

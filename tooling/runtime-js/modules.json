@@ -22,6 +22,7 @@
   "inspector": "mite/modules/system/inspector.mjs",
   "policy-watcher": "mite/modules/system/policy-watcher.mjs",
   "crypto": "mite/modules/crypto/index.mjs",
+  "tty": "mite/modules/terminal/tty.mjs",
   "worker_threads": "mite/modules/workers/index.mjs",
   "child_process": "mite/modules/process/child-process.mjs",
   "bootstrap": "mite/runtime/bootstrap/globals.mjs",

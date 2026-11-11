@@ -273,6 +273,14 @@ if(BUILD_TESTING)
     add_test(NAME mite-fork
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_fork.py"
                      --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-deprecate
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_deprecate.py"
+                     --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-deprecate PROPERTIES TIMEOUT 50 LABELS "runtime;native")
+    add_test(NAME mite-tty
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_tty.py"
+                     --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-tty PROPERTIES TIMEOUT 50 LABELS "runtime;native")
     add_test(
         NAME mite-worker-threads
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_worker_threads.py"

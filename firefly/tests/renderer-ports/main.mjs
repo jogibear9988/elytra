@@ -139,7 +139,7 @@ app
 
     burst.port1.once('close', () => {
       try {
-        check(burstReceived === 64, 'Burst delivery precedes close');
+        check(burstReceived === 128, 'Burst delivery precedes close');
         burstClosed = true;
       } catch (error) {
         fail(error);
@@ -151,9 +151,9 @@ app
     await new Promise((resolve) => setTimeout(resolve, 100));
     check(burstReceived === 0 && !burstClosed, 'No consumption before actual main start');
     burst.port1.start();
-    await until(() => burstReceived === 64 && burstClosed);
+    await until(() => burstReceived === 128 && burstClosed);
     console.log(
-      'PASS renderer ports: 64-message DOM burst waits for real consumption then drains FIFO and closes'
+      'PASS renderer ports: 128-message DOM burst waits for real consumption then drains FIFO and closes'
     );
 
     child = utilityProcess.fork(path.join(import.meta.dirname, 'child.mjs'), [], { stdio: 'pipe' });

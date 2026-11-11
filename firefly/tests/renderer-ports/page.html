@@ -30,13 +30,13 @@
       );
       if (phase === 'burst') {
         // One author task exceeds the physical 16-message credit window, while
-        // remaining inside the unchanged bounded logical queue. Main deliberately
+        // exceeding the former 64-waiting ceiling but staying inside the byte budgets. Main deliberately
         // has not started its endpoint: only later real dequeue may refund credit.
-        for (let index = 0; index < 64; ++index) {
+        for (let index = 0; index < 128; ++index) {
           port.postMessage({ kind: 'burst', index, payload: 'c'.repeat(600) });
         }
         port.close();
-        window.rendererPorts.report({ kind: 'complete', phase, sent: 64 });
+        window.rendererPorts.report({ kind: 'complete', phase, sent: 128 });
         return;
       }
       let received = 0;

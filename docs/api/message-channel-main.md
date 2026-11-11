@@ -126,9 +126,24 @@ identities never enter application payloads.
 The native frame bound is 128 KiB including framing and route metadata; the
 existing 64 KiB aggregate distinct binary backing-store limit remains. Each route
 has 16 outstanding messages / 1 MiB per direction and bounded document wire queues.
+The DOM-to-main forwarding queue separately admits at most 1024 waiting messages,
+1 MiB of waiting encoded data per route, and 4 MiB across waiting data/control
+frames in the endpoint. Its native credit window remains 16: waiting admission
+neither emits an ACK nor grants extra transport credit. Only authenticated actual
+consumption advances that window. Main-only/utility JavaScript queue bounds above
+remain unchanged.
+
+Node/Electron MessagePorts enqueue asynchronously without this Firefly waiting
+limit. DOM `postMessage` exposes no backpressure return value; exhausting Firefly's
+record or byte budgets retires the route rather than claiming delivery or issuing
+speculative consumption acknowledgements. A startup burst can wait while its peer
+is unstarted and then drain through the existing credit window in FIFO order.
 These are copied messages, not zero-copy or measured file-transfer performance.
 The focused offscreen fixture passes delayed start, 32 independent 4 KiB binary
 snapshots, FIFO, old-owner detachment, ordered close and genuine utility relay.
+The targeted burst regression additionally sends 128 small DOM messages in one
+author task, holds the main endpoint unstarted, then verifies real FIFO
+consumption and ordered close on the same document after an earlier route closes.
 The standalone no-listener/GC observer probe is provided but not yet runtime-accepted.
 Linux/Windows and packaged renderer-port acceptance remain unverified.
 

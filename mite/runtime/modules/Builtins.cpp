@@ -26,6 +26,7 @@
 #include "platform/process/Timing.h"
 #include "platform/system/Inspector.h"
 #include "platform/system/OS.h"
+#include "platform/terminal/TTY.h"
 #include "platform/text/Encoding.h"
 #include "platform/text/URL.h"
 #include "platform/util/Types.h"
@@ -65,7 +66,7 @@ static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMon
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
 static constexpr std::string_view process_exports[] = { "nextTick", "cwd", "chdir", "env", "pid",
     "ppid", "platform", "arch", "execPath", "execArgv", "argv", "argv0", "version", "versions",
-    "release", "exit", "hrtime", "uptime", "cpuUsage", "stdout", "stderr" };
+    "release", "exit", "emitWarning", "hrtime", "uptime", "cpuUsage", "stdout", "stderr" };
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
@@ -92,8 +93,9 @@ static constexpr std::string_view querystring_exports[]
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
-static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder", "promisify",
-    "inherits", "types", "debuglog", "debug", "inspect", "format", "formatWithOptions" };
+static constexpr std::string_view util_exports[]
+    = { "TextEncoder", "TextDecoder", "promisify", "deprecate", "inherits", "types", "debuglog",
+          "debug", "inspect", "format", "formatWithOptions" };
 static constexpr std::string_view util_types_exports[]
     = { "isArrayBuffer", "isSharedArrayBuffer", "isAnyArrayBuffer", "isArrayBufferView",
           "isTypedArray", "isUint8Array", "isDataView", "isProxy", "isPromise" };
@@ -144,6 +146,7 @@ static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUI
     "getRandomValues", "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
+static constexpr std::string_view tty_exports[] = { "isatty", "ReadStream", "WriteStream" };
 static constexpr std::string_view worker_threads_exports[] = { "Worker", "MessagePort",
     "isMainThread", "isInternalThread", "parentPort", "workerData", "threadId", "threadName" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
@@ -168,6 +171,7 @@ static constexpr BuiltinDefinition definitions[] = {
     { "crypto", { MITE_CRYPTO_SOURCE, sizeof(MITE_CRYPTO_SOURCE) - 1 }, crypto_exports },
     { "child_process", { MITE_CHILD_PROCESS_SOURCE, sizeof(MITE_CHILD_PROCESS_SOURCE) - 1 },
         child_process_exports },
+    { "tty", { MITE_TTY_SOURCE, sizeof(MITE_TTY_SOURCE) - 1 }, tty_exports },
     { "worker_threads", { MITE_WORKER_THREADS_SOURCE, sizeof(MITE_WORKER_THREADS_SOURCE) - 1 },
         worker_threads_exports },
     { "inspector", { MITE_INSPECTOR_SOURCE, sizeof(MITE_INSPECTOR_SOURCE) - 1 },
@@ -333,6 +337,9 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         host->define_direct_property("abort"_utf16, m_abort_hooks.ptr(), JS::default_attributes);
     }
 
+    if (name == "tty")
+        host->define_direct_property(
+            "native"_utf16, create_tty_host(m_realm), JS::default_attributes);
     if (name == "worker_threads") {
         host->define_direct_property("native"_utf16,
             create_worker_host(m_vm, m_realm, m_event_loop), JS::default_attributes);

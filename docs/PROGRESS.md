@@ -14023,6 +14023,36 @@ staged system extensions is separately reported. Cocoa-only Services and TouchBa
 refusals belong to the declared offscreen/local experiment. No extension activation,
 complete editor or physical menu acceptance is claimed (codeoss-native-workers-start.log).
 
+## 2026-11-11 — Genuine TTY/warnings and measured renderer startup bursts
+
+Implement native node:tty.isatty using actual descriptor classification, including
+Windows invalid-parameter protection; invalid inputs return false without coercion.
+TTY streams/raw mode remain explicit refusals. Implement genuine util.deprecate
+and asynchronous process warning events/default stderr output, preserving forwarding,
+construction, per-wrapper/code deduplication and observed Node suppression/throw/
+trace behavior. Bound pending warning text/work; unsupported options reject. Add
+focused native CLI gates, not import-only wrappers.
+
+Measured renderer startup had 19 sends / 3 authenticated ACKs while only 55 KiB
+waited: consumers progress, but the 64-entry waiting policy is too small for the
+normal burst. Increase only bounded waiting records to 1024. Retain 16 native
+in-flight credits, exact FIFO consumption authority and the existing 1 MiB route /
+4 MiB endpoint byte caps. Do not fabricate ACKs or change application source.
+
+Combined Release build passes (codeoss-tty-warnings-burst-build.log). Actual Node/
+Mite pipe/file/invalid/headless-PTY checks and real warning/stderr/trace fixtures
+pass (codeoss-tty-native.log, codeoss-deprecate-native.log). Actual offscreen DOM
+batch passes the 128-message delayed-consumption FIFO/close/isolation regression
+and existing direct/utility relay checks (codeoss-port-128-native.log).
+
+Actual CodeOSS PID18307 progresses through tty/deprecate and no longer reports
+PORT_LIMIT in the observed startup. The extension/agent graph now fails because
+agent-base extends missing http.Agent. System extensions are also absent from the
+current source-only stage; an upstream build/staging path is being prepared.
+Expected offscreen Cocoa Services and declared TouchBar refusals persist. No
+complete editor, extension activation or physical menu acceptance is claimed
+(codeoss-tty-warnings-start.log). Native Windows/Linux new-API acceptance remains open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

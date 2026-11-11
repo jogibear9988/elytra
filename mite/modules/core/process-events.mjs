@@ -1,3 +1,5 @@
+import installWarnings from './process-warnings.mjs';
+
 /** Process events backed by the native loop, terminal emitter and bounded signals. */
 export default function installProcessEvents(host, process) {
   const { EventEmitter, signals, native } = host;
@@ -14,7 +16,6 @@ export default function installProcessEvents(host, process) {
     'uncaughtExceptionMonitor',
     'unhandledRejection',
     'rejectionHandled',
-    'warning',
     'message',
     'disconnect',
     'multipleResolves',
@@ -123,4 +124,5 @@ export default function installProcessEvents(host, process) {
       reserved.delete(type);
     }
   }
+  installWarnings(process);
 }

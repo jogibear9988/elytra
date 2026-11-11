@@ -50,7 +50,15 @@ if (mode === 'host') {
   if (process.listenerCount('SIGINT') !== 0) {
     throw new Error('Failed subscription retained');
   }
-  for (const type of ['beforeExit', 'warning', 'message']) {
+
+  const warningListener = () => {};
+
+  process.on('warning', warningListener);
+  if (!process.listeners('warning').includes(warningListener)) {
+    throw new Error('Real warning subscription missing');
+  }
+  process.off('warning', warningListener);
+  for (const type of ['beforeExit', 'message']) {
     denied(type, 'ERR_MITE_UNSUPPORTED_PROCESS_EVENT');
   }
   for (const type of ['SIGKILL', 'SIGCHLD', 'SIGSEGV']) {

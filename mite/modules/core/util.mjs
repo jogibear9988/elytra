@@ -2,6 +2,7 @@ import createPromisify from './promisify.mjs';
 import inherits from './inherits.mjs';
 import createDebugLog from './debuglog.mjs';
 import createInspection from './inspect.mjs';
+import createDeprecate from './deprecate.mjs';
 
 /**
  * TextEncoder and stateful TextDecoder facades. Native conversion owns codec state and byte-
@@ -136,6 +137,7 @@ export default function createEncodingModule(host) {
     TextDecoder,
     promisify,
     inherits,
+    deprecate: createDeprecate(host.process),
     debuglog,
     debug: debuglog,
     ...createInspection(host),

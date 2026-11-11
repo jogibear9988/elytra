@@ -129,8 +129,9 @@ Node's DEP0174 deprecation warning for originals returning Promises is not emitt
 The wrapper still waits for its callback; functions that only return Promises
 should be called directly. No automatic adaptation of non-error-first callbacks,
 multiple arbitrary success values, Node internal bindings or new native services
-is implied. Callbackify, inspect, format, inherits, types and most other util
-members remain absent.
+is implied. Callbackify and other unlisted util members remain absent. The implemented
+inspection/formatting and deprecation APIs are described below; inheritance and
+native type predicates have their own documented subsets.
 
 ## TextEncoder and TextDecoder
 
@@ -157,3 +158,17 @@ advanced formatting remain explicit refusals. This is a partial formatter, not V
 introspection. Selected actual Node/Mite output and an Undici-shaped private-Map
 custom inspector pass on the current macOS build; fresh platform acceptance remains
 pending.
+
+## deprecate(fn, message[, code])
+
+Return a wrapper preserving receiver, arguments, result and constructor new.target,
+prototype/statics and length. Invocation schedules a real deprecation warning;
+uncoded wrappers warn once each, while a code is deduplicated across wrappers in
+the same runtime. Dynamic noDeprecation suppression does not consume the first
+warning. throwDeprecation/traceDeprecation follow the supported process warning
+pipeline, including actual asynchronous exception delivery and captured stacks.
+
+This is implemented behavior, not an import-only no-op. The focused Node/Mite
+fixtures cover call/constructor identity, warnings and stderr, deduplication,
+suppression, throws and traces. Fresh native Linux/Windows acceptance remains open.
+See [process warnings](process.md#warnings) for limits and unsupported options.

@@ -26,6 +26,8 @@ propagation, ownership and supported AsyncLocalStorage/AsyncResource operations.
 The [native type predicates](util-types.md), [Console basics](console.md) and
 [diagnostics channels/debug logging](diagnostics-channel.md) describe their partial
 Node-compatible contracts and actual runtime evidence.
+The [TTY reference](tty.md) covers genuine terminal descriptor queries and
+explicitly unsupported stream/raw-mode APIs.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.

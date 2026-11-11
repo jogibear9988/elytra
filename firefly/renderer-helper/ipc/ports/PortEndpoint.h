@@ -48,6 +48,8 @@ public:
     static void dispatch_to(IpcEndpoint&, Utility::Ports::Identity, Web::DOM::Event&);
 
 private:
+    static constexpr size_t waiting_message_limit = 1024;
+
     struct Route {
         Utility::Ports::Identity identity;
         GC::Root<Web::HTML::MessagePort> forwarder;

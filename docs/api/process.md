@@ -172,7 +172,7 @@ rejectionHandled events now have real event-loop delivery. See the detailed
 [exception/rejection reference](process-errors.md) for identities, callback and
 entry-point origins, default exits, listener failures and GC lifetime.
 
-Registering beforeExit, warning, multipleResolves, worker or workerMessage still
+Registering beforeExit, multipleResolves, worker or workerMessage still
 throws ERR_MITE_UNSUPPORTED_PROCESS_EVENT. message/disconnect also reject outside
 an owned fork child. Process kill, arbitrary signals, capture callbacks and full
 lifecycle coverage remain unfinished. [ADR 0104](../architecture/0104-process-events-signals.md)
@@ -234,3 +234,18 @@ eval/print flag/source pair for -e/--eval or -p/--print. Internal fork role flag
 message/disconnect events, send/connected/channel exist only with the owned child
 capability; ordinary processes cannot enable it by assigning public properties or
 an environment marker. process.parentPort is not installed by Node-style fork.
+
+## Warnings
+
+`process.emitWarning(warning[, type[, code[, ctor]]])` and its options-object form
+schedule a genuine nextTick `warning` event. Strings create real Error objects;
+an authored Error retains its identity. Supported options are type, code, detail
+and ctor. The installed default warning listener writes to actual stderr. Dynamic
+noDeprecation, throwDeprecation, traceDeprecation and traceProcessWarnings control
+the supported warning path; a deprecation throw is asynchronous after the caller.
+This does not add unsupported command-line warning flags.
+
+Pending warnings are limited to 256 and 1,048,576 text code units; each text field
+is at most 65,536 code units. Limit/unsupported-option errors are explicit.
+Focused Node/macOS Mite fixtures pass actual warning events, stderr, Error identity,
+trace stacks and asynchronous throws. See [util.deprecate](util.md).
