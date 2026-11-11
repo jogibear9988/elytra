@@ -13279,6 +13279,29 @@ old list claiming trusted source getters/configuration publication were still ab
 Method binding and function-valued results remain the next step, not accepted yet.
 Documentation-only: no desktop or broad test run.
 
+## 2026-11-11 — Preserve contextBridge method receivers and bounded function results
+
+Capture validated source-parent metadata for functions; root and trace that exact
+receiver in the endpoint, clear it on revoke and ignore caller-controlled this.
+Keep within-graph first-parent aliases, matching the pinned Electron cache. A weak
+publication owner exports supported sync/Promise result graphs without accessors;
+reused source-function/parent proxies let listener wrappers return their receiver
+without exposing a source global or consuming another endpoint on every call.
+New result exports roll back on failure, including Promise thenable-safety failure.
+Existing realm, native capability redaction, prototype, quota and lifetime checks
+remain enforced. The cumulative 64-endpoint limit remains until revocation; bare
+function Promise fulfillment and standalone/callback higher-order results are still
+unsupported. No pruning or unlimited membrane is claimed.
+
+The Release host/helper/offscreen/isolation build passes
+(codeoss-bridge-receiver-build.log). Run only the existing publication fixture with
+the new --context-bridge selector: native source receiver, hostile extracted.call,
+GC, frozen method return and 80-call reuse all pass alongside its existing guard
+and rollback assertions (codeoss-bridge-receiver-probe.log). No full isolation suite
+or desktop test is run. Actual Code-OSS now reaches workbench#open and fails at the
+local remote-resource factory guard (codeoss-bridge-receiver-start.log), beyond
+the prior bridge refusal. Editor/window-ready remains unaccepted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

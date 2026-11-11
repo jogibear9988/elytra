@@ -178,8 +178,8 @@ ErrorOr<void> check_bridge_wire(JS::VM& vm, JS::Realm& source, JS::Realm& target
     auto function = run(u"(()=>42)"sv, source);
     if (function.is_error())
         return Error::from_string_literal("Missing function fixture");
-    auto tokens = TRY(Firefly::BridgeData::capture(
-        function.value(), source, {}, [](JS::FunctionObject&) -> ErrorOr<size_t> { return 0; }));
+    auto tokens = TRY(Firefly::BridgeData::capture(function.value(), source, {},
+        [](JS::FunctionObject&, JS::Object*) -> ErrorOr<size_t> { return 0; }));
     if (!tokens.encode_wire({}).is_error())
         return Error::from_string_literal("Internal publication token escaped onto wire");
     auto full_value = run(u"Array(4095).fill(0)"sv, source);

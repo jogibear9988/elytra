@@ -90,8 +90,21 @@ objects/arrays with own data properties. Functions require validated source-worl
 ownership. Publication may read the trusted source getters described below. Proxies,
 bound functions, custom prototypes, symbols, DOM/native objects and promises embedded
 directly in an API graph remain unsupported. Function
-arguments/results pass through bounded data copies; document-supplied function arguments
-are proxied as described below, and a returned Promise is bridged.
+arguments/results pass through bounded copies; document-supplied function arguments
+are proxied as described below, and a returned Promise is bridged. Published API
+methods retain their original source object as this, including extracted methods
+and calls using call/apply. A page cannot choose a different privileged receiver.
+Within one captured graph, aliases of a function use the first encountered parent,
+following Electron's function cache.
+
+Published methods can return supported ordinary graphs containing source functions,
+including their own receiver object. These results are copied/frozen; functions use
+guarded proxies with the same source-parent rule. Existing live function/parent
+proxies are reused. Results never run getters and still reject host objects, custom
+prototypes, raw IPC capabilities and unsupported values. Native Promise results use
+the same graph exporter, with the existing thenable safety check; a Promise fulfilled
+with a bare function remains unsupported. Standalone internal function endpoints
+and document callback results retain their data-only result policy.
 Page getters/proxies are rejected without running their traps. This stricter policy
 and bounded graphs are intentional differences from general Electron value support.
 
@@ -101,6 +114,10 @@ bridge. Unsupported graphs and exhausted budgets throw; no unlimited graph or
 universal browser-object membrane is provided. Foreign exceptions are sanitized;
 Node/Electron error text and stacks are not preserved. Navigation/detach revokes
 function endpoints and pending work; copied inert data can remain reachable.
+Returned function endpoints count toward that cumulative 64-endpoint limit until
+revocation, even if their page proxies are collected. Repeated returns of the same
+live function/parent pair reuse their endpoint; dynamically creating many distinct
+functions can exhaust the limit.
 
 Only expose narrow functions appropriate for all documents in the window. A
 function's ability to access its isolated closure is not privileged access to the
@@ -201,8 +218,9 @@ An individual raw IPC method still rejects, as does a copied object containing o
 Normal IPC serialization has no module-redaction exception. Prefer the narrow
 payload wrapper above even though the supported empty-port IPC event now crosses
 this boundary. The explicitly adapted Code-OSS preload now publishes its window
-configuration and loads the Workbench graph. Full startup remains unaccepted;
-method receiver/result handling and renderer/utility port transfer still need work.
+configuration and loads the Workbench graph. Method receiver/result handling now
+passes the native publication fixture and the actual first Workbench initialization.
+Full startup and renderer/utility port transfer remain unaccepted.
 
 This follows [Electron's documented ipcRenderer boundary](https://www.electronjs.org/docs/latest/api/context-bridge#exposing-ipcrenderer).
 The actual Electron 45.2.3 positive fixture strips the IPC methods but retains own

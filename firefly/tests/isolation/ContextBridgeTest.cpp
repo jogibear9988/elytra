@@ -75,6 +75,25 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     if (count != 3)
         return Error::from_string_literal("Duplicate API functions were not shared");
     TRY(check(uR"JS(
+        const receiver={n:7,on(){return this},value(){return this.n}};
+        contextBridge.exposeInMainWorld('__ffReceiverApi',receiver);
+        true;
+    )JS"sv,
+        true));
+    vm.heap().collect_garbage();
+    TRY(check(uR"JS(
+        const api=__ffReceiverApi, extracted=api.on;
+        for(let i=0;i<80;i++) {
+            const returned=extracted.call({n:99});
+            if(returned.value()!==7 || returned.on!==api.on || !Object.isFrozen(returned))
+                throw Error('Source receiver was lost or caller-controlled');
+        }
+        extracted.call(null).value()===7;
+    )JS"sv));
+    count = owner->function_count();
+    if (count != 5)
+        return Error::from_string_literal("Returned receiver methods consumed duplicate endpoints");
+    TRY(check(uR"JS(
         globalThis.apiTraps=0;
         const failures=[
           Object.defineProperty({good:()=>1},'bad',{enumerable:true,get:new Proxy(()=>1,{apply(){apiTraps++;throw 1}})}),
@@ -204,6 +223,7 @@ ErrorOr<void> check_large_context_bridge(
         GC::Root script { parsed.release_value() };
         return vm.run(*script);
     };
+
     auto started = principal(uR"JS(
         globalThis.largeContextState='pending';
         __ffLargeContextApi.resolve().then(value=>{
@@ -222,6 +242,7 @@ ErrorOr<void> check_large_context_bridge(
         ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
         Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
     }
+
     vm.heap().collect_garbage();
     auto copied = target.global_object().get_without_side_effects("largeContextJSON"_utf16);
     auto frozen = target.global_object().get_without_side_effects("largeContextFrozen"_utf16);

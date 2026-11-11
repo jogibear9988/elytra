@@ -4,6 +4,7 @@
  */
 
 #include "context/ContextBridge.h"
+#include "context/Boundary.h"
 #include "context/CallbackBridge.h"
 #include "context/Snapshot.h"
 #include "serialization/BridgeData.h"
@@ -69,6 +70,71 @@ size_t ContextBridge::callback_count()
 size_t ContextBridge::callback_proxy_count()
 {
     return m_callbacks ? m_callbacks->proxy_count() : 0;
+}
+
+// Reuse exact function/parent capabilities, not a caller-selected receiver. A
+// weak target cache avoids keeping unreachable principal proxies alive forever.
+ErrorOr<size_t> ContextBridge::export_function(JS::FunctionObject& function, JS::Object* receiver,
+    Vector<NonnullRefPtr<FunctionBridge>>& pending, GC::RootVector<JS::Value>& functions)
+{
+    auto append_existing = [&](auto const& owners) -> Optional<size_t> {
+        for (auto const& owner : owners) {
+            if (auto* proxy = owner->matching_proxy(function, receiver)) {
+                auto index = functions.size();
+                functions.append(JS::Value(proxy));
+                return index;
+            }
+        }
+
+        return {};
+    };
+
+    if (auto found = append_existing(m_functions); found.has_value())
+        return *found;
+    if (auto found = append_existing(pending); found.has_value())
+        return *found;
+    if (m_functions.size() + pending.size() >= 64)
+        return Error::from_string_literal("Bridge function budget exceeded");
+    auto exported = TRY(
+        FunctionBridge::create(*m_source, function, *m_document, m_callbacks, receiver, this));
+    auto index = functions.size();
+    pending.append(exported.owner);
+    functions.append(exported.function);
+    return index;
+}
+
+ErrorOr<JS::Value> ContextBridge::copy_result(JS::Value value, bool promise_result)
+{
+    if (m_revoked || m_publishing || !m_source || m_source->is_detached()
+        || !m_document->is_fully_active())
+        return Error::from_string_literal("Bridge result belongs to a revoked document");
+    NonnullRefPtr protect { *this };
+    auto source = m_source;
+    GC::Root document { *m_document };
+    Vector<NonnullRefPtr<FunctionBridge>> pending;
+    GC::RootVector<JS::Value> functions;
+    bool committed = false;
+    ScopeGuard rollback([&] {
+        if (!committed)
+            for (auto& owner : pending)
+                owner->revoke();
+    });
+    // Unlike initial publication, results never execute application accessors.
+    auto snapshot = TRY(capture_to_principal(
+        *source, value, [&](JS::FunctionObject& function, JS::Object* receiver) -> ErrorOr<size_t> {
+            return export_function(function, receiver, pending, functions);
+        }));
+    auto result = snapshot.materialize(
+        document->window()->principal_realm(),
+        [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> { return functions[index]; },
+        BridgeData::Materialization::FrozenContainers);
+    if (result.is_error() || (promise_result && !Boundary::resolve_safe(result.value()))
+        || m_revoked || source->is_detached() || !document->is_fully_active())
+        return Error::from_string_literal("Cannot publish bridge result");
+    for (auto& owner : pending)
+        m_functions.append(move(owner));
+    committed = true;
+    return result.release_value();
 }
 
 GC::Ref<JS::Object> ContextBridge::exports()
@@ -143,14 +209,10 @@ JS::ThrowCompletionOr<JS::Value> ContextBridge::expose(JS::VM& vm)
     size_t getter_calls = 0;
     auto snapshot = capture_to_principal(
         *source, vm.argument(1),
-        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
-            if (!active() || m_functions.size() + pending.size() >= 64)
-                return Error::from_string_literal("Bridge function budget exceeded");
-            auto exported = TRY(FunctionBridge::create(*source, function, *document, callbacks));
-            size_t id = functions.size();
-            pending.append(exported.owner);
-            functions.append(exported.function);
-            return id;
+        [&](JS::FunctionObject& function, JS::Object* receiver) -> ErrorOr<size_t> {
+            if (!active())
+                return Error::from_string_literal("Bridge publication revoked");
+            return export_function(function, receiver, pending, functions);
         },
         [&](JS::Object& receiver, JS::FunctionObject& getter) -> ErrorOr<JS::Value> {
             auto id = getter.engine_class_id();

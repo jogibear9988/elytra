@@ -64,9 +64,12 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
         return {};
     };
 
-    auto visit = [&](auto& self, JS::Value input, size_t depth) -> ErrorOr<size_t> {
+    auto visit
+        = [&](auto& self, JS::Value input, size_t depth, JS::Object* parent) -> ErrorOr<size_t> {
         if (depth > limits.depth)
             return Error::from_string_literal("Bridge depth budget exceeded");
+        // Preserve within-graph function aliases: Electron's object cache also
+        // chooses the first encountered parent for a shared function identity.
         if (input.is_object()) {
             if (auto found = seen.get(&input.as_object()); found.has_value())
                 return *found;
@@ -96,7 +99,7 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
             if (&function.vm() != &source.vm() || function.realm() != &source)
                 return Error::from_string_literal("Bridge function requires its own source realm");
             node.kind = Kind::Function;
-            node.length = TRY(functions(function));
+            node.length = TRY(functions(function, parent));
         } else if (input.is_object()) {
             auto& object = input.as_object();
             bool typed = JS::TypedArrayBase::is_engine_class_of(object);
@@ -146,7 +149,7 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
                 seen.set(&object, index);
                 // Capture storage once, even for multiple views and forward
                 // references. Native slots avoid getters/species/iterator hooks.
-                auto backing = TRY(self(self, JS::Value(buffer), depth + 1));
+                auto backing = TRY(self(self, JS::Value(buffer), depth + 1, &object));
                 result.m_nodes[index].buffer = backing;
                 return index;
             }
@@ -255,7 +258,7 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
 
             if (result.m_nodes[index].kind == Kind::Array && key == "length"_utf16)
                 continue;
-            auto child = TRY(self(self, value, depth + 1));
+            auto child = TRY(self(self, value, depth + 1, &object));
             result.m_nodes[index].properties.append(
                 { move(key), child, property.enumerable.value_or(false) });
         }
@@ -263,7 +266,7 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
         return index;
     };
 
-    TRY(visit(visit, value, 0));
+    TRY(visit(visit, value, 0, nullptr));
     return result;
 }
 

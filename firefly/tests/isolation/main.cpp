@@ -78,6 +78,13 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return 0;
     }
 
+    // Run the publication/receiver boundary alone during application startup
+    // work; the normal probe still includes the complete isolation batch.
+    if (arguments.argc == 2 && std::strcmp(arguments.argv[1], "--context-bridge") == 0) {
+        TRY(check_context_bridge(vm, *document));
+        return 0;
+    }
+
     first->realm()->global_object().define_native_function(
         *first->realm(), "nativeProbe"_utf16,
         +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(42); }, 0,

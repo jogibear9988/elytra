@@ -6,6 +6,7 @@
 #include "context/FunctionBridge.h"
 #include "context/Boundary.h"
 #include "context/CallbackBridge.h"
+#include "context/ContextBridge.h"
 #include "context/Snapshot.h"
 #include "native/platform/Diagnostics.h"
 #include "serialization/BridgeData.h"
@@ -108,6 +109,7 @@ void FunctionBridge::visit_edges(GC::Cell::Visitor& visitor) const
     // Native ownership/revocation keeps the existing root lifetime. Explicit
     // captures expose these direct dependencies without strengthening weak caches.
     visitor.visit(m_function.ptr());
+    visitor.visit(m_receiver.ptr());
     visitor.visit(m_document.ptr());
     for (auto const& entry : m_pending) {
         visitor.visit(entry.value->capability.ptr());
@@ -118,9 +120,12 @@ void FunctionBridge::visit_edges(GC::Cell::Visitor& visitor) const
 FunctionBridge::~FunctionBridge() = default;
 
 FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& function,
-    Web::DOM::Document& document, CallbackRegistry& callbacks, bool own_registry)
+    Web::DOM::Document& document, CallbackRegistry& callbacks, bool own_registry,
+    JS::Object* receiver, ContextBridge* publisher)
     : m_source(source)
     , m_function(function)
+    , m_receiver(receiver)
+    , m_publisher(publisher ? publisher->make_weak_ptr() : WeakPtr<ContextBridge> {})
     , m_document(document)
     , m_callbacks(callbacks)
     , m_own_registry(own_registry)
@@ -128,7 +133,8 @@ FunctionBridge::FunctionBridge(IsolatedWorld& source, JS::FunctionObject& functi
 }
 
 ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::FunctionObject& function,
-    Web::DOM::Document& document, RefPtr<CallbackRegistry> callbacks)
+    Web::DOM::Document& document, RefPtr<CallbackRegistry> callbacks, JS::Object* receiver,
+    ContextBridge* publisher)
 {
     // FunctionObject::realm() is a native field read. Callable proxies/bound
     // functions have no own realm and are rejected without invoking their hooks.
@@ -138,11 +144,15 @@ ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::Functi
             != &document.window()->principal_realm())
         return Error::from_string_literal(
             "Function export requires its live source world and exact document");
+    if (receiver
+        && (&receiver->vm() != &function.vm() || &receiver->shape().realm() != source.realm()
+            || JS::host_class_of(*receiver)))
+        return Error::from_string_literal("Bridge receiver requires its own source object");
     bool own_registry = !callbacks;
     if (!callbacks)
         callbacks = TRY(CallbackRegistry::create(source, document));
-    auto owner
-        = adopt_ref(*new FunctionBridge(source, function, document, *callbacks, own_registry));
+    auto owner = adopt_ref(*new FunctionBridge(
+        source, function, document, *callbacks, own_registry, receiver, publisher));
     auto& target = document.window()->principal_realm();
     // The first create parameter selects a VM for allocation, not [[Realm]].
     // Set the optional realm explicitly to keep constructor/error paths in target.
@@ -161,6 +171,7 @@ ErrorOr<FunctionExport> FunctionBridge::create(IsolatedWorld& source, JS::Functi
         return Error::from_string_literal("Cannot freeze exported function");
     }
 
+    owner->m_proxy = proxy.ptr();
     return FunctionExport { owner, *proxy };
 }
 
@@ -168,6 +179,9 @@ void FunctionBridge::revoke()
 {
     m_revoked = true;
     m_function = nullptr;
+    m_receiver = nullptr;
+    m_proxy = nullptr;
+    m_publisher.clear();
     m_document = nullptr;
     m_source.clear();
     if (m_callbacks && m_own_registry)
@@ -233,15 +247,15 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         return JS::js_undefined();
     }
 
-    auto data = capture_to_principal(*m_source, value);
-    if (data.is_error()) {
-        diagnose_promise_failure("result-capture", &data.error());
-        Boundary::reject(*capability, *target);
-        return JS::js_undefined();
-    }
-
-    auto copied
-        = data.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+    auto copied = [&]() -> ErrorOr<JS::Value> {
+        if (auto publisher = m_publisher.strong_ref())
+            return publisher->copy_result(value, true);
+        auto data = TRY(capture_to_principal(*m_source, value));
+        auto result = data.materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
+        if (result.is_error())
+            return Error::from_string_literal("Cannot publish bridge result");
+        return result.release_value();
+    }();
     if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || m_revoked
         || m_source->is_detached() || !m_document->is_fully_active()) {
         diagnose_promise_failure("result-publication");
@@ -299,7 +313,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
                 callbacks->discard(*callback);
     });
     auto data = BridgeData::capture(JS::Value(array.ptr()), *target, context_bridge_limits(),
-        [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
+        [&](JS::FunctionObject& function, JS::Object*) -> ErrorOr<size_t> {
             auto exported = TRY(callbacks->proxy(function));
             auto id = functions.size();
             functions.append(exported.function);
@@ -326,8 +340,10 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     // at argument delivery, not after its result is known.
     committed = true;
     auto result = source->is_executing()
-        ? source->call_from_callback(*function, source_arguments.span())
-        : source->call(*function, source_arguments.span());
+        ? source->call_from_callback(*function, source_arguments.span(),
+              m_receiver ? JS::Value(m_receiver.ptr()) : JS::js_undefined())
+        : source->call(*function, source_arguments.span(),
+              m_receiver ? JS::Value(m_receiver.ptr()) : JS::js_undefined());
     // Never inspect or stringify an exception supplied by the source world.
     // Recheck revocation after the source call, including native reentrant hooks.
     if (m_revoked || source->is_detached() || !document->is_fully_active()) {
@@ -339,12 +355,20 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
         diagnose_source_rejection(result.error().value());
         return error("invoke-source-call");
     }
+
     auto result_value = result.release_value();
     if (result_value.is_object()) {
         auto& object = result_value.as_object();
         if (object.engine_class_id() == JS_LAYOUT_CLASS_ID_PROMISE && !JS::host_class_of(object)
             && &object.shape().realm() == source_realm.ptr())
             return observe(vm, static_cast<JS::Promise&>(object), *target);
+    }
+
+    if (auto publisher = m_publisher.strong_ref()) {
+        auto answer = publisher->copy_result(result_value);
+        if (answer.is_error())
+            return error("invoke-result-capture", &answer.error());
+        return answer.release_value();
     }
 
     auto output = capture_to_principal(*source, result_value);

@@ -14,12 +14,11 @@ and imports the real Workbench graph. The latest offscreen diagnostic observes
 missing/loading/parse-error entries and linked central Workbench records. This is
 module loading/linking evidence, not an accepted editor window or editing workflow.
 
-The current execution failure is a sanitized contextBridge call refusal during
-Workbench initialization. Native diagnostics identify result capture: the pinned
-preload listener wrappers return this, while our exported methods currently lose
-their source parent receiver. General method binding and bounded function-valued
-results are the next implementation step. Do not bypass the source-global/host
-object rejection to make the preload continue.
+The source-parent contextBridge method binding is now implemented and the actual
+entry reaches workbench#open. Its next failure is our local experiment's remote
+resource guard firing while a URI-provider factory is created, before a resource
+operation. Guard placement is the next source-adapter correction. Remote resources
+remain unsupported; initializing an unused callback must not claim support for them.
 
 The former graph hang was caused by empty JavaScript responses completing before
 asynchronous request-header authorization. The adapter now retains those pending

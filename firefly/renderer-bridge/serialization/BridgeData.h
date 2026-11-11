@@ -37,7 +37,9 @@ public:
         WireProfile wire_profile { WireProfile::Default };
     };
 
-    using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&)>;
+    // Source parent is a native capture-time identity, never the caller's this.
+    // A root function has no containing object and receives nullptr.
+    using CaptureFunction = Function<ErrorOr<size_t>(JS::FunctionObject&, JS::Object*)>;
     // Native identity policy only: replace designated ordinary capability modules
     // with empty data nodes before inspecting any properties. Never JS callbacks.
     using RedactObject = Function<bool(JS::Object&)>;
