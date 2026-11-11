@@ -336,7 +336,7 @@ migration inventory, not a declaration that these members exist in Firefly:
 | Protocol handlers | setAsDefaultProtocolClient, removeAsDefaultProtocolClient, isDefaultProtocolClient |
 | OS integration | setUserTasks, setJumpList, dock, badgeCount |
 | Appearance/media/process policy | Broader commandLine switches, detailed getGPUInfo, getAppMetrics, accessibility properties |
-| Sessions and global services | session-created, certificate-error, login and non-Compositor process dispatch |
+| Sessions and global services | session-created, certificate-error, login and process dispatch outside the Compositor/Utility subset |
 | Native lifecycle events | will-finish-launching, open-file, open-url, activate, did-become-active, did-resign-active, browser-window-created/focus/blur and OS shutdown delivery |
 
 This table groups missing areas; it is not an exhaustive Electron member list.
@@ -380,6 +380,10 @@ security review.
 The [GPU contract](gpu.md) documents `app.getGPUFeatureStatus()`, real early
 `app.disableHardwareAcceleration()`, explicitly unsupported `app.getGPUInfo()`,
 `gpu-info-update` and scoped `child-process-gone` for the native Compositor.
+Named utility failures also emit `child-process-gone`: `type: 'Utility'`, real
+PID, retained service name, reason and native exit code. Clean exit0 does not emit
+this app event; the child's exit event still occurs. Signal codes use a documented
+negative-signal representation. See [utility processes](utility-process.md).
 Known CPU fields and an unknown default backend are different states; no Chromium
 or physical GPU capabilities are fabricated. These additions are newer than the
 historical Alpha 2 lifecycle subset mentioned above.

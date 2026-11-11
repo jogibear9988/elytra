@@ -46,7 +46,7 @@ and full Electron lifecycle parity remain unverified.
 | env | Object of string values; replaces the inherited environment when supplied. Undefined entries are omitted. Defaults to process.env. |
 | cwd | Optional child working directory. |
 | stdio | inherit by default; pipe and ignore also supported. A three-element array may independently select stdout/stderr, with stdin fixed to ignore. |
-| serviceName | Explicitly unsupported; no crash attribution or app child-process-gone reporting is implemented. |
+| serviceName | Bounded UTF-8 label retained by the native child owner; defaults to Node Utility Process. Abnormal exits emit app child-process-gone with the actual PID and this name. App process metrics remain unsupported. |
 | execArgv | Empty array accepted; nonempty engine flags explicitly refused. |
 | allowLoadingUnsignedLibraries | Omitted/false accepted; enabling explicitly refused. |
 | respondToAuthRequestsFromMainProcess | Omitted/false accepted; enabling explicitly refused. |
@@ -123,3 +123,14 @@ See [ADR 0155](../architecture/0155-native-utility-processes.md),
 [main ports](message-channel-main.md) and [Code-OSS status](../compatibility/vscode.md).
 Reference contracts: [Electron utilityProcess](https://www.electronjs.org/docs/latest/api/utility-process)
 and [parentPort](https://www.electronjs.org/docs/latest/api/parent-port).
+
+Utility exit attribution preserves the native exit status; a signal termination is
+reported as a negative signal number in `child-process-gone.exitCode`. A clean
+zero exit emits the child `exit` event without an app failure event. This does not
+claim Electron process metrics or identical platform crash classification.
+
+No-session utilities use their own system network context. They do not inherit
+main `defaultSession.webRequest` filters, matching the
+[Electron45.2.3 factory branches](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557).
+`session` and `partition` options remain explicitly unsupported; this separation
+does not implement session sharing or main-process HTTP/client-certificate auth.

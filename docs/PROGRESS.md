@@ -13001,6 +13001,46 @@ and is not the cause. Main45021/helper45032 were observed; only that failed owne
 processgroup was then terminated. Next work is bounded queuing behind the eight
 active custom-resource fetch slots; no working editor/workbench-ready claim.
 
+## 2026-11-11 — Correct no-session utility network ownership
+
+Remove the temporary blanket exclusion between active session webRequest filters
+and all utility children. The exact official Electron45.2.3 source distinguishes
+explicit-session utilities from the default system network context: only the
+former installs ProxyingURLLoaderFactory interception. The pinned Code-OSS utility
+fork supplies no session/partition. Our existing utility Bootstrap exports genuine
+independent Electron-net; its no-session transport must not inherit main filters.
+
+Primary evidence: [Electron utility factory lines539–557](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557)
+and [versioned utility options](https://github.com/electron/electron/blob/v45.2.3/docs/api/utility-process.md).
+Keep session/partition and respondToAuthRequestsFromMainProcess:true explicitly
+unsupported. Main/renderer filter admission, cancellation, generation and failure
+guards remain intact; this is not shared-session or auth-forwarding support.
+
+Add a focused main-only real child/loopback fixture that checks main cancellation
+prevents endpoint access, a no-session utility net.fetch reaches that endpoint,
+and main filters remain active afterward. Update only the old exclusion assertions
+in the existing public fixture. Native strict compilation/source checks are recorded
+with the final build; genuine fixture execution is pending the root's rebuilt host.
+No GUI, broad suite, utility session sharing or working editor acceptance is claimed.
+
+## 2026-11-11 — Native named utilities and independently owned networking
+
+Add immutable native serviceName metadata (bounded UTF-8, default Node Utility
+Process). Real abnormal exits emit app child-process-gone with actual PID, label,
+reason and exit code before the child's exit event; clean exit0 emits only child
+exit. Signal exitCode is a documented negative-signal difference; process metrics
+and authentication forwarding remain unsupported. No process title is fabricated.
+
+The focused no-window actual fixture passes native exit0/7 attribution and event
+ordering (codeoss-utility-service-name.log). The independent-network fixture passes
+real loopback requests from the child while the main session filter cancels the
+same endpoint before and after (codeoss-utility-independent-net.log). Both use the
+existing static offscreen test frontend with no BrowserWindow or UI automation.
+Combined Release host/helper/offscreen/nativeprobe build passes
+(codeoss-wire-boundary-utility-build.log); controlled factory/native strict checks
+also pass. No broad utility suite is run locally. Main fixed-stage missing-handler
+and inactive-frame diagnostics are included in the regenerated verified bundle.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

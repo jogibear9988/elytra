@@ -105,11 +105,18 @@ policy before VM initialization. Filter allowance never grants filesystem access
 or bypasses the independent protocol ownership rules.
 
 Main net.fetch and net.request consult the same policy before every redirect hop
-and before exposing response headers. Utility networking cannot yet forward to
-this policy: registering active filters with live utility children is refused,
-and utilityProcess.fork is refused while filters are active. This temporary
-restriction needs replacement with parent-mediated utility decisions for VS Code.
-Direct node:http and node:https belong to Mite, outside the desktop Session API.
+and before exposing response headers. Utility processes currently accept no
+`session` or `partition`: their Electron-net transport uses an independent system
+context and does not inherit `defaultSession.webRequest` handlers. Registering
+main filters and running these no-session utilities can coexist. Explicit utility
+session/partition selection and main-process authentication forwarding remain
+unsupported. Direct node:http, node:https and global fetch belong to Mite,
+outside the desktop Session API.
+
+This distinction follows [Electron45.2.3's utility network factory](https://github.com/electron/electron/blob/v45.2.3/shell/browser/api/electron_api_utility_process.cc#L539-L557):
+only the explicit-session branch installs its ProxyingURLLoaderFactory for
+webRequest interception; the no-session branch selects the system network context.
+See also the [versioned utility options](https://github.com/electron/electron/blob/v45.2.3/docs/api/utility-process.md).
 
 The public API follows the [Electron WebRequest reference](https://www.electronjs.org/docs/latest/api/web-request)
 and [filter structure](https://www.electronjs.org/docs/latest/api/structures/web-request-filter)

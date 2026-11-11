@@ -227,17 +227,9 @@ export default function createWebRequest(
       throw error('ERR_OUT_OF_RANGE', 'Request policy generation exhausted');
     }
     const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
-    // This guard rejects before changing the installed policy. The independent
-    // utility transport cannot yet forward decisions to the parent session.
-    const enabled = Object.values(next).some((handler) => handler !== null);
-    if (native.utility) {
-      if (typeof native.utility.setRequestPolicy !== 'function') {
-        unsupported('Utility session request containment');
-      }
-      native.utility.setRequestPolicy(
-        enabled || Object.values(handlers).some((handler) => handler !== null) || !healthy
-      );
-    }
+    // Utility processes currently accept no session/partition. Electron gives
+    // these children their own system network context; they are not clients of
+    // defaultSession interception. Main/renderer policy remains independent.
     ++epoch;
     configuring = true;
     try {
@@ -252,19 +244,11 @@ export default function createWebRequest(
       }
       Object.assign(handlers, next);
       healthy = true;
-      if (!enabled) {
-        native.utility?.setRequestPolicy(false);
-      }
     } catch (failure) {
       handlers.before = handlers.sendHeaders = handlers.headers = null;
       healthy = false;
-      // Admission may have failed after updating helper policy. Keep transport
-      // fail-closed until an explicit, successful configuration repairs it.
-      try {
-        native.utility?.setRequestPolicy(true);
-      } catch {
-        // A nested shutdown already killed utilities; preserve admission failure.
-      }
+      // A failed native configuration poisons only this session policy until
+      // an explicit successful configuration repairs its authenticated routing.
       throw failure;
     } finally {
       configuring = false;

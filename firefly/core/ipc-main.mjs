@@ -167,6 +167,7 @@ export default function createMainIpc(native, EventEmitter, error, frameForDocum
       const channel = channelName(args.shift());
       const record = ipcHandlers.get(channel);
       if (!record) {
+        failed('missing-handler');
         finish(false, `No handler registered for '${channel}'`);
         return;
       }
@@ -175,6 +176,7 @@ export default function createMainIpc(native, EventEmitter, error, frameForDocum
       }
       const event = senderEvent(window, data);
       if (!event) {
+        failed('inactive-frame');
         finish(false, 'IPC sender frame is no longer active');
         return;
       }

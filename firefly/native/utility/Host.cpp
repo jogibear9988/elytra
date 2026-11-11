@@ -6,6 +6,7 @@
 #include "../platform/GCIncludes.h"
 #include "core/EventLoop.h"
 #include "platform/UV.h"
+#include <AK/JsonObject.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
@@ -107,6 +108,7 @@ namespace {
         bool process_initialized {}, timer_initialized {}, started {}, announced {}, exited {},
             killed {}, channel_closed {};
         std::vector<char> incoming;
+        std::string service_name;
     };
 
     struct Service {
@@ -126,7 +128,6 @@ namespace {
         JS::Realm& realm;
         Mite::EventLoop& loop;
         bool child_side {}, stopped {};
-        bool request_policy {};
         uint64_t next_id { 1 };
         std::unordered_map<uint64_t, Endpoint*> endpoints;
 
@@ -402,30 +403,6 @@ GC::Ref<JS::Object> create_host(
 {
     auto owner = service(vm, realm, loop, false);
     GC::Root host { JS::Object::create(realm, nullptr) };
-    host->define_native_function(realm, "setRequestPolicy"_utf16,
-        GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
-            [](auto& owner_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto& owner = owner_capture.value;
-                if (owner->stopped)
-                    return vm.throw_completion<JS::Error>("Utility service stopped"_utf16);
-                if (!vm.argument(0).is_boolean())
-                    return vm.throw_completion<JS::TypeError>(
-                        "Invalid utility request policy"_utf16);
-                auto enabled = vm.argument(0).as_bool();
-                if (enabled) {
-                    for (auto const& [id, endpoint] : owner->endpoints) {
-                        if (endpoint->started && !endpoint->exited)
-                            return vm.throw_completion<JS::Error>(
-                                "Session request filters with live utility processes are unsupported"_utf16);
-                    }
-                }
-                // Until utility requests can traverse the parent broker, mutually
-                // exclude their transport and active session filters. No child may
-                // silently bypass an application's security decision.
-                owner->request_policy = enabled;
-                return JS::js_undefined();
-            }),
-        1, JS::default_attributes);
     host->define_native_function(realm, "spawn"_utf16,
         GC::create_function(realm.heap(),
             GC::captures(Mite::shared_capture(owner), realm, electron_compat),
@@ -434,9 +411,6 @@ GC::Ref<JS::Object> create_host(
                 auto& owner = owner_capture.value;
                 if (owner->stopped)
                     return vm.throw_completion<JS::Error>("Utility service stopped"_utf16);
-                if (owner->request_policy)
-                    return vm.throw_completion<JS::Error>(
-                        "Utility processes with session request filters are unsupported"_utf16);
                 if (!vm.argument(1).is_function())
                     return vm.throw_completion<JS::TypeError>(
                         "Utility callback must be callable"_utf16);
@@ -451,6 +425,14 @@ GC::Ref<JS::Object> create_host(
                 auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
                 auto env = TRY(strings(vm, TRY(spec->get("env"_utf16))));
                 auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
+                auto name_value = TRY(spec->get("serviceName"_utf16));
+                auto name = name_value.is_undefined() ? std::string("Node Utility Process")
+                                                      : TRY(string(vm, name_value));
+                if (name.empty())
+                    name = "Node Utility Process";
+                if (name.size() > 4096
+                    || String::from_utf8(StringView(name.data(), name.size())).is_error())
+                    return vm.throw_completion<JS::TypeError>("Invalid utility service name"_utf16);
                 auto stdio = TRY(TRY(spec->get("stdio"_utf16)).to_object(vm));
                 std::array<std::string, 3> modes;
                 for (size_t i = 0; i < 3; ++i) {
@@ -462,8 +444,8 @@ GC::Ref<JS::Object> create_host(
                             "Unsupported utility stdio mode"_utf16);
                 }
                 // Recheck after accessors: no user code executes between this check and spawn.
-                if (owner->stopped || owner->request_policy
-                    || owner->endpoints.size() >= child_limit || file.empty() || entry.empty())
+                if (owner->stopped || owner->endpoints.size() >= child_limit || file.empty()
+                    || entry.empty())
                     return vm.throw_completion<JS::Error>(
                         "Utility process unavailable or limit exceeded"_utf16);
                 args.insert(args.begin(),
@@ -472,6 +454,7 @@ GC::Ref<JS::Object> create_host(
                 auto arguments = pointers(args), environment = pointers(env);
                 auto* endpoint = new Endpoint { *owner, owner->next_id++,
                     GC::Root { vm.argument(1).as_function() } };
+                endpoint->service_name = move(name);
                 owner->endpoints.emplace(endpoint->id, endpoint);
                 std::array<uv_stdio_container_t, 4> handles {};
                 int status = 0;
@@ -510,6 +493,30 @@ GC::Ref<JS::Object> create_host(
                         auto& endpoint = *static_cast<Endpoint*>(process->data);
                         endpoint.exited = true;
                         endpoint.owner.announce(endpoint);
+                        // Preserve the native identity before the process handle is
+                        // closed. Service names are admission-time snapshots, not
+                        // mutable process.title or an invented metrics sample.
+                        if (signal || code != 0) {
+                            JsonObject details;
+                            details.set("type"sv, "Utility"sv);
+                            details.set("name"sv,
+                                MUST(String::from_utf8(StringView(
+                                    endpoint.service_name.data(), endpoint.service_name.size()))));
+                            details.set("pid"sv, static_cast<i64>(process->pid));
+                            details.set("exitCode"sv, signal ? -signal : code);
+                            bool crash = signal == SIGABRT || signal == SIGSEGV || signal == SIGILL
+                                || signal == SIGFPE;
+#ifndef _WIN32
+                            crash = crash || signal == SIGBUS;
+#endif
+                            auto reason
+                                = signal ? (crash ? "crashed"sv : "killed"sv) : "abnormal-exit"sv;
+                            details.set("reason"sv, reason);
+                            auto encoded = details.serialized().to_byte_string();
+                            endpoint.owner.emit(
+                                endpoint, "gone", text(endpoint.owner.vm, encoded.characters()));
+                        }
+
                         endpoint.owner.emit(
                             endpoint, "exit", JS::Value(signal ? 0 : static_cast<double>(code)));
                         uv_close(reinterpret_cast<uv_handle_t*>(process), [](uv_handle_t* handle) {

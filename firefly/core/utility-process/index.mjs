@@ -1,5 +1,13 @@
 /** Native owned utility children. Main and utility realms exchange bounded binary snapshots. */
-export default function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths) {
+export default function createUtilityProcesses(
+  native,
+  codec,
+  EventEmitter,
+  Readable,
+  app,
+  paths,
+  childProcessGone
+) {
   const owned = new Set();
   let stopped = false;
 
@@ -68,8 +76,12 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
         unsupported(`utilityProcess ${key}`);
       }
     }
-    if (options.serviceName !== undefined) {
-      unsupported('Utility service naming and app process metrics');
+    const serviceName =
+      options.serviceName === undefined
+        ? 'Node Utility Process'
+        : text(options.serviceName, 'serviceName');
+    if (new TextEncoder().encode(serviceName).length > 4096) {
+      fail('ERR_OUT_OF_RANGE', 'serviceName exceeds its UTF-8 byte limit');
     }
     const env = options.env ?? process.env;
     if (!env || typeof env !== 'object' || Array.isArray(env)) {
@@ -91,7 +103,8 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
       args: strings(args, 'args'),
       cwd: options.cwd === undefined ? '' : text(options.cwd, 'cwd'),
       env: environment,
-      stdio: modes(options.stdio)
+      stdio: modes(options.stdio),
+      serviceName: serviceName || 'Node Utility Process'
     };
   }
 
@@ -156,6 +169,18 @@ export default function createUtilityProcesses(native, codec, EventEmitter, Read
             }
           } else if (kind === 'data') {
             this.emit('message', codec.decodeIpc(value));
+          } else if (kind === 'gone') {
+            const details = JSON.parse(value);
+            if (
+              details.type !== 'Utility' ||
+              details.name !== spec.serviceName ||
+              details.pid !== state.pid ||
+              !Number.isInteger(details.exitCode) ||
+              !['abnormal-exit', 'crashed', 'killed'].includes(details.reason)
+            ) {
+              fail('ERR_FIREFLY_UTILITY_CHANNEL', 'Invalid native utility exit details');
+            }
+            childProcessGone?.(details);
           } else if (kind === 'exit') {
             state.exited = true;
             state.pid = undefined;

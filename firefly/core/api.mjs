@@ -355,7 +355,12 @@ export default function createFireflyApi(
     EventEmitter,
     streams?.Readable,
     app,
-    paths
+    paths,
+    (details) => {
+      if (!exited) {
+        app.emit('child-process-gone', event(), details);
+      }
+    }
   );
   Object.defineProperty(app, 'commandLine', {
     enumerable: true,

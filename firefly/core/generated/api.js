@@ -2124,15 +2124,6 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       throw error("ERR_OUT_OF_RANGE", "Request policy generation exhausted");
     }
     const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
-    const enabled = Object.values(next).some((handler) => handler !== null);
-    if (native.utility) {
-      if (typeof native.utility.setRequestPolicy !== "function") {
-        unsupported("Utility session request containment");
-      }
-      native.utility.setRequestPolicy(
-        enabled || Object.values(handlers).some((handler) => handler !== null) || !healthy
-      );
-    }
     ++epoch;
     configuring = true;
     try {
@@ -2147,16 +2138,9 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       }
       Object.assign(handlers, next);
       healthy = true;
-      if (!enabled) {
-        native.utility?.setRequestPolicy(false);
-      }
     } catch (failure) {
       handlers.before = handlers.sendHeaders = handlers.headers = null;
       healthy = false;
-      try {
-        native.utility?.setRequestPolicy(true);
-      } catch {
-      }
       throw failure;
     } finally {
       configuring = false;
@@ -2463,6 +2447,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       const channel = channelName(args.shift());
       const record = ipcHandlers.get(channel);
       if (!record) {
+        failed("missing-handler");
         finish(false, `No handler registered for '${channel}'`);
         return;
       }
@@ -2471,6 +2456,7 @@ function createMainIpc(native, EventEmitter, error, frameForDocument) {
       }
       const event = senderEvent(window, data);
       if (!event) {
+        failed("inactive-frame");
         finish(false, "IPC sender frame is no longer active");
         return;
       }
@@ -3748,7 +3734,7 @@ function createMessageChannels(native, EventEmitter, error) {
 }
 
 // firefly/core/utility-process/index.mjs
-function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths) {
+function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths, childProcessGone) {
   const owned = /* @__PURE__ */ new Set();
   let stopped = false;
   function fail(code, message) {
@@ -3811,8 +3797,9 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
         unsupported(`utilityProcess ${key}`);
       }
     }
-    if (options.serviceName !== void 0) {
-      unsupported("Utility service naming and app process metrics");
+    const serviceName = options.serviceName === void 0 ? "Node Utility Process" : text(options.serviceName, "serviceName");
+    if (new TextEncoder().encode(serviceName).length > 4096) {
+      fail("ERR_OUT_OF_RANGE", "serviceName exceeds its UTF-8 byte limit");
     }
     const env = options.env ?? process.env;
     if (!env || typeof env !== "object" || Array.isArray(env)) {
@@ -3834,7 +3821,8 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       args: strings(args, "args"),
       cwd: options.cwd === void 0 ? "" : text(options.cwd, "cwd"),
       env: environment,
-      stdio: modes(options.stdio)
+      stdio: modes(options.stdio),
+      serviceName: serviceName || "Node Utility Process"
     };
   }
   function output() {
@@ -3891,6 +3879,12 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
             }
           } else if (kind === "data") {
             this.emit("message", codec.decodeIpc(value));
+          } else if (kind === "gone") {
+            const details = JSON.parse(value);
+            if (details.type !== "Utility" || details.name !== spec.serviceName || details.pid !== state.pid || !Number.isInteger(details.exitCode) || !["abnormal-exit", "crashed", "killed"].includes(details.reason)) {
+              fail("ERR_FIREFLY_UTILITY_CHANNEL", "Invalid native utility exit details");
+            }
+            childProcessGone?.(details);
           } else if (kind === "exit") {
             state.exited = true;
             state.pid = void 0;
@@ -7944,7 +7938,12 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     EventEmitter,
     streams?.Readable,
     app,
-    paths
+    paths,
+    (details) => {
+      if (!exited) {
+        app.emit("child-process-gone", event(), details);
+      }
+    }
   );
   Object.defineProperty(app, "commandLine", {
     enumerable: true,
