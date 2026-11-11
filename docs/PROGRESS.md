@@ -13471,6 +13471,14 @@ and contextBridge argument capture's 64 KiB binary budget. SharedProcess service
 readiness, window-ready, editor open/edit/save and other platforms remain unaccepted.
 The candidate remains on codex/autoplay-policy-2026-11-10, not master acceptance.
 
+## 2026-11-11 — Delegate renderer-port acceptance to hosted CI
+
+Add the new native no-listener/GC observer and static-offscreen renderer/utility
+relay targets to hosted Linux renderer CI. This adds future independent platform
+evidence without taking the local desktop or running a broad local suite. The
+workflow has not yet accepted this new gate; macOS's focused fixture result above
+must not be described as Linux acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
