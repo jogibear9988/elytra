@@ -633,3 +633,16 @@ When refreshing a stage, retain all its previously selected adapter flags. The
 compiler validates old adapters and original newly selected loaders/package.json
 before writing and does not copy node_modules again. See
 [the native package decision](../architecture/0192-native-code-oss-packages.md).
+
+## Optional utility authentication forwarding
+
+The pinned local desktop adapter disables the optional
+respondToAuthRequestsFromMainProcess opt-in only after verifying the Mite/LibJS,
+local-desktop and engine-policy identities. Ordinary Node/Electron retains the
+original configuration; malformed or unverified local options fail explicitly.
+When a true request is omitted, process._vscodeLibJSUtilityAuthStatus records an
+immutable unavailable status. Undefined/false does not publish an omission. This
+permits local utility startup without claiming utility HTTP authentication
+forwarding, authenticated remote/proxy workflows or full editor acceptance. The
+general Firefly option remains unsupported. Upstream source bytes outside the
+exact import/configuration seam are preserved and reversible.

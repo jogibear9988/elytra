@@ -49,6 +49,7 @@ def main():
             CSS_DEVELOPMENT_SOURCE,
             DISABLED_UPDATER_SOURCE,
             "window-defaults-main.ts",
+            "utility-process-main.ts",
             "LICENSE.txt",
         ):
             data = (PINNED / name).read_bytes()
@@ -105,6 +106,18 @@ def main():
                     restored = restored.replace(
                         "\t\tif (!isLocalDesktop()) {\n" + start, start
                     ).replace(end + "\n\t\t}", end)
+                    remote_handler = (
+                        "\t\tprotocol.handle(Schemas.vscodeRemoteResource, createRemoteResourceRequestHandler(this.logService));\n"
+                        "\t\tthis._register(toDisposable(() => protocol.unhandle(Schemas.vscodeRemoteResource)));"
+                    )
+                    guarded_remote = "\t\tif (!isLocalDesktop()) {\n" + remote_handler + "\n\t\t}"
+                    assert restored.count(guarded_remote) == 1
+                    assert data.decode().count(remote_handler) == 1
+                    restored = restored.replace(guarded_remote, remote_handler)
+                    rejected(
+                        lambda: adapt_local(name, data.replace(remote_handler.encode(), b"changed"))
+                    )
+                    rejected(lambda: adapt_local(name, data + b"\n" + remote_handler.encode()))
                     display_start = "\t\tsession.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {"
                     display_end = "\t\t});\n\n\t\t//#endregion\n\n\t\t//#region Request filtering"
                     restored = restored.replace(

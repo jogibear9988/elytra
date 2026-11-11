@@ -290,6 +290,10 @@
     "darwin-update-service.ts": {
       "upstream": "src/vs/platform/update/electron-main/updateService.darwin.ts",
       "sha256": "8eead08ba810059a02dfeaf24e09ba69b45ef987b06e0e6680931c210cc5fd6b"
+    },
+    "utility-process-main.ts": {
+      "upstream": "src/vs/platform/utilityProcess/electron-main/utilityProcess.ts",
+      "sha256": "991465758e745c162bb97506fdbc2227b38d40704042367cde4c9fa38a14aea8"
     }
   }
 }

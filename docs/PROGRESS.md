@@ -13041,6 +13041,30 @@ Combined Release host/helper/offscreen/nativeprobe build passes
 also pass. No broad utility suite is run locally. Main fixed-stage missing-handler
 and inactive-frame diagnostics are included in the regenerated verified bundle.
 
+## 2026-11-11 — Explicit local Code-OSS utility authentication opt-out
+
+The pinned utility wrapper always requests main-process authentication forwarding,
+which remains genuinely unsupported. Add a reversible exact-source transform and
+owned ESM helper only to the existing explicit verified local Mite experiment:
+true becomes false, with immutable available:false/requested:true disclosure at
+process._vscodeLibJSUtilityAuthStatus. False/undefined remain unchanged. Unverified
+or malformed local options fail explicitly; ordinary Node/Electron retain original
+values. This is not network authentication support or a default Electron behavior
+change. Pin the exact official6531648 source/hash and preserve its notices.
+
+Focused source reversal/missing/duplicate/drift plus7Node/Mite helper scenarios
+pass; related window-preference18scenarios pass. Repair the existing local-app-main
+remote protocol pair's stale reverse fixture while retaining full upstream byte
+equality and security assertions; the focused local-desktop Node/Mite check passes.
+
+Refresh the same stage with all three existing native package adaptations, NLS
+and real renderer assets. The verified compiler succeeds for12,344sourcefiles
+(codeoss-utility-auth-stage-refresh.log), then update only verified generated
+canonical overlay files in place (24owned), leaving all Finder metadata untouched.
+No dependencies/app/source copy or extra desktop test is created. Actual run still
+fails during renderer module loading before shared-process construction, so the
+opt-out's complete Code-OSS path remains unaccepted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
