@@ -303,12 +303,21 @@ void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString r
         return;
     }
 
-    auto& window = windows.at(id);
-    if (!window.ipc_pending.contains(request))
-        return;
+    {
+        auto& window = windows.at(id);
+        if (!window.ipc_pending.contains(request))
+            return;
+        if (event) {
+            window.ipc_pending.erase(request);
+            --ipc_pending_count;
+        }
+    }
+
     if (event) {
-        window.ipc_pending.erase(request);
-        --ipc_pending_count;
+        // Acknowledge native admission before application code can destroy the
+        // sender. This releases private credit, not a listener-completion receipt.
+        auto ack = MUST(BridgeData::from_string(u""sv).encode_wire({}));
+        send_ipc_reply(id, document, realm_id, request, true, ack);
     }
 
     jobs.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
@@ -327,9 +336,5 @@ void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString r
     });
     if (jobs.status())
         gui.quit(jobs.status());
-    if (event && ipc_current(id, document, realm_id)) {
-        auto ack = MUST(BridgeData::from_string(u""sv).encode_wire({}));
-        send_ipc_reply(id, document, realm_id, request, true, ack);
-    }
 }
 }
