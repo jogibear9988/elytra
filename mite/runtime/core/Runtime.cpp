@@ -9,6 +9,7 @@
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
 #include "platform/UV.h"
+#include "platform/network/tls/ExtraCertificates.h"
 #include "platform/process/InheritedPipe.h"
 #include "platform/process/ProcessHost.h"
 #include <AK/ScopeGuard.h>
@@ -282,6 +283,9 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         return 1;
     }
 
+    // Node-compatible extra trust is an immutable process-start snapshot, never
+    // reinterpreted after application JavaScript changes the environment.
+    capture_tls_extra_certificates();
     auto entry_path
         = filename == "[eval]" ? std::filesystem::current_path() / "[eval]" : native_filename;
     Mite::ModuleLoader modules(*vm, realm, event_loop, entry_path);

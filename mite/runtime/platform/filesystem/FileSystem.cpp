@@ -9,6 +9,7 @@
 #include "core/GCCaptures.h"
 #include "modules/ModulePaths.h"
 #include "platform/UV.h"
+#include "platform/filesystem/Directory.h"
 #include "platform/filesystem/EventWatcher.h"
 #include "platform/filesystem/StatSnapshot.h"
 #include "platform/filesystem/StatWatcher.h"
@@ -21,6 +22,7 @@
 #include <LibJS/Runtime/ValueInlines.h>
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
@@ -81,14 +83,15 @@ namespace {
     struct NativeRequest {
         GC_HOLDS_NO_CELL_EDGES;
 
-        std::string operation, path, dest;
+        std::string operation, path, dest, target_for_type;
         std::vector<unsigned char> data;
         int flags {}, mode {};
+        double atime {}, mtime {};
         int descriptor { -1 };
         int64_t position { -1 };
         size_t length {};
         int number {};
-        bool recursive {}, with_file_types {}, force {};
+        bool recursive {}, with_file_types {}, force {}, auto_type {};
         int error {};
         std::string syscall, error_path, created, error_code;
         uv_stat_t stat {};
@@ -318,7 +321,34 @@ namespace {
             result = uv_fs_unlink(nullptr, &call.value, path, nullptr);
         else if (op == "rename")
             result = uv_fs_rename(nullptr, &call.value, path, request.dest.c_str(), nullptr);
-        else if (op == "copyfile")
+        else if (op == "link")
+            result = uv_fs_link(nullptr, &call.value, path, request.dest.c_str(), nullptr);
+        else if (op == "symlink") {
+            int flags = request.flags;
+#ifdef _WIN32
+            if (request.auto_type) {
+                FsRequest target;
+                auto status
+                    = uv_fs_stat(nullptr, &target.value, request.target_for_type.c_str(), nullptr);
+                if (status == 0 && (target.value.statbuf.st_mode & S_IFMT) == S_IFDIR)
+                    flags = UV_FS_SYMLINK_DIR;
+                else if (status < 0 && status != UV_ENOENT && status != UV_ENOTDIR) {
+                    record(request, status, "stat", request.target_for_type);
+                    return;
+                }
+            }
+#endif
+            result
+                = uv_fs_symlink(nullptr, &call.value, path, request.dest.c_str(), flags, nullptr);
+        } else if (op == "utime")
+            result = uv_fs_utime(nullptr, &call.value, path, request.atime, request.mtime, nullptr);
+        else if (op == "readlink") {
+            result = uv_fs_readlink(nullptr, &call.value, path, nullptr);
+            if (!result) {
+                auto* bytes = static_cast<unsigned char const*>(call.value.ptr);
+                request.data.assign(bytes, bytes + strlen(reinterpret_cast<char const*>(bytes)));
+            }
+        } else if (op == "copyfile")
             result = uv_fs_copyfile(
                 nullptr, &call.value, path, request.dest.c_str(), request.flags, nullptr);
         else if (op == "mkdir")
@@ -433,7 +463,8 @@ namespace {
             && request.syscall != "close")
             error->define_direct_property(
                 "path"_utf16, text(vm, display_path(request.error_path)), JS::default_attributes);
-        if (request.operation == "rename" || request.operation == "copyfile")
+        if (request.operation == "rename" || request.operation == "copyfile"
+            || request.operation == "link" || request.operation == "symlink")
             error->define_direct_property(
                 "dest"_utf16, text(vm, display_path(request.dest)), JS::default_attributes);
         return error;
@@ -448,7 +479,8 @@ namespace {
             return JS::Value(request.number);
         if (request.operation == "read")
             return byte_array(realm, request.data.data(), request.data.size());
-        if (request.operation == "readFile" || request.operation == "realpath")
+        if (request.operation == "readFile" || request.operation == "realpath"
+            || request.operation == "readlink")
             return byte_array(realm, request.data.data(), request.data.size());
         if (request.operation == "mkdtemp")
             return byte_array(realm, reinterpret_cast<unsigned char const*>(request.created.data()),
@@ -571,11 +603,23 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                 if (request->path.find('\0') != std::string::npos)
                     return vm.throw_completion<JS::TypeError>(
                         "Invalid private filesystem path"_utf16);
-                if (request->operation == "rename" || request->operation == "copyfile") {
+                if (request->operation == "rename" || request->operation == "copyfile"
+                    || request->operation == "link" || request->operation == "symlink") {
                     request->dest = TRY(path_argument(vm, TRY(spec->get("dest"_utf16))));
                     if (request->dest.find('\0') != std::string::npos)
                         return vm.throw_completion<JS::TypeError>(
                             "Invalid private filesystem destination"_utf16);
+                }
+
+                if (request->operation == "symlink") {
+                    request->auto_type = TRY(spec->get("autoType"_utf16)).to_boolean();
+                    if (request->auto_type) {
+                        request->target_for_type
+                            = TRY(path_argument(vm, TRY(spec->get("targetForType"_utf16))));
+                        if (request->target_for_type.find('\0') != std::string::npos)
+                            return vm.throw_completion<JS::TypeError>(
+                                "Invalid private symlink target"_utf16);
+                    }
                 }
 
                 auto position = TRY(spec->get("position"_utf16));
@@ -594,6 +638,22 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                     request->length = TRY(length.to_u32(vm));
                 request->flags = TRY(TRY(spec->get("flags"_utf16)).to_i32(vm));
                 request->mode = TRY(TRY(spec->get("mode"_utf16)).to_i32(vm));
+                if (request->operation == "utime") {
+                    auto atime = TRY(spec->get("atime"_utf16));
+                    auto mtime = TRY(spec->get("mtime"_utf16));
+                    if (!atime.is_number() || !mtime.is_number()
+                        || !std::isfinite(atime.as_double()) || !std::isfinite(mtime.as_double()))
+                        return vm.throw_completion<JS::TypeError>(
+                            "Invalid private filesystem timestamps"_utf16);
+                    request->atime = atime.as_double();
+                    request->mtime = mtime.as_double();
+                }
+
+                if (request->operation == "symlink" && request->flags != 0
+                    && request->flags != UV_FS_SYMLINK_DIR
+                    && request->flags != UV_FS_SYMLINK_JUNCTION)
+                    return vm.throw_completion<JS::RangeError>(
+                        "Invalid private symlink flags"_utf16);
                 if (request->operation == "copyfile"
                     && (request->flags < 0
                         || (request->flags
@@ -631,6 +691,7 @@ GC::Ref<JS::Object> create_filesystem_host(JS::VM&, JS::Realm& realm, EventLoop&
                 return JS::js_undefined();
             }),
         2, JS::default_attributes);
+    install_directory_host(realm, *host, loop);
     install_stat_watcher_host(realm, *host, loop);
     install_event_watcher_host(realm, *host, loop);
     return host;

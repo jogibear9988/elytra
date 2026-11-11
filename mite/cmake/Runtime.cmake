@@ -118,6 +118,8 @@ function(mite_add_runtime target root js_target)
         platform/process/ChildProcess
         # platform/filesystem
         platform/filesystem/FileSystem
+        platform/filesystem/Clone
+        platform/filesystem/Directory
         platform/filesystem/StatWatcher
         platform/filesystem/EventWatcher
         # platform/network
@@ -126,6 +128,7 @@ function(mite_add_runtime target root js_target)
         platform/network/HTTP
         platform/network/tls/Client
         platform/network/tls/TrustStore
+        platform/network/tls/ExtraCertificates
         # platform/text
         platform/text/URL
         platform/text/Encoding
@@ -146,7 +149,8 @@ function(mite_add_runtime target root js_target)
         platform/crypto/Crypto
         platform/crypto/CryptoHash
         platform/crypto/CryptoHmac
-        platform/crypto/CryptoX509)
+        platform/crypto/CryptoX509
+        platform/crypto/CryptoVerify)
     set(files)
     foreach(source IN LISTS sources)
         list(APPEND files "${root}/mite/runtime/${source}.cpp")

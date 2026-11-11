@@ -107,3 +107,19 @@ metadata, half-close/error and native platform parity remain unfinished.
 Run the [TLS client example](../../examples/mite-tls/client.mjs) with a TLS echo peer
 and an explicit test CA for local certificates. See [TCP](net.md),
 [cancellation](abort.md) and [the implementation decision](../architecture/0079-native-tls-client-records.md).
+
+## Extra certificate authorities
+
+`NODE_EXTRA_CA_CERTS` is captured before application JavaScript. A configured PEM
+file supplies additional real default TLS anchors; an explicit `ca` still replaces
+default trust. `getCACertificates('extra')` returns the cached frozen array of
+canonical PEM certificates from that same immutable snapshot. Later environment
+changes do not reload trust. An unset or empty setting returns an empty array.
+Other query categories explicitly reject.
+
+Limits are a 32,768-byte UTF-8 path, a regular file of at most 4 MiB and at most
+1024 certificates. Invalid/unreadable configured input fails with
+`ERR_TLS_EXTRA_CA_CERTS`; this deliberately fails closed rather than adopting
+Node's warning-and-ignore behavior. Focused actual macOS Mite fixtures pass unset,
+valid and invalid startup/query cases. A dedicated added-root handshake and fresh
+Linux/Windows execution remain unverified.

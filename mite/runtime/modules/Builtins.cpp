@@ -77,10 +77,13 @@ static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", 
     "mkdir", "mkdirSync", "chmod", "chmodSync", "mkdtemp", "mkdtempSync", "rm", "rmSync", "rmdir",
     "rmdirSync", "unlink", "unlinkSync", "rename", "renameSync", "readdir", "readdirSync",
     "WriteStream", "createWriteStream", "watchFile", "unwatchFile", "watch", "realpath",
-    "realpathSync", "copyFile", "copyFileSync" };
-static constexpr std::string_view fs_promises_exports[] = { "open", "constants", "readFile",
-    "writeFile", "appendFile", "access", "stat", "lstat", "mkdir", "chmod", "mkdtemp", "rm",
-    "rmdir", "unlink", "rename", "readdir", "realpath", "copyFile" };
+    "realpathSync", "copyFile", "copyFileSync", "link", "linkSync", "readlink", "readlinkSync",
+    "symlink", "symlinkSync", "utimes", "utimesSync", "opendir", "opendirSync", "Dir", "cp",
+    "ReadStream", "createReadStream" };
+static constexpr std::string_view fs_promises_exports[]
+    = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
+          "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath",
+          "copyFile", "link", "readlink", "symlink", "utimes", "opendir", "cp" };
 static constexpr std::string_view async_hooks_exports[] = { "AsyncLocalStorage", "AsyncResource",
     "executionAsyncId", "triggerAsyncId", "executionAsyncResource", "createHook" };
 static constexpr std::string_view querystring_exports[]
@@ -88,9 +91,8 @@ static constexpr std::string_view querystring_exports[]
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
-static constexpr std::string_view util_exports[]
-    = { "TextEncoder", "TextDecoder", "promisify", "inherits", "types", "debuglog", "debug",
-        "inspect", "format", "formatWithOptions" };
+static constexpr std::string_view util_exports[] = { "TextEncoder", "TextDecoder", "promisify",
+    "inherits", "types", "debuglog", "debug", "inspect", "format", "formatWithOptions" };
 static constexpr std::string_view util_types_exports[]
     = { "isArrayBuffer", "isSharedArrayBuffer", "isAnyArrayBuffer", "isArrayBufferView",
           "isTypedArray", "isUint8Array", "isDataView", "isProxy", "isPromise" };
@@ -136,16 +138,16 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "createBrotliDecompress", "createZstdCompress", "createZstdDecompress", "brotliCompress",
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
-static constexpr std::string_view crypto_exports[]
-    = { "randomBytes", "randomUUID", "randomInt", "createHash", "Hash", "createHmac", "Hmac",
-          "timingSafeEqual", "webcrypto", "getRandomValues", "X509Certificate" };
+static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
+    "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
+    "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view timers_exports[] = { "setTimeout", "setInterval", "setImmediate",
     "clearTimeout", "clearInterval", "clearImmediate" };
 static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "setImmediate" };
 static constexpr std::string_view tls_exports[]
-    = { "connect", "TLSSocket", "createServer", "createSecureContext" };
+    = { "connect", "TLSSocket", "createServer", "createSecureContext", "getCACertificates" };
 static constexpr std::string_view https_exports[]
     = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {

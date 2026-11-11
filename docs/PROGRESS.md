@@ -13817,6 +13817,37 @@ codeoss-copy-file-native.log). No broad local suite or GUI run. A read-only actu
 agent-graph audit identifies remaining eager filesystem/key/trust imports; future
 implementations must be real operations, especially signature verification.
 
+## 2026-11-11 — Real filesystem, key verification and extra trust startup slice
+
+Implement actual libuv links/readlink/symlinks/timestamps, native RAII directory
+streams and bounded recursive cp; path ReadStream reuses real FileHandle reads.
+Recursive copies preserve byte identity or reject non-UTF8 names/link targets,
+refuse self/cycle copies and leave partial output on error without destructive
+rollback. Add genuine OpenSSL public P-256 JWK admission and ES256/P1363 verification;
+wrong keys/tampering fail, unsupported cryptographic operations explicitly reject.
+
+Capture extra CA input before user JS and share actual parsed roots between TLS
+and getCACertificates('extra'). Correct the initial getenv probe to use libuv's
+required real destination buffer. Invalid configured trust fails closed. Pin and
+adapt @vscode/fs-copyfile2 to genuine libuv copies/native macOS volume capability
+queries; directory copies use the real bounded copier. Preserve original package
+behavior under Node/Electron and audit transformed bytes/licenses.
+
+Combined Release host/helper/offscreen builds pass
+(codeoss-filesystem-trust-verify-build.log, codeoss-extra-ca-fix-build.log).
+Focused actual macOS Mite P256, filesystem primitives, path-stream and extra-CA
+unset/valid/invalid fixtures pass (codeoss-crypto-verify-native.log,
+codeoss-filesystem-primitives-native.log, codeoss-path-read-stream-native.log,
+codeoss-extra-ca-{unset,valid,invalid}-native.log). Dedicated added-root network
+handshake and fresh Linux/Windows acceptance remain open. One shared CodeOSS stage
+refresh applies all six adapters, retaining 12,348 compiled files/32 overlay files.
+
+User-requested actual visible Cocoa start PID3942 remains open, with evidence in
+codeoss-visible-user-start.log. Extension host progresses to missing crypto.getHashes;
+menu construction hits the 256-item cap. No complete editor, extension activation,
+menu acceptance or open/edit/save claim. Continue these actual blockers; local GUI
+runs remain infrequent. Current work is on the review branch, not yet master.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

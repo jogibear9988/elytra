@@ -1,5 +1,5 @@
 /** Pull bounded file chunks through the existing native FileHandle read/close contract. */
-export default function createReadStream(handle, value, host, closeHandle) {
+export default function createReadStream(handle, value, host, closeHandle, lifecycle = {}) {
   const unsupported = (name) => {
     throw Object.assign(new Error(`FileHandle.createReadStream ${name} is not implemented`), {
       code: 'ERR_MITE_UNSUPPORTED_API'
@@ -60,6 +60,7 @@ export default function createReadStream(handle, value, host, closeHandle) {
   const onClose = () => stream?.destroy();
 
   stream = new host.stream.Readable({
+    construct: lifecycle.construct,
     highWaterMark: size,
     autoDestroy: autoClose,
     encoding: value.encoding,
@@ -120,6 +121,9 @@ export default function createReadStream(handle, value, host, closeHandle) {
   if (!stream.destroyed) {
     handle.on('close', onClose);
   }
-  Object.defineProperties(stream, { bytesRead: { get: () => count }, path: { value: undefined } });
+  Object.defineProperties(stream, {
+    bytesRead: { get: () => count },
+    path: { value: lifecycle.path }
+  });
   return stream;
 }

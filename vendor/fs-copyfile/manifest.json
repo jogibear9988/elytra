@@ -1,0 +1,29 @@
+{
+  "name": "@vscode/fs-copyfile",
+  "version": "2.0.0",
+  "license": "MIT",
+  "tarball": "https://registry.npmjs.org/@vscode/fs-copyfile/-/fs-copyfile-2.0.0.tgz",
+  "integrity": "sha512-ARb4+9rN905WjJtQ2mSBG/q4pjJkSRun/MkfCeRkk7h/5J8w4vd18NCePFJ/ZucIwXx/7mr9T6nz9Vtt1tk7hg==",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "400571fc7933399e79150cb448557764114b2287bf742061052929d61e59d1dc"
+    },
+    {
+      "path": "README.md",
+      "sha256": "da99a1d6ba03144c75800f8d22efd059eda9f316d6499631735e0a216496fb2c"
+    },
+    {
+      "path": "lib/native.js",
+      "sha256": "3420fe0ec195041dc766182adaa5a4e9ca5c23b42736239a8a8b3913a78641b6"
+    },
+    {
+      "path": "lib/cp.js",
+      "sha256": "49f07f8f8ff341b061a3771d67766a580eea049741fc3c813486bca9b57a81a8"
+    },
+    {
+      "path": "src/copyfile.cc",
+      "sha256": "635b3690a406d0d0f85a88cc9b0d3d884f17d4cc20541fe84fe8e9d252ccec60"
+    }
+  ]
+}

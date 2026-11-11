@@ -7,6 +7,7 @@
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
 #include "platform/UV.h"
+#include "platform/crypto/CryptoVerify.h"
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/NativeFunction.h>
@@ -69,6 +70,7 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm& realm, EventLoop& loo
     host->define_direct_property("hmac"_utf16, create_hmac_host(realm), JS::default_attributes);
     host->define_direct_property("hash"_utf16, create_hash_host(realm), JS::default_attributes);
     host->define_direct_property("x509"_utf16, create_x509_host(realm), JS::default_attributes);
+    host->define_direct_property("verify"_utf16, create_verify_host(realm), JS::default_attributes);
     host->define_native_function(
         realm, "webRandomFill"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

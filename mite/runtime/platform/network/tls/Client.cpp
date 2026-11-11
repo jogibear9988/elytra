@@ -5,7 +5,10 @@
 #include "platform/network/tls/Client.h"
 #include "core/GCCaptures.h"
 #include "platform/WindowsSockets.h"
+#include "platform/network/tls/ExtraCertificates.h"
 #include "platform/network/tls/TrustStore.h"
+#include <LibGC/Root.h>
+#include <LibJS/Runtime/Array.h>
 #include <LibJS/Runtime/Error.h>
 #include <LibJS/Runtime/TypedArray.h>
 #include <LibJS/Runtime/ValueInlines.h>
@@ -269,6 +272,9 @@ namespace {
         if (ca.is_undefined()) {
             if (!load_tls_system_trust(client->context))
                 return failure(vm, "ERR_TLS_TRUST_STORE", "System TLS trust store is unavailable");
+            if (!load_tls_extra_certificates(client->context))
+                return failure(vm, "ERR_TLS_EXTRA_CA_CERTS",
+                    "Configured extra TLS certificates are unavailable");
         } else {
             auto pem = TRY(string(vm, ca));
             auto* bio = BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size()));
@@ -348,6 +354,19 @@ GC::Ref<JS::Object> create_tls_host(JS::Realm& realm)
 {
     auto host = JS::Object::create(realm, nullptr);
     host->define_native_function(realm, "create"_utf16, create, 7, JS::default_attributes);
+    host->define_native_function(
+        realm, "extraCertificates"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto const& snapshot = tls_extra_certificates();
+            if (!snapshot.error.empty())
+                return failure(vm, "ERR_TLS_EXTRA_CA_CERTS", snapshot.error.c_str());
+            GC::Root result { TRY(JS::Array::create(vm.realm(), snapshot.certificates.size())) };
+            for (size_t index = 0; index < snapshot.certificates.size(); ++index)
+                result->define_direct_property(
+                    index, text(vm, snapshot.certificates[index].c_str()), JS::default_attributes);
+            return result.ptr();
+        },
+        0, JS::default_attributes);
     return host;
 }
 }

@@ -19,6 +19,7 @@ import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
 import { planSQLite, applySQLite } from './sqlite.mjs';
 import { planDeviceId, applyDeviceId } from './deviceid.mjs';
 import { planUndici, applyUndici } from './undici.mjs';
+import { planFsCopyfile, applyFsCopyfile } from './fs-copyfile.mjs';
 import { verifyPackageAdditions } from './package-adaptations.mjs';
 
 const { values } = parseArgs({
@@ -34,7 +35,8 @@ const { values } = parseArgs({
     'mite-native-keymap': { type: 'boolean', default: false },
     'mite-sqlite': { type: 'boolean', default: false },
     'mite-deviceid': { type: 'boolean', default: false },
-    'mite-undici': { type: 'boolean', default: false }
+    'mite-undici': { type: 'boolean', default: false },
+    'mite-fs-copyfile': { type: 'boolean', default: false }
   }
 });
 if (!values.source || !values.output || version !== '0.25.12') {
@@ -196,7 +198,8 @@ const packageSelectors = [
   ['mite-native-keymap', planNativeKeymap, applyNativeKeymap],
   ['mite-sqlite', planSQLite, applySQLite],
   ['mite-deviceid', planDeviceId, applyDeviceId],
-  ['mite-undici', planUndici, applyUndici]
+  ['mite-undici', planUndici, applyUndici],
+  ['mite-fs-copyfile', planFsCopyfile, applyFsCopyfile]
 ];
 if (packageSelectors.some(([option]) => values[option]) && !dependencies) {
   throw Error('Native package adapters require a verified prepared dependency tree');

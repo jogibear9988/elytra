@@ -270,6 +270,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     // arbitrary names from the private host URL namespace.
     if (specifier == "mite:policy-watcher")
         return URL::Parser::basic_parse("mite-host:mite-policy-watcher"sv).release_value();
+    if (specifier == "mite:fs-copyfile")
+        return URL::Parser::basic_parse("mite-host:mite-fs-copyfile"sv).release_value();
     if (specifier == "mite:sqlite")
         return URL::Parser::basic_parse("mite-host:mite-sqlite"sv).release_value();
     if (specifier == "mite:native-keymap")

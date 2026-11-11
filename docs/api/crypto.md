@@ -327,3 +327,21 @@ trust or HTTPS verification; the existing TLS trust path remains separate.
 The focused Node/Mite fixture passes PEM/DER canonicalization, exact view ranges,
 JSON, storage ownership, invalid data and Mite-specific bounds/receiver checks on
 the current macOS native build. Fresh Linux/Windows X509 acceptance remains pending.
+
+## Public P-256 keys and synchronous signature verification
+
+`createPublicKey({ key: jwk, format: 'jwk' })` accepts public EC/P-256 JWKs with
+canonical 32-byte base64url x/y coordinates. OpenSSL validates the actual curve
+point and retains an independent public SPKI snapshot. The returned key exposes
+`type: 'public'`, `asymmetricKeyType: 'ec'` and
+`asymmetricKeyDetails.namedCurve: 'prime256v1'`.
+
+`verify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature)` performs
+real synchronous OpenSSL ES256 verification. Data accepts UTF-8 strings or byte
+views, limited to 1 MiB. Signatures are 64-byte P1363 r/s values; wrong signatures,
+wrong keys and altered messages return false. The focused macOS Mite vector fixture
+also covers invalid curve points, DataView offsets and JWK mutation isolation.
+
+Other curves/formats/digests, private keys, signing, asynchronous verification,
+key export/equality and additional options explicitly reject. This is a partial
+KeyObject/verify API; fresh native Linux/Windows acceptance remains open.
