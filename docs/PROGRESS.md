@@ -13253,6 +13253,22 @@ Next preserve validated source-parent method binding and support bounded functio
 results through the existing publication owner; do not admit source globals or
 use caller-supplied receivers. No GUI or broad suite is run for this diagnosis.
 
+## 2026-11-11 — Cover delayed header admission with early empty-body completion
+
+The existing native response probe now deterministically retains the real header
+decision while delivering Metadata plus Complete for zero-length GET and HEAD.
+Its four allow/deny cases require the pending response to remain unresolved until
+the decision, survive GC, then settle with exactly one completion and no late
+native cancellation. Allowed GET reads clean empty EOF; HEAD has no body. A
+duplicate terminal frame cannot change callback accounting. The direct fixture
+explicitly retires its logical identity and does not claim full Fetch handover.
+
+The focused existing component runner passes in under one second, including these
+cases (codeoss-empty-module-regression.log). Its rebuilt native probe passes
+(codeoss-empty-module-regression-build.log). Set the older direct dispatch
+fixture's optional completed callback explicitly to satisfy strict designated
+initializer checks. No GUI or broader suite is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

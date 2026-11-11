@@ -8,6 +8,7 @@
 #include "Arguments.h"
 #include "FetchDispatchProbe.h"
 #include "loading/protocol/Response.h"
+#include "loading/web-request/Gate.h"
 #include "native/protocol/files/FilePacket.h"
 #include "native/protocol/files/FileRequests.h"
 #include <AK/ScopeGuard.h>
@@ -75,6 +76,7 @@ struct State : RefCounted<State> {
     GC_HOLDS_NO_CELL_EDGES;
     u64 credit { 0 };
     size_t cancellations { 0 };
+    size_t completions { 0 };
     RefPtr<Infra::Response> response;
     WeakPtr<Receiver> receiver;
     bool reenter { false };
@@ -89,8 +91,9 @@ struct Fetch {
     RefPtr<Receiver> receiver;
     GC::Root<Web::Fetch::Fetching::PendingResponse> pending;
 
-    explicit Fetch(bool head = false, u64 maximum_length = Protocols::file_size_limit)
-        : params(make_params(*controller, head))
+    explicit Fetch(bool head = false, u64 maximum_length = Protocols::file_size_limit,
+        Web::DOM::Document* document = nullptr)
+        : params(make_params(*controller, head, document))
     {
         auto shared = state;
         receiver = MUST(Receiver::create(*params, 91, 7,
@@ -106,6 +109,7 @@ struct Fetch {
                         ++shared->credit_returns;
                     },
                 .cancel = [shared] { ++shared->cancellations; },
+                .completed = [shared] { ++shared->completions; },
             },
             maximum_length));
         pending = receiver->pending();
@@ -117,7 +121,7 @@ struct Fetch {
     }
 
     static NonnullRefPtr<Infra::FetchParams> make_params(
-        Infra::FetchController& controller, bool head)
+        Infra::FetchController& controller, bool head, Web::DOM::Document* document)
     {
         controller.set_task_destination(GC::Ref<JS::Object> { Web::HTML::current_global_object() });
         auto request = Infra::Request::create();
@@ -125,6 +129,11 @@ struct Fetch {
         VERIFY(url.has_value());
         request->set_url_list({ url.release_value() });
         request->set_method(head ? "HEAD" : "GET");
+        if (document) {
+            request->set_client(
+                Infra::Request::ClientType { document->relevant_settings_object().address() });
+            request->set_origin(document->origin());
+        }
         auto algorithms = Infra::FetchAlgorithms::create(
             Infra::FetchAlgorithms::Input { Engine::BodyIntent::DeliverStreamToConsumerAgent });
         return Infra::FetchParams::create(controller, request, algorithms,
@@ -188,6 +197,75 @@ GC::Ref<Infra::Body> body(JS::Realm& realm, Fetch& fetch)
     auto channel
         = fetch.state->response->body()->bytes().get<NonnullRefPtr<Engine::FetchByteChannel>>();
     return Web::Fetch::Fetching::create_body_from_channel(realm, *fetch.controller, channel);
+}
+
+ErrorOr<void> retained_headers(JS::Realm& realm, Web::DOM::Document& document)
+{
+    namespace Gate = Firefly::WebRequestGate;
+    Gate::Completion held;
+    size_t decisions = 0, native_cancels = 0, logical_finishes = 0;
+    auto epoch = Gate::policy().epoch + 1;
+    Gate::install(
+        [&](Gate::Stage stage, auto& source, JsonObject,
+            Gate::Completion complete) -> ErrorOr<u32> {
+            if (stage != Gate::Stage::Headers || &source != &document || held)
+                return Error::from_string_literal("Unexpected retained header admission");
+            held = move(complete);
+            return static_cast<u32>(++decisions);
+        },
+        [&](u32) { ++native_cancels; }, [&](u32) { ++logical_finishes; });
+    ScopeGuard cleanup([&] {
+        Gate::shutdown();
+        (void)Gate::configure({ epoch + 1, false, false });
+    });
+    TRY(check(Gate::configure({ epoch, false, true }), "Header policy setup failed"sv));
+    for (bool head : { false, true }) {
+        for (bool deny : { false, true }) {
+            Fetch fetch(head, Protocols::file_size_limit, &document);
+            TRY(fetch.metadata(0, head));
+            TRY(fetch.send(Kind::Complete, 0));
+            TRY(check(!fetch.receiver->finished() && !fetch.pending->is_resolved()
+                    && !fetch.state->response && !fetch.state->completions
+                    && !fetch.state->cancellations,
+                "Early EOF bypassed pending header authorization"sv));
+            pump(); // Promote the real gate job, retaining its security decision.
+            TRY(check(!!held && !fetch.receiver->finished() && !fetch.pending->is_resolved(),
+                "Header gate did not retain the empty response"sv));
+            realm.vm().heap().collect_garbage();
+            JsonObject decision;
+            decision.set("cancel"sv, deny);
+            auto complete = move(held);
+            complete(move(decision));
+            pump();
+            TRY(check(fetch.receiver->finished() && fetch.pending->is_resolved()
+                    && fetch.state->response && fetch.state->response->is_network_error() == deny
+                    && fetch.state->completions == 1 && fetch.state->cancellations == 0,
+                "Retained header decision lost terminal completion accounting"sv));
+            if (!deny) {
+                if (head) {
+                    TRY(check(!fetch.state->response->body().has_value(),
+                        "Authorized HEAD acquired a body"sv));
+                } else {
+                    GC::Root stream_body { body(realm, fetch) };
+                    GC::Root reader { MUST(stream_body->stream()->get_a_reader()) };
+                    GC::Root result { read(realm, *reader) };
+                    TRY(check(result->closed && result->bytes.is_empty() && !result->errored,
+                        "Authorized empty GET did not deliver clean EOF"sv));
+                }
+            }
+            TRY(check(fetch.send(Kind::Complete, 0).is_error() && fetch.state->completions == 1
+                    && !fetch.state->cancellations,
+                "Duplicate EOF changed terminal callback accounting"sv));
+            // This direct adapter fixture does not run Fetch's full end-of-body
+            // handover; explicitly retire its logical identity after validation.
+            Gate::finish(*fetch.params);
+        }
+    }
+    TRY(check(decisions == 4 && native_cancels == 0 && logical_finishes == 4,
+        "Retained header fixture leaked decision or logical ownership"sv));
+    outln("PASS retained header authorization after early EOF: empty GET/HEAD allow/deny, "
+          "GC and exact terminal callbacks");
+    return {};
 }
 
 ErrorOr<void> transfer(JS::Realm& realm, StringView path)
@@ -482,6 +560,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         TRY(transfer(realm, arguments.strings[1]));
         TRY(controls(realm));
         TRY(streamed_responses(realm));
+        TRY(retained_headers(realm, *document));
     }
 
     TRY(check_fetch_dispatch(realm, *document, arguments.strings[1]));

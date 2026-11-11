@@ -68,6 +68,7 @@ public:
                             self->m_jobs.remove(id);
                         }
                     },
+                .completed = {},
             }));
         Vector<HTTP::Header> headers;
         TRY(headers.try_append({ "Cache-Control", "no-store" }));
