@@ -12953,6 +12953,27 @@ public regression and its stderr assertion remain unchanged. Strict native
 compilation and diff checks are the focused local validation; fresh hosted Linux
 execution is still required. No GUI or broad suite is run for this correction.
 
+
+## 2026-11-11 — Distinguish isolated Promise failures without leaking source data
+
+The latest direct start has no main IPC result-serialization diagnostic, but its
+sanitized Promise rejection still cannot identify source failure versus copying.
+Static tracing confirms WorldJobGuard already restores owner execution around
+async jobs; existing zoom/process fixtures exercise IPC continuations. Do not
+remove these authority guards based on speculation.
+
+Add optional native FunctionBridge diagnostics for revoked ownership, rejected
+source Promise, result capture and result publication, plus only allowlisted
+native copy reasons. Do not inspect/log source values, API names or exception
+messages, and keep the page-visible sanitized TypeError. Actual Release host/helper
+build passes including the fixed revocation marker
+(codeoss-context-diagnostic-final-build.log). No new GUI or broad suite is run
+for diagnostics. The owned failed Code-OSS group39971 was verified and
+terminated; both main39971 and helper39975 are now absent. Accepted Designer was
+not touched. Next batched direct start should use the same private profile,
+VSCODE_DEV=1, ELYTRA_CODE_OSS_LOCAL_DESKTOP=1, FIREFLY_IPC_BYTES_DIAGNOSTIC=1 and
+--disable-crash-reporter, then classify the actual native stage before fixing it.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

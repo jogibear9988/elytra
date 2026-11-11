@@ -293,3 +293,8 @@ native capabilities or arbitrary getters. Snapshot and destination allocation ar
 synchronous; the application IPC wire queue's aggregate byte quota does not cover
 these copies. See [ADR0193](../architecture/0193-bounded-large-application-ipc.md)
 for scope and separately recorded acceptance.
+
+With FIREFLY_IPC_BYTES_DIAGNOSTIC=1, native Promise-bridge failures also emit a
+fixed stage (source rejection, result capture/publication or revoked ownership)
+and an allowlisted native-copy reason. Source values, API names and exception
+messages are never included; page-visible rejection remains sanitized.

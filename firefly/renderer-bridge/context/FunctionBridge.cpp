@@ -19,8 +19,42 @@
 #include <LibWeb/Bindings/HostDefined.h>
 #include <LibWeb/DOM/Document.h>
 #include <LibWeb/HTML/Window.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 namespace Firefly {
+namespace {
+    // Trusted native stages only: never log source values, error messages or API names.
+    void diagnose_promise_failure(char const* stage, Error const* failure = nullptr)
+    {
+        auto* enabled = std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC");
+        if (!enabled || StringView(enabled, strlen(enabled)) != "1"sv)
+            return;
+        char const* reason = "none";
+        if (failure) {
+            reason = "other";
+            auto text = failure->string_literal();
+            if (text == "Bridge string budget exceeded"sv)
+                reason = "strings";
+            else if (text == "Bridge value budget exceeded"sv)
+                reason = "values";
+            else if (text == "Bridge property budget exceeded"sv)
+                reason = "properties";
+            else if (text == "Bridge rejects custom prototypes"sv)
+                reason = "prototype";
+            else if (text == "Bridge binary byte budget exceeded"sv)
+                reason = "binary-bytes";
+            else if (text == "Bridge depth budget exceeded"sv)
+                reason = "depth";
+            else if (text == "Bridge cumulative array length budget exceeded"sv)
+                reason = "array-elements";
+        }
+
+        std::fprintf(stderr, "FIREFLY_CONTEXT_FAILURE stage=%s reason=%s\n", stage, reason);
+    }
+}
+
 struct FunctionBridge::Pending : public RefCounted<Pending> {
     GC::Root<JS::PromiseCapability> capability;
     GC::Root<JS::Realm> target;
@@ -149,18 +183,21 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
     record.capability = nullptr;
     record.target = nullptr;
     if (m_revoked || m_source->is_detached() || !m_document->is_fully_active()) {
+        diagnose_promise_failure("revoked-owner");
         revoke();
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     if (!fulfilled) {
+        diagnose_promise_failure("source-promise");
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
 
     auto data = capture_to_principal(*m_source, value);
     if (data.is_error()) {
+        diagnose_promise_failure("result-capture", &data.error());
         Boundary::reject(*capability, *target);
         return JS::js_undefined();
     }
@@ -169,6 +206,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
         = data.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
     if (copied.is_error() || !Boundary::resolve_safe(copied.value()) || m_revoked
         || m_source->is_detached() || !m_document->is_fully_active()) {
+        diagnose_promise_failure("result-publication");
         if (!m_revoked && (m_source->is_detached() || !m_document->is_fully_active()))
             revoke();
         Boundary::reject(*capability, *target);
