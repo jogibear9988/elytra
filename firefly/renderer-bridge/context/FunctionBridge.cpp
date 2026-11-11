@@ -64,8 +64,10 @@ namespace {
     // Trusted native stages only: never log source values, error messages or API names.
     void diagnose_promise_failure(char const* stage, Error const* failure = nullptr)
     {
-        if (!ipc_bytes_diagnostics_enabled())
+        static unsigned emitted = 0;
+        if (!ipc_bytes_diagnostics_enabled() || emitted >= 64)
             return;
+        ++emitted;
         char const* reason = "none";
         if (failure) {
             reason = "other";
@@ -255,23 +257,26 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::settle(u64 id, bool fulfilled, 
 
 JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
 {
-    auto error = [&]() {
+    auto error = [&](char const* stage, Error const* failure = nullptr) {
+        diagnose_promise_failure(stage, failure);
         return JS::throw_completion(
             Boundary::error(*vm.current_realm(), u"Firefly bridge call rejected"sv));
     };
 
     if (m_revoked)
-        return error();
+        return error("invoke-revoked");
     if (!m_document->is_fully_active() || m_source->is_detached()) {
         revoke();
-        return error();
+        return error("invoke-document");
     }
 
-    if (m_call_depth >= 32 || m_pending.size() >= 64 || vm.argument_count() > 64
-        || vm.current_realm() != &m_document->window()->principal_realm()
-        || !Boundary::caller_is(vm, m_document->window()->principal_realm())
-        || (m_source->is_executing() && !m_callbacks->principal_depth))
-        return error();
+    if (m_call_depth >= 32 || m_pending.size() >= 64 || vm.argument_count() > 64)
+        return error("invoke-budget");
+    if (vm.current_realm() != &m_document->window()->principal_realm()
+        || !Boundary::caller_is(vm, m_document->window()->principal_realm()))
+        return error("invoke-caller");
+    if (m_source->is_executing() && !m_callbacks->principal_depth)
+        return error("invoke-reentry");
     NonnullRefPtr protect { *this };
     NonnullRefPtr source { *m_source };
     GC::Root function { *m_function };
@@ -303,7 +308,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             return id;
         });
     if (data.is_error())
-        return error();
+        return error("invoke-argument-capture", &data.error());
     auto copied = data.value().materialize(
         *source_realm,
         [&](size_t index) -> JS::ThrowCompletionOr<JS::Value> {
@@ -312,7 +317,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
         },
         BridgeData::Materialization::FrozenContainers);
     if (copied.is_error())
-        return error();
+        return error("invoke-argument-publication");
     auto copied_root = GC::Root<JS::Value>::create(copied.value(), SourceLocation::current());
     GC::RootVector<JS::Value> source_arguments;
     for (size_t i = 0; i < arguments.size(); ++i)
@@ -327,11 +332,13 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     // Recheck revocation after the source call, including native reentrant hooks.
     if (m_revoked || source->is_detached() || !document->is_fully_active()) {
         revoke();
-        return error();
+        return error("invoke-retired-after-call");
     }
 
-    if (result.is_error())
-        return error();
+    if (result.is_error()) {
+        diagnose_source_rejection(result.error().value());
+        return error("invoke-source-call");
+    }
     auto result_value = result.release_value();
     if (result_value.is_object()) {
         auto& object = result_value.as_object();
@@ -342,11 +349,11 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
 
     auto output = capture_to_principal(*source, result_value);
     if (output.is_error())
-        return error();
+        return error("invoke-result-capture", &output.error());
     auto answer
         = output.value().materialize(*target, {}, BridgeData::Materialization::FrozenContainers);
     if (answer.is_error())
-        return error();
+        return error("invoke-result-publication");
     return answer.release_value();
 }
 }

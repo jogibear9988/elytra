@@ -13235,6 +13235,24 @@ unaccepted. No broad suite or visible GUI test is run. HEAD's staged completion 
 covered by the same native state path but still needs its focused delayed-header
 regression; this actual application evidence specifically covers empty JS GETs.
 
+## 2026-11-11 — Attribute the first Workbench bridge invocation failure
+
+Add bounded opt-in fixed-stage diagnostics to FunctionBridge invocation, preserving
+every caller/document/reentry/quota check and keeping source values/messages out of
+logs. The Release host/helper diagnostic build passes
+(codeoss-bridge-invoke-build.log). Actual Code-OSS now identifies
+invoke-result-capture, rather than source execution or caller rejection
+(codeoss-bridge-invoke-start.log). The generic page error remains sanitized.
+
+The pinned preload's on/once/removeListener wrappers return this. Our isolated
+function entry always uses undefined as the receiver; sloppy methods therefore
+return the isolated global, which correctly fails the data-only result boundary.
+Electron45.2.3 instead retains the source parent as its proxy's fixed receiver:
+[official implementation](https://github.com/electron/electron/blob/v45.2.3/shell/renderer/api/electron_api_context_bridge.cc).
+Next preserve validated source-parent method binding and support bounded function
+results through the existing publication owner; do not admit source globals or
+use caller-supplied receivers. No GUI or broad suite is run for this diagnosis.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
