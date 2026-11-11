@@ -10,6 +10,44 @@
 #include <LibWeb/HTML/Scripting/Environments.h>
 
 namespace Firefly::ProtocolFetch {
+namespace {
+    // Queued requests retain fetch state and bounded URLs, never native files.
+    constexpr size_t document_job_limit = 8192;
+    constexpr size_t process_job_limit = 16384;
+    constexpr size_t document_url_limit = 32 * 1024 * 1024;
+    constexpr size_t process_url_limit = 64 * 1024 * 1024;
+    size_t process_jobs;
+    size_t process_active;
+    size_t process_url_bytes;
+    Vector<WeakPtr<Client>> clients;
+}
+
+void Client::wake_clients()
+{
+    clients.remove_all_matching([](auto const& weak) { return !weak; });
+    // Each deferred pump admits at most one new job before rejoining the end of
+    // the event queue, so one busy document cannot monopolize released slots.
+    for (auto const& weak : clients)
+        if (auto client = weak.strong_ref())
+            client->schedule();
+}
+
+void Client::remove_job(u32 id)
+{
+    auto removed = m_jobs.take(id);
+    if (!removed.has_value())
+        return;
+    --process_jobs;
+    auto bytes = removed->url.length();
+    m_waiting_url_bytes -= bytes;
+    process_url_bytes -= bytes;
+    if (removed->sent) {
+        --m_active;
+        --process_active;
+    }
+    wake_clients();
+}
+
 Client::Client(u64 epoch, Web::DOM::Document& document)
     : m_document(document)
     , m_origin(document.origin())
@@ -65,6 +103,7 @@ ErrorOr<void> Client::initialize(NonnullOwnPtr<IPC::Transport> transport)
             self->sweep();
     });
     m_timer->start();
+    clients.append(make_weak_ptr());
     return {};
 }
 
@@ -98,9 +137,15 @@ void Client::revoke()
     if (m_channel)
         m_channel->close();
     auto jobs = move(m_jobs);
+    process_jobs -= jobs.size();
+    process_active -= m_active;
+    process_url_bytes -= m_waiting_url_bytes;
+    m_active = 0;
+    m_waiting_url_bytes = 0;
     for (auto& entry : jobs)
         if (entry.value.response)
             entry.value.response->stop();
+    wake_clients();
     m_navigation = nullptr;
     m_document = nullptr;
 }
@@ -125,11 +170,13 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
             && *address == m_document->relevant_settings_object().address()
             && request.origin().has<URL::Origin>()
             && request.origin().get<URL::Origin>().is_same_origin(m_origin);
-    if (!admitted || m_jobs.size() >= Protocols::document_file_request_limit
+    if (!admitted || m_jobs.size() >= document_job_limit || process_jobs >= process_job_limit
         || m_next == NumericLimits<u32>::max())
         return Error::from_string_literal("Protocol request is outside the admitted scope");
     auto url = request.current_url().serialize();
-    if (url.bytes().size() > Protocols::file_request_url_limit)
+    if (url.bytes().size() > Protocols::file_request_url_limit
+        || url.bytes().size() > document_url_limit - m_waiting_url_bytes
+        || url.bytes().size() > process_url_limit - process_url_bytes)
         return Error::from_string_literal("Protocol request URL exceeds the transport limit");
     auto id = ++m_next;
     auto weak = make_weak_ptr();
@@ -150,6 +197,9 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
     TRY(m_jobs.try_set(id,
         Job { response, url.to_byte_string(), MonotonicTime::now() + AK::Duration::from_seconds(30),
             0, request.method() == "HEAD"sv }));
+    ++process_jobs;
+    m_waiting_url_bytes += url.bytes().size();
+    process_url_bytes += url.bytes().size();
     schedule();
     return response;
 }
@@ -178,7 +228,7 @@ void Client::cancel(u32 id)
     if (found == m_jobs.end())
         return;
     if (!found->value.sent) {
-        m_jobs.remove(id);
+        remove_job(id);
         return;
     }
     // Keep this bounded retired job until a terminal frame consumes any already
@@ -208,7 +258,7 @@ void Client::receive(ReadonlyBytes bytes)
     if (found->value.cancelled) {
         if (packet.value().kind == Protocols::FilePacketKind::Cancel
             || packet.value().kind == Protocols::FilePacketKind::Complete)
-            m_jobs.remove(id);
+            remove_job(id);
         return;
     }
 
@@ -220,7 +270,7 @@ void Client::receive(ReadonlyBytes bytes)
     }
     // Response callbacks may cancel/revoke and invalidate the original map entry.
     if (!m_revoked && response->finished())
-        m_jobs.remove(id);
+        remove_job(id);
 }
 
 void Client::schedule()
@@ -246,10 +296,18 @@ void Client::pump()
 
     if (m_channel->pending_send_count() >= Bytes::max_pending)
         return;
+    Optional<u32> oldest_waiting;
+    if (m_active < Protocols::document_file_request_limit
+        && process_active < Protocols::process_file_request_limit) {
+        for (auto const& entry : m_jobs)
+            if (!entry.value.sent && (!oldest_waiting.has_value() || entry.key < *oldest_waiting))
+                oldest_waiting = entry.key;
+    }
     Optional<u32> first, after;
     for (auto const& entry : m_jobs) {
         auto const& job = entry.value;
-        if (!(!job.sent || (job.cancelled && !job.cancel_sent) || job.credit))
+        bool start = oldest_waiting.has_value() && entry.key == *oldest_waiting;
+        if (!(start || (job.sent && ((job.cancelled && !job.cancel_sent) || job.credit))))
             continue;
         if (!first.has_value() || entry.key < *first)
             first = entry.key;
@@ -262,6 +320,10 @@ void Client::pump()
         return;
     m_last_pumped = *id;
     auto& job = m_jobs.find(*id)->value;
+    if (MonotonicTime::now() >= job.deadline) {
+        revoke();
+        return;
+    }
     using Kind = Protocols::FileRequestKind;
     auto kind = !job.sent ? (job.head ? Kind::Head : Kind::Get)
         : job.cancelled   ? Kind::Cancel
@@ -273,8 +335,14 @@ void Client::pump()
         return;
     }
 
-    job.sent = true;
-    job.url = {};
+    if (!job.sent) {
+        ++m_active;
+        ++process_active;
+        m_waiting_url_bytes -= job.url.length();
+        process_url_bytes -= job.url.length();
+        job.sent = true;
+        job.url = {};
+    }
     if (kind == Kind::Credit)
         job.credit = 0;
     if (kind == Kind::Cancel)

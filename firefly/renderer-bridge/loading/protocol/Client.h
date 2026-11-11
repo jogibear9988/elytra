@@ -66,6 +66,10 @@ private:
 
     void sweep();
 
+    void remove_job(u32);
+
+    static void wake_clients();
+
     RefPtr<Bytes::Channel> m_channel;
     GC::Root<Web::DOM::Document> m_document;
     OwnPtr<Navigation> m_navigation;
@@ -75,6 +79,8 @@ private:
     u64 const m_epoch;
     u32 m_next { 0 };
     u32 m_last_pumped { 0 };
+    size_t m_active { 0 };
+    size_t m_waiting_url_bytes { 0 };
     bool m_revoked { false };
     bool m_scheduled { false };
     AK::ThreadID m_thread { AK::ThreadID::current() };

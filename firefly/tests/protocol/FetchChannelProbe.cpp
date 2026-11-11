@@ -185,18 +185,28 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     } else if (mode == "quota"sv) {
         TRY(run(realm, uR"JS(
             globalThis.channelResult='pending';
-            Promise.allSettled(Array.from({length:9},()=>fetch('app://bundle/body').then(r=>r.arrayBuffer())))
-                .then(results=>{
-                    const accepted=results.filter(r=>r.status==='fulfilled');
-                    const denied=results.filter(r=>r.status==='rejected');
-                    const valid=accepted.length===8 && denied.length===1 && accepted.every(r=>{
-                        const bytes=new Uint8Array(r.value);
-                        return bytes.length===4194323 && bytes[0]===11 && bytes[4194322]===165;
-                    });
-                    channelResult=valid?'quota':'bad';
-                },()=>channelResult='bad');
+            const controllers=Array.from({length:64},()=>new AbortController());
+            const requests=controllers.map(controller=>fetch('app://bundle/body',{
+                method:'HEAD',signal:controller.signal
+            }).then(async r=>{
+                if(r.status!==200 || r.headers.get('content-length')!=='4194323' ||
+                    (await r.arrayBuffer()).byteLength!==0) throw Error('queued HEAD');
+                return true;
+            }));
+            // Fetch jobs enter the native waiting queue before its deferred
+            // transport pump. Cancel a request well beyond the eight active slots.
+            queueMicrotask(()=>controllers[32].abort());
+            Promise.allSettled(requests).then(results=>{
+                const accepted=results.filter(r=>r.status==='fulfilled');
+                const denied=results.filter(r=>r.status==='rejected');
+                channelResult=accepted.length===63 && denied.length===1 &&
+                    results[32].status==='rejected' && results[32].reason.name==='AbortError'
+                    ?'quota':'bad';
+            },()=>channelResult='bad');
         )JS"sv));
         TRY(wait_script(realm, u"channelResult==='quota'"sv));
+        // The common bounded wait below also requires every native terminal
+        // frame to retire before teardown; Promise settlement alone is earlier.
     } else if (mode == "scope"sv) {
         GC::Root other { create_document() };
         auto& other_realm = other->relevant_settings_object().realm();
@@ -397,7 +407,7 @@ ErrorOr<void> parent(StringView path, StringView mode)
         if (server->pending() || server->files()
             || calls
                 != static_cast<size_t>(mode == "body"sv              ? 3
-                        : mode == "quota"sv                          ? 8
+                        : mode == "quota"sv                          ? 63
                         : mode.is_one_of("scope"sv, "abort-early"sv) ? 0
                                                                      : 1))
             return Error::from_string_literal("Native fetch admission/file cleanup mismatch");

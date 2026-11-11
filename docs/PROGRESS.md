@@ -13065,6 +13065,29 @@ No dependencies/app/source copy or extra desktop test is created. Actual run sti
 fails during renderer module loading before shared-process construction, so the
 opt-out's complete Code-OSS path remains unaccepted.
 
+## 2026-11-11 — Queue large renderer module graphs behind bounded fetch slots
+
+Actual Code-OSS now reaches workbench module imports, but the protocol-fetch client
+previously refused admission beyond eight outstanding loads. The SDK error path is
+fetch failure, not parse failure, and the named17th direct-import file exists.
+Keep eight active loads/document and64/helper process; add bounded FIFO waiting
+admission:8192retainedjobs/document,16384/process,32MiB/document and64MiB/process
+waiting URL metadata. Native file/server and byte-channel credits do not increase.
+
+Queued cancellation never reaches the parent. Promotion rechecks scope and the
+original30second deadline; completion/cancel/revoke releases counts, URL bytes,
+active slots and callback owners, and wakes other live clients fairly. Bodies
+retain the existing round-robin credit behavior. These are helper-process limits,
+not a new cross-helper global scheduling guarantee.
+
+Actual strict compilation and combined Release host/helper/protocolprobe build
+pass (codeoss-module-queue-build.log). The targeted real parent/JavaScript-child
+burst mode passes64HEAD requests with one queued abort, exactly63parent
+ authorizations, all remaining completions and bounded pending cleanup
+(codeoss-module-queue-burst.log). No desktop or broad protocol suite is run for
+this change. Actual complete Workbench graph acceptance remains the next combined
+application step.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
