@@ -13997,6 +13997,32 @@ no physical backlog (codeoss-native-workers-start.log). This is separate bounded
 startup-burst pressure; no credit or byte budget was changed in this commit. No
 physical GUI interaction was performed.
 
+## 2026-11-11 — Remove the first temporary CodeOSS worker workaround
+
+Remove the lazy-diff helper/transform and overlay registrations. The pinned
+DiffComputeService keeps its original eager Worker import and constructor. Add a
+read-only-by-default exact retirement tool: verify the whole previous stage and
+six retained package adapters, guard known original/transformed hashes, back up
+and journal metadata, then remove only the owned compiled helper/input record.
+Generic orphan/drift refusal remains strict.
+
+Apply the audited retirement and refresh the same stage in place: 12,347 compiled
+files / 30 overlay files, all six package adapters retained, Finder metadata
+preserved (codeoss-retire-diff-worker.log, codeoss-native-worker-refresh.log).
+Source preservation gate passes. The owned optional fixture verifies original
+source fingerprints and compiled output hashes, runs the actual original
+DiffWorkerMain entry on a real Mite thread, checks count/detail/hunk results by
+forward/reverse text reconstruction and joins termination
+(codeoss-original-diff-all-native.log). Mark CA-18 removed and worker entry verified;
+actual Workbench diff-service integration remains open (CA-18-I).
+
+Actual entry PID15485 progresses past missing worker_threads; extension/agent now
+reach missing node:tty through debug. SharedProcess connections remain established.
+The renderer count-window burst remains observed (19 sent / 3 ACKs), and missing
+staged system extensions is separately reported. Cocoa-only Services and TouchBar
+refusals belong to the declared offscreen/local experiment. No extension activation,
+complete editor or physical menu acceptance is claimed (codeoss-native-workers-start.log).
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

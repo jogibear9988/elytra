@@ -52,8 +52,55 @@ try {
   }
   reconstructed += 'old\n'.slice(offset);
   assert.equal(reconstructed, 'new\nextra\n');
-  console.log('PASS original CodeOSS diff worker calculates real changes over a native thread');
+
+  function apply(text, replacements) {
+    let output = '';
+    let offset = 0;
+    for (const value of replacements) {
+      output += text.slice(offset, value.start) + value.text;
+      offset = value.endExclusive;
+    }
+    return output + text.slice(offset);
+  }
+
+  for (const [id, fn] of [
+    [2, 'computeDetailedDiff'],
+    [3, 'computeDiffHunks']
+  ]) {
+    const result = await new Promise((resolve, reject) => {
+      worker.once('error', reject);
+      worker.once('message', resolve);
+      worker.postMessage({ id, fn, args: ['old\n', 'new\nextra\n', 1000] });
+    });
+    assert.equal(result.id, id);
+    assert.equal(result.err, undefined);
+    assert.equal(result.res.hitTimeout, false);
+    if (fn === 'computeDetailedDiff') {
+      assert.equal(result.res.added, 2);
+      assert.equal(result.res.removed, 1);
+      assert.equal(apply('old\n', result.res.replacements), 'new\nextra\n');
+    } else {
+      assert.ok(result.res.hunks.length > 0);
+      assert.equal(
+        apply(
+          'old\n',
+          result.res.hunks.flatMap((h) => h.replacements)
+        ),
+        'new\nextra\n'
+      );
+      assert.equal(
+        apply(
+          'new\nextra\n',
+          result.res.hunks.flatMap((h) => h.reverseReplacements)
+        ),
+        'old\n'
+      );
+    }
+  }
+  console.log(
+    'PASS original CodeOSS diff worker: counts, detailed changes, forward/reverse hunks and native thread disposal'
+  );
 } finally {
   clearTimeout(deadline);
-  await worker.terminate();
+  assert.equal(await worker.terminate(), 1);
 }

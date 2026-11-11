@@ -10,7 +10,12 @@ Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 Latest actual visible Cocoa start (2026-11-11): the native process started,
 but complete editor operation is unaccepted. The subsequent non-GUI native build fixes `crypto.getHashes` and the 256-item
 framework menu cap; actual extension/agent startup then reaches missing
-`node:worker_threads`, while a DOM port queue limit also needs investigation. Genuine P-256 verification, filesystem traversal,
+`node:worker_threads`, while a DOM port queue limit also needs investigation.
+The next genuine worker slice now passes actual Mite lifecycle gates and the
+original CodeOSS diff-worker count/detail/hunk handlers. Its lazy source workaround
+has been removed. Actual extension/agent startup now reaches missing `node:tty`;
+the renderer startup burst still reaches the bounded waiting count. Native menu
+interaction, normal extension activation and Workbench diff integration remain open. Genuine P-256 verification, filesystem traversal,
 path read streams and extra-CA startup/query fixtures now pass under Mite on macOS.
 The actual startup log is `codeoss-visible-user-start.log`. Native menu interactions,
 window-ready, extension activation and workspace open/edit/save remain open.

@@ -14,7 +14,6 @@ if __package__:
         utility_auth,
         shared_process_debug,
         agent_host_debug,
-        diff_worker,
         extension_host_flags,
     )
     from .engine import adapt_engine
@@ -26,7 +25,6 @@ else:
     import utility_auth
     import shared_process_debug
     import agent_host_debug
-    import diff_worker
     import extension_host_flags
     from engine import adapt_engine
     from local_desktop import adapt_local, PATHS, OWNED, HELPER
@@ -107,7 +105,6 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
                 utility_auth.SOURCE,
                 shared_process_debug.SOURCE,
                 agent_host_debug.SOURCE,
-                diff_worker.SOURCE,
                 extension_host_flags.SOURCE,
             ]
             if local_desktop
@@ -139,8 +136,6 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
             patched = utility_auth.adapt_utility_auth(original)
         elif name == extension_host_flags.SOURCE:
             patched = extension_host_flags.adapt_extension_host_flags(original)
-        elif name == diff_worker.SOURCE:
-            patched = diff_worker.adapt_diff_worker(original)
         elif name == agent_host_debug.SOURCE:
             patched = agent_host_debug.adapt_agent_host_debug(original)
         elif name == shared_process_debug.SOURCE:
@@ -170,7 +165,6 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         (local_desktop, utility_auth.HELPER_SOURCE, utility_auth.HELPER_TARGET),
         (local_desktop, shared_process_debug.HELPER_SOURCE, shared_process_debug.HELPER_TARGET),
         (local_desktop, agent_host_debug.HELPER_SOURCE, agent_host_debug.HELPER_TARGET),
-        (local_desktop, diff_worker.HELPER_SOURCE, diff_worker.HELPER_TARGET),
         (local_desktop, extension_host_flags.HELPER_SOURCE, extension_host_flags.HELPER_TARGET),
     ):
         if enabled:
@@ -204,7 +198,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process, agent-host and extension-host inspectors with immutable unavailable status; extension-host implicit DNS ordering/network-inspection defaults are omitted, never claimed applied; unsigned-library relaxation is unavailable and opted out; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; agent worker-backed diff attempts explicitly fail on LibJS while service initialization remains available; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process, agent-host and extension-host inspectors with immutable unavailable status; extension-host implicit DNS ordering/network-inspection defaults are omitted, never claimed applied; unsigned-library relaxation is unavailable and opted out; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():
