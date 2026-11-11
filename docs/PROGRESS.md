@@ -13342,6 +13342,26 @@ fresh hosted execution is still required. Packaging and Designer steps were skip
 by the failing job and are not accepted by this result. The concurrent macOS release
 run is left untouched. No local GUI, native build or broad test suite is run.
 
+## Next Code-OSS slice — Genuine utility and renderer port ownership
+
+The actual SharedProcess trace now requires two distinct transfers. Its connect()
+creates MessageChannelMain and sends port2 to the utility, then sends port1 through
+the requesting webContents. The pinned preload forwards event.ports using genuine
+window.postMessage, so ordinary JavaScript port-shaped wrappers cannot satisfy it.
+
+Current main ports (firefly/core/message-ports/index.mjs) are realm-local queues.
+The utility fd3 transport is a private length-framed pipe without descriptor
+attachments; passing integer descriptors or enabling libuv IPC framing alone would
+not implement cross-platform transfer. The proposed first implementation slice is
+a bounded native endpoint broker over that private pipe: authenticated endpoint
+IDs/generations, ownership committed only after admission, backpressure, ordered
+close, child-exit revocation and transfer rollback. Then connect a document-bound
+renderer adapter to genuine LibWeb MessagePorts, with exact page/document/epoch
+authentication and navigation/crash revocation. Main/utility component acceptance
+must precede the actual renderer SharedProcess handshake. This is planned work,
+not native endpoint support. ContextBridge's 64 KiB binary copy limit is a separate
+observed requirement; do not claim zero-copy or relax boundary checks to skip it.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
