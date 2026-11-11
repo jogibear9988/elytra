@@ -200,8 +200,9 @@ No methods, expandos, getters or listener bookkeeping are copied from the module
 An individual raw IPC method still rejects, as does a copied object containing one.
 Normal IPC serialization has no module-redaction exception. Prefer the narrow
 payload wrapper above even though the supported empty-port IPC event now crosses
-this boundary. This does not yet support Code-OSS's unchanged full preload graph
-(source accessors, process/options, webFrame/webUtils and ports remain outstanding).
+this boundary. The explicitly adapted Code-OSS preload now publishes its window
+configuration and loads the Workbench graph. Full startup remains unaccepted;
+method receiver/result handling and renderer/utility port transfer still need work.
 
 This follows [Electron's documented ipcRenderer boundary](https://www.electronjs.org/docs/latest/api/context-bridge#exposing-ipcrenderer).
 The actual Electron 45.2.3 positive fixture strips the IPC methods but retains own

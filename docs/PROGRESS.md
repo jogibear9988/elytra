@@ -13269,6 +13269,16 @@ cases (codeoss-empty-module-regression.log). Its rebuilt native probe passes
 fixture's optional completed callback explicitly to satisfy strict designated
 initializer checks. No GUI or broader suite is run.
 
+## 2026-11-11 — Refresh the current Code-OSS blocker summary
+
+Replace the stale introductory startup checkpoint with the actual module-graph,
+empty-response and bridge-result observations. Keep historical checkpoint rows
+explicitly historical and retain not-supported status and outstanding SharedProcess,
+ports, native platform and editing acceptance requirements. Correct the API guide's
+old list claiming trusted source getters/configuration publication were still absent.
+Method binding and function-valued results remain the next step, not accepted yet.
+Documentation-only: no desktop or broad test run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

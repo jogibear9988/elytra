@@ -7,80 +7,48 @@ Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 
 ## Current priority: first real workbench, then developer workflows
 
-The latest actual local-desktop/NLS main-ready diagnostic passes GPUProcessMainService
-and ProtocolMainService. Public modern Response handlers and the real file-scheme
-denial path now pass native/public offscreen acceptance. The unchanged pinned
-protocol consumer passes genuine file denial, remote 404/500, binary/MIME responses,
-IPC registration and cleanup, with 49 compiled dependencies verified.
+Updated 2026-11-11. The actual pinned Code-OSS desktop entry now creates its
+renderer, resolves the complete English window configuration through native IPC
+and imports the real Workbench graph. The latest offscreen diagnostic observes
+5,261 fetched module targets (including 395 Blob-backed CSS loader modules), no
+missing/loading/parse-error entries and linked central Workbench records. This is
+module loading/linking evidence, not an accepted editor window or editing workflow.
 
-With the explicit --mite-policy-watcher build adaptation, the unchanged pinned
-NativePolicyService and NativeManagedSettingsService now initialize and dispose
-through Mite's [native macOS policy extension](../api/policy-watcher.md). The probe
-verifies 46 compiled dependencies and exact package/adapter provenance; it reads a
-unique unused domain without preference writes or injected initial snapshots.
-Without this opt-in, the ordinary package still requires its Node/N-API addon.
+The current execution failure is a sanitized contextBridge call refusal during
+Workbench initialization. Native diagnostics identify result capture: the pinned
+preload listener wrappers return this, while our exported methods currently lose
+their source parent receiver. General method binding and bounded function-valued
+results are the next implementation step. Do not bypass the source-global/host
+object rejection to make the preload continue.
 
-Native local streams now pass the unchanged pinned Code-OSS IPC channel in separate
-Mite/Mite, Mite/Node and Node/Mite processes, with binary request/reply, disposal and
-41 compiled dependencies verified. Node differential tests and independent native
-socket peers pass locally on macOS. The actual adapted main-ready startup now
-passes main.claimInstance and both session permission setters in
-CodeApplication.configureSession. Genuine native/renderer acceptance now covers
-main/same/cross-origin query ownership, real geolocation request-handler denial,
-handler replacement/reset, same-origin window isolation and stale pending replies.
-A separate exact-object native frontend passes twelve identity/grant/revocation
-cases without invoking a device provider. The shared query/request-denial path
-passes Electron 45.2.3 as well.
+The former graph hang was caused by empty JavaScript responses completing before
+asynchronous request-header authorization. The adapter now retains those pending
+responses until approval and releases Client slots explicitly. Actual Code-OSS
+passes the old 22-module wait; a focused native test covers zero-length GET/HEAD,
+delayed allow/deny, GC, EOF and exact completion accounting. Native request policy
+and protocol fetches queue behind bounded active slots rather than rejecting the
+large import graph. See [webRequest](../api/web-request.md) and
+[protocol](../api/protocol.md) for the limits.
 
-The explicit local desktop mode defers optional display capture and rejects
-actual recording, capture authorization and capture-settings attempts. The
-11,536-source tree completes entry/app readiness and now passes both the original
-webRequest registrations and ErrorTelemetry's process event subscriptions. The
-latest real trace passes CodeApplication.initChannels after fixing macOS CPU
-notification capability detection. It next attempts CodeWindow/BrowserWindow
-construction. The next rejected default constructor option is titleBarOverlay, before
-native window allocation. With a temporary User/settings.json containing
-window.titleBarStyle:native, the latest real entry passes the audited disabled V8
-cache adaptation, spellcheck:false, native zoomFactor, autoplay and the native
-HighlightAPI capability. The real stage now includes HTML/CSS/fonts. It creates
-native window id 1; the local TouchBar opt-out and native isOffscreen query remove
-the next observed faults. The latest direct trace stops at marketplace
-webRequest.onBeforeSendHeaders registration before loading the workbench URL
-(codeoss-touchbar-start.log). Genuine request-header interception is now implemented
-and the rebuilt host awaits its next direct entry.
-Native media admission/metadata/default/revocation passes thirteen component groups;
-ten null-audio groups pass, with the final inactive-document/GC fixture still
-unfinished. The two explicit autoplay values have experimental public wiring.
-See [the native autoplay decision and remaining gates](../architecture/0191-native-autoplay-policy.md).
-Neither profile creates an accepted workbench window. The known legacy experimentalDarkMode boolean is now
-accepted without effect, and acceptFirstMouse has a genuine Cocoa implementation
-verified separately with hidden native callbacks and surface recreation.
-The hidden title-bar path now passes an actual Cocoa renderer batch with toolbar
-pixels, a full viewport, native control hit targets and live HTML drag regions.
-The opaque background path separately passes real compositor CPU pixel tests. No workbench
-window is accepted.
+The local source experiment uses exact reversible pinned transformations, real
+renderer assets/NLS and explicit native policy-watcher, keymap and SQLite package
+adapters. Optional utility authentication forwarding is explicitly disabled and
+disclosed in this local mode; it is not implemented. No-session utilities have an
+independent network context and can coexist with main default-session filters.
+Utility session selection, authentication forwarding and renderer/utility
+MessagePort handoff remain required work. Component tests of main-only ports do
+not establish the actual SharedProcess handshake.
 
-The logged ESM require error remains a handled device-ID fallback: @vscode/deviceid
-requires its nested ESM-only uuid entry. [Error.captureStackTrace](../api/error-stack.md)
-now has genuine lazy captured stacks and source CallSites, including the caller-file
-discovery used by bindings-style packages. Full V8 metadata and automatic hooks
-for ordinary engine errors remain incomplete.
-[Native error events](../api/process-errors.md) now have genuine event-loop and
-entry-point delivery, with local Node/Mite/embedded-host ordering, fatal/default
-and GC acceptance. Fresh platform and broader lifecycle support remain open.
+Continued startup diagnosis uses the explicit test-only offscreen frontend without
+stealing desktop focus. That mode omits optional acceptFirstMouse and declares
+desktopAccepted:false. A real Cocoa editor run is still required at the Workbench
+milestone; native Linux/Windows desktop and packaged Code-OSS acceptance remain
+unverified. No workspace open/edit/save, extensions or developer workflow is
+accepted. Progress and compact evidence names are recorded in
+[PROGRESS](../PROGRESS.md) and the [local desktop guide](../architecture/0149-code-oss-local-desktop.md).
 
-The [request policy](../api/web-request.md) passes local macOS native offscreen
-HTTP endpoint-zero cancellation, header replacement before CORS, canonical frame
-metadata, stable IDs, main net.fetch/net.request and custom-provider cancellation.
-The shared hidden Electron fixture passes. Utility transport is temporarily
-excluded while filters are active; real parent-mediated utility decisions remain
-necessary for Code-OSS. Worker/unbound navigation, other stages and broader browser
-coverage are unfinished. The earlier dependency rows retain their checkpoint
-context; webRequest is no longer the first missing registration.
-
-Full display capture and complete session-wide request coverage remain open. Media grants, separate worker permission queries, notification request/delivery
-and native Linux/Windows permission acceptance are not established. No workbench,
-workspace open/edit/save, actual MDM-change or physical GPU acceptance is claimed.
+The earlier checkpoints below describe their original observations; they are not
+the current first startup blocker. Running Monaco in Designer is separate evidence.
 
 Updated 2026-11-09. Without the new local desktop opt-in, the real prepared entry
 passes the simple custom-protocol CORS privilege and stops at allowServiceWorkers. This is not just a missing flag:
