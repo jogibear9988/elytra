@@ -13479,6 +13479,24 @@ evidence without taking the local desktop or running a broad local suite. The
 workflow has not yet accepted this new gate; macOS's focused fixture result above
 must not be described as Linux acceptance.
 
+## 2026-11-11 — Bounded contextBridge binary packets for actual RPC startup
+
+Code-OSS's Electron Protocol.send serializes complete VSBuffer RPC packets and
+catches synchronous send exceptions as shutdown. The observed 64 KiB contextBridge
+argument refusal can therefore silently drop an RPC before native IPC. Raise only
+the context copy profile to application IPC's existing 1 MiB backing-store ceiling;
+retain BridgeData's independent 1 MiB hard limit, full-backing/aggregate charging,
+copy ownership, type rules and all utility/port 64 KiB limits. Update the existing
+binary fixture for exact 1 MiB, aggregate overflow and tiny oversized-backing views.
+
+Add bounded source-call diagnostics containing only fixed allowlisted reason,
+engine error kind, native code category and function-role category, never raw
+messages, names, stacks or payloads. This distinguishes actual unsupported preload
+process calls from transport failures. Strict source compilation passes. Native
+Release host/helper/static-offscreen rebuild passes (codeoss-context-rpc-build.log).
+Fresh execution of the expanded boundary fixture is deferred; no broad local suite
+or visible GUI is run. Actual startup acceptance is recorded separately below.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

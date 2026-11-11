@@ -234,7 +234,7 @@ exact emptiness/freezing checked separately for Firefly. See
 
 ArrayBuffer, typed arrays and DataView now cross the contextBridge in API
 publication, function arguments/results, native Promise results and both directions
-of document callbacks. There are at most 64 KiB of distinct complete backing stores
+of document callbacks. There are at most 1 MiB of distinct complete backing stores
 per graph. Multiple views share one destination backing store, retaining view type,
 byte offset, length, graph cycles and aliases. Each crossing creates independent
 storage; it neither shares nor detaches source buffers. A Uint8Array subclass is
@@ -258,10 +258,12 @@ See [ADR 0140](../architecture/0140-context-bridge-binary-copies.md).
 
 This realm boundary now connects to the bounded [native binary IPC subset](ipc.md#data-and-resource-limits):
 ipcRenderer.invoke/send and webContents.send copy the supported buffers/views over
-the document-bound raw byte channel. The IPC hop permits 1 MiB of backing storage; the contextBridge crossing still
-limits binary copies to 64 KiB. Larger IPC replies cannot be exposed directly
-through this realm boundary. MessagePorts, large-file streaming, shared memory and
-zero-copy remain unfinished.
+the document-bound raw byte channel. Both application IPC and contextBridge permit
+1 MiB of distinct complete backing storage per graph. Small views still charge
+their entire backing buffer, and distinct buffers share the graph's aggregate
+ceiling. Utility messages and native port messages retain their separate 64-KiB
+binary budget. Large-file streaming, shared memory and zero-copy remain separate
+capabilities.
 
 ## Files, budgets and errors
 
@@ -307,7 +309,7 @@ does not grant a scheme-wide preload or bypass native context/channel ownership.
 Cross-world data copies now use a separate source profile:65,536 values,
 131,072 properties,4Mi UTF-16 string/key units, depth64, array length65,536 and
 131,072 cumulative array lengths. This admits full application configuration,
-while the binary ceiling stays64KiB. It does not admit class prototypes, Proxies,
+with a1MiB binary ceiling. It does not admit class prototypes, Proxies,
 native capabilities or arbitrary getters. Snapshot and destination allocation are
 synchronous; the application IPC wire queue's aggregate byte quota does not cover
 these copies. See [ADR0193](../architecture/0193-bounded-large-application-ipc.md)
@@ -315,5 +317,16 @@ for scope and separately recorded acceptance.
 
 With FIREFLY_IPC_BYTES_DIAGNOSTIC=1, native Promise-bridge failures also emit a
 fixed stage (source rejection, result capture/publication or revoked ownership)
-and an allowlisted native-copy reason. Source values, API names and exception
+and allowlisted native-copy reasons. Source-call diagnostics additionally report
+fixed error-kind/code/role categories, capped at 64 entries. Source values, raw API names and exception
 messages are never included; page-visible rejection remains sanitized.
+
+The pinned Code-OSS Electron protocol sends complete serialized VSBuffer RPC
+packets through ipcRenderer.send. Its catch-all send wrapper can hide synchronous
+contextBridge quota failures, dropping the RPC before native transport. The
+context-only binary allowance now matches application IPC's existing1MiB ceiling
+and BridgeData's independent hard maximum. This is a bounded copy policy change,
+not unlimited Electron structured clone or proof that every Code-OSS packet fits.
+The focused native binary fixture now checks exact1MiB copies, aggregate overflow
+and a tiny view over an oversized backing store; fresh runtime execution of that
+updated boundary remains required.

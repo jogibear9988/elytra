@@ -28,16 +28,86 @@
 namespace Firefly {
 namespace {
     // Match only known native/startup failures; output never includes source text.
-    void diagnose_source_rejection(JS::Value value)
+    void diagnose_source_rejection(
+        JS::Value value, JS::FunctionObject* function, JS::Object* receiver)
     {
-        if (!ipc_bytes_diagnostics_enabled())
+        static unsigned emitted = 0;
+        if (!ipc_bytes_diagnostics_enabled() || emitted >= 64)
             return;
+        ++emitted;
         char const* reason = "unclassified";
+        char const* kind = "non-error";
+        char const* code = "none";
+        char const* role = "other";
+        auto name
+            = function ? function->get_without_side_effects("name"_utf16) : JS::js_undefined();
+        if (name.is_string() && name.as_string().length_in_utf16_code_units() <= 64) {
+            auto text = name.as_string().utf16_string_view();
+            if (text == u"getProcessMemoryInfo"sv)
+                role = "process-memory";
+            else if (text == u"getPathForFile"sv)
+                role = "file-path";
+            else if (text == u"setZoomLevel"sv)
+                role = "zoom";
+            else if (text == u"acquire"sv)
+                role = "port-acquire";
+            else if (text == u"send"sv)
+                role = "ipc-send";
+            else if (text == u"invoke"sv)
+                role = "ipc-invoke";
+            else if (text == u"once"sv || text == u"removeListener"sv)
+                role = "ipc-listener";
+            else if (text == u"on"sv)
+                role = receiver
+                        && receiver->get_without_side_effects("getProcessMemoryInfo"_utf16)
+                               .is_function()
+                    ? "process-listener"
+                    : "ipc-listener";
+        }
         if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
-            auto message = value.as_object().get_without_side_effects("message"_utf16);
-            if (message.is_string()) {
+            auto& object = value.as_object();
+            kind = "error";
+            if (JS::TypeError::is_engine_class_of(object))
+                kind = "type-error";
+            else if (JS::RangeError::is_engine_class_of(object))
+                kind = "range-error";
+            else if (JS::ReferenceError::is_engine_class_of(object))
+                kind = "reference-error";
+            auto error_code = object.get_without_side_effects("code"_utf16);
+            if (error_code.is_string()
+                && error_code.as_string().length_in_utf16_code_units() <= 64) {
+                auto text = error_code.as_string().utf16_string_view();
+                if (text == u"ERR_FIREFLY_UNSUPPORTED_API"sv)
+                    code = "unsupported-api";
+                else if (text == u"ERR_FIREFLY_IPC_LIMIT"sv)
+                    code = "ipc-limit";
+                else if (text == u"ERR_FIREFLY_IPC_REVOKED"sv)
+                    code = "ipc-revoked";
+                else if (text == u"ERR_FIREFLY_IPC_SERIALIZATION"sv)
+                    code = "ipc-serialization";
+                else if (text == u"ERR_FIREFLY_IPC_REMOTE"sv)
+                    code = "ipc-remote";
+                else if (text == u"ERR_INVALID_ARG_TYPE"sv)
+                    code = "argument-type";
+            }
+            auto message = object.get_without_side_effects("message"_utf16);
+            if (message.is_string() && message.as_string().length_in_utf16_code_units() <= 4096) {
                 auto text = message.as_string().utf16_string_view();
-                if (text
+                if (text == u"Sandbox process method is not implemented"sv)
+                    reason = "preload-process-unsupported";
+                else if (text == u"IPC listener owner is inactive"sv)
+                    reason = "ipc-listener-revoked";
+                else if (text == u"IPC pending request budget exceeded"sv
+                    || text == u"IPC listener budget exceeded"sv)
+                    reason = "ipc-limit";
+                else if (text == u"IPC arguments are not supported data"sv
+                    || text == u"IPC data budget exceeded"sv)
+                    reason = "ipc-serialization";
+                else if (text.ends_with(u" is not a function"sv))
+                    reason = "noncallable";
+                else if (text.ends_with(u" is not defined"sv))
+                    reason = "undefined-binding";
+                else if (text
                     == u"Preload: did not find expected vscode-window-config in renderer process arguments list."sv)
                     reason = "missing-config-argument";
                 else if (text.ends_with(u"TypeError: webFrame document is revoked"sv))
@@ -59,7 +129,8 @@ namespace {
             }
         }
 
-        std::fprintf(stderr, "FIREFLY_CONTEXT_SOURCE reason=%s\n", reason);
+        std::fprintf(stderr, "FIREFLY_CONTEXT_SOURCE reason=%s kind=%s code=%s role=%s\n", reason,
+            kind, code, role);
     }
 
     // Trusted native stages only: never log source values, error messages or API names.
@@ -215,7 +286,8 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::observe(
     GC::Root rejected { JS::NativeFunction::create(target,
         GC::create_function((target).vm().heap(), GC::captures(owner, id),
             [](auto& owner, auto& id, JS::VM& inner) {
-                diagnose_source_rejection(inner.argument(0));
+                diagnose_source_rejection(
+                    inner.argument(0), owner->m_function.ptr(), owner->m_receiver.ptr());
                 return owner->settle(id, false, JS::js_undefined());
             }),
         1, "fireflyPromiseRejected"_utf16, GC::Ptr<JS::Realm> { target }) };
@@ -352,7 +424,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
     }
 
     if (result.is_error()) {
-        diagnose_source_rejection(result.error().value());
+        diagnose_source_rejection(result.error().value(), function.ptr(), m_receiver.ptr());
         return error("invoke-source-call");
     }
 

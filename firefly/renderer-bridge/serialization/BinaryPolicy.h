@@ -29,7 +29,8 @@ inline BridgeData::Limits application_ipc_limits()
 }
 
 // Cross-world copies need full application configuration too, but retain the
-// original 64 KiB binary limit and all publication/type/authority restrictions.
+// same 1 MiB binary ceiling as application IPC and retain all publication,
+// type and authority restrictions. Public ports and utility copies stay separate.
 // This is a capture-only profile; it does not select the larger wire envelope.
 inline BridgeData::Limits context_bridge_limits()
 {
@@ -39,7 +40,7 @@ inline BridgeData::Limits context_bridge_limits()
     limits.string_code_units = 4 * 1024 * 1024;
     limits.array_length = 65536;
     limits.total_array_length = 131072;
-    limits.binary_bytes = 64 * 1024;
+    limits.binary_bytes = 1024 * 1024;
     return limits;
 }
 

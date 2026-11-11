@@ -283,14 +283,14 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | Graph | 65536 values, 131072 properties, depth 64, array length 65536; cumulative array lengths 131072 |
 | All graph strings/keys | 4 Mi UTF-16 code units |
 | Physical application frame / logical graph | 128 KiB / 16 MiB; native fragmentation preserves request/document identity |
-| Distinct binary backing storage | 1 MiB per application IPC graph; contextBridge remains 64 KiB |
+| Distinct binary backing storage | 1 MiB per application IPC or contextBridge graph |
 | Native unsent logical queue | At most 48 per document/direction, refilled through 16 physical-frame credits |
 | Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
 | Pending invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
 | Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
 
 These are the new source application-channel limits. ContextBridge uses its own
-capture-only graph profile and 64-KiB binary ceiling; utility messaging and
+capture-only graph profile and 1-MiB binary ceiling; utility messaging and
 main-only ports retain their separate contracts. Large logical messages use strict
 contiguous fragments and are delivered only when complete. Small FIM1 frames keep
 their format. See [ADR 0193](../architecture/0193-bounded-large-application-ipc.md).

@@ -73,8 +73,8 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv,
         true));
     TRY(check(uR"JS(
-        const api=__ffBinary,b=new ArrayBuffer(65536),bytes=new Uint8Array(b);
-        bytes[0]=255;bytes[5]=128;bytes[65535]=129;
+        const api=__ffBinary,b=new ArrayBuffer(1048576),bytes=new Uint8Array(b);
+        bytes[0]=255;bytes[5]=128;bytes[1048575]=129;
         const view=new Uint8Array(b,5,17),data=new DataView(b,3,23);
         let traps=0;
         for(const key of ['buffer','byteLength','byteOffset','length','constructor'])
@@ -83,7 +83,9 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
         const copy=api.echo(graph);
         copy.view[0]=33;
         api.value[0]=42;
-        let rejected=false;try{api.echo(new Uint8Array(65537))}catch(e){rejected=e instanceof TypeError}
+        let rejected=false;try{api.echo(new Uint8Array(1048577))}catch(e){rejected=e instanceof TypeError}
+        let aggregateRejected=false;try{api.echo([new Uint8Array(524289),new Uint8Array(524289)])}catch(e){aggregateRejected=e instanceof TypeError}
+        let backingRejected=false;try{api.echo(new Uint8Array(new ArrayBuffer(1048577),0,1))}catch(e){backingRejected=e instanceof TypeError}
         globalThis.binaryAsync=false;
         api.echoAsync(new Uint8Array([0,128,255])).then(value=>{
             binaryAsync=value instanceof Uint8Array && value[2]===255;
@@ -95,9 +97,9 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
         const answer=api.cb(value=>{value[0]=66;return new Uint8Array([12])});
         copy.self===copy && copy.view===copy.alias && copy.view.buffer===copy.b &&
         copy.data.buffer===copy.b && copy.data.byteOffset===3 && copy.data.byteLength===23 &&
-        copy.view.byteOffset===5 && copy.view.length===17 && copy.b.byteLength===65536 &&
+        copy.view.byteOffset===5 && copy.view.length===17 && copy.b.byteLength===1048576 && new Uint8Array(copy.b)[1048575]===129 &&
         copy.view instanceof Uint8Array && Object.isFrozen(copy) &&
-        bytes[5]===128 && api.original()===0 && answer[0]===12 && traps===0 && rejected;
+        bytes[5]===128 && api.original()===0 && answer[0]===12 && traps===0 && rejected && aggregateRejected && backingRejected;
     )JS"sv));
     checkpoint();
     TRY(check(u"binaryAsync && binaryCallback"sv));
@@ -139,6 +141,7 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     outln("PASS public binary context bridge: publication/sync/Promise/callback copies, "
           "aliases/offsets, "
-          "64KiB quota, no hooks/prototype then and independent writable storage");
+          "1MiB context quota/full backing/aggregate rejection, no hooks/prototype then and "
+          "independent writable storage");
     return {};
 }

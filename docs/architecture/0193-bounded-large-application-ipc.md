@@ -58,3 +58,15 @@ framing vectors, malformed transitions and quota ownership. A focused headless
 mode reads the actual staged catalog, compares every round-tripped translation,
 and checks its real asynchronous contextBridge path. These component checks do
 not prove an editor/workbench run; that requires the actual pinned application.
+
+## Context binary follow-up
+
+The context-only binary allowance now matches the existing application IPC and
+BridgeData native maximum of1MiB per graph. Code-OSS sends complete serialized
+VSBuffer RPC packets across the preload boundary, and its send wrapper catches
+synchronous copy failures. The former64KiB crossing could therefore silently
+drop a packet before the already1MiB-capable IPC hop. Whole-backing and aggregate
+charging, copied-storage semantics, type validation and revocation are unchanged.
+The separate public port/utility budget remains64KiB. Updated focused binary
+fixture execution is pending; this adjustment alone does not establish editor
+startup or arbitrary packet-size compatibility.
