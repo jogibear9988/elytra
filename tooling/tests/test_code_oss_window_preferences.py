@@ -29,6 +29,10 @@ from code_oss.window_preferences import (
     HELPER_TARGET,
     adapt_window_preferences,
     revert_window_preferences,
+    FIRST_MOUSE_TRUE,
+    FIRST_MOUSE_FALSE,
+    FIRST_MOUSE_TRUE_REPLACEMENT,
+    FIRST_MOUSE_FALSE_REPLACEMENT,
     PASTE_SOURCE,
     PASTE_SHA256,
     PASTE_IMPORT,
@@ -90,6 +94,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mite", type=Path, required=True)
     parser.add_argument("--node", default=shutil.which("node"))
+    parser.add_argument(
+        "--offscreen", type=Path, help="Optional exact offscreen binary in standalone Mite role"
+    )
     args = parser.parse_args()
     assert args.node, "Pinned Node build/reference runtime required"
     manifest = json.loads((PINNED / "manifest.json").read_text())
@@ -134,7 +141,9 @@ def main():
     paste_adapted = adapt_paste_preferences(paste_original)
     assert paste_adapted == paste_original.replace(
         PASTE_IMPORT.encode(), (PASTE_IMPORT + PASTE_ADDED_IMPORT).encode()
-    ).replace(PASTE_PREFERENCE.encode(), PASTE_REPLACEMENT.encode())
+    ).replace(PASTE_PREFERENCE.encode(), PASTE_REPLACEMENT.encode()).replace(
+        FIRST_MOUSE_TRUE.encode(), FIRST_MOUSE_TRUE_REPLACEMENT.encode()
+    ).replace(FIRST_MOUSE_FALSE.encode(), FIRST_MOUSE_FALSE_REPLACEMENT.encode())
     assert revert_paste_preferences(paste_adapted) == paste_original
     for data in [paste_original + b"\n", paste_original + PASTE_PREFERENCE.encode(), paste_adapted]:
         rejected(lambda data=data: adapt_paste_preferences(data))
@@ -297,6 +306,80 @@ for(const name of ['window-preferences', 'expressions']) {
                 )
         print(
             f"PASS genuine Node/Mite pinned preference expression {len(cases)} scenarios preserve accessor order security identities and explicit cache refusal",
+            flush=True,
+        )
+
+        # The actual offscreen executable can run this leaf policy without Qt or
+        # creating a window through its existing standalone-Mite role.
+        (work / "offscreen.mjs").write_text("""
+import assert from 'node:assert/strict';
+process._vscodeLibJSLocalDesktopStatus={enabled:true,scope:'experimental-local-desktop',disabled:['engine-code-cache']};
+process._vscodeLibJSEngineStatus={engine:'LibJS/LibWeb',scope:'implicit-code-oss-engine-tuning-only'};
+const mode=process.argv[2];
+if(mode==='bad-policy')delete process._vscodeLibJSEngineStatus;
+const {libJSFirstMousePreferences:f}=await import('./window-preferences.mjs');
+const node=typeof process.versions.node==='string'||typeof process.versions.electron==='string';
+const expected=process.argv[3];
+for(const value of [true,false]) {
+ if(!node&&expected==='reject')assert.throws(()=>f(value),e=>e.code==='ERR_CODE_OSS_LIBJS_OFFSCREEN_DIAGNOSTIC');
+ else assert.deepEqual(f(value),!node&&expected==='omit'?{}:{acceptFirstMouse:value});
+}
+const status=process._vscodeLibJSOffscreenDiagnosticStatus;
+if(!node&&expected==='omit'){
+ assert.equal(status.desktopAccepted,false);assert.equal(status.omittedInputPolicy,'acceptFirstMouse');
+ assert.equal(status.scope,'code-oss-test-only-offscreen-diagnostic');assert.ok(Object.isFrozen(status));
+ const d=Object.getOwnPropertyDescriptor(process,'_vscodeLibJSOffscreenDiagnosticStatus');
+ assert.equal(d.writable,false);assert.equal(d.configurable,false);assert.equal(d.enumerable,false);
+ assert.equal(f(true).acceptFirstMouse,undefined);assert.equal(process._vscodeLibJSOffscreenDiagnosticStatus,status);
+}else assert.equal(status,undefined);
+console.log('PASS test-only offscreen first-mouse policy');
+""")
+        frontends = [(args.node, False), (str(args.mite.resolve()), False)]
+        if args.offscreen:
+            frontends.append((str(args.offscreen.resolve()), True))
+        scenarios = [
+            (None, "offscreen", "valid"),
+            ("1", "offscreen", "valid"),
+            ("0", "offscreen", "valid"),
+            ("1", "cocoa", "valid"),
+            ("1", "offscreen", "bad-policy"),
+        ]
+        for binary, offscreen in frontends:
+            for flag, platform, mode in scenarios:
+                env = dict(os.environ)
+                env.pop("ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC", None)
+                env.pop("VSCODE_CODE_CACHE_PATH", None)
+                env["ELYTRA_CODE_OSS_LOCAL_DESKTOP"] = "1"
+                env["ELECTRON_RUN_AS_NODE"] = "1"
+                env["QT_QPA_PLATFORM"] = platform
+                if flag is not None:
+                    env["ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC"] = flag
+                expected = (
+                    "preserve"
+                    if flag is None
+                    else "omit"
+                    if offscreen and flag == "1" and platform == "offscreen" and mode == "valid"
+                    else "reject"
+                )
+                result = subprocess.run(
+                    [binary, str(work / "offscreen.mjs"), mode, expected],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                assert (
+                    result.returncode == 0
+                    and not result.stderr
+                    and result.stdout.strip() == "PASS test-only offscreen first-mouse policy"
+                ), result
+        print(
+            "PASS genuine Node/Mite first-mouse preservation and explicit diagnostic refusal"
+            + (
+                " plus exact offscreen omission"
+                if args.offscreen
+                else "; exact offscreen positive pending"
+            ),
             flush=True,
         )
 

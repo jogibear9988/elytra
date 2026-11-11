@@ -646,3 +646,29 @@ permits local utility startup without claiming utility HTTP authentication
 forwarding, authenticated remote/proxy workflows or full editor acceptance. The
 general Firefly option remains unsupported. Upstream source bytes outside the
 exact import/configuration seam are preserved and reversible.
+
+## Test-only offscreen renderer diagnostics on macOS
+
+To diagnose the real renderer without repeatedly focusing a desktop window, build
+`firefly-view-offscreen`. It links the same application objects with Qt's existing
+static offscreen platform plugin. In this explicitly selected experiment, the
+source adapter omits only the optional first-mouse preference. Native production
+input guards remain unchanged; this mode cannot certify a usable desktop editor.
+
+```sh
+cmake --build build/renderer --target firefly-view-offscreen
+ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC=1 \
+QT_QPA_PLATFORM=offscreen VSCODE_DEV=1 \
+build/renderer/bin/firefly-view-offscreen --electron-compat \
+  build/code-oss-window-cache-final/src/main.js \
+  --user-data-dir /tmp/your-owned-code-profile --disable-crash-reporter
+```
+
+Use a private prepared profile with native title-bar and disabled TouchBar settings.
+The helper requires the exact diagnostic executable basename, explicit flag and
+platform, and verified local engine/cache policy. Invalid combinations fail. The
+immutable `_vscodeLibJSOffscreenDiagnosticStatus` says `desktopAccepted:false` and
+names the omitted input policy. Normal Node/Electron and production Mite preserve
+the original preference. Native handles, first-click behavior and actual desktop
+presentation still require a later Cocoa acceptance run. Linux production keeps
+its existing Xvfb/X11 requirement.

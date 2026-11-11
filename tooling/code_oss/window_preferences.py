@@ -60,7 +60,7 @@ def revert_window_preferences(data):
 PASTE_SOURCE = "window-defaults-main.ts"
 PASTE_SHA256 = "087b784eec1f1f565e7eed9cd8b315102a9900888df28c79dc1cd30bde8c36e0"
 PASTE_IMPORT = "import electron, { Display, Rectangle } from 'electron';"
-PASTE_ADDED_IMPORT = "\nimport { libJSWindowPastePreferences } from '../../../base/common/elytraWindowPreferences.js';"
+PASTE_ADDED_IMPORT = "\nimport { libJSWindowPastePreferences, libJSFirstMousePreferences } from '../../../base/common/elytraWindowPreferences.js';"
 PASTE_PREFERENCE = "enableDeprecatedPaste: true"
 PASTE_REPLACEMENT = "...libJSWindowPastePreferences(true)"
 
@@ -69,12 +69,14 @@ def adapt_paste_preferences(data):
     if hashlib.sha256(data).hexdigest() != PASTE_SHA256:
         raise ValueError("Code-OSS default preferences differ from pinned input")
     source = data.decode("utf-8")
-    for seam in (PASTE_IMPORT, PASTE_PREFERENCE):
+    for seam in (PASTE_IMPORT, PASTE_PREFERENCE, FIRST_MOUSE_TRUE, FIRST_MOUSE_FALSE):
         if source.count(seam) != 1:
             raise ValueError(f"Unexpected Code-OSS paste preference seam: {seam}")
     return (
         source.replace(PASTE_IMPORT, PASTE_IMPORT + PASTE_ADDED_IMPORT)
         .replace(PASTE_PREFERENCE, PASTE_REPLACEMENT)
+        .replace(FIRST_MOUSE_TRUE, FIRST_MOUSE_TRUE_REPLACEMENT)
+        .replace(FIRST_MOUSE_FALSE, FIRST_MOUSE_FALSE_REPLACEMENT)
         .encode()
     )
 
@@ -86,8 +88,16 @@ def revert_paste_preferences(data):
     original = (
         source.replace(PASTE_IMPORT + PASTE_ADDED_IMPORT, PASTE_IMPORT)
         .replace(PASTE_REPLACEMENT, PASTE_PREFERENCE)
+        .replace(FIRST_MOUSE_TRUE_REPLACEMENT, FIRST_MOUSE_TRUE)
+        .replace(FIRST_MOUSE_FALSE_REPLACEMENT, FIRST_MOUSE_FALSE)
         .encode()
     )
     if adapt_paste_preferences(original) != data:
         raise ValueError("Adapted Code-OSS paste preferences drifted")
     return original
+
+
+FIRST_MOUSE_TRUE = "options.acceptFirstMouse = true;"
+FIRST_MOUSE_FALSE = "options.acceptFirstMouse = false;"
+FIRST_MOUSE_TRUE_REPLACEMENT = "Object.assign(options, libJSFirstMousePreferences(true));"
+FIRST_MOUSE_FALSE_REPLACEMENT = "Object.assign(options, libJSFirstMousePreferences(false));"

@@ -13103,6 +13103,25 @@ for this fixture repair. Subsequent workflow gates were read for another obvious
 Cocoa-only theme dependency; none was found. Fresh hosted Linux execution remains
 required; no Linux native-theme support is advertised.
 
+## 2026-11-11 — Keep renderer diagnostics off the user's desktop
+
+Add an explicit test-only local Code-OSS offscreen option using the existing real
+application/static-QOffscreenIntegrationPlugin frontend. Exact diagnostic executable
+basename, QT_QPA_PLATFORM=offscreen, flag1 and verified local engine/cache policy are
+required. Only optional acceptFirstMouse is omitted; native production guards and
+Node/Electron/normal-Mite preferences remain unchanged. Immutable status explicitly
+sets desktopAccepted:false. This is no substitute for Cocoa editor acceptance.
+
+Focused exact-source/reversal/drift and existing18Node/Mite preference checks pass,
+plus production preservation, malformed/mismatched diagnostic rejection and genuine
+firefly-view-offscreen standalone-role checks. Refresh the same12,344file stage
+with existing native dependency adapters and real assets
+(codeoss-offscreen-stage-refresh.log); leave Finder metadata/dependencies untouched.
+Actual offscreen Code-OSS enters its renderer and reproduces the module-import
+failure without a desktop window (codeoss-offscreen-module-start.log). The owned
+failed process47077/helper47081 was verified and stopped. Later debugging can use
+this component mode until a substantive renderer milestone warrants Cocoa UI.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

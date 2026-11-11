@@ -8,6 +8,7 @@ type Diagnostic = {
 type Host = {
   versions: Record<string, string | undefined>;
   env: Record<string, string | undefined>;
+  execPath: string;
   _vscodeLibJSLocalDesktopStatus?: {
     enabled?: boolean;
     scope?: string;
@@ -15,6 +16,12 @@ type Host = {
   };
   _vscodeLibJSEngineStatus?: { engine?: string; scope?: string };
   _vscodeLibJSWindowPreferencesStatus?: Diagnostic;
+  _vscodeLibJSOffscreenDiagnosticStatus?: {
+    scope: string;
+    desktopAccepted: boolean;
+    omittedInputPolicy: string;
+    reason: string;
+  };
   _vscodeLibJSTouchBarStatus?: {
     engine: string;
     scope: string;
@@ -31,6 +38,7 @@ const host = process as typeof process & Host;
 let published: Diagnostic | undefined;
 let pastePublished: Host['_vscodeLibJSLegacyPasteStatus'];
 let touchBarPublished: Host['_vscodeLibJSTouchBarStatus'];
+let offscreenPublished: Host['_vscodeLibJSOffscreenDiagnosticStatus'];
 
 function refuse(): never {
   throw Object.assign(new Error('Code-OSS cannot apply this V8 window cache policy on LibJS'), {
@@ -195,4 +203,50 @@ export function assertLibJSTouchBarSupported(): void {
   throw Object.assign(new Error('TouchBar is disabled in the Code-OSS local desktop experiment'), {
     code: 'ERR_CODE_OSS_LIBJS_TOUCHBAR_UNAVAILABLE'
   });
+}
+
+/** Test-only omission for the exact offscreen frontend; production input policy stays intact. */
+export function libJSFirstMousePreferences(value: boolean): { acceptFirstMouse: boolean } | {} {
+  if (typeof host.versions.node === 'string' || typeof host.versions.electron === 'string') {
+    return { acceptFirstMouse: value };
+  }
+  const diagnostic = host.env.ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC;
+  if (diagnostic === undefined) {
+    return { acceptFirstMouse: value };
+  }
+  if (
+    diagnostic !== '1' ||
+    host.env.QT_QPA_PLATFORM !== 'offscreen' ||
+    host.execPath.split(/[\\/]/).pop() !== 'firefly-view-offscreen' ||
+    typeof value !== 'boolean' ||
+    !verifiedLocalWindowAdaptation()
+  ) {
+    throw Object.assign(
+      new Error('Code-OSS offscreen diagnostic requires the verified test-only frontend'),
+      {
+        code: 'ERR_CODE_OSS_LIBJS_OFFSCREEN_DIAGNOSTIC'
+      }
+    );
+  }
+  if (!offscreenPublished) {
+    if (Object.hasOwn(host, '_vscodeLibJSOffscreenDiagnosticStatus')) {
+      throw Object.assign(new Error('Conflicting Code-OSS offscreen diagnostic status'), {
+        code: 'ERR_CODE_OSS_LIBJS_OFFSCREEN_DIAGNOSTIC'
+      });
+    }
+    offscreenPublished = Object.freeze({
+      scope: 'code-oss-test-only-offscreen-diagnostic',
+      desktopAccepted: false,
+      omittedInputPolicy: 'acceptFirstMouse',
+      reason:
+        'The offscreen diagnostic has no native desktop first-mouse input; production input policy remains unchanged'
+    });
+    Object.defineProperty(host, '_vscodeLibJSOffscreenDiagnosticStatus', {
+      value: offscreenPublished,
+      enumerable: false,
+      writable: false,
+      configurable: false
+    });
+  }
+  return {};
 }
