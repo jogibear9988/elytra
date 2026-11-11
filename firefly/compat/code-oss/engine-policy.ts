@@ -20,6 +20,8 @@ const unsupportedSwitches = Object.freeze([
   'enable-blink-features',
   'disable-blink-features',
   'js-flags',
+  'inspect-sharedprocess',
+  'inspect-brk-sharedprocess',
   'xdg-portal-required-version',
   'max-active-webgl-contexts',
   'disable-hardware-acceleration',

@@ -50,6 +50,7 @@ def main():
             DISABLED_UPDATER_SOURCE,
             "window-defaults-main.ts",
             "utility-process-main.ts",
+            "shared-process-main.ts",
             "LICENSE.txt",
         ):
             data = (PINNED / name).read_bytes()

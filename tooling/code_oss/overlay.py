@@ -7,7 +7,13 @@ import json
 from pathlib import Path
 
 if __package__:
-    from . import window_preferences, css_development, disabled_updater, utility_auth
+    from . import (
+        window_preferences,
+        css_development,
+        disabled_updater,
+        utility_auth,
+        shared_process_debug,
+    )
     from .engine import adapt_engine
     from .local_desktop import adapt_local, PATHS, OWNED, HELPER
 else:
@@ -15,6 +21,7 @@ else:
     import css_development
     import disabled_updater
     import utility_auth
+    import shared_process_debug
     from engine import adapt_engine
     from local_desktop import adapt_local, PATHS, OWNED, HELPER
 
@@ -92,6 +99,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
                 css_development.SOURCE,
                 disabled_updater.SOURCE,
                 utility_auth.SOURCE,
+                shared_process_debug.SOURCE,
             ]
             if local_desktop
             else []
@@ -120,6 +128,8 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
             patched = window_preferences.adapt_paste_preferences(original)
         elif name == utility_auth.SOURCE:
             patched = utility_auth.adapt_utility_auth(original)
+        elif name == shared_process_debug.SOURCE:
+            patched = shared_process_debug.adapt_shared_process_debug(original)
         elif name == css_development.SOURCE:
             patched = css_development.adapt_css_development(original)
         elif name == disabled_updater.SOURCE:
@@ -143,6 +153,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         (local_desktop, window_preferences.HELPER_SOURCE, window_preferences.HELPER_TARGET),
         (local_desktop, css_development.HELPER_SOURCE, css_development.HELPER_TARGET),
         (local_desktop, utility_auth.HELPER_SOURCE, utility_auth.HELPER_TARGET),
+        (local_desktop, shared_process_debug.HELPER_SOURCE, shared_process_debug.HELPER_TARGET),
     ):
         if enabled:
             helper = (ROOT / owned).read_bytes()
@@ -175,7 +186,7 @@ def prepare(source, output, *, libjs_cache=False, libjs_engine=False, local_desk
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding with immutable unavailable status; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process inspector with immutable unavailable status; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():

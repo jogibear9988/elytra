@@ -13412,6 +13412,29 @@ the genuine document-bound renderer leg and an explicitly disclosed pinned local
 adaptation for that implicit inspector. Explicit user debug requests must still
 fail. SharedProcess service/editor/window-ready/open-edit-save remain unaccepted.
 
+## 2026-11-11 — Disclose the implicit SharedProcess inspector omission
+
+The pinned development parser synthesizes port 5879 without a user debug request,
+which makes SharedProcess add --nolazy, --experimental-network-inspection and
+--inspect=5879. The native utility correctly refuses these unimplemented flags.
+Add an exact reversible source adaptation only for verified local LibJS/no-cache
+execution: omit that exact implicit development result and publish immutable
+process._vscodeLibJSSharedProcessDebugStatus with available:false and the omitted
+flags/reason. Built no-debug and ordinary Node/Electron preserve original results.
+Explicit inspector arguments, including empty values, fail in the helper and the
+early native-switch engine guard. No general utility flag acceptance is added.
+
+Pin the complete official shared-process-main.ts input and preserve its license.
+Focused source reversal/drift, ten Node/Mite helper scenarios and the existing
+local/engine negative cases pass. Refresh the same stage with all three native
+package adapters, NLS and renderer assets: 12,345 real source files and 26 owned
+overlay files verified (codeoss-shared-inspector-refresh.log), no copied dependencies
+or Finder metadata removal. Actual offscreen entry now forks shared-process PID
+68220 and file-watcher PID68221 without the earlier engine-flag refusal
+(codeoss-shared-inspector-start.log). It still rejects renderer port delivery;
+SharedProcess service readiness and the editor remain unaccepted. No broad suite
+or visible GUI test is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

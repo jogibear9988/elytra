@@ -179,6 +179,8 @@ for(const name of ['main','engine-policy']) fs.writeFileSync(`${directory}/${nam
         )
 
         negatives = [
+            {"cli": {"sandbox": True}, "config": {}, "native": {"inspect-sharedprocess": ""}},
+            {"cli": {"sandbox": True}, "config": {}, "native": {"inspect-brk-sharedprocess": ""}},
             {"cli": {"sandbox": False}, "config": {}},
             {"cli": {"sandbox": True}, "config": {"disable-chromium-sandbox": True}},
             {"cli": {"sandbox": True, "js-flags": "--expose-gc"}, "config": {}},
@@ -200,7 +202,7 @@ for(const name of ['main','engine-policy']) fs.writeFileSync(`${directory}/${nam
                 and "status" not in result
             ), result
         print(
-            "PASS exact reversible Code-OSS engine seams/input/license preservation; unchanged Node tuning; actual Mite defaults and 8 rejected user/sandbox requests before mutations"
+            "PASS exact reversible Code-OSS engine seams/input/license preservation; unchanged Node tuning; actual Mite defaults and 10 rejected user/sandbox requests before mutations"
         )
 
 

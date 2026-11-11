@@ -294,6 +294,10 @@
     "utility-process-main.ts": {
       "upstream": "src/vs/platform/utilityProcess/electron-main/utilityProcess.ts",
       "sha256": "991465758e745c162bb97506fdbc2227b38d40704042367cde4c9fa38a14aea8"
+    },
+    "shared-process-main.ts": {
+      "upstream": "src/vs/platform/sharedProcess/electron-main/sharedProcess.ts",
+      "sha256": "ef759e2e771b0a6e16be5dc579a56200fe131b6ae9a5763d6d42259036068bd7"
     }
   }
 }

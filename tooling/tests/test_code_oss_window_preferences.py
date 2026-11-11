@@ -160,6 +160,7 @@ def main():
             SOURCE,
             PASTE_SOURCE,
             "utility-process-main.ts",
+            "shared-process-main.ts",
             "css-development-service.ts",
             "darwin-update-service.ts",
             "mainImpl.ts",
