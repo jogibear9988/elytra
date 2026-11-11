@@ -13505,7 +13505,9 @@ than synchronously requiring ESM. Its exact storage leaf uses real node:fs/promi
 read/write/access and mkdir(recursive), avoiding fs-extra's unsupported legacy
 constants dependency. Existing stored IDs, paths and error handling remain; no fake
 identity or replacement entropy is used. Node/Electron keep original paths.
-Pin both edited inputs, package, index and license; package provenance and refresh
+Pin both edited inputs, package, index and license; preserve the upstream raw
+CRLF bytes through checkout attributes rather than reformatting pinned inputs.
+Package provenance and refresh
 validation cover both changed outputs while preserving prior one-file adapters.
 
 Focused actual Node/Mite generation and persisted readback pass in isolated fresh

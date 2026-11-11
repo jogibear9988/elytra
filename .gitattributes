@@ -15,3 +15,6 @@
 /vendor/policy-watcher/** text eol=lf
 # Preserve the upstream license verbatim, including its space-before-tab line.
 /vendor/node-url/LICENSE -whitespace
+
+# npm deviceid includes CRLF files; preserve exact upstream integrity/license bytes.
+/vendor/deviceid/** -text -whitespace
