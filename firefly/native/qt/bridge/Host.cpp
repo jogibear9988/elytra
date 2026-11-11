@@ -2,6 +2,7 @@
 #include "../../protocol/routes/Host.h"
 #include "../../clipboard/ClipboardHost.h"
 #include "../../crash/Host.h"
+#include "../../ipc/application/Fragment.h"
 #include "../../menu/Host.h"
 #include "../../platform/DesktopServices.h"
 #include "../../protocol/RegistrationHost.h"
@@ -192,12 +193,12 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_handler(JS::VM& v
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_ipc(JS::VM& vm)
 {
-    auto graph = BridgeData::capture_ipc(vm.argument(0), realm, public_binary_limits());
+    auto graph = BridgeData::capture_ipc(vm.argument(0), realm, application_ipc_limits());
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION",
             "IPC accepts bounded data and binary copies only"sv);
-    auto encoded = graph.value().encode_wire(public_binary_limits());
-    if (encoded.is_error() || encoded.value().length() > ApplicationIpc::wire_limit)
+    auto encoded = graph.value().encode_wire(application_ipc_limits());
+    if (encoded.is_error() || encoded.value().length() > ApplicationIpc::logical_wire_limit)
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "IPC data budget exceeded"sv);
     return wire_value(realm, encoded.value());
 }
@@ -207,7 +208,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_decode_ipc(JS::VM& vm
     auto wire = wire_bytes(vm.argument(0), realm);
     if (wire.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire bytes"sv);
-    auto graph = BridgeData::decode_wire(wire.value().view(), public_binary_limits());
+    auto graph = BridgeData::decode_wire(wire.value().view(), application_ipc_limits());
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC wire graph"sv);
     return graph.value().materialize(realm, {}, BridgeData::Materialization::Mutable);

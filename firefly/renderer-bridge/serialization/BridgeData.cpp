@@ -56,6 +56,7 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
     size_t properties = 0;
     size_t units = 0;
     size_t binary_bytes = 0;
+    size_t array_elements = 0;
     auto charge_string = [&](size_t length) -> ErrorOr<void> {
         if (length > limits.string_code_units - units)
             return Error::from_string_literal("Bridge string budget exceeded");
@@ -205,6 +206,10 @@ ErrorOr<BridgeData> BridgeData::capture_impl(JS::Value value, JS::Realm& source,
                     || length.value()->value->as_double() > limits.array_length)
                     return Error::from_string_literal("Bridge array length budget exceeded");
                 node.length = static_cast<size_t>(length.value()->value->as_double());
+                if (node.length > limits.total_array_length - array_elements)
+                    return Error::from_string_literal(
+                        "Bridge cumulative array length budget exceeded");
+                array_elements += node.length;
             }
         } else {
             return Error::from_string_literal("Unsupported bridge data type");

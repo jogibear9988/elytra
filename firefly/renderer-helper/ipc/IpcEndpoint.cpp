@@ -30,7 +30,7 @@ void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
 }
 
 namespace {
-    constexpr size_t wire_limit = ApplicationIpc::wire_limit;
+    constexpr size_t wire_limit = ApplicationIpc::logical_wire_limit;
     size_t pending_count;
 
     GC::Ref<JS::Error> ipc_error(JS::Realm& realm, Utf16View message, Utf16View code)
@@ -67,13 +67,15 @@ IpcEndpoint::~IpcEndpoint()
 
 void IpcEndpoint::revoke()
 {
+    // Revoke before closing: a synchronous close callback must not settle work
+    // or reenter a world while its document is being detached.
+    m_byte_failed = true;
     if (m_byte_channel) {
         m_byte_channel->close();
         m_byte_channel = nullptr;
     }
 
-    m_byte_failed = true;
-    m_byte_queue.clear();
+    clear_packets();
     pending_count -= m_pending.size();
     m_pending.clear();
     m_listeners.clear();
@@ -153,11 +155,11 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
     GC::Root args { TRY(JS::Array::create(realm, vm.argument_count())) };
     for (size_t i = 0; i < vm.argument_count(); ++i)
         args->define_direct_property(i, vm.argument(i), JS::default_attributes);
-    auto captured = BridgeData::capture_ipc(JS::Value(args.ptr()), realm, public_binary_limits());
+    auto captured = BridgeData::capture_ipc(JS::Value(args.ptr()), realm, application_ipc_limits());
     if (captured.is_error())
         return reject(
             u"IPC arguments are not supported data"sv, u"ERR_FIREFLY_IPC_SERIALIZATION"sv);
-    auto encoded = captured.value().encode_wire(public_binary_limits());
+    auto encoded = captured.value().encode_wire(application_ipc_limits());
     if (encoded.is_error() || encoded.value().length() > wire_limit)
         return reject(u"IPC data budget exceeded"sv, u"ERR_FIREFLY_IPC_SERIALIZATION"sv);
     auto* navigable = m_document->navigable().ptr();
@@ -185,18 +187,20 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
     return capability->promise();
 }
 
-void IpcEndpoint::settle(u32 id, bool success, ByteString const& wire)
+void IpcEndpoint::settle(
+    u32 id, bool success, ByteString const& wire, RefPtr<IpcWireReservation> reservation)
 {
     auto found = m_pending.find(id);
     if (found == m_pending.end() || found->value.settling)
         return;
     if (m_owner && m_owner->is_executing()) {
         found->value.settling = true;
-        Core::deferred_invoke([self = NonnullRefPtr { *this }, id, success, wire] {
-            if (auto found = self->m_pending.find(id); found != self->m_pending.end())
-                found->value.settling = false;
-            self->settle(id, success, wire);
-        });
+        Core::deferred_invoke(
+            [self = NonnullRefPtr { *this }, id, success, wire, reservation = move(reservation)] {
+                if (auto found = self->m_pending.find(id); found != self->m_pending.end())
+                    found->value.settling = false;
+                self->settle(id, success, wire, reservation);
+            });
         return;
     }
 
@@ -224,7 +228,7 @@ void IpcEndpoint::settle(u32 id, bool success, ByteString const& wire)
         auto decoded = m_byte_failed
             ? ErrorOr<BridgeData> { BridgeData::from_string(u"IPC document channel closed"sv) }
             : wire.length() <= wire_limit
-            ? BridgeData::decode_wire(wire.view(), public_binary_limits())
+            ? BridgeData::decode_wire(wire.view(), application_ipc_limits())
             : ErrorOr<BridgeData> { Error::from_string_literal("IPC reply too large") };
         JS::Value value;
         if (decoded.is_error()) {
@@ -250,8 +254,12 @@ void IpcEndpoint::settle(u32 id, bool success, ByteString const& wire)
 
 void IpcEndpoint::expire()
 {
-    Vector<u32> expired;
     auto now = MonotonicTime::now();
+    if (m_fragment_deadline.has_value() && *m_fragment_deadline <= now) {
+        retire_channel();
+        return;
+    }
+    Vector<u32> expired;
     for (auto const& entry : m_pending)
         if (entry.value.deadline <= now)
             expired.append(entry.key);

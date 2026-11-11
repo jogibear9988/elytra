@@ -122,7 +122,7 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::invoke(JS::VM& vm)
         && !JS::host_class_of(value.as_object())
         && &value.as_object().shape().realm() == source.ptr())
         return observe(static_cast<JS::Promise&>(value.as_object()), *target);
-    auto snapshot = BridgeData::capture(value, *source, public_binary_limits());
+    auto snapshot = BridgeData::capture(value, *source, context_bridge_limits());
     if (snapshot.is_error())
         return error();
     auto answer
@@ -183,7 +183,7 @@ JS::ThrowCompletionOr<JS::Value> CallbackEndpoint::settle(u64 id, bool fulfilled
     }
 
     auto& source = m_registry->document->window()->principal_realm();
-    auto data = BridgeData::capture(value, source, public_binary_limits());
+    auto data = BridgeData::capture(value, source, context_bridge_limits());
     if (data.is_error()) {
         Boundary::reject(*record.capability, *record.target);
         return JS::js_undefined();

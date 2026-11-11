@@ -61,7 +61,8 @@ namespace WebView {
 class WebContentPage;
 }
 
-#include "native/ipc/application/Message.h"
+#include "native/ipc/application/Fragment.h"
+#include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/preload/ProcessConfig.h"
 
@@ -167,6 +168,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
             bool payload { false };
             bool history { false };
             ByteString wire {};
+            RefPtr<IpcWireReservation> reservation {};
             ByteString url {};
             MonotonicTime deadline {};
         };
@@ -176,7 +178,21 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         RefPtr<Bytes::Channel> ipc_byte_channel {};
         u64 ipc_byte_epoch { 0 };
         bool ipc_byte_ready { false };
-        Vector<ByteString> ipc_byte_queue {};
+
+        struct OutgoingPacket {
+            ApplicationIpc::Kind kind;
+            u32 request;
+            bool success;
+            ByteString wire;
+            size_t offset;
+            RefPtr<IpcWireReservation> reservation {};
+        };
+
+        Vector<OutgoingPacket> ipc_byte_queue {};
+        NonnullRefPtr<IpcWireBudget> ipc_wire_budget { adopt_ref(*new IpcWireBudget) };
+        ApplicationIpc::FragmentReassembler ipc_reassembler;
+        RefPtr<IpcWireReservation> ipc_receive_reservation;
+        Optional<MonotonicTime> ipc_fragment_deadline;
         Vector<RefPtr<Bytes::Channel>> ipc_admission_probes {};
         Optional<MonotonicTime> ipc_byte_deadline {};
         std::unordered_set<u32> ipc_pending {};
@@ -323,7 +339,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     void ready_ipc_packet(int, u32 request);
 
     void dispatch_ipc_packet(int, ByteString document, ByteString realm_id, u32 request, bool event,
-        ByteString wire, ByteString url);
+        ByteString wire, ByteString url, RefPtr<IpcWireReservation>);
 
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 

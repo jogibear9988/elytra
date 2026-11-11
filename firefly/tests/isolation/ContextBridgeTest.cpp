@@ -82,7 +82,7 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
           {good:()=>1,bad:new Proxy(()=>1,{get(){apiTraps++;throw 1}})},
           {bad:(()=>1).bind(null)}, {bad:Object.create({})}, {bad:Symbol()}, {bad:1n}, {bad:Promise.resolve(1)},
           Object.fromEntries(Array.from({length:65},(_,i)=>['f'+i,()=>i])),
-          {good:()=>1,bad:new Array(4097)}
+          {good:()=>1,bad:new Array(65537)}
         ];
         for(const api of failures){let rejected=false;try{contextBridge.exposeInMainWorld('__ffFailedApi',api)}catch(e){rejected=e instanceof TypeError}if(!rejected)throw Error('Unsafe API accepted');}
         let duplicate=false;try{contextBridge.exposeInMainWorld('__ffContextApi',{n:1})}catch(e){duplicate=e instanceof TypeError}
@@ -170,5 +170,73 @@ ErrorOr<void> check_context_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv));
     outln("PASS atomic nested context APIs: frozen copies/cycles/function aliases, "
           "traps/rollback/budgets and detach revocation");
+    return {};
+}
+
+ErrorOr<void> check_large_context_bridge(
+    JS::VM& vm, Firefly::IsolatedWorld& source, Web::DOM::Document& document)
+{
+    auto owner = TRY(Firefly::ContextBridge::create(source, document));
+    auto& target = document.window()->principal_realm();
+    source.realm()->global_object().define_direct_property(
+        "largeContextBridge"_utf16, owner->exports(), JS::default_attributes);
+    ScopeGuard cleanup([&] {
+        owner->revoke();
+        source.realm()->global_object().define_direct_property(
+            "largeContextBridge"_utf16, JS::js_undefined(), JS::default_attributes);
+    });
+    auto expected_value = source.evaluate(u"JSON.stringify(largeCatalog)"sv);
+    if (expected_value.is_error() || !expected_value.value().is_string())
+        return Error::from_string_literal("Large context source catalog is unavailable");
+    // Own the complete expected UTF-16 text independently of source GC cells.
+    auto expected = expected_value.value().as_string().utf16_string();
+    auto published = source.evaluate(uR"JS(
+        largeContextBridge.exposeInMainWorld('__ffLargeContextApi', {
+            async resolve(){return {nls:{messages:largeCatalog}}}
+        }); true;
+    )JS"sv);
+    if (published.is_error() || !published.value().is_boolean() || !published.value().as_bool())
+        return Error::from_string_literal("Large context API publication failed");
+    auto principal = [&](Utf16View code) -> JS::ThrowCompletionOr<JS::Value> {
+        auto parsed = JS::Script::parse(Utf16String::from_utf16(code), target);
+        if (parsed.is_error())
+            return JS::js_undefined();
+        GC::Root script { parsed.release_value() };
+        return vm.run(*script);
+    };
+    auto started = principal(uR"JS(
+        globalThis.largeContextState='pending';
+        __ffLargeContextApi.resolve().then(value=>{
+            globalThis.largeContextJSON=JSON.stringify(value.nls.messages);
+            globalThis.largeContextFrozen=Object.isFrozen(value)&&Object.isFrozen(value.nls)&&
+                Object.isFrozen(value.nls.messages);
+            globalThis.largeContextState='fulfilled';
+        },()=>{globalThis.largeContextState='rejected'});
+        true;
+    )JS"sv);
+    if (started.is_error() || !started.value().is_boolean() || !started.value().as_bool())
+        return Error::from_string_literal("Large context async call failed");
+    vm.heap().collect_garbage();
+    vm.save_execution_context_stack();
+    {
+        ScopeGuard restore([&] { vm.restore_execution_context_stack(); });
+        Web::HTML::main_thread_event_loop().perform_a_microtask_checkpoint();
+    }
+    vm.heap().collect_garbage();
+    auto copied = target.global_object().get_without_side_effects("largeContextJSON"_utf16);
+    auto frozen = target.global_object().get_without_side_effects("largeContextFrozen"_utf16);
+    auto state = target.global_object().get_without_side_effects("largeContextState"_utf16);
+    if (!copied.is_string() || copied.as_string().utf16_string() != expected || !frozen.is_boolean()
+        || !frozen.as_bool() || !state.is_string()
+        || state.as_string().utf16_string_view() != u"fulfilled"sv)
+        return Error::from_string_literal("Large context async catalog mismatch or rejection");
+    owner->revoke();
+    auto revoked = principal(uR"JS(
+        (()=>{try{__ffLargeContextApi.resolve();return false}catch(e){return e instanceof TypeError}})()
+    )JS"sv);
+    if (revoked.is_error() || !revoked.value().is_boolean() || !revoked.value().as_bool())
+        return Error::from_string_literal("Large context API did not revoke");
+    outln("PASS actual large catalog contextBridge async return: complete UTF-16 equality, "
+          "frozen containers, GC and revocation");
     return {};
 }

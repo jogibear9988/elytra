@@ -239,8 +239,9 @@ See [ADR 0140](../architecture/0140-context-bridge-binary-copies.md).
 
 This realm boundary now connects to the bounded [native binary IPC subset](ipc.md#data-and-resource-limits):
 ipcRenderer.invoke/send and webContents.send copy the supported buffers/views over
-the document-bound raw byte channel. The same 64 KiB distinct backing-store budget
-applies at each crossing. MessagePorts, large-file streaming, shared memory and
+the document-bound raw byte channel. The IPC hop permits 1 MiB of backing storage; the contextBridge crossing still
+limits binary copies to 64 KiB. Larger IPC replies cannot be exposed directly
+through this realm boundary. MessagePorts, large-file streaming, shared memory and
 zero-copy remain unfinished.
 
 ## Files, budgets and errors
@@ -283,3 +284,12 @@ Registered native standard custom schemes with nonopaque document origins also
 admit configured top-level preloads. The actual Code-OSS vscode-file start now
 exposes window.vscode; its configuration IPC still blocks editor startup. This
 does not grant a scheme-wide preload or bypass native context/channel ownership.
+
+Cross-world data copies now use a separate source profile:65,536 values,
+131,072 properties,4Mi UTF-16 string/key units, depth64, array length65,536 and
+131,072 cumulative array lengths. This admits full application configuration,
+while the binary ceiling stays64KiB. It does not admit class prototypes, Proxies,
+native capabilities or arbitrary getters. Snapshot and destination allocation are
+synchronous; the application IPC wire queue's aggregate byte quota does not cover
+these copies. See [ADR0193](../architecture/0193-bounded-large-application-ipc.md)
+for scope and separately recorded acceptance.

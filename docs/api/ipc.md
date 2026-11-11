@@ -246,7 +246,7 @@ prototypes and inherited methods/getters do not cross. Cycles, aliases and binar
 fields use the same budgets. Own accessors, functions, proxies and native host
 objects remain rejected without invoking their hooks. This separate IPC policy
 does not relax contextBridge publication or page-call copying. The new instance
-case has compile validation; its native roundtrip acceptance is pending. Utility
+case passes a focused native roundtrip; full application acceptance remains separate. Utility
 process messaging retains its existing narrower capture policy.
 
 With `FIREFLY_IPC_BYTES_DIAGNOSTIC=1`, main IPC failure diagnostics include only a
@@ -254,8 +254,8 @@ fixed failure stage and an allowlisted error code; channels, payloads, environme
 and exception messages are excluded. A window-configuration timeout can also
 follow a rejected configuration Promise; it does not alone prove pending IPC.
 
-The aggregate binary budget is **64 KiB of distinct complete backing stores per
-graph**, even when sending only a small view. Shared, detached, resizable and
+The aggregate binary budget is **1 MiB of distinct complete backing stores per
+application IPC graph**, even when sending only a small view. Shared, detached, resizable and
 out-of-bounds storage is refused. Functions, accessors, proxies, symbols, host/DOM
 objects, Date, Map/Set, File/Blob, transferable objects and other special classes
 remain unsupported. Data capture rejects getters/proxies without running their
@@ -279,13 +279,22 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | --- | --- |
 | Channel | String, at most 256 UTF-16 code units |
 | Arguments | At most 64 after the channel |
-| Graph | 4096 values, 4096 properties, depth 64, array length 4096 |
-| All graph strings/keys | 65536 UTF-16 code units |
-| Application frame / graph payload | 128 KiB including the 20-byte application header / at most 131052 bytes of encoded graph |
-| Distinct binary backing storage | 64 KiB per graph |
-| Native unsent frame queue | At most 48 per document/direction, in addition to the byte-channel credit of 16 |
+| Graph | 65536 values, 131072 properties, depth 64, array length 65536; cumulative array lengths 131072 |
+| All graph strings/keys | 4 Mi UTF-16 code units |
+| Physical application frame / logical graph | 128 KiB / 16 MiB; native fragmentation preserves request/document identity |
+| Distinct binary backing storage | 1 MiB per application IPC graph; contextBridge remains 64 KiB |
+| Native unsent logical queue | At most 48 per document/direction, refilled through 16 physical-frame credits |
+| Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
 | Pending invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
-| Request deadline | 30 seconds; intentionally bounded alpha policy |
+| Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
+
+These are the new source application-channel limits. ContextBridge uses its own
+capture-only graph profile and 64-KiB binary ceiling; utility messaging and
+main-only ports retain their separate contracts. Large logical messages use strict
+contiguous fragments and are delivered only when complete. Small FIM1 frames keep
+their format. See [ADR 0193](../architecture/0193-bounded-large-application-ipc.md).
+Fresh large-message component and actual application evidence are distinguished
+in PROGRESS.md; earlier small-message acceptance does not prove these new limits.
 
 Invalid arguments reject with `ERR_INVALID_ARG_TYPE`; unsupported graphs reject
 with `ERR_FIREFLY_IPC_SERIALIZATION`. Local request exhaustion rejects with

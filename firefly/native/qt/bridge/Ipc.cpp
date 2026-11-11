@@ -42,6 +42,9 @@ void Bridge::Impl::reset_ipc(int id)
         probe->close();
     window.ipc_admission_probes.clear();
     window.ipc_byte_queue.clear();
+    window.ipc_reassembler.reset();
+    window.ipc_receive_reservation = nullptr;
+    window.ipc_fragment_deadline.clear();
     window.ipc_byte_epoch = 0;
     window.ipc_byte_ready = false;
     window.ipc_byte_deadline.clear();
@@ -168,13 +171,36 @@ void Bridge::Impl::receive_ipc(WebView::WebContentPage& page, Web::HTML::CrossPr
 void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
 {
     auto& window = windows.at(id);
-    auto decoded = ApplicationIpc::decode_message(bytes);
-    if (decoded.is_error() || decoded.value().epoch != epoch) {
+    auto required = ApplicationIpc::FragmentReassembler::required_bytes(bytes, epoch);
+    if (required.is_error()) {
         retire_ipc_channel(id);
         return;
     }
 
-    auto const& packet = decoded.value();
+    if (!window.ipc_reassembler.active()) {
+        window.ipc_receive_reservation = window.ipc_wire_budget->reserve(required.value());
+        if (!window.ipc_receive_reservation) {
+            retire_ipc_channel(id);
+            return;
+        }
+    }
+
+    auto decoded = window.ipc_reassembler.accept(bytes, epoch);
+    if (decoded.is_error()) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    if (!decoded.value().has_value()) {
+        // A slow peer cannot refresh this fixed first-fragment deadline.
+        if (!window.ipc_fragment_deadline.has_value())
+            window.ipc_fragment_deadline = MonotonicTime::now() + AK::Duration::from_seconds(30);
+        return;
+    }
+
+    window.ipc_fragment_deadline.clear();
+    auto reservation = move(window.ipc_receive_reservation);
+    auto packet = decoded.release_value().release_value();
     if (packet.kind == ApplicationIpc::Kind::Ack) {
         if (window.ipc_outgoing.erase(packet.request))
             --ipc_outgoing_count;
@@ -188,9 +214,8 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     }
 
     window.ipc_last = packet.request;
-    auto wire = ByteString(
-        StringView(reinterpret_cast<char const*>(packet.payload.data()), packet.payload.size()));
-    if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error()) {
+    auto wire = move(packet.payload);
+    if (BridgeData::decode_wire(wire.view(), application_ipc_limits()).is_error()) {
         retire_ipc_channel(id);
         return;
     }
@@ -201,6 +226,7 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     auto& pending = window.ipc_packets.at(packet.request);
     pending.payload = true;
     pending.wire = move(wire);
+    pending.reservation = move(reservation);
     ready_ipc_packet(id, packet.request);
 }
 
@@ -256,20 +282,23 @@ void Bridge::Impl::ready_ipc_packet(int id, u32 request)
     window.ipc_packets.erase(found);
     QTimer::singleShot(0, context.get(),
         [this, id, doc = window.ipc_document, realm_id = window.ipc_realm, request,
-            event = packet.event, wire = move(packet.wire), url = move(packet.url)] {
-            dispatch_ipc_packet(id, doc, realm_id, request, event, wire, url);
+            event = packet.event, wire = move(packet.wire), url = move(packet.url),
+            reservation = move(packet.reservation)] {
+            dispatch_ipc_packet(id, doc, realm_id, request, event, wire, url, reservation);
         });
 }
 
 void Bridge::Impl::dispatch_ipc_packet(int id, ByteString document, ByteString realm_id,
-    u32 request, bool event, ByteString wire, ByteString url)
+    u32 request, bool event, ByteString wire, ByteString url,
+    RefPtr<IpcWireReservation> reservation)
 {
     if (stopping || !ipc_current(id, document, realm_id) || !handler)
         return;
     if (jobs.is_busy()) {
         QTimer::singleShot(1, context.get(),
-            [this, id, document, realm_id, request, event, wire = move(wire), url = move(url)] {
-                dispatch_ipc_packet(id, document, realm_id, request, event, wire, url);
+            [this, id, document, realm_id, request, event, wire = move(wire), url = move(url),
+                reservation = move(reservation)] {
+                dispatch_ipc_packet(id, document, realm_id, request, event, wire, url, reservation);
             });
         return;
     }

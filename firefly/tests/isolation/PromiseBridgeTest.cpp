@@ -36,7 +36,7 @@ ErrorOr<void> check_promise_bridge(JS::VM& vm, Web::DOM::Document& document)
             if(mode==='pending')return new Promise(resolve=>resolvers.push(resolve));
             if(mode==='reject')return Promise.reject(new Proxy({}, {get(){promiseTraps++;throw 1}}));
             if(mode==='bad')return Promise.resolve(()=>1);
-            if(mode==='big')return Promise.resolve(new Array(4097));
+            if(mode==='big')return Promise.resolve(new Array(65537));
             if(mode==='thenable')return {get then(){promiseTraps++;throw 1}};
             const p=Promise.resolve({n:42,nested:[true]});
             Object.defineProperty(p,'then',{get(){promiseTraps++;throw 1}});

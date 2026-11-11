@@ -25,7 +25,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::send_ipc_event(JS::VM& vm)
             "Event peer timed out; reload for a new document endpoint"sv);
     auto bytes = wire_bytes(vm.argument(1), realm);
     if (bytes.is_error()
-        || BridgeData::decode_wire(bytes.value().view(), public_binary_limits()).is_error())
+        || BridgeData::decode_wire(bytes.value().view(), application_ipc_limits()).is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC graph"sv);
     if (window->ipc_outgoing.size() >= 16 || ipc_outgoing_count >= 64
         || window->ipc_outgoing_next == 0xffffffffu)
@@ -51,6 +51,11 @@ void Bridge::Impl::expire_ipc_events()
         if (window.ipc_byte_deadline.has_value() && *window.ipc_byte_deadline <= now) {
             retire_ipc_channel(id);
             warnln("ERR_FIREFLY_IPC_BYTES: document channel handshake timed out");
+        }
+
+        if (window.ipc_fragment_deadline.has_value() && *window.ipc_fragment_deadline <= now) {
+            retire_ipc_channel(id);
+            warnln("ERR_FIREFLY_IPC_BYTES: incomplete logical message timed out");
         }
 
         Vector<u32> expired_halves;
@@ -87,9 +92,7 @@ void Bridge::Impl::expire_ipc_events()
         if (expired) {
             // Replenishing credit to a stalled peer would permit an unbounded
             // native transport queue. Retire this direction until document reload.
-            window.ipc_outgoing_failed = true;
-            ipc_outgoing_count -= window.ipc_outgoing.size();
-            window.ipc_outgoing.clear();
+            retire_ipc_channel(id);
             warnln("ERR_FIREFLY_IPC_SEND: main-to-renderer peer timed out; endpoint retired");
         }
     }

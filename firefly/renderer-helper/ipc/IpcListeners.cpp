@@ -91,15 +91,16 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::listen(JS::VM& vm, ListenerOperati
     return m_exports.ptr();
 }
 
-void IpcEndpoint::receive_event(u32 request, ByteString wire)
+void IpcEndpoint::receive_event(
+    u32 request, ByteString wire, RefPtr<IpcWireReservation> reservation)
 {
     if (m_owner && m_owner->is_executing()) {
         // Core can be pumped by native work while a source frame is active.
         // Keep only bounded native message data until entering a fresh world frame.
-        Core::deferred_invoke(
-            [self = NonnullRefPtr { *this }, request, wire = move(wire)]() mutable {
-                self->receive_event(request, move(wire));
-            });
+        Core::deferred_invoke([self = NonnullRefPtr { *this }, request, wire = move(wire),
+                                  reservation = move(reservation)]() mutable {
+            self->receive_event(request, move(wire), move(reservation));
+        });
         return;
     }
 
@@ -113,7 +114,7 @@ void IpcEndpoint::receive_event(u32 request, ByteString wire)
     auto result = owner->run_async_frame([&]() -> JS::ThrowCompletionOr<JS::Value> {
         auto& realm = *owner->realm();
         auto& vm = realm.vm();
-        auto decoded = BridgeData::decode_wire(wire.view(), public_binary_limits());
+        auto decoded = BridgeData::decode_wire(wire.view(), application_ipc_limits());
         if (decoded.is_error())
             return vm.throw_completion<JS::TypeError>("Invalid IPC event graph"_utf16);
         auto copied

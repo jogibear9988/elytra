@@ -46,7 +46,7 @@ ErrorOr<void> check_function_bridge(JS::VM& vm, Web::DOM::Document& document)
             if(arg?.mode==='throw') throw new Proxy({}, {get(){throwTraps++;throw 1}});
             if(arg?.mode==='function') return ()=>1;
             if(arg?.mode==='promise') return Promise.resolve(1);
-            if(arg?.mode==='big') return new Array(4097);
+            if(arg?.mode==='big') return new Array(65537);
             return {arg,other,alias:arg,ownThis:this===undefined,
                 safe:arg && Object.getPrototypeOf(arg)===Object.prototype && Object.isFrozen(arg)};
         };

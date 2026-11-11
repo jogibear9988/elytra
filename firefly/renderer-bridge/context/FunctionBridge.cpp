@@ -219,7 +219,7 @@ JS::ThrowCompletionOr<JS::Value> FunctionBridge::invoke(JS::VM& vm)
             for (auto& callback : created)
                 callbacks->discard(*callback);
     });
-    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, public_binary_limits(),
+    auto data = BridgeData::capture(JS::Value(array.ptr()), *target, context_bridge_limits(),
         [&](JS::FunctionObject& function) -> ErrorOr<size_t> {
             auto exported = TRY(callbacks->proxy(function));
             auto id = functions.size();

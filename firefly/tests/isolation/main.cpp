@@ -35,6 +35,7 @@
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Platform/FontPlugin.h>
+#include <cstring>
 
 static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16View source)
 {
@@ -45,7 +46,7 @@ static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16V
     return vm.run(*script);
 }
 
-ErrorOr<int> ladybird_main(Main::Arguments)
+ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
     TRY(check_preload_process_configuration());
     TRY(check_file_module_policy());
@@ -71,6 +72,12 @@ ErrorOr<int> ladybird_main(Main::Arguments)
     RefPtr<Firefly::IsolatedWorld> second = TRY(Firefly::IsolatedWorld::create(*window));
     if (first->realm() == second->realm() || first->realm() == &principal)
         return Error::from_string_literal("Worlds must own distinct realms");
+    if (arguments.argc == 3 && std::strcmp(arguments.argv[1], "--ipc-catalog") == 0) {
+        TRY(check_large_bridge_catalog(vm, *first->realm(), *second->realm(), arguments.argv[2]));
+        TRY(check_large_context_bridge(vm, *first, *document));
+        return 0;
+    }
+
     first->realm()->global_object().define_native_function(
         *first->realm(), "nativeProbe"_utf16,
         +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(42); }, 0,

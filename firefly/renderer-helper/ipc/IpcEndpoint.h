@@ -1,7 +1,9 @@
 /** Document-owned invoke/send capability with shared request/event budgets and explicit teardown.
  */
 #pragma once
+#include "native/ipc/application/Fragment.h"
 #include "native/ipc/application/Message.h"
+#include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
 #include "worlds/IsolatedWorld.h"
 #include <AK/HashMap.h>
@@ -44,13 +46,13 @@ private:
 
     JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&, bool event = false);
 
-    void settle(u32, bool, ByteString const&);
+    void settle(u32, bool, ByteString const&, RefPtr<IpcWireReservation> = {});
 
     enum class ListenerOperation { On, Once, Remove, RemoveAll };
 
     JS::ThrowCompletionOr<JS::Value> listen(JS::VM&, ListenerOperation);
 
-    void receive_event(u32, ByteString);
+    void receive_event(u32, ByteString, RefPtr<IpcWireReservation>);
 
     void control(String const& kind, u32 request);
 
@@ -61,6 +63,8 @@ private:
     void receive_packet(ReadonlyBytes);
 
     void retire_channel();
+
+    void clear_packets();
 
     struct Listener {
         Utf16String channel;
@@ -94,9 +98,15 @@ private:
         u32 request;
         bool success;
         ByteString wire;
+        size_t offset { 0 };
+        RefPtr<IpcWireReservation> reservation;
     };
 
     Vector<QueuedPacket> m_byte_queue;
+    NonnullRefPtr<IpcWireBudget> m_wire_budget { adopt_ref(*new IpcWireBudget) };
+    RefPtr<IpcWireReservation> m_receive_reservation;
+    ApplicationIpc::FragmentReassembler m_reassembler;
+    Optional<MonotonicTime> m_fragment_deadline;
     u32 m_next { 0 };
 };
 }

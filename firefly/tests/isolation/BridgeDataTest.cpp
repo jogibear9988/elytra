@@ -1,4 +1,5 @@
 #include "BridgeDataTest.h"
+#include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <LibGC/Heap.h>
 #include <LibGC/Root.h>
@@ -6,6 +7,10 @@
 #include <LibJS/Runtime/Object.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 static JS::ThrowCompletionOr<JS::Value> run(JS::VM& vm, JS::Realm& realm, Utf16View text)
 {
@@ -79,6 +84,7 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
                 == inherited_only)
             return Error::from_string_literal("IPC custom-instance rejection mismatch");
     }
+
     TRY(check(u"ipcPrototypeReads===0"sv, source));
 
     auto snapshot = TRY(capture(uR"JS(
@@ -215,5 +221,54 @@ ErrorOr<void> check_bridge_data(JS::VM& vm, JS::Realm& source, JS::Realm& target
     vm.heap().collect_garbage();
     TRY(check(u"copied.a.n===42 && Object.isFrozen(copied)"sv, target));
     outln("PASS bridge depth/value/property/string/sparse-length budgets and GC after rejection");
+    return {};
+}
+
+// Optional focused acceptance reads the real staged catalog; it never launches a window.
+ErrorOr<void> check_large_bridge_catalog(
+    JS::VM& vm, JS::Realm& source, JS::Realm& target, char const* filename)
+{
+    std::error_code failure;
+    auto size = std::filesystem::file_size(filename, failure);
+    if (failure || size > 4 * 1024 * 1024)
+        return Error::from_string_literal("Missing or oversized catalog fixture");
+    std::ifstream input(filename, std::ios::binary);
+    std::string bytes(std::istreambuf_iterator<char>(input), {});
+    if (input.bad() || bytes.size() != size)
+        return Error::from_string_literal("Cannot read catalog fixture");
+    auto text = TRY(Utf16String::try_from_utf8(StringView(bytes.data(), bytes.size())));
+    auto value = run(vm, source, text);
+    if (value.is_error() || !value.value().is_object())
+        return Error::from_string_literal("Catalog is not a JavaScript array");
+    source.global_object().define_direct_property(
+        "largeCatalog"_utf16, value.value(), JS::default_attributes);
+    auto configuration = run(vm, source, u"({nls:{messages:largeCatalog}})"sv);
+    if (configuration.is_error())
+        return Error::from_string_literal("Catalog configuration construction failed");
+    auto limits = Firefly::application_ipc_limits();
+    if (!Firefly::BridgeData::capture_ipc(
+            configuration.value(), source, Firefly::public_binary_limits())
+            .is_error())
+        return Error::from_string_literal("Default capture unexpectedly admitted full catalog");
+    auto graph = TRY(Firefly::BridgeData::capture_ipc(configuration.value(), source, limits));
+    auto wire = TRY(graph.encode_wire(limits));
+    if (!Firefly::BridgeData::decode_wire(wire, Firefly::public_binary_limits()).is_error())
+        return Error::from_string_literal("Default wire policy unexpectedly admitted full catalog");
+    auto decoded = TRY(Firefly::BridgeData::decode_wire(wire, limits));
+    vm.heap().collect_garbage();
+    auto copy = decoded.materialize(target, {}, Firefly::BridgeData::Materialization::Mutable);
+    if (copy.is_error())
+        return Error::from_string_literal("Catalog materialization failed");
+    target.global_object().define_direct_property(
+        "largeCopy"_utf16, copy.value(), JS::default_attributes);
+    auto original_json = run(vm, source, u"JSON.stringify(largeCatalog)"sv);
+    if (original_json.is_error() || !original_json.value().is_string())
+        return Error::from_string_literal("Source catalog comparison failed");
+    auto expected = Utf16String::from_utf16(original_json.value().as_string().utf16_string_view());
+    auto copied_json = run(vm, target, u"JSON.stringify(largeCopy.nls.messages)"sv);
+    if (copied_json.is_error() || !copied_json.value().is_string()
+        || copied_json.value().as_string().utf16_string_view() != expected.utf16_view())
+        return Error::from_string_literal("Full catalog roundtrip changed translation data");
+    outln("PASS complete staged translation catalog roundtrip, wire={} bytes", wire.length());
     return {};
 }

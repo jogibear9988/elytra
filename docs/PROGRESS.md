@@ -12867,6 +12867,49 @@ alias/GC roundtrip and negative boundary checks; these are not an actual complet
 Code-OSS configuration capture. No additional desktop launch or broad suite is run.
 The editor/workbench remains unaccepted pending its next combined startup.
 
+
+## 2026-11-11 — Carry real Code-OSS configuration in bounded logical IPC messages
+
+The actual class-policy start reaches FIREFLY_IPC_BYTES_READY, then the diagnostic
+confirms result-serialization failure (codeoss-ipc-class-start.log). Independently
+inspect the actual staged NLS file:34,273 messages,1,708,956 UTF-16 text units,
+160,255 key units and1,814,024 JSON bytes. It cannot fit the old value/string/array/
+wire budgets. This identifies a real additional startup blocker without another
+GUI experiment or replacing configuration with synthetic data.
+
+Implement shared native FIM2 contiguous fragmentation above unchanged128KiB
+physical frames, retaining FIM1 for small messages. Validate identity/offset/size
+before bounded allocation, reject interleaving, enforce first-fragment30seconds
+and release onEOF/revoke/timeout. Main/helper queues retain logical cursors and
+refill through16physicalcredits rather than enqueue everyfragment. Shared RAII
+leases follow payloads through partial and deferred delivery:combined16MiB/doc,
+64MiB/process. A timed-out partially sent message retires the channel.
+
+Application graph/wire policy now explicitly admits65,536nodes,131,072properties,
+4MiUTF16units/depth64/65,536arraylength/131,072cumulativearraylength,1MiBbinary and
+16MiBwire. Default wire, utility and main-only port policies remain separate.
+The config next crosses contextBridge, so add a separate capture-only graphsize
+profile with the same text headroom and original64KiBbinary ceiling. Type,
+function/getter authority, redaction, frozencontainers and revocation policies
+remain. Also enforce cumulative arraylength before capture materialization;
+negative oversized-array fixtures move to65537 to exercise the new real boundary.
+ADR0193 records scope, language, quotas and remaining copying/JSON overhead.
+
+Combined Release Firefly/WebContent/nativeprobe build passes
+(codeoss-large-config-build.log). Focused native fragmentation probe passes up to
+16MiB with independentvectors/malformedtransitions/reset/move/quotaownership
+(codeoss-fragment-component.log). The actual staged catalog roundtrip encodes
+7,490,980wirebytes and compares every translation, then passes the actual async
+contextBridge path with fullUTF16equality/frozencontainers/GC/revoke
+(codeoss-real-nls-roundtrip.log). Existing headless isolation boundary executable
+also passes (codeoss-context-boundary-regression.log); no broad suite is run.
+
+A direct app-entry start now replaces the diagnostic importer for actual launch
+validation. It terminates before windows:console's object ToString throws on a
+null-prototype path descriptor under trace logging (codeoss-large-config-direct.log).
+This is terminal, not an observation timeout. Fix the genuine console issue before
+another batched start; do not claim an actual config transport/editor pass yet.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
