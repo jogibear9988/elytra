@@ -161,6 +161,7 @@ def main():
             PASTE_SOURCE,
             "utility-process-main.ts",
             "shared-process-main.ts",
+            "electronAgentHostStarter.ts",
             "css-development-service.ts",
             "darwin-update-service.ts",
             "mainImpl.ts",

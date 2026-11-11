@@ -298,6 +298,10 @@
     "shared-process-main.ts": {
       "upstream": "src/vs/platform/sharedProcess/electron-main/sharedProcess.ts",
       "sha256": "ef759e2e771b0a6e16be5dc579a56200fe131b6ae9a5763d6d42259036068bd7"
+    },
+    "electronAgentHostStarter.ts": {
+      "upstream": "src/vs/platform/agentHost/electron-main/electronAgentHostStarter.ts",
+      "sha256": "50140c223133999f91d336ad2b6ddc0601fa25ee3689455d477879b6cf3e6f31"
     }
   }
 }

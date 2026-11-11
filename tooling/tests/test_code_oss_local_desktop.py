@@ -51,6 +51,7 @@ def main():
             "window-defaults-main.ts",
             "utility-process-main.ts",
             "shared-process-main.ts",
+            "electronAgentHostStarter.ts",
             "LICENSE.txt",
         ):
             data = (PINNED / name).read_bytes()

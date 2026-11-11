@@ -13550,6 +13550,22 @@ are unsupported MenuItem accelerator and implicit AgentHost utility engine flags
 This is further startup progress, not window-ready or editor acceptance.
 
 
+## 2026-11-11 — Disclose implicit AgentHost inspector omission
+
+The next actual entry reaches AgentHostProcessManager and repeatedly refuses its
+utility engine flags. Pin electronAgentHostStarter.ts and adapt only its implicit
+local development inspector through an owned helper, following the SharedProcess
+policy. Keep the agent enabled and publish immutable unavailable-inspector status;
+omit only --nolazy / --inspect=5878 under verified local Mite/LibJS/no-cache mode.
+Explicit inspect-agenthost / inspect-brk-agenthost (including empty values) fail in
+the helper and early engine policy. Preserve Node/Electron/built parser results.
+
+Focused actual Node/Mite helper cases, exact pin/reversal/drift and overlay planning
+pass. Refresh the same stage: 12,346 source files and 28 owned overlay records,
+all four package adapters, NLS and renderer assets retained
+(codeoss-agent-host-refresh.log). No actual AgentHost services or inspector
+acceptance is claimed yet. No broad local suite or visible GUI is run.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -691,3 +691,14 @@ fixture generates a real UUID and reads it back from a file in a fresh temporary
 HOME. No replacement ID, entropy source or private user storage is used by that
 fixture. This adaptation does not add general synchronous require(ESM), legacy
 constants or full fs-extra support to Mite.
+
+## Agent-host development inspector
+
+The pinned local LibJS overlay also adapts the AgentHost starter's implicit
+5878 inspector default. It keeps the agent process enabled, omitting only the
+synthesized `--nolazy` / `--inspect=5878` pair in the verified local/no-cache mode.
+The immutable `process._vscodeLibJSAgentHostDebugStatus` discloses inspector
+unavailability. Explicit inspect-agenthost / inspect-brk-agenthost requests,
+including empty values, fail early. Ordinary Node/Electron and built no-debug
+parser results remain unchanged. The exact source and reversible seams are pinned;
+this does not make the inspector or complete agent services supported.

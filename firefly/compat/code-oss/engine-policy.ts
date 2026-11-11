@@ -22,6 +22,8 @@ const unsupportedSwitches = Object.freeze([
   'js-flags',
   'inspect-sharedprocess',
   'inspect-brk-sharedprocess',
+  'inspect-agenthost',
+  'inspect-brk-agenthost',
   'xdg-portal-required-version',
   'max-active-webgl-contexts',
   'disable-hardware-acceleration',
