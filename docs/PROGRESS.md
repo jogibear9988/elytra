@@ -13566,6 +13566,19 @@ all four package adapters, NLS and renderer assets retained
 (codeoss-agent-host-refresh.log). No actual AgentHost services or inspector
 acceptance is claimed yet. No broad local suite or visible GUI is run.
 
+## 2026-11-11 — Bounded native utility and entry phase evidence
+
+Add opt-in fixed utility initialization/handler and capped native frame counters,
+plus generic standalone-Mite ESM entry/Promise-state diagnostics. Inspect no source,
+paths, environment contents or payloads. The module gate is MITE_MODULE_DIAGNOSTIC;
+Firefly utility records retain FIREFLY_IPC_BYTES_DIAGNOSTIC. This distinguishes
+entry evaluation from configuration/ready messaging when tracing real Code-OSS
+children. Normal execution semantics and runtime dependency direction are unchanged.
+Actual compile-database strict syntax passes all four implementation units and
+format/diff checks pass. The next combined native build/application run is still
+required; diagnostics are evidence tools, not accepted SharedProcess services.
+No new test framework, broad local suite or GUI launch is introduced.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

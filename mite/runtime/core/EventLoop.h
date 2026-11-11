@@ -153,6 +153,7 @@ private:
     std::vector<ReportedRejection> m_reported_rejections;
     GC::Root<JS::FunctionObject> m_process_error_handler;
     GC::Root<JS::Promise> m_entry_promise;
+    int m_diagnostic_entry_state { -1 };
     bool m_entry_exception_delivered { false };
     bool m_delivering_fatal { false };
     std::unordered_map<uint64_t, Timer*> m_timers;

@@ -17,6 +17,7 @@
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/VM.h>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 namespace Firefly::Utility {
@@ -33,6 +34,12 @@ int run(int argc, char** argv, bool electron_compat)
     for (int index = 2; index < argc; ++index)
         arguments.push_back(argv[index]);
     arguments.push_back(nullptr);
+    auto diagnose = [](char const* phase) {
+        if (std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC"))
+            fprintf(stderr, "FIREFLY_UTILITY_PHASE pid=%d phase=%s\n",
+                static_cast<int>(uv_os_getpid()), phase);
+    };
+
     Mite::HostHooks hooks;
     hooks.allow_process_signals = true;
     std::shared_ptr<NetworkState> network_state;
@@ -40,6 +47,7 @@ int run(int argc, char** argv, bool electron_compat)
     JS::VM* owner_vm {};
     hooks.initialize = [&](JS::VM& vm, JS::Realm& realm, Mite::ModuleLoader& modules,
                            Mite::EventLoop& jobs) -> JS::ThrowCompletionOr<void> {
+        diagnose("initialize-begin");
         owner_vm = &vm;
         GC::Root native { TRY(create_parent_host(vm, realm, jobs, 3)) };
         network_state = Network::install_host(realm, *native);
@@ -96,10 +104,12 @@ int run(int argc, char** argv, bool electron_compat)
             "type"_utf16, JS::PrimitiveString::create(vm, "utility"_utf16), JS::default_attributes);
         process.as_object().define_direct_property(
             "execArgv"_utf16, TRY(JS::Array::create(realm, 0)), JS::default_attributes);
+        diagnose("parent-installed");
         return {};
     };
 
     hooks.shutdown = [&] {
+        diagnose("shutdown");
         // Revoke HTTP bodies while the realm is alive, then retire passive OS state.
         if (network_service && owner_vm) {
             auto stop = network_service->get("stop"_utf16);

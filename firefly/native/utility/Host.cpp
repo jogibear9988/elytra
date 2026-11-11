@@ -106,6 +106,7 @@ namespace {
         uv_process_t process {};
         uv_timer_t startup {};
         size_t handles {}, writes {}, write_bytes {};
+        unsigned diagnostic_count {};
         bool process_initialized {}, timer_initialized {}, started {}, announced {}, exited {},
             killed {}, channel_closed {};
         std::vector<char> incoming;
@@ -136,6 +137,19 @@ namespace {
         ~Service()
         {
             VERIFY(endpoints.empty());
+        }
+
+        // Fixed native counters only: never inspect payloads or environment contents.
+        void diagnose(Endpoint& endpoint, char const* phase, size_t bytes = 0)
+        {
+            if (!std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC") || endpoint.diagnostic_count >= 32)
+                return;
+            ++endpoint.diagnostic_count;
+            fprintf(stderr,
+                "FIREFLY_UTILITY_PHASE pid=%d side=%s endpoint=%llu phase=%s bytes=%zu count=%u\n",
+                static_cast<int>(uv_os_getpid()), child_side ? "child" : "main",
+                static_cast<unsigned long long>(endpoint.id), phase, bytes,
+                endpoint.diagnostic_count);
         }
 
         Endpoint* get(JS::Value id)
@@ -317,6 +331,7 @@ namespace {
                     endpoint.incoming.begin() + 4, endpoint.incoming.begin() + 4 + length);
                 endpoint.incoming.erase(
                     endpoint.incoming.begin(), endpoint.incoming.begin() + 4 + length);
+                diagnose(endpoint, "frame-receive", payload.size());
                 if (Ports::has_magic(payload)) {
                     receive_port(endpoint, payload);
                 } else {
@@ -448,6 +463,7 @@ namespace {
             else {
                 ++endpoint->writes;
                 endpoint->write_bytes += size + 4;
+                diagnose(*endpoint, "frame-send-admitted", size);
             }
 
             return status;
@@ -877,6 +893,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_parent_host(
                 if (owner->stopped || found == owner->endpoints.end())
                     return vm.throw_completion<JS::Error>("Utility channel closed"_utf16);
                 found->second->callback = vm.argument(0).as_function();
+                owner->diagnose(*found->second, "parent-handler-installed");
                 return JS::js_undefined();
             }),
         1, JS::default_attributes);

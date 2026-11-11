@@ -327,7 +327,13 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         report_exception(module_format.error_value());
         status = 1;
     } else if (module_format.value()) {
+        if (std::getenv("MITE_MODULE_DIAGNOSTIC"))
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-begin\n",
+                static_cast<int>(uv_os_getpid()));
         auto result = modules.run_entry();
+        if (std::getenv("MITE_MODULE_DIAGNOSTIC"))
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-submitted error=%d\n",
+                static_cast<int>(uv_os_getpid()), result.is_error());
         if (result.is_error()) {
             event_loop.uncaught_exception(result.error_value(), true);
             status = event_loop.status() ? event_loop.status() : drive();

@@ -702,3 +702,15 @@ unavailability. Explicit inspect-agenthost / inspect-brk-agenthost requests,
 including empty values, fail early. Ordinary Node/Electron and built no-debug
 parser results remain unchanged. The exact source and reversible seams are pinned;
 this does not make the inspector or complete agent services supported.
+
+## Bounded native startup phases
+
+For an owned offscreen diagnostic, `MITE_MODULE_DIAGNOSTIC=1` emits fixed ESM
+entry begin/submitted and pending/fulfilled/rejected Promise-state transitions.
+It works in standalone Mite without a desktop dependency. Combine it with
+`FIREFLY_IPC_BYTES_DIAGNOSTIC=1` for native utility initialization, parent-handler
+installation and at most 32 receive/send-admitted frame counters per endpoint.
+These records include only native process/endpoint identifiers, byte counts and
+fixed phase labels. They do not print module paths, source, environment contents
+or message payloads. A fulfilled entry or admitted frame does not establish service
+readiness; use the actual application's handshake as the acceptance criterion.

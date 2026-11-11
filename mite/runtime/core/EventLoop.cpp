@@ -17,6 +17,8 @@
 #include <LibJS/Script.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace Mite {
@@ -595,6 +597,18 @@ void EventLoop::checkpoint()
             || !m_handled_rejections.is_empty()));
     // Match ClearKeptObjects at the end of the complete checkpoint, not between
     // Promise/nextTick jobs. The roots also cover the pinned engine's weak traces.
+    if (m_entry_promise && std::getenv("MITE_MODULE_DIAGNOSTIC")) {
+        auto state = static_cast<int>(m_entry_promise->state());
+        if (state != m_diagnostic_entry_state) {
+            m_diagnostic_entry_state = state;
+            auto* label = m_entry_promise->state() == JS::Promise::State::Pending ? "pending"
+                : m_entry_promise->state() == JS::Promise::State::Fulfilled       ? "fulfilled"
+                                                                                  : "rejected";
+            fprintf(stderr, "MITE_ENTRY_PHASE pid=%d phase=esm-entry-state state=%s\n",
+                static_cast<int>(uv_os_getpid()), label);
+        }
+    }
+
     m_kept_values.clear();
     m_kept_cells.clear();
     m_vm.finish_execution_generation();
