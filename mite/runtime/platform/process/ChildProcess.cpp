@@ -100,6 +100,7 @@ namespace {
         Service& owner;
         uint64_t id;
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
         uv_process_t process {};
         std::array<Pipe, 4> pipes {};
         size_t handles {};
@@ -160,6 +161,7 @@ namespace {
             if (!child.callback)
                 return;
             loop.dispatch([&] {
+                AsyncContext::Scope context(loop.async_context(), child.context.ptr());
                 return JS::call(vm, *child.callback, JS::js_undefined(), text(vm, kind),
                     JS::Value(index), value, JS::Value(signal));
             });
@@ -207,12 +209,14 @@ namespace {
         uv_write_t request {};
         std::vector<char> bytes;
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct Shutdown {
         Pipe& pipe;
         uv_shutdown_t request {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     JS::ThrowCompletionOr<JS::Value> read_pipe(Service&, Pipe* pipe, bool enabled)
@@ -239,6 +243,8 @@ namespace {
                 auto& owner = child.owner;
                 if (count > 0 && child.callback)
                     owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), child.context.ptr());
                         GC::Root bytes { TRY(
                             JS::Uint8Array::create(owner.realm, static_cast<size_t>(count))) };
                         bytes->viewed_array_buffer()->overwrite(
@@ -282,7 +288,8 @@ namespace {
         if (pipe->index == 3
             && (pipe->pending_writes >= 64 || pipe->pending_bytes + size > 4194304))
             return JS::Value(UV_ENOBUFS);
-        auto* write = new Write { *pipe, {}, {}, GC::Root { callback.as_function() } };
+        auto* write = new Write { *pipe, {}, {}, GC::Root { callback.as_function() },
+            GC::Root { pipe->child->owner.loop.async_context().capture() } };
         if (size) {
             auto* bytes = reinterpret_cast<char const*>(
                 array.viewed_array_buffer()->data_at(array.byte_offset()));
@@ -303,6 +310,8 @@ namespace {
                 write->pipe.pending_bytes -= write->bytes.size();
                 if (write->callback)
                     owner.loop.dispatch([&] {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), write->context.ptr());
                         return JS::call(
                             owner.vm, *write->callback, JS::js_undefined(), JS::Value(status));
                     });
@@ -324,7 +333,8 @@ namespace {
             return JS::Value(UV_EPIPE);
         if (!callback.is_function())
             return vm.throw_completion<JS::TypeError>("Invalid internal process shutdown"_utf16);
-        auto* shutdown = new Shutdown { *pipe, {}, GC::Root { callback.as_function() } };
+        auto* shutdown = new Shutdown { *pipe, {}, GC::Root { callback.as_function() },
+            GC::Root { pipe->child->owner.loop.async_context().capture() } };
         pipe->child->owner.shutdowns.insert(shutdown);
         shutdown->request.data = shutdown;
         int status = uv_shutdown(
@@ -334,6 +344,8 @@ namespace {
                 owner.shutdowns.erase(shutdown);
                 if (shutdown->callback)
                     owner.loop.dispatch([&] {
+                        AsyncContext::Scope context(
+                            owner.loop.async_context(), shutdown->context.ptr());
                         return JS::call(
                             owner.vm, *shutdown->callback, JS::js_undefined(), JS::Value(status));
                     });
@@ -403,7 +415,8 @@ GC::Ref<JS::Object> create_child_process_host(JS::VM& vm, JS::Realm& realm, Even
                 auto arguments = pointers(args), env = pointers(environment);
                 VERIFY(service->next_id < 9007199254740992ULL);
                 auto* child = new Child { *service, service->next_id++,
-                    GC::Root { vm.argument(1).as_function() } };
+                    GC::Root { vm.argument(1).as_function() },
+                    GC::Root { service->loop.async_context().capture() } };
                 service->children.emplace(child->id, child);
                 std::array<uv_stdio_container_t, 4> handles {};
                 int status = 0;
@@ -541,7 +554,8 @@ GC::Ref<JS::Object> create_child_process_host(JS::VM& vm, JS::Realm& realm, Even
                     return JS::Value(UV_EALREADY);
                 service->endpoint_attached = true;
                 auto* child = new Child { *service, service->next_id++,
-                    GC::Root { vm.argument(1).as_function() } };
+                    GC::Root { vm.argument(1).as_function() },
+                    GC::Root { service->loop.async_context().capture() } };
                 service->children.emplace(child->id, child);
                 auto& pipe = child->pipes[3];
                 pipe.child = child;

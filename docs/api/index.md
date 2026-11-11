@@ -21,6 +21,11 @@ depth still required alongside the implementation.
 [Mite runtime API](mite.md) covers entry points, modules, globals and Node-style
 built-ins. The [CLI entry](cli.md) defines flags and exit behavior.
 Mite runs independently of Firefly, Qt and LibWeb.
+The [async-context reference](async-hooks.md) covers native Promise/resource
+propagation, ownership and supported AsyncLocalStorage/AsyncResource operations.
+The [native type predicates](util-types.md), [Console basics](console.md) and
+[diagnostics channels/debug logging](diagnostics-channel.md) describe their partial
+Node-compatible contracts and actual runtime evidence.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.

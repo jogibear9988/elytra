@@ -35,6 +35,7 @@ function(mite_add_runtime target root js_target)
         module
         perf_hooks
         events
+        diagnostics_channel
         assert
         process
         process_events
@@ -48,7 +49,10 @@ function(mite_add_runtime target root js_target)
         fs
         url
         querystring
+        async_hooks
         util
+        util-types
+        console
         net
         dns
         http
@@ -92,6 +96,7 @@ function(mite_add_runtime target root js_target)
         core/Runtime
         core/EventLoop
         core/ImmediateQueue
+        core/async/Context
         core/errors/StackTrace
         core/errors/CallSites
         # modules
@@ -127,6 +132,7 @@ function(mite_add_runtime target root js_target)
         # platform/system
         platform/system/OS
         platform/system/Inspector
+        platform/util/Types
         platform/system/OSConstants
         # platform/policy
         platform/policy/Host

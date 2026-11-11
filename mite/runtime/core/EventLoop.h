@@ -6,6 +6,7 @@
 #pragma once
 
 #include "core/GCCaptures.h"
+#include "core/async/Context.h"
 #include "platform/UV.h"
 #include <LibGC/Function.h>
 #include <LibGC/Root.h>
@@ -37,6 +38,11 @@ public:
 
     // Weak targets must remain rooted through synchronous code and its microtasks.
     void keep_weak_target(JS::Value);
+
+    AsyncContext& async_context()
+    {
+        return *m_async_context;
+    }
 
     int run_until_idle();
     // GUI hosts call this on the owner thread without blocking their native loop.
@@ -125,6 +131,7 @@ private:
     static void dispatch_timer(uv_timer_t*);
 
     JS::VM& m_vm;
+    std::unique_ptr<AsyncContext> m_async_context;
     void (*m_report_exception)(JS::Value);
 
     uv_loop_t m_loop {};

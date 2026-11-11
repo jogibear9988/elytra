@@ -32,6 +32,7 @@ namespace {
         Resolver& owner;
         uv_getaddrinfo_t request {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct Resolver {
@@ -116,7 +117,8 @@ GC::Ref<JS::Object> create_dns_host(JS::VM& vm, JS::Realm& realm, EventLoop& loo
                 hints.ai_socktype = SOCK_STREAM;
                 hints.ai_flags = flags;
                 auto* request
-                    = new Lookup { *resolver, {}, GC::Root { vm.argument(3).as_function() } };
+                    = new Lookup { *resolver, {}, GC::Root { vm.argument(3).as_function() },
+                          GC::Root { resolver->loop.async_context().capture() } };
                 request->request.data = request;
                 int status = uv_getaddrinfo(
                     &resolver->loop.native_loop(), &request->request,
@@ -125,6 +127,8 @@ GC::Ref<JS::Object> create_dns_host(JS::VM& vm, JS::Realm& realm, EventLoop& loo
                         auto& owner = request->owner;
                         owner.requests.erase(request);
                         owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                            AsyncContext::Scope context(
+                                owner.loop.async_context(), request->context.ptr());
                             GC::Root values { TRY(JS::Array::create(owner.realm, 0)) };
                             std::unordered_set<std::string> seen;
                             size_t index = 0;

@@ -1,0 +1,22 @@
+{
+  "project": "Node.js",
+  "version": "v24.15.0",
+  "license": "MIT",
+  "sources": [
+    {
+      "path": "diagnostics_channel.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/diagnostics_channel.js",
+      "sha256": "d26df2e24a591389675b9e09404793497251e6677f71e6eac7c53b6d34898d28"
+    },
+    {
+      "path": "debuglog.js",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/lib/internal/util/debuglog.js",
+      "sha256": "4471d0ba1b85d272e583aef5ec9fe05c28377bf59b923523495bcba46a858fec"
+    },
+    {
+      "path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/nodejs/node/v24.15.0/LICENSE",
+      "sha256": "4573185d56580da2b890ba34a85a409257640f1c5632eade4300137266194d18"
+    }
+  ]
+}

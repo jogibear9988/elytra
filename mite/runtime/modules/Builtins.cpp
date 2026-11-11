@@ -27,6 +27,7 @@
 #include "platform/system/OS.h"
 #include "platform/text/Encoding.h"
 #include "platform/text/URL.h"
+#include "platform/util/Types.h"
 
 #include <AK/JsonValue.h>
 #include <AK/StringBuilder.h>
@@ -56,6 +57,8 @@ static constexpr std::string_view assert_exports[] = { "AssertionError", "ok", "
     "doesNotMatch", "strict", "Assert", "CallTracker", "partialDeepStrictEqual" };
 static constexpr std::string_view readline_exports[] = { "Interface", "createInterface",
     "clearLine", "clearScreenDown", "cursorTo", "moveCursor", "emitKeypressEvents" };
+static constexpr std::string_view diagnostics_channel_exports[]
+    = { "channel", "hasSubscribers", "subscribe", "tracingChannel", "unsubscribe", "Channel" };
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
@@ -78,13 +81,22 @@ static constexpr std::string_view fs_exports[]
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
           "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath" };
+static constexpr std::string_view async_hooks_exports[] = { "AsyncLocalStorage", "AsyncResource",
+    "executionAsyncId", "triggerAsyncId", "executionAsyncResource", "createHook" };
 static constexpr std::string_view querystring_exports[]
     = { "parse", "decode", "stringify", "encode", "escape", "unescape", "unescapeBuffer" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
 static constexpr std::string_view util_exports[]
-    = { "TextEncoder", "TextDecoder", "promisify", "inherits" };
+    = { "TextEncoder", "TextDecoder", "promisify", "inherits", "types", "debuglog", "debug" };
+static constexpr std::string_view util_types_exports[]
+    = { "isArrayBuffer", "isSharedArrayBuffer", "isAnyArrayBuffer", "isArrayBufferView",
+          "isTypedArray", "isUint8Array", "isDataView", "isProxy", "isPromise" };
+static constexpr std::string_view console_exports[]
+    = { "Console", "log", "info", "debug", "warn", "error", "dir", "assert", "table", "time",
+          "timeEnd", "timeLog", "count", "countReset", "group", "groupCollapsed", "groupEnd",
+          "clear", "trace", "dirxml", "profile", "profileEnd", "timeStamp" };
 static constexpr std::string_view module_exports[]
     = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };
@@ -136,6 +148,9 @@ static constexpr std::string_view tls_exports[]
 static constexpr std::string_view https_exports[]
     = { "request", "get", "createServer", "Server", "Agent" };
 static constexpr BuiltinDefinition definitions[] = {
+    { "diagnostics_channel",
+        { MITE_DIAGNOSTICS_CHANNEL_SOURCE, sizeof(MITE_DIAGNOSTICS_CHANNEL_SOURCE) - 1 },
+        diagnostics_channel_exports },
     { "module", { MITE_MODULE_SOURCE, sizeof(MITE_MODULE_SOURCE) - 1 }, module_exports },
     { "perf_hooks", { MITE_PERF_HOOKS_SOURCE, sizeof(MITE_PERF_HOOKS_SOURCE) - 1 },
         perf_hooks_exports },
@@ -161,6 +176,11 @@ static constexpr BuiltinDefinition definitions[] = {
     { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 },
         string_decoder_exports },
     { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
+    { "util/types", { MITE_UTIL_TYPES_SOURCE, sizeof(MITE_UTIL_TYPES_SOURCE) - 1 },
+        util_types_exports },
+    { "console", { MITE_CONSOLE_SOURCE, sizeof(MITE_CONSOLE_SOURCE) - 1 }, console_exports },
+    { "async_hooks", { MITE_ASYNC_HOOKS_SOURCE, sizeof(MITE_ASYNC_HOOKS_SOURCE) - 1 },
+        async_hooks_exports },
     { "querystring", { MITE_QUERYSTRING_SOURCE, sizeof(MITE_QUERYSTRING_SOURCE) - 1 },
         querystring_exports },
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
@@ -482,7 +502,24 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             "native"_utf16, create_inspector_host(m_realm), JS::default_attributes);
     }
 
+    if (name == "util/types")
+        host->define_direct_property(
+            "native"_utf16, create_util_types_host(m_realm), JS::default_attributes);
+
+    if (name == "console") {
+        host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
+        host->define_direct_property(
+            "types"_utf16, TRY(builtin("util/types")), JS::default_attributes);
+        // Preserve the original global logger and Code-OSS's existing pipe wrappers
+        // without evaluating a replaced global accessor during builtin construction.
+        auto console = m_realm.global_object().get_without_side_effects("console"_utf16);
+        host->define_direct_property("console"_utf16,
+            console.is_object() ? console : JS::js_undefined(), JS::default_attributes);
+    }
+
     if (name == "util") {
+        host->define_direct_property(
+            "types"_utf16, TRY(builtin("util/types")), JS::default_attributes);
         host->define_direct_property(
             "native"_utf16, create_encoding_host(m_realm), JS::default_attributes);
         host->define_direct_property(
@@ -490,6 +527,10 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         host->define_direct_property(
             "timerPromises"_utf16, TRY(builtin("timers/promises")), JS::default_attributes);
     }
+
+    if (name == "async_hooks")
+        host->define_direct_property("native"_utf16,
+            m_event_loop.async_context().create_host(m_realm), JS::default_attributes);
 
     if (name == "querystring") {
         auto buffer = TRY(builtin("buffer"));

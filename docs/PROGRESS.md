@@ -13721,6 +13721,47 @@ No broad local URL/runtime suite or GUI is run. The audited next undici hurdle i
 its unguarded Node-version metadata read; no fake versions.node is added and no
 whole-package networking/extension acceptance is inferred from this binding.
 
+## 2026-11-11 — Genuine async context and Node diagnostic primitives
+
+Implement native GC-traced AsyncLocalStorage/AsyncResource context frames. Promise
+callbacks capture at registration through the existing VM make/call JobCallback
+hooks, preserving prior hooks/data; direct awaited resume jobs also capture at
+enqueue. Carry owned resource frames through timers/ticks/microtasks/immediates,
+worker completions, network/DNS/watchers and child callbacks. Restore scopes on
+return/throw, revoke native facade ownership on shutdown, and root opaque jobs,
+metadata and fresh carriers before any allocation. No Node/V8 or LibWeb dependency.
+
+Match measured Node24 frame disable/snapshot and per-storage run restoration
+behavior. Reserve enclosing run slots before admitting another storage, so quota
+failure cannot corrupt prior bindings or replace a completed result. Keep resource
+scope around uncaught callback error reporting. Constructor options, createHook
+and executionAsyncResource remain explicit refusals; process rejection-notification
+context and unvalidated external embedding callbacks remain outside acceptance.
+
+Add nine genuine util/types engine-slot predicates and shared util.types identity,
+without tags/getters/proxy traps. Add stream-backed basic Console, preserving the
+existing global object/methods and Code-OSS logging wrappers; advanced formatting
+and methods explicitly fail. Add maintained Node24-derived diagnostics channels,
+real subscriptions/tracing/bound stores and genuine NODE_DEBUG stderr logging.
+Pin sources/licenses. No import-only placeholders or inactive instrumentation stub.
+
+Combined Release host/helper/offscreen builds pass (codeoss-async-context-build.log,
+codeoss-async-context-final-build.log). Actual Mite passes seven propagation groups,
+plus the two source-review regressions for uncaught error contexts and restoration
+quota (codeoss-async-context-final-native.log, codeoss-async-errors-native.log,
+codeoss-async-quota-native.log). Actual Node/Mite brand/Console and diagnostics
+fixtures pass, including bound native ALS stores and real debug stderr
+(codeoss-types-console-native.log, codeoss-diagnostics-channel-native.log,
+codeoss-debuglog-native.log). Keep testing focused; no broad suite or GUI run.
+
+The actual offscreen entry with the initial Undici metadata adapter progresses
+past async_hooks/querystring and retains both SharedProcess connections, then
+reaches Undici's optional worker feature probe (codeoss-async-context-start.log).
+An audited capability guard now reports genuinely absent markAsUncloneable rather
+than inventing Worker APIs; the subsequent run reaches the absent ambient
+MessagePort assertion (codeoss-worker-feature-start.log). Both are package
+capability assumptions under investigation, not accepted workers or editor use.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

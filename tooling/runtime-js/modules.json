@@ -1,5 +1,6 @@
 {
   "events": "mite/modules/core/events.mjs",
+  "diagnostics_channel": "mite/modules/core/diagnostics-channel.mjs",
   "process": "mite/modules/core/process.mjs",
   "process_stdio": "mite/modules/core/process-stdio.mjs",
   "process_events": "mite/modules/core/process-events.mjs",
@@ -8,8 +9,11 @@
   "perf_hooks": "mite/modules/core/perf-hooks.mjs",
   "buffer": "mite/modules/core/buffer.mjs",
   "url": "mite/modules/core/url.mjs",
+  "async_hooks": "mite/modules/core/async-hooks.mjs",
   "querystring": "mite/modules/core/querystring.mjs",
   "util": "mite/modules/core/util.mjs",
+  "util-types": "mite/modules/core/util-types.mjs",
+  "console": "mite/modules/core/console.mjs",
   "fs": "mite/modules/filesystem/fs.mjs",
   "net": "mite/modules/network/net.mjs",
   "dns": "mite/modules/network/dns.mjs",

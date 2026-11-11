@@ -83,6 +83,7 @@ namespace {
         uv_tcp_t tcp {};
         uv_pipe_t pipe {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
         bool notify_close { true };
         bool reading { false };
 
@@ -139,7 +140,8 @@ namespace {
                 return nullptr;
             }
 
-            auto* socket = new Socket { *this, next_id++, kind, {}, {}, GC::Root { callback } };
+            auto* socket = new Socket { *this, next_id++, kind, {}, {}, GC::Root { callback },
+                GC::Root { loop.async_context().capture() } };
             last_error = kind == Kind::Tcp ? uv_tcp_init(&loop.native_loop(), &socket->tcp)
                                            : uv_pipe_init(&loop.native_loop(), &socket->pipe, 0);
             if (last_error) {
@@ -157,7 +159,9 @@ namespace {
             if (stopping || !socket.callback)
                 return;
             GC::Root callback { socket.callback };
+            GC::Root context { socket.context };
             loop.dispatch([&]() {
+                AsyncContext::Scope scope(loop.async_context(), context.ptr());
                 return JS::call(vm, *callback, JS::js_undefined(), js_text(vm, type), value);
             });
         }
@@ -173,6 +177,7 @@ namespace {
                 return;
             }
 
+            AsyncContext::Scope context(owner.loop.async_context(), server.context.ptr());
             auto* client = owner.create(*server.callback, server.kind);
             if (!client) {
                 owner.emit(server, "error", JS::Value(owner.last_error));
@@ -212,6 +217,7 @@ namespace {
         uv_write_t request {};
         std::vector<char> bytes;
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct PipeConnect {
@@ -224,6 +230,7 @@ namespace {
         Socket& socket;
         uv_shutdown_t request {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     static JS::ThrowCompletionOr<int> number(JS::VM& vm, JS::Value value, int minimum, int maximum)
@@ -440,6 +447,8 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
                         auto& owner = socket.owner;
                         if (count > 0 && !owner.stopping && socket.callback) {
                             owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                                AsyncContext::Scope context(
+                                    owner.loop.async_context(), socket.context.ptr());
                                 auto bytes = TRY(JS::Uint8Array::create(owner.realm, count));
                                 bytes->viewed_array_buffer()->overwrite(0, buffer->base, count);
                                 return JS::call(owner.vm, *socket.callback, JS::js_undefined(),
@@ -480,7 +489,8 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
                     return vm.throw_completion<JS::RangeError>(
                         "Network write exceeds native buffer limit"_utf16);
                 auto* request
-                    = new Write { *socket, {}, {}, GC::Root { vm.argument(2).as_function() } };
+                    = new Write { *socket, {}, {}, GC::Root { vm.argument(2).as_function() },
+                          GC::Root { transport->loop.async_context().capture() } };
                 if (size) {
                     auto* data = reinterpret_cast<char const*>(
                         array.viewed_array_buffer()->data_at(array.byte_offset()));
@@ -519,6 +529,8 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
                         auto* request = static_cast<Write*>(native->data);
                         auto& owner = request->socket.owner;
                         owner.loop.dispatch([&] {
+                            AsyncContext::Scope context(
+                                owner.loop.async_context(), request->context.ptr());
                             return JS::call(owner.vm, *request->callback, JS::js_undefined(),
                                 JS::Value(status));
                         });
@@ -537,13 +549,16 @@ GC::Ref<JS::Object> create_network_host(JS::VM& vm, JS::Realm& realm, EventLoop&
                     return JS::Value(UV_EBADF);
                 TRY(callback(vm, vm.argument(1)));
                 auto* request
-                    = new Shutdown { *socket, {}, GC::Root { vm.argument(1).as_function() } };
+                    = new Shutdown { *socket, {}, GC::Root { vm.argument(1).as_function() },
+                          GC::Root { transport->loop.async_context().capture() } };
                 request->request.data = request;
                 int status = uv_shutdown(
                     &request->request, socket->stream(), [](uv_shutdown_t* native, int status) {
                         auto* request = static_cast<Shutdown*>(native->data);
                         auto& owner = request->socket.owner;
                         owner.loop.dispatch([&] {
+                            AsyncContext::Scope context(
+                                owner.loop.async_context(), request->context.ptr());
                             return JS::call(owner.vm, *request->callback, JS::js_undefined(),
                                 JS::Value(status));
                         });

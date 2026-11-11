@@ -18,6 +18,7 @@ namespace {
         uint64_t id;
         uv_fs_event_t handle {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct State {
@@ -84,6 +85,7 @@ namespace {
         }
 
         owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+            AsyncContext::Scope context(owner.loop.async_context(), watch.context.ptr());
             GC::Root callback { watch.callback };
             GC::Root<JS::Uint8Array> bytes;
             if (filename) {
@@ -134,7 +136,8 @@ void install_event_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& l
                 uint64_t id {};
                 if (!status) {
                     auto* watch = new Watch { state, state->next_id++, {},
-                        GC::Root { vm.argument(3).as_function() } };
+                        GC::Root { vm.argument(3).as_function() },
+                        GC::Root { state->loop.async_context().capture() } };
                     id = watch->id;
                     status = uv_fs_event_init(&state->loop.native_loop(), &watch->handle);
                     if (status)

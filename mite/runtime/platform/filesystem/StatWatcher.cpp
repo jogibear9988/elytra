@@ -23,6 +23,7 @@ namespace {
         uint64_t id;
         uv_fs_poll_t handle {};
         GC::Root<JS::FunctionObject> callback;
+        GC::Root<AsyncCarrier> context;
     };
 
     struct State {
@@ -98,7 +99,8 @@ void install_stat_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& lo
                 uint64_t id {};
                 if (!status) {
                     auto* watch = new Watch { state, state->next_id++, {},
-                        GC::Root { vm.argument(3).as_function() } };
+                        GC::Root { vm.argument(3).as_function() },
+                        GC::Root { state->loop.async_context().capture() } };
                     id = watch->id;
                     status = uv_fs_poll_init(&state->loop.native_loop(), &watch->handle);
                     if (status)
@@ -116,6 +118,8 @@ void install_stat_watcher_host(JS::Realm& realm, JS::Object& host, EventLoop& lo
                                 if (!watch.callback || owner.stopped)
                                     return;
                                 owner.loop.dispatch([&]() -> JS::ThrowCompletionOr<JS::Value> {
+                                    AsyncContext::Scope context(
+                                        owner.loop.async_context(), watch.context.ptr());
                                     GC::Root callback { watch.callback };
                                     uv_stat_t zero {};
                                     GC::Root current_raw { make_stat_snapshot(

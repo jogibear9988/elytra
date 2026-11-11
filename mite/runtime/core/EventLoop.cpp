@@ -9,6 +9,7 @@
 #include "core/ImmediateQueue.h"
 
 #include <AK/TemporaryChange.h>
+#include <LibGC/DeferGC.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Error.h>
@@ -31,6 +32,7 @@ struct EventLoop::Timer {
         , repeating(repeat)
         , callback(callback)
         , receiver(receiver)
+        , context(owner.async_context().capture())
     {
     }
 
@@ -40,11 +42,13 @@ struct EventLoop::Timer {
     uv_timer_t handle {};
     GC::Root<JS::FunctionObject> callback;
     GC::Root<JS::Object> receiver;
+    GC::Root<AsyncCarrier> context;
     GC::RootVector<JS::Value> arguments;
 };
 
 void EventLoop::visit_capture_edges(GC::Cell::Visitor& visitor) const
 {
+    m_async_context->visit_capture_edges(visitor);
     visitor.visit(m_process_error_handler.ptr());
     visitor.visit(m_entry_promise.ptr());
     for (auto const& value : m_finalizers)
@@ -60,6 +64,7 @@ void EventLoop::visit_capture_edges(GC::Cell::Visitor& visitor) const
     for (auto const& value : m_handled_rejections)
         visitor.visit(value);
     for (auto const& entry : m_timers) {
+        visitor.visit(entry.second->context.ptr());
         visitor.visit(entry.second->callback.ptr());
         visitor.visit(entry.second->receiver.ptr());
         for (auto const& value : entry.second->arguments)
@@ -72,6 +77,7 @@ void EventLoop::visit_capture_edges(GC::Cell::Visitor& visitor) const
 
 EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
     : m_vm(vm)
+    , m_async_context(std::make_unique<AsyncContext>(vm))
     , m_report_exception(report_exception)
     , m_original_finalizer_hook(move(vm.host_enqueue_finalization_registry_cleanup_job))
 {
@@ -92,10 +98,19 @@ EventLoop::EventLoop(JS::VM& vm, void (*report_exception)(JS::Value))
           };
 
     m_vm.host_enqueue_promise_job = [this](JS::PromiseJob job, GC::Ptr<JS::Realm> realm) {
-        m_jobs.append(
-            GC::create_function(m_vm.heap(), GC::captures(job, realm), [](auto& job, auto& realm) {
+        // PromiseJob owns private engine edges. Keep GC deferred until the job
+        // and its new context are both committed to the rooted job queue.
+        GC::DeferGC defer_gc { m_vm.heap() };
+        GC::Root context { m_async_context->capture() };
+        m_jobs.append(GC::create_function(m_vm.heap(),
+            GC::captures(job, realm, context.ptr(), native_reference(*this)),
+            [](auto& job, auto& realm, auto& context, auto& ref) {
+                AsyncContext::Scope scope(ref.get().async_context(), context);
                 (void)realm;
-                return job.run();
+                auto result = job.run();
+                if (result.is_error())
+                    ref.get().fail(result.error_value());
+                return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
             }));
     };
 
@@ -141,13 +156,15 @@ struct EventLoop::Work {
     EventLoop& owner;
     std::function<void()> execute;
     GC::Root<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete;
+    GC::Root<AsyncCarrier> context;
     uv_work_t request {};
 };
 
 JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
     GC::Ref<GC::Function<JS::ThrowCompletionOr<JS::Value>()>> complete)
 {
-    auto* work = new Work { *this, std::move(execute), GC::Root { complete }, {} };
+    auto* work = new Work { *this, std::move(execute), GC::Root { complete },
+        GC::Root { m_async_context->capture() }, {} };
     work->request.data = work;
     int result = uv_queue_work(
         &m_loop, &work->request,
@@ -162,6 +179,7 @@ JS::ThrowCompletionOr<void> EventLoop::queue_work(std::function<void()> execute,
                     owner.fail(
                         JS::Error::create(owner.m_vm.realm(), "Native work request failed"_utf16));
                 } else {
+                    AsyncContext::Scope context(owner.async_context(), work->context.ptr());
                     auto result = work->complete->function()();
                     if (result.is_error())
                         owner.fail(result.error_value());
@@ -202,14 +220,19 @@ JS::ThrowCompletionOr<JS::Value> EventLoop::install(JS::Realm& realm)
                 auto callback = vm.argument(0);
                 if (!callback.is_function())
                     return invalid_callback(vm);
-                self->m_ticks.append(
-                    GC::create_function(vm.heap(), GC::captures(native_reference(*self), callback),
-                        [](auto& captured_self, auto& callback) {
-                            auto* self = &captured_self.get();
+                GC::Root context { self->async_context().capture() };
+                self->m_ticks.append(GC::create_function(vm.heap(),
+                    GC::captures(native_reference(*self), callback, context.ptr()),
+                    [](auto& captured_self, auto& callback, auto& context) {
+                        AsyncContext::Scope scope(captured_self.get().async_context(), context);
+                        auto* self = &captured_self.get();
 
-                            return JS::call(self->m_vm, callback, JS::js_undefined(),
-                                ReadonlySpan<JS::Value> {});
-                        }));
+                        auto result = JS::call(
+                            self->m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
+                        if (result.is_error())
+                            self->fail(result.error_value());
+                        return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
+                    }));
                 return JS::js_undefined();
             }),
         1, JS::default_attributes);
@@ -221,14 +244,19 @@ JS::ThrowCompletionOr<JS::Value> EventLoop::install(JS::Realm& realm)
                 auto callback = vm.argument(0);
                 if (!callback.is_function())
                     return invalid_callback(vm);
-                self->m_jobs.append(
-                    GC::create_function(vm.heap(), GC::captures(native_reference(*self), callback),
-                        [](auto& captured_self, auto& callback) {
-                            auto* self = &captured_self.get();
+                GC::Root context { self->async_context().capture() };
+                self->m_jobs.append(GC::create_function(vm.heap(),
+                    GC::captures(native_reference(*self), callback, context.ptr()),
+                    [](auto& captured_self, auto& callback, auto& context) {
+                        AsyncContext::Scope scope(captured_self.get().async_context(), context);
+                        auto* self = &captured_self.get();
 
-                            return JS::call(self->m_vm, callback, JS::js_undefined(),
-                                ReadonlySpan<JS::Value> {});
-                        }));
+                        auto result = JS::call(
+                            self->m_vm, callback, JS::js_undefined(), ReadonlySpan<JS::Value> {});
+                        if (result.is_error())
+                            self->fail(result.error_value());
+                        return JS::ThrowCompletionOr<JS::Value> { JS::js_undefined() };
+                    }));
                 return JS::js_undefined();
             }),
         1, JS::default_attributes);
@@ -338,6 +366,7 @@ void EventLoop::dispatch_timer(uv_timer_t* handle)
     if (owner.m_status)
         return;
     TemporaryChange turn(owner.m_running_turn, true);
+    AsyncContext::Scope context(owner.async_context(), timer.context.ptr());
     if (!timer.repeating)
         owner.cancel_timer(timer.id);
     auto result = JS::call(owner.m_vm, *timer.callback, JS::Value(timer.receiver.ptr()),
