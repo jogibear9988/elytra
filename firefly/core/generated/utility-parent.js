@@ -77,6 +77,7 @@ function createRemoteLinks(hooks) {
     }
     function bind(record, value) {
       const route = {
+        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
         id: value.id,
         generation: value.generation,
         record,
@@ -107,7 +108,7 @@ function createRemoteLinks(hooks) {
         }
         const moves = hooks.transfers(transfer, null, null);
         for (const move of moves) {
-          if (move.record.peer?.remote) {
+          if (move.record.peer?.remote && !transport.allowNativeRelay) {
             throw hooks.error(
               "ERR_FIREFLY_UNSUPPORTED_API",
               "Forwarding a native-backed port is not implemented"
@@ -582,6 +583,9 @@ function createMessageChannels(native, EventEmitter, error) {
         );
       }
       const size = apply2(byteLength, wire, []);
+      if (destination?.remote && size > destination.remote.maxPayload) {
+        throw error("ERR_FIREFLY_PORT_LIMIT", "Port message exceeds its native frame limit");
+      }
       if (destination && !destination.closed && (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304)) {
         throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
       }
@@ -689,7 +693,7 @@ function createMessageChannels(native, EventEmitter, error) {
   return { MessageChannelMain, shutdown, connect: remote.connect };
 }
 
-// firefly/core/utility-process/port-packets.mjs
+// firefly/core/message-ports/packets.mjs
 var ByteArray = Uint8Array;
 var apply = Reflect.apply;
 var typed = Object.getPrototypeOf(ByteArray.prototype);

@@ -1,5 +1,12 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
+add_library(firefly-port-wire STATIC
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp")
+target_include_directories(firefly-port-wire PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
+target_sources(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/ports/Observer.cpp")
+target_include_directories(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")
+
 add_library(firefly-preload-config STATIC
             "${FIREFLY_SOURCE_DIR}/firefly/native/preload/ProcessConfig.cpp")
 target_link_libraries(firefly-preload-config PUBLIC AK)

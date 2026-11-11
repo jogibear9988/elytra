@@ -1,6 +1,7 @@
 /** Admit one raw endpoint for the exact live configured preload; duplicates cannot revive it. */
 #include "IpcEndpoint.h"
 #include "native/ipc/application/Handshake.h"
+#include "ports/PortEndpoint.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <LibCore/System.h>
@@ -40,8 +41,11 @@ void IpcEndpoint::attach_channel(
                 },
             .on_writable =
                 [weak] {
-                    if (auto owner = weak.strong_ref())
+                    if (auto owner = weak.strong_ref()) {
                         owner->flush_packets();
+                        if (owner->m_ports)
+                            owner->m_ports->writable();
+                    }
                 },
             .on_closed =
                 [weak](auto) {
@@ -129,6 +133,8 @@ void IpcEndpoint::retire_channel()
         return;
     m_byte_failed = true;
     clear_packets();
+    if (m_ports)
+        m_ports->revoke();
     if (m_byte_channel)
         m_byte_channel->close();
     m_byte_channel = nullptr;
@@ -170,6 +176,12 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
     m_fragment_deadline.clear();
     auto reservation = move(m_receive_reservation);
     auto packet = decoded.release_value().release_value();
+    if (packet.kind == ApplicationIpc::Kind::PortControl) {
+        if (packet.payload.length() > ApplicationIpc::wire_limit
+            || !m_ports->receive(packet.request, packet.payload.bytes()))
+            retire_channel();
+        return;
+    }
     if (packet.kind != ApplicationIpc::Kind::Reply && packet.kind != ApplicationIpc::Kind::Event) {
         retire_channel();
         return;

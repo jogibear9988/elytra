@@ -76,8 +76,10 @@ void Bridge::Impl::bind_ipc_channel(int id, WebView::WebContentPage& page,
                 },
             .on_writable =
                 [this, lifetime, id, epoch] {
-                    if (lifetime && !stopping)
+                    if (lifetime && !stopping) {
                         flush_ipc_packets(id, epoch);
+                        emit_renderer_port(id, epoch, "renderer-port-writable");
+                    }
                 },
             .on_closed =
                 [this, lifetime, id, epoch](auto) {
@@ -152,6 +154,7 @@ void Bridge::Impl::retire_ipc_channel(int id)
     if (found == windows.end())
         return;
     auto& state = found->second;
+    reset_renderer_ports(id);
     state.ipc_byte_ready = false;
     state.ipc_byte_deadline.clear();
     state.ipc_byte_queue.clear();

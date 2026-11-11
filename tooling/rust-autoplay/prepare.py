@@ -21,6 +21,12 @@ _audio_spec = importlib.util.spec_from_file_location(
 _audio = importlib.util.module_from_spec(_audio_spec)
 _audio_spec.loader.exec_module(_audio)
 AUDIO_PINS, compose = _audio.PINS, _audio.compose
+_ports_spec = importlib.util.spec_from_file_location(
+    "_firefly_native_port_composition", Path(__file__).parent.parent / "rust-ports/observer.py"
+)
+_ports = importlib.util.module_from_spec(_ports_spec)
+_ports_spec.loader.exec_module(_ports)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src"
@@ -28,6 +34,7 @@ PINS = {
     "lib.rs": "87a59d6bbc27d74b83b07da15dddb84cda74e1e220a38f07d9edf3a0f4f60c59",
     "web_audio/mod.rs": "bfcbe81444c74d578d7861d711486534fe3c043e32b7895d51849e4084963b0e",
     **{f"web_audio/{name}": digest for name, digest in AUDIO_PINS.items()},
+    **_ports.PINS,
 }
 ROOT_MODULES = frozenset(
     """
@@ -50,6 +57,9 @@ AUDIO_MODULES = frozenset(
     offline_audio_completion_event offline_audio_context oscillator_node panner_node
     periodic_wave script_processor_node stereo_panner_node wave_shaper_node
 """.split()
+)
+HTML_MODULES = frozenset(
+    "canvas_path color_stops predefined_color_space broadcast_channel canvas_compositing canvas_draw_image canvas_draw_path canvas_fill_stroke_styles canvas_filters canvas_gradient canvas_image_data canvas_image_smoothing canvas_path_drawing_styles canvas_pattern canvas_rect canvas_rendering_context2d canvas_rendering_context2d_settings canvas_settings canvas_shadow_styles canvas_state canvas_text canvas_text_drawing_styles canvas_transform exports image_bitmap image_data message_channel message_port numbers offscreen_canvas offscreen_canvas_rendering_context2d path2d port_channel storage storage_event structured_serialize text_metrics window window_or_worker_global_scope".split()
 )
 MODULE = re.compile(r'^(?:#\[path = "([^"\n]+)"\]\n)?((?:pub(?:\([^)]*\))? )?mod (\w+);)$', re.M)
 FOOTER = "// Owned WebAudio routing build input: "
@@ -132,14 +142,18 @@ def prepare(output, driver, chain="", check=False):
         if digest(path.read_bytes()) != expected:
             raise ValueError(f"Review pinned WebAudio source: {path}")
         inputs[str(path.resolve())] = expected
-    for name in ("prepare.py", "driver.py", "Driver.cpp", "audio.py"):
+    for name in ("prepare.py", "driver.py", "Driver.cpp", "audio.py", "../rust-ports/observer.py"):
         path = Path(__file__).parent / name
         inputs[str(path.resolve())] = digest(path.read_bytes())
     root = module_source(
         (SOURCE / "lib.rs").read_text(),
         SOURCE,
         ROOT_MODULES,
-        {(SOURCE / "web_audio/mod.rs").resolve(): output / "web_audio.rs"},
+        {
+            (SOURCE / "web_audio/mod.rs").resolve(): output / "web_audio.rs",
+            (SOURCE / "html/mod.rs").resolve(): output / "html.rs",
+            (SOURCE / "ffi_test_stubs.rs").resolve(): output / "ffi_test_stubs.rs",
+        },
     )
     audio = module_source(
         (SOURCE / "web_audio/mod.rs").read_text(),
@@ -147,7 +161,20 @@ def prepare(output, driver, chain="", check=False):
         AUDIO_MODULES,
         {(SOURCE / "web_audio" / name).resolve(): output / name for name in AUDIO_PINS},
     )
+    html = module_source(
+        (SOURCE / "html/mod.rs").read_text(),
+        SOURCE / "html",
+        HTML_MODULES,
+        {(SOURCE / "html/message_port.rs").resolve(): output / "message_port.rs"},
+    )
     planned = {
+        "html.rs": html.encode(),
+        "message_port.rs": _ports.compose(
+            "html/message_port.rs", (SOURCE / "html/message_port.rs").read_text()
+        ).encode(),
+        "ffi_test_stubs.rs": _ports.compose(
+            "ffi_test_stubs.rs", (SOURCE / "ffi_test_stubs.rs").read_text()
+        ).encode(),
         "lib.rs": root.encode(),
         "web_audio.rs": audio.encode(),
         **{

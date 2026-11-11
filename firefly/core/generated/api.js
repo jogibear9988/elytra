@@ -3421,6 +3421,7 @@ function createRemoteLinks(hooks) {
     }
     function bind(record, value) {
       const route = {
+        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
         id: value.id,
         generation: value.generation,
         record,
@@ -3451,7 +3452,7 @@ function createRemoteLinks(hooks) {
         }
         const moves = hooks.transfers(transfer, null, null);
         for (const move of moves) {
-          if (move.record.peer?.remote) {
+          if (move.record.peer?.remote && !transport.allowNativeRelay) {
             throw hooks.error(
               "ERR_FIREFLY_UNSUPPORTED_API",
               "Forwarding a native-backed port is not implemented"
@@ -3926,6 +3927,9 @@ function createMessageChannels(native, EventEmitter, error) {
         );
       }
       const size = apply2(byteLength, wire, []);
+      if (destination?.remote && size > destination.remote.maxPayload) {
+        throw error("ERR_FIREFLY_PORT_LIMIT", "Port message exceeds its native frame limit");
+      }
       if (destination && !destination.closed && (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304)) {
         throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
       }
@@ -4033,7 +4037,7 @@ function createMessageChannels(native, EventEmitter, error) {
   return { MessageChannelMain, shutdown, connect: remote.connect };
 }
 
-// firefly/core/utility-process/port-packets.mjs
+// firefly/core/message-ports/packets.mjs
 var ByteArray = Uint8Array;
 var apply = Reflect.apply;
 var typed = Object.getPrototypeOf(ByteArray.prototype);
@@ -4112,6 +4116,108 @@ function decodePortPacket(value, expected) {
     descriptors,
     wire: new ByteArray(buffer, baseOffset + offset, size - offset)
   };
+}
+
+// firefly/core/message-ports/renderer.mjs
+function createRendererPorts(native, channels, error) {
+  const links = /* @__PURE__ */ new Map();
+  const apply2 = Reflect.apply;
+  const byteLength = Object.getOwnPropertyDescriptor(
+    Object.getPrototypeOf(Uint8Array.prototype),
+    "byteLength"
+  ).get;
+  function disconnect(id) {
+    const current2 = links.get(id);
+    if (current2) {
+      links.delete(id);
+      current2.link.disconnect();
+    }
+  }
+  function current(id, epoch) {
+    const old = links.get(id);
+    if (old?.epoch === epoch) {
+      return old;
+    }
+    disconnect(id);
+    const link = channels.connect({
+      send: (route, generation, wire) => native.sendRendererPort(id, epoch, route, generation, wire),
+      close: (route, generation) => native.closeRendererPort(id, epoch, route, generation),
+      consume: (route, generation, size) => native.consumeRendererPort(id, epoch, route, generation, size),
+      blocked: (status) => status === native.rendererPortQueueFull,
+      // The other peer can already belong to a utility: this is the actual
+      // SharedProcess relay. Utility-to-utility forwarding remains refused.
+      allowNativeRelay: true,
+      maxPayload: 128 * 1024 - 20 - 16
+    });
+    const record = { epoch, link };
+    links.set(id, record);
+    return record;
+  }
+  function post(id, channel, message, transfer) {
+    if (typeof channel !== "string" || channel.length > 256) {
+      throw error("ERR_INVALID_ARG_TYPE", "postMessage requires a bounded channel string");
+    }
+    const wire = native.encodeIpc([channel, message]);
+    if (transfer === void 0 || Array.isArray(transfer) && transfer.length === 0) {
+      native.sendIpc(id, wire);
+      return;
+    }
+    if (typeof native.portEpoch !== "function" || typeof native.sendPortTransfer !== "function") {
+      throw error(
+        "ERR_FIREFLY_UNSUPPORTED_API",
+        "Native renderer port delivery is not implemented"
+      );
+    }
+    const epoch = native.portEpoch(id);
+    if (typeof epoch !== "string" || !epoch.length) {
+      throw error("ERR_FIREFLY_IPC_NOT_READY", "No active document for port delivery");
+    }
+    const owner = current(id, epoch);
+    const plan = owner.link.prepare(transfer);
+    if (apply2(byteLength, wire, []) > 128 * 1024 - 20 - 16 - plan.count * 8) {
+      throw error("ERR_FIREFLY_PORT_LIMIT", "Port attachment message exceeds its native frame");
+    }
+    const result = native.sendPortTransfer(id, epoch, wire, plan.count);
+    if (!result || result.status !== 0 || result.epoch !== epoch) {
+      throw error("ERR_FIREFLY_PORT_CHANNEL", "Native document port admission failed");
+    }
+    try {
+      plan.commit(result.ports);
+    } catch (failure) {
+      disconnect(id);
+      throw failure;
+    }
+  }
+  function dispatch(id, type, data) {
+    const owner = links.get(id);
+    if (!owner || !data || data.epoch !== owner.epoch) {
+      return;
+    }
+    if (type === "renderer-port-revoked") {
+      disconnect(id);
+    } else if (type === "renderer-port-writable") {
+      owner.link.writable();
+    } else if (type === "renderer-port-data" || type === "renderer-port-close") {
+      try {
+        const kind = type === "renderer-port-data" ? "port-data" : "port-close";
+        const packet = decodePortPacket(data.wire, kind);
+        if (kind === "port-data") {
+          owner.link.receive(packet.id, packet.generation, packet.wire);
+        } else {
+          owner.link.closed(packet.id, packet.generation);
+        }
+      } catch (failure) {
+        disconnect(id);
+        throw failure;
+      }
+    }
+  }
+  function shutdown() {
+    for (const id of [...links.keys()]) {
+      disconnect(id);
+    }
+  }
+  return { post, dispatch, disconnect, shutdown };
 }
 
 // firefly/core/utility-process/index.mjs
@@ -8091,7 +8197,12 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     throw error("ERR_FIREFLY_UNSUPPORTED_API", `${name} is not implemented`);
   };
   const bufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
-  const channels = createMessageChannels(native, EventEmitter, error);
+  const portCodec = {
+    encodeIpc: (value) => typeof native.encodePortIpc === "function" ? native.encodePortIpc(value) : native.encodeIpc(value),
+    decodeIpc: (wire) => typeof native.decodePortIpc === "function" ? native.decodePortIpc(wire) : native.decodeIpc(wire)
+  };
+  const channels = createMessageChannels(portCodec, EventEmitter, error);
+  const rendererPorts = createRendererPorts(native, channels, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
   const titleBar = createTitleBar(native, error, unsupported);
@@ -8272,6 +8383,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       power.stop();
       notifications.stop();
       capture.stop();
+      rendererPorts.shutdown();
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
@@ -8459,6 +8571,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     power.stop();
     notifications.stop();
     capture.stop();
+    rendererPorts.shutdown();
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
@@ -8495,8 +8608,9 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       alive(this._window);
       return defaultSession;
     }
-    postMessage() {
-      unsupported("webContents.postMessage port/data delivery");
+    postMessage(channel, message, transfer) {
+      alive(this._window);
+      rendererPorts.post(this.id, channel, message, transfer);
     }
     send(channel, ...args) {
       alive(this._window);
@@ -9002,6 +9116,10 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
     }
     if (type === "theme-changed") {
       theme.changed();
+      return;
+    }
+    if (typeof type === "string" && type.startsWith("renderer-port-")) {
+      rendererPorts.dispatch(id, type, data);
       return;
     }
     const win = windows.get(id) ?? views.records.get(id);

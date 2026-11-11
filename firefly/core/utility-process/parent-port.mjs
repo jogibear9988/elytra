@@ -1,6 +1,6 @@
 /** Utility-realm parentPort: bounded binary snapshots over the native parent channel. */
 import createMessageChannels from '../message-ports/index.mjs';
-import decodePortPacket from './port-packets.mjs';
+import decodePortPacket from '../message-ports/packets.mjs';
 
 export default function createParentPort(native, EventEmitter, codec) {
   const schedule = setImmediate;

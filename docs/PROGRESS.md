@@ -13435,6 +13435,42 @@ or Finder metadata removal. Actual offscreen entry now forks shared-process PID
 SharedProcess service readiness and the editor remain unaccepted. No broad suite
 or visible GUI test is run.
 
+## 2026-11-11 — Genuine document-bound renderer MessagePorts
+
+Implement the second Code-OSS port leg: webContents.postMessage admits endpoint
+transfers transactionally to the exact renderer document/realm/epoch. The helper
+creates genuine SDK DOM MessagePorts; preload event.ports can be transferred by
+ordinary window.postMessage into the principal realm. Broker the utility-backed
+peer through the shared main ownership core. Keep separate port frame sequences,
+transfer ACKs, bounded native ledgers and document wire queues. Stale epochs cannot
+reach a newer document; navigation/crash/teardown revoke the route. Unsupported
+reverse/nested/utility-to-utility transfers remain explicit refusals.
+
+Native credit follows actual SDK dequeue, not post_message queue admission or JS
+listener callbacks. Compose only exact pinned Rust leaves through the existing
+owned compiler driver and native weak observer registry; vendor is unchanged.
+Observation moves with legitimate DOM transfers, validates thread/VM/document,
+never roots JavaScript, and separates receiver consumption from forwarding close
+so preceding accepted messages drain. See ADR 0195 for ownership and limits.
+
+Actual Release SDK/Rust/main/helper/static-offscreen build passes
+(codeoss-renderer-ports-build.log); the final exact-array length descriptor fix
+also builds (codeoss-renderer-port-admission-build.log). The focused offscreen
+public fixture passes both genuine principal DOM handoff and real utility/native
+DOM relay: delayed start, 32 independent 4 KiB snapshots, FIFO, old-owner detachment,
+ordered close and actual child PID/exit (codeoss-renderer-ports-native.log).
+The separate native no-listener/GC observer probe is provided with strict compile
+evidence, not yet runtime acceptance. No broad local suite or visible GUI is run.
+
+Restart only the task-owned actual Code-OSS diagnostic after rebuilding the SDK.
+The actual entry now forks shared-process PID73274 and watcher PID73275, then logs
+Renderer->UtilityProcess#createWorkerChannel: connection established
+(codeoss-renderer-ports-start.log). This passes the earlier renderer-port refusal.
+Current concrete errors include synchronous CJS require of uuid14 from deviceid
+and contextBridge argument capture's 64 KiB binary budget. SharedProcess service
+readiness, window-ready, editor open/edit/save and other platforms remain unaccepted.
+The candidate remains on codex/autoplay-policy-2026-11-10, not master acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

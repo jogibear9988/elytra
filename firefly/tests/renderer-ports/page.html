@@ -1,0 +1,66 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Owned renderer MessagePort acceptance</title>
+<script>
+'use strict';
+const phases = new Set();
+function check(value, message) {
+  if (!value) throw Error(message);
+}
+function failure(error) {
+  window.rendererPorts.report({ kind: 'failure', message: String(error.message || error) });
+}
+window.addEventListener('error', (event) => failure(event.error || event.message));
+window.addEventListener('unhandledrejection', (event) => failure(event.reason));
+window.addEventListener('message', (event) => {
+  try {
+    if (event.source !== window || !['direct', 'relay'].includes(event.data)) return;
+    const phase = event.data;
+    check(!phases.has(phase), 'One handoff for each phase');
+    phases.add(phase);
+    check(typeof process === 'undefined' && typeof require === 'undefined', 'Principal has no Node');
+    check(event.ports.length === 1, 'Exactly one DOM endpoint');
+    const port = event.ports[0];
+    check(port instanceof MessagePort && Object.getPrototypeOf(port) === MessagePort.prototype,
+      'Actual principal-realm MessagePort wrapper');
+    let received = 0;
+    let queued = false;
+    let started = false;
+    port.addEventListener('messageerror', () => failure(Error('DOM messageerror')));
+    port.addEventListener('message', ({ data }) => {
+      try {
+        check(started, 'Disabled DOM endpoint does not consume queued messages');
+        if (data.kind === 'queued') {
+          check(!queued && received === 0, 'Pre-transfer queue arrives first');
+          queued = true;
+          port.postMessage({ kind: 'queued-echo', phase });
+          return;
+        }
+        check(queued && data.kind === 'binary' && data.index === received, 'Binary FIFO');
+        check(data.bytes instanceof Uint8Array && data.bytes.byteLength === 4096,
+          'Actual principal binary view');
+        check(data.bytes.every((value, offset) => value === ((offset * 13 + received) & 255)),
+          'Independent binary snapshot');
+        port.postMessage({ kind: 'echo', phase, index: received, bytes: data.bytes });
+        data.bytes.fill(211);
+        if (++received === 32) {
+          port.close();
+          window.rendererPorts.report({ kind: 'complete', phase, received });
+        }
+      } catch (error) {
+        failure(error);
+      }
+    });
+    // Adding a listener must not start the port. Fill the real native credit
+    // window before explicitly enabling the genuine SDK queue.
+    setTimeout(() => {
+      check(received === 0 && !queued, 'Start gate retained every accepted message');
+      started = true;
+      port.start();
+    }, 100);
+  } catch (error) {
+    failure(error);
+  }
+});
+window.rendererPorts.ready();
+</script>

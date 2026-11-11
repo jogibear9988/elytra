@@ -90,6 +90,7 @@ export default function createRemoteLinks(hooks) {
 
     function bind(record, value) {
       const route = {
+        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
         id: value.id,
         generation: value.generation,
         record,
@@ -127,7 +128,7 @@ export default function createRemoteLinks(hooks) {
         }
         const moves = hooks.transfers(transfer, null, null);
         for (const move of moves) {
-          if (move.record.peer?.remote) {
+          if (move.record.peer?.remote && !transport.allowNativeRelay) {
             throw hooks.error(
               'ERR_FIREFLY_UNSUPPORTED_API',
               'Forwarding a native-backed port is not implemented'

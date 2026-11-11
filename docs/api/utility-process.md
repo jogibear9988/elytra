@@ -132,16 +132,17 @@ These implementation bounds and error codes are not Electron API guarantees.
 ## Remaining Code-OSS requirements
 
 The actual local entry now creates its renderer, loads the Workbench graph and
-forks the file-watcher utility. It still refuses renderer port delivery, and the
-SharedProcess requests implicit development inspector flags that the native utility
-correctly rejects. Follow the [Code-OSS status](../compatibility/vscode.md);
+forks the file-watcher and shared-process utilities. Genuine renderer relay now
+passes a focused offscreen fixture and the actual watcher channel connects. The
+pinned local adaptation discloses omission of implicit inspector defaults; explicit
+inspector requests remain unsupported. Follow the [Code-OSS status](../compatibility/vscode.md);
 component port acceptance does not establish complete SharedProcess service startup.
 
 The actual pinned utility wrapper first sends configuration, then expects genuine
 ipc-ready/init-done responses from bootstrap-fork and the shared-process module.
 A connection subsequently sends an actual MessageChannelMain endpoint into that
 child and transfers another endpoint to a renderer. Main-to-utility handoff now
-has actual native component acceptance; the renderer/DOM binding remains missing.
+has actual native component acceptance, including the subsequent renderer/DOM relay.
 The default shared-process configuration also enables authentication forwarding,
 which is explicitly unsupported. These are separate blockers before running the
 actual shared-process services or a VS Code workbench.

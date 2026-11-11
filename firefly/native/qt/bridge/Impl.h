@@ -26,6 +26,7 @@
 #include "native/frames/Registry.h"
 #include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
+#include "native/utility/ports/Ledger.h"
 #include "native/web-request/Broker.h"
 #include "native/window/Constraints.h"
 #include "native/window/FirstMouse.h"
@@ -197,6 +198,11 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         Optional<MonotonicTime> ipc_byte_deadline {};
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
+        Utility::Ports::Ledger renderer_ports;
+        u32 renderer_port_next { 0 };
+        u32 renderer_port_incoming_last { 0 };
+        std::unordered_map<u32, MonotonicTime> port_event_pending;
+        bool renderer_port_writable_queued { false };
         u32 ipc_outgoing_next { 0 };
         std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
         FilePicker* file_picker { nullptr };
@@ -344,6 +350,34 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
 
     void expire_ipc_events();
+
+    void install_renderer_ports(JS::Object&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_port_epoch(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_port_transfer(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_send_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_consume_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_close_renderer_port(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_encode_port_ipc(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_decode_port_ipc(JS::VM&);
+
+    State* renderer_port_state(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> renderer_port_action(JS::VM&, int);
+
+    void receive_renderer_port(int, ApplicationIpc::Kind, u32, ByteString);
+
+    void reset_renderer_ports(int);
+
+    void emit_renderer_port(int, u64, ByteString, ByteString = {});
+
+    bool queue_renderer_port(int, ByteString const&);
 
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);

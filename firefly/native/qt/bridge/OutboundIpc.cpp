@@ -27,8 +27,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::send_ipc_event(JS::VM& vm)
     if (bytes.is_error()
         || BridgeData::decode_wire(bytes.value().view(), application_ipc_limits()).is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid IPC graph"sv);
-    if (window->ipc_outgoing.size() >= 16 || ipc_outgoing_count >= 64
-        || window->ipc_outgoing_next == 0xffffffffu)
+    if (window->ipc_outgoing.size() + window->port_event_pending.size() >= 16
+        || ipc_outgoing_count >= 64 || window->ipc_outgoing_next == 0xffffffffu)
         return preload_error(
             vm, "ERR_FIREFLY_IPC_LIMIT", "Main-to-renderer event budget exceeded"sv);
     auto request = ++window->ipc_outgoing_next;
@@ -81,6 +81,14 @@ void Bridge::Impl::expire_ipc_events()
         }
 
         bool expired = false;
+        for (auto const& [request, deadline] : window.port_event_pending) {
+            (void)request;
+            if (deadline <= now) {
+                expired = true;
+                break;
+            }
+        }
+
         for (auto const& [request, deadline] : window.ipc_outgoing) {
             (void)request;
             if (deadline <= now) {

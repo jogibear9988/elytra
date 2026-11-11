@@ -1,6 +1,7 @@
 /** Preload-only invoke/event endpoint. Own Promise roots or private event credit until
  * settlement, timeout or document revocation; accept bounded data graphs only. */
 #include "IpcEndpoint.h"
+#include "ports/PortEndpoint.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include <AK/JsonObject.h>
@@ -23,6 +24,8 @@ void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
 {
     visitor.visit(m_document.ptr());
     visitor.visit(m_exports.ptr());
+    if (m_ports)
+        m_ports->visit_edges(visitor);
     for (auto const& listener : m_listeners)
         visitor.visit(listener.callback.ptr());
     for (auto const& entry : m_pending)
@@ -47,6 +50,7 @@ IpcEndpoint::IpcEndpoint(IsolatedWorld& world, Web::DOM::Document& document, Str
     , m_document(document)
     , m_realm(move(realm))
 {
+    m_ports = make<PortEndpoint>(*this);
 }
 
 NonnullRefPtr<IpcEndpoint> IpcEndpoint::create(
@@ -70,6 +74,8 @@ void IpcEndpoint::revoke()
     // Revoke before closing: a synchronous close callback must not settle work
     // or reenter a world while its document is being detached.
     m_byte_failed = true;
+    if (m_ports)
+        m_ports->revoke();
     if (m_byte_channel) {
         m_byte_channel->close();
         m_byte_channel = nullptr;
@@ -254,6 +260,8 @@ void IpcEndpoint::settle(
 
 void IpcEndpoint::expire()
 {
+    if (m_ports)
+        m_ports->expire();
     auto now = MonotonicTime::now();
     if (m_fragment_deadline.has_value() && *m_fragment_deadline <= now) {
         retire_channel();

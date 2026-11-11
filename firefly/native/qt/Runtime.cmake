@@ -224,8 +224,6 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../gpu/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../utility/ports/Protocol.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../utility/ports/Ledger.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
@@ -237,6 +235,7 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Ipc.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/IpcChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/OutboundIpc.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/bridge/PortChannel.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Preload.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/PreloadProcess.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/bridge/Protocols.cpp"
@@ -284,6 +283,7 @@ target_compile_definitions(firefly-application
 target_link_libraries(
     firefly-application
     PUBLIC firefly-qt-view
+           firefly-port-wire
            firefly-mite
            firefly-clipboard-protocol
            firefly-runtime-paths

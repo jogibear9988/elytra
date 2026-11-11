@@ -69,6 +69,10 @@ set_property(
     APPEND
     PROPERTY
         CMAKE_CONFIGURE_DEPENDS
+        "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-ports/observer.py"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/html/mod.rs"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/html/message_port.rs"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/ffi_test_stubs.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/audio.py"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/prepare.py"
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/driver.py"

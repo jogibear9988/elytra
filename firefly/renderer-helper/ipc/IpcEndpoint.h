@@ -5,6 +5,7 @@
 #include "native/ipc/application/Message.h"
 #include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
+#include "native/utility/ports/Protocol.h"
 #include "worlds/IsolatedWorld.h"
 #include <AK/HashMap.h>
 #include <AK/JsonValue.h>
@@ -24,6 +25,8 @@ class PageClient;
 }
 
 namespace Firefly {
+class PortEndpoint;
+
 class IpcEndpoint final : public RefCounted<IpcEndpoint>, public Weakable<IpcEndpoint> {
 public:
     void visit_edges(GC::Cell::Visitor&) const;
@@ -42,6 +45,8 @@ public:
     void expire();
 
 private:
+    friend class PortEndpoint;
+    OwnPtr<PortEndpoint> m_ports;
     IpcEndpoint(IsolatedWorld&, Web::DOM::Document&, String);
 
     JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&, bool event = false);
@@ -52,7 +57,8 @@ private:
 
     JS::ThrowCompletionOr<JS::Value> listen(JS::VM&, ListenerOperation);
 
-    void receive_event(u32, ByteString, RefPtr<IpcWireReservation>);
+    void receive_event(
+        u32, ByteString, RefPtr<IpcWireReservation>, Vector<Utility::Ports::Identity> = {});
 
     void control(String const& kind, u32 request);
 

@@ -1,5 +1,5 @@
 /** Native owned utility children. Main and utility realms exchange bounded binary snapshots. */
-import decodePortPacket from './port-packets.mjs';
+import decodePortPacket from '../message-ports/packets.mjs';
 
 export default function createUtilityProcesses(
   native,

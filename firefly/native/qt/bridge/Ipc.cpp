@@ -28,6 +28,7 @@ void Bridge::Impl::reset_ipc(int id)
     if (found == windows.end())
         return;
     auto& window = found->second;
+    reset_renderer_ports(id);
     // Frame identity belongs to the native canonical document, not an IPC
     // realm. First preload binding must preserve a frame read before IPC.
     // Registry validation retires replaced documents/hosts independently.
@@ -201,6 +202,12 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     window.ipc_fragment_deadline.clear();
     auto reservation = move(window.ipc_receive_reservation);
     auto packet = decoded.release_value().release_value();
+    if (packet.kind == ApplicationIpc::Kind::PortControl
+        || packet.kind == ApplicationIpc::Kind::PortAck) {
+        receive_renderer_port(id, packet.kind, packet.request, move(packet.payload));
+        return;
+    }
+
     if (packet.kind == ApplicationIpc::Kind::Ack) {
         if (window.ipc_outgoing.erase(packet.request))
             --ipc_outgoing_count;

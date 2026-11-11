@@ -106,19 +106,36 @@ ERR_INVALID_ARG_TYPE. Error messages/codes and exact task/close timing differ fr
 Electron. These are bounded copies, not a zero-copy, throughput or file-transfer
 performance claim.
 
-## Native utility handoff and remaining renderer work
+## Native utility and renderer handoff
 
-Local pairs/transfers and initial main-to-utility transfers are accepted.
-webContents.postMessage currently
-rejects explicitly. ipcRenderer.postMessage, DOM MessagePort handoff, native
-renderer document binding and DOM event.ports delivery remain required work.
-[utilityProcess](utility-process.md) now delivers native-backed endpoints over the
-actual private child pipe, with transactional admission, bounded credit, queued
-data, binary snapshots, peer close and process-exit acceptance. Transfer back from
-the child, nested native attachments and forwarding native-backed endpoints remain
-explicitly unsupported, as does authentication forwarding. No serializable public
-port IDs are offered as a substitute. Closed/destination/disconnected endpoint
-transfers are explicitly unavailable even where Electron accepts them.
+Main-to-utility transfers and `webContents.postMessage(channel, message, [port])`
+now have focused native macOS acceptance. Renderer delivery creates genuine SDK
+DOM MessagePorts in the isolated preload, available through `event.ports`. A
+preload may forward them using `window.postMessage(message, '*', event.ports)`;
+the principal receives real DOM wrappers, not port-shaped JavaScript objects.
+A peer already backed by a utility can be relayed to a renderer, as Code-OSS needs.
+A transfer without endpoints retains ordinary IPC behavior.
+
+Renderer routes belong to the exact native document, realm and epoch. Navigation,
+renderer loss and teardown revoke them. Transfer admission precedes detaching the
+old wrapper. Native credit is refunded at actual DOM queue consumption, including
+when no JavaScript listener is registered; posting to an unstarted DOM queue does
+not refund credit. Close preserves preceding accepted messages. Private route
+identities never enter application payloads.
+
+The native frame bound is 128 KiB including framing and route metadata; the
+existing 64 KiB aggregate distinct binary backing-store limit remains. Each route
+has 16 outstanding messages / 1 MiB per direction and bounded document wire queues.
+These are copied messages, not zero-copy or measured file-transfer performance.
+The focused offscreen fixture passes delayed start, 32 independent 4 KiB binary
+snapshots, FIFO, old-owner detachment, ordered close and genuine utility relay.
+The standalone no-listener/GC observer probe is provided but not yet runtime-accepted.
+Linux/Windows and packaged renderer-port acceptance remain unverified.
+
+`ipcRenderer.postMessage`, reverse child-to-parent attachments, nested native
+attachments and utility-to-utility forwarding remain explicit refusals. Utility
+authentication forwarding remains unsupported. Closed/destination/disconnected
+endpoint transfers are unavailable even where Electron accepts them.
 
 The public test compares real Firefly/Electron copy/FIFO/start/transfer/close behavior
 without opening windows. A genuine headless Mite/native BridgeData probe covers GC,

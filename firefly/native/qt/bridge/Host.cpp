@@ -42,6 +42,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     install_frames(*host);
     install_background(*host);
     install_zoom(*host);
+    install_renderer_ports(*host);
     install_constraints(*host);
     RecentDocuments::install_host(realm, *host, *context);
     host->define_native_function(realm, "spellCheckDisabled"_utf16,

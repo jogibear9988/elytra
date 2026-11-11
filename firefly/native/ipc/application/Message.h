@@ -9,7 +9,7 @@ constexpr size_t message_header_size = 20;
 constexpr size_t wire_limit = 128 * 1024 - message_header_size;
 constexpr size_t queue_limit = 48;
 constexpr size_t logical_wire_limit = 16 * 1024 * 1024;
-enum class Kind : u8 { Invoke = 1, Send, Reply, Event, Ack };
+enum class Kind : u8 { Invoke = 1, Send, Reply, Event, Ack, PortControl, PortAck };
 
 struct Message {
     Kind kind;

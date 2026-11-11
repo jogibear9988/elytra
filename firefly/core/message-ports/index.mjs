@@ -388,6 +388,9 @@ export default function createMessageChannels(native, EventEmitter, error) {
         );
       }
       const size = apply(byteLength, wire, []);
+      if (destination?.remote && size > destination.remote.maxPayload) {
+        throw error('ERR_FIREFLY_PORT_LIMIT', 'Port message exceeds its native frame limit');
+      }
       // Preflight resource checks avoid needless wrappers on an already full queue.
       if (
         destination &&

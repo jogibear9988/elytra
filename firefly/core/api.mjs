@@ -16,6 +16,7 @@ import createBackground from './window/background.mjs';
 import createWindowInput from './window/input.mjs';
 import createTitleBar from './window/title-bar.mjs';
 import createMessageChannels from './message-ports/index.mjs';
+import createRendererPorts from './message-ports/renderer.mjs';
 import createUtilityProcesses from './utility-process/index.mjs';
 import createSafeStorage from './safe-storage/index.mjs';
 import createViews from './views/index.mjs';
@@ -50,7 +51,19 @@ export default function createFireflyApi(
   };
 
   const bufferFrom = globalThis.Buffer.from.bind(globalThis.Buffer);
-  const channels = createMessageChannels(native, EventEmitter, error);
+  const portCodec = {
+    encodeIpc: (value) =>
+      typeof native.encodePortIpc === 'function'
+        ? native.encodePortIpc(value)
+        : native.encodeIpc(value),
+
+    decodeIpc: (wire) =>
+      typeof native.decodePortIpc === 'function'
+        ? native.decodePortIpc(wire)
+        : native.decodeIpc(wire)
+  };
+  const channels = createMessageChannels(portCodec, EventEmitter, error);
+  const rendererPorts = createRendererPorts(native, channels, error);
   const background = createBackground(native, error, unsupported);
   const windowInput = createWindowInput(native, error, unsupported);
   const titleBar = createTitleBar(native, error, unsupported);
@@ -253,6 +266,7 @@ export default function createFireflyApi(
       power.stop();
       notifications.stop();
       capture.stop();
+      rendererPorts.shutdown();
       channels.shutdown();
       utilities.shutdown();
       views.shutdown();
@@ -444,6 +458,7 @@ export default function createFireflyApi(
     power.stop();
     notifications.stop();
     capture.stop();
+    rendererPorts.shutdown();
     channels.shutdown();
     utilities.shutdown();
     views.shutdown();
@@ -485,8 +500,9 @@ export default function createFireflyApi(
       return defaultSession;
     }
 
-    postMessage() {
-      unsupported('webContents.postMessage port/data delivery');
+    postMessage(channel, message, transfer) {
+      alive(this._window);
+      rendererPorts.post(this.id, channel, message, transfer);
     }
 
     send(channel, ...args) {
@@ -1078,6 +1094,10 @@ export default function createFireflyApi(
     }
     if (type === 'theme-changed') {
       theme.changed();
+      return;
+    }
+    if (typeof type === 'string' && type.startsWith('renderer-port-')) {
+      rendererPorts.dispatch(id, type, data);
       return;
     }
     const win = windows.get(id) ?? views.records.get(id);
