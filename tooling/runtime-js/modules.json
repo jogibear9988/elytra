@@ -8,6 +8,7 @@
   "perf_hooks": "mite/modules/core/perf-hooks.mjs",
   "buffer": "mite/modules/core/buffer.mjs",
   "url": "mite/modules/core/url.mjs",
+  "querystring": "mite/modules/core/querystring.mjs",
   "util": "mite/modules/core/util.mjs",
   "fs": "mite/modules/filesystem/fs.mjs",
   "net": "mite/modules/network/net.mjs",

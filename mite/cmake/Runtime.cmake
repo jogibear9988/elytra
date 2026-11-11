@@ -47,6 +47,7 @@ function(mite_add_runtime target root js_target)
         buffer
         fs
         url
+        querystring
         util
         net
         dns

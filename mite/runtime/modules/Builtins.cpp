@@ -78,6 +78,8 @@ static constexpr std::string_view fs_exports[]
 static constexpr std::string_view fs_promises_exports[]
     = { "open", "constants", "readFile", "writeFile", "appendFile", "access", "stat", "lstat",
           "mkdir", "chmod", "mkdtemp", "rm", "rmdir", "unlink", "rename", "readdir", "realpath" };
+static constexpr std::string_view querystring_exports[]
+    = { "parse", "decode", "stringify", "encode", "escape", "unescape", "unescapeBuffer" };
 static constexpr std::string_view url_exports[]
     = { "URL", "URLSearchParams", "parse", "Url", "fileURLToPath", "fileURLToPathBuffer",
           "pathToFileURL", "domainToASCII", "domainToUnicode", "urlToHttpOptions" };
@@ -159,6 +161,8 @@ static constexpr BuiltinDefinition definitions[] = {
     { "string_decoder", { MITE_STRING_DECODER_SOURCE, sizeof(MITE_STRING_DECODER_SOURCE) - 1 },
         string_decoder_exports },
     { "util", { MITE_UTIL_SOURCE, sizeof(MITE_UTIL_SOURCE) - 1 }, util_exports },
+    { "querystring", { MITE_QUERYSTRING_SOURCE, sizeof(MITE_QUERYSTRING_SOURCE) - 1 },
+        querystring_exports },
     { "url", { MITE_URL_SOURCE, sizeof(MITE_URL_SOURCE) - 1 }, url_exports },
     { "fs", { MITE_FS_SOURCE, sizeof(MITE_FS_SOURCE) - 1 }, fs_exports },
     { "fs/promises", {}, fs_promises_exports },
@@ -485,6 +489,12 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             "timers"_utf16, TRY(builtin("timers")), JS::default_attributes);
         host->define_direct_property(
             "timerPromises"_utf16, TRY(builtin("timers/promises")), JS::default_attributes);
+    }
+
+    if (name == "querystring") {
+        auto buffer = TRY(builtin("buffer"));
+        host->define_direct_property(
+            "Buffer"_utf16, TRY(buffer->get("Buffer"_utf16)), JS::default_attributes);
     }
 
     if (name == "url") {

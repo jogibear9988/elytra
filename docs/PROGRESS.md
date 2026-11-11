@@ -13705,6 +13705,22 @@ forks the extension child and reaches undici/node:querystring instead of refusin
 engine flags (codeoss-child-builtins-start.log). This is process/import progress,
 not extension activation or debugger acceptance. No broad suite or GUI run.
 
+## 2026-11-11 — Genuine public querystring parser for extension dependencies
+
+The actual extension child reaches undici's required node:querystring import.
+Expose the full maintained Node24 parser/stringifier already pinned for legacy URL,
+sharing its exact percent encoder and query implementation instead of a stringify
+stub. Support parse/decode, stringify/encode, escape, unescape and unescapeBuffer,
+custom codecs/separators/maxKeys, duplicate/null-prototype maps and forgiving byte
+decoding. Keep existing source/license pins and ESM authoring conventions.
+
+Focused Node and actual-Mite factory controls pass; generated bundles reproduce.
+Native Release host/helper/offscreen build passes (codeoss-querystring-build.log),
+and the actual public builtin contract passes (codeoss-querystring-native.log).
+No broad local URL/runtime suite or GUI is run. The audited next undici hurdle is
+its unguarded Node-version metadata read; no fake versions.node is added and no
+whole-package networking/extension acceptance is inferred from this binding.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

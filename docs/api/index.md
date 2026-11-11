@@ -24,6 +24,8 @@ Mite runs independently of Firefly, Qt and LibWeb.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
+The [querystring reference](querystring.md) covers the shared parser, custom codecs
+and malformed-percent behavior.
 The [legacy URL reference](url-legacy.md) describes source-pinned parse/Url, native
 IDNA and query/format behavior alongside the WHATWG constructors.
 The [inspector state reference](inspector.md) describes the inactive endpoint query
