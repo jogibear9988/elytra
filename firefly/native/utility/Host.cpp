@@ -6,6 +6,7 @@
 #include "../platform/GCIncludes.h"
 #include "core/EventLoop.h"
 #include "platform/UV.h"
+#include "ports/Ledger.h"
 #include <AK/JsonObject.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/Array.h>
@@ -109,6 +110,7 @@ namespace {
             killed {}, channel_closed {};
         std::vector<char> incoming;
         std::string service_name;
+        Ports::Ledger ports;
     };
 
     struct Service {
@@ -233,6 +235,7 @@ namespace {
                 return;
             endpoint.channel_closed = true;
             endpoint.incoming.clear();
+            endpoint.ports.clear();
             close(endpoint.pipes[3]);
             emit(endpoint, "close");
         }
@@ -314,28 +317,103 @@ namespace {
                     endpoint.incoming.begin() + 4, endpoint.incoming.begin() + 4 + length);
                 endpoint.incoming.erase(
                     endpoint.incoming.begin(), endpoint.incoming.begin() + 4 + length);
-                bytes(endpoint, child_side ? "message" : "data", payload.data(), payload.size());
+                if (Ports::has_magic(payload)) {
+                    receive_port(endpoint, payload);
+                } else {
+                    bytes(
+                        endpoint, child_side ? "message" : "data", payload.data(), payload.size());
+                }
             }
         }
 
-        JS::ThrowCompletionOr<JS::Value> send(JS::VM& vm, Endpoint* endpoint, JS::Value value)
+        void receive_port(Endpoint& endpoint, std::span<char const> wire)
         {
-            if (stopped || !endpoint || endpoint->channel_closed)
-                return JS::Value(UV_EPIPE);
-            if (!value.is_object() || !is<JS::Uint8Array>(value.as_object()))
+            Ports::Packet packet {};
+            if (!Ports::decode(wire, packet)) {
+                error(endpoint, UV_EPROTO);
+                return;
+            }
+
+            if (packet.kind == Ports::Kind::Transfer) {
+                if (!child_side || !endpoint.ports.admit_transfer(packet.ports)) {
+                    error(endpoint, UV_EPROTO);
+                    return;
+                }
+
+                bytes(endpoint, "port-transfer", wire.data(), wire.size());
+                return;
+            }
+
+            auto state = endpoint.ports.state(packet.route);
+            if (state == Ports::Ledger::State::Retired)
+                return; // An already queued message cannot resurrect a retired capability.
+            if (state != Ports::Ledger::State::Live) {
+                error(endpoint, UV_EPROTO);
+                return;
+            }
+
+            if (packet.kind == Ports::Kind::Ack) {
+                if (!endpoint.ports.acknowledge(packet.route, Ports::read_size(packet.payload))) {
+                    error(endpoint, UV_EPROTO);
+                    return;
+                }
+
+                emit(endpoint, "port-writable");
+            } else if (packet.kind == Ports::Kind::Close) {
+                endpoint.ports.close(packet.route);
+                bytes(endpoint, "port-close", wire.data(), wire.size());
+            } else {
+                if (!endpoint.ports.received(packet.route, packet.payload.size())) {
+                    error(endpoint, UV_ENOBUFS);
+                    return;
+                }
+
+                bytes(endpoint, "port-data", wire.data(), wire.size());
+            }
+        }
+
+        JS::ThrowCompletionOr<std::span<char const>> payload(JS::VM& vm, JS::Value value)
+        {
+            if (!value.is_object() || !JS::Uint8Array::is_engine_class_of(value.as_object())
+                || JS::host_class_of(value.as_object())
+                || &value.as_object().shape().realm() != &realm)
                 return vm.throw_completion<JS::TypeError>(
-                    "Utility channel requires Uint8Array"_utf16);
+                    "Utility channel requires its own Uint8Array"_utf16);
             auto& array = static_cast<JS::Uint8Array&>(value.as_object());
+            auto* backing = array.viewed_array_buffer();
+            if (!backing || backing->is_detached() || backing->is_shared_array_buffer()
+                || !backing->is_fixed_length())
+                return vm.throw_completion<JS::TypeError>(
+                    "Utility channel requires fixed nonshared storage"_utf16);
             auto witness = JS::make_typed_array_with_buffer_witness_record(
                 array, JS::ArrayBuffer::Order::SeqCst);
             if (JS::is_typed_array_out_of_bounds(witness))
                 return vm.throw_completion<JS::TypeError>("Detached utility message"_utf16);
             auto size = JS::typed_array_byte_length(witness);
+            if (!size)
+                return std::span<char const> {};
+            return std::span<char const>(
+                reinterpret_cast<char const*>(
+                    array.viewed_array_buffer()->data_at(array.byte_offset())),
+                size);
+        }
+
+        JS::ThrowCompletionOr<JS::Value> send(JS::VM& vm, Endpoint* endpoint, JS::Value value)
+        {
+            auto wire = TRY(payload(vm, value));
+            return JS::Value(write(endpoint, wire));
+        }
+
+        int write(Endpoint* endpoint, std::span<char const> wire)
+        {
+            if (stopped || !endpoint || endpoint->channel_closed || endpoint->exited)
+                return UV_EPIPE;
+            auto size = wire.size();
             if (size > frame_limit)
-                return JS::Value(UV_EMSGSIZE);
+                return UV_EMSGSIZE;
             if (endpoint->writes >= write_count_limit
                 || endpoint->write_bytes + size + 4 > write_bytes_limit)
-                return JS::Value(UV_ENOBUFS);
+                return UV_ENOBUFS;
 
             struct Write {
                 Endpoint& endpoint;
@@ -347,8 +425,7 @@ namespace {
             for (size_t i = 0; i < 4; ++i)
                 write->bytes[i] = static_cast<char>(size >> ((3 - i) * 8));
             if (size)
-                memcpy(write->bytes.data() + 4,
-                    array.viewed_array_buffer()->data_at(array.byte_offset()), size);
+                memcpy(write->bytes.data() + 4, wire.data(), size);
             write->request.data = write;
             auto buffer
                 = uv_buf_init(write->bytes.data(), static_cast<unsigned int>(write->bytes.size()));
@@ -359,8 +436,12 @@ namespace {
                     --endpoint.writes;
                     endpoint.write_bytes -= write->bytes.size();
                     delete write;
-                    if (status && !endpoint.owner.stopped && !endpoint.channel_closed)
-                        endpoint.owner.error(endpoint, status);
+                    if (!endpoint.owner.stopped && !endpoint.channel_closed) {
+                        if (status)
+                            endpoint.owner.error(endpoint, status);
+                        else
+                            endpoint.owner.emit(endpoint, "port-writable");
+                    }
                 });
             if (status)
                 delete write;
@@ -369,7 +450,127 @@ namespace {
                 endpoint->write_bytes += size + 4;
             }
 
+            return status;
+        }
+
+        static JS::ThrowCompletionOr<uint32_t> identity(JS::VM& vm, JS::Value value)
+        {
+            if (!value.is_number() || !std::isfinite(value.as_double()) || value.as_double() < 1
+                || value.as_double() > Ports::identity_limit
+                || std::trunc(value.as_double()) != value.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid native utility port identity"_utf16);
+            return static_cast<uint32_t>(value.as_double());
+        }
+
+        enum class PortAction { Send, Close, Consume };
+
+        JS::ThrowCompletionOr<JS::Value> port_action(JS::VM& vm, PortAction action)
+        {
+            size_t offset = child_side ? 0 : 1;
+            auto* endpoint = get(child_side ? JS::Value(1) : vm.argument(0));
+            Ports::Identity route { TRY(identity(vm, vm.argument(offset))),
+                TRY(identity(vm, vm.argument(offset + 1))) };
+            if (stopped || !endpoint || endpoint->channel_closed || endpoint->exited)
+                return JS::Value(UV_EPIPE);
+            auto state = endpoint->ports.state(route);
+            if (state == Ports::Ledger::State::Retired)
+                return JS::Value(action == PortAction::Close ? 0 : UV_EPIPE);
+            if (state != Ports::Ledger::State::Live)
+                return JS::Value(UV_EINVAL);
+            if (action == PortAction::Send) {
+                auto data = TRY(payload(vm, vm.argument(offset + 2)));
+                if (data.empty())
+                    return JS::Value(UV_EINVAL);
+                if (data.size() > Ports::frame_limit - Ports::header_size)
+                    return JS::Value(UV_EMSGSIZE);
+                if (!endpoint->ports.can_send(route, data.size()))
+                    return JS::Value(UV_ENOBUFS);
+                auto frame = Ports::encode(Ports::Kind::Data, route, {}, data);
+                auto status = write(endpoint, frame);
+                if (!status)
+                    endpoint->ports.sent(route, data.size());
+                return JS::Value(status);
+            }
+
+            if (action == PortAction::Close) {
+                auto frame = Ports::encode(Ports::Kind::Close, route, {}, {});
+                auto status = write(endpoint, frame);
+                if (!status)
+                    endpoint->ports.close(route);
+                return JS::Value(status);
+            }
+
+            auto amount = vm.argument(offset + 2);
+            if (!amount.is_number() || !std::isfinite(amount.as_double()) || amount.as_double() < 0
+                || amount.as_double() > Ports::frame_limit
+                || std::trunc(amount.as_double()) != amount.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid native utility port consumption"_utf16);
+            auto size = static_cast<uint32_t>(amount.as_double());
+            if (!endpoint->ports.can_consume(route, size))
+                return JS::Value(UV_EINVAL);
+            auto encoded_size = Ports::size_payload(size);
+            auto frame = Ports::encode(Ports::Kind::Ack, route, {}, encoded_size);
+            auto status = write(endpoint, frame);
+            if (!status)
+                endpoint->ports.consumed(route, size);
             return JS::Value(status);
+        }
+
+        JS::ThrowCompletionOr<JS::Value> transfer(JS::VM& vm)
+        {
+            auto* endpoint = get(vm.argument(0));
+            auto wire = TRY(payload(vm, vm.argument(1)));
+            auto count_value = vm.argument(2);
+            if (!count_value.is_number() || !std::isfinite(count_value.as_double())
+                || count_value.as_double() < 1 || count_value.as_double() > 16
+                || std::trunc(count_value.as_double()) != count_value.as_double())
+                return vm.throw_completion<JS::TypeError>(
+                    "Invalid utility port transfer count"_utf16);
+            auto count = static_cast<size_t>(count_value.as_double());
+            std::vector<Ports::Identity> identities;
+            int status = stopped || !endpoint || endpoint->channel_closed || endpoint->exited
+                ? UV_EPIPE
+                : 0;
+            if (!status && !endpoint->ports.prepare_transfer(count, identities))
+                status = UV_EMFILE;
+            if (!status && wire.empty())
+                status = UV_EINVAL;
+            if (!status && wire.size() > Ports::frame_limit - Ports::header_size - count * 8)
+                status = UV_EMSGSIZE;
+            // Allocate every destination descriptor before write admission. No
+            // application code runs between admission and the ledger commit.
+            GC::Root ports { TRY(JS::Array::create(realm, status ? 0 : count)) };
+            if (!status) {
+                for (size_t index = 0; index < count; ++index) {
+                    GC::Root descriptor { JS::Object::create(realm, nullptr) };
+                    descriptor->define_direct_property(
+                        "id"_utf16, JS::Value(identities[index].id), JS::default_attributes);
+                    descriptor->define_direct_property("generation"_utf16,
+                        JS::Value(identities[index].generation), JS::default_attributes);
+                    ports->define_direct_property(index, descriptor.ptr(), JS::default_attributes);
+                }
+            }
+
+            GC::Root result { JS::Object::create(realm, nullptr) };
+            result->define_direct_property("ports"_utf16, ports.ptr(), JS::default_attributes);
+            if (!status) {
+                auto frame = Ports::encode(Ports::Kind::Transfer, {}, identities, wire);
+                status = write(endpoint, frame);
+                if (!status) {
+                    auto admitted = endpoint->ports.admit_transfer(identities);
+                    VERIFY(admitted);
+                } else {
+                    ports = TRY(JS::Array::create(realm, 0));
+                    result->define_direct_property(
+                        "ports"_utf16, ports.ptr(), JS::default_attributes);
+                }
+            }
+
+            result->define_direct_property(
+                "status"_utf16, JS::Value(status), JS::default_attributes);
+            return JS::Value(result.ptr());
         }
 
         void shutdown()
@@ -380,6 +581,7 @@ namespace {
             for (auto& [id, endpoint] : endpoints) {
                 endpoint->callback = nullptr;
                 endpoint->channel_closed = true;
+                endpoint->ports.clear();
                 close_startup(*endpoint);
                 for (auto& pipe : endpoint->pipes)
                     close(pipe);
@@ -388,6 +590,30 @@ namespace {
             }
         }
     };
+
+    void install_ports(JS::Realm& realm, JS::Object& host, std::shared_ptr<Service> owner)
+    {
+        host.define_direct_property(
+            "portQueueFull"_utf16, JS::Value(UV_ENOBUFS), JS::default_attributes);
+        for (auto const& [name, action] :
+            std::array { std::pair { "sendPort"_utf16, Service::PortAction::Send },
+                std::pair { "closePort"_utf16, Service::PortAction::Close },
+                std::pair { "consumePort"_utf16, Service::PortAction::Consume } }) {
+            host.define_native_function(realm, name,
+                GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner), action),
+                    [](auto& capture, auto& action, JS::VM& vm) {
+                        return capture.value->port_action(vm, action);
+                    }),
+                static_cast<int>(owner->child_side ? 3 : 4), JS::default_attributes);
+        }
+
+        if (!owner->child_side) {
+            host.define_native_function(realm, "sendTransfer"_utf16,
+                GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
+                    [](auto& capture, JS::VM& vm) { return capture.value->transfer(vm); }),
+                3, JS::default_attributes);
+        }
+    }
 
     std::shared_ptr<Service> service(
         JS::VM& vm, JS::Realm& realm, Mite::EventLoop& loop, bool child)
@@ -403,6 +629,7 @@ GC::Ref<JS::Object> create_host(
 {
     auto owner = service(vm, realm, loop, false);
     GC::Root host { JS::Object::create(realm, nullptr) };
+    install_ports(realm, *host, owner);
     host->define_native_function(realm, "spawn"_utf16,
         GC::create_function(realm.heap(),
             GC::captures(Mite::shared_capture(owner), realm, electron_compat),
@@ -492,6 +719,10 @@ GC::Ref<JS::Object> create_host(
                     options.exit_cb = [](uv_process_t* process, int64_t code, int signal) {
                         auto& endpoint = *static_cast<Endpoint*>(process->data);
                         endpoint.exited = true;
+                        // fd3 may still contain ordered messages from before exit.
+                        // Retired capabilities ignore those late frames without
+                        // inventing a new protocol failure for a reaped child.
+                        endpoint.ports.retire_all();
                         endpoint.owner.announce(endpoint);
                         // Preserve the native identity before the process handle is
                         // closed. Service names are admission-time snapshots, not
@@ -634,6 +865,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_parent_host(
     }
 
     GC::Root host { JS::Object::create(realm, nullptr) };
+    install_ports(realm, *host, owner);
     host->define_native_function(realm, "setHandler"_utf16,
         GC::create_function(realm.heap(), GC::captures(Mite::shared_capture(owner)),
             [](auto& owner_capture, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

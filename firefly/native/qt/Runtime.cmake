@@ -224,6 +224,8 @@ add_library(
     "${CMAKE_CURRENT_LIST_DIR}/../theme/ThemeSettings.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../gpu/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Host.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../utility/ports/Protocol.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../utility/ports/Ledger.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../safe-storage/Host.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../utility/Bootstrap.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Bridge.cpp"
@@ -590,6 +592,7 @@ if(APPLE)
                 check-firefly-message-ports
                 check-firefly-message-port-lifetime
                 check-firefly-utility-process
+                check-firefly-utility-ports
                 check-firefly-web-contents-view
                 check-firefly-safe-storage-backend
                 check-firefly-safe-storage-public

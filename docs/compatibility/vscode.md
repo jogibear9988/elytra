@@ -17,10 +17,13 @@ module loading/linking evidence, not an accepted editor window or editing workfl
 The source-parent contextBridge method binding is now implemented and the actual
 entry reaches workbench#open and Renderer->SharedProcess#connect. Local URI-provider
 factories can now be constructed; actual remote-resource operations still fail
-explicitly. The current fatal refusal is Utility native MessagePort transfer is
-not implemented, during the main process's SharedProcess connection handoff.
-Some preload source-call refusals and the separate 64 KiB contextBridge binary
-argument limit are also observed and remain work. No accepted editor is claimed.
+explicitly. Initial main-to-utility native port transfer now passes a real process fixture.
+Actual startup reaches the file-watcher utility and then rejects
+webContents.postMessage port/data delivery: the renderer/DOM handoff is still
+missing. SharedProcess also requests implicit development inspector flags, which
+the native utility correctly refuses; these need an explicitly disclosed local
+source adaptation. Some preload source-call refusals and the separate 64 KiB
+contextBridge binary argument limit remain work. No accepted editor is claimed.
 
 The former graph hang was caused by empty JavaScript responses completing before
 asynchronous request-header authorization. The adapter now retains those pending

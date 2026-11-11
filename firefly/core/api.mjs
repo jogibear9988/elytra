@@ -360,7 +360,8 @@ export default function createFireflyApi(
       if (!exited) {
         app.emit('child-process-gone', event(), details);
       }
-    }
+    },
+    channels
   );
   Object.defineProperty(app, 'commandLine', {
     enumerable: true,

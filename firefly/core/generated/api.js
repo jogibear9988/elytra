@@ -2498,7 +2498,7 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
   const positive = (value) => Number.isInteger(value) && value > 0 && value <= 2147483647;
   const text = (value) => typeof value === "string" && value.length <= 65536;
   const destroyed = () => error("ERR_FIREFLY_OBJECT_DESTROYED", "Render frame is no longer active");
-  const invalid = () => error("ERR_FIREFLY_FRAME_DATA", "Invalid native frame snapshot");
+  const invalid2 = () => error("ERR_FIREFLY_FRAME_DATA", "Invalid native frame snapshot");
   function sweep() {
     for (const [token, entry] of objects) {
       if (!contentsAlive(entry.contents) || !entry.object.deref()) {
@@ -2527,16 +2527,16 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
       return null;
     }
     if (typeof wire !== "string" || wire.length > 2 * 1024 * 1024) {
-      throw invalid();
+      throw invalid2();
     }
     let data;
     try {
       data = JSON.parse(wire);
     } catch {
-      throw invalid();
+      throw invalid2();
     }
     if (!data || data.contentsId !== contents || !Array.isArray(data.frames) || data.frames.length > 256) {
-      throw invalid();
+      throw invalid2();
     }
     const rows = /* @__PURE__ */ new Map();
     const documents = /* @__PURE__ */ new Set();
@@ -2544,11 +2544,11 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     const routes = /* @__PURE__ */ new Set();
     for (const row of data.frames) {
       if (!row || typeof row !== "object" || !positive(row.token) || rows.has(row.token) || typeof row.document !== "string" || !/^[1-9]\d{0,19}:[1-9]\d{0,19}$/.test(row.document) || documents.has(row.document) || !positive(row.frameTreeNodeId) || treeIds.has(row.frameTreeNodeId) || !positive(row.processId) || !positive(row.osProcessId) || !positive(row.routingId) || !text(row.url) || !text(row.origin) || !(row.parent === null || positive(row.parent)) || !positive(row.top)) {
-        throw invalid();
+        throw invalid2();
       }
       const route = `${row.processId}/${row.routingId}`;
       if (routes.has(route)) {
-        throw invalid();
+        throw invalid2();
       }
       rows.set(row.token, row);
       documents.add(row.document);
@@ -2557,26 +2557,26 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     }
     if (data.mainFrame === null) {
       if (rows.size !== 0) {
-        throw invalid();
+        throw invalid2();
       }
     } else if (!positive(data.mainFrame) || !rows.has(data.mainFrame)) {
-      throw invalid();
+      throw invalid2();
     }
     for (const row of rows.values()) {
       if (row.top !== data.mainFrame || row.parent === null !== (row.token === data.mainFrame)) {
-        throw invalid();
+        throw invalid2();
       }
       const seen = /* @__PURE__ */ new Set();
       let cursor = row;
       while (cursor.parent !== null) {
         if (seen.has(cursor.token) || seen.size >= 128 || !rows.has(cursor.parent)) {
-          throw invalid();
+          throw invalid2();
         }
         seen.add(cursor.token);
         cursor = rows.get(cursor.parent);
       }
       if (cursor.token !== data.mainFrame) {
-        throw invalid();
+        throw invalid2();
       }
     }
     if (!contentsIds) {
@@ -2602,7 +2602,7 @@ function createFrames(native, contentsAlive, error, unsupported, contentsIds) {
     const existing = cached?.object.deref();
     if (existing) {
       if (cached.contents !== contents) {
-        throw invalid();
+        throw invalid2();
       }
       return existing;
     }
@@ -3345,13 +3345,242 @@ function createTitleBar(native, error, unsupported) {
   };
 }
 
+// firefly/core/message-ports/remote.mjs
+function createRemoteLinks(hooks) {
+  const links = /* @__PURE__ */ new Set();
+  const shift = Array.prototype.shift;
+  const apply2 = Reflect.apply;
+  function descriptor(value) {
+    return value && Number.isInteger(value.id) && value.id > 0 && value.id <= 2147483647 && Number.isInteger(value.generation) && value.generation > 0 && value.generation <= 2147483647;
+  }
+  function connect(transport) {
+    const routes = /* @__PURE__ */ new Map();
+    let disconnected = false;
+    let flushing = false;
+    function valid(values) {
+      if (disconnected || !Array.isArray(values) || values.length > 16) {
+        throw hooks.error("ERR_FIREFLY_PORT_TRANSFER", "Invalid native port attachment");
+      }
+      const ids = /* @__PURE__ */ new Set();
+      for (const value of values) {
+        if (!descriptor(value) || ids.has(value.id) || routes.has(value.id)) {
+          throw hooks.error("ERR_FIREFLY_PORT_TRANSFER", "Duplicate or invalid native port route");
+        }
+        ids.add(value.id);
+      }
+    }
+    function disconnect() {
+      if (disconnected) {
+        return;
+      }
+      disconnected = true;
+      links.delete(link);
+      const owned = [...routes.values()];
+      routes.clear();
+      for (const route of owned) {
+        route.closed = true;
+        route.acks.length = 0;
+        hooks.close(route.record, false);
+      }
+    }
+    function accepted(status) {
+      if (!status) {
+        return true;
+      }
+      if (transport.blocked(status)) {
+        return false;
+      }
+      disconnect();
+      return false;
+    }
+    function flush() {
+      if (flushing || disconnected) {
+        return;
+      }
+      flushing = true;
+      try {
+        for (const route of routes.values()) {
+          if (route.closing) {
+            if (accepted(transport.close(route.id, route.generation))) {
+              route.closed = true;
+              route.acks.length = 0;
+              routes.delete(route.id);
+            }
+            continue;
+          }
+          while (route.acks.length && !disconnected) {
+            if (!accepted(transport.consume(route.id, route.generation, route.acks[0]))) {
+              break;
+            }
+            apply2(shift, route.acks, []);
+          }
+        }
+      } finally {
+        flushing = false;
+      }
+    }
+    function bind(record, value) {
+      const route = {
+        id: value.id,
+        generation: value.generation,
+        record,
+        acks: [],
+        closing: false,
+        closed: false,
+        send(wire) {
+          return !disconnected && !route.closing && accepted(transport.send(route.id, route.generation, wire));
+        },
+        requestClose() {
+          if (!disconnected && !route.closed) {
+            route.closing = true;
+            route.acks.length = 0;
+            flush();
+          }
+        }
+      };
+      record.remote = route;
+      record.started = true;
+      routes.set(route.id, route);
+      return route;
+    }
+    const link = {
+      /** Prepare entirely before native admission; failed writes leave every source owner attached. */
+      prepare(transfer) {
+        if (disconnected) {
+          throw hooks.error("ERR_FIREFLY_PORT_CHANNEL", "Native port link is closed");
+        }
+        const moves = hooks.transfers(transfer, null, null);
+        for (const move of moves) {
+          if (move.record.peer?.remote) {
+            throw hooks.error(
+              "ERR_FIREFLY_UNSUPPORTED_API",
+              "Forwarding a native-backed port is not implemented"
+            );
+          }
+          if (move.record.queue.some((entry) => entry.ports?.length)) {
+            throw hooks.error(
+              "ERR_FIREFLY_UNSUPPORTED_API",
+              "Queued native port attachments are not implemented"
+            );
+          }
+        }
+        function unchanged() {
+          for (const move of moves) {
+            if (move.owned.record !== move.record || move.owned.detached || move.record.closed || move.record.lease.generation !== move.generation) {
+              throw hooks.error(
+                "ERR_FIREFLY_PORT_TRANSFER",
+                "Port ownership changed while preparing native transfer"
+              );
+            }
+          }
+        }
+        unchanged();
+        let committed = false;
+        return {
+          count: moves.length,
+          commit(values) {
+            valid(values);
+            if (committed || values.length !== moves.length) {
+              disconnect();
+              throw hooks.error(
+                "ERR_FIREFLY_PORT_TRANSFER",
+                "Native port attachment count changed"
+              );
+            }
+            unchanged();
+            committed = true;
+            for (let index = 0; index < moves.length; index++) {
+              const move = moves[index];
+              hooks.detach(move);
+              bind(move.record, values[index]);
+              hooks.pump(move.record);
+            }
+          }
+        };
+      },
+      /** Incoming attachments become genuine native-backed utility endpoints before parent-event delivery. */
+      adopt(values) {
+        valid(values);
+        hooks.capacity(values.length * 2);
+        const owners = values.map(() => hooks.shell());
+        valid(values);
+        hooks.capacity(values.length * 2);
+        const ports = [];
+        const allocated = [];
+        try {
+          for (let index = 0; index < values.length; index++) {
+            const local = hooks.endpoint();
+            allocated.push(local);
+            const remote = hooks.endpoint();
+            allocated.push(remote);
+            local.peer = remote;
+            remote.peer = local;
+            bind(remote, values[index]);
+            ports.push(hooks.attach(local, owners[index]));
+          }
+        } catch (failure) {
+          for (const record of allocated) {
+            hooks.close(record, false);
+          }
+          disconnect();
+          throw failure;
+        }
+        return ports;
+      },
+      receive(id, generation, wire) {
+        const route = routes.get(id);
+        if (!route || route.generation !== generation || route.closed || route.closing || disconnected) {
+          return;
+        }
+        const size = hooks.size(wire);
+        const ack = () => {
+          if (!route.closed && !route.closing && !disconnected) {
+            route.acks.push(size);
+            flush();
+          }
+        };
+        if (!hooks.deliver(route.record.peer, wire, ack)) {
+          route.requestClose();
+        }
+      },
+      closed(id, generation) {
+        const route = routes.get(id);
+        if (!route || route.generation !== generation) {
+          return;
+        }
+        route.closed = true;
+        route.acks.length = 0;
+        routes.delete(id);
+        hooks.close(route.record, false);
+      },
+      writable() {
+        flush();
+        if (!disconnected) {
+          for (const route of routes.values()) {
+            hooks.pump(route.record);
+          }
+        }
+      },
+      disconnect
+    };
+    links.add(link);
+    return link;
+  }
+  function shutdown() {
+    for (const link of [...links]) {
+      link.disconnect();
+    }
+  }
+  return { connect, shutdown };
+}
+
 // firefly/core/message-ports/index.mjs
 function createMessageChannels(native, EventEmitter, error) {
   const states = /* @__PURE__ */ new WeakMap();
-  const apply = Reflect.apply;
+  const apply2 = Reflect.apply;
   const weakSet = WeakMap.prototype.set;
   const weakGet = WeakMap.prototype.get;
-  const define = Object.defineProperty;
+  const define2 = Object.defineProperty;
   const shift = Array.prototype.shift;
   const isArray = Array.isArray;
   const descriptor = Object.getOwnPropertyDescriptor;
@@ -3371,8 +3600,11 @@ function createMessageChannels(native, EventEmitter, error) {
   let sequence = 0;
   let totalBytes = 0;
   let stopped = false;
+  function ownerOf(record) {
+    return record.owner ? apply2(deref, record.owner, []) : void 0;
+  }
   function append(array, value) {
-    define(array, `${array.length}`, {
+    define2(array, `${array.length}`, {
       value,
       writable: true,
       enumerable: true,
@@ -3380,7 +3612,7 @@ function createMessageChannels(native, EventEmitter, error) {
     });
   }
   function state(port) {
-    const value = apply(weakGet, states, [port]);
+    const value = apply2(weakGet, states, [port]);
     if (!value) {
       throw error("ERR_INVALID_THIS", "Invalid MessagePortMain receiver");
     }
@@ -3401,7 +3633,7 @@ function createMessageChannels(native, EventEmitter, error) {
     if (!entry || entry.lease.generation !== generation) {
       return;
     }
-    const record = apply(deref, entry.weak, []);
+    const record = apply2(deref, entry.weak, []);
     if (record) {
       close(record, true);
     } else {
@@ -3413,10 +3645,10 @@ function createMessageChannels(native, EventEmitter, error) {
     return { port, owner: new Weak(port), gcToken: {} };
   }
   function attach(record, staged) {
-    apply(weakSet, states, [staged.port, { record, detached: false }]);
+    apply2(weakSet, states, [staged.port, { record, detached: false }]);
     record.owner = staged.owner;
     record.gcToken = staged.gcToken;
-    apply(register, finalizers, [
+    apply2(register, finalizers, [
       staged.port,
       { id: record.lease.id, generation: record.lease.generation },
       staged.gcToken
@@ -3428,12 +3660,15 @@ function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.notified = true;
-    (retainedOwner ?? apply(deref, record.owner, []))?.emit("close");
+    (retainedOwner ?? ownerOf(record))?.emit("close");
   }
-  function consume(record, entry) {
+  function consume(record, entry, delivered = true) {
     record.lease.count--;
     record.lease.bytes -= entry.size;
     totalBytes -= entry.size;
+    if (delivered) {
+      entry.ack?.();
+    }
   }
   function discard(record) {
     const pending = record.queue;
@@ -3442,9 +3677,9 @@ function createMessageChannels(native, EventEmitter, error) {
       if (entry.close) {
         continue;
       }
-      consume(record, entry);
+      consume(record, entry, false);
       for (const port of entry.ports) {
-        const owned = apply(weakGet, states, [port]);
+        const owned = apply2(weakGet, states, [port]);
         if (owned?.record) {
           close(owned.record, true);
         }
@@ -3456,17 +3691,20 @@ function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.closed = true;
+    record.remote?.requestClose();
     const peer = record.peer;
     record.peer = null;
     if (peer && peer.peer === record) {
       peer.peer = null;
     }
-    apply(unregister, finalizers, [record.gcToken]);
+    if (record.gcToken) {
+      apply2(unregister, finalizers, [record.gcToken]);
+    }
     discard(record);
     release(record.lease);
     if (!stopped) {
       if (local) {
-        const owner = apply(deref, record.owner, []);
+        const owner = ownerOf(record);
         tick(() => notify(record, owner));
       } else {
         notify(record);
@@ -3491,12 +3729,24 @@ function createMessageChannels(native, EventEmitter, error) {
       if (stopped || record.closed || !record.started || !record.queue.length) {
         return;
       }
-      const owner = apply(deref, record.owner, []);
+      if (record.remote) {
+        const entry2 = record.queue[0];
+        if (entry2.close) {
+          apply2(shift, record.queue, []);
+          close(record, false);
+        } else if (record.remote.send(entry2.wire)) {
+          apply2(shift, record.queue, []);
+          consume(record, entry2);
+          pump(record);
+        }
+        return;
+      }
+      const owner = ownerOf(record);
       if (!owner) {
         close(record, true);
         return;
       }
-      const entry = apply(shift, record.queue, []);
+      const entry = apply2(shift, record.queue, []);
       if (entry.close) {
         close(record, false);
         return;
@@ -3507,7 +3757,7 @@ function createMessageChannels(native, EventEmitter, error) {
         data = native.decodeIpc(entry.wire);
       } catch (failure) {
         for (const port of entry.ports) {
-          const owned = apply(weakGet, states, [port]);
+          const owned = apply2(weakGet, states, [port]);
           if (owned?.record) {
             close(owned.record, true);
           }
@@ -3526,10 +3776,10 @@ function createMessageChannels(native, EventEmitter, error) {
   }
   function sweep() {
     for (const entry of [...records.values()]) {
-      const record = apply(deref, entry.weak, []);
+      const record = apply2(deref, entry.weak, []);
       if (!record) {
         release(entry.lease);
-      } else if (!apply(deref, record.owner, [])) {
+      } else if (!record.remote && !ownerOf(record)) {
         close(record, true);
       }
     }
@@ -3548,7 +3798,8 @@ function createMessageChannels(native, EventEmitter, error) {
       started: false,
       closed: false,
       notified: false,
-      scheduled: false
+      scheduled: false,
+      remote: null
     };
     records.set(lease.id, { weak: new Weak(record), lease });
     return record;
@@ -3571,7 +3822,7 @@ function createMessageChannels(native, EventEmitter, error) {
         throw error("ERR_INVALID_ARG_TYPE", "Port transfer entries must be own data values");
       }
       const port = itemDescriptor.value;
-      const owned = apply(weakGet, states, [port]);
+      const owned = apply2(weakGet, states, [port]);
       if (!owned || owned.detached || !owned.record) {
         throw error("ERR_INVALID_ARG_TYPE", "Transfer entry is not an owned MessagePortMain");
       }
@@ -3601,6 +3852,48 @@ function createMessageChannels(native, EventEmitter, error) {
     }
     return moves;
   }
+  const remote = createRemoteLinks({
+    error,
+    transfers,
+    shell,
+    attach,
+    endpoint,
+    pump,
+    close,
+    size: (wire) => apply2(byteLength, wire, []),
+    capacity(count) {
+      sweep();
+      if (stopped || records.size + count > 256) {
+        throw error("ERR_FIREFLY_PORT_LIMIT", "At most 256 live endpoints are supported");
+      }
+    },
+    detach(move) {
+      const target = move.record;
+      apply2(unregister, finalizers, [target.gcToken]);
+      move.owned.detached = true;
+      move.owned.record = null;
+      target.lease.generation++;
+      target.owner = null;
+      target.started = false;
+      target.scheduled = false;
+    },
+    deliver(record, wire, ack) {
+      if (stopped || !record || record.closed) {
+        return false;
+      }
+      const size = apply2(byteLength, wire, []);
+      if (record.lease.count >= 64 || record.lease.bytes + size > 1048576 || totalBytes + size > 4194304) {
+        close(record, true);
+        return false;
+      }
+      append(record.queue, { wire, size, ports: [], ack });
+      record.lease.count++;
+      record.lease.bytes += size;
+      totalBytes += size;
+      pump(record);
+      return true;
+    }
+  });
   class MessagePortMain extends EventEmitter {
     constructor(key) {
       super();
@@ -3617,6 +3910,12 @@ function createMessageChannels(native, EventEmitter, error) {
       const destination = record.peer;
       const generation = record.lease.generation;
       const moves = transfers(transfer, record, destination);
+      if (destination?.remote && moves.length) {
+        throw error(
+          "ERR_FIREFLY_UNSUPPORTED_API",
+          "Port attachments over a native port are not implemented"
+        );
+      }
       let wire;
       try {
         wire = native.encodeIpc(message);
@@ -3626,7 +3925,7 @@ function createMessageChannels(native, EventEmitter, error) {
           "Port message requires the supported bounded data/binary graph"
         );
       }
-      const size = apply(byteLength, wire, []);
+      const size = apply2(byteLength, wire, []);
       if (destination && !destination.closed && (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304)) {
         throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
       }
@@ -3661,7 +3960,7 @@ function createMessageChannels(native, EventEmitter, error) {
       for (let index = 0; index < moves.length; index++) {
         const move = moves[index];
         const target = move.record;
-        apply(unregister, finalizers, [target.gcToken]);
+        apply2(unregister, finalizers, [target.gcToken]);
         move.owned.detached = true;
         move.owned.record = null;
         target.lease.generation++;
@@ -3721,8 +4020,9 @@ function createMessageChannels(native, EventEmitter, error) {
   }
   function shutdown() {
     stopped = true;
+    remote.shutdown();
     for (const entry of [...records.values()]) {
-      const record = apply(deref, entry.weak, []);
+      const record = apply2(deref, entry.weak, []);
       if (record) {
         close(record, true);
       } else {
@@ -3730,11 +4030,92 @@ function createMessageChannels(native, EventEmitter, error) {
       }
     }
   }
-  return { MessageChannelMain, shutdown };
+  return { MessageChannelMain, shutdown, connect: remote.connect };
+}
+
+// firefly/core/utility-process/port-packets.mjs
+var ByteArray = Uint8Array;
+var apply = Reflect.apply;
+var typed = Object.getPrototypeOf(ByteArray.prototype);
+var getters = Object.getOwnPropertyDescriptors(typed);
+var tag = getters[Symbol.toStringTag].get;
+var define = Object.defineProperty;
+var maxFrame = 128 * 1024;
+function invalid() {
+  throw Object.assign(new Error("Invalid utility port packet"), {
+    code: "ERR_FIREFLY_UTILITY_CHANNEL"
+  });
+}
+function decodePortPacket(value, expected) {
+  let bytes;
+  let size;
+  let buffer;
+  let baseOffset;
+  try {
+    if (apply(tag, value, []) !== "Uint8Array") {
+      invalid();
+    }
+    size = apply(getters.byteLength.get, value, []);
+    if (size < 16 || size > maxFrame) {
+      invalid();
+    }
+    buffer = apply(getters.buffer.get, value, []);
+    baseOffset = apply(getters.byteOffset.get, value, []);
+    bytes = new ByteArray(buffer, baseOffset, size);
+  } catch {
+    invalid();
+  }
+  if (bytes[0] !== 70 || bytes[1] !== 85 || bytes[2] !== 80 || bytes[3] !== 49 || bytes[6] !== 0 || bytes[7] !== 0) {
+    invalid();
+  }
+  const number = (offset2) => bytes[offset2] * 16777216 + bytes[offset2 + 1] * 65536 + bytes[offset2 + 2] * 256 + bytes[offset2 + 3];
+  const positive = (value2) => value2 > 0 && value2 <= 2147483647;
+  const kind = bytes[4];
+  const count = bytes[5];
+  const id = number(8);
+  const generation = number(12);
+  const required = expected === "port-transfer" ? 1 : expected === "port-data" ? 2 : expected === "port-close" ? 3 : 0;
+  if (!required || kind !== required) {
+    invalid();
+  }
+  const descriptors = [];
+  let offset = 16;
+  if (kind === 1) {
+    if (!count || count > 16 || id || generation || size <= offset + count * 8) {
+      invalid();
+    }
+    for (let index = 0; index < count; index++) {
+      const portId = number(offset);
+      const portGeneration = number(offset + 4);
+      if (!positive(portId) || !positive(portGeneration)) {
+        invalid();
+      }
+      for (let previous = 0; previous < index; previous++) {
+        if (descriptors[previous].id === portId) {
+          invalid();
+        }
+      }
+      define(descriptors, `${index}`, {
+        value: { id: portId, generation: portGeneration },
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+      offset += 8;
+    }
+  } else if (count || !positive(id) || !positive(generation) || (kind === 3 ? size !== 16 : size <= 16)) {
+    invalid();
+  }
+  return {
+    id,
+    generation,
+    descriptors,
+    wire: new ByteArray(buffer, baseOffset + offset, size - offset)
+  };
 }
 
 // firefly/core/utility-process/index.mjs
-function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths, childProcessGone) {
+function createUtilityProcesses(native, codec, EventEmitter, Readable, app, paths, childProcessGone, channels) {
   const owned = /* @__PURE__ */ new Set();
   let stopped = false;
   function fail(code, message) {
@@ -3843,9 +4224,18 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
         exited: false,
         killed: false,
         stdout: null,
-        stderr: null
+        stderr: null,
+        link: null
       };
       authority.set(this, state);
+      if (channels) {
+        state.link = channels.connect({
+          send: (id, generation, wire) => native.sendPort(state.id, id, generation, wire),
+          close: (id, generation) => native.closePort(state.id, id, generation),
+          consume: (id, generation, size) => native.consumePort(state.id, id, generation, size),
+          blocked: (status) => typeof native.portQueueFull === "number" && status === native.portQueueFull
+        });
+      }
       state.stdout = spec.stdio[1] === "pipe" ? output() : null;
       state.stderr = spec.stdio[2] === "pipe" ? output() : null;
       owned.add(this);
@@ -3877,6 +4267,26 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
             if (state.exited && !state.stdout && !state.stderr) {
               owned.delete(this);
             }
+          } else if (kind === "port-writable") {
+            state.link?.writable();
+          } else if (kind === "port-data" || kind === "port-close") {
+            try {
+              if (!state.link) {
+                unsupported("Utility native MessagePort routing");
+              }
+              const packet = decodePortPacket(value, kind);
+              if (kind === "port-data") {
+                state.link.receive(packet.id, packet.generation, packet.wire);
+              } else {
+                state.link.closed(packet.id, packet.generation);
+              }
+            } catch (failure) {
+              state.link?.disconnect();
+              native.kill(state.id);
+              this.emit("error", failure);
+            }
+          } else if (kind === "close") {
+            state.link?.disconnect();
           } else if (kind === "data") {
             this.emit("message", codec.decodeIpc(value));
           } else if (kind === "gone") {
@@ -3886,6 +4296,7 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
             }
             childProcessGone?.(details);
           } else if (kind === "exit") {
+            state.link?.disconnect();
             state.exited = true;
             state.pid = void 0;
             this.emit("exit", value);
@@ -3893,6 +4304,7 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
               owned.delete(this);
             }
           } else if (kind === "error") {
+            state.link?.disconnect();
             this.emit(
               "error",
               Object.assign(new Error(String(value)), {
@@ -3902,11 +4314,13 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
           }
         });
       } catch (failure) {
+        state.link?.disconnect();
         owned.delete(this);
         throw failure;
       }
       state.id = result.id;
       if (result.status) {
+        state.link?.disconnect();
         owned.delete(this);
         state.exited = true;
         state.stdout?.destroy();
@@ -3929,11 +4343,28 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       if (stopped || state.exited) {
         return;
       }
-      if (transfer !== void 0 && (!Array.isArray(transfer) || transfer.length)) {
-        unsupported("Utility native MessagePort transfer");
-      }
       const wire = codec.encodeIpc(message);
-      const status = native.send(state.id, wire);
+      let status;
+      if (transfer !== void 0 && (!Array.isArray(transfer) || transfer.length)) {
+        if (!state.link || typeof native.sendTransfer !== "function") {
+          unsupported("Utility native MessagePort transfer");
+        }
+        const plan = state.link.prepare(transfer);
+        const result = native.sendTransfer(state.id, wire, plan.count);
+        if (!result || result.status !== 0) {
+          fail("ERR_FIREFLY_UTILITY_CHANNEL", "Utility port transfer admission failed");
+        }
+        try {
+          plan.commit(result.ports);
+        } catch (failure) {
+          state.link.disconnect();
+          native.kill(state.id);
+          throw failure;
+        }
+        status = 0;
+      } else {
+        status = native.send(state.id, wire);
+      }
       if (status) {
         fail("ERR_FIREFLY_UTILITY_CHANNEL", `Utility channel send failed (${status})`);
       }
@@ -3964,6 +4395,9 @@ function createUtilityProcesses(native, codec, EventEmitter, Readable, app, path
       return;
     }
     stopped = true;
+    for (const child of owned) {
+      authority.get(child).link?.disconnect();
+    }
     native?.shutdown();
     for (const child of owned) {
       const state = authority.get(child);
@@ -3985,12 +4419,12 @@ function createSafeStorage(native, app, error, unsupported) {
   const byteLength = BufferClass.byteLength.bind(BufferClass);
   const from = BufferClass.from.bind(BufferClass);
   const limit = 1024 * 1024;
-  const apply = Reflect.apply;
+  const apply2 = Reflect.apply;
   const viewLength = Object.getOwnPropertyDescriptor(
     Object.getPrototypeOf(Uint8Array.prototype),
     "byteLength"
   ).get;
-  function invalid(message) {
+  function invalid2(message) {
     return Object.assign(new TypeError(message), { code: "ERR_INVALID_ARG_TYPE" });
   }
   function ready() {
@@ -4011,7 +4445,7 @@ function createSafeStorage(native, app, error, unsupported) {
     isEncryptionAvailable: available,
     encryptString(plainText) {
       if (typeof plainText !== "string") {
-        throw invalid("safeStorage.encryptString requires a string");
+        throw invalid2("safeStorage.encryptString requires a string");
       }
       if (plainText.length > limit || byteLength(plainText, "utf8") > limit) {
         throw error("ERR_OUT_OF_RANGE", "safeStorage plaintext exceeds its byte budget");
@@ -4022,9 +4456,9 @@ function createSafeStorage(native, app, error, unsupported) {
     decryptString(encrypted) {
       requireEncryption();
       if (!isBuffer(encrypted)) {
-        throw invalid("safeStorage.decryptString requires a Buffer");
+        throw invalid2("safeStorage.decryptString requires a Buffer");
       }
-      const length = apply(viewLength, encrypted, []);
+      const length = apply2(viewLength, encrypted, []);
       if (length > limit + 64) {
         throw error("ERR_OUT_OF_RANGE", "safeStorage ciphertext exceeds its byte budget");
       }
@@ -4035,7 +4469,7 @@ function createSafeStorage(native, app, error, unsupported) {
     },
     setUsePlainTextEncryption(value) {
       if (typeof value !== "boolean") {
-        throw invalid("Plaintext policy must be a boolean");
+        throw invalid2("Plaintext policy must be a boolean");
       }
       if (value) {
         unsupported("Plaintext key storage");
@@ -4737,31 +5171,31 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
       throw error("ERR_FIREFLY_NOT_READY", "Notification requires app readiness");
     }
   }
-  function invalid(message, code = "ERR_INVALID_ARG_TYPE") {
+  function invalid2(message, code = "ERR_INVALID_ARG_TYPE") {
     return Object.assign(new TypeError(message), { code });
   }
   function text(value, name, limit) {
     if (typeof value !== "string" || value.includes("\0")) {
-      throw invalid(`${name} must be a string without NUL`);
+      throw invalid2(`${name} must be a string without NUL`);
     }
     if (bytes(value, "utf8") > limit) {
-      throw invalid(`${name} exceeds its UTF-8 byte limit`, "ERR_OUT_OF_RANGE");
+      throw invalid2(`${name} exceeds its UTF-8 byte limit`, "ERR_OUT_OF_RANGE");
     }
     return value;
   }
   function actions(value) {
     if (!Array.isArray(value)) {
-      throw invalid("actions must be an array");
+      throw invalid2("actions must be an array");
     }
     const length = value.length;
     if (length > 4) {
-      throw invalid("At most four notification actions are supported", "ERR_OUT_OF_RANGE");
+      throw invalid2("At most four notification actions are supported", "ERR_OUT_OF_RANGE");
     }
     const result = [];
     for (let index = 0; index < length; ++index) {
       const action = value[index];
       if (!action || typeof action !== "object") {
-        throw invalid("Each action must be an object");
+        throw invalid2("Each action must be an object");
       }
       const type = action.type;
       const label = action.text;
@@ -4779,7 +5213,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
   }
   function properties(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw invalid("Notification options must be an object");
+      throw invalid2("Notification options must be an object");
     }
     for (const key of Object.keys(value)) {
       if (!["title", "body", "silent", "actions"].includes(key)) {
@@ -4791,7 +5225,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
     const silent = value.silent;
     const buttons = value.actions;
     if (silent !== void 0 && typeof silent !== "boolean") {
-      throw invalid("silent must be a boolean");
+      throw invalid2("silent must be a boolean");
     }
     return {
       title: text(title === void 0 ? "" : title, "title", 4096),
@@ -4803,7 +5237,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
   function record(object) {
     const value = records.get(object);
     if (!value) {
-      throw invalid("Illegal Notification receiver");
+      throw invalid2("Illegal Notification receiver");
     }
     return value;
   }
@@ -4857,7 +5291,7 @@ function createNotifications(native, EventEmitter, isReady, isExited, error, uns
     }
     set silent(value) {
       if (typeof value !== "boolean") {
-        throw invalid("silent must be a boolean");
+        throw invalid2("silent must be a boolean");
       }
       record(this).value.silent = value;
     }
@@ -7943,7 +8377,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       if (!exited) {
         app.emit("child-process-gone", event(), details);
       }
-    }
+    },
+    channels
   );
   Object.defineProperty(app, "commandLine", {
     enumerable: true,

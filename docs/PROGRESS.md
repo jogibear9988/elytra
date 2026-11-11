@@ -13362,6 +13362,56 @@ must precede the actual renderer SharedProcess handshake. This is planned work,
 not native endpoint support. ContextBridge's 64 KiB binary copy limit is a separate
 observed requirement; do not claim zero-copy or relax boundary checks to skip it.
 
+## 2026-11-11 — Native main-to-utility MessagePort transfer
+
+Implement the first genuine cross-process port leg, not permission to serialize
+port-shaped JavaScript objects. Owned C++ utility/ports codec and ledger extend the
+existing private child pipe with strict FUP1 transfer/data/ACK/close frames. Routes
+are native-issued per child, monotonic/non-reused and generation-checked; malformed,
+forged or replayed attachment requests fail closed. Wire admission is transactional
+before changing JavaScript ownership. The backing view must belong to the exact
+realm and have fixed, nonshared, non-detached storage. No upstream source or Mite
+dependency direction changes. [ADR 0194](architecture/0194-native-utility-port-relay.md)
+records the C++ integration choice, ownership and remaining renderer design.
+
+Keep 16 messages/1 MiB per route/direction and reserve 4 MiB send plus 4 MiB receive
+per child; simultaneous duplex traffic cannot falsely overrun a combined shared
+window. Exact FIFO consumption ACKs refund native credit. Writable notifications
+retry blocked data/control writes without duplicate delivery. Legacy payloads and
+the physical 16-write/2 MiB pipe bound remain. Preserve retired issued identities
+at child exit while its pipe drains. At most 256 native routes/child and the existing
+256-record/4 MiB wrapper limits remain enforced; no zero-copy claim is made.
+
+The shared wrapper core now binds to private native links. It preserves queued data,
+detaches old owners only after admission, stages incoming wrappers before rechecking
+lifetime/quota, and closes rootless remote records without invalid finalizer tokens.
+Recheck all transfer entries after descriptor reentry before native admission.
+Channel EOF/exit preserves queued peer-close notification. Reverse/nested native
+transfers, queued transferred endpoints and forwarding native-backed endpoints
+remain explicit refusals before ownership changes. Renderer DOM transfer is not
+implemented by this first leg.
+
+Release host/static-offscreen/protocol builds pass (codeoss-utility-ports-build.log,
+codeoss-utility-port-admission-build.log, codeoss-utility-port-final-build.log).
+The pure native codec/ledger probe passes malformed IDs/replay, FIFO credit,
+duplex budgets, retirement and quota controls (codeoss-utility-port-protocol.log).
+The real no-window Mite child fixture passes native full-write admission failure
+without detaching the old endpoint, queued-before-transfer data, 32 independent
+4 KiB binary snapshots with delayed start, bidirectional FIFO, ordered peer close
+and actual PID/exit retirement (codeoss-utility-ports-final.log). Controlled adapter
+checks and generated-source verification pass separately. No broad local suite or
+visible GUI test is run. Add a focused CMake gate and enable the active feature
+branch in hosted Linux renderer CI; fresh platform acceptance is still required.
+
+Actual offscreen Code-OSS progresses to a real file-watcher utility fork and now
+refuses webContents.postMessage port/data delivery rather than the old utility-port
+transfer (codeoss-utility-port-start.log). SharedProcess separately refuses its
+implicit development inspector flags; source audit identifies the generated
+--nolazy/--experimental-network-inspection/--inspect=5879 defaults. Next implement
+the genuine document-bound renderer leg and an explicitly disclosed pinned local
+adaptation for that implicit inspector. Explicit user debug requests must still
+fail. SharedProcess service/editor/window-ready/open-edit-save remain unaccepted.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

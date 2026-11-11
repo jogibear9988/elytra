@@ -1,7 +1,7 @@
 name: Native Linux renderer acceptance
 on:
   push:
-    branches: [master, 'codex/ladybird-update-*']
+    branches: [master, 'codex/ladybird-update-*', 'codex/autoplay-policy-*']
     paths:
       - '.github/workflows/linux-renderer.yml'
       - '.github/actions/linux-environment/**'
@@ -205,7 +205,7 @@ jobs:
           ulimit -c 524288
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_linux_runtime.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-runtime-acceptance.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_protocol_registration.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-protocol-host.log
-          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing check-firefly-command-line check-firefly-enable-sandbox check-firefly-app-paths check-firefly-app-locale check-firefly-ipc-events check-firefly-ipc-outbound check-firefly-ipc-channel check-firefly-ipc-binary check-firefly-message-ports check-firefly-message-port-lifetime check-firefly-utility-process check-firefly-fork check-firefly-web-contents-view check-firefly-safe-storage-backend check-firefly-safe-storage-public check-firefly-preload-getters check-firefly-preload-process check-firefly-preload-zoom check-firefly-file-picker check-firefly-file-input --parallel 3 2>&1 | tee build/linux-renderer-menu.log
+          xvfb-run -a -s '-screen 0 1280x800x24' cmake --build build/linux-renderer --target check-firefly-menu check-firefly-menu-host check-firefly-content-tracing check-firefly-command-line check-firefly-enable-sandbox check-firefly-app-paths check-firefly-app-locale check-firefly-ipc-events check-firefly-ipc-outbound check-firefly-ipc-channel check-firefly-ipc-binary check-firefly-message-ports check-firefly-message-port-lifetime check-firefly-utility-process check-firefly-utility-ports check-firefly-fork check-firefly-web-contents-view check-firefly-safe-storage-backend check-firefly-safe-storage-public check-firefly-preload-getters check-firefly-preload-process check-firefly-preload-zoom check-firefly-file-picker check-firefly-file-input --parallel 3 2>&1 | tee build/linux-renderer-menu.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_crash_reporter.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-crash-reporter.log
           xvfb-run -a -s '-screen 0 1280x800x24' python tooling/tests/test_public_protocol.py --firefly build/linux-renderer/bin/firefly 2>&1 | tee build/linux-renderer-public-protocol.log
       - name: Actual opt-in Electron import alias and isolated preload policy

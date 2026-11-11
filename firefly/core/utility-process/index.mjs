@@ -1,4 +1,6 @@
 /** Native owned utility children. Main and utility realms exchange bounded binary snapshots. */
+import decodePortPacket from './port-packets.mjs';
+
 export default function createUtilityProcesses(
   native,
   codec,
@@ -6,7 +8,8 @@ export default function createUtilityProcesses(
   Readable,
   app,
   paths,
-  childProcessGone
+  childProcessGone,
+  channels
 ) {
   const owned = new Set();
   let stopped = false;
@@ -128,9 +131,22 @@ export default function createUtilityProcesses(
         exited: false,
         killed: false,
         stdout: null,
-        stderr: null
+        stderr: null,
+        link: null
       };
       authority.set(this, state);
+      if (channels) {
+        state.link = channels.connect({
+          send: (id, generation, wire) => native.sendPort(state.id, id, generation, wire),
+
+          close: (id, generation) => native.closePort(state.id, id, generation),
+
+          consume: (id, generation, size) => native.consumePort(state.id, id, generation, size),
+
+          blocked: (status) =>
+            typeof native.portQueueFull === 'number' && status === native.portQueueFull
+        });
+      }
       state.stdout = spec.stdio[1] === 'pipe' ? output() : null;
       state.stderr = spec.stdio[2] === 'pipe' ? output() : null;
       owned.add(this);
@@ -167,6 +183,26 @@ export default function createUtilityProcesses(
             if (state.exited && !state.stdout && !state.stderr) {
               owned.delete(this);
             }
+          } else if (kind === 'port-writable') {
+            state.link?.writable();
+          } else if (kind === 'port-data' || kind === 'port-close') {
+            try {
+              if (!state.link) {
+                unsupported('Utility native MessagePort routing');
+              }
+              const packet = decodePortPacket(value, kind);
+              if (kind === 'port-data') {
+                state.link.receive(packet.id, packet.generation, packet.wire);
+              } else {
+                state.link.closed(packet.id, packet.generation);
+              }
+            } catch (failure) {
+              state.link?.disconnect();
+              native.kill(state.id);
+              this.emit('error', failure);
+            }
+          } else if (kind === 'close') {
+            state.link?.disconnect();
           } else if (kind === 'data') {
             this.emit('message', codec.decodeIpc(value));
           } else if (kind === 'gone') {
@@ -182,6 +218,7 @@ export default function createUtilityProcesses(
             }
             childProcessGone?.(details);
           } else if (kind === 'exit') {
+            state.link?.disconnect();
             state.exited = true;
             state.pid = undefined;
             this.emit('exit', value);
@@ -190,6 +227,7 @@ export default function createUtilityProcesses(
               owned.delete(this);
             }
           } else if (kind === 'error') {
+            state.link?.disconnect();
             this.emit(
               'error',
               Object.assign(new Error(String(value)), {
@@ -199,11 +237,13 @@ export default function createUtilityProcesses(
           }
         });
       } catch (failure) {
+        state.link?.disconnect();
         owned.delete(this);
         throw failure;
       }
       state.id = result.id;
       if (result.status) {
+        state.link?.disconnect();
         owned.delete(this);
         state.exited = true;
         state.stdout?.destroy();
@@ -230,11 +270,28 @@ export default function createUtilityProcesses(
       if (stopped || state.exited) {
         return;
       }
-      if (transfer !== undefined && (!Array.isArray(transfer) || transfer.length)) {
-        unsupported('Utility native MessagePort transfer');
-      }
       const wire = codec.encodeIpc(message);
-      const status = native.send(state.id, wire);
+      let status;
+      if (transfer !== undefined && (!Array.isArray(transfer) || transfer.length)) {
+        if (!state.link || typeof native.sendTransfer !== 'function') {
+          unsupported('Utility native MessagePort transfer');
+        }
+        const plan = state.link.prepare(transfer);
+        const result = native.sendTransfer(state.id, wire, plan.count);
+        if (!result || result.status !== 0) {
+          fail('ERR_FIREFLY_UTILITY_CHANNEL', 'Utility port transfer admission failed');
+        }
+        try {
+          plan.commit(result.ports);
+        } catch (failure) {
+          state.link.disconnect();
+          native.kill(state.id);
+          throw failure;
+        }
+        status = 0;
+      } else {
+        status = native.send(state.id, wire);
+      }
       if (status) {
         fail('ERR_FIREFLY_UTILITY_CHANNEL', `Utility channel send failed (${status})`);
       }
@@ -268,6 +325,9 @@ export default function createUtilityProcesses(
       return;
     }
     stopped = true;
+    for (const child of owned) {
+      authority.get(child).link?.disconnect();
+    }
     native?.shutdown();
     for (const child of owned) {
       const state = authority.get(child);

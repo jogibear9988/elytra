@@ -1,4 +1,6 @@
-/** Main-realm port ownership/queue core. Native document/process transport is a separate binding. */
+/** Port ownership/queue core, shared by local main ports and private native utility links. */
+import createRemoteLinks from './remote.mjs';
+
 export default function createMessageChannels(native, EventEmitter, error) {
   const states = new WeakMap();
   const apply = Reflect.apply;
@@ -24,6 +26,10 @@ export default function createMessageChannels(native, EventEmitter, error) {
   let sequence = 0;
   let totalBytes = 0;
   let stopped = false;
+
+  function ownerOf(record) {
+    return record.owner ? apply(deref, record.owner, []) : undefined;
+  }
 
   function append(array, value) {
     // Define an own slot without consulting mutable Array.prototype setters/push.
@@ -91,13 +97,16 @@ export default function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.notified = true;
-    (retainedOwner ?? apply(deref, record.owner, []))?.emit('close');
+    (retainedOwner ?? ownerOf(record))?.emit('close');
   }
 
-  function consume(record, entry) {
+  function consume(record, entry, delivered = true) {
     record.lease.count--;
     record.lease.bytes -= entry.size;
     totalBytes -= entry.size;
+    if (delivered) {
+      entry.ack?.();
+    }
   }
 
   function discard(record) {
@@ -107,7 +116,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
       if (entry.close) {
         continue;
       }
-      consume(record, entry);
+      consume(record, entry, false);
       for (const port of entry.ports) {
         const owned = apply(weakGet, states, [port]);
         if (owned?.record) {
@@ -123,19 +132,22 @@ export default function createMessageChannels(native, EventEmitter, error) {
       return;
     }
     record.closed = true;
+    record.remote?.requestClose();
     const peer = record.peer;
     record.peer = null;
     if (peer && peer.peer === record) {
       peer.peer = null;
     }
-    apply(unregister, finalizers, [record.gcToken]);
+    if (record.gcToken) {
+      apply(unregister, finalizers, [record.gcToken]);
+    }
     discard(record);
     release(record.lease);
     if (!stopped) {
       if (local) {
         // An explicit close owns its notification even if application code
         // releases the wrapper and GC runs before the deferred callback.
-        const owner = apply(deref, record.owner, []);
+        const owner = ownerOf(record);
 
         tick(() => notify(record, owner));
       } else {
@@ -164,7 +176,19 @@ export default function createMessageChannels(native, EventEmitter, error) {
       if (stopped || record.closed || !record.started || !record.queue.length) {
         return;
       }
-      const owner = apply(deref, record.owner, []);
+      if (record.remote) {
+        const entry = record.queue[0];
+        if (entry.close) {
+          apply(shift, record.queue, []);
+          close(record, false);
+        } else if (record.remote.send(entry.wire)) {
+          apply(shift, record.queue, []);
+          consume(record, entry);
+          pump(record);
+        }
+        return;
+      }
+      const owner = ownerOf(record);
       if (!owner) {
         close(record, true);
         return;
@@ -204,7 +228,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
       const record = apply(deref, entry.weak, []);
       if (!record) {
         release(entry.lease);
-      } else if (!apply(deref, record.owner, [])) {
+      } else if (!record.remote && !ownerOf(record)) {
         close(record, true);
       }
     }
@@ -224,7 +248,8 @@ export default function createMessageChannels(native, EventEmitter, error) {
       started: false,
       closed: false,
       notified: false,
-      scheduled: false
+      scheduled: false,
+      remote: null
     };
     records.set(lease.id, { weak: new Weak(record), lease });
     return record;
@@ -279,6 +304,57 @@ export default function createMessageChannels(native, EventEmitter, error) {
     return moves;
   }
 
+  const remote = createRemoteLinks({
+    error,
+    transfers,
+    shell,
+    attach,
+    endpoint,
+    pump,
+    close,
+
+    size: (wire) => apply(byteLength, wire, []),
+
+    capacity(count) {
+      sweep();
+      if (stopped || records.size + count > 256) {
+        throw error('ERR_FIREFLY_PORT_LIMIT', 'At most 256 live endpoints are supported');
+      }
+    },
+
+    detach(move) {
+      const target = move.record;
+      apply(unregister, finalizers, [target.gcToken]);
+      move.owned.detached = true;
+      move.owned.record = null;
+      target.lease.generation++;
+      target.owner = null;
+      target.started = false;
+      target.scheduled = false;
+    },
+
+    deliver(record, wire, ack) {
+      if (stopped || !record || record.closed) {
+        return false;
+      }
+      const size = apply(byteLength, wire, []);
+      if (
+        record.lease.count >= 64 ||
+        record.lease.bytes + size > 1048576 ||
+        totalBytes + size > 4194304
+      ) {
+        close(record, true);
+        return false;
+      }
+      append(record.queue, { wire, size, ports: [], ack });
+      record.lease.count++;
+      record.lease.bytes += size;
+      totalBytes += size;
+      pump(record);
+      return true;
+    }
+  });
+
   class MessagePortMain extends EventEmitter {
     constructor(key) {
       super();
@@ -296,6 +372,12 @@ export default function createMessageChannels(native, EventEmitter, error) {
       const destination = record.peer;
       const generation = record.lease.generation;
       const moves = transfers(transfer, record, destination);
+      if (destination?.remote && moves.length) {
+        throw error(
+          'ERR_FIREFLY_UNSUPPORTED_API',
+          'Port attachments over a native port are not implemented'
+        );
+      }
       let wire;
       try {
         wire = native.encodeIpc(message);
@@ -428,6 +510,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
 
   function shutdown() {
     stopped = true;
+    remote.shutdown();
     for (const entry of [...records.values()]) {
       const record = apply(deref, entry.weak, []);
       if (record) {
@@ -438,5 +521,5 @@ export default function createMessageChannels(native, EventEmitter, error) {
     }
   }
 
-  return { MessageChannelMain, shutdown };
+  return { MessageChannelMain, shutdown, connect: remote.connect };
 }

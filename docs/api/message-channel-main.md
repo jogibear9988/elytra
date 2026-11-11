@@ -1,8 +1,9 @@
 # MessageChannelMain and main-process ports
 
-Status: **partial, main-realm only**, locally tested on macOS with real Firefly,
-Electron 45.2.3 and a headless native codec/GC host. Renderer/utility-process handoff,
-fresh Linux/Windows execution and a working Code-OSS desktop remain unverified.
+Status: **partial**, locally tested on macOS with real Firefly, Electron 45.2.3
+and a headless native codec/GC host. Initial main-to-utility handoff also passes a
+real native process fixture. Renderer handoff, fresh Linux/Windows execution and
+a working Code-OSS desktop remain unverified.
 
 ## Create and use a connected pair
 
@@ -105,15 +106,17 @@ ERR_INVALID_ARG_TYPE. Error messages/codes and exact task/close timing differ fr
 Electron. These are bounded copies, not a zero-copy, throughput or file-transfer
 performance claim.
 
-## Missing native handoffs
+## Native utility handoff and remaining renderer work
 
-Only main-realm pairs/transfers are accepted. webContents.postMessage currently
+Local pairs/transfers and initial main-to-utility transfers are accepted.
+webContents.postMessage currently
 rejects explicitly. ipcRenderer.postMessage, DOM MessagePort handoff, native
-endpoint/process/document binding and cross-process event.ports delivery remain
-required work. A separate [utilityProcess payload slice](utility-process.md) now
-implements a real LibJS fork and process.parentPort; six native boundary tests pass,
-with local public Firefly/Electron lifecycle and binary payload acceptance passing. It explicitly refuses nonempty transfers
-and authentication forwarding, and does not provide a native port endpoint. No serializable public
+renderer document binding and DOM event.ports delivery remain required work.
+[utilityProcess](utility-process.md) now delivers native-backed endpoints over the
+actual private child pipe, with transactional admission, bounded credit, queued
+data, binary snapshots, peer close and process-exit acceptance. Transfer back from
+the child, nested native attachments and forwarding native-backed endpoints remain
+explicitly unsupported, as does authentication forwarding. No serializable public
 port IDs are offered as a substitute. Closed/destination/disconnected endpoint
 transfers are explicitly unavailable even where Electron accepts them.
 
