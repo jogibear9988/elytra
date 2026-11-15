@@ -1,8 +1,8 @@
 # Route genuine LibWeb WebAudio Rust leaves before upstream emits Cargo commands. Public autoplay
 # options remain rejected until renderer acceptance is complete.
 include_guard(GLOBAL)
-if(NOT FIREFLY_RUST_NOJIT_FINGERPRINT)
-    message(FATAL_ERROR "Include WebAudio Rust routing after the existing non-JIT/origin chain")
+if(NOT FIREFLY_RUST_ORIGIN_FINGERPRINT)
+    message(FATAL_ERROR "Include WebAudio Rust routing after the existing origin chain")
 endif()
 get_filename_component(FIREFLY_AUTOPLAY_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 set(autoplay_directory "${CMAKE_BINARY_DIR}/firefly-adapters/rust-autoplay")
@@ -10,7 +10,7 @@ set(autoplay_driver "${autoplay_directory}/firefly-autoplay-rustc-driver${CMAKE_
 if(DEFINED RUSTC_WRAPPER AND NOT RUSTC_WRAPPER STREQUAL autoplay_driver)
     set(FIREFLY_AUTOPLAY_CHAIN_WRAPPER
         "${RUSTC_WRAPPER}"
-        CACHE FILEPATH "Existing non-JIT/origin/compiler-cache chain" FORCE)
+        CACHE FILEPATH "Existing origin/compiler-cache chain" FORCE)
 elseif(NOT DEFINED FIREFLY_AUTOPLAY_CHAIN_WRAPPER)
     message(FATAL_ERROR "Missing previous Rust source-selector chain")
 endif()
@@ -59,8 +59,8 @@ if(NOT EXISTS "${autoplay_driver}" OR NOT autoplay_driver_previous STREQUAL
     endif()
     file(WRITE "${autoplay_directory}/driver-fingerprint" "${autoplay_driver_fingerprint}")
 endif()
-# Do not overwrite the cached wrapper: the previous include reconstructs no-JIT first on the next
-# configure, avoiding recursive chains of this outer driver.
+# Do not overwrite the cached wrapper: origin routing is reconstructed first on the next configure,
+# avoiding recursive chains of this outer driver.
 set(RUSTC_WRAPPER "${autoplay_driver}")
 string(APPEND RUSTC_TARGET_FLAGS
        " --cfg=firefly_autoplay_build_${FIREFLY_RUST_AUTOPLAY_FINGERPRINT}")

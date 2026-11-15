@@ -50,7 +50,6 @@ if(ENABLE_LTO_FOR_RELEASE
 endif()
 include(lagom_install_options)
 include(rust_crate)
-include(mite/cmake/RustNoJit.cmake)
 include(targets)
 add_library(JSClangPlugin INTERFACE)
 add_library(GenericClangPlugin INTERFACE)
@@ -148,10 +147,6 @@ if(BUILD_TESTING)
     add_test(NAME mite-rust-lock-guard
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_mite_rust_lock.py")
-    add_test(
-        NAME mite-rust-nojit-driver
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/rust-nojit/test_driver.py"
-                --compiler "${CMAKE_CXX_COMPILER}")
     add_test(NAME firefly-hub-lifecycle-guard
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_hub_lifecycle.py")
@@ -278,8 +273,8 @@ if(BUILD_TESTING)
                      --mite "$<TARGET_FILE:mite>")
     set_tests_properties(mite-deprecate PROPERTIES TIMEOUT 50 LABELS "runtime;native")
     add_test(NAME mite-tty
-             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_tty.py"
-                     --mite "$<TARGET_FILE:mite>")
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_tty.py" --mite
+                     "$<TARGET_FILE:mite>")
     set_tests_properties(mite-tty PROPERTIES TIMEOUT 50 LABELS "runtime;native")
     add_test(
         NAME mite-worker-threads

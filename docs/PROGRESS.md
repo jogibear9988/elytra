@@ -14081,6 +14081,38 @@ codex/ladybird-update-2026-11-15; preserve accepted bundles and upstream source 
 The fetched candidate is b872e601f12698b3cb24fa981aca94fdf426d77c (791 commits newer).
 Do not claim the candidate built or the Designer launched until observed.
 
+## 2026-11-15 — New Ladybird standalone runtime checkpoint
+
+Fetch official Ladybird and select b872e601f12698b3cb24fa981aca94fdf426d77c, dated
+2026-11-15, 791 commits beyond cdcb9a. Stage matching manifest/gitlink and keep
+vendor sources clean. Reuse the isolated review worktree/build directories; master
+currently retains the accepted cdcb9a pin. Designer rebuild/visible launch remains
+required by the user and is not yet achieved.
+
+Regenerate the five-root standalone Rust aggregate from the exact upstream lock:
+131 upstream packages, including new transitive libcompress_rust, with no separate
+version resolution or extra archive. Upstream now fixes the has_lazy_property
+non-JIT cfg itself (2c0a84674); retire the entire owned rust-nojit sparse source /
+compiler driver and retain ENABLE_JS_JIT=OFF, fatal warnings, exact CPU checks and
+explicit refusal of stale driver flags. Execution-context null guard remains
+applicable; source/deallocation body is unchanged. Refresh reviewed Rust origin,
+port observer and WebAudio module pins while preserving every new upstream module
+and exact reversal of our integration seams.
+
+Standalone Release configure/build passes (ladybird-2026-11-15-mite-configure.log,
+ladybird-2026-11-15-mite-build.log). The actual CLI reports the b872 pin, passes
+Node/Mite worker lifecycle/termination, seven async-context groups and the targeted
+exception/rejection suite, including the newly changed Promise Handle tracking
+(ladybird-2026-11-15-mite-{workers,async,process-errors}.log). This is CLI behavior;
+collector-host coverage and fresh native Linux/Windows remain open. Both CPU guard
+modules pass all three source/command tests. No GUI run.
+
+Renderer dependency preparation is complete, but configure correctly rejected the
+changed timer/callback source guard. Owned timer/Fetch/Qt/Hub adapters are being
+migrated; no renderer or Designer acceptance is claimed. New Atomics.waitAsync
+host-loop integration remains unverified and is not accepted by these worker tests
+(shared-memory worker transfer remains explicitly unsupported).
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

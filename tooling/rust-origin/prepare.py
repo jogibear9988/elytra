@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibURL/Rust/src"
 PIN = {
     "ffi.rs": "17a5426baa3c27705c9fdd353008b1e6d6429361232b0125ee7e9098dbf6ab2b",
-    "lib.rs": "ef89028f84e1795c498b80101cfacc3a09a5689893f654ecc159106d832a5c41",
-    "origin.rs": "144b199d117db6d6f50fb2a253e201554bf7983aefeb7b48a71295e5670aaeb9",
+    "lib.rs": "f274dd19884261dba5a2774c0304430cb227fc85939b5c2a2306bea89118043c",
+    "origin.rs": "6b8d5e7d8b0354e198f539d4e4a5422653f812cef2d4c0ee28512408a2838121",
 }
 SEAM = "    pub fn origin(&self) -> Origin {\n"
 HOOK = "        if let Some(origin) = crate::firefly_origin::custom_origin(self.as_str()) {\n            return origin;\n        }\n"

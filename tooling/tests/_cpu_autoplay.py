@@ -26,21 +26,20 @@ def check_autoplay_compositions(test, check, cpu, rust_cpu, environment):
         )
         roots = [
             build / "firefly-adapters/rust-origin/lib.rs",
-            build / "mite-adapters/rust-nojit/lib.rs",
             build / "firefly-adapters/rust-autoplay/lib.rs",
         ]
-        for path, data in zip(roots[:2], [b"// owned origin\n", b"// owned non-JIT\n"]):
+        for path, data in zip(roots[:1], [b"// owned origin\n"]):
             path.parent.mkdir(parents=True)
             path.write_bytes(data)
         # Use the real pinned three-source generator, not an invented autoplay
         # marker: the generated root footer also commits routing and leaf bytes.
         with contextlib.redirect_stdout(io.StringIO()):
             composition.prepare(
-                roots[2].parent,
-                roots[2].parent / "autoplay-driver",
-                str(build / "nojit-driver"),
+                roots[1].parent,
+                roots[1].parent / "autoplay-driver",
+                str(build / "origin-driver"),
             )
-        prefixes = ["firefly_origin_build_", "mite_nojit_build_", "firefly_autoplay_build_"]
+        prefixes = ["firefly_origin_build_", "firefly_autoplay_build_"]
         fingerprints = [hashlib.sha256(path.read_bytes()).hexdigest() for path in roots]
         options = [f"--cfg={prefix}{digest}" for prefix, digest in zip(prefixes, fingerprints)]
         flags = ["-Dwarnings", rust_cpu, *options]
@@ -70,11 +69,10 @@ def check_autoplay_compositions(test, check, cpu, rust_cpu, environment):
             [*flags, options[-1]],
             [*flags, "--cfg=unrelated"],
             [*flags[:2], *reversed(options)],
-            [*flags[:2], options[0], options[2], options[1]],
             [flags[0], rust_cpu.replace(rust_cpu.split("=")[-1], "native"), *options],
             flags[1:],  # Keep warnings fatal.
         ]
-        for index in range(3):
+        for index in range(2):
             invalid.append(
                 [*flags[:2], *(option for i, option in enumerate(options) if i != index)]
             )
