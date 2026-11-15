@@ -405,6 +405,37 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
                 return Error::from_string_literal("Detach left native timer armed");
     }
 
+    {
+        auto chunk_world = TRY(Firefly::IsolatedWorld::create(*document.window()));
+        TRY(guard.protect(*chunk_world));
+        ScopeGuard detach_chunks([&] { chunk_world->detach(); });
+        auto baseline = guard.owned_timer_count();
+        auto canceled = guard.canceled_timer_count();
+        auto setup
+            = chunk_world->evaluate(u"globalThis.longAbort=AbortSignal.timeout(2147483648);true"sv);
+        if (setup.is_error() || guard.owned_timer_count() != baseline + 1)
+            return Error::from_string_literal("Internal chunk timeout registration lost its world");
+        auto snapshot = guard.owned_timer_snapshot();
+        auto old_timer = snapshot.last();
+        // Drive the genuine SDK chunk completion directly, without waiting
+        // 24 days or changing its private fields. A fired single-shot is stopped.
+        Firefly::Callbacks::stop_timer(*old_timer);
+        old_timer->fire_now();
+        if (guard.owned_timer_count() != baseline + 1)
+            return Error::from_string_literal("Native chunk rearm lost isolated ownership");
+        snapshot = guard.owned_timer_snapshot();
+        if (snapshot.last().ptr() == old_timer.ptr())
+            return Error::from_string_literal("Internal chunk did not create a replacement timer");
+        vm.heap().collect_garbage();
+        chunk_world->detach();
+        if (guard.owned_timer_count() != baseline || guard.canceled_timer_count() != canceled + 1)
+            return Error::from_string_literal(
+                "Detached chunk timeout retained native map ownership");
+        if (Firefly::Callbacks::timer_active(*snapshot.last()))
+            return Error::from_string_literal("Detached internal timer remained armed");
+    }
+
+    outln("PASS native internal timer chunk ownership survives rearm and GC, then revokes");
     outln("PASS native source timeouts/intervals stop and leave the map on explicit clear and "
           "world detach, including GC");
     {

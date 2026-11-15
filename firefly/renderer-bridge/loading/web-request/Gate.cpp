@@ -113,6 +113,7 @@ namespace {
                 ++count;
                 bytes += job->bytes;
             }
+
         return { count, bytes };
     }
 
@@ -142,7 +143,7 @@ namespace {
     {
         if (job.response)
             job.response->release_request_transfer_lease();
-        job.params->controller()->stop_body_transport();
+        job.params->stop_body_transport();
     }
 
     void settle(std::shared_ptr<Job> job, Optional<JsonObject> decision)
@@ -156,10 +157,12 @@ namespace {
             state().bytes -= job->bytes;
             job->accounted = false;
         }
+
         if (job->submitted) {
             --state().active;
             job->submitted = false;
         }
+
         schedule();
         bool allowed = current(*job) && decision.has_value();
         if (allowed) {
@@ -258,6 +261,7 @@ namespace {
                     WebRequest::LogicalLimitStage::Gate, state().logical.size());
             return {};
         }
+
         auto id = ++state().next_logical;
         state().logical.push_back({ id, GC::Weak { *params.controller() }, GC::Weak { document } });
         WebRequest::logical_retention_diagnostic(
@@ -410,12 +414,14 @@ namespace {
                 settle(job, {});
                 continue;
             }
+
             auto original = data->get_object(
                 job->stage == Stage::Headers ? "responseHeaders"sv : "requestHeaders"sv);
             if (!original.has_value()) {
                 settle(job, {});
                 continue;
             }
+
             state().bytes = state().bytes - job->bytes + bytes;
             job->bytes = bytes;
             job->original_headers = original.release_value();
@@ -499,6 +505,7 @@ void sweep()
                 state().cancel(job->request);
             settle(job, {});
         }
+
     std::vector<u32> expired;
     std::erase_if(state().logical, [&](auto const& record) {
         if (record.controller.ptr() && record.document.ptr()
@@ -521,6 +528,7 @@ void shutdown()
             state().cancel(job->request);
         settle(job, {});
     }
+
     state().logical.clear();
     state().submit = {};
     state().cancel = {};
@@ -593,7 +601,7 @@ bool headers(Params const& params, NonnullRefPtr<Response> response, GC::Ref<Hea
         return false;
     if (!state().owner.is_current_thread()) {
         response->release_request_transfer_lease();
-        params.controller()->stop_body_transport();
+        params.stop_body_transport();
         continuation->function()(
             Response::network_error("webRequest worker interception is unsupported"_string));
         return true;

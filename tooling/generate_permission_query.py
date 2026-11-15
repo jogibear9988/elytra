@@ -10,7 +10,10 @@ from generate_byte_bootstrap import GENERATOR, GENERATOR_SHA, message_ids, optio
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentClient.ipc"
-INPUT_SHA = "1f182d6324208db2f644d72b6fca3621de21b152f935b8a6fe104a6a2d875d13"
+# Reviewed b872e601: one upstream routed navigation-CSP notification was added.
+# Our appended synchronous NotRouted query retains its C++ stub/claim semantics;
+# original-vs-extended generation below checks the candidate's actual message IDs.
+INPUT_SHA = "0de1098f090ff81d49b008b2e755e88ee3ae16d31e186ee0c5624a7346c67a6b"
 METHOD = "\n    [NotRouted] firefly_permission_check(u64 page, u64 document_ns, u64 document_local, u64 epoch, String name) => (bool granted)\n"
 INCLUDE = "#include <LibIPC/FireflyBootstrap.h>\n"
 DECLARATION = "    virtual Messages::WebContentClient::FireflyPermissionCheckResponse firefly_permission_check(u64 page, u64 document_ns, u64 document_local, u64 epoch, String name) = 0;"

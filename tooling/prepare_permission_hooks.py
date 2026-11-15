@@ -10,19 +10,19 @@ ROOT = Path(__file__).resolve().parents[1]
 PINS = {
     "Notification.cpp": (
         "Libraries/LibWeb/NotificationsAPI/Notification.cpp",
-        "42c244647a76d7fe03142e94d23b46aa44efac0ac550d6bee52f3b3a8fadcab1",
+        "31351677f3c8c5e2f9acc659b5ae5e7e992fec8ef004129c13fe6e13d5a8f74b",
     ),
     "Permissions.cpp": (
         "Libraries/LibWeb/PermissionsAPI/Permissions.cpp",
-        "7886260b072eb3db5f7a995d4eaf7087f4cb7205eadd6e3441512162ede2ac55",
+        "8d14b86f377a16f16cf028a910be051d55c22fbca63132befa781aac5999dab5",
     ),
     "WebContentPage.cpp": (
         "Libraries/LibWebView/WebContentPage.cpp",
-        "ec5fed5d57c4aab14cc2bee6ef1b7a20cbd03c189b7e8c89e1663747a89f3ee2",
+        "0bfd359fc1f8ff49d1ce593556e1cdcd2abf05547afc9d898a10abdef31650f4",
     ),
     "WebContentClient.cpp": (
         "Libraries/LibWebView/WebContentClient.cpp",
-        "ba9a9443631ed388fc42cc705dff640795e50d50ce4152ffa0369e4dcea3c104",
+        "cbf6507b6b9c3a07e54959730f971b3f82d13fd8608c45ec0b302bf40e06ee8d",
     ),
 }
 

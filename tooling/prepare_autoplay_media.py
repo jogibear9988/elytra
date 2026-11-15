@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Libraries/LibWeb/HTML/HTMLMediaElement.cpp"
-DIGEST = "1f04477f79cc7e64b687720c97ce5122d8402890af8c2888a09837dbf2f8d103"
+DIGEST = "4b9bc453904ac6fcbe9beb60c75a1afd0b161a713190930f0da31d0f2f5e2e07"
 PREFIX = '#include "autoplay/Media.h"\n'
 SEAMS = [
     (

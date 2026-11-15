@@ -6,8 +6,8 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "014b41001599bf8ead631b5672ab35f699c8b8c24e8d09f80af1b5a932a024f8"
-SEAM = "    find_package(Python3 REQUIRED COMPONENTS Interpreter)\n    add_custom_command("
+EXPECTED = "fe0ca94499a084946c63c7318ecd0f4d9cb93d3a1d813ebcfca10d2b4e2cd186"
+SEAM = "    add_custom_command(\n        OUTPUT ${output} ${implementation} ${rust_output}"
 INSERT = """    set(firefly_ipc_generator "${LADYBIRD_SOURCE_DIR}/Meta/Generators/generate_ipc_definitions.py")
     set(firefly_ipc_dependency)
     if(source STREQUAL "${LADYBIRD_SOURCE_DIR}/Services/WebContent/WebContentServer.ipc")

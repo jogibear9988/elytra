@@ -1,5 +1,5 @@
-/** Keep transport authority native; let upstream FetchController and FetchByteChannel own
- * abort/flow control. */
+/** Keep transport authority native; let upstream FetchParams/FetchEngineRecord and
+ * FetchByteChannel own abort/flow control. */
 #include "Response.h"
 #include "loading/web-request/Gate.h"
 #include "native/protocol/Diagnostics.h"
@@ -52,7 +52,7 @@ ErrorOr<NonnullRefPtr<Response>> Response::create(Infrastructure::FetchParams co
     u64 epoch, u32 request, Callbacks callbacks, u64 maximum_length)
 {
     if (!epoch || !request || !callbacks.credit || !callbacks.cancel || params.is_canceled()
-        || params.controller()->task_destination().has<Empty>()
+        || !params.engine_record() || params.controller()->task_destination().has<Empty>()
         || maximum_length > Protocols::file_size_limit)
         return Error::from_string_literal("Invalid or cancelled protocol fetch admission");
     auto callback_owner
@@ -60,7 +60,10 @@ ErrorOr<NonnullRefPtr<Response>> Response::create(Infrastructure::FetchParams co
     auto response = TRY(adopt_nonnull_ref_or_enomem(
         new (nothrow) Response(params, epoch, request, move(callback_owner), maximum_length)));
     response->m_transport = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) Transport(*response)));
-    params.controller()->set_body_transport(*response->m_transport);
+    // The agent's fetch executor creates this record before invoking the
+    // protocol scheme hook. The record borrows the transport weakly, while the
+    // response owns its proxy and releases params/VM roots on every terminal path.
+    params.set_body_transport(*response->m_transport);
     return response;
 }
 
@@ -192,6 +195,7 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
             Protocols::diagnostic(
                 Protocols::DiagnosticStage::ResponseScriptMime, mime.has_value() ? 1 : 0);
     }
+
     if (!m_head->body_null) {
         m_channel = Engine::FetchByteChannel::create(
             { .low = Protocols::file_chunk_limit / 2, .high = Protocols::file_chunk_limit },
@@ -210,6 +214,7 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
         finish_complete();
         return;
     }
+
     if (m_channel) {
         m_gate->attach_transport(*m_transport);
         m_gate->grant_credit(m_channel->initial_credit());

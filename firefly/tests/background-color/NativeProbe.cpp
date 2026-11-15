@@ -63,9 +63,10 @@ unsigned registered_background(Ladybird::WebContentView const& view)
     return color.has_value() ? color->value() & 0xffffff : 0xffffffff;
 }
 
-QImage committed_canvas(Ladybird::WebContentView const& view)
+QImage committed_canvas(Ladybird::WebContentView& view)
 {
-    // Public upstream preview reads visible_snapshot's real CPU backing-store pixels.
+    // Public upstream preview reads actual compositor pixels. Remote-layer
+    // snapshots may arrive asynchronously; callers retry until a preview exists.
     // QWidget::grab cannot read macOS's separate CALayer and is not a canvas oracle.
     auto preview = view.tab_preview_pixmap(QSize(640, 480));
     return preview.has_value() ? preview->toImage() : QImage {};

@@ -27,7 +27,7 @@ HOOKS = {
 
 EXPECTED_COUNTS = {
     "invoke_callback": 4,
-    "m_timers": 16,
+    "m_timers": 14,
     "m_node_list": 3,
     "event_listener_list_changed": 2,
     "invoke_event_handler": 2,

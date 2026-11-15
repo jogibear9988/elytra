@@ -17,8 +17,8 @@ ENTRIES = {
     ),
     "HelperProcess.cpp": (
         "Libraries/LibWebView/HelperProcess.cpp",
-        "800772d5461820cd141998e9b02e70b2b9ceb551bc749c9cf771a0a1c64ca510",
-        '    auto client = TRY(launch_server_process<WebView::WebContentClient>("WebContent"sv, move(arguments), is_private, initial_page_id, root_navigable_id));\n',
+        "9ed7f93227f974330a97dc0175834092006bc27077bc40875f2f5fabd11e7822",
+        '    auto client = TRY(launch_server_process<WebView::WebContentClient>("WebContent"sv, move(arguments), session, initial_page_id, root_navigable_id));\n',
         '    if (auto configuration = Firefly::Protocols::configuration_for_helper_launch(); configuration.has_value())\n        arguments.append(ByteString::formatted("--firefly-origin-policy={}", *configuration));\n    if (Firefly::Protocols::file_policy_snapshot().generation != 0)\n        arguments.append(ByteString::formatted("--firefly-file-policy={}", Firefly::Protocols::file_policy_for_helper_launch()));\n\n',
     ),
     "SecureContexts.cpp": (

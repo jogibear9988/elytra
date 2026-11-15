@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "d819c6ecf14e5ef6daedae9a1f0629cc01a3573f34b3253f7bf0a9df4b04c5e7"
+EXPECTED = "f122d31c7cef37acd528ec4d8eda1668cbc2376645194c91ac1e5017534d7b1b"
 SEAM = "            || is_file_to_file_font_load\n"
 HOOK = "            || Firefly::FileModules::allows(*request)\n"
 PREFIX = '#include "loading/FileModules.h"\n#include "loading/protocol/Dispatch.h"\n#include "native/protocol/OriginPolicy.h"\n#include "loading/web-request/Gate.h"\n'

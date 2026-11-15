@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/HTML/HTMLInputElement.cpp"
-EXPECTED = "08a228165284c7baa2a8ac45e4934c8e215b36da093eb6bc2d6c370699b31658"
+EXPECTED = "c7c5c737a8adea2120387a71c7653581297c16367dca3745f98e3d71842b4b19"
 INCLUDE = '#include "files/Origins.h"\n#include <LibGC/Root.h>\n'
 LIST = "    auto files = FileAPI::FileList::create();"
 ROOTED = "\n    GC::Root file_origin_list { files };"

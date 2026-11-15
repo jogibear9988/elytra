@@ -80,6 +80,10 @@ struct Gate {
     InvokeFilter invoke_filter { nullptr };
     FilterCreated filter_created { nullptr };
     ReadFilter read_filter { nullptr };
+    JS::Realm* (*timer_realm)(
+        void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int) { nullptr };
+    void (*timer_rearmed)(void*, Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int,
+        Web::HTML::Timer&, JS::Realm&) { nullptr };
 };
 
 WEB_API JS::ThrowCompletionOr<Web::DOM::NodeFilter::Result> invoke_filter_original(
@@ -104,8 +108,11 @@ WEB_API size_t take_observer_record_count(Web::DOM::MutationObserver&);
 
 WEB_API bool observer_has_nodes(Web::DOM::MutationObserver&);
 
-WEB_API void timer_added(
-    Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int, Web::HTML::Timer&);
+WEB_API void timer_added(Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int,
+    Web::HTML::Timer&, JS::Realm* rearm_realm = nullptr);
+
+WEB_API JS::Realm* timer_registration_realm(
+    Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int);
 
 WEB_API void timer_removed(Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&, int);
 

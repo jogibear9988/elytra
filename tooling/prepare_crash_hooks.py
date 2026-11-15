@@ -22,7 +22,7 @@ FILES = {
         ],
     ),
     "CrashReport.cpp": (
-        "6c1770f8b0a4792bc083941e5fa21f3c738693c71013230f871905487ddc36d6",
+        "54c004d52c520c141f85098a58ef149ec4fdfc2b7110fd143f60f2630ccc5ec8",
         [
             (
                 "    append_system_description(builder);\n    return builder.to_byte_string();",
@@ -37,7 +37,7 @@ FILES = {
 }
 
 APPLICATION_SOURCE = "Libraries/LibWebView/Application.cpp"
-APPLICATION_DIGEST = "ad7c79c0e4c256acc45b5cfadd993545f84efe031ca30e30381d4cc63ae20d33"
+APPLICATION_DIGEST = "a73f01e95ee9ae760e0d80149ef51134f766bcfb5458ab191973a37f24c1d61d"
 
 
 def application_changes(source):
@@ -47,6 +47,11 @@ def application_changes(source):
     if source.count(start) != 1 or source.count(end) != 1:
         raise ValueError("Review browser crash profile ownership seam")
     block = source[source.index(start) : source.index(end)]
+    # This is process metadata, not profile adoption or automatic reporting.
+    # Preserve it for embedded applications too, before any report is described.
+    sandbox = "    CrashReport::set_sandbox_is_disabled(m_browser_options.disable_sandbox);\n"
+    if block.count(sandbox) != 1:
+        raise ValueError("Review crash sandbox metadata initialization")
     discard = (
         "    if (m_settings->crash_report_sending() == CrashReportSending::NeverSend)\n"
         "        CrashReportOutbox::the().discard_all();\n"
@@ -61,8 +66,9 @@ def application_changes(source):
         ),
         (
             block,
-            "    if (!Firefly::CrashReporting::owns_embedded_profile()) {\n"
-            + textwrap.indent(block.rstrip(), "    ")
+            sandbox
+            + "    if (!Firefly::CrashReporting::owns_embedded_profile()) {\n"
+            + textwrap.indent(block.replace(sandbox, "").rstrip(), "    ")
             + "\n    }\n\n",
         ),
         (

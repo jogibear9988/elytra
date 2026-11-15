@@ -5,12 +5,14 @@ import _support
 
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from native_package.payload import copy_application
 from package_linux import stage
+import package_macos
 
 
 class AppPayload(unittest.TestCase):
@@ -74,6 +76,42 @@ class AppPayload(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "requires native Linux x64"):
                     stage(root, source, root / "unsupported", "0.1.0-dev.1", "fixture")
             self.assertFalse((root / "unsupported").exists())
+
+
+class MacHelperInventory(unittest.TestCase):
+    def test_pinned_helpers_include_system_probe(self):
+        source = (
+            package_macos.ROOT / "vendor/ladybird/Meta/CMake/ladybird_helper_processes.cmake"
+        ).read_text()
+        names = set(re.search(r"set\(ladybird_helper_processes\s+(.*?)\)", source, re.S)[1].split())
+        names.update(
+            re.findall(r"list\(APPEND ladybird_helper_processes ([A-Za-z0-9_]+)\)", source)
+        )
+        self.assertIn("SystemProbe", package_macos.HELPERS)
+        self.assertEqual(len(package_macos.HELPERS), len(set(package_macos.HELPERS)))
+        self.assertEqual(names, set(package_macos.HELPERS))
+
+    def test_system_probe_preserves_original_helper_security_metadata(self):
+        source, destination = Path("/owned/build/helpers"), Path("/owned/package/helpers")
+        seen = []
+
+        def metadata(path):
+            seen.append(path)
+            return ({"upstream-entitlement": True}, "0x10000")
+
+        with patch("package_macos.signing_state", side_effect=metadata):
+            package_macos.check_helpers(source, destination)
+        self.assertIn(source / "SystemProbe", seen)
+        self.assertIn(destination / "SystemProbe", seen)
+
+        def changed_metadata(path):
+            if path == destination / "SystemProbe":
+                return ({}, "0x0")
+            return ({"upstream-entitlement": True}, "0x10000")
+
+        with patch("package_macos.signing_state", side_effect=changed_metadata):
+            with self.assertRaisesRegex(RuntimeError, "SystemProbe"):
+                package_macos.check_helpers(source, destination)
 
 
 if __name__ == "__main__":

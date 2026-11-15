@@ -7,6 +7,7 @@ foreach(
     MacWindow
     MacWindowFocus
     NativeTextEditingBindings
+    PlatformColorsMac
     SystemAppearanceMac
     WebContentViewMac)
     target_sources(firefly-qt-view PRIVATE "${LADYBIRD_SOURCE_DIR}/UI/Qt/${source}.mm")
@@ -39,7 +40,9 @@ add_custom_target(
             "${FIREFLY_SOURCE_DIR}/tooling/tests/test_view_accessibility_hook.py"
     VERBATIM)
 add_dependencies(firefly-qt-view check-firefly-view-accessibility)
-set_source_files_properties("${LADYBIRD_SOURCE_DIR}/UI/Qt/LadybirdAccessibilityElement.mm"
-                            "${prepared_accessibility}" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+set_source_files_properties(
+    "${LADYBIRD_SOURCE_DIR}/UI/Qt/LadybirdAccessibilityElement.mm"
+    "${LADYBIRD_SOURCE_DIR}/UI/Qt/PlatformColorsMac.mm" "${prepared_accessibility}"
+    PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 target_link_libraries(firefly-qt-view PUBLIC "-framework ApplicationServices" "-framework Cocoa"
                                              "-framework IOSurface" "-framework QuartzCore")

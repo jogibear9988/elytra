@@ -179,7 +179,10 @@ struct WorldJobGuard::State : public RefCounted<State> {
     void cancel_timers(JS::Realm& realm);
 
     void add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map,
-        int id, Web::HTML::Timer& timer);
+        int id, Web::HTML::Timer& timer, JS::Realm* rearm_realm = nullptr);
+
+    JS::Realm* timer_registration_realm(
+        Web::HTML::WindowOrWorkerGlobalScopeMixin&, Callbacks::TimerMap&, int);
 
     void remove_timer(
         Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id);

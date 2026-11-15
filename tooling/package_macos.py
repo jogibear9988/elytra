@@ -24,6 +24,7 @@ HELPERS = [
     "ImageDecoder",
     "MediaServer",
     "RequestServer",
+    "SystemProbe",
     "VideoDecoderServer",
     "WebContent",
     "WebRTCClient",

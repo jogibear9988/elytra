@@ -14113,6 +14113,38 @@ migrated; no renderer or Designer acceptance is claimed. New Atomics.waitAsync
 host-loop integration remains unverified and is not accepted by these worker tests
 (shared-memory worker transfer remains explicitly unsupported).
 
+## 2026-11-15 — Renderer migration builds against the unmodified new SDK
+
+Review and migrate narrow C++/Rust/Qt/Hub source compositions against b872 while
+preserving exact upstream bytes outside owned hooks. Keep all new modules and
+real browsing-session/platform-feature launch data. Preserve asynchronous response
+adoption ownership checks and sandbox metadata. The original IPC generator now
+passes actual appended generation with all 256 server / 246 client IDs preserved;
+private sender/permission/authentication stubs remain unchanged.
+
+Use genuine FetchParams engine-record body transport ownership and safe early
+cancellation. The response probe now obtains records through the actual native
+executor rather than fabricating a slot. Preserve new internal u64 timeout chunks:
+carry rooted registration ownership only across the exact map/global/id rearm,
+and use native cancellation for protected internal IDs on world revocation.
+Update strict source/count/reversal guards; remove obsolete PerformanceObserver
+header. Add actual PlatformColorsMac with ARC and include SystemProbe in app
+packaging/entitlement checks.
+
+Full Release firefly and offscreen targets build successfully after a deliberate
+user pause/resume (ladybird-2026-11-15-renderer-build-{2,3}.log). Upstream remains
+unmodified. Source composition/drift tests pass. New timer/response native probe
+cases are present but not yet executed; fresh native Windows/Linux and complete
+renderer regression acceptance remain open. No new GUI test series was run.
+
+Rebuild the pinned Designer web application: 19 entry points / 5 workers bundled,
+139.4 MiB of unused module/build payload removed; generated output reused at
+build/designer-app.next (ladybird-2026-11-15-designer-build.log). Actual new Mite
+passes server/control/assets checks; the full Designer harness correctly refuses
+to call a server-only run native acceptance. New app packaging/visible launch is
+next, as requested. The earlier user-requested launch was the preserved old bundle;
+it is not evidence for the new SDK Designer.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

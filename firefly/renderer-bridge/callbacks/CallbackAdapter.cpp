@@ -18,8 +18,6 @@
 #include <LibWeb/HTML/EventNames.h>
 #include <LibWeb/HTML/WindowOrWorkerGlobalScope.h>
 #include <LibWeb/WebIDL/CallbackType.h>
-// Preserve the unrelated class member declaration under this token name.
-#include <LibWeb/PerformanceTimeline/PerformanceObserver.h>
 
 namespace Web::WebIDL {
 JS::Completion firefly_original_invoke_callback(
@@ -126,11 +124,21 @@ bool observer_has_nodes(Web::DOM::MutationObserver& observer)
 }
 
 void timer_added(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id,
-    Web::HTML::Timer& timer)
+    Web::HTML::Timer& timer, JS::Realm* rearm_realm)
 {
     auto gate = gates->get(&global.this_impl().vm());
-    if (gate.has_value() && gate->added)
+    if (gate.has_value() && rearm_realm && gate->timer_rearmed)
+        gate->timer_rearmed(gate->context, global, map, id, timer, *rearm_realm);
+    else if (gate.has_value() && gate->added)
         gate->added(gate->context, global, map, id, timer);
+}
+
+JS::Realm* timer_registration_realm(
+    Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id)
+{
+    auto gate = gates->get(&global.this_impl().vm());
+    return gate.has_value() && gate->timer_realm ? gate->timer_realm(gate->context, global, map, id)
+                                                 : nullptr;
 }
 
 void timer_removed(Web::HTML::WindowOrWorkerGlobalScopeMixin& global, TimerMap& map, int id)

@@ -13,10 +13,10 @@ from pathlib import Path
 import re
 
 PINS = {
-    "RemoteView.h": "7e360370cb1cb6ca0573568511f80fbce8e50934f91e15053aca66ee976aaaad",
-    "RemoteView.cpp": "1c5842bc2fec803b076809982007638fcfc195a7cbc1962180ca161a12b924b0",
-    "HubConnection.cpp": "7ca0485aaeedae09e630a2c3a16c1d94417dd86c5c5888877465ffbc4d0d2d17",
-    "WebContentView.cpp": "8119597ba1a664a982cb9d0300c50d97568674cf133f3e757175a696a41f8430",
+    "RemoteView.h": "07445302c9f0120a21b12249f780b5338ea947bf6ed35552e883ebe201967404",
+    "RemoteView.cpp": "9404d6ce14e894a710d744d6282315b6b37542a1aabd7cc07e61cca52464201f",
+    "HubConnection.cpp": "687213cbd568f157cee690d7c983eec8ec0ae39abf9d7c1b6186b52a2a44c872",
+    "WebContentView.cpp": "0855f628a43d68ec5badd88546b1b67014feb99c63827345ae3c800797c1ea17",
     "ContextMenus.cpp": "54fc415034b41e6a5000bcc7bae06342c5fafaad82e26b89b00e475847bb516b",
 }
 

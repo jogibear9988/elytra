@@ -24,9 +24,14 @@
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/Fetch/Engine/EngineCommand.h>
+#include <LibWeb/Fetch/Engine/FetchExecutor.h>
 #include <LibWeb/Fetch/Fetching/BodyStreamPullSource.h>
+#include <LibWeb/Fetch/Fetching/FetchEngine.h>
+#include <LibWeb/Fetch/Fetching/FetchEventSink.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
 #include <LibWeb/HTML/LocalTraversableNavigable.h>
+#include <LibWeb/HTML/Scripting/Agent.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/Loader/LoaderConfig.h>
@@ -84,8 +89,8 @@ struct State : RefCounted<State> {
 };
 
 struct Fetch {
-    Infra::FetchControllerRegistry registry;
-    GC::Root<Infra::FetchController> controller { Infra::FetchController::create(registry) };
+    GC::Root<Infra::FetchController> controller { Infra::FetchController::create(
+        Web::HTML::surrounding_agent().fetch_controller_registry) };
     NonnullRefPtr<Infra::FetchParams> params;
     NonnullRefPtr<State> state { adopt_ref(*new State) };
     RefPtr<Receiver> receiver;
@@ -95,6 +100,7 @@ struct Fetch {
         Web::DOM::Document* document = nullptr)
         : params(make_params(*controller, head, document))
     {
+        start_engine_record();
         auto shared = state;
         receiver = MUST(Receiver::create(*params, 91, 7,
             {
@@ -138,6 +144,35 @@ struct Fetch {
             Infra::FetchAlgorithms::Input { Engine::BodyIntent::DeliverStreamToConsumerAgent });
         return Infra::FetchParams::create(controller, request, algorithms,
             Infra::FetchTimingInfo::create(), Web::current_loader_config());
+    }
+
+    void start_engine_record()
+    {
+        // Use the same agent/executor/registry path as main_fetch. The real SDK
+        // engine creates the record; this probe never constructs one or writes
+        // an invented transport slot into FetchParams.
+        auto& agent = Web::HTML::surrounding_agent();
+        VERIFY(agent.fetch_executor);
+        auto steps = GC::create_function<void(NonnullRefPtr<Engine::FetchEngineRecord>)>(
+            GC::Heap::the(), GC::captures(params, controller),
+            [](auto& params, auto& controller, NonnullRefPtr<Engine::FetchEngineRecord> record) {
+                (void)controller;
+                params->set_engine_record(move(record));
+            });
+        auto id = agent.fetch_controller_registry.defer_main_fetch_steps(steps);
+        controller->set_started_fetch(id, *agent.fetch_executor);
+        auto input = params->start_fetch_input(
+            id, make<Web::Fetch::Fetching::FetchEventSink>(*controller));
+        agent.fetch_executor->post(Engine::Command::StartFetch { move(input) });
+        auto timeout = Core::Timer::create_single_shot(AK::Duration::from_seconds(3), [] { });
+        timeout->start();
+        Web::HTML::main_thread_event_loop().spin_until(GC::create_function(GC::Heap::the(),
+            GC::captures(params, timeout->make_weak_ptr<Core::Timer>()),
+            [](auto& params, auto& timeout) {
+                return params->engine_record() || !timeout || !timeout->is_active();
+            }));
+        timeout->stop();
+        VERIFY(params->engine_record());
     }
 
     ErrorOr<void> send(Kind kind, u64 offset, ReadonlyBytes bytes = {})
@@ -554,6 +589,16 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     page.set_top_level_traversable(traversable);
     GC::Root document { *traversable->active_document() };
     auto& realm = document->relevant_settings_object().realm();
+    auto& agent = Web::HTML::relevant_agent(realm.global_object());
+    VERIFY(!agent.fetch_executor);
+    // Match native WebContent bootstrap, retaining a genuine owner-loop engine
+    // for every focused transport case and the subsequent real fetch() checks.
+    agent.fetch_executor
+        = Web::Fetch::Fetching::create_inline_fetch_executor(agent.network_activity_observers);
+    ScopeGuard stop_executor([&] {
+        agent.fetch_executor->shutdown();
+        agent.fetch_executor = nullptr;
+    });
     {
         Web::HTML::TemporaryExecutionContext context { realm,
             Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };

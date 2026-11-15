@@ -85,6 +85,14 @@ WorldJobGuard::State::State(JS::VM& vm)
             },
             +[](void* context, JS::Realm& realm, Web::DOM::NodeFilter* filter, JS::Value value) {
                 return static_cast<State*>(context)->read_filter(realm, filter, value);
+            },
+            +[](void* context, Web::HTML::WindowOrWorkerGlobalScopeMixin& global,
+                 Callbacks::TimerMap& map, int id) {
+                return static_cast<State*>(context)->timer_registration_realm(global, map, id);
+            },
+            +[](void* context, Web::HTML::WindowOrWorkerGlobalScopeMixin& global,
+                 Callbacks::TimerMap& map, int id, Web::HTML::Timer& timer, JS::Realm& realm) {
+                static_cast<State*>(context)->add_timer(global, map, id, timer, &realm);
             } });
 }
 

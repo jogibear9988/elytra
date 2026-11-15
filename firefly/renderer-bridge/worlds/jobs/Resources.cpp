@@ -68,7 +68,9 @@ void WorldJobGuard::State::cancel_timer(TimerRecord const& record)
     Callbacks::stop_timer(*timer);
     auto current = record.map->get(record.id);
     if (current.has_value() && current->ptr() == timer.ptr())
-        global->clear_timeout(record.id);
+        // Native revocation includes internal timers; the web-facing clearTimeout
+        // intentionally refuses those IDs in the upstream SDK.
+        global->cancel_timeout_steps(record.id);
     ++canceled_timers;
 }
 
@@ -89,8 +91,19 @@ void WorldJobGuard::State::cancel_timers(JS::Realm& realm)
 }
 
 void WorldJobGuard::State::add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& global,
-    Callbacks::TimerMap& map, int id, Web::HTML::Timer& timer)
+    Callbacks::TimerMap& map, int id, Web::HTML::Timer& timer, JS::Realm* rearm_realm)
 {
+    if (rearm_realm && !realms.contains(*rearm_realm)) {
+        if (previous_gate.timer_rearmed)
+            previous_gate.timer_rearmed(
+                previous_gate.context, global, map, id, timer, *rearm_realm);
+        else if (previous_gate.added)
+            previous_gate.added(previous_gate.context, global, map, id, timer);
+        return;
+    }
+
+    auto* window = as_if<Web::HTML::Window>(global.this_impl());
+    GC::Root<JS::Realm> origin { rearm_realm };
     for (auto const& record : timers) {
         if (record.map == &map && record.id == id && record.timer.ptr().ptr() == &timer)
             return; // interval rearm
@@ -100,16 +113,15 @@ void WorldJobGuard::State::add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& 
         return (record.map == &map && record.id == id) || !record.global.ptr()
             || !record.timer.ptr();
     });
-    GC::Ptr<JS::Realm> origin;
-    vm.for_each_execution_context_top_to_bottom([&](JS::ExecutionContext const& context) {
-        if (context.realm && realms.contains(*context.realm)) {
-            origin = context.realm;
-            return false;
-        }
+    if (!origin)
+        vm.for_each_execution_context_top_to_bottom([&](JS::ExecutionContext const& context) {
+            if (context.realm && realms.contains(*context.realm)) {
+                origin = context.realm.ptr();
+                return false;
+            }
 
-        return true;
-    });
-    auto* window = as_if<Web::HTML::Window>(global.this_impl());
+            return true;
+        });
     if (!origin || !window) {
         if (previous_gate.added)
             previous_gate.added(previous_gate.context, global, map, id, timer);
@@ -135,6 +147,21 @@ void WorldJobGuard::State::add_timer(Web::HTML::WindowOrWorkerGlobalScopeMixin& 
     }
 
     timers.append(move(record));
+}
+
+JS::Realm* WorldJobGuard::State::timer_registration_realm(
+    Web::HTML::WindowOrWorkerGlobalScopeMixin& global, Callbacks::TimerMap& map, int id)
+{
+    auto* window = as_if<Web::HTML::Window>(global.this_impl());
+    for (auto const& record : timers) {
+        if (record.map == &map && record.id == id && record.global.ptr().ptr() == window
+            && record.timer.ptr())
+            return record.realm.ptr().ptr();
+    }
+
+    if (previous_gate.timer_realm)
+        return previous_gate.timer_realm(previous_gate.context, global, map, id);
+    return nullptr;
 }
 
 void WorldJobGuard::State::remove_timer(

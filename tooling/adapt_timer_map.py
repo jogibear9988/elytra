@@ -7,13 +7,36 @@ import json
 from pathlib import Path
 import re
 
-SOURCE_SHA256 = "406a0ac318863b060b260b9ca89f41a942687d694978b0c600dbc333582dbdae"
-HEADER_SHA256 = "2474e5002d89b0bfc1743cb587236f07d22803bc954ba0543903d17f94b56407"
-CAST_OWNER = "as<WindowOrWorkerGlobalScopeMixin>(this_object)"
-COUNTS = {"m_timers": 11, "self.m_timers": 4, CAST_OWNER + ".m_timers": 1}
+SOURCE_SHA256 = "b15f0b1c1674892420d526f9fcb80ebc2df219d7792c758891cd34af5ae34980"
+HEADER_SHA256 = "bd1d086ac7bf499ccc6157361d329fa357e9942e4a5d92649c366da423d7681f"
+CAST_OWNER = "global_scope"
+COUNTS = {"m_timers": 9, "self.m_timers": 4, CAST_OWNER + ".m_timers": 1}
 EXPRESSION = re.compile(
     re.escape(CAST_OWNER + ".m_timers") + r"\b|\bself\.m_timers\b|(?<![\w.])m_timers\b"
 )
+
+
+# The SDK's u64 internal timeout runs in chunks under one ID. Preserve the
+# registration owner while it replaces its native Timer without a JS call frame.
+REARM_BEFORE = """        Firefly::Timers::map_view(global_scope.m_timers, global_scope).remove(timer_key);
+        if (remaining > 0) {
+            global_scope.run_internal_timer(timer_key, remaining, completion_step);
+            return;
+        }
+"""
+REARM_AFTER = """        if (remaining > 0) {
+            auto firefly_rearm = Firefly::Timers::map_view(global_scope.m_timers, global_scope).rearm(timer_key);
+            global_scope.run_internal_timer(timer_key, remaining, completion_step);
+            return;
+        }
+        Firefly::Timers::map_view(global_scope.m_timers, global_scope).remove(timer_key);
+"""
+
+
+def undo_rearm(source):
+    if source.count(REARM_AFTER) != 1:
+        raise ValueError("Missing/duplicate internal timer rearm composition")
+    return source.replace(REARM_AFTER, REARM_BEFORE, 1)
 
 
 def adapt(source):
@@ -31,7 +54,10 @@ def adapt(source):
         replacement = f"Firefly::Timers::map_view({expression}, {owner})"
         journal.append((match.start(), expression, replacement))
         result = result[: match.start()] + replacement + result[match.end() :]
-    restored = result
+    if result.count(REARM_BEFORE) != 1:
+        raise ValueError("Review native internal timer chunk-rearm seam")
+    result = result.replace(REARM_BEFORE, REARM_AFTER, 1)
+    restored = undo_rearm(result)
     for offset, before, after in reversed(journal):
         if restored[offset : offset + len(after)] != after:
             raise ValueError("Timer-map composition reversal offset changed")

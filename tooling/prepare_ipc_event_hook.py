@@ -7,7 +7,7 @@ from pathlib import Path
 from prepare_permission_hooks import adapt as permission_adapt
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "ec5fed5d57c4aab14cc2bee6ef1b7a20cbd03c189b7e8c89e1663747a89f3ee2"
+EXPECTED = "0bfd359fc1f8ff49d1ce593556e1cdcd2abf05547afc9d898a10abdef31650f4"
 SEAM = "    if (auto* webdriver_bidi = WebDriverBiDi::the())\n        webdriver_bidi->did_receive_event(*this, navigable_id, name, move(params));"
 HOOK = "    if (Firefly::receive_native_ipc(*this, navigable_id, name, params)) return;\n"
 
@@ -24,16 +24,16 @@ NAV_HOOK = """    NonnullRefPtr<WebContentPage> firefly_page { *this };
 """
 
 DOC_SEAM = (
-    "        host->async_populate_navigation(weak_loader->request(), weak_loader->take_result());\n"
+    "            host->async_populate_navigation(weak_loader->request(), weak_loader->take_result());\n"
 )
-DOC_HOOK = """        auto firefly_loader = weak_loader.strong_ref();
-        auto firefly_navigable = navigable->make_weak_ptr();
-        Firefly::prepare_native_document(*host, firefly_loader->request(), firefly_loader->result());
-        auto* firefly_current = firefly_navigable.ptr();
-        if (!host->is_open() || !firefly_current
-            || firefly_current->navigation_with_id(navigation_id) != navigation
-            || navigation->loader() != firefly_loader)
-            return;
+DOC_HOOK = """            auto firefly_loader = weak_loader.strong_ref();
+            auto firefly_navigable = navigable->make_weak_ptr();
+            Firefly::prepare_native_document(*host, firefly_loader->request(), firefly_loader->result());
+            auto* firefly_current = firefly_navigable.ptr();
+            if (!host->is_open() || !firefly_current
+                || firefly_current->navigation_with_id(navigation_id) != navigation
+                || navigation->loader() != firefly_loader)
+                return;
 """
 
 
