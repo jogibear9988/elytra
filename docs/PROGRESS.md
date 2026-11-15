@@ -14053,6 +14053,34 @@ Expected offscreen Cocoa Services and declared TouchBar refusals persist. No
 complete editor, extension activation or physical menu acceptance is claimed
 (codeoss-tty-warnings-start.log). Native Windows/Linux new-API acceptance remains open.
 
+## 2026-11-15 — Repair confirmed CI baseline failures before the next engine update
+
+Inspect actual hosted runs at 7b82d2b. Linux/macOS/Windows CLI builds completed but
+module-utilities retained a stale worker_threads denial and the path-stream fixture
+expected pending=false after close. Match real Node24 descriptor semantics in the
+facade: pending is fd===null, including failed/pre-aborted opens and closed streams.
+Strengthen lifecycle assertions and require truthful tty/worker_threads availability;
+retain v8/http2/wasi denials. Native CLI tests are targeted, not a broad local suite.
+
+The Linux renderer gate used tag6 as malformed, although it is now PortControl.
+Keep the production decoder strict; replace the stale fixture with exhaustive
+256-tag/256-flag/empty/nonempty checks, encode parity and reserved-byte/magic tests.
+Also format only the two actual style failures (test_app_paths.py, vcpkg.json),
+without changing dependency versions.
+
+Current cdcb9a Release host/offscreen build passes
+(ladybird-baseline-ci-fixes-build.log). Actual Mite builtin inventory and Node/Mite
+path-stream lifecycle pass (ladybird-baseline-inventory.log); native byte-channel
+malformed-frame/child-roundtrip target passes (ladybird-baseline-byte-channel.log).
+No GUI run. Hosted Windows diagnostic configuration separately lacks a locale
+provider; fresh platform acceptance and the full hosted matrix remain open.
+
+User now prioritizes a fresh official Ladybird update and a rebuilt visible
+Designer afterward. Reuse the existing isolated worktree/build tree on
+codex/ladybird-update-2026-11-15; preserve accepted bundles and upstream source bytes.
+The fetched candidate is b872e601f12698b3cb24fa981aca94fdf426d77c (791 commits newer).
+Do not claim the candidate built or the Designer launched until observed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

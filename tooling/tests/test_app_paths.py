@@ -95,7 +95,10 @@ def launch(binary, root, origin, stage):
         )
         assert "VERIFICATION FAILED" not in stderr, stderr
         if sys.platform != "darwin":
-            assert "PASS native theme explicitly unsupported; profile checks retained" in prefix + stdout
+            assert (
+                "PASS native theme explicitly unsupported; profile checks retained"
+                in prefix + stdout
+            )
         print((prefix + stdout).strip())
         print(json.dumps(state))
     finally:

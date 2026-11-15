@@ -13,7 +13,12 @@ for (const name of builtinModules) {
     throw new Error('Builtin unavailable');
   }
 }
-for (const name of ['v8', 'http2', 'worker_threads']) {
+for (const name of ['tty', 'worker_threads']) {
+  if (!isBuiltin(name) || !isBuiltin(`node:${name}`) || !builtinModules.includes(name)) {
+    throw new Error('Implemented partial builtin missing from inventory');
+  }
+}
+for (const name of ['v8', 'http2', 'wasi']) {
   if (isBuiltin(name) || builtinModules.includes(name)) {
     throw new Error('Unavailable builtin advertised');
   }

@@ -63,7 +63,6 @@ export default function createPathReadStreams(fs, host, validate, acquireHandle)
     let lease;
     let actual = providedHandle;
     let fd = supplied ? (providedHandle ? providedHandle.fd : value.fd) : null;
-    let pending = !supplied;
     let closePromise;
     const proxy = new host.EventEmitter();
 
@@ -98,7 +97,6 @@ export default function createPathReadStreams(fs, host, validate, acquireHandle)
               );
       return closePromise.finally(() => {
         fd = null;
-        pending = false;
       });
     };
 
@@ -112,7 +110,6 @@ export default function createPathReadStreams(fs, host, validate, acquireHandle)
 
         construct(callback) {
           if (supplied || value.signal?.aborted === true) {
-            pending = false;
             callback();
             return;
           }
@@ -121,7 +118,6 @@ export default function createPathReadStreams(fs, host, validate, acquireHandle)
             (handle) => {
               actual = handle;
               fd = handle.fd;
-              pending = false;
               actual.on('close', onClose);
               try {
                 this.emit('open', fd);
@@ -131,14 +127,18 @@ export default function createPathReadStreams(fs, host, validate, acquireHandle)
               }
             },
             (error) => {
-              pending = false;
               callback(error);
             }
           );
         }
       });
       Object.setPrototypeOf(stream, new.target.prototype);
-      Object.defineProperties(stream, { fd: { get: () => fd }, pending: { get: () => pending } });
+      // Node's `pending` reports a null descriptor, including after close or
+      // failed/pre-aborted admission; it is not a one-way "opened" latch.
+      Object.defineProperties(stream, {
+        fd: { get: () => fd },
+        pending: { get: () => fd === null }
+      });
       if (providedHandle && !stream.destroyed) {
         providedHandle.on('close', onClose);
       }

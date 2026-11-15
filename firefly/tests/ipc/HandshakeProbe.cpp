@@ -61,12 +61,54 @@ ErrorOr<int> ladybird_main(Main::Arguments)
         || !encode_message(Kind::Reply, false, 0, 1, payload.span()).is_error()
         || !encode_message(Kind::Event, false, 1, 0, payload.span()).is_error())
         return Error::from_string_literal("Invalid application frame fields accepted");
-    for (size_t offset : { 0u, 4u, 5u, 6u, 7u }) {
-        auto invalid = TRY(ByteBuffer::copy(frame.bytes()));
-        invalid[offset] = offset == 4 ? 6 : offset == 5 ? 2 : invalid[offset] ^ 1;
-        if (!decode_message(invalid.bytes()).is_error())
-            return Error::from_string_literal("Invalid application frame tag/flags accepted");
+    // Tags 6/7 are now the authenticated port envelope/transfer ACK, not
+    // malformed tags. Exercise the entire byte domain so another legitimate
+    // schema extension cannot silently leave a stale single-tag negative test.
+    Array<Kind, 7> kinds { Kind::Invoke, Kind::Send, Kind::Reply, Kind::Event, Kind::Ack,
+        Kind::PortControl, Kind::PortAck };
+    for (size_t i = 0; i < kinds.size(); ++i)
+        if (static_cast<size_t>(to_underlying(kinds[i])) != i + 1)
+            return Error::from_string_literal("Application frame kind layout changed");
+    auto nonempty = TRY(ByteBuffer::copy(frame.bytes()));
+    auto empty = TRY(ByteBuffer::copy(frame.bytes().slice(0, message_header_size)));
+    for (unsigned tag = 0; tag < 256; ++tag) {
+        for (unsigned flags = 0; flags < 256; ++flags) {
+            for (bool has_payload : { false, true }) {
+                auto& candidate = has_payload ? nonempty : empty;
+                candidate[4] = static_cast<u8>(tag);
+                candidate[5] = static_cast<u8>(flags);
+                bool valid = tag >= 1 && tag <= 7
+                    && (flags == 0 || (tag == to_underlying(Kind::Reply) && flags == 1))
+                    && ((tag == to_underlying(Kind::Ack) || tag == to_underlying(Kind::PortAck))
+                            ? !has_payload
+                            : has_payload);
+                if (decode_message(candidate.bytes()).is_error() == valid)
+                    return Error::from_string_literal(
+                        "Application frame tag/flag/payload matrix mismatch");
+                if (flags < 2) {
+                    auto generated = encode_message(static_cast<Kind>(tag), flags != 0, value.epoch,
+                        0xaabbccdd, has_payload ? payload.span() : ReadonlyBytes {});
+                    if (generated.is_error() == valid)
+                        return Error::from_string_literal(
+                            "Application encoder tag/flag/payload matrix mismatch");
+                }
+            }
+        }
     }
+
+    for (size_t offset : { 6u, 7u }) {
+        auto invalid = TRY(ByteBuffer::copy(frame.bytes()));
+        for (unsigned reserved = 1; reserved < 256; ++reserved) {
+            invalid[offset] = static_cast<u8>(reserved);
+            if (!decode_message(invalid.bytes()).is_error())
+                return Error::from_string_literal("Reserved application frame flags accepted");
+        }
+    }
+
+    auto bad_magic = TRY(ByteBuffer::copy(frame.bytes()));
+    bad_magic[0] ^= 1;
+    if (!decode_message(bad_magic.bytes()).is_error())
+        return Error::from_string_literal("Invalid application frame magic accepted");
 
     auto maximum = TRY(ByteBuffer::create_zeroed(wire_limit));
     auto max_frame = TRY(encode_message(Kind::Event, false, 1, 1, maximum.bytes()));
