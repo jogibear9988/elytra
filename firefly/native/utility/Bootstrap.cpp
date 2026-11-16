@@ -6,6 +6,7 @@
 #include "UtilityParentSource.h"
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
+#include "native/ipc/application/Message.h"
 #include "platform/UV.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
@@ -72,7 +73,7 @@ int run(int argc, char** argv, bool electron_compat)
                 if (graph.is_error())
                     return vm.throw_completion<JS::TypeError>("Unsupported utility message"_utf16);
                 auto wire = graph.value().encode_wire(message_port_limits());
-                if (wire.is_error() || wire.value().length() > 128 * 1024)
+                if (wire.is_error() || wire.value().length() > ApplicationIpc::wire_limit)
                     return vm.throw_completion<JS::RangeError>(
                         "Utility message exceeds budget"_utf16);
                 return wire_value(vm.realm(), wire.value());

@@ -46,9 +46,10 @@ and binary backing/view aliases survive within each snapshot. Buffer becomes
 Uint8Array. The receiver owns independent writable copied storage; ArrayBuffers are
 copied, not transferred/detached. The aggregate distinct backing-store limit is
 1 MiB per graph, including an entire backing store when sending a small view.
-Local encoded snapshots also fit the existing 1 MiB endpoint queue budget; graph
-metadata counts against that budget. Native renderer/utility routes retain the
-smaller 128 KiB frame bound described below. Functions, getters/proxies, symbols/BigInt,
+Encoded snapshots must also fit a single 128 KiB frame, including applicable
+transport metadata. Both local and native sends reject oversized encoded data
+before admitting it to a queue. The 1 MiB capture ceiling alone does not enable
+larger messages; local and native port fragmentation remain unimplemented. Functions, getters/proxies, symbols/BigInt,
 Date/Map/Set, DOM/File/Blob and other special objects remain unsupported by this graph.
 
 The optional transfer array contains at most 16 currently owned main ports. Only

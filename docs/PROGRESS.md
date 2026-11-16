@@ -14557,6 +14557,24 @@ controls,controls,refresh}.log, scanner-retirement-{plan,applied,journal}.json,
 codeoss-scanner-retired-start.log. No original Code-OSS source or Ladybird edit,
 new full package/dependency copy, Finder metadata removal or desktop GUI test.
 
+## 2026-11-16 — Reject oversized encoded port snapshots before admission
+
+Follow-up audit finds a preexisting mismatch: main/local encodePortIpc can return
+an encoded graph larger than the SingleFrame wire_bytes decoder accepts. Larger
+capture support must not turn this into an asynchronously lost local message.
+Reject encoded bytes above ApplicationIpc::wire_limit synchronously at capture;
+use the identical constant in utility bootstrap instead of its20-byte-larger raw
+frame number. Preserve runtime frame limits and document that the1MiB graph cap
+alone does not enable larger encoded messages, including local main ports.
+
+Both native Release targets build. Actual no-window main port gate now rejects a
+200KiB binary synchronously with ERR_FIREFLY_PORT_SERIALIZATION, then the same
+channel still delivers an independent100KiB byte-exact snapshot. Existing queued
+ownership,64KiB byte-quota controls, close ordering and1MiB+1 capture refusal
+remain passing. Evidence: port-encode-frame-guard-{build,main}.log. This does not
+implement native fragmentation; the proven170933-byte Code-OSS blocker remains
+next. Ladybird pin check still passes with unmodifiedb872e601.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

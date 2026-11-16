@@ -399,7 +399,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_port_ipc(JS::V
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port data"sv);
     auto wire = graph.value().encode_wire(message_port_limits());
-    if (wire.is_error())
+    if (wire.is_error() || wire.value().length() > ApplicationIpc::wire_limit)
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Port data exceeds its budget"sv);
     return wire_value(realm, wire.value());
 }

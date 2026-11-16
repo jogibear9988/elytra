@@ -354,6 +354,28 @@ app
         oversized.code === 'ERR_FIREFLY_PORT_SERIALIZATION',
         'oversize copy is refused before delivery'
       );
+      const frameOversized = failure(
+        () => fresh.port1.postMessage(new Uint8Array(200 * 1024)),
+        'local encoded port frame cap'
+      );
+      check(
+        frameOversized.code === 'ERR_FIREFLY_PORT_SERIALIZATION',
+        'local encoded oversize rejects synchronously'
+      );
+      const large = new Uint8Array(100 * 1024);
+      for (let index = 0; index < large.length; index++) {
+        large[index] = (index * 7 + 3) & 255;
+      }
+      const largeReply = next(fresh.port2);
+      fresh.port1.postMessage(large);
+      large.fill(211);
+      const largeEvent = await largeReply;
+      check(
+        largeEvent.data instanceof Uint8Array &&
+          largeEvent.data.length === 100 * 1024 &&
+          largeEvent.data.every((byte, index) => byte === ((index * 7 + 3) & 255)),
+        'local port remains usable with independent 100 KiB bytes after frame refusal'
+      );
       const illegal = failure(
         () => new fresh.port1.constructor(),
         'direct MessagePortMain constructor'
