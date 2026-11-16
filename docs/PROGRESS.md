@@ -14369,6 +14369,42 @@ Node24.16 reference avoids confirmed URL/null and Blob-newline drift, but alread
 changes llhttp; its metadata needs separate truthful version validation. Full
 Windows success, SDK promotion to master and alpha publication remain open.
 
+## 2026-11-16 — Stage real static Code-OSS built-ins with independent ownership
+
+Reuse the existing pinned source archive and extracted source; do not create a
+second 351 MB workspace or install build dependencies. Add a direct --static-source
+route that verifies the complete archive identity and all selected source bytes.
+Publish exactly 60 original contribution-only extensions / 558 files / 7,673,634
+bytes through exclusive atomic directory rename, then the sealed ownership
+inventory last. Preserve Finder metadata, refuse collisions/symlinks/unknown
+ownership and leave failed bounded transactions for inspection. No placeholder
+extensions, forged workspace marker or copied development dependencies.
+
+The actual reused stage is now populated in partial-static-only mode. Verify
+every published byte against the maintained archive index and retain the exact
+original ELYTRA-COMPILE.json hash
+0f4afd14aa378ab497b76ff66e651a2b2daa6bcee86e2a6d8494a1b64e8cac01.
+All six existing package sidecars/audits also verify. Integrate the independent
+resource verifier into verifiedRefresh before compiler reuse, without expanding
+compiler ownership or weakening orphan/collision checks. A repeated verified
+publication is idempotent; unowned or partial resource roots fail closed.
+
+Actual source plan/publication/composed verification pass
+(codeoss-builtin-extension-{plan,stage}.log,
+codeoss-builtin-extension-before.json). Focused temporary-destination controls
+pass for collision, edited bytes, recomputed dishonest disclosure, unknown
+directories, partial publication, symlinks, idempotence and Finder preservation
+(codeoss-builtin-extension-controls.log). These use actual pinned resources;
+no app, dependency installation or upstream build runs as part of these controls.
+
+Keep the full upstream build/preparation route explicitly unaccepted: 35 source
+extensions need real build outputs and three pinned product VSIXs remain
+undownloaded. Static resources are not runtime activation, editor or platform
+acceptance. Update the built-in guide and replace stale top-level VS Code status
+with the current Workbench/extension-host evidence and remaining limits. Stop
+and verify the prior diagnostic process group is gone before publication. A new
+application observation with these resources is still required.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

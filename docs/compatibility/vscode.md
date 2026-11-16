@@ -7,24 +7,46 @@ Running Monaco in Designer does not establish Code-OSS desktop compatibility.
 
 ## Current priority: first real workbench, then developer workflows
 
-Latest actual visible Cocoa start (2026-11-11): the native process started,
-but complete editor operation is unaccepted. The subsequent non-GUI native build fixes `crypto.getHashes` and the 256-item
-framework menu cap; actual extension/agent startup then reaches missing
-`node:worker_threads`, while a DOM port queue limit also needs investigation.
-The next genuine worker slice now passes actual Mite lifecycle gates and the
-original CodeOSS diff-worker count/detail/hunk handlers. Its lazy source workaround
-has been removed. Actual extension/agent startup now reaches missing `node:tty`;
-the renderer startup burst still reaches the bounded waiting count. Native menu
-interaction, normal extension activation and Workbench diff integration remain open. Genuine P-256 verification, filesystem traversal,
-path read streams and extra-CA startup/query fixtures now pass under Mite on macOS.
-The actual startup log is `codeoss-visible-user-start.log`. Native menu interactions,
-window-ready, extension activation and workspace open/edit/save remain open.
+Updated 2026-11-16. The latest background test reaches the actual renderer
+lifecycle `Restored` (3) and `Eventually` (4). Main/renderer SharedProcess
+connections establish, and the AgentHost exchanges real protocol requests.
+This is recorded application startup, not visible rendering or usable editor
+acceptance. The last visible Cocoa observation remains the November 11 run.
+
+The standalone runtime now supplies real workers, async contexts, querystring,
+TTY queries, HTTP/TLS Agents, native process.title and bounded structuredClone.
+The unchanged pinned xterm headless component passes actual asynchronous ANSI
+parsing, buffer inspection, reset and disposal under Mite. These component gates
+do not establish an integrated PTY or terminal UI.
+
+The current blocker is extension-host shutdown: each host exchanges initialize
+data, then exits with code 0 before activation. Native tracing observes a main-side
+port close before that exit. A renderer-origin close can propagate through the
+relay and produce the same native marker, so GC or ownership loss is not yet
+proven. The parent pipe is already a referenced libuv read; adding a keepalive
+would conceal the cause. Investigate close origin and explicit termination.
+Evidence: `codeoss-structured-clone-start.log` and
+`codeoss-extension-exit-origin.log` in the active review build directory.
+
+The reused diagnostic package now contains 60 original static built-in extensions
+(558 files / 7,673,634 bytes) with verified source hashes and independent resource
+ownership. Another 35 source extensions require build outputs; three product
+VSIXs are not downloaded. Scanning and activation remain unverified. See the
+[built-in extension guide](../development/code-oss-builtin-extensions.md).
+
+Native binding gaps remain visible. Cocoa-only Services/native-handle refusal in
+the offscreen frontend is not a Cocoa menu acceptance result. Native menu
+interaction, stable extension activation, workspace open/edit/save, integrated
+terminal/PTY and Linux/Windows desktop operation remain unaccepted. A real Cocoa
+editor run is required after the remaining startup/lifetime blockers are fixed.
 
 Temporary Code-OSS changes are permitted for development, with their reasons and
 removal requirements tracked in the [adaptation TODO inventory](../development/code-oss-adaptations.md).
 The final target is to replace behavior-changing workarounds with genuine framework
 support; an adapted diagnostic run is not evidence of unchanged Code-OSS support.
 
+
+## Earlier checkpoints
 
 Updated 2026-11-11. The actual pinned Code-OSS desktop entry now creates its
 renderer, resolves the complete English window configuration through native IPC

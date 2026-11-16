@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { verifyBuiltinExtensions } from './builtin-extensions-verify.mjs';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
@@ -76,7 +77,10 @@ export function verifiedRefresh(output) {
       throw Error('Compiled renderer alias drift');
     }
   }
-  return { previous, owned, manifestSha256: digest(bytes) };
+  // Resource ownership is separate from compiler outputs. Verify it before any
+  // refresh without adopting those files or relaxing orphan/collision guards.
+  const builtinExtensions = verifyBuiltinExtensions(output);
+  return { previous, owned, manifestSha256: digest(bytes), builtinExtensions };
 }
 
 export function checkRefreshPlan(output, refresh, planned) {

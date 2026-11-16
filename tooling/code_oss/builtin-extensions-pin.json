@@ -1,0 +1,4474 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/microsoft/vscode",
+  "revision": "6531648f5ace8b77ae799262bdc97bf048461938",
+  "archiveUrl": "https://codeload.github.com/microsoft/vscode/tar.gz/6531648f5ace8b77ae799262bdc97bf048461938",
+  "archiveSha256": "d8d7de1e54afa6b4278a14ef36ca501a0fa8f7b66bd7a76c98553e281c45276f",
+  "archiveBytes": 87934091,
+  "sourceFiles": 20991,
+  "sourceBytes": 351497557,
+  "nodeVersion": "24.22.1",
+  "pnpmVersion": "12.16.0",
+  "upstreamExcluded": [
+    "copilot",
+    "vscode-api-tests",
+    "vscode-colorize-tests",
+    "vscode-colorize-perf-tests",
+    "vscode-test-resolver",
+    "ms-vscode.node-debug",
+    "ms-vscode.node-debug2"
+  ],
+  "nativeExtensions": ["git", "microsoft-authentication"],
+  "staticCount": 60,
+  "needsBuildCount": 35,
+  "staticFiles": [
+    {
+      "path": "extensions/bat/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/cgmanifest.json",
+      "bytes": 326,
+      "sha256": "c90a5f02b88c9dc9d7e254b0d0a1a810812abe687169e045ebeea815b00185a8",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/language-configuration.json",
+      "bytes": 468,
+      "sha256": "4192576dc7bd834bda3bffdcba7da8f0390203fe640d9b37522c1a10d222205e",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/package.json",
+      "bytes": 1081,
+      "sha256": "4bb96a47500286cabd49167aa5d32677f28417c1eceb99c86d4a82f332b101c2",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/package.nls.json",
+      "bytes": 162,
+      "sha256": "c4bf067755ce5b89af3bd40a0f624946a4e7eaa5067ee860f43952c7e11e82da",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/snippets/batchfile.code-snippets",
+      "bytes": 241,
+      "sha256": "9560bde2f73105ea18bdee6ec52e8a39ba4f4b803c17a043612e9a65b4471c45",
+      "executable": false
+    },
+    {
+      "path": "extensions/bat/syntaxes/batchfile.tmLanguage.json",
+      "bytes": 18501,
+      "sha256": "33660a9b5e6a9188d64dcfdf122fd6422dfb40ec3141f628aee9adce17e65961",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/cgmanifest.json",
+      "bytes": 561,
+      "sha256": "5a4a03fb8f412eeeef31e3d13df0d52835d26c10e750a04b0f39443c7dd7ce21",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/language-configuration.json",
+      "bytes": 348,
+      "sha256": "431f0f2c638b7c81e151900873b2714618172cfcb804d87049452e2e69f0f16b",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/package.json",
+      "bytes": 1156,
+      "sha256": "e4765853a8b53e572568b5da9b1a9611dfb83947cdbfbaf6c9b3c3108fbf517e",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/package.nls.json",
+      "bytes": 133,
+      "sha256": "6d77a414c8560c375f2543b870842a7807913e109c5737c364552eb9607d2762",
+      "executable": false
+    },
+    {
+      "path": "extensions/clojure/syntaxes/clojure.tmLanguage.json",
+      "bytes": 9202,
+      "sha256": "0ba6a4b3e022af127547006692ccc3bc97ee3f291550233eec229dc614d94595",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/cgmanifest.json",
+      "bytes": 591,
+      "sha256": "71d64ff9843cec96bb84b80101aaeed6c2934e91dddeadcf10a7634359c13253",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/language-configuration.json",
+      "bytes": 547,
+      "sha256": "9018a39dabb484f6bad29a76c01f2658da985277e992fcad3d5ae11e50f45fc2",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/package.json",
+      "bytes": 1432,
+      "sha256": "e720d3075927147800133f510fb665e64ce6e005ce48bb01767fa4bcd0faacf3",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/package.nls.json",
+      "bytes": 162,
+      "sha256": "7ac919b070ac999ab694599a816b8f6503c0701383ab3a49b4a2e4b4d731caa8",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/snippets/coffeescript.code-snippets",
+      "bytes": 237,
+      "sha256": "0f30741635cd0b31b20bbdcb3d477cf8a1903490d0bec2bd64c262f4f7f53d60",
+      "executable": false
+    },
+    {
+      "path": "extensions/coffeescript/syntaxes/coffeescript.tmLanguage.json",
+      "bytes": 35524,
+      "sha256": "097c4da7143a2e710a92128ac275df9855c53b529c7902d9ebae69eba9abfeef",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/.vscodeignore",
+      "bytes": 33,
+      "sha256": "3c8c93c7b0f01c697954622b456ee4ca5416a1e5f6f23976cc99de85b8158d46",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/build/update-grammars.js",
+      "bytes": 1307,
+      "sha256": "9a6594005e5b42645930d812a4ddd805537bd8d169e182b7dbabaaf5343ce526",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/cgmanifest.json",
+      "bytes": 3984,
+      "sha256": "5cb087176b698a80cd01cc0cf536bcdc0ce53ef5803abc98097d9a4447ed81f2",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/language-configuration.json",
+      "bytes": 1847,
+      "sha256": "932f33e3f6cd95f28bc4d8ecf633977529a1b19060e11763caf51eec40fe82ae",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/package.json",
+      "bytes": 2959,
+      "sha256": "e304e8239d901e528b9c9e2d7cbadc9886b497b61366a9f605a5ee3b445dc057",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/package.nls.json",
+      "bytes": 148,
+      "sha256": "7dd8bc05c827d5f5c84f0db20f16b7aa2289c7996d73c11681ec14006076f9c5",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/snippets/c.code-snippets",
+      "bytes": 254,
+      "sha256": "af1c65f7f1579efc3e4d531ce6c8b79f60e8b1e7b6dd398990f82d7567665544",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/snippets/cpp.code-snippets",
+      "bytes": 254,
+      "sha256": "af1c65f7f1579efc3e4d531ce6c8b79f60e8b1e7b6dd398990f82d7567665544",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/syntaxes/c.tmLanguage.json",
+      "bytes": 100069,
+      "sha256": "9d0a305bc6595526ffc0680eccbf23a12512ded99a632d9f1deab3ce81b62957",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/syntaxes/cpp.embedded.macro.tmLanguage.json",
+      "bytes": 385210,
+      "sha256": "a99612957109efebbea2fbf9e5bec2ceb955b91d3e8543b5d4cdf74739d49181",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/syntaxes/cpp.tmLanguage.json",
+      "bytes": 677832,
+      "sha256": "595766a3721e2ab8bb6d7e6d38700c8d912f5eeb992b48d1f96dfb013659be9a",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/syntaxes/cuda-cpp.tmLanguage.json",
+      "bytes": 651360,
+      "sha256": "4dae61eeef3cebd9d1cc44fdc6123e786156be1cbfbd5b19230c9054e85902f0",
+      "executable": false
+    },
+    {
+      "path": "extensions/cpp/syntaxes/platform.tmLanguage.json",
+      "bytes": 568256,
+      "sha256": "9e73e3ecf009c6243615c83dbfbd041da1d5a8c049739d1c9ae11f95f2c56c3b",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/cgmanifest.json",
+      "bytes": 449,
+      "sha256": "5b81621d984d878db439aa9e54e99a887e83f19ee1fe62fcbe71564422c1a050",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/language-configuration.json",
+      "bytes": 1336,
+      "sha256": "ee6c48fcecc08c89189bde625039aeb75fb7f9d3f03ecfd4af89309c15ba1124",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/package.json",
+      "bytes": 1551,
+      "sha256": "02d54062c48d5c8c786f49da01916ac57b9b36b0b1e5da672d923334be05302a",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/package.nls.json",
+      "bytes": 142,
+      "sha256": "0e51a5e864548e12011c2638d3d846e074fa04a1406301d867755fa8d0920634",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/snippets/csharp.code-snippets",
+      "bytes": 240,
+      "sha256": "3936cc09f4635d516b8aefb3a0b451be0e32900b8515b1b7788ebc10b1f56b45",
+      "executable": false
+    },
+    {
+      "path": "extensions/csharp/syntaxes/csharp.tmLanguage.json",
+      "bytes": 139031,
+      "sha256": "152d4586a2ddf5184216928a99d1e17620aebcce13f5fd96735f43218fbd1c1c",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/.vscode/launch.json",
+      "bytes": 274,
+      "sha256": "2e2b5fa7dc150b03a9ac6934ceb9311640a3f4373072359bd55f7ef6e30a96ba",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/.vscodeignore",
+      "bytes": 31,
+      "sha256": "edb595eac989f1d675e100c2d8f9e09117dc5364047bf0b2b912f2ce215fbb25",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/cgmanifest.json",
+      "bytes": 2326,
+      "sha256": "d5bda53946d718cbf1c5c62acfc7350fabf19b1dac393da48674db097e57e407",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/language-configuration.json",
+      "bytes": 919,
+      "sha256": "97891fb0d515aa124c0eab14e961aeebb50ea0c7d3634e01853f6f41ce61f28d",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/package.json",
+      "bytes": 1054,
+      "sha256": "b79c07d58735dab568a31f78eacb5de2d0d67abbb764168df37593f058ed5df7",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/package.nls.json",
+      "bytes": 141,
+      "sha256": "95ede9485939c93620bbcae1d197c0684446247ecf98c7f84e677c949c346b97",
+      "executable": false
+    },
+    {
+      "path": "extensions/css/syntaxes/css.tmLanguage.json",
+      "bytes": 81148,
+      "sha256": "55a3e184f702da6a5a64dc4d7ce82ab298a1bae8d35e2924483941eb223d54b1",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/.vscodeignore",
+      "bytes": 25,
+      "sha256": "d5b4f660e6b90e43d2c31dcd830acecfdd40df3c734a41d92e0f8101ed31ae7a",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/cgmanifest.json",
+      "bytes": 2049,
+      "sha256": "a4df74087c0ae1ea4bf6a1c267a33a36cd407041102c5eefb658384ee58d13ed",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/language-configuration.json",
+      "bytes": 633,
+      "sha256": "7ccd2e5e4ff7a29b0d2897067cd5c66d0a404892886c162bd5af81234aed3a2e",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/package.json",
+      "bytes": 741,
+      "sha256": "f2f565308a90d13e922efb3eaffad54a1e0add4e23db49cdecaa2478620820ec",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/package.nls.json",
+      "bytes": 125,
+      "sha256": "6e85ef49ca6c24e34c4e06f17aa6c61912b1b821c2612fba191b890535046959",
+      "executable": false
+    },
+    {
+      "path": "extensions/dart/syntaxes/dart.tmLanguage.json",
+      "bytes": 12224,
+      "sha256": "307e24043abca176e76e04636e5a097d23eb2a0247e668c02b35a67891d019ec",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/.vscodeignore",
+      "bytes": 25,
+      "sha256": "d5b4f660e6b90e43d2c31dcd830acecfdd40df3c734a41d92e0f8101ed31ae7a",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/cgmanifest.json",
+      "bytes": 1165,
+      "sha256": "c1e11c03198b29fec829ee9ec09e1a41540697c32c9a6e03a5422b7ae30f4741",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/language-configuration.json",
+      "bytes": 135,
+      "sha256": "c6f567c346902039a391e120b6c52390a90d88fc235a63abb685cd841093b2c7",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/package.json",
+      "bytes": 867,
+      "sha256": "e7d4dcdfd57c2373b08b1f6f63f0d46d984d876b448f6c08e42b34df86c8b1e6",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/package.nls.json",
+      "bytes": 125,
+      "sha256": "423f8b0d4a6827d5cef13de2d9df4583791603aa9bb0ce2104eabff77d414ea5",
+      "executable": false
+    },
+    {
+      "path": "extensions/diff/syntaxes/diff.tmLanguage.json",
+      "bytes": 3670,
+      "sha256": "cba6db0303642b5218a7a3ef8e946df05d17745ece381a978ff171d29a51e2f0",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/cgmanifest.json",
+      "bytes": 521,
+      "sha256": "56939070111e8f7a762a9fa30d0255536ba9bd681720a575ad4dfa12e8f26844",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/language-configuration.json",
+      "bytes": 449,
+      "sha256": "46d552df9fd0b3114510a5c1b6f1797eb1bdc80ef5697be96944bc0d97444157",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/package.json",
+      "bytes": 1185,
+      "sha256": "ed4dcee703b02cd4f956deb5a38af8527c010e7f19d6785e8a62feb1296c364e",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/package.nls.json",
+      "bytes": 131,
+      "sha256": "49b65293ba8fbc074fa765576df96c69582c4c2e2cf0802615950cacb2ebba6e",
+      "executable": false
+    },
+    {
+      "path": "extensions/docker/syntaxes/docker.tmLanguage.json",
+      "bytes": 2576,
+      "sha256": "4702cc4b636c67fb31627a19f77d7e8b33f8655aced4aef8764eba626257421d",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/cgmanifest.json",
+      "bytes": 1581,
+      "sha256": "45363fd1e05a862ae773ffe465470dda512e70d8595b2a005b6cbe46e50ae7d7",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/language-configuration.json",
+      "bytes": 299,
+      "sha256": "dac4ca99f02bf1ad95a2c54225dad6e1c5d089e589184b22134b2fb1c60d6135",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/package.json",
+      "bytes": 1090,
+      "sha256": "cc078a12948156d51d921ec8d0b2e1d96652a86e1e22c1e50f4115dab6f0d446",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/package.nls.json",
+      "bytes": 131,
+      "sha256": "5100c197b0a0bcd94014d86a91adde073f82e5c59a01f9663ad3d82cce819519",
+      "executable": false
+    },
+    {
+      "path": "extensions/dotenv/syntaxes/dotenv.tmLanguage.json",
+      "bytes": 2679,
+      "sha256": "9f248b063cacc25715b4620f95e52db1dfe7951cbc641736ecb246687e253c6b",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/cgmanifest.json",
+      "bytes": 469,
+      "sha256": "1388746e6d6e3099f7ef88cae0fe1f7fba72e15db1387865bbe28a7f9c5d2bcc",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/language-configuration.json",
+      "bytes": 616,
+      "sha256": "9d6ad91b61798b077afa663374b726a9af575b196e57e98ccc6584f9fe6f41aa",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/package.json",
+      "bytes": 1246,
+      "sha256": "684914e2d40f9bc0576356ef6ae97ad3a6166f7b6f740f252c445f7c7ec93c3e",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/package.nls.json",
+      "bytes": 142,
+      "sha256": "f6c9f0b928b58a0df80762f9590d582e00c6479be95b6e34499a5a8dececcac8",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/snippets/fsharp.code-snippets",
+      "bytes": 244,
+      "sha256": "5451efe09da10267156bc2c8b45d3dedce46399da0e8611d46b6efed19c34c71",
+      "executable": false
+    },
+    {
+      "path": "extensions/fsharp/syntaxes/fsharp.tmLanguage.json",
+      "bytes": 38324,
+      "sha256": "620b4497f2805d31dc68b8e8d40efa1bcd3f4082c8464117e27c0cb77059ec12",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/cgmanifest.json",
+      "bytes": 491,
+      "sha256": "28522aa54ea950e9e01bd1abdaf4a0f6ab6cd77992bf8cfd3b8c7906ed1ea6f3",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/language-configuration.json",
+      "bytes": 1283,
+      "sha256": "ca804e575bd47ec0981e7e30c0d027d3ecfa3e1a4b3cad567d21768cd0aed5a7",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/package.json",
+      "bytes": 989,
+      "sha256": "579ea1c79d26fbd19b8ed85ac63e414cda9fd0e51d6a91a557eb36fbe153bac7",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/package.nls.json",
+      "bytes": 123,
+      "sha256": "77b42a07dea689fa77a8589de079e612f6e561caf9da11fee2b8ea2c503a546e",
+      "executable": false
+    },
+    {
+      "path": "extensions/go/syntaxes/go.tmLanguage.json",
+      "bytes": 77243,
+      "sha256": "de8f2fa64ff273ecd3bfd815164c460e2e406759fb7c8ffabf6cb3639a0efc5f",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/cgmanifest.json",
+      "bytes": 1171,
+      "sha256": "23212ef4a052cd7bb45efeac3a6b3443f456ab13feffa4d4b0e20a36de20a84e",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/language-configuration.json",
+      "bytes": 805,
+      "sha256": "8eaa65956db87797b3ca70660f0f0db683db5a3a1e7f84b44d9941bc21861848",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/package.json",
+      "bytes": 1315,
+      "sha256": "050068bf344f89f3e18566dc7f5d61483363d2665024eb54bbbe463589490262",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/package.nls.json",
+      "bytes": 141,
+      "sha256": "ebcef76d083914ad2fe3a19a4016ab6cac7942545711e86150614e50ec1cf279",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/snippets/groovy.code-snippets",
+      "bytes": 4387,
+      "sha256": "047af6d39a246071aef7345b5d9252dab4449ef063acdb70a607b5b63e6c3379",
+      "executable": false
+    },
+    {
+      "path": "extensions/groovy/syntaxes/groovy.tmLanguage.json",
+      "bytes": 29124,
+      "sha256": "7e61dc6646a8e931d838d0fc62fc3408749f21aeeb989431b87d49c51b559b5f",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/cgmanifest.json",
+      "bytes": 1861,
+      "sha256": "c202d6811ec5b02fb75b180dd9fb0d2daad64a5c07c0bd8c0e2a10be220589af",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/language-configuration.json",
+      "bytes": 1236,
+      "sha256": "b4c514c6fc5152b8f2b093c996927503859335beacf8daad377722bf49bfe1bd",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/package.json",
+      "bytes": 1262,
+      "sha256": "e39bbd8f9f0a22636c6840624184e5432acf5a187bb24dd5cf83d5e98d6a8a41",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/package.nls.json",
+      "bytes": 139,
+      "sha256": "693fbd7b4a2429938c37b2bdef7d81b66b1e3588831f62eb1c375915510d0c14",
+      "executable": false
+    },
+    {
+      "path": "extensions/handlebars/syntaxes/Handlebars.tmLanguage.json",
+      "bytes": 18618,
+      "sha256": "e8062a3efb745e5832443aafaf90bb67f81be44982b1c485bba9e20e8bc98ab9",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/cgmanifest.json",
+      "bytes": 322,
+      "sha256": "28af6ebc6beab704b499a69e8194779f866050b3bcbcc3aa212c0d8ffcfcbc21",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/language-configuration.json",
+      "bytes": 305,
+      "sha256": "28799d8ca46a660481b60636e15d106bf980932bb0456238fe5a9fe9b705c564",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/package.json",
+      "bytes": 1055,
+      "sha256": "6e5d4f7b935dfb65f2afe285dd10c504fbc2882b4ad94216b406f28451946cd8",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/package.nls.json",
+      "bytes": 127,
+      "sha256": "a461beaaaefdbf3916767e9d53415dc5a91c3942f7c38d6425136522450816e4",
+      "executable": false
+    },
+    {
+      "path": "extensions/hlsl/syntaxes/hlsl.tmLanguage.json",
+      "bytes": 8592,
+      "sha256": "8b122d67bdae6bbd1c581dbe123e9e83f3413062c8fc744712d0429ce6c30a2c",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/.vscodeignore",
+      "bytes": 33,
+      "sha256": "3c8c93c7b0f01c697954622b456ee4ca5416a1e5f6f23976cc99de85b8158d46",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/build/update-grammar.mjs",
+      "bytes": 2184,
+      "sha256": "dad2cf6a24efd207301760543f582347246481893d5664241920515a73f7e5c3",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/cgmanifest.json",
+      "bytes": 1165,
+      "sha256": "11afee8c58cc61ade7bc2eaafc46dfbea25ae2ef3bc6b49f98a2a399123ff410",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/language-configuration.json",
+      "bytes": 1877,
+      "sha256": "fe60c83b36cfbc70c73d48405f6acb4f88562273b43db2e88f45bc5c1d75524f",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/package.json",
+      "bytes": 2100,
+      "sha256": "541ae4bdde92138ba7470afbb50e55dfea3041cfd65cd961b343fd1b38099987",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/package.nls.json",
+      "bytes": 135,
+      "sha256": "ce914529b57c2e8df0db4cef7ac2f9843b3ded6819efe0f59031dde0b6885124",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/snippets/html.code-snippets",
+      "bytes": 280,
+      "sha256": "371c47e54957b6bbad6d05c762b6f0dab3e3daa24441581239d951a1e56d634b",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/syntaxes/html-derivative.tmLanguage.json",
+      "bytes": 1399,
+      "sha256": "0d6495edf9edfb25ae89ef43d64c4b6ee2bbb2468179001c7c9574c789a1ed77",
+      "executable": false
+    },
+    {
+      "path": "extensions/html/syntaxes/html.tmLanguage.json",
+      "bytes": 84416,
+      "sha256": "80dedf4fb27e88889ac8fb72763954a6d2660502c686f4415208d8c8d00352cd",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/cgmanifest.json",
+      "bytes": 1162,
+      "sha256": "c4a8a7b3eba11e096e5d056514dd8b63e1fbd183d1ef0d0769e7d8f8c6c3ce4e",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/ini.language-configuration.json",
+      "bytes": 411,
+      "sha256": "97e22c7d0bcceae80ad970d014dd0412d9fdc44d451ad6918fe5058b17db7973",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/package.json",
+      "bytes": 1660,
+      "sha256": "9a893ee6024d3416b77dc9c3c00240288830940ea129444196b3176c417394bd",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/package.nls.json",
+      "bytes": 125,
+      "sha256": "d10af7a51334007178bae214bddaf2f31753882861bbb97aab245bec22258bda",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/properties.language-configuration.json",
+      "bytes": 357,
+      "sha256": "004b952449d92603da2bc342de8dd47e821d4c0b41dc83421f5b7de92df009a7",
+      "executable": false
+    },
+    {
+      "path": "extensions/ini/syntaxes/ini.tmLanguage.json",
+      "bytes": 2376,
+      "sha256": "a46613bd993739695cb62be04d23c5d779754bce9fda8a6ead61ecd4616f95fd",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/cgmanifest.json",
+      "bytes": 2235,
+      "sha256": "6beb0b07bef9f842ffa4345f9d9c98c8396ed5b968ef3612bb771cb4005dfe22",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/language-configuration.json",
+      "bytes": 2280,
+      "sha256": "36e8cad32d299787f0d4cd28d902fc0e7496c835c31f3141e6d143029d618892",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/package.json",
+      "bytes": 1083,
+      "sha256": "c242e213e8480e6bbedceeab803b87f5c9c4f521d7f7ab4fe8a8af264d8d5867",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/package.nls.json",
+      "bytes": 146,
+      "sha256": "6ca68d3d38d8b952de9682ca21daad8f145034614ba0432ad71df7b7c58fe1ed",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/snippets/java.code-snippets",
+      "bytes": 241,
+      "sha256": "1d29d8d95fbaa460f56841ef13e5e4257ba31bef80621c22ff6213cd566742f2",
+      "executable": false
+    },
+    {
+      "path": "extensions/java/syntaxes/java.tmLanguage.json",
+      "bytes": 40196,
+      "sha256": "7152b50446fc97b2abf78755958ed8d27729b53365465ed89b6edebc1a6e9ba3",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/.vscodeignore",
+      "bytes": 87,
+      "sha256": "e83750c71d4303c7e718e5d62bd93dc201e5964f1e1834c6e8609c68496bba78",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/cgmanifest.json",
+      "bytes": 1649,
+      "sha256": "f55981960c1be3a57059231517846fe564f1fd58b89c2619165d7916cfa13a81",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/javascript-language-configuration.json",
+      "bytes": 4232,
+      "sha256": "5d64c3902b9bdb6c88ea19d538192e9a6bbbcec2358e0c652774c9ffbb123c23",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/package.json",
+      "bytes": 4740,
+      "sha256": "f766a0b352dd281f7e2918291a447600301f7cbcebf7430c81b2829f69ca5784",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/package.nls.json",
+      "bytes": 158,
+      "sha256": "b45e7380f7090822bffb2a5cfb7ab7cd536ad3bc7c11609aee566f68d98470c1",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/snippets/javascript.code-snippets",
+      "bytes": 5065,
+      "sha256": "14f2ec329cbc57f4c487895d03d94c0b7c050421f8267ba2dbf1792215e658b5",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/syntaxes/JavaScript.tmLanguage.json",
+      "bytes": 227247,
+      "sha256": "db6f17f15bc4f5e860a3b8fa6055a69720a53df845c8d5121cdc4f128c16291f",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/syntaxes/JavaScriptReact.tmLanguage.json",
+      "bytes": 230255,
+      "sha256": "dd29ed97c74d9be896c76c1e8ba51534ca29b253ab50b2abb575f321cb2ac635",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/syntaxes/Readme.md",
+      "bytes": 502,
+      "sha256": "c05c22d3f6edfb1e919fafb6f3d38a50b617818027b76f97df651d9258c5c9d7",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/syntaxes/Regular Expressions (JavaScript).tmLanguage",
+      "bytes": 5864,
+      "sha256": "00108c41e49aa8312f0e94e1da961580d79c92b64eab0d608f9071d1081718ef",
+      "executable": false
+    },
+    {
+      "path": "extensions/javascript/tags-language-configuration.json",
+      "bytes": 2147,
+      "sha256": "fe91d6ab8f5887867c5696241a3155ecb50e4ae6606c30e6fee9a5b92202c226",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/.vscodeignore",
+      "bytes": 33,
+      "sha256": "3c8c93c7b0f01c697954622b456ee4ca5416a1e5f6f23976cc99de85b8158d46",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/build/update-grammars.js",
+      "bytes": 1825,
+      "sha256": "e0febc6bd98a8f25a923aa5cbaac75e1fa4dc1db254846a294f64ac15318f18b",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/cgmanifest.json",
+      "bytes": 644,
+      "sha256": "d170b1c1f4c30fac214f7fbe63e9fc192505a46b2b7413f6c0ea0d7fa812915a",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/language-configuration.json",
+      "bytes": 1229,
+      "sha256": "0963af900927e3398cc4e40a853b4091d23361ef2d3f89f8f663c8219a2fc8ca",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/package.json",
+      "bytes": 2996,
+      "sha256": "cb542bfdd2b7f6bf32677a4689878045cf27cd76af77e711f10c8dfb986ac200",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/package.nls.json",
+      "bytes": 125,
+      "sha256": "f937f6d689d1358f2276ccbdbe87857810da059c9a931c2a800500d6bf7f65a2",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/syntaxes/JSON.tmLanguage.json",
+      "bytes": 5084,
+      "sha256": "d7238f1cc9033993b9816b0945cab4bb8ea108de0399663c551f28f913e94c70",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/syntaxes/JSONC.tmLanguage.json",
+      "bytes": 5350,
+      "sha256": "9f927bb3aa53e66efc3cace9d2fa1185822b2adfa3f4a9299e7c078f136e1ee2",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/syntaxes/JSONL.tmLanguage.json",
+      "bytes": 5252,
+      "sha256": "43993c393f6141af3cbc8c1e8b2fdcf2f7f88fc7e63415ac5f36ab6bb05ba103",
+      "executable": false
+    },
+    {
+      "path": "extensions/json/syntaxes/snippets.tmLanguage.json",
+      "bytes": 320733,
+      "sha256": "0fc1af278857af70f8f97ac959a8245b0834c2b0ad898d2c0324103f7f519685",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/.vscodeignore",
+      "bytes": 25,
+      "sha256": "d5b4f660e6b90e43d2c31dcd830acecfdd40df3c734a41d92e0f8101ed31ae7a",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/cgmanifest.json",
+      "bytes": 355,
+      "sha256": "ede252bb734fd80884f0e984292a142339ce5c1e323b7ac02d7f4f78f09bab42",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/language-configuration.json",
+      "bytes": 873,
+      "sha256": "e36fb03abfc9f83a9cda1c2ec41c015be5da67e08687c8cc71f41e1f6dc3913a",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/package.json",
+      "bytes": 1357,
+      "sha256": "dd8de3ed80e661de72ae6a25020465113cf1eb88f5870b8946b5949b5cf5bab2",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/package.nls.json",
+      "bytes": 127,
+      "sha256": "a2b11e75efeab68fecd2cd76b6c18b54cd34eeb606d7bbf2c6038d754be75ede",
+      "executable": false
+    },
+    {
+      "path": "extensions/julia/syntaxes/julia.tmLanguage.json",
+      "bytes": 41997,
+      "sha256": "3bee1fdae1c51dc419e55bb1a60f82c2df9cbea0d8d96000b4f9cf5e63b8cda2",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/.vscodeignore",
+      "bytes": 26,
+      "sha256": "858799083c5ed8c209059938907f62addaf740f24937a6309a04464cf92b0611",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/build/update-grammars.js",
+      "bytes": 1185,
+      "sha256": "f162ff8eccea6d58dda4f121111805321ccfb132bcdcfa1538cb7bfab046d832",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/cgmanifest.json",
+      "bytes": 1637,
+      "sha256": "35387b3631457ecedca9186c69de8a9095194001de0578fcfe5a373cd5dde56c",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/cpp-bailout-license.txt",
+      "bytes": 1067,
+      "sha256": "b5d4ec869a5b6f92119765a87f793669d730f480627e70a7f5dc9f74265f504a",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/latex-cpp-embedded-language-configuration.json",
+      "bytes": 1508,
+      "sha256": "d53a579b419ce37b584d0ad5212378f0194c40620f19d67dc81b194b1eeac798",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/latex-language-configuration.json",
+      "bytes": 3360,
+      "sha256": "843492638337b0af1612843e5d9a027e18d397ce501631db8f77831c1441e518",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/markdown-latex-combined-language-configuration.json",
+      "bytes": 3527,
+      "sha256": "478b4d9bcbab6fa46098762e320b378c07041ff325f617374eefa24c69b62790",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/markdown-latex-combined-license.txt",
+      "bytes": 1076,
+      "sha256": "604b7fc59e30d8c909bfac13f2f20bc43a0e0181244c8c1de62108505009f998",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/package.json",
+      "bytes": 3044,
+      "sha256": "d7641af832605e28eb42d108a7338471ed7dc1440996e5eeae67a79dd160ab01",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/package.nls.json",
+      "bytes": 140,
+      "sha256": "862d652ee5cb2d83dc77524b6ee02676c1cb3a21243624db653ed760da5f3a20",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/syntaxes/Bibtex.tmLanguage.json",
+      "bytes": 7674,
+      "sha256": "842fc61e06259016339e2117301600592972df48a8e105424f1d172f19cf3f02",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/syntaxes/LaTeX.tmLanguage.json",
+      "bytes": 108756,
+      "sha256": "c1a90ceb8ca799f67fe70803256068e48fb36e8ddb4f27e26dedf6921a698e7a",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/syntaxes/TeX.tmLanguage.json",
+      "bytes": 12055,
+      "sha256": "de8ffe2d7122eeba64ef4b88ef998dff9e90ff7a22dc83f8cbd98674ed90c5c4",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/syntaxes/cpp-grammar-bailout.tmLanguage.json",
+      "bytes": 683868,
+      "sha256": "a4dd8d3ab4b859017abb27365e02cd41fb384eac3c2a2b198fddc3d3fcd39be6",
+      "executable": false
+    },
+    {
+      "path": "extensions/latex/syntaxes/markdown-latex-combined.tmLanguage.json",
+      "bytes": 79979,
+      "sha256": "3d096cd9160c9744a9596c11a4eb77b3d15f7b5fb948ea0aa9c1e910e35f3d1c",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/build/update-grammar.js",
+      "bytes": 722,
+      "sha256": "e2750718494e43ed0aa7d33acb5177b890178816de97658677a6c595839bdcdf",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/cgmanifest.json",
+      "bytes": 311,
+      "sha256": "a2bf1da86b3e8a2a9aa2068f09d0d91c47876cdc2bc62910530b7776f214acdb",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/language-configuration.json",
+      "bytes": 1385,
+      "sha256": "8a9ec5b648cfe2331a05a1a3cdc88ebdf374d35dc28b721c34cdebf8ef52007f",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/package.json",
+      "bytes": 1305,
+      "sha256": "e59851aedefef373bf84d5ade6189b17fcd6648d189b9ada2d522aab8bebe4b0",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/package.nls.json",
+      "bytes": 136,
+      "sha256": "77949a68bf869d614d6355792e2bed433aa0e7aa7af4c028bc72df1357739b2a",
+      "executable": false
+    },
+    {
+      "path": "extensions/less/syntaxes/less.tmLanguage.json",
+      "bytes": 144346,
+      "sha256": "7fe291c887e1bd51cef76efec09b03acdf62e2f28dae1260f358240372c16de9",
+      "executable": false
+    },
+    {
+      "path": "extensions/log/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/log/cgmanifest.json",
+      "bytes": 338,
+      "sha256": "7968f846320ee6796a4d03d463a17b5cad9c9bfb6a2a15161389e1ea6c62bac9",
+      "executable": false
+    },
+    {
+      "path": "extensions/log/package.json",
+      "bytes": 870,
+      "sha256": "2fc04de21d55839da782a1f3a745a2b49a1fefe3ff492f2a7b441699ace5a67b",
+      "executable": false
+    },
+    {
+      "path": "extensions/log/package.nls.json",
+      "bytes": 105,
+      "sha256": "a71221da31adf20a8fddcc16d1ce80a536245fd3f941d66165968a68ad776f01",
+      "executable": false
+    },
+    {
+      "path": "extensions/log/syntaxes/log.tmLanguage.json",
+      "bytes": 3612,
+      "sha256": "a54e1e87d5f7264b3714298ea295966833626c35096f68c46d9b5048f9ba342e",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/cgmanifest.json",
+      "bytes": 1159,
+      "sha256": "a90db0a43b5ce659a51ac9274d61f45e79bd540781d56d0e199c5482fd90508e",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/language-configuration.json",
+      "bytes": 647,
+      "sha256": "df548aa9a1290cadf7fb3762c7770eb28c68f05d24b08e4e1504e0e3d3e73998",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/package.json",
+      "bytes": 996,
+      "sha256": "123804c4eab46835a87adbc882fa8946e8ffcd69d6e9493d54d140e70f0c4b60",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/package.nls.json",
+      "bytes": 125,
+      "sha256": "d06318008ae611e9650ab93838b30c9cef867b4521b3d074e20bd026af61f412",
+      "executable": false
+    },
+    {
+      "path": "extensions/lua/syntaxes/lua.tmLanguage.json",
+      "bytes": 22245,
+      "sha256": "df7f02454e0a284bf803453fb1d003fa48b219475d1d801346d6745da56b0641",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/cgmanifest.json",
+      "bytes": 1165,
+      "sha256": "644cce84f0b81190e820a90d526c67ec56142d3d5411d1afc76c6181d28b9a9a",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/language-configuration.json",
+      "bytes": 452,
+      "sha256": "8ac660169f1d44efc7448ac312eeca15aea2baa586ea6aea708ff8313b35a4cf",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/package.json",
+      "bytes": 1314,
+      "sha256": "38a4c52d8d8b5065517582fc2d58fb1aae200e7e7e4ecb7ffcfff371eb22a526",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/package.nls.json",
+      "bytes": 127,
+      "sha256": "743cdc6a2692685e8d9b22284436ba7933da2c558263fa1e707d35da999522d0",
+      "executable": false
+    },
+    {
+      "path": "extensions/make/syntaxes/make.tmLanguage.json",
+      "bytes": 13193,
+      "sha256": "09c59caddf7731489e43c03f3aaa117785618753dd37f53c023590c531f12379",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/.vscodeignore",
+      "bytes": 63,
+      "sha256": "f0600f829801729a2b7fd82f25a20bfdb965a88508ce8b43a61a31f7867d4609",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/cgmanifest.json",
+      "bytes": 1470,
+      "sha256": "1f2bf9bb19a9b300f98a9bb041584a54ba37adb7dd722c741be1c25918149c2e",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/language-configuration.json",
+      "bytes": 1213,
+      "sha256": "4b7aa0ec72cd9507a5ae947c92e0eeba861205dfb6d9cc6788cd800dd2c80db1",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/package.json",
+      "bytes": 4819,
+      "sha256": "03fb93d5474c9fe9220e20b209d939026a936dbe285ca684a0860b1745aa9f34",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/package.nls.json",
+      "bytes": 122,
+      "sha256": "30e43dc7c4b19d0460cadf343bfeb8e8e6f81469a8610ebd8a56846cf6e72399",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/snippets/markdown.code-snippets",
+      "bytes": 2809,
+      "sha256": "589e5c0d252fc7c5e3ad301bf87e9d26a787778f2e048819890cd504da2335cc",
+      "executable": false
+    },
+    {
+      "path": "extensions/markdown-basics/syntaxes/markdown.tmLanguage.json",
+      "bytes": 79877,
+      "sha256": "ff4c245072aa0628b298481de17a1c8026b1587410bbb8ab74f3c29cc0f19b9e",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/build/update-grammars.js",
+      "bytes": 810,
+      "sha256": "f73fd5f4cb6585f0ff0fdef891d492c5b101dd83a4d6c76f8f853074112fa4bb",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/cgmanifest.json",
+      "bytes": 1040,
+      "sha256": "3d623a31e134dbc342896082b91852831f428de0a5f360d55443b98c38ac79cf",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/language-configuration.json",
+      "bytes": 805,
+      "sha256": "8eaa65956db87797b3ca70660f0f0db683db5a3a1e7f84b44d9941bc21861848",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/package.json",
+      "bytes": 1207,
+      "sha256": "57506acb9b83c70fdce3569023e0cbd74a8f097849c6dbfe952cdb8abac1b483",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/package.nls.json",
+      "bytes": 141,
+      "sha256": "efd4dd88d1c9fc7326c4d265dcb3054f962706a68ff1136d2a85dfd06187d1af",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/syntaxes/objective-c++.tmLanguage.json",
+      "bytes": 234370,
+      "sha256": "c0d37e0275a1d9ef3b16c46ebbe1387f60f98ef8db868307660b7696c1680941",
+      "executable": false
+    },
+    {
+      "path": "extensions/objective-c/syntaxes/objective-c.tmLanguage.json",
+      "bytes": 137026,
+      "sha256": "6b65c883fb844ec6a5f9b9b6d82778189b613002d8d52d86ccd7e005c8e2bb6f",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/cgmanifest.json",
+      "bytes": 1360,
+      "sha256": "f2499e2e17f6875848f65a387677e84ffc2c774ed64cb735327505d259686c5c",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/package.json",
+      "bytes": 1798,
+      "sha256": "10d67b4653303b013fd6f55f6eb5ff8c2f8355d6b248b8ca068290e8b2c00e74",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/package.nls.json",
+      "bytes": 127,
+      "sha256": "9012d4cf1a82704166ad74de5ba937d2dbe79f1c685d0debd95e9ea5d4d5a846",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/perl.language-configuration.json",
+      "bytes": 590,
+      "sha256": "97c537d85a20276e60d21ff2fa23ca5966105b9fb8ed9dcc2fe5935e718d7611",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/perl6.language-configuration.json",
+      "bytes": 447,
+      "sha256": "0bbef22404726cc0c85e81589a98dc9dfe6aae8e29e0f85263c94920546a4947",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/syntaxes/perl.tmLanguage.json",
+      "bytes": 63536,
+      "sha256": "a58440e3d71c3af267ca0fae803d4c9c09e32398848e445486e1fe89f2c65d5c",
+      "executable": false
+    },
+    {
+      "path": "extensions/perl/syntaxes/perl6.tmLanguage.json",
+      "bytes": 12139,
+      "sha256": "29e4e23b69f780cfd2213424c56d5e09bea9f16f7b1fa348a68b6f9286684d38",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/.vscode/launch.json",
+      "bytes": 324,
+      "sha256": "324d4992f1f20119d12fa38fefb8a247e8c02a30da737d8b2140e93ba10e8f01",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/.vscode/tasks.json",
+      "bytes": 190,
+      "sha256": "8fc6e44b2d9f2d6747cf069496aa013a9aeeb27cd147c68462d7317649c8f2fe",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/.vscodeignore",
+      "bytes": 92,
+      "sha256": "79c151d7a1a2767416f7130a7aa8711c08f82717069257f8f255132d657d4f49",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/build/update-grammar.mjs",
+      "bytes": 3989,
+      "sha256": "f8c231af6c9cfe11861d7b9b03036580df06d9a43834eae070911c8d67ed2484",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/cgmanifest.json",
+      "bytes": 320,
+      "sha256": "ba33afea81f6af89fe2f5adc9211f74d568db32c764724dce581b52af574e4f3",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/language-configuration.json",
+      "bytes": 3012,
+      "sha256": "1af320109beafeb17278cc833f607c6972227262686e54ae3f17b1d07660b837",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/package.json",
+      "bytes": 1520,
+      "sha256": "bb3a97d6e94685698d3ee4ce1bbabb23c5d664383dd03d5ffd605eca10c07578",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/package.nls.json",
+      "bytes": 126,
+      "sha256": "78b3d8eeaa3ca77b3c98c254df654647bc8cef0be4832e6bb5ec49fec3a4b115",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/snippets/php.code-snippets",
+      "bytes": 8012,
+      "sha256": "8593a5c7f0b5e914c90c7fc77b17c6fad18be14be3535abb967a1695c3234327",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/syntaxes/html.tmLanguage.json",
+      "bytes": 2291,
+      "sha256": "4eec00e50017cd82b3e2473ed9f774a9be6b1bb2de11371a0bf2785c3ae8b4f1",
+      "executable": false
+    },
+    {
+      "path": "extensions/php/syntaxes/php.tmLanguage.json",
+      "bytes": 143089,
+      "sha256": "dea92689034f878009c556d59abef08a16e0995ad423ac8ffe93fad78d065c1c",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/cgmanifest.json",
+      "bytes": 324,
+      "sha256": "96681099365ec94a512e37d4527f845b0454d72b99515f466ee7db3d6a6a80f5",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/language-configuration.json",
+      "bytes": 684,
+      "sha256": "4e649e764e1c02cf20ae73ca6750e48ca5ed505f5b1c948c12b67395e740e310",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/package.json",
+      "bytes": 1147,
+      "sha256": "083eefda5163feed3ce1350b94bf152f41b79ce59bcf05101fd6bf2eaeef2c64",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/package.nls.json",
+      "bytes": 158,
+      "sha256": "033226a7e60dbfa3a80d08301e2128b0a3739c152225719b4ab33645e72e7697",
+      "executable": false
+    },
+    {
+      "path": "extensions/powershell/syntaxes/powershell.tmLanguage.json",
+      "bytes": 28123,
+      "sha256": "86a0d7bdc6b8c66528a34d27d977f8c6d4a9ff7f48a351430cee8356c9601244",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/.vscodeignore",
+      "bytes": 63,
+      "sha256": "f0600f829801729a2b7fd82f25a20bfdb965a88508ce8b43a61a31f7867d4609",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/cgmanifest.json",
+      "bytes": 40,
+      "sha256": "f333f0f69cfdd3b54c26089e519312d4fbef68e5ec6380cd3211c0334f90212b",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/language-configuration.json",
+      "bytes": 1213,
+      "sha256": "4b7aa0ec72cd9507a5ae947c92e0eeba861205dfb6d9cc6788cd800dd2c80db1",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/package.json",
+      "bytes": 4923,
+      "sha256": "ae4a53133ecdfea481392d16c75e3e7c6befda97c805ad42ab43f55d01f44dbf",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/package.nls.json",
+      "bytes": 123,
+      "sha256": "6020b08588e1f05678f2d86094cf9503e3b103e5f73ad83262fa8f6e83d2928d",
+      "executable": false
+    },
+    {
+      "path": "extensions/prompt-basics/syntaxes/prompt.tmLanguage.json",
+      "bytes": 503,
+      "sha256": "be756e8792823908a7d5c55f2d1802bf4be0140fc8956749518ddfb2983f98cd",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/cgmanifest.json",
+      "bytes": 473,
+      "sha256": "24f6b48204148931603c836d28e051277534e2127b583af23a1ec5fdb297253a",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/language-configuration.json",
+      "bytes": 417,
+      "sha256": "e20fa1d8b42599add05f16f96c61244dcd1c855105121aea6b1be43b818c9765",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/package.json",
+      "bytes": 1070,
+      "sha256": "42866822742f432cd895a1d0e1661345de6e4b324600980e346e99f3a676c333",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/package.nls.json",
+      "bytes": 125,
+      "sha256": "f215f4f52998786d0efaef4f310a11e35420aa3da2bd0e70e749a5f7a355f339",
+      "executable": false
+    },
+    {
+      "path": "extensions/pug/syntaxes/pug.tmLanguage.json",
+      "bytes": 20369,
+      "sha256": "4f8be868584155102e3fcda3a2e643865db08f37e5534bd70db6e5dee257af99",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/.vscode/launch.json",
+      "bytes": 362,
+      "sha256": "ec77fbf8dff30cc0cb2f4d46039ca2fbcc646cc93e13cae18448511eb8717dae",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/.vscode/tasks.json",
+      "bytes": 962,
+      "sha256": "24f1fef1ec9f39a1b3c87e54860c042c5d29efac0de685c3a379ff093f27b904",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/.vscodeignore",
+      "bytes": 32,
+      "sha256": "d7790792c6f563740a76510f03ebb15282ea91a07a031c263dbf3e295aa85b58",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/cgmanifest.json",
+      "bytes": 322,
+      "sha256": "d841c4d2c0937002915bfcfd96af38218138046a1008a17a85ae84d381c4e05c",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/language-configuration.json",
+      "bytes": 1923,
+      "sha256": "141f93a99e92b9d399cbe4e18f36757fc6bcb94df765607b57b149c1749fda28",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/package.json",
+      "bytes": 1588,
+      "sha256": "44ddf6c0910d421a2b93fb526bc04ecffd1d8c7ccb1f688f1a55c928ebe7c4b6",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/package.nls.json",
+      "bytes": 140,
+      "sha256": "2392efe2c5fbf510a030ac59c8d3b11cb1f452d2a694aa320837fbe75d625d24",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/syntaxes/MagicPython.tmLanguage.json",
+      "bytes": 101610,
+      "sha256": "ca981430eb3df004f4955bb7cba51ad06c4d8408d168c81eec7059d7d9aec5c8",
+      "executable": false
+    },
+    {
+      "path": "extensions/python/syntaxes/MagicRegExp.tmLanguage.json",
+      "bytes": 11035,
+      "sha256": "d44f8811521bd35ea6bb9f7049b9e8a2cb6a04c514dcb9ec369633ab2cb139d1",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/cgmanifest.json",
+      "bytes": 331,
+      "sha256": "6ee7cabccd7b978a8542c3431125091535e06a10ede29634eeac6f717d4a1d16",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/language-configuration.json",
+      "bytes": 483,
+      "sha256": "5d67a6dfcdd309ac74331eccff2e9fc68d240204cce145bd91de0de1a4e364b5",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/package.json",
+      "bytes": 959,
+      "sha256": "cef9c6a74d44d03a0a61c4c5c2a9dbf3f9fee237cb85202552925605d6cf2773",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/package.nls.json",
+      "bytes": 121,
+      "sha256": "2617d9759d4460d51e01632bf5185098d26abfe8853c7d126d87901048d58195",
+      "executable": false
+    },
+    {
+      "path": "extensions/r/syntaxes/r.tmLanguage.json",
+      "bytes": 58479,
+      "sha256": "aeb268a3246e041b2ff92784140df75a24ccec19d8eacbe9f4d7dca05455ce84",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/build/update-grammar.mjs",
+      "bytes": 1505,
+      "sha256": "6768fbc33637b225599032723edeb5bb4d0b8c8d39eb5ead9bd77aedce4ae5a8",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/cgmanifest.json",
+      "bytes": 1592,
+      "sha256": "ec36cbc738fd3c006f30b47c6be0d09d0ce79d368b59262a19efc4e1b88c24ee",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/language-configuration.json",
+      "bytes": 441,
+      "sha256": "3c1456e9ff859c09bc411095214372be2d7d4dcf9695f7e9a4e48574aee90e34",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/package.json",
+      "bytes": 1090,
+      "sha256": "df72801b9c3afb9bffe42b76be3325fcc31cb7c488a236bbbd5e111d8b3c1dda",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/package.nls.json",
+      "bytes": 138,
+      "sha256": "82d5da34f4dce95b3189b642209b85652195a5b1db19de184b6845cf2a3c205c",
+      "executable": false
+    },
+    {
+      "path": "extensions/razor/syntaxes/cshtml.tmLanguage.json",
+      "bytes": 39344,
+      "sha256": "bb8e60362084de6b36d33363b20033dcca59d559ab4471fc25309998303356a2",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/cgmanifest.json",
+      "bytes": 326,
+      "sha256": "572add64c035f2fd07747803523fd5fa8d33482ec6db8c7a5421e44963daeff0",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/language-configuration.json",
+      "bytes": 645,
+      "sha256": "dcf9dd4dd66496364c684f572f59267d2179bbc3e5bb4562b065b739bfea66b8",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/package.json",
+      "bytes": 867,
+      "sha256": "be40c60878a9f788fb630d3552fd2792140dc665ed0568afeb7b938193f40347",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/package.nls.json",
+      "bytes": 130,
+      "sha256": "1ab7ba639e3babb4f1e7857592b2e5c7d72b5df4235eafe2b59338c6c40a60f4",
+      "executable": false
+    },
+    {
+      "path": "extensions/restructuredtext/syntaxes/rst.tmLanguage.json",
+      "bytes": 13557,
+      "sha256": "9ec7e7ec40cb50d7a543c16bd948c44898cae0aabbf19eadb39504201faacc69",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/cgmanifest.json",
+      "bytes": 2457,
+      "sha256": "1f59a2aad01f368d0b0b3237b5733135080c8cbb6aca9725bcd0ab0d66038013",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/language-configuration.json",
+      "bytes": 874,
+      "sha256": "fb4f26a17fe832f2002dc9c198e3ce26770f055f7ffb7864c09bab6962f79fe5",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/package.json",
+      "bytes": 1785,
+      "sha256": "eea16af32678c2f17bf339cee7eaad89c20dd2d0908a31f0de1b329c280c7ad0",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/package.nls.json",
+      "bytes": 127,
+      "sha256": "907149f052e3c433e871991b564d6c32f3f1251b771f0e0f7feec503716f8841",
+      "executable": false
+    },
+    {
+      "path": "extensions/ruby/syntaxes/ruby.tmLanguage.json",
+      "bytes": 67704,
+      "sha256": "050632ddb85d98e2fa9db029951334575e26f6fcca2083675398f6a241605f98",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/build/update-grammar.mjs",
+      "bytes": 576,
+      "sha256": "9cfb233996ba954aefa52e1624a9d458c844f9e9261b2ae2647579048d853caf",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/cgmanifest.json",
+      "bytes": 371,
+      "sha256": "cfbf1311f79c07086fc8c10ac553ea19058693c4ea84a6b833197ab1bb4fd7c2",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/language-configuration.json",
+      "bytes": 999,
+      "sha256": "543f4d958163e2ec7ca52a1d201bbad3e92fcf35d605505f17905436664a011e",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/package.json",
+      "bytes": 826,
+      "sha256": "8e7a5e537d1de76053b532e4ad691fa4bcde93723095e0f638f1f3ecbfd12500",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/package.nls.json",
+      "bytes": 127,
+      "sha256": "b0213fc4f033b09d1af53c8cfb8e9a3c5499d5e84bc983e74c9a2e2d99aff22d",
+      "executable": false
+    },
+    {
+      "path": "extensions/rust/syntaxes/rust.tmLanguage.json",
+      "bytes": 25373,
+      "sha256": "015f28e49b5bd4f2b2bb9863cd62e5831a4b570d8b65fe24a7df9b25312da75f",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/cgmanifest.json",
+      "bytes": 537,
+      "sha256": "00b1f574edfe0d8851f86133a3e452ec9abe7a8cd1bdb678934fe7d522a8e6a6",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/language-configuration.json",
+      "bytes": 1076,
+      "sha256": "03a2713a4f4eb738bcb1fc829ea452ebfec40c1409da2aafa60ee52c939254a3",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/package.json",
+      "bytes": 2029,
+      "sha256": "51f4f13ec29d8f81fdd9b205876b34caf1919602cb990903a61a3fe110452ee4",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/package.nls.json",
+      "bytes": 136,
+      "sha256": "7c13521f1cb9056bfff8ca721b7cfd5426557b5c58520c59ecc53b7a2712c330",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/syntaxes/sassdoc.tmLanguage.json",
+      "bytes": 8664,
+      "sha256": "e733d9c2ca02f250ffa5501732f3a1117d2f59d88ae8efaa7c471587fb7237b3",
+      "executable": false
+    },
+    {
+      "path": "extensions/scss/syntaxes/scss.tmLanguage.json",
+      "bytes": 41799,
+      "sha256": "8f2824a80a7c6fd558fc538ec52d0a7a42a4d7ecb7ddf20d79f0d1f00fa6602b",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/cgmanifest.json",
+      "bytes": 322,
+      "sha256": "a2597e795818e11849b890f5bf7036b8c77a682d941387a06b1c45f56cc8ff83",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/language-configuration.json",
+      "bytes": 346,
+      "sha256": "6995e05b8f2b03bf6e064c13f34b0499d7fe6d8f1689f751c6d51c57e052c5bb",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/package.json",
+      "bytes": 969,
+      "sha256": "a914df3a659e81c3de1b09c7727ef3f69b684e84d9aa155931a0ceaf54b5dccd",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/package.nls.json",
+      "bytes": 137,
+      "sha256": "08f60b19673171daeef8f1a1d39771418f12c75b36d280b1a105eb18eac32f99",
+      "executable": false
+    },
+    {
+      "path": "extensions/shaderlab/syntaxes/shaderlab.tmLanguage.json",
+      "bytes": 7354,
+      "sha256": "56faa4d5de6eda070036118e52bcbee38a3777a175406501fab1d8ea7339ec8e",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/cgmanifest.json",
+      "bytes": 338,
+      "sha256": "cf5caa34cc71d36009b991ea33874109fa79e8f32389c02f741329c14a645637",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/language-configuration.json",
+      "bytes": 562,
+      "sha256": "fb8dec83d74b1fc928862b966fd86adac1d7fab5eaa9d425ba813c92169c8a89",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/package.json",
+      "bytes": 2512,
+      "sha256": "de61846f9bd24c3c877d630b1eedfea15728d9a33e19c3c057b01f655da09d58",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/package.nls.json",
+      "bytes": 143,
+      "sha256": "e455ae18401171f2b3ec0e9f8e3c00e7b4d3410a327a647aa976325bc344b573",
+      "executable": false
+    },
+    {
+      "path": "extensions/shellscript/syntaxes/shell-unix-bash.tmLanguage.json",
+      "bytes": 56349,
+      "sha256": "838a597b9bbc29bcfc89ca0190118550ae57517ec3e4b4baa1f8500edcf601d1",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/build/update-grammar.mjs",
+      "bytes": 565,
+      "sha256": "9646e45cf9dd9d37c1f9b5e52df8c207da1d709b681807c43320a6932ea91def",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/cgmanifest.json",
+      "bytes": 322,
+      "sha256": "fddac8922de578ad3532cf98b7151cb4c7d247df4ee52f1c0582223967163abf",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/language-configuration.json",
+      "bytes": 942,
+      "sha256": "00caec01e03983601349a3675172a52762a15d67d859a6c93cf4621023a97126",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/package.json",
+      "bytes": 844,
+      "sha256": "85deb4a387dbf681cd36b0fc6dbb81f92f5bd78a48ecabc3c20b1e5818564a49",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/package.nls.json",
+      "bytes": 125,
+      "sha256": "cddaa6f07235ee147e3ba333dcacf05609e79b127b2994f1aac874b926c076cb",
+      "executable": false
+    },
+    {
+      "path": "extensions/sql/syntaxes/sql.tmLanguage.json",
+      "bytes": 28120,
+      "sha256": "284a00c971983e532aa0abd40cc0fa2e4c62f783014f022747a7800e8244f963",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/cgmanifest.json",
+      "bytes": 1953,
+      "sha256": "d21776a1c6df19d602b2013c781cee04a0c81c29188c9addc26b4904f200000a",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/language-configuration.json",
+      "bytes": 903,
+      "sha256": "9bda4ba38c9d4b0ee3ef0acbc8f9fa85639d37a3b9bd1226868dfa5558146594",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/package.json",
+      "bytes": 1052,
+      "sha256": "86d7324c29acf3899e6da9d5ad5a4b548ecea44cd876432f5a30ab08736f1a84",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/package.nls.json",
+      "bytes": 139,
+      "sha256": "b4c46dc584cc494286b291fd2af6a87cf3792806019d3b6eecc2752c9e8e3132",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/snippets/swift.code-snippets",
+      "bytes": 2785,
+      "sha256": "6181e7d02f2e49766f033503488c42b92c279155f34d5b9ef134dad90bb5f441",
+      "executable": false
+    },
+    {
+      "path": "extensions/swift/syntaxes/swift.tmLanguage.json",
+      "bytes": 132833,
+      "sha256": "acd12f33c06092e1ccff5d44bee2b59f288d941bd94747e7178305d3a140e91b",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-abyss/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-abyss/cgmanifest.json",
+      "bytes": 452,
+      "sha256": "bdd5d6c06d1205a0221732d5a5b4b1684c4bc15080090c9a71b3bbec591b811d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-abyss/package.json",
+      "bytes": 523,
+      "sha256": "4a551ce56b531d9546b6a95a247fb0400488b9fbb0fe1148cf5ad03d782b9a23",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-abyss/package.nls.json",
+      "bytes": 112,
+      "sha256": "78651717b842d7ccb55fa455a3dd3baac1984bb73d81444bd74b886803fa9ee2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-abyss/themes/abyss-color-theme.json",
+      "bytes": 11449,
+      "sha256": "5ccb5fa5c6f66b43295f68852b7cc88b1ba35eb44a3a17c813e9094aaca755c4",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/document-dark.svg",
+      "bytes": 278,
+      "sha256": "3474bd9226be00d329ba651057444f2fc0f0df5ede26f176f51bead50083124d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/document-light.svg",
+      "bytes": 278,
+      "sha256": "fe60a7c8bbc276600bf8697605d7c5542a6997e7ba0443682ad573d139b9eda4",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/folder-dark.svg",
+      "bytes": 615,
+      "sha256": "6365d927127541e6cd98b13df65980685eef899b7eb611fbe79fd1ccb02dfa4d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/folder-light.svg",
+      "bytes": 615,
+      "sha256": "fbe648051eacd0a815ffb1d9003e86d433e996b1eb42d881801441d235cb0b19",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/folder-open-dark.svg",
+      "bytes": 494,
+      "sha256": "d46ae85658b5aaf5a580a03dc045a930daa990ed1da372397e9034be4ab3dadd",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/folder-open-light.svg",
+      "bytes": 494,
+      "sha256": "55ca135078b564760fd88af41b8e51570d2af1c7bdfc48903e65a2ce30a67231",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/root-folder-dark.svg",
+      "bytes": 1061,
+      "sha256": "b9446aeab9a9bb5bba35fa8006c0a21df10d3bed81b562c9e76375587771fb76",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/root-folder-light.svg",
+      "bytes": 1061,
+      "sha256": "2f1ba95f67dc8276dc8278c5d25ffe52c38c124c6baa1f4e6215e282d9e1e0c2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/root-folder-open-dark.svg",
+      "bytes": 930,
+      "sha256": "977c34af793459042b0542d4d09581b507c186d1dae097b4bb78e751df89241c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/images/root-folder-open-light.svg",
+      "bytes": 930,
+      "sha256": "0a90227998066677b2a7df08042652099ae915fd1fee3b4ae025d6ad669a6dcf",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/fileicons/vs_minimal-icon-theme.json",
+      "bytes": 1496,
+      "sha256": "99f17c1595202e77f89909ed267daca87c9cdad97d316a6d2173c25a70051c40",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/package.json",
+      "bytes": 2178,
+      "sha256": "82d76f47ceb7f064ae80b4200bd10d9e144223ab736da5b18b0d1cbd682e2aff",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/package.nls.json",
+      "bytes": 586,
+      "sha256": "1bf6cd04cec9bc9eb15e002acf1bb27b215f2ae3f27c5013ff296a833e8d52bc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/2026-dark.json",
+      "bytes": 19610,
+      "sha256": "04295c2bb1ce21f6c43351b740202291ea8e6d9616b6d7dfa15b846e1aa4319e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/2026-light.json",
+      "bytes": 19439,
+      "sha256": "c654c3e7a74b3d4d2b674601c06b87bc3553a92107a8dec86e150cc8b72348d2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/dark_modern.json",
+      "bytes": 5448,
+      "sha256": "58d4ea55a2a36f65c0d5caf033dfddc4ec7d4b3a5d8b731a84bc36001d26a339",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/dark_plus.json",
+      "bytes": 4700,
+      "sha256": "409f33088a5cfd6589384900ef80627787c568d367c25b12f31bc7940936e573",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/dark_vs.json",
+      "bytes": 8580,
+      "sha256": "9fc2c16761400632eac6166ff7bb0435c5190a94bffa51ec1ef19b2ce78576b2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/hc_black.json",
+      "bytes": 9272,
+      "sha256": "07f6250833d40ca9ed7399f328816d4e0c59ddc21c64c8af754a6b260725b0ad",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/hc_light.json",
+      "bytes": 11475,
+      "sha256": "1cc2ccb7d2fb7990d22baa1dd2bb7174817ac45ddc8b46c4d29c3ddb864b4ce2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/light_modern.json",
+      "bytes": 6508,
+      "sha256": "831b47d624e9acd6f09da58a699889415be7e45fccffb01177bc718b20e7e25c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/light_plus.json",
+      "bytes": 4783,
+      "sha256": "26fbb053bec8ce2b65706d5fcb993da8c19174cfdbf35a49b465236b5ed26203",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-defaults/themes/light_vs.json",
+      "bytes": 9636,
+      "sha256": "ce562a2ebec8c9a91021afb9ba7c9e8bcf4176df634fec8b77c748b42e3ce748",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-kimbie-dark/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-kimbie-dark/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-kimbie-dark/package.json",
+      "bytes": 541,
+      "sha256": "7f6464af4151b1fdfd76c35425ea93bd2946f48b8dc8db74891830eb00dec5bc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-kimbie-dark/package.nls.json",
+      "bytes": 130,
+      "sha256": "9ce9ce2a659d672bf8e9c73ef15bbfdd58f052e8ae1ab2b5874e042086f5ce34",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-kimbie-dark/themes/kimbie-dark-color-theme.json",
+      "bytes": 8631,
+      "sha256": "a0b17410a795d8e03c86b24ce8d59570079a5fc4df5a2f7fd2daf9f9d81ab14d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/README.md",
+      "bytes": 1537,
+      "sha256": "d62434534e2efce9aac08e1b1fa92449ac0c8949d2758c92e620916ab3959d7c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/file.svg",
+      "bytes": 511,
+      "sha256": "c1feb58cf977e19b081c7894b14112d42540ba55ba493fcdad85cd150c96ee00",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/folder-open.svg",
+      "bytes": 925,
+      "sha256": "24893b378c7d2136b240f48139d1d21dff9a29aa8f8d05b1f75691d079aa578a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/folder.svg",
+      "bytes": 651,
+      "sha256": "b831980c272535083ea3e4e79e5dd76534db2431a1af3bf099f7a269f96e5571",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/frame.svg",
+      "bytes": 407,
+      "sha256": "35f2ec413172c8e70e88e3160cba579a56399b6f1486aef50ff95f8e8d71035a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/fsharp.svg",
+      "bytes": 262,
+      "sha256": "604393b0080e71127ce87a01b608ef775029a28ceb2c7d36b3254857158da1ec",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/git.svg",
+      "bytes": 2198,
+      "sha256": "4408e9b2a8b9e4ca2f10d9eb27ec2842b94a0460e484cb937e19fdd7e4fc30ad",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/github.svg",
+      "bytes": 1744,
+      "sha256": "236d7e4b0fb3fe0741b9934173800310141818b23ef4e7428d55e00648e1cf91",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/gitignore.svg",
+      "bytes": 2198,
+      "sha256": "4408e9b2a8b9e4ca2f10d9eb27ec2842b94a0460e484cb937e19fdd7e4fc30ad",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/gitlab.svg",
+      "bytes": 1162,
+      "sha256": "a478de94bfdbf74e94b65887133ba0f1de2c7ea6be8dec3e43af9645ba7dcfc5",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/go2.svg",
+      "bytes": 2695,
+      "sha256": "5a499e65bc728c65ece301658cf2d1935a5823f2c58c70e10e65fee79cc993c1",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/go_3.svg",
+      "bytes": 7293,
+      "sha256": "009082f6f6fd5c892bfa3a2096f09cf3c9e67dd9784f5766c9c4a689b0596af1",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/godot.svg",
+      "bytes": 2210,
+      "sha256": "cc5f417acf1fe6297b7e28aa0858a4575ecc0b3b0749144423944fcf23ab3deb",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/gradle.svg",
+      "bytes": 1949,
+      "sha256": "00223e27e43e72df7248e50d3d55064d1bb9c2a6d37e2de32aec235b4dea3d92",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/grails.svg",
+      "bytes": 2651,
+      "sha256": "eb1dce4e75d8e062219da77c56e52d1c71839d0942522de0836be3dcc361a796",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/graphql.svg",
+      "bytes": 3063,
+      "sha256": "d42bc1d4aa195f99c5b7a813ed8c62467f341a722889f440390c35474cb7bde5",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/grunt.svg",
+      "bytes": 6446,
+      "sha256": "581128441c1a8cfe8cd64f76b60e3e059a410a96de713aa9c24bf32fec8d4a09",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/gulp.svg",
+      "bytes": 12875,
+      "sha256": "d919e6685bbbeb6fd4bee90c1ee87a3a3a5925a5dfbf583440651ba8d8df09fd",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/hacklang.svg",
+      "bytes": 259,
+      "sha256": "15356474742f8044d750cbd2fe7c3cc65f5110c3d2bdd3094f6f489dfe786469",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/haml.svg",
+      "bytes": 3184,
+      "sha256": "fb2f7bb06c6b737f4c63b597ff64a83ac687b4443705d9b2e1bb252ad0335fb2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/happenings.svg",
+      "bytes": 1005,
+      "sha256": "07f67d214862f5d513da5e5f9c6c3befad54a15f8bb27c963c7adfd7f7d8337a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/haskell.svg",
+      "bytes": 503,
+      "sha256": "f658160758ce8b6b4917bc7174bd11c0bb1d6654ae314a6a196c1bf2e3e9a474",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/haxe.svg",
+      "bytes": 1537,
+      "sha256": "0dc1849e3f0f5fc4fab6078952a9e25b0cdbad3361c0eef0e51bb84b3432ba1b",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/heroku.svg",
+      "bytes": 650,
+      "sha256": "2803f3d1b549e75c91eb33b7beb72d4771b711f20379d60313ac819fd55af1a0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/hex.svg",
+      "bytes": 280,
+      "sha256": "30ac082505b14671fc14656f8f7264012fd999ead4750f7d8e6db4648a57229f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/html.svg",
+      "bytes": 895,
+      "sha256": "e17220ac16fdb0386946eb468d9f50a73802621d82620fdb77ec47a8da2a6ac9",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/htmlerb.svg",
+      "bytes": 895,
+      "sha256": "e17220ac16fdb0386946eb468d9f50a73802621d82620fdb77ec47a8da2a6ac9",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/ignored.svg",
+      "bytes": 1931,
+      "sha256": "42b3bd69e1df5489f9f5665e661c92ce5ae344113f2d4bfebbbe9dc47c9e443c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/illustrator.svg",
+      "bytes": 2099,
+      "sha256": "488775fe44722859d8938518c0ad99e449a41d663af9afecf3629274b9d0c63d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/image.svg",
+      "bytes": 703,
+      "sha256": "c29f8a45d1ebe5b86fb763fcd8a5ab4fbfa76cc666feef2bc349ff866751c3bd",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/info.svg",
+      "bytes": 747,
+      "sha256": "668d546a429573ca6ec26957628573efafa9c6d0f9d699a69e2c5adf0bc4756a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/ionic.svg",
+      "bytes": 633,
+      "sha256": "7b5d9c2f7ddcbc7cf14df14ac88e2d1af228336a56a2b7de0695de6beffe5ab6",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/jade.svg",
+      "bytes": 693,
+      "sha256": "4e6f7d289ac61e3176681643a0ec3afd3353cf9948cbc7cac4f757b4344ecd2d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/java.svg",
+      "bytes": 2244,
+      "sha256": "cf632b1a5ada99941fed4aaeb48d0e6ae3f334b17482fc204acd41928d3d1b2b",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/javascript.svg",
+      "bytes": 1671,
+      "sha256": "2e0412e9e5ad7ea12f2634d71ddf6652a97d45a315620b171f82df6fa7001075",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/jenkins.svg",
+      "bytes": 9032,
+      "sha256": "126bc587a50b47692d04b0a59cb3bef123be0619aed4f246f1f03133525a5825",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/jinja.svg",
+      "bytes": 5847,
+      "sha256": "3fbaedcb75ca1a374155405c5c2017e837f3d4dfb256ff2bd87a68c81857f9da",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/jserb.svg",
+      "bytes": 1671,
+      "sha256": "2e0412e9e5ad7ea12f2634d71ddf6652a97d45a315620b171f82df6fa7001075",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/json.svg",
+      "bytes": 1513,
+      "sha256": "671b81545321ea327f21cc79c11480eddb7b5324789c7421fbd9a69392fcd183",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/julia.svg",
+      "bytes": 1586,
+      "sha256": "9a6c4a33777a3c1ea53aeec780fae97b6e49696bba3b2dfb3536b98e1afe9242",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/karma.svg",
+      "bytes": 274,
+      "sha256": "888b6b927b9112fcc18232ded71fafe051c8aafa3c3beea352bfed8c892c8afc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/kotlin.svg",
+      "bytes": 162,
+      "sha256": "d039b47a2605bcb9ab7a07e74097147ef85d30ff1aeb35befee774f0cac74d76",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/less.svg",
+      "bytes": 1513,
+      "sha256": "671b81545321ea327f21cc79c11480eddb7b5324789c7421fbd9a69392fcd183",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/license.svg",
+      "bytes": 925,
+      "sha256": "092d038ae88da69785339ed0d979150c6f84c1dea4aeb834e6ac04d987ea6fd5",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/liquid.svg",
+      "bytes": 5408,
+      "sha256": "abacdb1a0eddd77167cf1c2e1834de6393951d514be401b128d0fc558135cb52",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/livescript.svg",
+      "bytes": 962,
+      "sha256": "a5fa276fe6ebf2aa28fd9086490202d7b91324393d7a222d7b34e627a62bbef5",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/lua.svg",
+      "bytes": 1550,
+      "sha256": "152aeb6837f8f78e010d7762d78fe59e78b932e674b0f3ebe95c76320f7e2223",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/makefile.svg",
+      "bytes": 318,
+      "sha256": "d550f412d9b7e787d48b77498f33e3dabe9b6fac033f2a86cac90b5c1fc9abdb",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/markdown.svg",
+      "bytes": 165,
+      "sha256": "4f9047e071f2420edcce28587807e17cb7d9e24dde078882cf40c0c1e013b765",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/maven.svg",
+      "bytes": 2034,
+      "sha256": "c93b1d5ba2c41930c06d237cd04c352d660da54352ea8ccaee6b1a00d7526e5a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/mdo.svg",
+      "bytes": 805,
+      "sha256": "73dd507c2ee7568b6d6b5e842edebb4fb00ab378df162b2038caae9092c555c0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/mustache.svg",
+      "bytes": 2115,
+      "sha256": "fd67ad6f43aa8e1f8d0a962d4bb447342f229d465eb2819aaeef451b18091c38",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/nlm.svg",
+      "bytes": 1625,
+      "sha256": "f48cbe85a05ffb90e608d9377bd1678b7dd7c4ed1b6682277d356a580b746abc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/notebook.svg",
+      "bytes": 679,
+      "sha256": "23f2c432ab0aed32aa5984cac91a615be09603f30cf5965e64ffca5b760f6e7f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/npm.svg",
+      "bytes": 501,
+      "sha256": "b51478c64a64176cdf226b10794827a02af17134470dd5030804f5aab88dcb49",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/npmignored.svg",
+      "bytes": 785,
+      "sha256": "13714a2e703f56b43bf2ef4b54729bef6dfb80af063846e4e7add2cb5cd6a440",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/nunjucks.svg",
+      "bytes": 694,
+      "sha256": "3e7ec053810860f39b71d6c7570903f394758bcf8225fbf546d0baa66521f8e4",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/ocaml.svg",
+      "bytes": 3441,
+      "sha256": "d7a336e6c8cff0ec0d5367c0fb5dd4803ed7ce8c3349b84d43881cfdddc830df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/odata.svg",
+      "bytes": 403,
+      "sha256": "8ff86e365dd0b5cbe81932418647737d2c06bdafa0b304f9021bc8cb17f42d18",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/pddl.svg",
+      "bytes": 2838,
+      "sha256": "a09abff510d741ec67e8869c19c33ddea59f455e7c7c6c11cb9b9306ba02900e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/pdf.svg",
+      "bytes": 1300,
+      "sha256": "34e6704fe94734350659dd88458d48fd345e6a25798353da2b4407e988b2d973",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/perl.svg",
+      "bytes": 2336,
+      "sha256": "3acaffe47c16240416c403938e379ffbb0a937699b083256fc87f8624ffba432",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/photoshop.svg",
+      "bytes": 3520,
+      "sha256": "5f31ace8549e8208ad8154fc0caac4f55e5ee0bb4bc1f681c7139c094e091b89",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/php.svg",
+      "bytes": 1774,
+      "sha256": "21c2c0216fac91c6d8f2a3bbc65d772fb2937f1e0ba65b36844ad74765022a04",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/pipeline.svg",
+      "bytes": 891,
+      "sha256": "ac5208904f511cdc14a14447b59aa778cc6bf2b3519ff6c7f4a0eb5b1d5f7d73",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/plan.svg",
+      "bytes": 182,
+      "sha256": "989a1deb89104bd0ff8d4bfef322c11acd2e6cc32bc511661bee1fba51574ce8",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/platformio.svg",
+      "bytes": 3629,
+      "sha256": "95eba1d4bd5d05c3fefa8d4a47ce83fd6fe6ed7e0e413d954f2236abbea39ba0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/powershell.svg",
+      "bytes": 1129,
+      "sha256": "d890fdf5db5a8afd0cb6379b94b8c54a1c5744a50e105c9cf4fa9265fa1155cc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/prisma.svg",
+      "bytes": 1027,
+      "sha256": "54a8cf8c45cb5036f964699f116c5a235490a8213e1eacf44dcb15198328c0c6",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/project.svg",
+      "bytes": 888,
+      "sha256": "ecfe0c513287259aa01982f6b1c675cdfd71d500638c5be71883f13e65481565",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/prolog.svg",
+      "bytes": 7034,
+      "sha256": "0330634d3d018801746cb0123269485e91ee9e40698369b21172b41a62af6320",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/pug.svg",
+      "bytes": 5366,
+      "sha256": "624b990e6413c725af8bb212e4f4e598c1d5ec575d2a51d20823d6e6620da44a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/puppet.svg",
+      "bytes": 1080,
+      "sha256": "e161e2e9f716124efceb56930a1235592d848af80aa511d1fa2784dd099e5cb5",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/purescript.svg",
+      "bytes": 641,
+      "sha256": "43b6013d7d4ca97d6f65ddc663f7ebd72e035adf803956bc75abc0fa18fa8ebd",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/python.svg",
+      "bytes": 956,
+      "sha256": "8094a9c36f269536dc8303b1705182c2a8f1ec54ff05686067b623bfd03659c7",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/r.svg",
+      "bytes": 1873,
+      "sha256": "fa01e507fe8d62eef60c030bb01341947209977e6b00687b2b67f306062b7e5e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/rails.svg",
+      "bytes": 2230,
+      "sha256": "0da5a8ce1c55627133ef5e0c4790ffc2a1dd6835a97e25f8fab35d04f64614ab",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/react.svg",
+      "bytes": 4673,
+      "sha256": "0bb46d908294de5b3f3e4b2088d42b84686df8595cc47a2ddf45e13e33ca1a47",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/reasonml.svg",
+      "bytes": 488,
+      "sha256": "cfa824efce1ccd0adb08a12c46a18c7e6066fd7dbc8bdc1214face18fc01b9c0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/rescript.svg",
+      "bytes": 616,
+      "sha256": "d893f173d2d44a2c01dfaca3449c3c7922e475fffcd0d4954c32c41ede08963a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/rollup.svg",
+      "bytes": 2155,
+      "sha256": "e5fba400e572b6201c2004370f02398aae358fa6edebd95dba4850b068821704",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/ruby.svg",
+      "bytes": 1382,
+      "sha256": "843e35251842f36fe8820de062b6151f4ca7b6eb2cf09b1663e50eed96788b5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/rust.svg",
+      "bytes": 8124,
+      "sha256": "d1e42124d8ef2c9b77d1a03b60fcb505494ead68d928b52d8bc978ec709fd03d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/salesforce.svg",
+      "bytes": 813,
+      "sha256": "9bc244001667824914b63bded7a7ae9eaab1cfbec7aac7fb32b56f23d6988a87",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/sass.svg",
+      "bytes": 1856,
+      "sha256": "3aa28ed02b51f338e90ce31a0263fe4c3c36a8b9bbea0815d46036efdac77b70",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/sbt.svg",
+      "bytes": 1285,
+      "sha256": "3f2260ca65f85a66651439cd0c3715a0bc15f3cf87df74ab94378de7db37b478",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/scala.svg",
+      "bytes": 1098,
+      "sha256": "1af51385041204a68c8ac0188bbcbbfd661bb4d3bc1c5307ea618c899193b2f3",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/search.svg",
+      "bytes": 563,
+      "sha256": "b2046b86de01befd0aa2e85ae9eee7edfa5d84ad7696e01c59c3934fedfc40c6",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/settings.svg",
+      "bytes": 1106,
+      "sha256": "ef0278d71494537b72b09ce50b38f974e9b3bb36e2af386a949cf1c8eee4aa9d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/shell.svg",
+      "bytes": 4038,
+      "sha256": "9d3e40e024eea2898dc8b9f1d16ba026a3e858d6731fb1632cd154ae493b8d94",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/slim.svg",
+      "bytes": 521,
+      "sha256": "567aa1f693d71713048ceb691b9833266e76601a39b1a366b3407e4c586edcb9",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/smarty.svg",
+      "bytes": 537,
+      "sha256": "3f9a2067e756f822a58e29cf707aca40a0500133861350d6ca50574b94b2fa02",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/spring.svg",
+      "bytes": 1067,
+      "sha256": "b24eea8dd90b17460acaba26ceb0ef49a860c253d6e4defc82c29208e86db8d0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/stylelint.svg",
+      "bytes": 1664,
+      "sha256": "edf6192c7f8b5baaead4446f351638e2cf49c53c20c0e542c3e06a477af50b91",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/stylus.svg",
+      "bytes": 2469,
+      "sha256": "44830178377dba7b0f498a31f8baee5e68c4755c903960317338b03fdb56e708",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/sublime.svg",
+      "bytes": 743,
+      "sha256": "4118c7fa111a55790dcb764284019264a575e66ecffe3edcbcd1d897bd7a77fb",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/svelte.svg",
+      "bytes": 3388,
+      "sha256": "85e92c813617c99ce10207c43813f2808ffd7c9ed93128ca3cd54c8b071f6afb",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/svg.svg",
+      "bytes": 1715,
+      "sha256": "d4f9b92fcb7e0d255db77fd1d9963d8f807e4f735841c22eb810b1eeebfaf682",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/swift.svg",
+      "bytes": 3674,
+      "sha256": "960f5820109e13da95794ad1f67be189b9a5d2dd8e64ffcd08c609e83849508b",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/terraform.svg",
+      "bytes": 326,
+      "sha256": "e5cdce6505e5933f31a611ada5e7529bac7e4be73d52b012e00f5c297f7aaa02",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/tex.svg",
+      "bytes": 1696,
+      "sha256": "389e71f8e43781be9905290d0e692d89225df449885ae4d3e1618197d335251e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/time_cop.svg",
+      "bytes": 499,
+      "sha256": "10965bce58637e691c2cbe74768c61a35689c7884cf08135690189add2e34ade",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/todo.svg",
+      "bytes": 722,
+      "sha256": "d9f4a07f8826e41a2092896c07fe6a8917d11565fae1f67b6533a65df9ae94e3",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/tsconfig.svg",
+      "bytes": 1976,
+      "sha256": "b92cdb04c1bfaa1097877f7c735d82f033e5d67c9e39bdff9977f63ac1b850e3",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/twig.svg",
+      "bytes": 9146,
+      "sha256": "591a31ea56fa3de96ffbde9dcdd1827cde1ddf7669fe1edab1c5b219a394cf2a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/typescript.svg",
+      "bytes": 1444,
+      "sha256": "f6fdafc9c4ae5851166f8ba1448533dc4dde815f11a0280dc77d3d3a8ad46c59",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/vala.svg",
+      "bytes": 3730,
+      "sha256": "9f00fbb7779eaf8d3ba7c38a9732c6bef72017796a606847400c01800ecd6e27",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/video.svg",
+      "bytes": 425,
+      "sha256": "75d43944a7841d2b486c5cdeac9a0a6a75de1c5368213f472f811de888fadd57",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/vue.svg",
+      "bytes": 242,
+      "sha256": "b4135258149a769c3ab2bfe124c3784c0c3ff546f369d73f24114070bc57b0b1",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/wasm.svg",
+      "bytes": 554,
+      "sha256": "28446ae9082593f417191cbdc09bd6bd083f3cccb1b53eb46eeb9af185aeafa8",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/wat.svg",
+      "bytes": 446,
+      "sha256": "20704a50425fc9cf456bda2651d5cfb7f85bb57078dc33a05c5d46355f2e4011",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/webpack.svg",
+      "bytes": 621,
+      "sha256": "5e9de04512a975a52e977e19460127d26265e01c5c05538c5533a5aad2c62d9e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/wgt.svg",
+      "bytes": 5941,
+      "sha256": "20392ecf3f2ef23e64c4f4c7a7368651f0d68926caea0ea8c49af5e0e187db4c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/windows.svg",
+      "bytes": 370,
+      "sha256": "61b1f7a82700777a1ec90f0999d363d649f384eb91bab0b4ceaef78ee78fb89a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/word.svg",
+      "bytes": 673,
+      "sha256": "ccb3fce6942079d4ca5b2a5032b7b7ad9cbd1f4e9013b5f6611e6fb5c875f143",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/xls.svg",
+      "bytes": 995,
+      "sha256": "e06a372aeeaa68f24c4bf4064662ee8a39272afb057c7db8fee740552e3c023f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/xml.svg",
+      "bytes": 705,
+      "sha256": "4e88fe78f2d683b68c5d361787735b3eef559e0d41931ea6401d77a43a2cf95c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/images/yarn.svg",
+      "bytes": 3414,
+      "sha256": "1c5b6e883967bca1a3a2af9793a7b7ea3c13a3c2c786adae396090fe173ff811",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/fileicons/vscode-modern-icons-icon-theme.json",
+      "bytes": 15176,
+      "sha256": "30969d4512cb96ba60993fac3e84b9967effe51a81b0a2cd6af7c1ca89bffdd3",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/package.json",
+      "bytes": 516,
+      "sha256": "4516d630b151562ed26919a002e21b2a5e63bd99f309cd1cdb7b38e5de6b0939",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-modern-icons/package.nls.json",
+      "bytes": 154,
+      "sha256": "171522d3a08d6f1ee67e3ac62ea88d39b9ca1ffa2ddb819bc152d5dc3bb8c40b",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai-dimmed/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai-dimmed/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai-dimmed/package.json",
+      "bytes": 550,
+      "sha256": "0c14e851e58619606522d9c1ac3f610fe4ca5e66f5f47fa6c9eb2fecd50c9885",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai-dimmed/package.nls.json",
+      "bytes": 139,
+      "sha256": "8c67024af8493915c50d5eeb514f8b8070b7fa685f1109cc7df910463938c0f4",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai-dimmed/themes/dimmed-monokai-color-theme.json",
+      "bytes": 14529,
+      "sha256": "13a6f5b82057a3427b55368ab45f57073cb4a291a722e1f33f83a66fc2d1513c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai/package.json",
+      "bytes": 529,
+      "sha256": "b3c1d6c13d67b62657fea0d2350fe02fdc249cc0bf79e7adfb0274ce28894a55",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai/package.nls.json",
+      "bytes": 118,
+      "sha256": "52038b1b0159143dccd9b5294ae2d7b4fda8c0f7eac787a6a654fcd1fb1084d8",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-monokai/themes/monokai-color-theme.json",
+      "bytes": 12027,
+      "sha256": "5681bcdc2e8f2994a41233bfdd1b02c2cfd90da5c6a4f5ebd4c8f42ef90d1b5f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-quietlight/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-quietlight/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-quietlight/package.json",
+      "bytes": 534,
+      "sha256": "6c850a59920e8cbed721faf080f3976d75b729028356e6330792039a063f1940",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-quietlight/package.nls.json",
+      "bytes": 130,
+      "sha256": "7cddc86ac06544464a3b5c24735fc9fd8cc785b9886cef2f49bf0ad39f9ccb3f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-quietlight/themes/quietlight-color-theme.json",
+      "bytes": 11844,
+      "sha256": "9f2f4f271f7da2e7124d3889488abb9d5b767f633e73a19905134aef8850efcb",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-red/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-red/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-red/package.json",
+      "bytes": 517,
+      "sha256": "5659b55ce66cfe3b29124e5762a0e104c06d1301a7ebf0199560b528ef99686f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-red/package.nls.json",
+      "bytes": 106,
+      "sha256": "98188aae7c9c5138e3e0ed52ce77844b4409612348547f757d739e960ab9e537",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-red/themes/Red-color-theme.json",
+      "bytes": 9412,
+      "sha256": "e5df2cd55fcab494ee241e7d7ca1525958312c59359665c474b0afa2ff91f559",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/.vscodeignore",
+      "bytes": 60,
+      "sha256": "509568f9e938ebd0363d8fa5385ac075795f643348cc9f63dfd79d7329b8635a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/CONTRIBUTING.md",
+      "bytes": 1834,
+      "sha256": "4de445bfa72d34ef1bf45f5a5a2121af75135906cd0eb9cf4820cc33594af252",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/README.md",
+      "bytes": 1705,
+      "sha256": "da30389d38042652ef8e061d2cb51056054656475a90d152675c39207d6c6a7f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/ThirdPartyNotices.txt",
+      "bytes": 1794,
+      "sha256": "be25a8e2c617f7214c99a256305fb6b2d976e3a698c44bda424f617079dcff9f",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/build/update-icon-theme.js",
+      "bytes": 15217,
+      "sha256": "2037d701031542a052ee995ad035556ae66acefb23e43c6b9d18d109dbd64cbf",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/cgmanifest.json",
+      "bytes": 281,
+      "sha256": "06382c911f85d68acff62b3bdd305274abc8a6e337ba49ef146729a02aad78bf",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/icons/preview.html",
+      "bytes": 2848,
+      "sha256": "f22b35813e0c4620568b9151821f758e67333eda09f6fcd3f59733c4cfb49037",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/icons/seti-circular-128x128.png",
+      "bytes": 4814,
+      "sha256": "11d2fb31feef677615bbcfd838e80d4c8759f87b21dbe859d190be5d2e93b52d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/icons/seti.woff",
+      "bytes": 37284,
+      "sha256": "b127762058f89b37b08d76185e3b0558f5c28859e39a3840a27cb28b9739d6e2",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/icons/vs-seti-icon-theme.json",
+      "bytes": 54732,
+      "sha256": "2088843e6f00a81870ed2890132fb658cf33406177a5dd58c9c7001e5184ca2a",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/package.json",
+      "bytes": 639,
+      "sha256": "323c0d8b8b11151e74a09e129f537899cc4b54598693f247a3ccdfb8d79f8ba0",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-seti/package.nls.json",
+      "bytes": 159,
+      "sha256": "becb1174e3f8bd0bcd67aea20757b0f1d5db0ed3b92cff673014743f06f47076",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-dark/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-dark/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-dark/package.json",
+      "bytes": 550,
+      "sha256": "2c9808da1d74588d699866f8501f32c5fad8ccbccd600b2ab1b4efe93fe18fbc",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-dark/package.nls.json",
+      "bytes": 139,
+      "sha256": "b6dfcd2fc5d0f612a24669c18ff824b877913397d17ad435cdfc6c135ce9e14c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-dark/themes/solarized-dark-color-theme.json",
+      "bytes": 12616,
+      "sha256": "920e68b8a62e3e6581cee8d7900af1772865e5fe2b9efe5904baa4a8a89bc445",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-light/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-light/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-light/package.json",
+      "bytes": 548,
+      "sha256": "ce25e30f5d7992baeebc22071d6d4e9349eb0cb00a0902267f16705110a7182d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-light/package.nls.json",
+      "bytes": 142,
+      "sha256": "9d5f4bc2707d0e1e276868cd8f0092d059635d255e4c6d7dbbfbc5139317787c",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-solarized-light/themes/solarized-light-color-theme.json",
+      "bytes": 12814,
+      "sha256": "7c10e85f312c79dfccfa97fe97bb74c3d716a35f55e9701b30bc57e725ce1b44",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-tomorrow-night-blue/.vscodeignore",
+      "bytes": 16,
+      "sha256": "15db987c677b632750508b4a125c105bceb7f289e51b13d3c4b64be7411bd1df",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-tomorrow-night-blue/cgmanifest.json",
+      "bytes": 309,
+      "sha256": "cc522d454429fb86ed184b46f5be0030e694f03c62f5cd6d95c0c299e84a1e5d",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-tomorrow-night-blue/package.json",
+      "bytes": 565,
+      "sha256": "fe3969f1e88833ba4a7a7c0b136e7c573ea8c0d73df2360e22212605d2389775",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-tomorrow-night-blue/package.nls.json",
+      "bytes": 154,
+      "sha256": "2cdfe61920f1e1887211f35ef2b62e1a385c02fbfe9cfebbb14f87b480f01a8e",
+      "executable": false
+    },
+    {
+      "path": "extensions/theme-tomorrow-night-blue/themes/tomorrow-night-blue-color-theme.json",
+      "bytes": 7823,
+      "sha256": "96d5889d05382b3b5b2d9300879ccbd00d29c42b05249f924b468d8f671ed218",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/.vscodeignore",
+      "bytes": 91,
+      "sha256": "eec3c2bafeae72b7922de6546a55b9929ecb18451280d16675068f982164b539",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/build/update-grammars.mjs",
+      "bytes": 3366,
+      "sha256": "a3263ca6b75ed2457f4c79bae0bb2d3ca6300625f7b35f1b1151b60c6af8de06",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/cgmanifest.json",
+      "bytes": 568,
+      "sha256": "2061b2700041d333b840fa2005df629d6ece342fe7bb391b21ee99f10d285023",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/language-configuration.json",
+      "bytes": 4370,
+      "sha256": "6ef03aca8ca0e3173482eefeea958b88cbd7df09077fb5c8ec0689d1c6970794",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/package.json",
+      "bytes": 5445,
+      "sha256": "afbeb5a630e3058e1166c2cb4f087d5a4f872e897adb0979ec49ec27059d25b2",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/package.nls.json",
+      "bytes": 158,
+      "sha256": "b1178acf3662cd0704d564ec62e77f31b3c1a64393547bb35ec074803077f7de",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/snippets/typescript.code-snippets",
+      "bytes": 6183,
+      "sha256": "15108c95fd41b3f01a7883c26985019ad07a7b7ab848cf40db084f7f6075f34f",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/syntaxes/Readme.md",
+      "bytes": 1359,
+      "sha256": "e19a252a2325f2777e9eab5fc8d78c3d2f534991924b5ad56038e047e21ef5a5",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/syntaxes/TypeScript.tmLanguage.json",
+      "bytes": 231555,
+      "sha256": "4e92e0d7de560217d6c8d3236d85e6e17a5d77825b15729a230c761743122661",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/syntaxes/TypeScriptReact.tmLanguage.json",
+      "bytes": 227983,
+      "sha256": "532fb887df3117e9f4eaf5d3ea1e850114fb6899fe3d3ddabedb153bec08b32a",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/syntaxes/jsdoc.js.injection.tmLanguage.json",
+      "bytes": 375,
+      "sha256": "c11fde5c9bb2d9b6bd6faaad51f398b127438a93b3047641a270552a760e76b6",
+      "executable": false
+    },
+    {
+      "path": "extensions/typescript-basics/syntaxes/jsdoc.ts.injection.tmLanguage.json",
+      "bytes": 371,
+      "sha256": "526076af53f330358ae3f5293a7779ac0dbd19d5ef27b71effd94faeef4f1249",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/cgmanifest.json",
+      "bytes": 1183,
+      "sha256": "ecd418cda380a0c17bcd7153c612596e7a150db16bf6543658140a835822850b",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/language-configuration.json",
+      "bytes": 2165,
+      "sha256": "7c7ef5561bdb06bb66a5ede6cc2fc81ec40507115109c5511d218b611e8344cb",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/package.json",
+      "bytes": 1134,
+      "sha256": "c09f0be6f26a5b2c5526d7a08fe2d74588def354407ae30e1476c61e5cf5d9ab",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/package.nls.json",
+      "bytes": 162,
+      "sha256": "ae10cd0293d48affe793765988ee3a84013f8e494fcebd5735f5a25967fba02d",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/snippets/vb.code-snippets",
+      "bytes": 1662,
+      "sha256": "40bb73261f555dc1e8eeef63637d6adbeee348b0552850edd6e5edea7e6b3d72",
+      "executable": false
+    },
+    {
+      "path": "extensions/vb/syntaxes/asp-vb-net.tmLanguage.json",
+      "bytes": 7648,
+      "sha256": "d507207ef0bbdca536e9f9b2d3e4185bbcd4cd8819c96e1f941141925a0ad7dc",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/.vscodeignore",
+      "bytes": 24,
+      "sha256": "f1bd9df742fbeb4519d2d783297aa58b2626292f10a412c292fb52b4ad3b2e56",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/cgmanifest.json",
+      "bytes": 555,
+      "sha256": "606269b981031acc967b732dcd915d0e4a8900f880da1aedd0411efbd7c546c3",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/package.json",
+      "bytes": 2623,
+      "sha256": "77c63379c263bbbf185d679d1cad6f959d38c160e97efd8bef1508a7f5383769",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/package.nls.json",
+      "bytes": 125,
+      "sha256": "1d9b67c576effd24177cca83fdc90492d6ca7a4e842c2ed62b57f6f07fa01e92",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/syntaxes/xml.tmLanguage.json",
+      "bytes": 7699,
+      "sha256": "bb51c7b202f20254772c88f86889e0dbcdc734e045b950fe25c0a23b591203d7",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/syntaxes/xsl.tmLanguage.json",
+      "bytes": 2102,
+      "sha256": "3b766c5273bd8ef7acb85c2cfd227692c0f75b35d262584d7559c9a543219b12",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/xml.language-configuration.json",
+      "bytes": 980,
+      "sha256": "385a24a9da4ed89366d691881e1dfcdac984de6ac7e805776add43ed1731fa7c",
+      "executable": false
+    },
+    {
+      "path": "extensions/xml/xsl.language-configuration.json",
+      "bytes": 610,
+      "sha256": "1b26132965348feea3dfc61a8d2d6b4774762967ee92d02208642f428c84fef0",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/.vscodeignore",
+      "bytes": 33,
+      "sha256": "fdedca9307152d978df49e0fa1a4f112034f60878192cf7eb7b82720cae5db2f",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/build/update-grammar.js",
+      "bytes": 1434,
+      "sha256": "95e15f01d137295769a618915eeb328aa61cd63972fd6adf27c57aa09ef56ff1",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/cgmanifest.json",
+      "bytes": 1495,
+      "sha256": "be1343ebeae1c67bd295f5ca25866b2f4e9811548ede5a5494aacfd29d73cd86",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/language-configuration.json",
+      "bytes": 575,
+      "sha256": "306c8f6951dddc6214ff80766123a0315fc63773a0bd2909423968fa712b4a26",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/package.json",
+      "bytes": 2821,
+      "sha256": "f3771aaf23fab8d36505260d0e7b62ce32cdaaed7f6ff09b1fae5536dd2d6765",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/package.nls.json",
+      "bytes": 127,
+      "sha256": "da21e8d12d2e8b333c46712cdd4972fca5e556a0dd3917b4e984a9d144353740",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml-1.0.tmLanguage.json",
+      "bytes": 28644,
+      "sha256": "6e521c226b702f17fca01ee380479e77350ac754fc4bc127d997ab52c140bd1e",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml-1.1.tmLanguage.json",
+      "bytes": 41652,
+      "sha256": "577102ecafb5a6fe88b766ceed020c2cc32aa16f82556ae36385f23f7b834963",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml-1.2.tmLanguage.json",
+      "bytes": 41043,
+      "sha256": "1e62af3f7ccccce7ed45b4ee4f3d8461b7e9c3bee42d40b0057934ba6dd62f80",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml-1.3.tmLanguage.json",
+      "bytes": 1711,
+      "sha256": "4d2eb8e4139b82a610e4f02a0f663ebbb183d4d5e97b3f098a5a844f4efcf6b0",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml-embedded.tmLanguage.json",
+      "bytes": 12715,
+      "sha256": "b63b60dfef3237d9c51c7dfd2a488735ecc8e22fdb1a0e8fa8b34d2f77bf873e",
+      "executable": false
+    },
+    {
+      "path": "extensions/yaml/syntaxes/yaml.tmLanguage.json",
+      "bytes": 3151,
+      "sha256": "17f25b037d082408b3ac7af5bb53e94125cc1a47857a75da451d6ea4ac0602df",
+      "executable": false
+    }
+  ],
+  "staticExtensions": [
+    {
+      "directory": "bat",
+      "id": "vscode.bat",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "clojure",
+      "id": "vscode.clojure",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "coffeescript",
+      "id": "vscode.coffeescript",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "cpp",
+      "id": "vscode.cpp",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "csharp",
+      "id": "vscode.csharp",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "css",
+      "id": "vscode.css",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "dart",
+      "id": "vscode.dart",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "diff",
+      "id": "vscode.diff",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "docker",
+      "id": "vscode.docker",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "dotenv",
+      "id": "vscode.dotenv",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "fsharp",
+      "id": "vscode.fsharp",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "go",
+      "id": "vscode.go",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "groovy",
+      "id": "vscode.groovy",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "handlebars",
+      "id": "vscode.handlebars",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "hlsl",
+      "id": "vscode.hlsl",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "html",
+      "id": "vscode.html",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "ini",
+      "id": "vscode.ini",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "java",
+      "id": "vscode.java",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "javascript",
+      "id": "vscode.javascript",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "json",
+      "id": "vscode.json",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "julia",
+      "id": "vscode.julia",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "latex",
+      "id": "vscode.latex",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "less",
+      "id": "vscode.less",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "log",
+      "id": "vscode.log",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "lua",
+      "id": "vscode.lua",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "make",
+      "id": "vscode.make",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "markdown-basics",
+      "id": "vscode.markdown",
+      "version": "30.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "objective-c",
+      "id": "vscode.objective-c",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "perl",
+      "id": "vscode.perl",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "php",
+      "id": "vscode.php",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "powershell",
+      "id": "vscode.powershell",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "prompt-basics",
+      "id": "vscode.prompt",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "pug",
+      "id": "vscode.pug",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "python",
+      "id": "vscode.python",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "r",
+      "id": "vscode.r",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "razor",
+      "id": "vscode.razor",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "restructuredtext",
+      "id": "vscode.restructuredtext",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "ruby",
+      "id": "vscode.ruby",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "rust",
+      "id": "vscode.rust",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "scss",
+      "id": "vscode.scss",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "shaderlab",
+      "id": "vscode.shaderlab",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "shellscript",
+      "id": "vscode.shellscript",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "sql",
+      "id": "vscode.sql",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "swift",
+      "id": "vscode.swift",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-abyss",
+      "id": "vscode.theme-abyss",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-defaults",
+      "id": "vscode.theme-defaults",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-kimbie-dark",
+      "id": "vscode.theme-kimbie-dark",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-modern-icons",
+      "id": "vscode.vscode-modern-icons",
+      "version": "1.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-monokai",
+      "id": "vscode.theme-monokai",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-monokai-dimmed",
+      "id": "vscode.theme-monokai-dimmed",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-quietlight",
+      "id": "vscode.theme-quietlight",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-red",
+      "id": "vscode.theme-red",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-seti",
+      "id": "vscode.vscode-theme-seti",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-solarized-dark",
+      "id": "vscode.theme-solarized-dark",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-solarized-light",
+      "id": "vscode.theme-solarized-light",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "theme-tomorrow-night-blue",
+      "id": "vscode.theme-tomorrow-night-blue",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "typescript-basics",
+      "id": "vscode.typescript",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "vb",
+      "id": "vscode.vb",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "xml",
+      "id": "vscode.xml",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "yaml",
+      "id": "vscode.yaml",
+      "version": "10.0.0",
+      "classification": "static-contributions",
+      "main": null,
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    }
+  ],
+  "staticBytes": 7673634,
+  "needsBuildExtensions": [
+    {
+      "directory": "configuration-editing",
+      "id": "vscode.configuration-editing",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/configurationEditingMain",
+      "browser": "./dist/browser/configurationEditingMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "copilot",
+      "id": "GitHub.copilot-chat",
+      "version": "0.74.0",
+      "classification": "needs-build",
+      "main": "./dist/extension",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": true,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "css-language-features",
+      "id": "vscode.css-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./client/out/node/cssClientMain",
+      "browser": "./client/dist/browser/cssClientMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "debug-auto-launch",
+      "id": "vscode.debug-auto-launch",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "debug-server-ready",
+      "id": "vscode.debug-server-ready",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "emmet",
+      "id": "vscode.emmet",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/node/emmetNodeMain",
+      "browser": "./dist/browser/emmetBrowserMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "extension-editing",
+      "id": "vscode.extension-editing",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extensionEditingMain",
+      "browser": "./dist/browser/extensionEditingBrowserMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "git",
+      "id": "vscode.git",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/main",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": true
+    },
+    {
+      "directory": "git-base",
+      "id": "vscode.git-base",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension.js",
+      "browser": "./dist/browser/extension.js",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "github",
+      "id": "vscode.github",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/extension.js",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "github-authentication",
+      "id": "vscode.github-authentication",
+      "version": "0.0.2",
+      "classification": "needs-build",
+      "main": "./out/extension.js",
+      "browser": "./dist/browser/extension.js",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "grunt",
+      "id": "vscode.grunt",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/main",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "gulp",
+      "id": "vscode.gulp",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/main",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "html-language-features",
+      "id": "vscode.html-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./client/out/node/htmlClientMain",
+      "browser": "./client/dist/browser/htmlClientMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "ipynb",
+      "id": "vscode.ipynb",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/ipynbMain.node.js",
+      "browser": "./dist/browser/ipynbMain.browser.js",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "jake",
+      "id": "vscode.jake",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/main",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "json-language-features",
+      "id": "vscode.json-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./client/out/node/jsonClientMain",
+      "browser": "./client/dist/browser/jsonClientMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "markdown-language-features",
+      "id": "vscode.markdown-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": ["./notebook-out/index.js"],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "markdown-math",
+      "id": "vscode.markdown-math",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "merge-conflict",
+      "id": "vscode.merge-conflict",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/mergeConflictMain",
+      "browser": "./dist/browser/mergeConflictMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "mermaid-markdown-features",
+      "id": "vscode.mermaid-markdown-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "microsoft-authentication",
+      "id": "vscode.microsoft-authentication",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/extension.js",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": true
+    },
+    {
+      "directory": "notebook-renderers",
+      "id": "vscode.builtin-notebook-renderers",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": null,
+      "browser": null,
+      "rendererEntries": ["./renderer-out/index.js"],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "npm",
+      "id": "vscode.npm",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/npmMain",
+      "browser": "./dist/browser/npmBrowserMain",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "php-language-features",
+      "id": "vscode.php-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/phpMain",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "references-view",
+      "id": "vscode.references-view",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "search-result",
+      "id": "vscode.search-result",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension.js",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "simple-browser",
+      "id": "vscode.simple-browser",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "terminal-suggest",
+      "id": "vscode.terminal-suggest",
+      "version": "1.0.1",
+      "classification": "needs-build",
+      "main": "./out/terminalSuggestMain",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "tunnel-forwarding",
+      "id": "vscode.tunnel-forwarding",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "typescript-language-features",
+      "id": "vscode.typescript-language-features",
+      "version": "10.0.0",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/extension",
+      "rendererEntries": [],
+      "upstreamExcluded": false,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "vscode-api-tests",
+      "id": "vscode.vscode-api-tests",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": true,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "vscode-colorize-perf-tests",
+      "id": "vscode.vscode-colorize-perf-tests",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/colorizerTestMain",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": true,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "vscode-colorize-tests",
+      "id": "vscode.vscode-colorize-tests",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/colorizerTestMain",
+      "browser": null,
+      "rendererEntries": [],
+      "upstreamExcluded": true,
+      "nativeRuntime": false
+    },
+    {
+      "directory": "vscode-test-resolver",
+      "id": "vscode.vscode-test-resolver",
+      "version": "0.0.1",
+      "classification": "needs-build",
+      "main": "./out/extension",
+      "browser": "./dist/browser/testResolverMain",
+      "rendererEntries": [],
+      "upstreamExcluded": true,
+      "nativeRuntime": false
+    }
+  ],
+  "productVSIX": [
+    {
+      "name": "ms-vscode.js-debug-companion",
+      "version": "1.1.3",
+      "sha256": "7380a890787452f14b2db7835dfa94de538caf358ebc263f9d46dd68ac52de93",
+      "repo": "https://github.com/microsoft/vscode-js-debug-companion",
+      "metadata": {
+        "id": "99cb0b7f-7354-4278-b8da-6cc79972169d",
+        "publisherId": {
+          "publisherId": "5f5636e7-69ed-4afe-b5d6-8d231fb3d3ee",
+          "publisherName": "ms-vscode",
+          "displayName": "Microsoft",
+          "flags": "verified"
+        },
+        "publisherDisplayName": "Microsoft"
+      }
+    },
+    {
+      "name": "ms-vscode.js-debug",
+      "version": "1.140.0",
+      "sha256": "d535f02a47031671f8c988bb7e79d6fec1a881883d9c9fa15ff81f28eae98500",
+      "repo": "https://github.com/microsoft/vscode-js-debug",
+      "metadata": {
+        "id": "25629058-ddac-4e17-abba-74678e126c5d",
+        "publisherId": {
+          "publisherId": "5f5636e7-69ed-4afe-b5d6-8d231fb3d3ee",
+          "publisherName": "ms-vscode",
+          "displayName": "Microsoft",
+          "flags": "verified"
+        },
+        "publisherDisplayName": "Microsoft"
+      }
+    },
+    {
+      "name": "ms-vscode.vscode-js-profile-table",
+      "version": "1.0.11",
+      "sha256": "a962a1e6a3baf74c9354b7f47fa96e6d6f0423a63bff55d7f976b6134a748ae9",
+      "repo": "https://github.com/microsoft/vscode-js-profile-visualizer",
+      "metadata": {
+        "id": "7e52b41b-71ad-457b-ab7e-0620f1fc4feb",
+        "publisherId": {
+          "publisherId": "5f5636e7-69ed-4afe-b5d6-8d231fb3d3ee",
+          "publisherName": "ms-vscode",
+          "displayName": "Microsoft",
+          "flags": "verified"
+        },
+        "publisherDisplayName": "Microsoft"
+      }
+    }
+  ]
+}
