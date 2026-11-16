@@ -14287,6 +14287,40 @@ assertions and deadlines; add no retry or skip. Other platforms retain their
 existing reference baseline. Workflow source formatting passes; execution requires
 the fresh native Windows hosted run, so a green Windows result is not yet claimed.
 
+## 2026-11-16 — Native process.title resolves xterm's runtime detection
+
+Inspect the actual @xterm/headless platform module: its Node detector requires
+`'title' in process`. Missing process.title sends Mite down the browser branch,
+which then references navigator. Implement the genuine process API rather than
+changing xterm or impersonating Node through a user-agent string. Navigator
+remains absent; the previously proposed Navigator step is superseded by this
+more precise source evidence.
+
+Use actual libuv title getter/setter with fallible bounded buffers, UTF-8
+replacement/BOM preservation and native errors. Serialize native title access
+without running JavaScript while locked. Main assignment coerces before OS
+mutation; a worker instead has an ordinary local data property initialized from
+the native title, retaining assigned objects without conversion or OS changes.
+Document main accessor-vs-Node-data-descriptor and failed-coercion preservation
+differences, OS truncation/NUL behavior and the explicit sub-one-MiB input bound.
+Add the named process export and maintain reproducible generated sources.
+
+Release Mite builds (process-title-mite-build.log). Node24.15 and actual Mite
+pass all four title groups, including native round trips, getter/coercion errors,
+real worker and distinct child PID isolation, then original-title restoration
+(process-title-core.log). The embedded host passes those same groups
+(process-title-embedded.log). CTest process-title, worker-threads and process-timing
+all pass (process-title-regressions.log). Formatting/source generation checks pass;
+fresh native Linux/Windows title coverage remains open.
+
+The SHA-256-pinned optional real xterm test advances past import/runtime detection
+but fails in Terminal construction because structuredClone is not defined
+(process-title-xterm.log). Keep that full optional fixture failing when requested;
+do not substitute a fake terminal or claim terminal/editor operations pass. The
+default title gate reports the optional staged-package test skipped explicitly.
+Next implement genuine standalone structured cloning and rerun the same real
+terminal fixture. No additional GUI launches or Code-OSS source changes.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

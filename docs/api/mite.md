@@ -62,7 +62,7 @@ subtle algorithms remain unavailable. See [crypto](crypto.md).
   are not implemented.
   log writes stdout; error/warn write stderr. warn is tested by the actual Code-OSS
   disabled-cache branch and primitive Node differential routing checks.
-- `process.argv`, `argv0`, `execPath`, `pid`, `ppid`, `arch`, `platform`, `version`,
+- `process.argv`, `argv0`, `execPath`, `pid`, `ppid`, `title`, `arch`, `platform`, `version`,
   `versions`, `release`, `env`; `cwd()`, `chdir(path)`, `nextTick(callback, ...args)`,
   `exit(code)` and `exitCode` provide basic process services.
 - Identity reports Mite and the pinned LibJS/libuv versions; `versions.node` is absent.

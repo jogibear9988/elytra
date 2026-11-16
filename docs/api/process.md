@@ -25,6 +25,7 @@ console.log(hrtime.bigint() - start, cpuUsage(before));
 | Members | Scope |
 | --- | --- |
 | `argv`, `argv0`, `execPath`, `pid`, `ppid`, `platform`, `arch` | Native process/script identity |
+| `title` | Native main-process title; ordinary worker-local metadata |
 | `version`, `versions`, `release` | Mite/upstream versions; no versions.node claim |
 | `cwd()`, `chdir(path)` | Native working directory and ordinary OS failures |
 | `env` | Native environment proxy; string conversion for values, own-key enumeration and supported data descriptors |
@@ -41,6 +42,40 @@ Runtime/process identity is not an OS sandbox: main-process code is privileged.
 Environment access retains platform-specific casing and OS rules. Enumeration,
 modification and exit semantics are scoped by existing runtime tests; full Node
 process property/descriptors/error-message parity is not certified.
+
+## process.title
+
+The main-process property reads and changes the actual OS process title through
+libuv. Assignment performs ordinary string conversion before changing native
+state; conversion exceptions propagate. OS restrictions still apply: titles can
+be truncated to the platform's available argument storage, and display in process
+tools varies by OS. This does not set a Firefly window title or application name.
+Embedded NUL follows libuv's C-string behavior. UTF-8 decoding replaces invalid
+bytes without dropping a leading BOM. Inputs must fit below one MiB of UTF-8;
+oversized values fail with `ENOBUFS`. Getter buffers grow to the same bound and
+report native errors rather than returning a partial result.
+
+In a worker, `title` starts as a snapshot of the containing process's native
+title. It is an ordinary writable local property: assigning an object preserves
+that object and does not invoke string conversion or rename the OS process.
+Reads/writes of native title state are synchronized across Mite's threads.
+
+The main property is an enumerable, configurable accessor. Node exposes a data
+descriptor backed by native property interception; descriptor parity is an
+intentional difference. Mite also preserves the previous native title when
+conversion throws, while the tested Node 24.15 setter clears it. Replacing Mite's
+configurable accessor with another descriptor replaces its native behavior.
+Global/default/CommonJS process share the same object; named ESM exports are
+initial snapshots, not live native title subscriptions.
+
+Reference: [Node process.title](https://nodejs.org/download/release/v24.15.0/docs/api/process.html#processtitle).
+
+Local macOS ARM64 CLI and embedded-host checks cover native reads/writes,
+coercion and errors, worker-local objects, a real separate child process and
+restoration. Fresh Linux/Windows title acceptance remains unverified. The
+unchanged pinned xterm package now gets past its process-title-based runtime
+detection; constructing its Terminal currently requires the still-missing global
+`structuredClone`. This is not terminal or VS Code acceptance.
 
 ## Standard output
 

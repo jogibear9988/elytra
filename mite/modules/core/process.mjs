@@ -10,6 +10,33 @@ import installProcessTiming from './process-timing.mjs';
 export default function installProcessModule(host, process) {
   const own = Function.call.bind(Object.prototype.hasOwnProperty);
 
+  // Workers have ordinary local metadata: assigning even an object must never
+  // coerce it or rename the containing OS process. Main-process reads/writes
+  // use the real libuv title, including its platform-specific length limits.
+  Object.defineProperty(
+    process,
+    'title',
+    host.isWorker
+      ? {
+          value: host.titleGet(),
+          writable: true,
+          enumerable: true,
+          configurable: true
+        }
+      : {
+          get() {
+            return host.titleGet();
+          },
+
+          set(value) {
+            host.titleSet(value);
+          },
+
+          enumerable: true,
+          configurable: true
+        }
+  );
+
   function invalid(code, message, Type = TypeError) {
     const error = new Type(message);
     error.code = code;

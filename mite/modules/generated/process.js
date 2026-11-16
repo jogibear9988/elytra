@@ -57,6 +57,25 @@ function installProcessTiming(host, process, invalid) {
 // mite/modules/core/process.mjs
 function installProcessModule(host, process) {
   const own = Function.call.bind(Object.prototype.hasOwnProperty);
+  Object.defineProperty(
+    process,
+    "title",
+    host.isWorker ? {
+      value: host.titleGet(),
+      writable: true,
+      enumerable: true,
+      configurable: true
+    } : {
+      get() {
+        return host.titleGet();
+      },
+      set(value) {
+        host.titleSet(value);
+      },
+      enumerable: true,
+      configurable: true
+    }
+  );
   function invalid(code, message, Type = TypeError) {
     const error = new Type(message);
     error.code = code;

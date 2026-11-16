@@ -9,6 +9,8 @@
 #include "platform/UV.h"
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Timing.h"
+#include <AK/ByteBuffer.h>
+#include <AK/NeverDestroyed.h>
 #include <AK/ScopeGuard.h>
 #include <LibGC/Root.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -20,9 +22,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <llhttp.h>
+#include <mutex>
 #include <vector>
 
 namespace Mite {
+
+namespace {
+    NeverDestroyed<std::mutex> process_title_mutex;
+    constexpr size_t process_title_limit = 1024 * 1024;
+}
 
 static GC::Ref<JS::PrimitiveString> text(JS::VM& vm, char const* bytes)
 {
@@ -194,6 +202,71 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
 
     GC::Root host { JS::Object::create(realm, nullptr) };
     install_process_timing(realm, *host);
+    host->define_direct_property("isWorker"_utf16, JS::Value(exit_state->worker), constant);
+    host->define_native_function(
+        realm, "titleGet"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            ByteBuffer buffer;
+            int code = 0;
+            {
+                // Do not run JS or allocate JS cells while serializing title access.
+                std::lock_guard lock(*process_title_mutex);
+                size_t capacity = 256;
+                for (;;) {
+                    if (buffer.try_resize(capacity).is_error()) {
+                        code = UV_ENOMEM;
+                        break;
+                    }
+
+                    code = uv_get_process_title(
+                        reinterpret_cast<char*>(buffer.data()), buffer.size());
+                    if (code != UV_ENOBUFS || capacity == process_title_limit)
+                        break;
+                    capacity *= 2;
+                }
+            }
+
+            if (code)
+                return uv_error(vm, "uv_get_process_title", code);
+            auto* bytes = reinterpret_cast<char const*>(buffer.data());
+            return JS::PrimitiveString::create(vm,
+                Utf16String::from_utf8_with_replacement_character(
+                    StringView(bytes, strlen(bytes)), Utf16String::WithBOMHandling::No));
+        },
+        0, JS::default_attributes);
+    host->define_native_function(realm, "titleSet"_utf16,
+        GC::create_function(realm.vm().heap(), GC::captures(shared_capture(exit_state)),
+            [](auto& exit_state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                // Node workers shadow the property locally without converting it.
+                // The public worker data property never invokes this defensive hook.
+                if (exit_state->worker)
+                    return JS::js_undefined();
+                auto value = TRY(vm.argument(0).to_utf16_string(vm));
+                if (value.length_in_code_units() >= process_title_limit)
+                    return uv_error(vm, "uv_set_process_title", UV_ENOBUFS);
+                auto allocation
+                    = ByteBuffer::create_uninitialized(value.length_in_code_units() * 3 + 1);
+                if (allocation.is_error())
+                    return uv_error(vm, "uv_set_process_title", UV_ENOMEM);
+                auto buffer = allocation.release_value();
+                auto size = value.utf16_view().to_utf8_with_replacement_into(
+                    buffer.bytes().slice(0, buffer.size() - 1));
+                VERIFY(size.has_value());
+                if (*size >= process_title_limit)
+                    return uv_error(vm, "uv_set_process_title", UV_ENOBUFS);
+                buffer[*size] = 0;
+                int code;
+                {
+                    std::lock_guard lock(*process_title_mutex);
+                    // Native libuv/OS title capacity and NUL semantics match Node.
+                    code = uv_set_process_title(reinterpret_cast<char const*>(buffer.data()));
+                }
+
+                if (code)
+                    return uv_error(vm, "uv_set_process_title", code);
+                return JS::js_undefined();
+            }),
+        1, JS::default_attributes);
     host->define_native_function(
         realm, "envGet"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -292,6 +365,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
                         (void)value;
                         keys.append(text(vm, name.c_str()));
                     }
+
                     return JS::Array::create_from(vm.realm(), keys);
                 }),
             0, JS::default_attributes);
@@ -306,6 +380,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
             },
             1, JS::default_attributes);
     }
+
     host->define_native_function(realm, "exit"_utf16,
         GC::create_function(realm.vm().heap(), GC::captures(shared_capture(exit_state)),
             [](auto& exit_state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -319,6 +394,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
                     vm.request_interrupt();
                     return vm.throw_completion<JS::Error>("Worker exited"_utf16);
                 }
+
                 std::exit(code);
             }),
         2, JS::default_attributes);
