@@ -41,7 +41,7 @@ add_executable(
     "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FetchResponseProbe.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/tests/protocol/FetchDispatchProbe.cpp")
 target_link_libraries(firefly-protocol-fetch-probe PRIVATE firefly-protocol-fetch
-                                                           firefly-protocol-files LibMain)
+                                                           firefly-protocol-files LibMain LibIPC)
 ladybird_check_skia_confinement(firefly-protocol-fetch-probe)
 if(WIN32)
     target_link_libraries(firefly-protocol-fetch-probe PRIVATE shell32)

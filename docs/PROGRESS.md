@@ -14145,6 +14145,49 @@ to call a server-only run native acceptance. New app packaging/visible launch is
 next, as requested. The earlier user-requested launch was the preserved old bundle;
 it is not evidence for the new SDK Designer.
 
+## 2026-11-16 — Rebuilt Designer packaged and launched
+
+Package commit 058cad32c7c1735485828537838109b47cff45ae with unmodified Ladybird
+b872e601f12698b3cb24fa981aca94fdf426d77c using actual Release Mite/Firefly,
+production dependencies and stripped symbols. BUILD.json reports clean tracked
+sources; deep strict codesign verification passes. The reusable output is
+build/package-review.next; Designer is 269,327,080 bytes, including the bundled
+application, resources and notices (SIZE.json). This is an ad-hoc signed macOS
+ARM64 development package, not notarized or cross-platform release acceptance.
+
+The newly built bundle was visibly rendered on November 15. Restart it at the
+user's request on November 16: the actual packaged process runs and reports
+DESIGNER_DOCUMENT_LOADED (designer-user-launch.log). Leave that user session open.
+No automatic edit/minimize/close test series was run. Packaging evidence is in
+ladybird-2026-11-15-package.log. The user's update/build/launch request is achieved;
+candidate promotion still requires outstanding native and hosted regression gates.
+
+Inspect hosted aaaf010 runs: macOS has five source-composition guard failures,
+already migrated in 058cad3; Linux additionally fails HTTPS large-body reception,
+Windows additionally fails fetch/net because the Node reference crashes with
+0xC0000409 (Mite's net fixture passes). These failures require diagnosis,
+not automatic retries or weaker assertions. Baseline e3b8564 CLI workflows pass
+on Linux and Windows. New local native probe compilation exposed a missing direct
+LibURL/Parser.h include in NavigationProbe; add it without changing SDK sources.
+
+Native probe migration now links LibIPC explicitly for real Fetch command
+attachments and initializes the genuine realm-agent inline Fetch executor in a
+shared test RAII helper. Transport owners revoke before executor shutdown and
+the realm/VM outlive both. The complete check-firefly-protocol-fetch target passes,
+including actual navigation/channel silence and response/abort/GC cases
+(ladybird-2026-11-16-fetch-regressions.log). All five source guards and the actual
+HTTPS suite pass locally (ladybird-2026-11-16-source-and-https.log).
+
+The default isolation probe builds, but stops at capability-redaction stage 3;
+it is not a passing isolation gate. Investigate this before candidate promotion.
+Export only an owned native fire_timer_now boundary to exercise the unexported
+SDK Timer callback without a 24-day wait, and add --world-jobs targeted diagnosis;
+the default gate still includes every job/timer test. No JavaScript API added.
+The targeted world-jobs run currently fails an earlier page assertion, so the
+new chunk-rearm case is still unexecuted (ladybird-2026-11-16-world-jobs.log).
+The validated renderer migration 058cad3 is pushed to the candidate branch;
+master and public release remain unchanged pending update gates.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

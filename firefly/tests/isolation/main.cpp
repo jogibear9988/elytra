@@ -85,6 +85,13 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         return 0;
     }
 
+    // Focus SDK job/timer ownership diagnostics without skipping these cases
+    // in the default complete isolation gate below.
+    if (arguments.argc == 2 && std::strcmp(arguments.argv[1], "--world-jobs") == 0) {
+        TRY(check_world_job_guard(vm, *document));
+        return 0;
+    }
+
     first->realm()->global_object().define_native_function(
         *first->realm(), "nativeProbe"_utf16,
         +[](JS::VM&) -> JS::ThrowCompletionOr<JS::Value> { return JS::Value(42); }, 0,

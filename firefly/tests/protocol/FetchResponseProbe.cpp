@@ -7,6 +7,7 @@
  */
 #include "Arguments.h"
 #include "FetchDispatchProbe.h"
+#include "FetchExecutorScope.h"
 #include "loading/protocol/Response.h"
 #include "loading/web-request/Gate.h"
 #include "native/protocol/files/FilePacket.h"
@@ -140,6 +141,7 @@ struct Fetch {
                 Infra::Request::ClientType { document->relevant_settings_object().address() });
             request->set_origin(document->origin());
         }
+
         auto algorithms = Infra::FetchAlgorithms::create(
             Infra::FetchAlgorithms::Input { Engine::BodyIntent::DeliverStreamToConsumerAgent });
         return Infra::FetchParams::create(controller, request, algorithms,
@@ -288,6 +290,7 @@ ErrorOr<void> retained_headers(JS::Realm& realm, Web::DOM::Document& document)
                         "Authorized empty GET did not deliver clean EOF"sv));
                 }
             }
+
             TRY(check(fetch.send(Kind::Complete, 0).is_error() && fetch.state->completions == 1
                     && !fetch.state->cancellations,
                 "Duplicate EOF changed terminal callback accounting"sv));
@@ -296,6 +299,7 @@ ErrorOr<void> retained_headers(JS::Realm& realm, Web::DOM::Document& document)
             Gate::finish(*fetch.params);
         }
     }
+
     TRY(check(decisions == 4 && native_cancels == 0 && logical_finishes == 4,
         "Retained header fixture leaked decision or logical ownership"sv));
     outln("PASS retained header authorization after early EOF: empty GET/HEAD allow/deny, "
@@ -589,16 +593,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     page.set_top_level_traversable(traversable);
     GC::Root document { *traversable->active_document() };
     auto& realm = document->relevant_settings_object().realm();
-    auto& agent = Web::HTML::relevant_agent(realm.global_object());
-    VERIFY(!agent.fetch_executor);
-    // Match native WebContent bootstrap, retaining a genuine owner-loop engine
-    // for every focused transport case and the subsequent real fetch() checks.
-    agent.fetch_executor
-        = Web::Fetch::Fetching::create_inline_fetch_executor(agent.network_activity_observers);
-    ScopeGuard stop_executor([&] {
-        agent.fetch_executor->shutdown();
-        agent.fetch_executor = nullptr;
-    });
+    Firefly::Tests::FetchExecutorScope fetch_executor { realm };
     {
         Web::HTML::TemporaryExecutionContext context { realm,
             Web::HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };

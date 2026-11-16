@@ -1,6 +1,7 @@
 /** Real upstream navigation population/fetch over native IPC; no document origin rewriting. */
 #include "../ipc/SpawnBytePeer.h"
 #include "Arguments.h"
+#include "FetchExecutorScope.h"
 #include "loading/protocol/Client.h"
 #include "native/protocol/OriginPolicy.h"
 #include "native/protocol/files/Server.h"
@@ -11,6 +12,7 @@
 #include <LibGC/Function.h>
 #include <LibIPC/StartupTransport.h>
 #include <LibJS/Runtime/VM.h>
+#include <LibURL/Parser.h>
 #include <LibWeb/Bindings/MainThreadVM.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/HTML/EventLoop/EventLoop.h>
@@ -119,6 +121,7 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     page.set_top_level_traversable(*navigable);
     GC::Root source { *navigable->active_document() };
     auto& realm = source->relevant_settings_object().realm();
+    Firefly::Tests::FetchExecutorScope fetch_executor { realm };
     auto url = URL::Parser::basic_parse("app://bundle/index.html"sv).release_value();
     auto expected = URL::Parser::basic_parse(
         mode == "url"sv ? "app://other/index.html"sv : "app://bundle/index.html"sv)

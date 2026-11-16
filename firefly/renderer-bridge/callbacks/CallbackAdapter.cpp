@@ -153,6 +153,11 @@ void stop_timer(Web::HTML::Timer& timer)
     timer.stop();
 }
 
+void fire_timer_now(Web::HTML::Timer& timer)
+{
+    timer.fire_now();
+}
+
 bool timer_active(Web::HTML::Timer& timer)
 {
     return timer.is_active();

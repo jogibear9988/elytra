@@ -118,6 +118,10 @@ WEB_API void timer_removed(Web::HTML::WindowOrWorkerGlobalScopeMixin&, TimerMap&
 
 WEB_API void stop_timer(Web::HTML::Timer&);
 
+// Native regression entry point: execute the SDK callback without waiting for
+// a multi-day internal timeout chunk. No renderer JavaScript exposure.
+WEB_API void fire_timer_now(Web::HTML::Timer&);
+
 WEB_API bool timer_active(Web::HTML::Timer&);
 
 WEB_API Gate exchange_gate(JS::VM&, Gate);

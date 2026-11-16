@@ -1,6 +1,7 @@
 /** Execute real global fetch in a native child; only its parent opens the authorized file. */
 #include "../ipc/SpawnBytePeer.h"
 #include "Arguments.h"
+#include "FetchExecutorScope.h"
 #include "loading/protocol/Client.h"
 #include "loading/protocol/Dispatch.h"
 #include "loading/web-request/Gate.h"
@@ -130,6 +131,7 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
     TRY(P::install_origin_schemes(schemes));
     GC::Root document { create_document() };
     auto& realm = document->relevant_settings_object().realm();
+    Firefly::Tests::FetchExecutorScope fetch_executor { realm };
     RefPtr<PF::Client> client
         = TRY(PF::Client::create(TRY(IPC::take_over_startup_transport(bootstrap)), 101, *document));
     auto weak = client->make_weak_ptr();
@@ -171,6 +173,7 @@ ErrorOr<int> child(StringView bootstrap, StringView mode)
         if (!Firefly::WebRequestGate::configure({ 1, true, false }))
             return Error::from_string_literal("Controlled native gate policy setup failed");
     }
+
     ScopeGuard gate_cleanup([&] {
         if (mode == "gate-burst"sv)
             Firefly::WebRequestGate::shutdown();

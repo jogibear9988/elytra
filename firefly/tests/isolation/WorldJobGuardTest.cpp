@@ -420,7 +420,7 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         // Drive the genuine SDK chunk completion directly, without waiting
         // 24 days or changing its private fields. A fired single-shot is stopped.
         Firefly::Callbacks::stop_timer(*old_timer);
-        old_timer->fire_now();
+        Firefly::Callbacks::fire_timer_now(*old_timer);
         if (guard.owned_timer_count() != baseline + 1)
             return Error::from_string_literal("Native chunk rearm lost isolated ownership");
         snapshot = guard.owned_timer_snapshot();
