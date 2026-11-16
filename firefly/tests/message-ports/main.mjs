@@ -347,7 +347,7 @@ app
       const freshEvent = await startAndRead(fresh.port2);
       check(freshEvent.data.byteLength === 65536, 'queue destruction refunds aggregate bytes');
       const oversized = failure(
-        () => fresh.port1.postMessage(new Uint8Array(65537)),
+        () => fresh.port1.postMessage(new Uint8Array(1024 * 1024 + 1)),
         'backing-store copy cap'
       );
       check(

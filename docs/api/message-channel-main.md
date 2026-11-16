@@ -45,8 +45,10 @@ ArrayBuffer/typed-array/DataView values. Cycles, shared object references, array
 and binary backing/view aliases survive within each snapshot. Buffer becomes
 Uint8Array. The receiver owns independent writable copied storage; ArrayBuffers are
 copied, not transferred/detached. The aggregate distinct backing-store limit is
-64 KiB per message, including an entire backing store when sending a small view.
-Wire encoding is bounded by 128 KiB. Functions, getters/proxies, symbols/BigInt,
+1 MiB per graph, including an entire backing store when sending a small view.
+Local encoded snapshots also fit the existing 1 MiB endpoint queue budget; graph
+metadata counts against that budget. Native renderer/utility routes retain the
+smaller 128 KiB frame bound described below. Functions, getters/proxies, symbols/BigInt,
 Date/Map/Set, DOM/File/Blob and other special objects remain unsupported by this graph.
 
 The optional transfer array contains at most 16 currently owned main ports. Only
@@ -123,8 +125,11 @@ when no JavaScript listener is registered; posting to an unstarted DOM queue doe
 not refund credit. Close preserves preceding accepted messages. Private route
 identities never enter application payloads.
 
-The native frame bound is 128 KiB including framing and route metadata; the
-existing 64 KiB aggregate distinct binary backing-store limit remains. Each route
+The native frame bound is 128 KiB including framing and route metadata. The
+1 MiB graph capture ceiling does not expand that frame: a native-bound message
+must satisfy both limits. Oversized main sends fail synchronously before admission;
+an oversized DOM send retires its route because DOM postMessage has no synchronous
+backpressure channel. Native port fragmentation is not implemented. Each route
 has 16 outstanding messages / 1 MiB per direction and bounded document wire queues.
 The DOM-to-main forwarding queue separately admits at most 1024 waiting messages,
 1 MiB of waiting encoded data per route, and 4 MiB across waiting data/control

@@ -21,10 +21,10 @@ int main(int argc, char** argv)
             realm, "encodeIpc"_utf16,
             +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto graph = Firefly::BridgeData::capture(
-                    vm.argument(0), vm.realm(), Firefly::public_binary_limits());
+                    vm.argument(0), vm.realm(), Firefly::message_port_limits());
                 if (graph.is_error())
                     return vm.throw_completion<JS::Error>("Unsupported port data graph"_utf16);
-                auto wire = graph.value().encode_wire(Firefly::public_binary_limits());
+                auto wire = graph.value().encode_wire(Firefly::message_port_limits());
                 if (wire.is_error() || wire.value().length() > Firefly::ApplicationIpc::wire_limit)
                     return vm.throw_completion<JS::Error>(
                         "Port data graph exceeds wire budget"_utf16);
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
                 if (wire.is_error())
                     return vm.throw_completion<JS::Error>("Invalid port wire bytes"_utf16);
                 auto graph = Firefly::BridgeData::decode_wire(
-                    wire.value().view(), Firefly::public_binary_limits());
+                    wire.value().view(), Firefly::message_port_limits());
                 if (graph.is_error())
                     return vm.throw_completion<JS::Error>("Invalid port wire graph"_utf16);
                 return graph.value().materialize(

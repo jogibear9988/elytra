@@ -11,6 +11,17 @@ inline BridgeData::Limits public_binary_limits()
     return limits;
 }
 
+// Port graphs share the existing 1 MiB binary-copy budget. Native port frames
+// remain independently bounded to 128 KiB; this does not add fragmentation or
+// relax route, queue, ownership or consumption-credit limits.
+inline BridgeData::Limits message_port_limits()
+{
+    auto limits = public_binary_limits();
+
+    limits.binary_bytes = 1024 * 1024;
+    return limits;
+}
+
 // Code-OSS includes its genuine translation catalog in window configuration.
 // These bounded logical messages travel as ordinary small native byte frames;
 // they do not change contextBridge publication or utility-process policy.

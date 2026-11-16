@@ -92,8 +92,10 @@ utility child with the private inherited native channel, not ordinary Mite scrip
 
 Both directions use the native [IPC data subset](ipc.md#data-and-resource-limits):
 plain supported data graphs, cycles/aliases and fixed ArrayBuffer/view snapshots.
-The aggregate distinct binary backing-store budget is 64 KiB per message and the
-encoded frame limit is 128 KiB. Data is copied into independently writable receiver
+The aggregate distinct binary backing-store capture budget is 1 MiB per graph.
+Native port messages still fit a single 128 KiB encoded frame, including protocol
+metadata; they must satisfy both bounds. Larger backing stores or graphs do not
+gain fragmentation from the higher capture ceiling. Data is copied into independently writable receiver
 storage. This is not zero-copy transfer.
 
 The main process can transfer up to 16 owned MessageChannelMain endpoints with

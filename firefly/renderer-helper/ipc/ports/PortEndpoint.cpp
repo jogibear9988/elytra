@@ -7,7 +7,10 @@
 #include <AK/ScopeGuard.h>
 #include <LibGC/Heap.h>
 #include <LibJS/Runtime/Array.h>
+#include <LibJS/Runtime/ArrayBuffer.h>
+#include <LibJS/Runtime/DataView.h>
 #include <LibJS/Runtime/Error.h>
+#include <LibJS/Runtime/TypedArray.h>
 #include <LibWeb/Bindings/PrincipalHostDefined.h>
 #include <LibWeb/Bindings/RustInterface.h>
 #include <LibWeb/DOM/Document.h>
@@ -124,7 +127,7 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
         if (m_endpoint.m_incoming_pending >= 16 || !m_ledger.admit_transfer(packet.ports))
             return false;
         auto wire = ByteString(packet.payload.data(), packet.payload.size());
-        if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error())
+        if (BridgeData::decode_wire(wire.view(), message_port_limits()).is_error())
             return false;
         Vector<P::Identity> ports;
         for (auto identity : packet.ports) {
@@ -171,7 +174,7 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
         || !m_ledger.received(packet.route, packet.payload.size()))
         return false;
     auto wire = ByteString(packet.payload.data(), packet.payload.size());
-    if (BridgeData::decode_wire(wire.view(), public_binary_limits()).is_error())
+    if (BridgeData::decode_wire(wire.view(), message_port_limits()).is_error())
         return false;
     found->value.incoming_sizes.push_back(wire.length());
     found->value.incoming.append(move(wire));
@@ -245,7 +248,7 @@ void PortEndpoint::deliver(Route& route)
             if (found == m_routes.end() || found->value.incoming.is_empty())
                 break;
             auto wire = found->value.incoming.take_first();
-            auto decoded = BridgeData::decode_wire(wire.view(), public_binary_limits());
+            auto decoded = BridgeData::decode_wire(wire.view(), message_port_limits());
             if (decoded.is_error())
                 return realm.vm().throw_completion<JS::TypeError>("Invalid port data graph"_utf16);
             auto copied
@@ -282,14 +285,82 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
     }
 
     auto& realm = *m_endpoint.m_owner->realm();
-    auto captured = BridgeData::capture(message.data(), realm, public_binary_limits());
+    auto captured = BridgeData::capture(message.data(), realm, message_port_limits());
     if (captured.is_error()) {
+        if (ipc_bytes_diagnostics_enabled() && m_refusal_diagnostics < 16) {
+            ++m_refusal_diagnostics;
+            auto failure = captured.error().string_literal();
+            char const* reason = "other-capture";
+            if (failure == "Bridge binary byte budget exceeded"sv)
+                reason = "binary-bytes";
+            else if (failure == "Bridge string budget exceeded"sv)
+                reason = "string-budget";
+            else if (failure == "Bridge depth budget exceeded"sv)
+                reason = "depth-budget";
+            else if (failure == "Bridge value budget exceeded"sv)
+                reason = "value-budget";
+            else if (failure == "Unsupported bridge binary view"sv)
+                reason = "binary-view";
+            else if (failure == "Unsupported bridge binary buffer"sv
+                || failure == "Unsupported bridge view backing buffer"sv)
+                reason = "binary-backing";
+            else if (failure == "Bridge rejects custom prototypes"sv)
+                reason = "custom-prototype";
+            else if (failure == "Bridge rejects intrinsic accessors"sv)
+                reason = "accessor";
+            char const* kind = "other";
+            size_t view_bytes = 0, backing_bytes = 0;
+            bool detached = false, shared = false, resizable = false, same_realm = false;
+            JS::ArrayBuffer* backing = nullptr;
+            auto value = message.data();
+            if (value.is_object()) {
+                auto& object = value.as_object();
+                same_realm = &object.shape().realm() == &realm;
+                if (JS::TypedArrayBase::is_engine_class_of(object)) {
+                    kind = "typed-array";
+                    auto& view = static_cast<JS::TypedArrayBase&>(object);
+                    auto length = view.byte_length();
+                    detached = length.is_detached();
+                    if (!detached && !length.is_auto())
+                        view_bytes = length.length();
+                    backing = view.viewed_array_buffer();
+                } else if (JS::DataView::is_engine_class_of(object)) {
+                    kind = "data-view";
+                    auto& view = static_cast<JS::DataView&>(object);
+                    auto length = view.byte_length();
+                    detached = length.is_detached();
+                    if (!detached && !length.is_auto())
+                        view_bytes = length.length();
+                    backing = view.viewed_array_buffer();
+                } else if (JS::ArrayBuffer::is_engine_class_of(object)) {
+                    kind = "array-buffer";
+                    backing = &static_cast<JS::ArrayBuffer&>(object);
+                }
+            }
+
+            if (backing) {
+                detached |= backing->is_detached();
+                shared = backing->is_shared_array_buffer();
+                resizable = !backing->is_fixed_length();
+                if (!detached)
+                    backing_bytes = backing->byte_length();
+                if (kind == "array-buffer"sv)
+                    view_bytes = backing_bytes;
+            }
+            // Native slots and fixed labels only: no JS getters, error text,
+            // payloads, URLs, route capabilities or environment contents.
+            warnln("FIREFLY_PORT_CAPTURE_REFUSAL reason={} kind={} view_bytes={} backing_bytes={} "
+                   "binary_limit={} detached={} shared={} resizable={} same_realm={}",
+                reason, kind, view_bytes, backing_bytes, message_port_limits().binary_bytes,
+                detached, shared, resizable, same_realm);
+        }
+
         warnln("ERR_FIREFLY_PORT_SERIALIZATION: DOM port graph refused");
         close(identity, true);
         return;
     }
 
-    auto encoded = captured.value().encode_wire(public_binary_limits());
+    auto encoded = captured.value().encode_wire(message_port_limits());
     auto found = m_routes.find(identity.id);
     char const* refusal = nullptr;
     size_t frame_bytes = encoded.is_error() ? 0 : encoded.value().length();

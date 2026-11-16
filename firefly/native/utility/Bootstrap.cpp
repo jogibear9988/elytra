@@ -68,11 +68,10 @@ int run(int argc, char** argv, bool electron_compat)
         codec->define_native_function(
             realm, "encodeIpc"_utf16,
             +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto graph
-                    = BridgeData::capture(vm.argument(0), vm.realm(), public_binary_limits());
+                auto graph = BridgeData::capture(vm.argument(0), vm.realm(), message_port_limits());
                 if (graph.is_error())
                     return vm.throw_completion<JS::TypeError>("Unsupported utility message"_utf16);
-                auto wire = graph.value().encode_wire(public_binary_limits());
+                auto wire = graph.value().encode_wire(message_port_limits());
                 if (wire.is_error() || wire.value().length() > 128 * 1024)
                     return vm.throw_completion<JS::RangeError>(
                         "Utility message exceeds budget"_utf16);
@@ -85,7 +84,7 @@ int run(int argc, char** argv, bool electron_compat)
                 auto wire = wire_bytes(vm.argument(0), vm.realm());
                 if (wire.is_error())
                     return vm.throw_completion<JS::TypeError>("Invalid utility wire bytes"_utf16);
-                auto graph = BridgeData::decode_wire(wire.value().view(), public_binary_limits());
+                auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());
                 if (graph.is_error())
                     return vm.throw_completion<JS::TypeError>("Invalid utility wire graph"_utf16);
                 return graph.value().materialize(

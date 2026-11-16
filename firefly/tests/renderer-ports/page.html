@@ -46,6 +46,33 @@
       port.addEventListener('message', ({ data }) => {
         try {
           check(started, 'Disabled DOM endpoint does not consume queued messages');
+          if (data.kind === 'large-return') {
+            check(
+              phase === 'relay' && received === 32,
+              'Large relay return follows every small echo'
+            );
+            check(
+              data.bytes instanceof Uint8Array &&
+                data.bytes.byteLength === 100 * 1024 &&
+                data.bytes.byteOffset === 8,
+              'Large principal view and offset'
+            );
+            check(
+              data.bytes === data.again &&
+                data.bytes.buffer === data.backing &&
+                data.view.buffer === data.backing &&
+                data.view.byteOffset === 8,
+              'Large returned graph aliases'
+            );
+            check(
+              data.bytes.every((byte, offset) => byte === ((offset * 17 + 3) & 255)),
+              'Large utility return preserves snapshots byte for byte'
+            );
+            port.close();
+            window.rendererPorts.report({ kind: 'complete', phase, received, large: true });
+            return;
+          }
+
           if (data.kind === 'queued') {
             check(!queued && received === 0, 'Pre-transfer queue arrives first');
             queued = true;
@@ -64,8 +91,23 @@
           port.postMessage({ kind: 'echo', phase, index: received, bytes: data.bytes });
           data.bytes.fill(211);
           if (++received === 32) {
-            port.close();
-            window.rendererPorts.report({ kind: 'complete', phase, received });
+            if (phase === 'relay') {
+              const backing = new ArrayBuffer(100 * 1024 + 16);
+              const bytes = new Uint8Array(backing, 8, 100 * 1024);
+              for (let offset = 0; offset < bytes.length; offset++)
+                bytes[offset] = (offset * 17 + 3) & 255;
+              port.postMessage({
+                kind: 'large',
+                bytes,
+                again: bytes,
+                backing,
+                view: new DataView(backing, 8, bytes.length)
+              });
+              bytes.fill(77);
+            } else {
+              port.close();
+              window.rendererPorts.report({ kind: 'complete', phase, received });
+            }
           }
         } catch (error) {
           failure(error);

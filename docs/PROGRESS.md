@@ -14494,6 +14494,40 @@ remains a follow-up using exact owned-file checks; no generic orphan-guard bypas
 Ladybird remains unmodified at the synchronized b872e601 pin. No broad desktop
 suite or new retained package/dependency copy is created.
 
+## 2026-11-16 — Carry the real extension init snapshot through native ports
+
+Opt-in scalar native diagnostics identify the exact first refusal: binary-bytes,
+a valid same-realm fixed Uint8Array with view/backing101824bytes, exceeding64KiB.
+No payload, getters, arbitrary errors or environment data are logged; only bounded
+owned categories/native slots. Evidence: codeoss-dom-port-capture-size.log.
+
+Add a separate message_port_limits profile with 1MiB aggregate distinct complete
+backing storage, matching other public copy ceilings. Apply it coherently to
+main/local ports, utility bootstrap codecs and helper DOM route capture/decode;
+retain other graph ceilings and unrelated public_binary_limits64KiB. Native
+128KiB physical frames, route/message/directional credit and queue limits remain
+unchanged. Whole backing stores are still charged for sliced views; no detachment,
+shared memory, JSON fallback or Ladybird change.
+
+Both Release targets and the native lifetime probe build. Main-only public port
+gate and native codec/GC/lease/reentrant transfer controls pass. The actual offscreen
+renderer/real-child relay gate passes a new100KiB sliced backing/alias/DataView
+roundtrip, validates every byte and independent snapshots, then orderedclose/PID
+retirement. Preserve explicit oversized-native-frame refusal before admission and
+old64KiB queue-byte-budget controls; move the graph capture negative to1MiB+1.
+Evidence: message-port-profile-{build,main,lifetime,relay}.log. No desktop window
+is opened.
+
+Actual Code-OSS gets beyond capture: main admits a101509-byte utility port frame.
+The next DOM message is refused at frame-bytes170933; all three original host
+attempts exit0/no activation. This now proves native logical port fragmentation
+is required, rather than another capture-budget increase. Implement bounded
+DATA fragmentation/reassembly across helper, main relay and utility channel,
+retaining logical FIFO ACKs/full-message reservations, exact offset/route checks,
+fixed partial deadlines and close/teardown cleanup. This remains planned, not
+supported. Evidence: codeoss-port-profile-start.log. Stop the verified task-owned
+offscreen group before staging cleanup.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

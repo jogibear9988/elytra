@@ -14,6 +14,32 @@ parent.on('message', ({ data, ports }) => {
   port = ports[0];
 
   port.on('message', ({ data: value }) => {
+    if (value.kind === 'large') {
+      if (
+        count !== 33 ||
+        !(value.bytes instanceof Uint8Array) ||
+        value.bytes.length !== 100 * 1024 ||
+        value.bytes.byteOffset !== 8 ||
+        value.bytes !== value.again ||
+        value.bytes.buffer !== value.backing ||
+        value.view.buffer !== value.backing ||
+        value.view.byteOffset !== 8 ||
+        !value.bytes.every((byte, offset) => byte === ((offset * 17 + 3) & 255))
+      ) {
+        throw Error('Large genuine DOM/main/utility relay snapshots and aliases');
+      }
+      count++;
+      port.postMessage({
+        kind: 'large-return',
+        bytes: value.bytes,
+        again: value.again,
+        backing: value.backing,
+        view: value.view
+      });
+      value.bytes.fill(211);
+      return;
+    }
+
     if (value.kind === 'queued-echo') {
       if (count !== 0 || value.phase !== 'relay') {
         throw Error('Relay pre-transfer FIFO');
@@ -35,12 +61,13 @@ parent.on('message', ({ data, ports }) => {
   });
 
   port.once('close', () => {
-    if (count !== 33) {
-      throw Error('All 33 renderer echoes precede utility peer close');
+    if (count !== 34) {
+      throw Error('All small echoes and large relay exchange precede utility peer close');
     }
     parent.postMessage({
       kind: 'relay-complete',
       count,
+      large: true,
       pid: process.pid,
       mite: !!process.versions.mite
     });

@@ -286,7 +286,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         auto bytes = wire_bytes(vm.argument(4), realm);
         if (bytes.is_error()
             || bytes.value().length() > ApplicationIpc::wire_limit - Ports::header_size
-            || BridgeData::decode_wire(bytes.value().view(), public_binary_limits()).is_error())
+            || BridgeData::decode_wire(bytes.value().view(), message_port_limits()).is_error())
             return JS::Value(invalid);
         size = bytes.value().length();
         if (!state->renderer_ports.can_send(route, size))
@@ -383,7 +383,7 @@ void Bridge::Impl::receive_renderer_port(
         emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-close", move(wire));
     } else {
         StringView payload { packet.payload.data(), packet.payload.size() };
-        if (BridgeData::decode_wire(payload, public_binary_limits()).is_error()
+        if (BridgeData::decode_wire(payload, message_port_limits()).is_error()
             || !state.renderer_ports.received(packet.route, packet.payload.size())) {
             retire_ipc_channel(id);
             return;
@@ -395,10 +395,10 @@ void Bridge::Impl::receive_renderer_port(
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_port_ipc(JS::VM& vm)
 {
-    auto graph = BridgeData::capture_ipc(vm.argument(0), realm, public_binary_limits());
+    auto graph = BridgeData::capture_ipc(vm.argument(0), realm, message_port_limits());
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port data"sv);
-    auto wire = graph.value().encode_wire(public_binary_limits());
+    auto wire = graph.value().encode_wire(message_port_limits());
     if (wire.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Port data exceeds its budget"sv);
     return wire_value(realm, wire.value());
@@ -409,7 +409,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_decode_port_ipc(JS::V
     auto wire = wire_bytes(vm.argument(0), realm);
     if (wire.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port bytes"sv);
-    auto graph = BridgeData::decode_wire(wire.value().view(), public_binary_limits());
+    auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port data"sv);
     return graph.value().materialize(realm, {}, BridgeData::Materialization::Mutable);

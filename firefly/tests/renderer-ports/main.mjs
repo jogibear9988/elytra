@@ -107,6 +107,13 @@ app
     window.webContents.postMessage('handoff', 'direct', [direct.port2]);
     direct.port2.postMessage({ kind: 'detached-must-not-arrive' });
     direct.port2.close();
+    let frameRefused = false;
+    try {
+      direct.port1.postMessage(new Uint8Array(128 * 1024));
+    } catch (error) {
+      frameRefused = error.code === 'ERR_FIREFLY_PORT_LIMIT';
+    }
+    check(frameRefused, 'Native port frame ceiling remains explicit after larger binary capture');
     for (let index = 0; index < 32; index++) {
       const bytes = new Uint8Array(4096);
       for (let offset = 0; offset < bytes.length; offset++) {
@@ -187,7 +194,8 @@ app
     );
     const identity = notices.find((value) => value.kind === 'relay-complete');
     check(
-      identity.count === 33 &&
+      identity.count === 34 &&
+        identity.large === true &&
         identity.pid === child.pid &&
         identity.pid !== process.pid &&
         identity.mite,
@@ -197,7 +205,7 @@ app
     await until(() => exitCode !== undefined);
     check(exitCode === 0 && child.pid === undefined && !stderr, 'Utility exits cleanly: ' + stderr);
     console.log(
-      'PASS renderer ports: real utility/native DOM relay, binary ownership, close and PID retirement'
+      'PASS renderer ports: real utility/native DOM relay, 100 KiB binary aliases, close and PID retirement'
     );
     ended = true;
     clearTimeout(timer);
