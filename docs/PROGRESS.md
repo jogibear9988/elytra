@@ -14266,6 +14266,27 @@ crashing with 0xC0000409, not an observed Mite failure. A documented Node/libuv
 Windows defect matches that failure; investigate a pinned reference-runtime update
 without suppressing tests or retrying the defective reference blindly.
 
+## 2026-11-16 — Replace the defective Windows reference runtime pin
+
+Inspect actual candidate 058cad3 Windows job 133597680929 / run 43952233869:
+148/149 enabled CLI tests pass; the sole failure is the Node 24.15 reference
+process crashing in the TLS wildcard fixture with 0xC0000409. Earlier candidate
+runs show the same Node failure in unrelated fetch/TCP cases. No failing Mite
+assertion is observed in this run.
+
+Official Node issue [63620](https://github.com/nodejs/node/issues/63620) describes
+the matching Windows TCP-connect stack corruption in 24.15. The libuv
+[fix](https://github.com/libuv/libuv/commit/aabb7651de) initializes the Windows
+version structure and shipped in [24.16](https://nodejs.org/en/blog/release/v24.16.0).
+This is a supported diagnosis, not proof of our exact stack without a crash dump.
+Pin only the Windows CLI build/reference runtime to the released
+[24.22.3](https://nodejs.org/en/blog/release/v24.22.3), and print Node/libuv/OpenSSL
+versions for attribution. Node remains a build/reference dependency, never Mite's
+runtime. Preserve all TLS/fetch/net fixtures, wildcard/keepalive behavior,
+assertions and deadlines; add no retry or skip. Other platforms retain their
+existing reference baseline. Workflow source formatting passes; execution requires
+the fresh native Windows hosted run, so a green Windows result is not yet claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

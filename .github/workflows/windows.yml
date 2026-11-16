@@ -77,7 +77,14 @@ jobs:
           python-version: '3.12'
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '24.15.0'
+          # 24.15's Windows TCP-connect stack corruption also crashes the
+          # reference fixtures; keep assertions intact and use a fixed pin.
+          node-version: '24.22.3'
+      - name: Record reference runtime versions
+        shell: pwsh
+        run: |
+          node -p "JSON.stringify({node:process.versions.node,uv:process.versions.uv,openssl:process.versions.openssl})"
+          if ($LASTEXITCODE) { throw 'Reference runtime inspection failed' }
       - uses: ./.github/actions/windows-environment
       - name: Pinned Rust toolchain
         shell: pwsh
