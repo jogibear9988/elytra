@@ -13,6 +13,9 @@ class WebContentPage;
 }
 
 namespace Firefly {
+// Development observation only: fixed labels, scalar status, no navigation data.
+WEBVIEW_API void diagnose_navigation_phase(char const*, int status = -1);
+
 enum class NativeIpcKind { Invoke, Event, Bind, Ack };
 
 using NativeIpcHandler

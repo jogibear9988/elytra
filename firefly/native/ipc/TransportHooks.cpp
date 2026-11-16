@@ -1,10 +1,40 @@
 /** Routes reserved native IPC events before the optional WebDriver observer; never expose them to
  * page JavaScript. */
 #include "TransportHooks.h"
+#include "native/platform/Diagnostics.h"
+#include <AK/Debug.h>
 #include <AK/NeverDestroyed.h>
 #include <AK/RefPtr.h>
+#include <atomic>
+#include <cstring>
 
 namespace Firefly {
+void diagnose_navigation_phase(char const* phase, int status)
+{
+    if (!ipc_bytes_diagnostics_enabled() || !phase || status < -1 || status > 1)
+        return;
+    StringView selected { phase, std::strlen(phase) };
+    constexpr StringView allowed[] { "population-entry"sv, "handoff-request"sv,
+        "handoff-callback"sv, "handoff-submitted"sv, "adopt-submitted"sv, "adopt-request"sv,
+        "adopt-callback"sv, "before-native-document"sv, "after-native-document"sv,
+        "before-native-navigation"sv, "after-native-navigation"sv, "before-populate"sv,
+        "after-populate"sv };
+    bool valid = false;
+    for (auto label : allowed)
+        valid |= selected == label;
+    if (!valid)
+        return;
+    static std::atomic<unsigned> remaining { 128 };
+    auto available = remaining.load(std::memory_order_relaxed);
+    while (available
+        && !remaining.compare_exchange_weak(available, available - 1, std::memory_order_relaxed)) {
+    }
+
+    if (!available)
+        return;
+    warnln("FIREFLY_NAVIGATION_PHASE phase={} status={}", selected, status);
+}
+
 static NeverDestroyed<NativeIpcHandler> handler;
 
 struct NavigationCallback : RefCounted<NavigationCallback> {

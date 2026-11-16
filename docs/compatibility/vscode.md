@@ -34,23 +34,32 @@ Malformed/replayed offsets, quotas and fixed partial deadlines pass the native
 protocol probe. Initial attachment payloads remain single-frame and reject an
 unsupported graph before detaching its source ports.
 
-The first Code-OSS observation with fragmentation stalls earlier, before document
-IPC/preload binding. Both renderer helpers remain alive and the selected helper
-stack is in its native event loop. The initial navigation client has no pending
-requests when its normal cleanup runs; this alone does not identify a failure.
-Upstream navigation response-body handoff before document population is a source
-candidate, not a confirmed cause. Inspect that transition next rather than altering
-security leases or repeating startup without new evidence. The actual 170,933-byte
-application exchange and extension activation remain unverified in this run;
-component acceptance is not a working editor.
-Evidence: `native-port-fragmentation-{protocol,main,utility,relay,lifetime}.log`,
-`native-port-fragmentation-transfer-rejection.log`,
-`codeoss-native-port-fragmentation-start.log` and its WebContent stack capture
-in the active review build directory.
-CA-29 scanner observations are removed through exact owned retirement and normal
-verified compiler refresh. The original scanner previously completed all 60
-extensions with zero instrumentation markers. All six package adapters and static
-resources remain verified; compiler orphan checks are unchanged.
+The instrumented application run now completes ordinary navigation handoff and
+adoption, native document preparation and SDK population. The selected renderer
+binds document IPC, restores Workbench lifecycle 3/4, scans all 60 extensions and
+passes the previous large-port failure: four native fragment control frames are
+observed with no capture/frame refusals. The extension host remains alive.
+
+The next concrete initialization error is a missing standalone global WebSocket:
+unchanged `@vscode/proxy-agent.createWebSocketPatch` reads
+`originalWebSocket.prototype` from `connectProxyResolver`. No extension activation
+or usable editor is established. Implement a real browser-style WebSocket client,
+not a placeholder class or a Code-OSS guard. Reusing a pinned RFC6455 engine needs
+a real HTTP101/socket/head handoff plus required native entropy/UTF-8 primitives;
+verify direct ws/wss, events/state, snapshots, bounded framing/queues and close
+against independent loopback peers. Custom Undici dispatcher/proxy/certificate
+policy must be genuinely supported or fail explicitly, never silently ignored.
+Direct Undici reuse currently requires its unavailable WebAssembly HTTP parser.
+
+The previous early navigation stall is not reproduced under these observations;
+no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is
+accepted. Phase markers are default-off, bounded fixed labels/scalars and added
+through exact reversible owned source adaptation. Evidence:
+`codeoss-navigation-phases-start.log`, `navigation-phase-source-controls.log` and
+`navigation-phase-diagnostics-build.log` in the active review build directory.
+CA-29 scanner observations remain removed. The original scanner is used, all six
+package adapters/static resources remain verified and compiler orphan guards are
+unchanged.
 
 The reused diagnostic package contains 60 original static built-in extensions
 (558 files / 7,673,634 bytes) with verified source hashes and independent resource

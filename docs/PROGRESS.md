@@ -14629,6 +14629,57 @@ track helperPIDs21893/21894/21896/21907/21911 and verify ALL exit despite separa
 helper process groups. No GUI is opened, new app copies retained or dependencies
 installed. Preserve user Finder metadata.
 
+## 2026-11-17 — Observe navigation completion and identify the next host API gap
+
+Add13 fixed scalar phase markers through the existing owned WebContentPage source
+adapter: navigation preparation, selected-process population, handoff request/
+completion, adopter completion, native document preparation and population send.
+Preserve every original statement and exact source reversal; retain SDK source
+SHA0bfd359fc1f8ff49d1ce593556e1cdcd2abf05547afc9d898a10abdef31650f4
+and permission-hook composition. Native TransportHooks observation is default-off
+under the existing IPC diagnostic flag, has a fixed whitelist/status range and
+process-wide128-line atomic budget. No URLs, identities, bodies or arbitrary
+errors are logged; no timers, references, retries or authority checks change.
+Focused exactpin/reversal/duplicate/drift/permission-composition controls pass;
+offscreen Release builds after using the actual pinned AK StringView constructor.
+Evidence: navigation-phase-{source-controls,diagnostics-build}.log.
+
+The new actual Code-OSS run completes ALL13 phases, including handoff success1,
+adopter completion, native document preparation and async population. Selected
+renderer24903 binds documentIPC and reaches Workbench lifecycle3/4, the original
+scanner finds60systemextensions, and4nativeFragment control frames are observed
+with ZERO frame/capture refusals. Extension host remains alive through observation;
+no exit reports. This validates real application progress past the former large
+port refusal. Initial module graph takes longer than previous runs; a5s queue
+snapshot is not a terminal failure. Do not restart live handles on that timeout.
+
+Next concrete error beforeAlmostReadyToRunExtensions is unchanged
+@vscode/proxy-agent.createWebSocketPatch reading originalWebSocket.prototype
+from missing standalone globalWebSocket. Native spdlog bindings also remain
+unavailable but startup proceeds beyond those logged errors. No extension
+activation, open/edit/save, PTY or visible editor acceptance is claimed.
+Implement genuine WebSocket client support next: audit reusable pinnedws8.21.0,
+real HTTP101/socket/unconsumed-head handoff, required native crypto.randomFillSync
+andbuffer.isUtf8, and a browser-style EventTarget facade. Current HTTPclient rejects
+upgrades; current Undici websocket requires unavailable WebAssembly llhttp. Proxy
+constructor overload can supply a genuine customdispatcher; never silentlyignore
+its proxy/certificate policy. Direct ws/wss firstslice must verify protocol,
+masking/UTF8/fragments, independent snapshots, close/state/events, boundedqueues
+andTLS against independent loopback peers. Stub classes or Code-OSS guards are
+not an implementation. References: Node24globals WebSocket documentation,
+RFC6455 and original stagedproxy-agent/ws sources; this is planned work only.
+
+The earlier no-preload navigation stall is NOT reproduced, not fixed by a
+behavioral change. Keep it tracked and require diagnostic-free startup acceptance.
+Source audit shows this legacy registerFileProtocol path fully reads native body
+bytes into the descriptor before selection, so a RequestServer lease/adoption
+failure cannot be asserted from the previous zero-job cleanup alone. Evidence:
+codeoss-navigation-phases-start.log. Stop authenticated main24883 after capture,
+track all native helperPIDs24889/24890/24894/24903/24907/24909 and verify allgone;
+redact environment/config records atomically only after shutdown. No GUIwindow,
+new app package or dependency tree retained. Website351pages/25246local targets
+and unmodifiedb872e601 upstream check pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
