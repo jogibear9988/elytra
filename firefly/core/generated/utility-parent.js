@@ -25,7 +25,7 @@ function createRemoteLinks(hooks) {
         ids.add(value.id);
       }
     }
-    function disconnect() {
+    function disconnect(reason = hooks.closeReasons.disconnected) {
       if (disconnected) {
         return;
       }
@@ -36,7 +36,7 @@ function createRemoteLinks(hooks) {
       for (const route of owned) {
         route.closed = true;
         route.acks.length = 0;
-        hooks.close(route.record, false);
+        hooks.close(route.record, false, reason);
       }
     }
     function accepted(status) {
@@ -57,7 +57,7 @@ function createRemoteLinks(hooks) {
       try {
         for (const route of routes.values()) {
           if (route.closing) {
-            if (accepted(transport.close(route.id, route.generation))) {
+            if (accepted(transport.close(route.id, route.generation, route.closeReason))) {
               route.closed = true;
               route.acks.length = 0;
               routes.delete(route.id);
@@ -83,12 +83,16 @@ function createRemoteLinks(hooks) {
         record,
         acks: [],
         closing: false,
+        closeReason: 0,
         closed: false,
         send(wire) {
           return !disconnected && !route.closing && accepted(transport.send(route.id, route.generation, wire));
         },
-        requestClose() {
+        requestClose(reason = 0) {
           if (!disconnected && !route.closed) {
+            if (!route.closing) {
+              route.closeReason = reason;
+            }
             route.closing = true;
             route.acks.length = 0;
             flush();
@@ -177,7 +181,7 @@ function createRemoteLinks(hooks) {
           }
         } catch (failure) {
           for (const record of allocated) {
-            hooks.close(record, false);
+            hooks.close(record, false, hooks.closeReasons.rollback);
           }
           disconnect();
           throw failure;
@@ -197,7 +201,7 @@ function createRemoteLinks(hooks) {
           }
         };
         if (!hooks.deliver(route.record.peer, wire, ack)) {
-          route.requestClose();
+          route.requestClose(hooks.closeReasons.budget);
         }
       },
       closed(id, generation) {
@@ -208,7 +212,7 @@ function createRemoteLinks(hooks) {
         route.closed = true;
         route.acks.length = 0;
         routes.delete(id);
-        hooks.close(route.record, false);
+        hooks.close(route.record, false, hooks.closeReasons.peer);
       },
       writable() {
         flush();
@@ -225,7 +229,7 @@ function createRemoteLinks(hooks) {
   }
   function shutdown() {
     for (const link of [...links]) {
-      link.disconnect();
+      link.disconnect(hooks.closeReasons.shutdown);
     }
   }
   return { connect, shutdown };
@@ -247,6 +251,19 @@ function createMessageChannels(native, EventEmitter, error) {
   const register = Registry.prototype.register;
   const unregister = Registry.prototype.unregister;
   const records = /* @__PURE__ */ new Map();
+  const closeReasons = Object.freeze({
+    finalizer: 1,
+    sweep: 2,
+    missingOwner: 3,
+    explicit: 4,
+    peer: 5,
+    disconnected: 6,
+    budget: 7,
+    decode: 8,
+    shutdown: 9,
+    discard: 10,
+    rollback: 11
+  });
   const token = Symbol("MessagePortMain constructor");
   const schedule = setImmediate;
   const tick = process.nextTick;
@@ -292,7 +309,7 @@ function createMessageChannels(native, EventEmitter, error) {
     }
     const record = apply2(deref, entry.weak, []);
     if (record) {
-      close(record, true);
+      close(record, true, closeReasons.finalizer);
     } else {
       release(entry.lease);
     }
@@ -338,17 +355,17 @@ function createMessageChannels(native, EventEmitter, error) {
       for (const port of entry.ports) {
         const owned = apply2(weakGet, states, [port]);
         if (owned?.record) {
-          close(owned.record, true);
+          close(owned.record, true, closeReasons.discard);
         }
       }
     }
   }
-  function close(record, local) {
+  function close(record, local, reason = 0) {
     if (record.closed) {
       return;
     }
     record.closed = true;
-    record.remote?.requestClose();
+    record.remote?.requestClose(reason);
     const peer = record.peer;
     record.peer = null;
     if (peer && peer.peer === record) {
@@ -367,7 +384,7 @@ function createMessageChannels(native, EventEmitter, error) {
         notify(record);
       }
       if (peer && !peer.closed) {
-        append(peer.queue, { close: true });
+        append(peer.queue, { close: true, reason });
         pump(peer);
       }
     }
@@ -390,7 +407,7 @@ function createMessageChannels(native, EventEmitter, error) {
         const entry2 = record.queue[0];
         if (entry2.close) {
           apply2(shift, record.queue, []);
-          close(record, false);
+          close(record, false, entry2.reason ?? closeReasons.peer);
         } else if (record.remote.send(entry2.wire)) {
           apply2(shift, record.queue, []);
           consume(record, entry2);
@@ -400,12 +417,12 @@ function createMessageChannels(native, EventEmitter, error) {
       }
       const owner = ownerOf(record);
       if (!owner) {
-        close(record, true);
+        close(record, true, closeReasons.missingOwner);
         return;
       }
       const entry = apply2(shift, record.queue, []);
       if (entry.close) {
-        close(record, false);
+        close(record, false, entry.reason ?? closeReasons.peer);
         return;
       }
       consume(record, entry);
@@ -416,10 +433,10 @@ function createMessageChannels(native, EventEmitter, error) {
         for (const port of entry.ports) {
           const owned = apply2(weakGet, states, [port]);
           if (owned?.record) {
-            close(owned.record, true);
+            close(owned.record, true, closeReasons.decode);
           }
         }
-        close(record, true);
+        close(record, true, closeReasons.decode);
         throw failure;
       }
       try {
@@ -437,7 +454,7 @@ function createMessageChannels(native, EventEmitter, error) {
       if (!record) {
         release(entry.lease);
       } else if (!record.remote && !ownerOf(record)) {
-        close(record, true);
+        close(record, true, closeReasons.sweep);
       }
     }
   }
@@ -511,6 +528,7 @@ function createMessageChannels(native, EventEmitter, error) {
   }
   const remote = createRemoteLinks({
     error,
+    closeReasons,
     transfers,
     shell,
     attach,
@@ -540,7 +558,7 @@ function createMessageChannels(native, EventEmitter, error) {
       }
       const size = apply2(byteLength, wire, []);
       if (record.lease.count >= 64 || record.lease.bytes + size > 1048576 || totalBytes + size > 4194304) {
-        close(record, true);
+        close(record, true, closeReasons.budget);
         return false;
       }
       append(record.queue, { wire, size, ports: [], ack });
@@ -644,7 +662,7 @@ function createMessageChannels(native, EventEmitter, error) {
     close() {
       const owned = state(this);
       if (!owned.detached && owned.record) {
-        close(owned.record, true);
+        close(owned.record, true, closeReasons.explicit);
       }
     }
   }
@@ -684,7 +702,7 @@ function createMessageChannels(native, EventEmitter, error) {
     for (const entry of [...records.values()]) {
       const record = apply2(deref, entry.weak, []);
       if (record) {
-        close(record, true);
+        close(record, true, closeReasons.shutdown);
       } else {
         release(entry.lease);
       }
@@ -786,7 +804,7 @@ function createParentPort(native, EventEmitter, codec) {
   const channels = createMessageChannels(codec, EventEmitter, failure);
   const link = channels.connect({
     send: (id, generation, wire) => native.sendPort(id, generation, wire),
-    close: (id, generation) => native.closePort(id, generation),
+    close: (id, generation, reason) => native.closePort(id, generation, reason),
     consume: (id, generation, size) => native.consumePort(id, generation, size),
     blocked: (status) => typeof native.portQueueFull === "number" && status === native.portQueueFull
   });

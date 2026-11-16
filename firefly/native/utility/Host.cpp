@@ -106,7 +106,7 @@ namespace {
         uv_process_t process {};
         uv_timer_t startup {};
         size_t handles {}, writes {}, write_bytes {};
-        unsigned diagnostic_count {};
+        unsigned diagnostic_count {}, control_diagnostic_count {};
         bool process_initialized {}, timer_initialized {}, started {}, announced {}, exited {},
             killed {}, channel_closed {};
         std::vector<char> incoming;
@@ -131,6 +131,7 @@ namespace {
         JS::Realm& realm;
         Mite::EventLoop& loop;
         bool child_side {}, stopped {};
+        unsigned terminal_diagnostic_count {};
         uint64_t next_id { 1 };
         std::unordered_map<uint64_t, Endpoint*> endpoints;
 
@@ -150,6 +151,34 @@ namespace {
                 static_cast<int>(uv_os_getpid()), child_side ? "child" : "main",
                 static_cast<unsigned long long>(endpoint.id), phase, bytes,
                 endpoint.diagnostic_count);
+        }
+
+        void diagnose_control(Endpoint& endpoint, char const* direction, unsigned kind)
+        {
+            if (!std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC")
+                || endpoint.control_diagnostic_count >= 64)
+                return;
+            ++endpoint.control_diagnostic_count;
+            fprintf(stderr,
+                "FIREFLY_UTILITY_CONTROL pid=%d side=%s endpoint=%llu direction=%s kind=%u "
+                "count=%u\n",
+                static_cast<int>(uv_os_getpid()), child_side ? "child" : "main",
+                static_cast<unsigned long long>(endpoint.id), direction, kind,
+                endpoint.control_diagnostic_count);
+        }
+
+        void diagnose_terminal(
+            Endpoint& endpoint, char const* reason, int status = 0, unsigned kind = 0)
+        {
+            if (!std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC") || terminal_diagnostic_count >= 64)
+                return;
+            ++terminal_diagnostic_count;
+            fprintf(stderr,
+                "FIREFLY_UTILITY_TERMINAL pid=%d side=%s endpoint=%llu reason=%s status=%d kind=%u "
+                "count=%u\n",
+                static_cast<int>(uv_os_getpid()), child_side ? "child" : "main",
+                static_cast<unsigned long long>(endpoint.id), reason, status, kind,
+                terminal_diagnostic_count);
         }
 
         Endpoint* get(JS::Value id)
@@ -239,14 +268,16 @@ namespace {
                 if (pipe.initialized && !uv_is_closing(pipe.base()) && !stopped) {
                     auto status = read(pipe);
                     if (status)
-                        error(endpoint, status);
+                        error(endpoint, status, "read-start-failure");
                 }
         }
 
-        void close_channel(Endpoint& endpoint)
+        void close_channel(
+            Endpoint& endpoint, char const* reason = "local-api-close", int status = 0)
         {
             if (endpoint.channel_closed)
                 return;
+            diagnose_terminal(endpoint, reason, status);
             endpoint.channel_closed = true;
             endpoint.incoming.clear();
             endpoint.ports.clear();
@@ -254,10 +285,10 @@ namespace {
             emit(endpoint, "close");
         }
 
-        void error(Endpoint& endpoint, int status)
+        void error(Endpoint& endpoint, int status, char const* reason = "native-error")
         {
             emit(endpoint, "error", text(vm, uv_strerror(status)));
-            close_channel(endpoint);
+            close_channel(endpoint, reason, status);
         }
 
         int initialize(Endpoint& endpoint, int index)
@@ -298,9 +329,10 @@ namespace {
                         if (pipe.index == 3) {
                             if (count != UV_EOF || !endpoint.incoming.empty())
                                 owner.error(endpoint,
-                                    count == UV_EOF ? UV_EPROTO : static_cast<int>(count));
+                                    count == UV_EOF ? UV_EPROTO : static_cast<int>(count),
+                                    count == UV_EOF ? "invalid-frame" : "read-failure");
                             else
-                                owner.close_channel(endpoint);
+                                owner.close_channel(endpoint, "read-eof");
                         } else {
                             owner.emit(endpoint, pipe.index == 1 ? "stdoutEnd" : "stderrEnd");
                             owner.close(pipe);
@@ -321,7 +353,7 @@ namespace {
                 size_t length
                     = (size_t(p[0]) << 24) | (size_t(p[1]) << 16) | (size_t(p[2]) << 8) | p[3];
                 if (length > frame_limit) {
-                    error(endpoint, UV_EMSGSIZE);
+                    error(endpoint, UV_EMSGSIZE, "invalid-frame");
                     return;
                 }
 
@@ -345,13 +377,14 @@ namespace {
         {
             Ports::Packet packet {};
             if (!Ports::decode(wire, packet)) {
-                error(endpoint, UV_EPROTO);
+                error(endpoint, UV_EPROTO, "invalid-frame");
                 return;
             }
 
+            diagnose_control(endpoint, "receive", static_cast<unsigned>(packet.kind));
             if (packet.kind == Ports::Kind::Transfer) {
                 if (!child_side || !endpoint.ports.admit_transfer(packet.ports)) {
-                    error(endpoint, UV_EPROTO);
+                    error(endpoint, UV_EPROTO, "invalid-frame");
                     return;
                 }
 
@@ -363,23 +396,25 @@ namespace {
             if (state == Ports::Ledger::State::Retired)
                 return; // An already queued message cannot resurrect a retired capability.
             if (state != Ports::Ledger::State::Live) {
-                error(endpoint, UV_EPROTO);
+                error(endpoint, UV_EPROTO, "invalid-frame");
                 return;
             }
 
             if (packet.kind == Ports::Kind::Ack) {
                 if (!endpoint.ports.acknowledge(packet.route, Ports::read_size(packet.payload))) {
-                    error(endpoint, UV_EPROTO);
+                    error(endpoint, UV_EPROTO, "invalid-frame");
                     return;
                 }
 
                 emit(endpoint, "port-writable");
             } else if (packet.kind == Ports::Kind::Close) {
+                diagnose_terminal(
+                    endpoint, "peer-port-close", 0, static_cast<unsigned>(packet.kind));
                 endpoint.ports.close(packet.route);
                 bytes(endpoint, "port-close", wire.data(), wire.size());
             } else {
                 if (!endpoint.ports.received(packet.route, packet.payload.size())) {
-                    error(endpoint, UV_ENOBUFS);
+                    error(endpoint, UV_ENOBUFS, "invalid-frame");
                     return;
                 }
 
@@ -453,7 +488,7 @@ namespace {
                     delete write;
                     if (!endpoint.owner.stopped && !endpoint.channel_closed) {
                         if (status)
-                            endpoint.owner.error(endpoint, status);
+                            endpoint.owner.error(endpoint, status, "write-failure");
                         else
                             endpoint.owner.emit(endpoint, "port-writable");
                     }
@@ -464,6 +499,8 @@ namespace {
                 ++endpoint->writes;
                 endpoint->write_bytes += size + 4;
                 diagnose(*endpoint, "frame-send-admitted", size);
+                if (Ports::has_magic(wire) && wire.size() >= Ports::header_size)
+                    diagnose_control(*endpoint, "send", static_cast<unsigned char>(wire[4]));
             }
 
             return status;
@@ -480,6 +517,39 @@ namespace {
         }
 
         enum class PortAction { Send, Close, Consume };
+
+        static char const* port_close_reason(JS::Value value)
+        {
+            // Private JS diagnostic enum only; never stringify caller values.
+            if (!value.is_int32())
+                return "local-api-port-close";
+            switch (value.as_i32()) {
+            case 1:
+                return "js-finalizer";
+            case 2:
+                return "js-sweep-owner-gone";
+            case 3:
+                return "js-pump-owner-gone";
+            case 4:
+                return "js-explicit-close";
+            case 5:
+                return "js-remote-peer-close";
+            case 6:
+                return "js-transport-disconnect";
+            case 7:
+                return "js-delivery-budget";
+            case 8:
+                return "js-decode-error";
+            case 9:
+                return "js-shutdown";
+            case 10:
+                return "js-discarded-transfer";
+            case 11:
+                return "js-adopt-rollback";
+            default:
+                return "local-api-port-close";
+            }
+        }
 
         JS::ThrowCompletionOr<JS::Value> port_action(JS::VM& vm, PortAction action)
         {
@@ -512,8 +582,12 @@ namespace {
             if (action == PortAction::Close) {
                 auto frame = Ports::encode(Ports::Kind::Close, route, {}, {});
                 auto status = write(endpoint, frame);
-                if (!status)
+                if (!status) {
+                    diagnose_terminal(*endpoint, port_close_reason(vm.argument(offset + 2)), 0,
+                        static_cast<unsigned>(Ports::Kind::Close));
                     endpoint->ports.close(route);
+                }
+
                 return JS::Value(status);
             }
 
@@ -595,6 +669,8 @@ namespace {
                 return;
             stopped = true;
             for (auto& [id, endpoint] : endpoints) {
+                if (!endpoint->channel_closed)
+                    diagnose_terminal(*endpoint, "shutdown");
                 endpoint->callback = nullptr;
                 endpoint->channel_closed = true;
                 endpoint->ports.clear();

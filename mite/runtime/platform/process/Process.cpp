@@ -19,6 +19,7 @@
 #include <LibJS/Runtime/PrimitiveString.h>
 #include <LibJS/Runtime/VM.h>
 #include <LibJS/Script.h>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <llhttp.h>
@@ -30,6 +31,7 @@ namespace Mite {
 namespace {
     NeverDestroyed<std::mutex> process_title_mutex;
     constexpr size_t process_title_limit = 1024 * 1024;
+    thread_local unsigned process_exit_diagnostic_count {};
 }
 
 static GC::Ref<JS::PrimitiveString> text(JS::VM& vm, char const* bytes)
@@ -389,6 +391,12 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> create_process(JS::VM& vm, JS::Realm&
                         "Invalid internal process exit"_utf16);
                 auto code = TRY(emit_process_exit(
                     vm, vm.argument(1).as_object(), *exit_state, vm.argument(0).as_i32(), false));
+                if (std::getenv("MITE_MODULE_DIAGNOSTIC") && process_exit_diagnostic_count < 64) {
+                    ++process_exit_diagnostic_count;
+                    fprintf(stderr, "MITE_PROCESS_EXIT pid=%d kind=explicit code=%d worker=%d\n",
+                        static_cast<int>(uv_os_getpid()), code, exit_state->worker ? 1 : 0);
+                }
+
                 if (exit_state->worker) {
                     exit_state->requested_code = code;
                     vm.request_interrupt();

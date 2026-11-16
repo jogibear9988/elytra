@@ -34,7 +34,7 @@ export default function createRemoteLinks(hooks) {
       }
     }
 
-    function disconnect() {
+    function disconnect(reason = hooks.closeReasons.disconnected) {
       if (disconnected) {
         return;
       }
@@ -45,7 +45,7 @@ export default function createRemoteLinks(hooks) {
       for (const route of owned) {
         route.closed = true;
         route.acks.length = 0;
-        hooks.close(route.record, false);
+        hooks.close(route.record, false, reason);
       }
     }
 
@@ -69,7 +69,7 @@ export default function createRemoteLinks(hooks) {
       try {
         for (const route of routes.values()) {
           if (route.closing) {
-            if (accepted(transport.close(route.id, route.generation))) {
+            if (accepted(transport.close(route.id, route.generation, route.closeReason))) {
               route.closed = true;
               route.acks.length = 0;
               routes.delete(route.id);
@@ -96,6 +96,7 @@ export default function createRemoteLinks(hooks) {
         record,
         acks: [],
         closing: false,
+        closeReason: 0,
         closed: false,
 
         send(wire) {
@@ -106,8 +107,11 @@ export default function createRemoteLinks(hooks) {
           );
         },
 
-        requestClose() {
+        requestClose(reason = 0) {
           if (!disconnected && !route.closed) {
+            if (!route.closing) {
+              route.closeReason = reason;
+            }
             route.closing = true;
             route.acks.length = 0;
             flush();
@@ -209,7 +213,7 @@ export default function createRemoteLinks(hooks) {
           }
         } catch (failure) {
           for (const record of allocated) {
-            hooks.close(record, false);
+            hooks.close(record, false, hooks.closeReasons.rollback);
           }
           disconnect();
           throw failure;
@@ -238,7 +242,7 @@ export default function createRemoteLinks(hooks) {
         };
 
         if (!hooks.deliver(route.record.peer, wire, ack)) {
-          route.requestClose();
+          route.requestClose(hooks.closeReasons.budget);
         }
       },
 
@@ -250,7 +254,7 @@ export default function createRemoteLinks(hooks) {
         route.closed = true;
         route.acks.length = 0;
         routes.delete(id);
-        hooks.close(route.record, false);
+        hooks.close(route.record, false, hooks.closeReasons.peer);
       },
 
       writable() {
@@ -270,7 +274,7 @@ export default function createRemoteLinks(hooks) {
 
   function shutdown() {
     for (const link of [...links]) {
-      link.disconnect();
+      link.disconnect(hooks.closeReasons.shutdown);
     }
   }
 

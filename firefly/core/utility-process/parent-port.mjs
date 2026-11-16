@@ -14,7 +14,7 @@ export default function createParentPort(native, EventEmitter, codec) {
   const link = channels.connect({
     send: (id, generation, wire) => native.sendPort(id, generation, wire),
 
-    close: (id, generation) => native.closePort(id, generation),
+    close: (id, generation, reason) => native.closePort(id, generation, reason),
 
     consume: (id, generation, size) => native.consumePort(id, generation, size),
 

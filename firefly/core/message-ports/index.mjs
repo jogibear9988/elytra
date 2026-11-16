@@ -16,6 +16,20 @@ export default function createMessageChannels(native, EventEmitter, error) {
   const register = Registry.prototype.register;
   const unregister = Registry.prototype.unregister;
   const records = new Map();
+  // Private diagnostic origins; never serialized into application messages.
+  const closeReasons = Object.freeze({
+    finalizer: 1,
+    sweep: 2,
+    missingOwner: 3,
+    explicit: 4,
+    peer: 5,
+    disconnected: 6,
+    budget: 7,
+    decode: 8,
+    shutdown: 9,
+    discard: 10,
+    rollback: 11
+  });
   const token = Symbol('MessagePortMain constructor');
   const schedule = setImmediate;
   const tick = process.nextTick;
@@ -67,7 +81,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
     }
     const record = apply(deref, entry.weak, []);
     if (record) {
-      close(record, true);
+      close(record, true, closeReasons.finalizer);
     } else {
       release(entry.lease);
     }
@@ -120,19 +134,19 @@ export default function createMessageChannels(native, EventEmitter, error) {
       for (const port of entry.ports) {
         const owned = apply(weakGet, states, [port]);
         if (owned?.record) {
-          close(owned.record, true);
+          close(owned.record, true, closeReasons.discard);
         }
       }
     }
   }
 
   /** Explicit local close retires incoming work; accepted peer work precedes its close marker. */
-  function close(record, local) {
+  function close(record, local, reason = 0) {
     if (record.closed) {
       return;
     }
     record.closed = true;
-    record.remote?.requestClose();
+    record.remote?.requestClose(reason);
     const peer = record.peer;
     record.peer = null;
     if (peer && peer.peer === record) {
@@ -154,7 +168,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
         notify(record);
       }
       if (peer && !peer.closed) {
-        append(peer.queue, { close: true });
+        append(peer.queue, { close: true, reason });
         pump(peer);
       }
     }
@@ -180,7 +194,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
         const entry = record.queue[0];
         if (entry.close) {
           apply(shift, record.queue, []);
-          close(record, false);
+          close(record, false, entry.reason ?? closeReasons.peer);
         } else if (record.remote.send(entry.wire)) {
           apply(shift, record.queue, []);
           consume(record, entry);
@@ -190,12 +204,12 @@ export default function createMessageChannels(native, EventEmitter, error) {
       }
       const owner = ownerOf(record);
       if (!owner) {
-        close(record, true);
+        close(record, true, closeReasons.missingOwner);
         return;
       }
       const entry = apply(shift, record.queue, []);
       if (entry.close) {
-        close(record, false);
+        close(record, false, entry.reason ?? closeReasons.peer);
         return;
       }
       consume(record, entry);
@@ -206,10 +220,10 @@ export default function createMessageChannels(native, EventEmitter, error) {
         for (const port of entry.ports) {
           const owned = apply(weakGet, states, [port]);
           if (owned?.record) {
-            close(owned.record, true);
+            close(owned.record, true, closeReasons.decode);
           }
         }
-        close(record, true);
+        close(record, true, closeReasons.decode);
         throw failure;
       }
       try {
@@ -229,7 +243,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
       if (!record) {
         release(entry.lease);
       } else if (!record.remote && !ownerOf(record)) {
-        close(record, true);
+        close(record, true, closeReasons.sweep);
       }
     }
   }
@@ -306,6 +320,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
 
   const remote = createRemoteLinks({
     error,
+    closeReasons,
     transfers,
     shell,
     attach,
@@ -343,7 +358,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
         record.lease.bytes + size > 1048576 ||
         totalBytes + size > 4194304
       ) {
-        close(record, true);
+        close(record, true, closeReasons.budget);
         return false;
       }
       append(record.queue, { wire, size, ports: [], ack });
@@ -475,7 +490,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
     close() {
       const owned = state(this);
       if (!owned.detached && owned.record) {
-        close(owned.record, true);
+        close(owned.record, true, closeReasons.explicit);
       }
     }
   }
@@ -517,7 +532,7 @@ export default function createMessageChannels(native, EventEmitter, error) {
     for (const entry of [...records.values()]) {
       const record = apply(deref, entry.weak, []);
       if (record) {
-        close(record, true);
+        close(record, true, closeReasons.shutdown);
       } else {
         release(entry.lease);
       }

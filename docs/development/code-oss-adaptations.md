@@ -201,3 +201,38 @@ The tool retains an original manifest backup and a retirement journal.
    overlay/manifest and reverify both ownership sets. Confirm the retired helper
    is absent and the compiled original diff service imports the real Worker.
    Original worker operations now pass CA-18-V; actual Workbench integration remains CA-18-I.
+
+
+## CA-29: optional extension scanner diagnostics
+
+- [ ] Remove the scanner source observations after the underlying framework stall
+  is diagnosed and fixed; validate scanning with the original source bytes and
+  without this flag. This is instrumentation, not extension/workbench acceptance.
+
+`tooling/code_oss/overlay.py --extension-scan-diagnostics` is a separate,
+default-off development option. It verifies the original
+`src/vs/platform/extensionManagement/common/extensionsScannerService.ts` SHA-256
+`572182f1b3a3f10b2301d645bbaebfde27dbfc215d8e22b1f464f16339d78f48`
+and adds only fixed observations immediately before/after original statements.
+The original awaits, return values, exceptions, extension classifications and
+source checkout remain unchanged; exact reversal is required. Without the flag,
+the scanner and logger helper are absent from the overlay, leaving the original
+scanner bytes selected by the normal compiler.
+
+WHY: after staging the real 60 static built-in extensions, the actual shared
+process remains alive while the extension-system scan/initialization waits. The
+observations distinguish input translations/stat, directory resolve, manifest
+read, NLS existence/reads and cache I/O phases without exposing paths, URLs,
+manifest contents or environment values. Each helper module emits at most 1,024
+scalar lines of the form `[ELYTRA_EXTENSION_SCAN] phase=manifest edge=before
+counter=1`; matching counters correlate successful completion. A missing `after`
+is not proof of a hung await: the original statement may also have thrown.
+Logger exceptions are swallowed only inside the diagnostic helper. There are no
+new timers, keepalives, retries or replacement scanner results.
+
+Source-policy validation uses
+`python3 tooling/tests/test_code_oss_scanner_diagnostics.py --source PINNED_SOURCE`.
+It checks exact reversal/drift refusal, default-off ownership, unchanged awaits,
+bounded scalar logging and logger-failure containment in Node. Actual diagnostic
+application execution and eventual uninstrumented scanner acceptance remain
+separate owner-run steps.

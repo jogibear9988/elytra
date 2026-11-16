@@ -14405,6 +14405,37 @@ with the current Workbench/extension-host evidence and remaining limits. Stop
 and verify the prior diagnostic process group is gone before publication. A new
 application observation with these resources is still required.
 
+## 2026-11-16 — Observe extension startup without changing ownership or awaits
+
+Add opt-in bounded scalar diagnostics for native utility control/terminal events,
+private MessagePort close origins, explicit process.exit and runtime loop return.
+Preserve original close reasons across queued close/retry; do not alter wire
+frames, ownership, references, queue credits or public APIs. Rebuild standalone
+Mite and both renderer targets. Native syntax/format checks, explicit/idle/disabled
+runtime controls and actual utility MessagePort regression pass (including failed
+admission, transferred binary FIFO, peer close and child exit). Evidence:
+runtime-exit-diagnostics-controls.log, utility-port-close-reason-regression.log,
+codeoss-extension-close-origin-build.log. Earlier local-api-close observations
+alone cannot distinguish initiating JS ownership from a propagated peer close.
+
+Add default-off CA-29 --extension-scan-diagnostics to the owned Code-OSS overlay.
+Pin the original scanner SHA and require exact byte reversal; retain all original
+await statements. Log only fixed phase/edge/counter values, at most 1024 lines,
+without paths, payloads or added scheduling. Focused source/reversal/drift,
+default-off, unchanged-await and bounded/logger-failure controls pass. Document
+why this development adaptation exists and its removal TODO. Normal compiler
+refresh accepts the staged scanner/helper while preserving all independently
+verified static built-ins and six package adapters.
+
+One offscreen observation (codeoss-scanner-phases.log, main PID14588) completes
+directory resolution but stalls before system scan completion: 63 manifest reads
+begin, 30 return successfully, 29 translations finish, and one further NLS exists
+check has no successful return. Missing after markers also include caught errors
+for absent development inputs; they do not alone prove a pending operation.
+The extension host stays alive while _initialize waits. Investigate actual FS
+completion versus RPC/transport saturation next; no keepalive, skipped scanner,
+or claim of extension activation/editor usability. No desktop window is opened.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

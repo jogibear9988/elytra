@@ -139,7 +139,7 @@ export default function createUtilityProcesses(
         state.link = channels.connect({
           send: (id, generation, wire) => native.sendPort(state.id, id, generation, wire),
 
-          close: (id, generation) => native.closePort(state.id, id, generation),
+          close: (id, generation, reason) => native.closePort(state.id, id, generation, reason),
 
           consume: (id, generation, size) => native.consumePort(state.id, id, generation, size),
 

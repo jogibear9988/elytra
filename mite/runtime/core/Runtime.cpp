@@ -42,6 +42,44 @@ static void write_text(FILE* stream, Utf16View text)
     fwrite(bytes.characters(), 1, bytes.length(), stream);
 }
 
+// Observe loop ownership without changing references or running application JS.
+// Explicit process.exit has its own marker because it need not return here.
+static void diagnose_runtime_return(Mite::EventLoop& loop, int status, bool worker)
+{
+    if (!std::getenv("MITE_MODULE_DIAGNOSTIC"))
+        return;
+
+    struct Counts {
+        unsigned handles {}, active {}, referenced {}, active_referenced {}, closing {};
+        unsigned pipes {}, active_referenced_pipes {};
+    } counts;
+
+    uv_walk(
+        &loop.native_loop(),
+        [](uv_handle_t* handle, void* opaque) {
+            auto& counts = *static_cast<Counts*>(opaque);
+            bool active = uv_is_active(handle);
+            bool referenced = uv_has_ref(handle);
+            ++counts.handles;
+            counts.active += active;
+            counts.referenced += referenced;
+            counts.active_referenced += active && referenced;
+            counts.closing += uv_is_closing(handle) != 0;
+            if (handle->type == UV_NAMED_PIPE) {
+                ++counts.pipes;
+                counts.active_referenced_pipes += active && referenced;
+            }
+        },
+        &counts);
+    fprintf(stderr,
+        "MITE_RUNTIME_PHASE pid=%d stage=drive-return status=%d worker=%d uv_alive=%d "
+        "pending=%d handles=%u active=%u referenced=%u active_referenced=%u closing=%u "
+        "pipes=%u active_referenced_pipes=%u\n",
+        static_cast<int>(uv_os_getpid()), status, worker, uv_loop_alive(&loop.native_loop()),
+        loop.has_pending_work(), counts.handles, counts.active, counts.referenced,
+        counts.active_referenced, counts.closing, counts.pipes, counts.active_referenced_pipes);
+}
+
 static void report_exception(JS::Value value)
 {
     fputs("Uncaught ", stderr);
@@ -218,6 +256,7 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         session.exec_argv.emplace_back(argv[1]);
         session.exec_argv.emplace_back(argv[2]);
     }
+
     capture_tls_extra_certificates();
     return run_owner_session(session, hooks);
 }
@@ -236,6 +275,7 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
         else
             report_exception(value);
     };
+
     auto vm = JS::VM::create();
     auto context_result = JS::Realm::initialize_host_defined_realm(*vm, {}, {});
     if (context_result.is_error()) {
@@ -292,6 +332,7 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
             Utf16String::from_utf8_with_replacement_character(
                 StringView(argument.data(), argument.size())));
     };
+
     process->define_direct_property("argv0"_utf16,
         append_text(session.argv.empty() ? "mite" : session.argv[0]), JS::Attribute::Enumerable);
     for (size_t index = 1; index < session.argv.size(); ++index)
@@ -428,6 +469,7 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
         }
     }
 
+    diagnose_runtime_return(event_loop, status, session.worker);
     if (session.worker && exit_state->requested_code.has_value())
         status = *exit_state->requested_code;
     if (!hooks.exit_code.has_value() && (status == 0 || status == 13)) {
