@@ -18,7 +18,7 @@ parent.on('message', ({ data, ports }) => {
       if (
         count !== 33 ||
         !(value.bytes instanceof Uint8Array) ||
-        value.bytes.length !== 100 * 1024 ||
+        value.bytes.length !== 512 * 1024 ||
         value.bytes.byteOffset !== 8 ||
         value.bytes !== value.again ||
         value.bytes.buffer !== value.backing ||

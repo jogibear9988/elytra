@@ -2,8 +2,9 @@
 
 Status: **partial**, locally tested on macOS with real Firefly, Electron 45.2.3
 and a headless native codec/GC host. Initial main-to-utility handoff also passes a
-real native process fixture. Renderer handoff, fresh Linux/Windows execution and
-a working Code-OSS desktop remain unverified.
+real native process fixture. Main/utility-to-principal DOM handoff and fragmented
+512 KiB DATA now pass local offscreen native acceptance. Fresh Linux/Windows
+execution and a working Code-OSS desktop remain unverified.
 
 ## Create and use a connected pair
 
@@ -46,11 +47,23 @@ and binary backing/view aliases survive within each snapshot. Buffer becomes
 Uint8Array. The receiver owns independent writable copied storage; ArrayBuffers are
 copied, not transferred/detached. The aggregate distinct backing-store limit is
 1 MiB per graph, including an entire backing store when sending a small view.
-Encoded snapshots must also fit a single 128 KiB frame, including applicable
-transport metadata. Both local and native sends reject oversized encoded data
-before admitting it to a queue. The 1 MiB capture ceiling alone does not enable
-larger messages; local and native port fragmentation remain unimplemented. Functions, getters/proxies, symbols/BigInt,
-Date/Map/Set, DOM/File/Blob and other special objects remain unsupported by this graph.
+Encoded snapshots are limited to 1 MiB including graph metadata. Local main ports
+copy the complete snapshot; native renderer/utility routes fragment larger DATA
+into bounded physical frames and deliver it only after complete validation.
+Functions, getters/proxies, symbols/BigInt, Date/Map/Set, DOM/File/Blob and other
+special objects remain unsupported by this graph.
+
+| Port graph limit | Bound |
+| --- | --- |
+| Values / own properties | 4096 / 4096 |
+| Strings and keys | 65536 UTF-16 code units total |
+| Depth / single array length | 64 / 4096 |
+| Cumulative array lengths | 16384 |
+| Distinct binary backing storage | 1 MiB, including complete sliced-view backing |
+| Encoded logical DATA | 1 MiB, including graph metadata |
+
+These port-specific graph bounds also apply to initial attachment payloads. The
+larger ordinary application-IPC profile does not expand them.
 
 The optional transfer array contains at most 16 currently owned main ports. Only
 ports move; an ArrayBuffer in this list is invalid. Pass ports in the transfer list,
@@ -126,12 +139,17 @@ when no JavaScript listener is registered; posting to an unstarted DOM queue doe
 not refund credit. Close preserves preceding accepted messages. Private route
 identities never enter application payloads.
 
-The native frame bound is 128 KiB including framing and route metadata. The
-1 MiB graph capture ceiling does not expand that frame: a native-bound message
-must satisfy both limits. Oversized main sends fail synchronously before admission;
-an oversized DOM send retires its route because DOM postMessage has no synchronous
-backpressure channel. Native port fragmentation is not implemented. Each route
-has 16 outstanding messages / 1 MiB per direction and bounded document wire queues.
+The physical native frame bound remains 128 KiB including framing and route
+metadata. DATA graphs above one physical payload use native fragmentation up to
+the 1 MiB encoded logical bound. Initial port-attachment payloads still fit one
+physical frame; they are not fragmented. Each route has 16 unconsumed logical
+messages / 1 MiB per direction and 4 MiB per endpoint/direction. The whole logical
+receive quota is reserved before partial-buffer allocation. Contiguous offsets,
+route/generation, total and monotonic serial are checked before one completed
+message is delivered. A fixed 30-second first-fragment timeout does not renew.
+Malformed/expired fragments retire the channel; document loss and teardown reclaim
+partial buffers and credits. See [ADR 0198](../architecture/0198-bounded-native-port-fragmentation.md).
+
 The DOM-to-main forwarding queue separately admits at most 1024 waiting messages,
 1 MiB of waiting encoded data per route, and 4 MiB across waiting data/control
 frames in the endpoint. Its native credit window remains 16: waiting admission

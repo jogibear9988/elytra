@@ -1,6 +1,7 @@
 /** Read native slots without property hooks, with separate raw-frame and graph byte budgets. */
 #include "WireValue.h"
 #include "native/ipc/application/Message.h"
+#include "native/utility/ports/Protocol.h"
 #include <LibJS/Runtime/ArrayBuffer.h>
 #include <LibJS/Runtime/TypedArray.h>
 
@@ -13,11 +14,13 @@ JS::ThrowCompletionOr<JS::Value> wire_value(JS::Realm& realm, ByteString const& 
 
 ErrorOr<ByteString> wire_bytes(JS::Value value, JS::Realm& realm, WireValuePolicy policy)
 {
-    if (policy != WireValuePolicy::SingleFrame && policy != WireValuePolicy::ApplicationMessage)
+    if (policy != WireValuePolicy::SingleFrame && policy != WireValuePolicy::ApplicationMessage
+        && policy != WireValuePolicy::PortMessage)
         return Error::from_string_literal("Unknown IPC wire byte policy");
     auto byte_limit = policy == WireValuePolicy::ApplicationMessage
         ? ApplicationIpc::logical_wire_limit
-        : ApplicationIpc::wire_limit;
+        : policy == WireValuePolicy::PortMessage ? Utility::Ports::logical_limit
+                                                 : ApplicationIpc::wire_limit;
     if (!value.is_object() || !JS::TypedArrayBase::is_engine_class_of(value.as_object())
         || &value.as_object().shape().realm() != &realm || JS::host_class_of(value.as_object()))
         return Error::from_string_literal("IPC wire requires a native owner byte view");

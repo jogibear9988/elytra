@@ -33,11 +33,11 @@ bool has_magic(std::span<char const> bytes)
 
 bool decode(std::span<char const> bytes, Packet& packet)
 {
-    if (!has_magic(bytes) || bytes.size() < header_size || bytes.size() > frame_limit || bytes[6]
+    if (!has_magic(bytes) || bytes.size() < header_size || bytes.size() > physical_limit || bytes[6]
         || bytes[7])
         return false;
     auto kind = static_cast<uint8_t>(bytes[4]);
-    if (kind < 1 || kind > 4)
+    if (kind < 1 || kind > 5)
         return false;
     auto count = static_cast<uint8_t>(bytes[5]);
     Identity route { read32(bytes, 8), read32(bytes, 12) };
@@ -62,7 +62,14 @@ bool decode(std::span<char const> bytes, Packet& packet)
     packet.payload = bytes.subspan(header_size + count * 8);
     if (((packet.kind == Kind::Transfer || packet.kind == Kind::Data) && packet.payload.empty())
         || (packet.kind == Kind::Close && !packet.payload.empty())
-        || (packet.kind == Kind::Ack && packet.payload.size() != 4))
+        || (packet.kind == Kind::Ack && packet.payload.size() != 4)
+        || (packet.kind == Kind::Fragment
+            && (packet.payload.size() <= 12 || !read32(packet.payload, 0)
+                || read32(packet.payload, 4) <= physical_limit - header_size
+                || read32(packet.payload, 4) > logical_limit
+                || read32(packet.payload, 8) >= read32(packet.payload, 4)
+                || packet.payload.size() - 12
+                    > read32(packet.payload, 4) - read32(packet.payload, 8))))
         return false;
     return true;
 }

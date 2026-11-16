@@ -53,7 +53,7 @@
             );
             check(
               data.bytes instanceof Uint8Array &&
-                data.bytes.byteLength === 100 * 1024 &&
+                data.bytes.byteLength === 512 * 1024 &&
                 data.bytes.byteOffset === 8,
               'Large principal view and offset'
             );
@@ -92,8 +92,8 @@
           data.bytes.fill(211);
           if (++received === 32) {
             if (phase === 'relay') {
-              const backing = new ArrayBuffer(100 * 1024 + 16);
-              const bytes = new Uint8Array(backing, 8, 100 * 1024);
+              const backing = new ArrayBuffer(512 * 1024 + 16);
+              const bytes = new Uint8Array(backing, 8, 512 * 1024);
               for (let offset = 0; offset < bytes.length; offset++)
                 bytes[offset] = (offset * 17 + 3) & 255;
               port.postMessage({

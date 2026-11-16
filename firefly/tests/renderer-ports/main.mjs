@@ -67,6 +67,25 @@ app
     });
     window.loadFile(path.join(import.meta.dirname, 'page.html'));
     await until(() => ready);
+    const victim = new MessageChannelMain();
+    let transferRefused = false;
+    try {
+      window.webContents.postMessage('unsupported-transfer', new Array(5000), [victim.port1]);
+    } catch (error) {
+      transferRefused = error.code === 'ERR_FIREFLY_PORT_CHANNEL';
+    }
+    check(transferRefused, 'Unsupported port-profile attachment graph rejects before detach');
+    let victimReply = false;
+
+    victim.port2.once('message', ({ data }) => {
+      victimReply = data === 'still-owned';
+    });
+
+    victim.port2.start();
+    victim.port1.postMessage('still-owned');
+    await until(() => victimReply);
+    victim.port1.close();
+    victim.port2.close();
     const direct = new MessageChannelMain();
     let received = 0;
     let closed = false;
@@ -109,11 +128,11 @@ app
     direct.port2.close();
     let frameRefused = false;
     try {
-      direct.port1.postMessage(new Uint8Array(128 * 1024));
+      direct.port1.postMessage(new Uint8Array(1024 * 1024 + 1));
     } catch (error) {
-      frameRefused = error.code === 'ERR_FIREFLY_PORT_LIMIT';
+      frameRefused = error.code === 'ERR_FIREFLY_PORT_SERIALIZATION';
     }
-    check(frameRefused, 'Native port frame ceiling remains explicit after larger binary capture');
+    check(frameRefused, 'Logical port message ceiling remains explicit before native delivery');
     for (let index = 0; index < 32; index++) {
       const bytes = new Uint8Array(4096);
       for (let offset = 0; offset < bytes.length; offset++) {
@@ -205,7 +224,7 @@ app
     await until(() => exitCode !== undefined);
     check(exitCode === 0 && child.pid === undefined && !stderr, 'Utility exits cleanly: ' + stderr);
     console.log(
-      'PASS renderer ports: real utility/native DOM relay, 100 KiB binary aliases, close and PID retirement'
+      'PASS renderer ports: real utility/native DOM relay, 512 KiB fragmented binary aliases, close and PID retirement'
     );
     ended = true;
     clearTimeout(timer);

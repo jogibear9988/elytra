@@ -4,6 +4,7 @@ let filled = 0;
 let port;
 let received = 0;
 let queued = false;
+let large = false;
 
 function check(value, message) {
   if (!value) {
@@ -20,7 +21,7 @@ parent.on('message', ({ data, ports }) => {
     return;
   }
   if (data.kind === 'exit') {
-    check(queued && received === 32, 'Port messages completed before exit');
+    check(queued && received === 32 && large, 'Port messages completed before exit');
     process.exit(0);
     return;
   }
@@ -41,6 +42,34 @@ parent.on('message', ({ data, ports }) => {
   check(unsupported, 'Child-to-parent native transfer remains explicit unsupported');
 
   port.on('message', ({ data }) => {
+    if (data.kind === 'large') {
+      check(queued && received === 32 && !large, 'Large logical data follows small messages once');
+      check(
+        data.bytes instanceof Uint8Array &&
+          data.bytes.length === 512 * 1024 &&
+          data.bytes.byteOffset === 8 &&
+          data.bytes === data.again &&
+          data.bytes.buffer === data.backing &&
+          data.view.buffer === data.backing,
+        'Large utility incoming graph aliases'
+      );
+      check(
+        data.bytes.every((byte, index) => byte === ((index * 11 + 3) & 255)),
+        'Large utility incoming snapshot'
+      );
+      large = true;
+      port.postMessage({
+        kind: 'large-echo',
+        bytes: data.bytes,
+        again: data.again,
+        backing: data.backing,
+        view: data.view
+      });
+      data.bytes.fill(211);
+      port.close();
+      return;
+    }
+
     if (data.kind === 'queued-before-transfer') {
       check(!queued && received === 0, 'Pre-transfer queue retained');
       queued = true;
@@ -56,9 +85,7 @@ parent.on('message', ({ data, ports }) => {
     );
     port.postMessage({ kind: 'echo', index: received, bytes: data.bytes });
     data.bytes.fill(211);
-    if (++received === 32) {
-      port.close();
-    }
+    ++received;
   });
   // Deliberately let the native 16-message credit window fill before consuming.
   setTimeout(() => port.start(), 100);

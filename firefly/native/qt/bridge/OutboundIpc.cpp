@@ -163,6 +163,12 @@ void Bridge::Impl::expire_ipc_events()
             send_ipc_reply(id, window.ipc_document, window.ipc_realm, request, false, error);
         }
 
+        if (window.renderer_port_fragments.expired()) {
+            retire_ipc_channel(id);
+            warnln("ERR_FIREFLY_PORT_CHANNEL: incomplete native port message timed out");
+            continue;
+        }
+
         bool expired = !window.ipc_waiting_events.is_empty()
             && window.ipc_waiting_events.first().deadline <= now;
         for (auto const& [request, deadline] : window.port_event_pending) {

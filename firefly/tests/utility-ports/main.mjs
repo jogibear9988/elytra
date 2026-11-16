@@ -85,6 +85,24 @@ app
 
     channel.port1.on('message', (event) => {
       const data = event.data;
+      if (data.kind === 'large-echo') {
+        check(order.length === 33, 'Large logical echo follows small FIFO messages');
+        check(
+          data.bytes instanceof Uint8Array &&
+            data.bytes.length === 512 * 1024 &&
+            data.bytes.byteOffset === 8 &&
+            data.bytes === data.again &&
+            data.bytes.buffer === data.backing &&
+            data.view.buffer === data.backing,
+          'Large utility graph aliases and offsets'
+        );
+        check(
+          data.bytes.every((byte, index) => byte === ((index * 11 + 3) & 255)),
+          'Large utility duplex independent byte snapshot'
+        );
+        order.push('large');
+        return;
+      }
       if (data.kind === 'queued-echo') {
         check(order.length === 0, 'Queued pre-transfer message arrives first');
         order.push('queued');
@@ -100,7 +118,7 @@ app
     });
 
     channel.port1.once('close', () => {
-      check(order.length === 33, 'All accepted messages precede peer close');
+      check(order.length === 34, 'All small and fragmented messages precede peer close');
       closed = true;
     });
 
@@ -118,6 +136,19 @@ app
       channel.port1.postMessage({ kind: 'binary', index, bytes });
       bytes.fill(77);
     }
+    const backing = new ArrayBuffer(512 * 1024 + 16);
+    const large = new Uint8Array(backing, 8, 512 * 1024);
+    for (let index = 0; index < large.length; index++) {
+      large[index] = (index * 11 + 3) & 255;
+    }
+    channel.port1.postMessage({
+      kind: 'large',
+      bytes: large,
+      again: large,
+      backing,
+      view: new DataView(backing, 8, large.length)
+    });
+    large.fill(77);
     await until(() => closed);
     const identity = notices.find((value) => value.kind === 'identity');
     check(
@@ -137,7 +168,7 @@ app
     clearTimeout(timer);
     console.log(
       'PASS actual utility MessagePorts: failed native admission preserves ownership, ' +
-        'queued transfer, 32 binary FIFO snapshots under delayed start, peer close and child exit'
+        'queued transfer, 32 binary FIFO snapshots and 512 KiB duplex logical data, peer close and child exit'
     );
     app.quit();
   })

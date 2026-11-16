@@ -2,7 +2,8 @@
 add_executable(firefly-utility-port-protocol-probe
     "${CMAKE_CURRENT_LIST_DIR}/PortProtocolProbe.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Fragments.cpp")
 target_include_directories(firefly-utility-port-protocol-probe PRIVATE
     "${FIREFLY_SOURCE_DIR}/firefly")
 

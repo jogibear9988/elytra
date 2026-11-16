@@ -90,7 +90,7 @@ export default function createRemoteLinks(hooks) {
 
     function bind(record, value) {
       const route = {
-        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
+        maxPayload: transport.maxPayload ?? 1024 * 1024,
         id: value.id,
         generation: value.generation,
         record,

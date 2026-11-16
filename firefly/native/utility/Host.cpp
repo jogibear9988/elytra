@@ -6,6 +6,7 @@
 #include "../platform/GCIncludes.h"
 #include "core/EventLoop.h"
 #include "platform/UV.h"
+#include "ports/Fragments.h"
 #include "ports/Ledger.h"
 #include <AK/JsonObject.h>
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -19,10 +20,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <signal.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace Firefly::Utility {
@@ -105,6 +108,11 @@ namespace {
         std::array<Pipe, 4> pipes {};
         uv_process_t process {};
         uv_timer_t startup {};
+        uv_timer_t fragment_timer {};
+        bool fragment_timer_initialized {};
+        uint32_t fragment_serial {};
+        Ports::Reassembler fragments;
+        std::unordered_set<uint32_t> fragment_routes;
         size_t handles {}, writes {}, write_bytes {};
         unsigned diagnostic_count {}, control_diagnostic_count {};
         bool process_initialized {}, timer_initialized {}, started {}, announced {}, exited {},
@@ -272,6 +280,43 @@ namespace {
                 }
         }
 
+        void close_fragment_timer(Endpoint& endpoint)
+        {
+            auto* handle = reinterpret_cast<uv_handle_t*>(&endpoint.fragment_timer);
+            if (!endpoint.fragment_timer_initialized || uv_is_closing(handle))
+                return;
+            uv_timer_stop(&endpoint.fragment_timer);
+            uv_close(handle, [](uv_handle_t* handle) {
+                auto& endpoint = *static_cast<Endpoint*>(handle->data);
+                endpoint.owner.released(endpoint);
+            });
+        }
+
+        int watch_fragments(Endpoint& endpoint)
+        {
+            if (!endpoint.fragment_timer_initialized) {
+                auto status = uv_timer_init(&loop.native_loop(), &endpoint.fragment_timer);
+                if (status)
+                    return status;
+                endpoint.fragment_timer_initialized = true;
+                endpoint.fragment_timer.data = &endpoint;
+                ++endpoint.handles;
+                uv_unref(reinterpret_cast<uv_handle_t*>(&endpoint.fragment_timer));
+            }
+
+            if (uv_is_active(reinterpret_cast<uv_handle_t*>(&endpoint.fragment_timer)))
+                return 0;
+            return uv_timer_start(
+                &endpoint.fragment_timer,
+                [](uv_timer_t* timer) {
+                    auto& endpoint = *static_cast<Endpoint*>(timer->data);
+                    auto& owner = endpoint.owner;
+                    if (!owner.stopped && !endpoint.channel_closed && endpoint.fragments.expired())
+                        owner.error(endpoint, UV_ETIMEDOUT, "fragment-timeout");
+                },
+                100, 100);
+        }
+
         void close_channel(
             Endpoint& endpoint, char const* reason = "local-api-close", int status = 0)
         {
@@ -280,6 +325,9 @@ namespace {
             diagnose_terminal(endpoint, reason, status);
             endpoint.channel_closed = true;
             endpoint.incoming.clear();
+            endpoint.fragments.clear();
+            endpoint.fragment_routes.clear();
+            close_fragment_timer(endpoint);
             endpoint.ports.clear();
             close(endpoint.pipes[3]);
             emit(endpoint, "close");
@@ -400,6 +448,38 @@ namespace {
                 return;
             }
 
+            if (packet.kind == Ports::Kind::Fragment) {
+                auto assembled = endpoint.fragments.accept(packet, endpoint.ports);
+                if (assembled.status == Ports::Reassembler::Status::Invalid) {
+                    error(endpoint, UV_EPROTO, "invalid-fragment");
+                    return;
+                }
+
+                if (assembled.status == Ports::Reassembler::Status::Pending) {
+                    endpoint.fragment_routes.insert(packet.route.id);
+                    auto status = watch_fragments(endpoint);
+                    if (status)
+                        error(endpoint, status, "fragment-timer-failure");
+                    return;
+                }
+
+                endpoint.fragment_routes.erase(packet.route.id);
+                if (endpoint.fragment_routes.empty() && endpoint.fragment_timer_initialized)
+                    uv_timer_stop(&endpoint.fragment_timer);
+                // Trusted local envelope, never sent as an oversized physical frame.
+                // accept() reserved the complete logical RX size before allocation.
+                auto complete
+                    = Ports::encode(Ports::Kind::Data, packet.route, {}, assembled.payload);
+                bytes(endpoint, "port-data", complete.data(), complete.size());
+                return;
+            }
+
+            if ((packet.kind == Ports::Kind::Data || packet.kind == Ports::Kind::Close)
+                && endpoint.fragments.active(packet.route)) {
+                error(endpoint, UV_EPROTO, "interleaved-fragment");
+                return;
+            }
+
             if (packet.kind == Ports::Kind::Ack) {
                 if (!endpoint.ports.acknowledge(packet.route, Ports::read_size(packet.payload))) {
                     error(endpoint, UV_EPROTO, "invalid-frame");
@@ -410,6 +490,7 @@ namespace {
             } else if (packet.kind == Ports::Kind::Close) {
                 diagnose_terminal(
                     endpoint, "peer-port-close", 0, static_cast<unsigned>(packet.kind));
+                endpoint.fragments.close(packet.route);
                 endpoint.ports.close(packet.route);
                 bytes(endpoint, "port-close", wire.data(), wire.size());
             } else {
@@ -459,7 +540,7 @@ namespace {
             if (stopped || !endpoint || endpoint->channel_closed || endpoint->exited)
                 return UV_EPIPE;
             auto size = wire.size();
-            if (size > frame_limit)
+            if (size > frame_limit || (Ports::has_magic(wire) && size > Ports::physical_limit))
                 return UV_EMSGSIZE;
             if (endpoint->writes >= write_count_limit
                 || endpoint->write_bytes + size + 4 > write_bytes_limit)
@@ -568,15 +649,41 @@ namespace {
                 auto data = TRY(payload(vm, vm.argument(offset + 2)));
                 if (data.empty())
                     return JS::Value(UV_EINVAL);
-                if (data.size() > Ports::frame_limit - Ports::header_size)
+                auto count = Ports::fragment_count(data.size());
+                auto physical_bytes = Ports::fragment_wire_bytes(data.size()) + count * 4;
+                if (!count)
                     return JS::Value(UV_EMSGSIZE);
-                if (!endpoint->ports.can_send(route, data.size()))
+                if (!endpoint->ports.can_send(route, data.size())
+                    || count > write_count_limit - endpoint->writes
+                    || physical_bytes > write_bytes_limit - endpoint->write_bytes)
                     return JS::Value(UV_ENOBUFS);
-                auto frame = Ports::encode(Ports::Kind::Data, route, {}, data);
-                auto status = write(endpoint, frame);
-                if (!status)
-                    endpoint->ports.sent(route, data.size());
-                return JS::Value(status);
+                uint32_t serial = 0;
+                if (count > 1) {
+                    if (endpoint->fragment_serial == std::numeric_limits<uint32_t>::max())
+                        return JS::Value(UV_EOVERFLOW);
+                    serial = ++endpoint->fragment_serial;
+                }
+                // Reserve one logical credit before the first physical write.
+                // Entire physical batch capacity was checked without entering JS.
+                endpoint->ports.sent(route, data.size());
+                size_t offset = 0;
+                for (;;) {
+                    auto fragment = Ports::encode_next(route, serial, data, offset);
+                    if (fragment.bytes.empty()) {
+                        error(*endpoint, UV_EPROTO, "fragment-encode-failure");
+                        return JS::Value(UV_EPROTO);
+                    }
+
+                    auto status = write(endpoint, fragment.bytes);
+                    if (status) {
+                        error(*endpoint, status, "fragment-write-failure");
+                        return JS::Value(status);
+                    }
+
+                    if (fragment.complete)
+                        return JS::Value(0);
+                    offset = fragment.next_offset;
+                }
             }
 
             if (action == PortAction::Close) {
@@ -585,6 +692,10 @@ namespace {
                 if (!status) {
                     diagnose_terminal(*endpoint, port_close_reason(vm.argument(offset + 2)), 0,
                         static_cast<unsigned>(Ports::Kind::Close));
+                    endpoint->fragments.close(route);
+                    endpoint->fragment_routes.erase(route.id);
+                    if (endpoint->fragment_routes.empty() && endpoint->fragment_timer_initialized)
+                        uv_timer_stop(&endpoint->fragment_timer);
                     endpoint->ports.close(route);
                 }
 
@@ -593,7 +704,7 @@ namespace {
 
             auto amount = vm.argument(offset + 2);
             if (!amount.is_number() || !std::isfinite(amount.as_double()) || amount.as_double() < 0
-                || amount.as_double() > Ports::frame_limit
+                || amount.as_double() > Ports::logical_limit
                 || std::trunc(amount.as_double()) != amount.as_double())
                 return vm.throw_completion<JS::TypeError>(
                     "Invalid native utility port consumption"_utf16);
@@ -627,7 +738,7 @@ namespace {
                 status = UV_EMFILE;
             if (!status && wire.empty())
                 status = UV_EINVAL;
-            if (!status && wire.size() > Ports::frame_limit - Ports::header_size - count * 8)
+            if (!status && wire.size() > Ports::physical_limit - Ports::header_size - count * 8)
                 status = UV_EMSGSIZE;
             // Allocate every destination descriptor before write admission. No
             // application code runs between admission and the ledger commit.
@@ -673,6 +784,9 @@ namespace {
                     diagnose_terminal(*endpoint, "shutdown");
                 endpoint->callback = nullptr;
                 endpoint->channel_closed = true;
+                endpoint->fragments.clear();
+                endpoint->fragment_routes.clear();
+                close_fragment_timer(*endpoint);
                 endpoint->ports.clear();
                 close_startup(*endpoint);
                 for (auto& pipe : endpoint->pipes)

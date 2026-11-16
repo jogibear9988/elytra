@@ -2,7 +2,8 @@
 # standalone Mite build or linked into the Mite executable.
 add_library(firefly-port-wire STATIC
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
-    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp")
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp"
+    "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Fragments.cpp")
 target_include_directories(firefly-port-wire PUBLIC "${FIREFLY_SOURCE_DIR}/firefly")
 target_sources(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/ports/Observer.cpp")
 target_include_directories(LibWeb PRIVATE "${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge")

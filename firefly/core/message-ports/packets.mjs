@@ -6,6 +6,7 @@ const getters = Object.getOwnPropertyDescriptors(typed);
 const tag = getters[Symbol.toStringTag].get;
 const define = Object.defineProperty;
 const maxFrame = 128 * 1024;
+const maxLogicalPayload = 1024 * 1024;
 
 function invalid() {
   throw Object.assign(new Error('Invalid utility port packet'), {
@@ -23,7 +24,7 @@ export default function decodePortPacket(value, expected) {
       invalid();
     }
     size = apply(getters.byteLength.get, value, []);
-    if (size < 16 || size > maxFrame) {
+    if (size < 16 || size > maxLogicalPayload + 16) {
       invalid();
     }
     buffer = apply(getters.buffer.get, value, []);
@@ -63,7 +64,7 @@ export default function decodePortPacket(value, expected) {
         : expected === 'port-close'
           ? 3
           : 0;
-  if (!required || kind !== required) {
+  if (!required || kind !== required || (kind !== 2 && size > maxFrame)) {
     invalid();
   }
   const descriptors = [];

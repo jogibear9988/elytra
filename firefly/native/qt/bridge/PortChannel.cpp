@@ -15,6 +15,7 @@
 namespace Firefly {
 namespace {
     namespace Ports = Utility::Ports;
+    static_assert(Ports::physical_limit == ApplicationIpc::wire_limit);
     constexpr int success = 0, blocked = 1, retired = 2, invalid = 3;
 
     Optional<u32> positive(JS::Value value, u32 maximum = Ports::identity_limit)
@@ -83,6 +84,8 @@ void Bridge::Impl::reset_renderer_ports(int id)
     // helper endpoint starts its ledger at zero after reload; old frames still
     // cannot cross the non-reused outer epoch.
     state.renderer_ports = Ports::Ledger {};
+    state.renderer_port_fragments.clear();
+    state.renderer_port_fragment_serial = 0;
     ipc_outgoing_count -= state.port_event_pending.size();
     state.port_event_pending.clear();
     state.renderer_port_next = 0;
@@ -158,7 +161,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
     if (!count.has_value() || wire.is_error())
         status = invalid;
     if (!status) {
-        if (wire.value().length() > ApplicationIpc::wire_limit - Ports::header_size - *count * 8)
+        if (wire.value().length() > Ports::physical_limit - Ports::header_size - *count * 8)
             status = invalid;
         else if (state->ipc_outgoing.size() + state->port_event_pending.size() >= 16
             || ipc_outgoing_count >= 64
@@ -170,7 +173,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
     }
 
     if (!status) {
-        auto graph = BridgeData::decode_wire(wire.value().view(), application_ipc_limits());
+        auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());
         if (graph.is_error())
             status = invalid;
         else {
@@ -267,9 +270,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         // Unknown identities and wrong generations remain invalid below; data
         // sends never report successful admission to a retired route.
         if (action == 1)
-            return JS::Value(positive(vm.argument(4), ApplicationIpc::wire_limit).has_value()
-                    ? success
-                    : invalid);
+            return JS::Value(
+                positive(vm.argument(4), Ports::logical_limit).has_value() ? success : invalid);
         return JS::Value(action == 2 ? success : retired);
     }
 
@@ -283,9 +285,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         : action == 1       ? Ports::Kind::Ack
                             : Ports::Kind::Close;
     if (action == 0) {
-        auto bytes = wire_bytes(vm.argument(4), realm);
-        if (bytes.is_error()
-            || bytes.value().length() > ApplicationIpc::wire_limit - Ports::header_size
+        auto bytes = wire_bytes(vm.argument(4), realm, WireValuePolicy::PortMessage);
+        if (bytes.is_error() || bytes.value().length() > Ports::logical_limit
             || BridgeData::decode_wire(bytes.value().view(), message_port_limits()).is_error())
             return JS::Value(invalid);
         size = bytes.value().length();
@@ -293,11 +294,40 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
             return JS::Value(blocked);
         wire = bytes.release_value();
     } else if (action == 1) {
-        auto amount = positive(vm.argument(4), ApplicationIpc::wire_limit);
+        auto amount = positive(vm.argument(4), Ports::logical_limit);
         if (!amount.has_value() || !state->renderer_ports.can_consume(route, *amount))
             return JS::Value(invalid);
         size = *amount;
         wire = packet_bytes(Ports::size_payload(*amount));
+    }
+
+    if (action == 0) {
+        // Reserve the complete logical handoff before emitting any physical
+        // fragment. No application JS or event pumping runs during admission.
+        auto count = Ports::fragment_count(size);
+        auto bytes = Ports::fragment_wire_bytes(size);
+        if (!count || count > ApplicationIpc::queue_limit - state->ipc_byte_queue.size())
+            return JS::Value(blocked);
+        if (count > 0xffffffffu - state->renderer_port_next
+            || (count > 1 && state->renderer_port_fragment_serial == 0xffffffffu))
+            return JS::Value(invalid);
+        auto reservation = state->ipc_wire_budget->reserve(bytes);
+        if (!reservation)
+            return JS::Value(blocked);
+        reservation = nullptr;
+        auto serial = count > 1 ? ++state->renderer_port_fragment_serial : 0;
+        state->renderer_ports.sent(route, size);
+        size_t offset = 0;
+        do {
+            auto fragment = Ports::encode_next(route, serial, span(wire), offset);
+            if (fragment.bytes.empty() || !queue_renderer_port(id, packet_bytes(fragment.bytes))) {
+                retire_ipc_channel(id);
+                return JS::Value(retired);
+            }
+
+            offset = fragment.next_offset;
+        } while (offset < size);
+        return JS::Value(success);
     }
 
     auto frame = packet_bytes(Ports::encode(kind, route, {}, span(wire)));
@@ -310,12 +340,13 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         return JS::Value(retired);
     }
 
-    if (action == 0)
-        state->renderer_ports.sent(route, size);
-    else if (action == 1)
+    if (action == 1)
         state->renderer_ports.consumed(route, size);
-    else
+    else {
+        state->renderer_port_fragments.close(route);
         state->renderer_ports.close(route);
+    }
+
     return JS::Value(success);
 }
 
@@ -378,19 +409,50 @@ void Bridge::Impl::receive_renderer_port(
         }
 
         emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-writable");
-    } else if (packet.kind == Ports::Kind::Close) {
-        state.renderer_ports.close(packet.route);
-        emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-close", move(wire));
-    } else {
-        StringView payload { packet.payload.data(), packet.payload.size() };
-        if (BridgeData::decode_wire(payload, message_port_limits()).is_error()
-            || !state.renderer_ports.received(packet.route, packet.payload.size())) {
+        return;
+    }
+
+    if (packet.kind == Ports::Kind::Close) {
+        if (state.renderer_port_fragments.active(packet.route)) {
             retire_ipc_channel(id);
             return;
         }
 
-        emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-data", move(wire));
+        state.renderer_port_fragments.close(packet.route);
+        state.renderer_ports.close(packet.route);
+        emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-close", move(wire));
+        return;
     }
+
+    std::vector<char> assembled;
+    if (packet.kind == Ports::Kind::Fragment) {
+        auto result = state.renderer_port_fragments.accept(packet, state.renderer_ports);
+        if (result.status == Ports::Reassembler::Status::Invalid) {
+            retire_ipc_channel(id);
+            return;
+        }
+
+        if (result.status == Ports::Reassembler::Status::Pending)
+            return;
+        assembled = std::move(result.payload);
+        packet.payload = assembled;
+    } else if (packet.kind != Ports::Kind::Data
+        || state.renderer_port_fragments.active(packet.route)
+        || !state.renderer_ports.received(packet.route, packet.payload.size())) {
+        retire_ipc_channel(id);
+        return;
+    }
+
+    StringView payload { packet.payload.data(), packet.payload.size() };
+    if (BridgeData::decode_wire(payload, message_port_limits()).is_error()) {
+        retire_ipc_channel(id);
+        return;
+    }
+    // Only a complete, validated logical envelope can enter the JS relay. Its
+    // single ledger debit stays live until downstream admission/consumption.
+    if (!assembled.empty())
+        wire = packet_bytes(Ports::encode(Ports::Kind::Data, packet.route, {}, packet.payload));
+    emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-data", move(wire));
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_port_ipc(JS::VM& vm)
@@ -399,14 +461,14 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_encode_port_ipc(JS::V
     if (graph.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port data"sv);
     auto wire = graph.value().encode_wire(message_port_limits());
-    if (wire.is_error() || wire.value().length() > ApplicationIpc::wire_limit)
+    if (wire.is_error() || wire.value().length() > Ports::logical_limit)
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Port data exceeds its budget"sv);
     return wire_value(realm, wire.value());
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_decode_port_ipc(JS::VM& vm)
 {
-    auto wire = wire_bytes(vm.argument(0), realm);
+    auto wire = wire_bytes(vm.argument(0), realm, WireValuePolicy::PortMessage);
     if (wire.is_error())
         return preload_error(vm, "ERR_FIREFLY_IPC_SERIALIZATION", "Invalid port bytes"sv);
     auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());

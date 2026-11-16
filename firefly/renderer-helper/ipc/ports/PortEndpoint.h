@@ -1,5 +1,6 @@
 /** Genuine document-owned DOM endpoints backed by the private native port ledger. */
 #pragma once
+#include "native/utility/ports/Fragments.h"
 #include "native/utility/ports/Ledger.h"
 #include "ports/Observer.h"
 #include <AK/ByteString.h>
@@ -81,6 +82,8 @@ private:
 
     IpcEndpoint& m_endpoint;
     Utility::Ports::Ledger m_ledger;
+    Utility::Ports::Reassembler m_fragments;
+    u32 m_fragment_serial { 0 };
     HashMap<u32, Route> m_routes;
     Vector<ByteString> m_controls;
     Vector<u32> m_transfer_acks;

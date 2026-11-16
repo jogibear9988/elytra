@@ -5,8 +5,10 @@ Status: partial, validated on native macOS ARM64. Firefly implements asynchronou
 is request/reply IPC between separate Mite and Ladybird processes. A new local
 macOS subset also supports ipcRenderer.send to ipcMain event listeners, described
 below. Main-to-renderer webContents.send and isolated-preload listener methods
-also have local macOS acceptance. Synchronous IPC, MessagePorts, subframe IPC and
-full structured clone remain unfinished. [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
+also have local macOS acceptance. The bounded [MessagePort handoff and native
+DATA subset](message-channel-main.md) now has separate local native/offscreen
+acceptance. Synchronous IPC, reverse/nested port transfers, subframe IPC and full
+structured clone remain unfinished. [macOS ARM64 Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 includes this subset at `19ad113`; Alpha 1 predates it. The relocated experimental
 Linux X11 application also passes a scoped invoke/preload fixture at that source.
 

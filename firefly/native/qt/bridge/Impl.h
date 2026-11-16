@@ -26,6 +26,7 @@
 #include "native/frames/Registry.h"
 #include "native/permissions/Hooks.h"
 #include "native/protocol/routes/Files.h"
+#include "native/utility/ports/Fragments.h"
 #include "native/utility/ports/Ledger.h"
 #include "native/web-request/Broker.h"
 #include "native/window/Constraints.h"
@@ -200,6 +201,8 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
         Utility::Ports::Ledger renderer_ports;
+        Utility::Ports::Reassembler renderer_port_fragments;
+        u32 renderer_port_fragment_serial { 0 };
         u32 renderer_port_next { 0 };
         u32 renderer_port_incoming_last { 0 };
         std::unordered_map<u32, MonotonicTime> port_event_pending;

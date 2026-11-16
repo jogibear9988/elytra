@@ -8,6 +8,7 @@
 #include "modules/ModuleLoader.h"
 #include "native/ipc/application/Message.h"
 #include "platform/UV.h"
+#include "ports/Protocol.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include "serialization/WireValue.h"
@@ -73,7 +74,7 @@ int run(int argc, char** argv, bool electron_compat)
                 if (graph.is_error())
                     return vm.throw_completion<JS::TypeError>("Unsupported utility message"_utf16);
                 auto wire = graph.value().encode_wire(message_port_limits());
-                if (wire.is_error() || wire.value().length() > ApplicationIpc::wire_limit)
+                if (wire.is_error() || wire.value().length() > Ports::logical_limit)
                     return vm.throw_completion<JS::RangeError>(
                         "Utility message exceeds budget"_utf16);
                 return wire_value(vm.realm(), wire.value());
@@ -82,7 +83,7 @@ int run(int argc, char** argv, bool electron_compat)
         codec->define_native_function(
             realm, "decodeIpc"_utf16,
             +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto wire = wire_bytes(vm.argument(0), vm.realm());
+                auto wire = wire_bytes(vm.argument(0), vm.realm(), WireValuePolicy::PortMessage);
                 if (wire.is_error())
                     return vm.throw_completion<JS::TypeError>("Invalid utility wire bytes"_utf16);
                 auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());

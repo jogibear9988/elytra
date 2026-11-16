@@ -8,8 +8,10 @@
 namespace Firefly::Utility::Ports {
 constexpr size_t header_size = 16;
 constexpr size_t frame_limit = 128 * 1024;
+constexpr size_t physical_limit = frame_limit - 20;
+constexpr size_t logical_limit = 1024 * 1024;
 constexpr uint32_t identity_limit = 0x7fffffff;
-enum class Kind : uint8_t { Transfer = 1, Data, Close, Ack };
+enum class Kind : uint8_t { Transfer = 1, Data, Close, Ack, Fragment };
 
 struct Identity {
     uint32_t id;

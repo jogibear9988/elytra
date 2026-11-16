@@ -43,7 +43,7 @@ bool Ledger::can_send(Identity identity, size_t size) const
     if (state(identity) != State::Live)
         return false;
     auto const& route = m_routes.at(identity.id);
-    return size <= frame_limit - header_size && route.sent.size() < message_limit
+    return size && size <= logical_limit && route.sent.size() < message_limit
         && size <= route_bytes_limit - route.sent_bytes
         && size <= direction_bytes_limit - m_sent_bytes;
 }
@@ -62,7 +62,7 @@ bool Ledger::received(Identity identity, size_t size)
     if (state(identity) != State::Live)
         return false;
     auto& route = m_routes.at(identity.id);
-    if (size > frame_limit - header_size || route.received.size() >= message_limit
+    if (!size || size > logical_limit || route.received.size() >= message_limit
         || size > route_bytes_limit - route.received_bytes
         || size > direction_bytes_limit - m_received_bytes)
         return false;

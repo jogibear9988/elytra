@@ -1,7 +1,7 @@
 /** Run the actual port core with Mite jobs, GC and native BridgeData, without a GUI. */
 #include "core/Runtime.h"
 #include "modules/ModuleLoader.h"
-#include "native/ipc/application/Message.h"
+#include "native/utility/ports/Protocol.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
 #include "serialization/WireValue.h"
@@ -25,7 +25,8 @@ int main(int argc, char** argv)
                 if (graph.is_error())
                     return vm.throw_completion<JS::Error>("Unsupported port data graph"_utf16);
                 auto wire = graph.value().encode_wire(Firefly::message_port_limits());
-                if (wire.is_error() || wire.value().length() > Firefly::ApplicationIpc::wire_limit)
+                if (wire.is_error()
+                    || wire.value().length() > Firefly::Utility::Ports::logical_limit)
                     return vm.throw_completion<JS::Error>(
                         "Port data graph exceeds wire budget"_utf16);
                 return Firefly::wire_value(vm.realm(), wire.value());
@@ -34,7 +35,8 @@ int main(int argc, char** argv)
         native->define_native_function(
             realm, "decodeIpc"_utf16,
             +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
-                auto wire = Firefly::wire_bytes(vm.argument(0), vm.realm());
+                auto wire = Firefly::wire_bytes(
+                    vm.argument(0), vm.realm(), Firefly::WireValuePolicy::PortMessage);
                 if (wire.is_error())
                     return vm.throw_completion<JS::Error>("Invalid port wire bytes"_utf16);
                 auto graph = Firefly::BridgeData::decode_wire(

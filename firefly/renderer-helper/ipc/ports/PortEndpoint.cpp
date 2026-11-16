@@ -25,6 +25,7 @@
 namespace Firefly {
 namespace {
     namespace P = Utility::Ports;
+    static_assert(P::physical_limit == ApplicationIpc::wire_limit);
 
     class NativePortTarget final : public Web::DOM::EventTarget {
         GC_CELL(NativePortTarget, Web::DOM::EventTarget);
@@ -154,6 +155,9 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
     if (found == m_routes.end())
         return false;
     if (packet.kind == P::Kind::Close) {
+        if (m_fragments.active(packet.route))
+            return false;
+        m_fragments.close(packet.route);
         found->value.peer_closed = true;
         if (found->value.forwarder && found->value.incoming_sizes.empty())
             close(packet.route, false);
@@ -170,9 +174,22 @@ bool PortEndpoint::receive(u32 sequence, ReadonlyBytes bytes)
         return true;
     }
 
-    if (found->value.peer_closed || packet.kind != P::Kind::Data
-        || !m_ledger.received(packet.route, packet.payload.size()))
+    if (found->value.peer_closed)
         return false;
+    std::vector<char> assembled;
+    if (packet.kind == P::Kind::Fragment) {
+        auto result = m_fragments.accept(packet, m_ledger);
+        if (result.status == P::Reassembler::Status::Invalid)
+            return false;
+        if (result.status == P::Reassembler::Status::Pending)
+            return true;
+        assembled = std::move(result.payload);
+        packet.payload = assembled;
+    } else if (packet.kind != P::Kind::Data || m_fragments.active(packet.route)
+        || !m_ledger.received(packet.route, packet.payload.size())) {
+        return false;
+    }
+
     auto wire = ByteString(packet.payload.data(), packet.payload.size());
     if (BridgeData::decode_wire(wire.view(), message_port_limits()).is_error())
         return false;
@@ -368,8 +385,8 @@ void PortEndpoint::dispatch(P::Identity identity, Web::DOM::Event& event)
         refusal = "encoding";
     else if (found == m_routes.end())
         refusal = "route-retired";
-    else if (frame_bytes + P::header_size > ApplicationIpc::wire_limit)
-        refusal = "frame-bytes";
+    else if (frame_bytes > P::logical_limit)
+        refusal = "logical-bytes";
     else if (found->value.outgoing.size() >= waiting_message_limit)
         refusal = "route-messages";
     else if (found->value.outgoing_bytes + frame_bytes > 1024 * 1024)
@@ -420,6 +437,7 @@ void PortEndpoint::close(P::Identity identity, bool notify)
     }
 
     m_outgoing_bytes -= route->outgoing_bytes;
+    m_fragments.close(identity);
     m_ledger.close(identity);
     if (notify && !send(P::Kind::Close, identity))
         m_endpoint.retire_channel();
@@ -463,6 +481,22 @@ void PortEndpoint::flush()
             auto& route = found->value;
             if (!m_ledger.can_send(identity, route.outgoing.first().length()))
                 break;
+            auto count = P::fragment_count(route.outgoing.first().length());
+            auto bytes = P::fragment_wire_bytes(route.outgoing.first().length());
+            // Atomic logical admission: all bounded physical slots and retained
+            // wire bytes must be available before the first fragment is queued.
+            if (!count || count > ApplicationIpc::queue_limit - m_endpoint.m_byte_queue.size())
+                break;
+            if (count > 0xffffffffu - m_next || (count > 1 && m_fragment_serial == 0xffffffffu)) {
+                m_endpoint.retire_channel();
+                return;
+            }
+
+            auto reservation = m_endpoint.m_wire_budget->reserve(bytes);
+            if (!reservation)
+                break;
+            reservation = nullptr;
+            auto serial = count > 1 ? ++m_fragment_serial : 0;
             auto wire = route.outgoing.take_first();
             route.outgoing_bytes -= wire.length();
             m_outgoing_bytes -= wire.length();
@@ -470,20 +504,21 @@ void PortEndpoint::flush()
             if (ipc_bytes_diagnostics_enabled()
                 && route.diagnostic_sent != std::numeric_limits<u64>::max())
                 ++route.diagnostic_sent;
-            if (!send(P::Kind::Data, identity, wire.bytes())) {
-                m_endpoint.retire_channel();
-                return;
-            }
-            // send() queues while the flush guard is held; publish it in order.
-            if (m_next == 0xffffffffu) {
-                m_endpoint.retire_channel();
-                return;
-            }
+            size_t offset = 0;
+            do {
+                auto fragment = P::encode_next(
+                    identity, serial, { wire.characters(), wire.length() }, offset);
+                if (fragment.bytes.empty()) {
+                    m_endpoint.retire_channel();
+                    return;
+                }
 
-            auto frame = m_controls.take_first();
-            m_control_bytes -= frame.length();
-            if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false, frame))
-                return;
+                auto frame = ByteString(fragment.bytes.data(), fragment.bytes.size());
+                if (!m_endpoint.send_packet(
+                        ApplicationIpc::Kind::PortControl, ++m_next, false, frame))
+                    return;
+                offset = fragment.next_offset;
+            } while (offset < wire.length());
         }
     }
 
@@ -499,6 +534,11 @@ void PortEndpoint::expire()
 {
     if (!live())
         return;
+    if (m_fragments.expired()) {
+        m_endpoint.retire_channel();
+        return;
+    }
+
     Vector<P::Identity> ids;
     for (auto const& entry : m_routes)
         ids.append(entry.value.identity);
@@ -591,6 +631,8 @@ void PortEndpoint::revoke()
     }
 
     m_routes.clear();
+    m_fragments.clear();
+    m_fragment_serial = 0;
     m_ledger.clear();
     m_controls.clear();
     m_transfer_acks.clear();

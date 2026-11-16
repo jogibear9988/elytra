@@ -36,7 +36,7 @@ export default function createRendererPorts(native, channels, error) {
       // The other peer can already belong to a utility: this is the actual
       // SharedProcess relay. Utility-to-utility forwarding remains refused.
       allowNativeRelay: true,
-      maxPayload: 128 * 1024 - 20 - 16
+      maxPayload: 1024 * 1024
     });
     const record = { epoch, link };
     links.set(id, record);

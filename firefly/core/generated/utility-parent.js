@@ -77,7 +77,7 @@ function createRemoteLinks(hooks) {
     }
     function bind(record, value) {
       const route = {
-        maxPayload: transport.maxPayload ?? 128 * 1024 - 16,
+        maxPayload: transport.maxPayload ?? 1024 * 1024,
         id: value.id,
         generation: value.generation,
         record,
@@ -719,6 +719,7 @@ var getters = Object.getOwnPropertyDescriptors(typed);
 var tag = getters[Symbol.toStringTag].get;
 var define = Object.defineProperty;
 var maxFrame = 128 * 1024;
+var maxLogicalPayload = 1024 * 1024;
 function invalid() {
   throw Object.assign(new Error("Invalid utility port packet"), {
     code: "ERR_FIREFLY_UTILITY_CHANNEL"
@@ -734,7 +735,7 @@ function decodePortPacket(value, expected) {
       invalid();
     }
     size = apply(getters.byteLength.get, value, []);
-    if (size < 16 || size > maxFrame) {
+    if (size < 16 || size > maxLogicalPayload + 16) {
       invalid();
     }
     buffer = apply(getters.buffer.get, value, []);
@@ -753,7 +754,7 @@ function decodePortPacket(value, expected) {
   const id = number(8);
   const generation = number(12);
   const required = expected === "port-transfer" ? 1 : expected === "port-data" ? 2 : expected === "port-close" ? 3 : 0;
-  if (!required || kind !== required) {
+  if (!required || kind !== required || kind !== 2 && size > maxFrame) {
     invalid();
   }
   const descriptors = [];

@@ -2,11 +2,12 @@
 
 Status: **partial, locally tested on macOS** with real Firefly and Electron 45.2.3.
 Actual LibJS child execution, binary messaging, stdio/lifecycle, rapid failed entries
-and parent teardown pass, as do six native boundary tests. Full Electron parity,
-Code-OSS shared-process execution and fresh Linux/Windows remain unverified.
-Initial main-to-utility MessagePort handoff now passes a real no-window native
-fixture on macOS. Renderer/DOM handoff and transfer back from the child remain
-unavailable; this does not establish the Code-OSS SharedProcess handshake.
+and parent teardown pass, as do native boundary tests. Full Electron parity,
+complete Code-OSS developer workflows and fresh Linux/Windows remain unverified.
+Main-to-utility handoff, 512 KiB fragmented DATA duplex and main/utility-to-principal
+DOM relay pass focused native/offscreen fixtures on macOS. Transfer lists back
+from the child remain unavailable. These component gates do not establish a
+usable Code-OSS editor.
 
 ## Fork a utility module
 
@@ -93,9 +94,13 @@ utility child with the private inherited native channel, not ordinary Mite scrip
 Both directions use the native [IPC data subset](ipc.md#data-and-resource-limits):
 plain supported data graphs, cycles/aliases and fixed ArrayBuffer/view snapshots.
 The aggregate distinct binary backing-store capture budget is 1 MiB per graph.
-Native port messages still fit a single 128 KiB encoded frame, including protocol
-metadata; they must satisfy both bounds. Larger backing stores or graphs do not
-gain fragmentation from the higher capture ceiling. Data is copied into independently writable receiver
+Encoded port DATA is limited to 1 MiB including graph metadata. Larger DATA uses
+native fragments within the unchanged 128 KiB physical-frame bound. Full logical
+quota is reserved before reassembly, and only one complete validated graph is
+published. Transfers containing port attachments and ordinary utility messages
+retain their existing single-frame limit. Partial DATA has a fixed 30-second
+deadline; its native timer is unreferenced and cannot keep a finished process alive.
+See [native port fragmentation](../architecture/0198-bounded-native-port-fragmentation.md). Data is copied into independently writable receiver
 storage. This is not zero-copy transfer.
 
 The main process can transfer up to 16 owned MessageChannelMain endpoints with

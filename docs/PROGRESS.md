@@ -14575,6 +14575,60 @@ remain passing. Evidence: port-encode-frame-guard-{build,main}.log. This does no
 implement native fragmentation; the proven170933-byte Code-OSS blocker remains
 next. Ladybird pin check still passes with unmodifiedb872e601.
 
+## 2026-11-17 — Fragment bounded logical DATA across actual native port routes
+
+Add a shared stdlib-only DATA fragment codec/reassembler under native/utility/ports.
+Keep small DATA envelopes unchanged; native-only kind5 carries monotonic serial,
+total and contiguous offset. Common physical ceiling131052bytes fits one128KiB
+outer application frame; compile-time renderer assertions bind those constants.
+Logical encoded DATA is bounded at1MiB. Keep16unconsumed/1MiBroute and4MiBdirection
+quotas. Reserve full receive credit before allocation; validate native route,
+generation, serial, total and offset; decode/dispatch only once after completion.
+Fixed30s first-fragment deadline never renews. Teardown/EOF/timeout clear partials;
+utility deadline timer is unreferenced and cannot keep a finished process alive.
+
+Main, helper and utility preflight the entire at-most9-frame physical batch and
+byte budget before emitting its first fragment. One logical sent debit, no
+fragment consumption ACKs, and atomic bounded downstream handoff preserve existing
+hop-by-hop credit. Encode one chunk at a time, fail closed on a mid-batch error,
+and keep close after prior admitted DATA. JavaScript sees only a complete DATA
+envelope. PortMessage wire policy admits1MiB, while ordinary application IPC and
+utility data keep their separate profiles. Transfer attachments remain single-frame.
+Independent review catches an initial-transfer guard accidentally using logical
+DATA size; correct it to physical limit minus envelope/attachment metadata before
+admission. Also align initial graph validation with the helper's port profile so
+a sparse5000-length unsupported attachment rejects without detaching source ports.
+No Ladybird edit or standalone Mite→Firefly dependency.
+
+Release main/offscreen, lifetime and native protocol-probe targets build. Native
+protocol probe verifies boundary counts/exact bytes, malformed offsets/totals,
+replay/interleaving, quota ownership, deadline nonrenewal and cleanup. Actual local
+main ports pass200KiB snapshots; native codec/GC/queued-ownership gate passes.
+Actual utility fixture passes512KiB duplex after delayed-start/binaryFIFO cases.
+Actual principalDOM→main→realutility→DOM relay passes512KiB sliced backing,
+DataView/alias/fullbyte/mutation isolation, orderedclose andPID retirement. Repeat
+only the affected renderer batch after the final transfer-profile guard; sparse
+attachment refusal leaves its source channel usable and the full relay still passes.
+Evidence: native-port-fragmentation-{build,admission-build,protocol,main,utility,
+relay,lifetime,transfer-rejection}.log and native-port-transfer-profile-build.log.
+JS codegen/upstream pin/style/diff checks pass; website351pages/25245local targets
+pass. ADR0198 and API/matrix docs distinguish local acceptance from platform/editor
+claims and correct stale renderer-handoff status.
+
+The first actual Code-OSS observation now stalls EARLIER, before document IPC,
+preload or extension init. Main21891 and both owned renderer helpers21907/21911
+are alive; a1second21907 stack capture is in native poll/eventloop. No fragments
+have been attempted. The navigation client's5s cleanup has zero pending requests
+and alone proves no failure. Source candidate: selected-process response-body
+move/import/adoption before document population in updated SDK. Diagnose that
+transition next; do not alter authority leases or restart merely on timeout.
+Actual170933-byte application exchange, extension activation and usable editor
+remain unverified. Evidence: codeoss-native-port-fragmentation-start.log and
+codeoss-fragmentation-webcontent-sample.txt. Stop the authenticated main group,
+track helperPIDs21893/21894/21896/21907/21911 and verify ALL exit despite separate
+helper process groups. No GUI is opened, new app copies retained or dependencies
+installed. Preserve user Finder metadata.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
