@@ -82,6 +82,7 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
         const graph={b,view,alias:view,data}; graph.self=graph;
         const copy=api.echo(graph);
         copy.view[0]=33;
+        copy.localResult=17;
         api.value[0]=42;
         let rejected=false;try{api.echo(new Uint8Array(1048577))}catch(e){rejected=e instanceof TypeError}
         let aggregateRejected=false;try{api.echo([new Uint8Array(524289),new Uint8Array(524289)])}catch(e){aggregateRejected=e instanceof TypeError}
@@ -98,7 +99,7 @@ ErrorOr<void> check_binary_bridge(JS::VM& vm, Web::DOM::Document& document)
         copy.self===copy && copy.view===copy.alias && copy.view.buffer===copy.b &&
         copy.data.buffer===copy.b && copy.data.byteOffset===3 && copy.data.byteLength===23 &&
         copy.view.byteOffset===5 && copy.view.length===17 && copy.b.byteLength===1048576 && new Uint8Array(copy.b)[1048575]===129 &&
-        copy.view instanceof Uint8Array && Object.isFrozen(copy) &&
+        copy.view instanceof Uint8Array && !Object.isFrozen(copy) && copy.localResult===17 && !Object.hasOwn(graph,'localResult') &&
         bytes[5]===128 && api.original()===0 && answer[0]===12 && traps===0 && rejected && aggregateRejected && backingRejected;
     )JS"sv));
     checkpoint();

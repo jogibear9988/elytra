@@ -14188,6 +14188,33 @@ new chunk-rearm case is still unexecuted (ladybird-2026-11-16-world-jobs.log).
 The validated renderer migration 058cad3 is pushed to the candidate branch;
 master and public release remain unchanged pending update gates.
 
+## 2026-11-16 — Restore isolation fixtures to the verified Electron result contract
+
+Diagnose default isolation without changing production security rules or SDK
+sources. The stage-3 redaction failure is a stale frozen-result expectation:
+1363fc9 already corrected synchronous/Promise result copies against actual
+Electron 45.2.3, while initial publication and callback inputs remain frozen.
+Two other fixtures retained the same stale expectation (binary result containers
+and target Promise continuation after source revocation).
+
+Correct all three fixtures to assert independently mutable copies. Keep exact
+redaction/realm/alias/empty-key checks and add destination mutations followed by
+fresh-copy/source/publication independence checks. Retain no-trap, raw capability,
+quota, lifetime and revocation assertions. Clarify the API documentation's
+redaction paragraph; it incorrectly called every redacted result frozen even
+though its result-copy section already described the mutable contract. Remove
+temporary diagnostic expansion after establishing the exact cause.
+
+The actual full native isolation executable now passes, including the new
+internal u64 timer chunk rearm/GC/revocation case and existing Promise, observer,
+listener, WebIDL, binary/callback and document-teardown controls
+(ladybird-2026-11-16-isolation-final.log). The focused --world-jobs run also passes
+(ladybird-2026-11-16-world-jobs-recheck.log). This supersedes the earlier failing
+local fixture evidence above. The complete check-firefly-isolation build target,
+including native wire prerequisites, also passes
+(ladybird-2026-11-16-isolation-gate.log). Fresh hosted candidate/platform gates remain open.
+No additional desktop windows were launched or closed during this work.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

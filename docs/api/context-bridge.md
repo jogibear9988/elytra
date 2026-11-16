@@ -212,8 +212,10 @@ Promise continuations keep running. Late results cannot revive a revoked endpoin
 Callback arguments/results themselves must be supported data: higher-order function
 results, callable proxies/bound functions, ports and native objects remain unsupported.
 The bounded binary subset below is now supported. The native ipcRenderer module is a specific exception: crossing
-from preload to document replaces that exact module with a frozen empty ordinary
-object, including event.sender, nested API values and synchronous/Promise results.
+from preload to document replaces that exact module with an empty ordinary object.
+Initial API publication and callback inputs (including event.sender) are frozen;
+synchronous and Promise results are independent mutable copies, like other
+function results. Nested aliases are preserved within each copy.
 No methods, expandos, getters or listener bookkeeping are copied from the module.
 An individual raw IPC method still rejects, as does a copied object containing one.
 Normal IPC serialization has no module-redaction exception. Prefer the narrow
@@ -225,9 +227,9 @@ Full startup and renderer/utility port transfer remain unaccepted.
 
 This follows [Electron's documented ipcRenderer boundary](https://www.electronjs.org/docs/latest/api/context-bridge#exposing-ipcrenderer).
 The actual Electron 45.2.3 positive fixture strips the IPC methods but retains own
-EventEmitter bookkeeping; Firefly deliberately drops that data too and freezes the
-empty destination object. Reference tests compare absence of IPC methods, with
-exact emptiness/freezing checked separately for Firefly. See
+EventEmitter bookkeeping; Firefly deliberately drops that data too. Reference tests
+compare absence of IPC methods, with exact emptiness, publication freezing and
+result-copy independence checked separately for Firefly. See
 [ADR 0138](../architecture/0138-document-callback-bridge.md) and
 [ADR 0139](../architecture/0139-private-ipc-module-redaction.md).
 

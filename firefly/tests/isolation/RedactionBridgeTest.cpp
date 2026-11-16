@@ -109,22 +109,42 @@ ErrorOr<void> check_redaction_bridge(JS::VM& vm, Web::DOM::Document& document)
     )JS"sv,
         true));
     TRY(check(uR"JS(
-        globalThis.redactionEmpty=value=>Object.getPrototypeOf(value)===Object.prototype &&
-            Reflect.ownKeys(value).length===0 && Object.isFrozen(value);
+        globalThis.redactionEmpty=(value,frozen=true)=>Object.getPrototypeOf(value)===Object.prototype &&
+            Reflect.ownKeys(value).length===0 && Object.isFrozen(value)===frozen;
         const api=__ffRedaction, result=api.get();
-        redactionEmpty(__ffPrivateRedacted) && redactionEmpty(api.module) && redactionEmpty(api.a) && api.a===api.b &&
-            redactionEmpty(result.a) && result.a===result.b &&
+        const copied=redactionEmpty(__ffPrivateRedacted) && redactionEmpty(api.module) &&
+            redactionEmpty(api.a) && api.a===api.b &&
+            !Object.isFrozen(result) && redactionEmpty(result.a,false) && result.a===result.b &&
+            result.a!==api.a && !('send' in result.a) &&
             api.emit((event,value)=>redactionEmpty(event.sender) && event.sender===event.alias &&
                 Object.isFrozen(event) && Array.isArray(event.ports) && event.ports.length===0 &&
                 value.n===7 && !('send' in event.sender));
+        let independent=false;
+        if(copied) {
+            result.a.localResult=19;
+            const again=api.get();
+            independent=result.b.localResult===19 && again.a!==result.a &&
+                again.a===again.b && redactionEmpty(again.a,false) &&
+                redactionEmpty(api.a) && redactionEmpty(__ffPrivateRedacted);
+        }
+        copied && independent;
     )JS"sv));
     TRY(check(uR"JS(
         globalThis.redactionPromise=false;
-        __ffRedaction.promised().then(value=>redactionPromise=redactionEmpty(value));true;
+        __ffRedaction.promised().then(value=>{
+            const copied=redactionEmpty(value,false) && value!==__ffPrivateRedacted && !('send' in value);
+            value.localPromise=23;
+            redactionPromise=copied && value.localPromise===23 && redactionEmpty(__ffPrivateRedacted);
+        });true;
     )JS"sv));
     checkpoint();
     TRY(check(u"redactionPromise===true"sv));
-    TRY(check(u"redactionTraps===0 && privateCalls===0 && (privateModule=null,true)"sv, true));
+    TRY(check(uR"JS(
+        redactionTraps===0 && privateCalls===0 &&
+            !Object.hasOwn(privateModule,'localResult') && !Object.hasOwn(privateModule,'localPromise') &&
+            (privateModule=null,true);
+    )JS"sv,
+        true));
     auto weak_module = register_collectable(*source);
     vm.heap().collect_garbage();
     if (weak_module.ptr())

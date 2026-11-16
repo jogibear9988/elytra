@@ -297,7 +297,13 @@ ErrorOr<void> check_world_job_guard(JS::VM& vm, Web::DOM::Document& document)
         });
         TRY(page_check(uR"JS(
             globalThis.publishedResultReceived=false;
-            publishedCall().then(v=>{publishedResultReceived=v.n===42 && Object.isFrozen(v)});
+            publishedCall().then(v=>{
+                // Function results are independent mutable copies, matching
+                // Electron; only initial contextBridge publication is frozen.
+                const copied=v.n===42 && Object.getPrototypeOf(v)===Object.prototype && !Object.isFrozen(v);
+                v.n=43;
+                publishedResultReceived=copied && v.n===43;
+            });
             // Source completion -> forwarding -> source detach -> target handler.
             Promise.resolve().then(()=>{Promise.resolve().then(()=>detachAfterPublish())});
             true;
