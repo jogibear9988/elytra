@@ -41,6 +41,8 @@ The [node:perf_hooks reference](perf-hooks.md) covers native monotonic now and t
 fixed process runtime timeOrigin; timeline/profiling APIs remain absent.
 The [worker_threads reference](worker-threads.md) covers genuine independent-VM
 threads, message snapshots, termination and unsupported shared-memory/transfer modes.
+The [structuredClone reference](structured-clone.md) covers synchronous graph and
+binary copies, capability refusal, quotas and unsupported transfer modes.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
 error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,

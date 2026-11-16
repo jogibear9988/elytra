@@ -639,6 +639,11 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_title.py"
                 --mite "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-structured-clone
+        COMMAND
+            "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_structured_clone.py"
+            --mite "$<TARGET_FILE:mite>")
+    add_test(
         NAME mite-os-constants
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_constants.py"
                 --mite "$<TARGET_FILE:mite>")

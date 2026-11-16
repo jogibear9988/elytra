@@ -26,6 +26,7 @@
   "worker_threads": "mite/modules/workers/index.mjs",
   "child_process": "mite/modules/process/child-process.mjs",
   "bootstrap": "mite/runtime/bootstrap/globals.mjs",
+  "structured-clone": "mite/runtime/bootstrap/clone/structured-clone.mjs",
   "timers_promises": "mite/modules/core/timers-promises.mjs",
   "tls": "mite/modules/network/tls.mjs",
   "https": "mite/modules/network/https.mjs",

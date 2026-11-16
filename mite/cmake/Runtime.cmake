@@ -40,6 +40,7 @@ function(mite_add_runtime target root js_target)
         process
         process_events
         process_stdio
+        structured-clone
         policy-watcher
         sqlite
         native-keymap

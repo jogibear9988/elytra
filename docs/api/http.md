@@ -102,8 +102,12 @@ subclasses, queued cancellation, delayed failure and teardown. Three additional
 groups run the unchanged, SHA-256-checked `agent-base` 7.1.4 dependency from the
 pinned Code-OSS stage, including genuine delegated Agents. The optional package
 fixture requires `--stage`; ordinary CI explicitly reports it skipped when no
-Code-OSS dependencies are staged. Fresh Windows/Linux Agent acceptance remains
-unverified. See [ADR 0197](../architecture/0197-native-http-agent-admission.md).
+Code-OSS dependencies are staged. The ordinary Agent gate also passes in the
+native [Linux](https://github.com/jogibear9988/elytra/actions/runs/43956881619)
+and [Windows](https://github.com/jogibear9988/elytra/actions/runs/43956881539/job/133613751481)
+CLI runs at f52fcb5; the overall Windows run still has separate reference/API
+failures. The staged agent-base cases remain locally verified only. See
+[ADR 0197](../architecture/0197-native-http-agent-admission.md).
 
 ## ClientRequest and streams
 

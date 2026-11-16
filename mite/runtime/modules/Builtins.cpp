@@ -876,6 +876,26 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
 
     TRY(install_policy_watcher());
     TRY(install_storage_and_keyboard());
+    // Install after authored Web globals exist so clone admission can capture
+    // their real private brands. No worker or networking capability is exposed.
+    auto parsed_clone = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_STRUCTURED_CLONE_SOURCE, sizeof(MITE_STRUCTURED_CLONE_SOURCE) - 1)),
+        m_realm, "mite:structured-clone"sv);
+    VERIFY(!parsed_clone.is_error());
+    GC::Root clone_script { parsed_clone.release_value() };
+    auto clone_initializer = TRY(m_vm.run(*clone_script));
+    VERIFY(clone_initializer.is_function());
+    GC::Root clone_factory { clone_initializer.as_function() };
+    GC::Root clone_host { JS::Object::create(m_realm, nullptr) };
+    clone_host->define_direct_property(
+        "types"_utf16, create_structured_clone_types_host(m_realm), JS::default_attributes);
+    clone_host->define_direct_property("DOMException"_utf16,
+        TRY(m_realm.global_object().get("DOMException"_utf16)), JS::default_attributes);
+    auto clone = TRY(JS::call(m_vm, *clone_factory, JS::js_undefined(), clone_host.ptr()));
+    VERIFY(clone.is_function());
+    m_realm.global_object().define_direct_property(
+        "structuredClone"_utf16, clone, JS::default_attributes);
     return {};
 }
 

@@ -90,4 +90,21 @@ GC::Ref<JS::Object> create_util_types_host(JS::Realm& realm)
         1, JS::default_attributes);
     return *result;
 }
+
+GC::Ref<JS::Object> create_structured_clone_types_host(JS::Realm& realm)
+{
+    // Own pristine native function objects instead of trusting the mutable
+    // public util.types namespace during a clone operation.
+    GC::Root result { create_util_types_host(realm) };
+    result->define_native_function(
+        realm, "isOrdinaryObject"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto value = vm.argument(0);
+            return JS::Value(value.is_object()
+                && value.as_object().engine_class_id() == JS_LAYOUT_CLASS_ID_OBJECT
+                && !JS::host_class_of(value.as_object()));
+        },
+        1, JS::default_attributes);
+    return *result;
+}
 }

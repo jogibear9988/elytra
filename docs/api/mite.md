@@ -48,7 +48,7 @@ Code-OSS package adapter and actual consumer acceptance are documented separatel
 ## Globals and process
 
 Available globals include global/globalThis, console, process, Buffer, URL,
-URLSearchParams, TextEncoder, TextDecoder, queueMicrotask, setTimeout/setInterval and
+URLSearchParams, TextEncoder, TextDecoder, [structuredClone](structured-clone.md), queueMicrotask, setTimeout/setInterval and
 clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
 [native Fetch contract](fetch.md), including [Blob/File/FormData](blob-formdata.md)
 body support. Global Web Crypto supplies native getRandomValues/randomUUID;

@@ -14321,6 +14321,54 @@ default title gate reports the optional staged-package test skipped explicitly.
 Next implement genuine standalone structured cloning and rerun the same real
 terminal fixture. No additional GUI launches or Code-OSS source changes.
 
+## 2026-11-16 — Standalone structuredClone runs the original xterm terminal
+
+Install a genuine synchronous LibJS graph copier as the standard global, without
+introducing a public private-module alias or depending on Firefly/LibWeb/Node.
+Capture pristine intrinsic operations and private native type predicates; do not
+consult mutable exported util.types. Copy supported objects/arrays, scalars,
+collections, dates/regular expressions and typed binary backings with graph
+identity, holes, offsets and destination ownership. Use explicit worker-aligned
+resource bounds. Transfers/shared/resizable buffers, native errors and opaque
+host providers fail explicitly; no silent empty-object substitutes. Captured
+provider brands reject real Blob/URL/fetch/stream/cancellation objects even after
+prototype replacement. Install after the original authored providers exist.
+
+Release Mite and Firefly/offscreen build successfully
+(structured-clone-mite-build{,-2}.log, structured-clone-firefly-build.log). Actual
+Node24.15 and Mite pass seven graph/binary/capability groups, then the exact
+SHA-256-pinned xterm Terminal's asynchronous ANSI parsing, buffer inspection,
+reset and disposal (structured-clone-native-final.log). This supersedes the
+earlier optional xterm failure recorded above. The non-GUI embedded host passes
+all seven groups (structured-clone-embedded.log). CTest clone/title/worker groups
+pass, and the separate util/types+Console differential gate passes
+(structured-clone-{regressions,util-types}.log). Add the API contract, matrix,
+overview and website navigation. Site build and link validation pass for 350
+pages / 25,164 local links/resources/fragments. No new native platform acceptance
+is inferred for clone/title from previous HTTP Agent gates.
+
+One batched offscreen Code-OSS run reaches renderer lifecycle Restored=3 and
+Eventually=4, verified against the actual upstream enum. The AgentHost progresses
+past the previous xterm errors and exchanges real protocol requests. Extension
+hosts still exit with code 0 before activating extensions, after actual initialize
+data exchange; retries also exit. Their parent pipe is already a referenced uv
+read, so adding a fake keepalive is unwarranted. Investigate explicit termination/
+MessagePort close vs native channel EOF with scalar ownership diagnostics next.
+Missing built-in extensions, native binding errors and Cocoa-only menu refusal
+remain visible. Workbench lifecycle is not visible rendering, usable editor,
+extension activation or open/edit/save acceptance. Evidence:
+codeoss-structured-clone-start.log. Stop only the verified diagnostic process
+group after capture and redact environment/configuration diagnostics.
+
+Hosted f52fcb5 Linux CLI is green; the ordinary HTTP Agent gate also passes on
+Windows. The newer Windows Node24.22 reference no longer exhibits the previous
+TCP stack crash, but introduces ten reference/API comparisons that fail. These
+include genuine reference drift, overly strict metadata/chunk assumptions and a
+buffered TCP data-loss candidate that must not be waived. A narrower fixed
+Node24.16 reference avoids confirmed URL/null and Blob-newline drift, but already
+changes llhttp; its metadata needs separate truthful version validation. Full
+Windows success, SDK promotion to master and alpha publication remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
