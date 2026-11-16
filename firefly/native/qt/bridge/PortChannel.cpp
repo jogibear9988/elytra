@@ -345,7 +345,9 @@ void Bridge::Impl::receive_renderer_port(
         }
 
         --ipc_outgoing_count;
-        emit_renderer_port(id, state.ipc_byte_epoch, "renderer-port-writable");
+        auto epoch = state.ipc_byte_epoch;
+        schedule_ipc_event_drain();
+        emit_renderer_port(id, epoch, "renderer-port-writable");
         return;
     }
 

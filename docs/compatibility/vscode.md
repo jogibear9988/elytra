@@ -19,19 +19,27 @@ The unchanged pinned xterm headless component passes actual asynchronous ANSI
 parsing, buffer inspection, reset and disposal under Mite. These component gates
 do not establish an integrated PTY or terminal UI.
 
-The current blocker is extension-host shutdown: each host exchanges initialize
-data, then exits with code 0 before activation. Native tracing observes a main-side
-port close before that exit. A renderer-origin close can propagate through the
-relay and produce the same native marker, so GC or ownership loss is not yet
-proven. The parent pipe is already a referenced libuv read; adding a keepalive
-would conceal the cause. Investigate close origin and explicit termination.
-Evidence: `codeoss-structured-clone-start.log` and
-`codeoss-extension-exit-origin.log` in the active review build directory.
+The scanner stall is resolved in the latest offscreen run: all 60 packaged system
+extensions and their NLS files are read, and the original scanner reports
+`Scanned system extensions: 60`. A bounded main-to-renderer event FIFO preserves
+the existing active ACK window instead of refusing normal response bursts.
+The standalone filesystem controls, full native outgoing-event gate and shared
+Electron reference pass. No Code-OSS behavior workaround is needed for this fix.
 
-The reused diagnostic package now contains 60 original static built-in extensions
+The next startup failure is `ERR_FIREFLY_PORT_SERIALIZATION: DOM port graph refused`
+followed by extension-host exit with code 0; no extensions are activated. Determine
+which original initialization message exceeds or violates the renderer port copy
+contract. The earlier native close markers alone did not establish GC or ownership
+loss; no keepalive is added. Evidence: `codeoss-outgoing-backlog-start.log`,
+`ipc-outbound-backlog-{before,after,electron}.log` and
+`codeoss-scanner-fs-controls.log` in the active review build directory. CA-29's
+opt-in scanner observations retain original awaits; remove them through verified
+owned-overlay retirement after recording this result.
+
+The reused diagnostic package contains 60 original static built-in extensions
 (558 files / 7,673,634 bytes) with verified source hashes and independent resource
 ownership. Another 35 source extensions require build outputs; three product
-VSIXs are not downloaded. Scanning and activation remain unverified. See the
+VSIXs are not downloaded. The partial static scan is verified; activation remains unverified. See the
 [built-in extension guide](../development/code-oss-builtin-extensions.md).
 
 Native binding gaps remain visible. Cocoa-only Services/native-handle refusal in

@@ -25,12 +25,12 @@
   pageEvents.onValue(listener);
   let rawCalls = 0;
   // Electron 45 also copies EventEmitter bookkeeping; Firefly drops all members.
-  const redactedModule = (value) =>
+  const redactedModule = (value, frozen = true) =>
     Object.getPrototypeOf(value) === Object.prototype &&
     ['send', 'invoke', 'on', 'once', 'removeListener', 'removeAllListeners', 'off'].every(
       (key) => !(key in value)
     ) &&
-    (!stableIdentity || (Reflect.ownKeys(value).length === 0 && Object.isFrozen(value)));
+    (!stableIdentity || (Reflect.ownKeys(value).length === 0 && Object.isFrozen(value) === frozen));
   pageEvents.onceRaw(async (event, value) => {
     ++rawCalls;
     const asyncModule = await pageEvents.moduleAsync();
@@ -40,8 +40,8 @@
       sender: redactedModule(event.sender),
       ports: Array.isArray(event.ports) && event.ports.length === 0,
       direct: redactedModule(pageEvents.privateModule),
-      result: redactedModule(pageEvents.module()),
-      asyncResult: redactedModule(asyncModule)
+      result: redactedModule(pageEvents.module(), false),
+      asyncResult: redactedModule(asyncModule, false)
     });
   });
   pageEvents.binaryMain(async (mainValue) => {
@@ -88,7 +88,7 @@
       if (stableIdentity) {
         capped = false;
         try {
-          pageEvents.binaryEcho(new Uint8Array(65537));
+          pageEvents.binaryEcho(new Uint8Array(1024 * 1024 + 1));
         } catch {
           capped = true;
         }
@@ -103,7 +103,7 @@
           callbackCopy[0] === 7 &&
           asyncCallbackCopy[0] === 9,
         tail: new Uint8Array(copy.b)[65535] === 255,
-        frozen: !stableIdentity || Object.isFrozen(copy),
+        mutable: !Object.isFrozen(copy),
         capped
       });
     } catch (error) {

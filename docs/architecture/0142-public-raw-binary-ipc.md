@@ -62,8 +62,11 @@ No JavaScript VM pointers are retained in native packet queues.
 Enter main JS only when its VM is available; recheck native document/request ownership
 before dispatch. Build mutable destination graph values, run normal application
 listeners/handlers, and release event credit through a private reply. Outgoing
-webContents events retain their separate 16/document, 64/host application ACK budget.
-A 30-second missing outgoing ACK retires that direction until a fresh document.
+webContents events retain their separate 16/document, 64/host active application
+ACK budget. A bounded serialized FIFO admits another 256 waiting/document and
+1024 waiting/host within retained-wire budgets, without occupying physical
+control/reply queue slots. A 30-second missing outgoing ACK or waiting-admission
+expiry retires that direction until a fresh document.
 
 In the helper, enter fresh world frames and defer at most one settlement per pending
 request while a source frame runs. Defer event dispatch with a bounded incoming count.

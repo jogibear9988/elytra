@@ -14436,6 +14436,64 @@ The extension host stays alive while _initialize waits. Investigate actual FS
 completion versus RPC/transport saturation next; no keepalive, skipped scanner,
 or claim of extension activation/editor usability. No desktop window is opened.
 
+## 2026-11-16 — Reproduce dropped file RPC replies at outgoing event admission
+
+Trace the actual scanner provider through ElectronIPCMainProcessService and
+ipc.electron.Protocol, rather than utility/DOM MessagePorts. Both Code-OSS protocol
+send implementations catch transport exceptions. Native main-to-renderer event
+admission currently throws after 16 outstanding document ACKs, so a normal burst
+can lose RPC replies without a scanner error. Preserve the evidence distinction:
+this is a concrete application-path failure seam, not yet a demonstrated complete
+startup fix.
+
+Concurrent direct FS controls complete 180/180 groups each under Node, standalone
+Mite and Firefly run-as-node (60 pinned manifests, promise/callback/FileHandle and
+original numeric-fd O_NONBLOCK sequences; exact bytes and NLS checks). Evidence:
+codeoss-scanner-fs-controls.log. The real outgoing event fixture now includes a
+shared 128-send FIFO/binary-snapshot burst. Against the unchanged native binary it
+fails exactly at Main-to-renderer event budget exceeded, before acceptance of the
+burst (ipc-outbound-backlog-before.log). Stop and verify the owned offscreen group
+before changing the native sender. A bounded serialized waiting FIFO, active-credit
+preservation, teardown/deadline behavior and actual post-fix startup remain to be
+validated in the next coherent step.
+
+## 2026-11-16 — Queue outgoing main events and complete the system-extension scan
+
+Replace synchronous refusal at the native active event window with a bounded
+serialized FIFO: 256 additional waiting events/document, 1024/host. Keep active
+16/document and 64/host credit shared with native port-transfer events. Reserve
+existing shared 16 MiB/document and 64 MiB/process wire budgets at admission and
+move the lease once into the physical packet. Snapshot before returning to caller;
+refuse new overflow synchronously without dropping admitted messages. Waiting
+events do not fill physical control/reply slots; preserve 48 non-Event slots and
+at most one contiguous Event fragment stream. Rotate windows fairly and coalesce
+ACK/port-ACK/writable/reset/retirement wakes through the owned Qt context. Clear
+leases/counts on document replacement/retirement. Waiting expires at 30 seconds;
+ACK deadline starts at first accepted physical fragment and expires after 30 seconds.
+
+Both native Release targets build (ipc-outgoing-backlog-build.log); four changed
+translation units pass strict syntax/format. Independent ownership/reentrancy review
+finds no substantive blocker. Full actual offscreen outbound gate passes: 128-send
+FIFO/mutable-binary snapshot bursts, two interleaved hidden documents, finite
+backlog rejection, no loss of admitted messages, ACK recovery, sender/reload,
+verified renderer SIGSTOP, real timeout retirement and resume/new-document recovery.
+Shared positive burst and two-window contract also pass actual Electron. Evidence:
+ipc-outbound-backlog-after.log and ipc-outbound-backlog-electron.log. Correct stale
+fixture assumptions to the existing documented mutable function/Promise results
+and 1 MiB contextBridge binary ceiling; initial API and callback input remain
+frozen. These are fixture corrections, not changed production copy semantics.
+
+Actual Code-OSS now reports Scanned system extensions:60; all 60 manifest reads,
+NLS checks/reads and translations finish. This proves the normal file-RPC burst
+previously lost responses at outgoing admission. No scanner bypass or keepalive.
+Next failure is ERR_FIREFLY_PORT_SERIALIZATION: DOM port graph refused, then
+extension host exit0/no activation. Actual usable editor, workspace open/edit/save,
+PTY, native Cocoa menu and fresh Linux/Windows desktop acceptance remain open.
+Evidence: codeoss-outgoing-backlog-start.log. CA-29 scanner observation retirement
+remains a follow-up using exact owned-file checks; no generic orphan-guard bypass.
+Ladybird remains unmodified at the synchronized b872e601 pin. No broad desktop
+suite or new retained package/dependency copy is created.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

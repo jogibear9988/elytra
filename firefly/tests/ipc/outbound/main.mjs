@@ -24,6 +24,8 @@ let report;
 let callbackReport;
 let rawReport;
 let binaryReport;
+const burstReports = new Map();
+let capacityReport;
 let frame;
 const value = { count: 0 };
 value.self = value;
@@ -60,6 +62,14 @@ ipcMain.on('binary:report', (_event, value) => {
   binaryReport = value;
 });
 
+ipcMain.on('burst-report', (event, data) => {
+  burstReports.set(event.sender, data);
+});
+
+ipcMain.on('capacity-report', (_event, data) => {
+  capacityReport = data;
+});
+
 ipcMain.on('closed-by-listener', (event) => {
   check(event.sender === window.webContents, 'close sender');
   window.destroy();
@@ -84,18 +94,6 @@ async function round() {
   window.webContents.send('order', 1);
   window.webContents.send('duplicates');
   window.webContents.send('cleanup');
-  for (let i = 5; i < 16; ++i) {
-    window.webContents.send('ignored');
-  }
-  if (!reference) {
-    let capped = false;
-    try {
-      window.webContents.send('ignored');
-    } catch (error) {
-      capped = error.code === 'ERR_FIREFLY_IPC_LIMIT';
-    }
-    check(capped, 'native outgoing queue not bounded');
-  }
   // Retry only until private ACK credit is available; send itself stays synchronous.
   for (let count = 0; count < 500; ++count) {
     await new Promise((resolve) => setTimeout(resolve, 10));
@@ -116,6 +114,69 @@ async function round() {
       report.trace === 'a0,b0,once0,a1,later1,duplicate,middle',
     'listener order/removal/snapshot: ' + JSON.stringify(report)
   );
+  // More than sixteen synchronous sends must queue without exposing native
+  // in-flight credit. Every send owns its snapshot before caller mutation.
+  burstReports.delete(window.webContents);
+  const burst = { index: 0, bytes: new Uint8Array(32) };
+  for (let index = 0; index < 128; ++index) {
+    burst.index = index;
+    burst.bytes.fill(index);
+    window.webContents.send('burst', index, burst);
+    burst.index = -1;
+    burst.bytes.fill(255);
+  }
+  window.webContents.send('burst-report');
+  await until(() => burstReports.has(window.webContents), 'burst report missing');
+  const burstReport = burstReports.get(window.webContents);
+  check(
+    burstReport.count === 128 && burstReport.ordered && burstReport.cloned,
+    'queued FIFO/snapshot burst: ' + JSON.stringify(burstReport)
+  );
+  console.log('IPC_BURST_FIFO_CLONES_PASS');
+
+  if (!reference) {
+    // Sixteen active messages plus 256 waiting entries form the finite cap.
+    // An earlier report may still occupy active credit, hence the bounded range.
+    // No owner-thread yield within this loop: the finite serialized backlog
+    // must reject synchronously, rather than silently dropping admitted sends.
+    capacityReport = null;
+    let admitted = 0;
+    let capped = false;
+    for (let index = 0; index <= 272; ++index) {
+      try {
+        window.webContents.send('capacity', index);
+        ++admitted;
+      } catch (error) {
+        if (error.code !== 'ERR_FIREFLY_IPC_LIMIT') {
+          throw error;
+        }
+        capped = true;
+        break;
+      }
+    }
+    check(
+      capped && admitted >= 256 && admitted <= 272,
+      'serialized backlog cap/admission: ' + admitted
+    );
+    // Once genuine delivery ACKs free space, a new send must be admitted.
+    for (let count = 0; count < 500; ++count) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      try {
+        window.webContents.send('capacity-report');
+        break;
+      } catch (error) {
+        if (error.code !== 'ERR_FIREFLY_IPC_LIMIT' || count === 499) {
+          throw error;
+        }
+      }
+    }
+    await until(() => capacityReport, 'backlog credit recovery missing');
+    check(
+      capacityReport.count === admitted && capacityReport.ordered,
+      'overflow dropped/reordered admitted messages: ' + JSON.stringify(capacityReport)
+    );
+    console.log('IPC_BACKLOG_LIMIT_RECOVERY_PASS');
+  }
   callbackReport = null;
   window.webContents.send('page-value', { n: 4 });
   if (!reference) {
@@ -156,11 +217,58 @@ async function round() {
       binaryReport.geometry &&
       binaryReport.copies &&
       binaryReport.tail &&
-      binaryReport.frozen &&
+      binaryReport.mutable &&
       binaryReport.capped,
     'binary context bridge: ' + JSON.stringify(binaryReport)
   );
   check(value.count === 0, 'renderer mutation reached main');
+}
+
+async function crossWindowBurst() {
+  // Keep the primary window identity intact for its existing sender assertions.
+  const peers = [0, 1].map(
+    () =>
+      new BrowserWindow({
+        show: false,
+        webPreferences: { preload: path.join(directory, 'preload.cjs') }
+      })
+  );
+  try {
+    await Promise.all(peers.map((peer) => peer.loadFile(path.join(directory, 'page.html'))));
+    const snapshot = { index: 0, bytes: new Uint8Array(32) };
+    // Interleave both documents in one main-thread turn; neither may starve.
+    for (let index = 0; index < 128; ++index) {
+      for (const peer of peers) {
+        snapshot.index = index;
+        snapshot.bytes.fill(index);
+        peer.webContents.send('burst', index, snapshot);
+        snapshot.index = -1;
+        snapshot.bytes.fill(255);
+      }
+    }
+    for (const peer of peers) {
+      peer.webContents.send('burst-report');
+    }
+    await until(
+      () => peers.every((peer) => burstReports.has(peer.webContents)),
+      'cross-window burst did not drain both documents'
+    );
+    for (const peer of peers) {
+      const result = burstReports.get(peer.webContents);
+      check(
+        result.count === 128 && result.ordered && result.cloned,
+        'cross-window FIFO/snapshot: ' + JSON.stringify(result)
+      );
+      burstReports.delete(peer.webContents);
+    }
+    console.log('IPC_CROSS_WINDOW_BURST_PASS');
+  } finally {
+    for (const peer of peers) {
+      if (!peer.isDestroyed()) {
+        peer.destroy();
+      }
+    }
+  }
 }
 
 app
@@ -191,6 +299,7 @@ app
     if (!reference) {
       check(old.isDestroyed() && frame !== old, 'document sender not revoked');
     }
+    await crossWindowBurst();
     if (!reference && pauseFile) {
       console.log(JSON.stringify({ pause: window.webContents.getOSProcessId() }));
       await until(() => fs.existsSync(pauseFile), 'test peer was not paused');

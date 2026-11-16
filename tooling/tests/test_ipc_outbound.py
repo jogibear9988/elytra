@@ -130,6 +130,10 @@ def main():
             )
             expected = "PASS public main-to-renderer events:"
         assert result.returncode == 0 and expected in result.stdout, result
+        assert "IPC_BURST_FIFO_CLONES_PASS" in result.stdout, result
+        assert "IPC_CROSS_WINDOW_BURST_PASS" in result.stdout, result
+        if not args.electron:
+            assert "IPC_BACKLOG_LIMIT_RECOVERY_PASS" in result.stdout, result
         assert (
             "VERIFICATION FAILED" not in result.stderr
             and "ERR_FIREFLY_IPC_LISTENER" not in result.stderr

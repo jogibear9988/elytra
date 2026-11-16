@@ -43,6 +43,8 @@ void Bridge::Impl::reset_ipc(int id)
         probe->close();
     window.ipc_admission_probes.clear();
     window.ipc_byte_queue.clear();
+    ipc_waiting_event_count -= window.ipc_waiting_events.size();
+    window.ipc_waiting_events.clear();
     window.ipc_reassembler.reset();
     window.ipc_receive_reservation = nullptr;
     window.ipc_fragment_deadline.clear();
@@ -61,6 +63,7 @@ void Bridge::Impl::reset_ipc(int id)
     window.ipc_control_last = 0;
     window.ipc_packets.clear();
     window.ipc_refused.clear();
+    schedule_ipc_event_drain();
 }
 
 ByteString Bridge::Impl::active_ipc_document(State const& window)
@@ -209,8 +212,11 @@ void Bridge::Impl::receive_ipc_packet(int id, u64 epoch, ReadonlyBytes bytes)
     }
 
     if (packet.kind == ApplicationIpc::Kind::Ack) {
-        if (window.ipc_outgoing.erase(packet.request))
+        if (window.ipc_outgoing.erase(packet.request)) {
             --ipc_outgoing_count;
+            schedule_ipc_event_drain();
+        }
+
         return;
     }
 

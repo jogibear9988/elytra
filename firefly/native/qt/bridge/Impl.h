@@ -207,6 +207,14 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         std::shared_ptr<size_t> editing_budget {};
         u32 ipc_outgoing_next { 0 };
         std::unordered_map<u32, MonotonicTime> ipc_outgoing {};
+
+        struct WaitingEvent {
+            ByteString wire;
+            MonotonicTime deadline;
+            RefPtr<IpcWireReservation> reservation;
+        };
+
+        Vector<WaitingEvent> ipc_waiting_events {};
         FilePicker* file_picker { nullptr };
     };
 
@@ -226,6 +234,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
     u64 ipc_byte_next_epoch { 0 };
     size_t ipc_pending_count { 0 };
     size_t ipc_outgoing_count { 0 };
+    size_t ipc_waiting_event_count { 0 };
+    bool ipc_draining_events { false };
+    bool ipc_event_drain_scheduled { false };
+    int ipc_last_event_window { 0 };
     RefPtr<Core::Timer> ipc_timer;
     std::unique_ptr<ApplicationMenu> application_menu;
     std::unique_ptr<ApplicationMenu> dock_menu;
@@ -351,6 +363,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         ByteString wire, ByteString url, RefPtr<IpcWireReservation>);
 
     JS::ThrowCompletionOr<JS::Value> send_ipc_event(JS::VM&);
+
+    void drain_ipc_events();
+
+    void schedule_ipc_event_drain();
 
     void expire_ipc_events();
 

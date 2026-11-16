@@ -182,15 +182,22 @@ webContents.send call targets the then-current document, rather than the documen
 that caused an earlier event. Use invoke's document-bound reply where appropriate.
 No arbitrary JavaScript execution is added to the page.
 
-Outgoing main events have a separate 16-per-document / 64-per-host outstanding
-budget, shared across channels. Exhaustion throws ERR_FIREFLY_IPC_LIMIT. A private
-ACK releases credit after synchronous listener dispatch, including an event with
+Outgoing main events use a separate 16-per-document / 64-per-host active ACK
+window, shared across channels and native port-transfer events. A serialized FIFO
+holds at most 256 additional waiting events per document and 1024 across the host,
+within the shared 16 MiB/document and 64 MiB/process retained-wire budgets.
+`send()` captures the payload immediately and returns `undefined` for admitted
+waiting events. Backlog or retained-byte exhaustion throws ERR_FIREFLY_IPC_LIMIT
+synchronously; it does not discard an earlier admitted event. Private ACKs drain
+the waiting queue after synchronous listener dispatch, including an event with
 no listener or a throwing listener. ACKs neither serialize listener results nor
-wait for returned Promises. The receiver also bounds deferred messages to 16 when
-its world is executing another frame; delivery waits for a fresh isolated frame.
+wait for returned Promises. The receiver bounds deferred active messages to 16
+when its world is executing another frame; delivery waits for a fresh isolated
+frame. Waiting events do not occupy physical reply or control-message slots.
 
-If an ACK is missing for 30 seconds, a native timer retires that document's outgoing
-endpoint, releases its reservations and logs ERR_FIREFLY_IPC_SEND. Further sends
+An outgoing ACK has a 30-second deadline starting when its first physical fragment
+is sent; waiting events have a separate 30-second admission deadline. If either
+expires, a native timer retires that document's outgoing endpoint, releases its reservations and logs ERR_FIREFLY_IPC_SEND. Further sends
 throw ERR_FIREFLY_IPC_REVOKED until a **new document** is loaded. Credit is not
 repeatedly replenished to a stalled peer, which would allow native transport queues
 to grow. The deadline cannot interrupt blocked JavaScript or undo messages already
@@ -298,6 +305,7 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
 | Active invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
 | Renderer FIFO waiting calls | 256 per document / 1024 per renderer, within the retained wire budgets |
+| Main FIFO waiting events | 256 per document / 1024 per host, within the retained wire budgets |
 | Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
 
 These are the new source application-channel limits. ContextBridge uses its own

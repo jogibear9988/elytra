@@ -121,6 +121,40 @@ ipcRenderer.once('report', () => {
   ipcRenderer.send('report', { welcome, stale, trace: trace.join(), invalid, blocked });
 });
 
+let burstCount = 0;
+let burstOrdered = true;
+let burstCloned = true;
+
+ipcRenderer.on('burst', (_event, index, value) => {
+  burstOrdered &&= index === burstCount;
+  burstCloned &&=
+    value.index === index &&
+    value.bytes instanceof Uint8Array &&
+    value.bytes.length === 32 &&
+    Array.from(value.bytes).every((byte) => byte === index);
+  ++burstCount;
+});
+
+ipcRenderer.once('burst-report', () => {
+  ipcRenderer.send('burst-report', {
+    count: burstCount,
+    ordered: burstOrdered,
+    cloned: burstCloned
+  });
+});
+
+let capacityCount = 0;
+let capacityOrdered = true;
+
+ipcRenderer.on('capacity', (_event, index) => {
+  capacityOrdered &&= index === capacityCount;
+  ++capacityCount;
+});
+
+ipcRenderer.once('capacity-report', () => {
+  ipcRenderer.send('capacity-report', { count: capacityCount, ordered: capacityOrdered });
+});
+
 ipcRenderer.on('close', () => {
   ipcRenderer.send('closed-by-listener');
 });

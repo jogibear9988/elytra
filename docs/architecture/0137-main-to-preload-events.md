@@ -19,7 +19,14 @@ Rebuild the owned helper/host together; no Ladybird edits or new upstream seams.
 
 Add webContents.send with synchronous plain-data capture/validation. Record the
 native target document/realm at call time. Use a separate monotonic outgoing ID
-space and 16-document/64-host ACK quota. Receiver checks identities/replays and
+space and 16-document/64-host active ACK quota. Queue additional captured events
+in a serialized FIFO (256 waiting/document, 1024 waiting/host), charging the shared
+16 MiB/document and 64 MiB/process retained-wire budgets. Refuse overflow before
+admission. Drain on available active credit, without allowing waiting events to
+block physical replies/control packets. Preserve document ownership and clear the
+backlog on reset/retirement. This avoids turning normal RPC response bursts into
+synchronous failures that an Electron application can catch and silently ignore.
+Receiver checks identities/replays and
 bounds deferred messages to 16. Enter a fresh isolated-world frame rather than
 recursing into an executing world. Release credit after synchronous dispatch or
 ignored/error delivery; ACKs carry no application result.
@@ -31,7 +38,9 @@ retain listener receiver/data identity and stop when the document/world revokes.
 Event sender is the private ipcRenderer object; ports is empty. Block native method
 publication through contextBridge. Teardown clears exported object/listener roots.
 
-A 30-second outgoing ACK timeout retires the direction for that document. Do not
+A 30-second outgoing ACK timeout begins with the first sent fragment; waiting
+admission has its own 30-second deadline. Either expiry retires the direction for
+that document. Do not
 replenish credit repeatedly to a stalled peer: that would move unbounded data into
 the native transport queue. Release reservations but reject further sends until a
 fresh document is loaded. Navigation/window shutdown also reclaim state. This
