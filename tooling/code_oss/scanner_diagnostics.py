@@ -1,4 +1,7 @@
-"""Explicit development-only scanner observations; no await/control-flow replacement."""
+"""Historical CA-29 transform, retained only for exact retirement verification.
+
+The active overlay no longer imports this module or exposes its option.
+"""
 
 import hashlib
 

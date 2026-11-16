@@ -203,36 +203,70 @@ The tool retains an original manifest backup and a retirement journal.
    Original worker operations now pass CA-18-V; actual Workbench integration remains CA-18-I.
 
 
-## CA-29: optional extension scanner diagnostics
+## CA-29: retired extension scanner diagnostics
 
-- [ ] Remove the scanner source observations after the underlying framework stall
-  is diagnosed and fixed; validate scanning with the original source bytes and
-  without this flag. This is instrumentation, not extension/workbench acceptance.
+- [x] Underlying framework cause fixed in `93d2037`: main-to-renderer event
+  admission now queues bounded bursts rather than exhausting active IPC credit.
+  The actual instrumented application scan subsequently found all 60 staged
+  static built-in extensions.
+- [x] Source retirement: the overlay option/imports and active logger helper are
+  removed. Normal compilation selects the original scanner bytes, SHA-256
+  `572182f1b3a3f10b2301d645bbaebfde27dbfc215d8e22b1f464f16339d78f48`.
+- [x] Retired the existing diagnostic stage and canonical overlay through exact
+  owned migration, then ordinary verified refresh. The actual offscreen run
+  reports all 60 system extensions with zero scanner instrumentation markers.
+  The scanner input has the original SHA above; the compiled helper is absent,
+  all six package adapters and the 558-file built-in inventory still verify.
+  Evidence: `scanner-retirement-{controls,refresh}.log` and
+  `codeoss-scanner-retired-start.log` in the active review build directory.
+  The superseded 4.7 MB owned backup was removed after verification; the compact
+  transaction journal remains. Later port-frame failure and editor acceptance
+  remain open.
 
-`tooling/code_oss/overlay.py --extension-scan-diagnostics` is a separate,
-default-off development option. It verifies the original
-`src/vs/platform/extensionManagement/common/extensionsScannerService.ts` SHA-256
-`572182f1b3a3f10b2301d645bbaebfde27dbfc215d8e22b1f464f16339d78f48`
-and adds only fixed observations immediately before/after original statements.
-The original awaits, return values, exceptions, extension classifications and
-source checkout remain unchanged; exact reversal is required. Without the flag,
-the scanner and logger helper are absent from the overlay, leaving the original
-scanner bytes selected by the normal compiler.
+WHY it existed: after staging the real static extensions, the shared process
+remained alive while initialization waited. CA-29 temporarily added bounded
+before/after phase counters around original scanner statements. It added no
+paths, payloads, retries, replacement results, timers or keepalives. Its original
+source transformation is retained only in `scanner_diagnostics.py` for exact
+historical reversal tests; no active overlay imports it. The old flag is no
+longer accepted.
 
-WHY: after staging the real 60 static built-in extensions, the actual shared
-process remains alive while the extension-system scan/initialization waits. The
-observations distinguish input translations/stat, directory resolve, manifest
-read, NLS existence/reads and cache I/O phases without exposing paths, URLs,
-manifest contents or environment values. Each helper module emits at most 1,024
-scalar lines of the form `[ELYTRA_EXTENSION_SCAN] phase=manifest edge=before
-counter=1`; matching counters correlate successful completion. A missing `after`
-is not proof of a hung await: the original statement may also have thrown.
-Logger exceptions are swallowed only inside the diagnostic helper. There are no
-new timers, keepalives, retries or replacement scanner results.
+`retire-scanner-diagnostics.mjs STAGE OVERLAY` is read-only by default. It requires
+both physical canonical directories, verifies the complete compiled stage,
+all six package adapters/manifests/additional audit files, the independently
+sealed built-in resource inventory, and every canonical overlay file. The old
+overlay must exactly equal the compiled stage's recorded adaptation provenance.
+The scanner/helper source/output hashes and the CA-29 disclosure are exact
+constants, not a generic permission to remove owned outputs.
 
-Source-policy validation uses
-`python3 tooling/tests/test_code_oss_scanner_diagnostics.py --source PINNED_SOURCE`.
-It checks exact reversal/drift refusal, default-off ownership, unchanged awaits,
-bounded scalar logging and logger-failure containment in Node. Actual diagnostic
-application execution and eventual uninstrumented scanner acceptance remain
-separate owner-run steps.
+After stopping all applications using the stage, the owner may add `--apply`.
+The transaction takes an exclusive non-stealing lock and rechecks both sets.
+It preserves a bounded original manifest/helper/scanner backup and journal,
+removes both completion claims before mutation, retires only the compiled helper
+and its input record, and removes only the two diagnostic overlay files/records
+and CA-29 disclosure. Every unrelated compiled-manifest byte and all six package
+records remain unchanged. The original scanner compiled record stays owned until
+ordinary verified refresh replaces it from the pinned unmodified source.
+Interrupted operations fail closed and retain their backups for inspection;
+Finder metadata is preserved. No generic orphan/collision checks are relaxed.
+
+```sh
+node tooling/code_oss/retire-scanner-diagnostics.mjs STAGE OVERLAY
+# Owner only, after reviewing that exact plan and stopping its applications:
+node tooling/code_oss/retire-scanner-diagnostics.mjs STAGE OVERLAY --apply
+```
+
+Then regenerate the canonical overlay without the retired flag and run normal
+compiler `--refresh` with the same six package selections. Verify the helper is
+absent, the scanner input uses the original SHA above, the static extension
+inventory still passes, and unchanged scanning actually completes. Keep the
+compact backup/journal until that verification; clean up only the superseded
+owned backup afterward.
+
+Focused controls use the real stage/overlay as **read-only** inputs and mutate
+only a compact temporary fixture:
+
+```sh
+python3 tooling/tests/test_code_oss_scanner_diagnostics.py --source PINNED_SOURCE
+node tooling/code_oss/test-retire-scanner-diagnostics.mjs STAGE OVERLAY
+```

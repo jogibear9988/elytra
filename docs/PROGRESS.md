@@ -14528,6 +14528,35 @@ fixed partial deadlines and close/teardown cleanup. This remains planned, not
 supported. Evidence: codeoss-port-profile-start.log. Stop the verified task-owned
 offscreen group before staging cleanup.
 
+## 2026-11-16 — Remove resolved scanner observations from source and staging
+
+Retire CA-29's active option/import and authored logger helper. Retain only the
+historical exact transform for source reversal verification. Add a deliberately
+narrow default-read-only migration requiring exact compiled/canonical overlay
+ownership, scanner/helper source+output hashes, disclosure, six known package
+adapters and independently verified built-in inventory. Apply only after stopping
+the verified task-owned application group; exclusive lock, exact recheck, bounded
+backup/journal and byte-preserving metadata splices keep interrupted/edited states
+fail-closed. Generic compiler orphan/collision guards are unchanged.
+
+Actual-record temporary controls pass drift/unknown/reentry refusal, exact retired
+helper removal, unchanged six package audits and bounded backup. Source pin/reversal
+and normal-overlay/helper absence controls pass. The actual migration and ordinary
+refresh compile12347 original sources with30 canonical overlay files. Original
+scanner SHA572182f1b3a3f10b2301d645bbaebfde27dbfc215d8e22b1f464f16339d78f48
+is selected; helper absent; six adapters and60extensions/558files/7673634bytes
+still verify. New compile manifest SHA
+d24ece88867a14424bc88fe5bcc377aa8b3f4c700159c35c20673070bf9ae0d7.
+
+Actual offscreen uninstrumented run reports Scanned system extensions:60 and zero
+ELYTRA_EXTENSION_SCAN markers. The known170933-byte subsequent port-frame refusal
+remains, so no extension/editor acceptance is claimed. Stop the owned observation
+group; after verification remove only the exact superseded4.7MB transaction backup,
+retaining compact journal and evidence logs. Evidence: scanner-retirement-{source-
+controls,controls,refresh}.log, scanner-retirement-{plan,applied,journal}.json,
+codeoss-scanner-retired-start.log. No original Code-OSS source or Ladybird edit,
+new full package/dependency copy, Finder metadata removal or desktop GUI test.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

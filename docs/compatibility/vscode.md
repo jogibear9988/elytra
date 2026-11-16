@@ -38,8 +38,10 @@ validation and partial-message cleanup/deadlines. These are planned requirements
 not implemented support.
 Evidence: `codeoss-dom-port-capture-size.log`, `codeoss-port-profile-start.log` and
 `message-port-profile-{main,lifetime,relay}.log` in the active review build directory.
-CA-29's now-completed scanner observations are being removed through exact owned
-retirement, without relaxing compiler orphan checks.
+CA-29 scanner observations are removed through exact owned retirement and normal
+verified compiler refresh. The original scanner still completes all 60 extensions,
+with zero instrumentation markers. All six package adapters and static resources
+remain verified; compiler orphan checks are unchanged.
 
 The reused diagnostic package contains 60 original static built-in extensions
 (558 files / 7,673,634 bytes) with verified source hashes and independent resource

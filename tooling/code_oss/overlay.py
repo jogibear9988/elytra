@@ -15,7 +15,6 @@ if __package__:
         shared_process_debug,
         agent_host_debug,
         extension_host_flags,
-        scanner_diagnostics,
     )
     from .engine import adapt_engine
     from .local_desktop import adapt_local, PATHS, OWNED, HELPER
@@ -27,7 +26,6 @@ else:
     import shared_process_debug
     import agent_host_debug
     import extension_host_flags
-    import scanner_diagnostics
     from engine import adapt_engine
     from local_desktop import adapt_local, PATHS, OWNED, HELPER
 
@@ -86,7 +84,6 @@ def prepare(
     libjs_cache=False,
     libjs_engine=False,
     local_desktop=False,
-    extension_scan_diagnostics=False,
 ):
     """Validate every input before creating a fresh, explicitly partial overlay."""
     if local_desktop and not (libjs_cache and libjs_engine):
@@ -166,23 +163,7 @@ def prepare(
                 "overlaySha256": sha256(patched),
             }
         )
-    if extension_scan_diagnostics:
-        original = (source / scanner_diagnostics.SOURCE).read_bytes()
-        patched = scanner_diagnostics.adapt_scanner(original)
-        planned[scanner_diagnostics.SOURCE] = patched
-        records.append(
-            {
-                "path": scanner_diagnostics.SOURCE,
-                "sourceSha256": sha256(original),
-                "overlaySha256": sha256(patched),
-            }
-        )
     for enabled, owned, target in (
-        (
-            extension_scan_diagnostics,
-            scanner_diagnostics.HELPER_SOURCE,
-            scanner_diagnostics.HELPER_TARGET,
-        ),
         (libjs_cache, CACHE_SOURCE, CACHE_TARGET),
         (libjs_engine, ENGINE_SOURCE, ENGINE_TARGET),
         (local_desktop, OWNED, HELPER),
@@ -226,10 +207,6 @@ def prepare(
         report["adaptations"].append(
             "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process, agent-host and extension-host inspectors with immutable unavailable status; extension-host implicit DNS ordering/network-inspection defaults are omitted, never claimed applied; unsigned-library relaxation is unavailable and opted out; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
         )
-    if extension_scan_diagnostics:
-        report["adaptations"].append(
-            "CA-29 opt-in bounded scalar extension-scanner await observations; no paths/payloads or semantic changes; remove after framework stall diagnosis"
-        )
     output.mkdir(parents=True)
     for name, data in planned.items():
         destination = output / name
@@ -258,11 +235,6 @@ def main():
         action="store_true",
         help="Prepare explicit limited local desktop experiment (requires cache and engine adaptations)",
     )
-    parser.add_argument(
-        "--extension-scan-diagnostics",
-        action="store_true",
-        help="Opt-in bounded scalar scanner await diagnostics; default off",
-    )
     args = parser.parse_args()
     prepare(
         args.source,
@@ -270,7 +242,6 @@ def main():
         libjs_cache=args.libjs_cache,
         libjs_engine=args.libjs_engine,
         local_desktop=args.local_desktop,
-        extension_scan_diagnostics=args.extension_scan_diagnostics,
     )
     print(f"Prepared audited Code-OSS overlay in {args.output}")
 
