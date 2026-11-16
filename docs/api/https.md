@@ -3,7 +3,8 @@
 Status: partial native HTTPS/1 client, locally verified on macOS ARM64. Uses the
 same ClientRequest/IncomingMessage implementation as node:http over verified native
 TLS; there is no separate JavaScript engine or plaintext fallback. Native Linux/Windows CLI HTTPS suites pass at da5e3e8; [current evidence](../status.md)
-records that baseline, with wider platform/option parity still open. HTTPS servers and Agents are unsupported.
+records that baseline, with wider platform/option parity still open. HTTPS servers
+and connection pooling remain unsupported; non-reusing Agents are implemented.
 
 HTTP/2 and HTTP/3 are [planned later work](../roadmap.md#planned-http2-and-http3).
 Current HTTPS support does not negotiate either protocol.
@@ -35,8 +36,13 @@ Default protocol is https: and port 443. Non-HTTPS URLs/protocols reject with
 ERR_INVALID_PROTOCOL; node:http continues rejecting https:. Host header generation
 omits the default port. URL pathname/query, URL/options authentication, method,
 headers, streaming writes, timeout, response framing and error behavior use the
-supported [HTTP contract](http.md). A connection is owned by one request; agent:false
-and omission select that policy. Agents, pooling and globalAgent are unfinished.
+supported [HTTP contract](http.md). A connection is owned by one request.
+`agent: false` selects direct transport; omission/null selects `https.globalAgent`.
+`https.Agent` inherits `http.Agent` admission/lifecycle and supplies a genuine TLS
+connector. Constructor CA/SNI/version options become connection defaults; request
+options use the same TLS validation. See [Agent admission](http.md#agent-admission-and-socket-ownership).
+TLS session caching is unavailable (`maxCachedSessions` is zero; nonzero options
+fail explicitly).
 
 ## TLS options and activation
 
@@ -54,8 +60,10 @@ unverified. Ambiguous legacy IPv4 spellings reject explicitly in TLS validation.
 
 ALPN defaults to http/1.1; an empty protocol list can disable negotiation. Other
 ALPN protocols reject explicitly because this module does not implement HTTP/2.
-The request publishes socket before connecting, then activates writes only after
-secureConnect. Tests confirm failed trust/hostname verification delivers no HTTP
+The direct path publishes socket before connecting. Agents may hand over an
+already connected socket; writes activate only after TLS readiness. Only genuine
+native TLS sockets are accepted for HTTPS, even from a custom Agent. An arbitrary
+TCP socket or an `encrypted` property does not bypass this check. Tests confirm failed trust/hostname verification delivers no HTTP
 request to the peer. Extra arguments to public http.ClientRequest cannot inject a
 private HTTPS transport plan.
 
@@ -76,8 +84,8 @@ close; response abortion is sequenced after that error.
 
 ## Limits and measured differences
 
-- Server/createServer and Agent constructors reject with ERR_MITE_UNSUPPORTED_API.
-  Client certificates, custom createConnection/verifier/context, proxy/local bind,
+- Server/createServer reject with ERR_MITE_UNSUPPORTED_API.
+  Client certificates, request-level createConnection, custom verifier/context, proxy/local bind,
   sessions, upgrades, tunneling and HTTP/2 remain unavailable.
 - Default anchors and strict SAN/close_notify policy differ from Node; consult TLS.
 - A plaintext peer receives ClientHello, never an HTTP request. Node 24 wraps this

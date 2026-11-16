@@ -3,7 +3,7 @@
  * parser/backpressure/cancellation state, and release sockets on completion.
  * HTTPS selects its validated transport through the private embedding hook only.
  */
-export default function createHttpClient(host, protocol, messages) {
+export default function createHttpClient(host, protocol, messages, agents) {
   const Buffer = host.Buffer;
   const URL = host.URL;
   const tick = host.process.nextTick;
@@ -13,6 +13,7 @@ export default function createHttpClient(host, protocol, messages) {
   const { IncomingMessage, OutgoingMessage, incoming, outgoing } = messages;
   const clients = new WeakMap();
   const clientToken = {};
+  const assignedSockets = new WeakMap();
   const plainTransport = Object.freeze({
     protocol: 'http:',
     defaultPort: 80,
@@ -55,8 +56,15 @@ export default function createHttpClient(host, protocol, messages) {
     if (opts.protocol !== undefined && opts.protocol !== transport.protocol) {
       throw error(TypeError, 'ERR_INVALID_PROTOCOL', `Expected ${transport.protocol} protocol`);
     }
-    if (opts.agent !== undefined && opts.agent !== false) {
-      unsupported('HTTP agents and connection pooling');
+    const agent = opts.agent == null ? (transport.globalAgent ?? agents.globalAgent) : opts.agent;
+    if (agent !== false && (typeof agent !== 'object' || typeof agent.addRequest !== 'function')) {
+      throw error(TypeError, 'ERR_INVALID_ARG_TYPE', 'agent must supply addRequest or be false');
+    }
+    if (agent !== false) {
+      const expected = agent.protocol;
+      if (expected !== undefined && expected !== transport.protocol) {
+        throw error(TypeError, 'ERR_INVALID_PROTOCOL', `Expected ${expected} protocol`);
+      }
     }
     for (const key of [
       'createConnection',
@@ -88,7 +96,8 @@ export default function createHttpClient(host, protocol, messages) {
     if (hostname.startsWith('[') && hostname.endsWith(']')) {
       hostname = hostname.slice(1, -1);
     }
-    const port = opts.port ?? transport.defaultPort;
+    const port =
+      opts.port ?? (agent !== false ? agent.defaultPort : undefined) ?? transport.defaultPort;
     const number = Number(port);
     if (
       !['number', 'string'].includes(typeof port) ||
@@ -128,7 +137,7 @@ export default function createHttpClient(host, protocol, messages) {
     if (opts.timeout !== undefined) {
       integer(opts.timeout, 'timeout');
     }
-    return { opts, hostname, port: number, method, path, maximum, callback };
+    return { opts, hostname, port: number, method, path, maximum, callback, agent };
   }
 
   function clientFailure(req, err) {
@@ -139,6 +148,34 @@ export default function createHttpClient(host, protocol, messages) {
     c.failed = true;
     if (!req.destroyed) {
       req.destroy(err);
+    }
+  }
+
+  function closeRequest(req) {
+    const c = clients.get(req);
+    if (c.closed) {
+      return;
+    }
+    c.closed = true;
+    c.unsubscribe?.();
+    c.unsubscribe = null;
+    if (!req.destroyed) {
+      req.destroy();
+    }
+
+    const finish = () => {
+      if (c.current && !c.current.complete && !c.current.destroyed) {
+        c.current.aborted = true;
+        c.current.emit('aborted');
+        c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
+      }
+      req.emit('close');
+    };
+
+    if (c.errorPending) {
+      tick(finish);
+    } else {
+      finish();
     }
   }
 
@@ -238,7 +275,7 @@ export default function createHttpClient(host, protocol, messages) {
     }
   }
 
-  /** Own one request connection and response lifecycle; unsupported Agent/transport modes fail explicitly. */
+  /** Own one admitted request connection and response lifecycle, without socket reuse. */
   class ClientRequest extends OutgoingMessage {
     constructor(input, options, callback, privateToken = undefined, privateTransport = undefined) {
       // Extra public constructor arguments cannot select an unvalidated transport.
@@ -287,10 +324,19 @@ export default function createHttpClient(host, protocol, messages) {
       if (config.callback) {
         this.once('response', config.callback);
       }
+      // Validate transport security before parser/Agent admission can acquire resources.
+      const transportOptions = transport.agentOptions?.(config, this);
       const parser = native.createParser(config.maximum, true, this.method === 'HEAD');
-      const socket = transport.createSocket(config, this);
       const c = {
-        socket,
+        socket: null,
+        transport,
+        config,
+        socketDone: false,
+        published: false,
+        ready: false,
+        timeout: opts.timeout,
+        noDelay: undefined,
+        keepAlive: undefined,
         parser,
         options: opts,
         current: null,
@@ -302,6 +348,115 @@ export default function createHttpClient(host, protocol, messages) {
         errorPending: false
       };
       clients.set(this, c);
+
+      if (opts.signal) {
+        const signal = opts.signal;
+
+        const cancel = () => {
+          const failure = error(Error, 'ABORT_ERR', 'The operation was aborted');
+          failure.name = 'AbortError';
+          failure.cause = abort.reason(signal);
+          this.destroy(failure);
+        };
+
+        if (signal.aborted) {
+          // Writable.destroy queues error delivery, so state is already destroyed
+          // on return while callers can still attach error/close listeners.
+          cancel();
+        } else {
+          c.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
+
+      if (!this.destroyed) {
+        if (config.agent === false) {
+          this.onSocket(transport.createSocket(config, this), undefined, clientToken);
+        } else {
+          this.agent = config.agent;
+          try {
+            config.agent.addRequest(this, {
+              ...opts,
+              ...transportOptions,
+              noDelay: opts.noDelay ?? true,
+              host: config.hostname,
+              hostname: config.hostname,
+              port: config.port,
+              protocol: transport.protocol,
+              secureEndpoint: transport.protocol === 'https:'
+            });
+          } catch (err) {
+            tick(() => this.destroy(err));
+          }
+        }
+      }
+    }
+
+    onSocket(socket, err, directToken = undefined) {
+      const c = clients.get(this);
+      const genuine = socket instanceof host.net.Socket;
+      if (c.socketDone) {
+        if (genuine && c.socket !== socket && !assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+        return;
+      }
+      c.socketDone = true;
+      if (err) {
+        if (genuine && !assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+
+        tick(() => {
+          if (!this.destroyed) {
+            this.destroy(err);
+          }
+        });
+
+        return;
+      }
+      if (!genuine) {
+        tick(() =>
+          this.destroy(
+            error(TypeError, 'ERR_INVALID_ARG_TYPE', 'Agent returned an unsupported socket')
+          )
+        );
+
+        return;
+      }
+      if (c.transport.isSocket && !c.transport.isSocket(socket)) {
+        if (!assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+
+        tick(() =>
+          this.destroy(
+            error(Error, 'ERR_MITE_UNSUPPORTED_API', 'HTTPS requires a native TLS socket')
+          )
+        );
+
+        return;
+      }
+      if (assignedSockets.has(socket)) {
+        tick(() =>
+          this.destroy(
+            error(Error, 'ERR_HTTP_SOCKET_ASSIGNED', 'Socket already belongs to a request')
+          )
+        );
+
+        return;
+      }
+      if (this.destroyed || socket.destroyed) {
+        if (!socket.destroyed) {
+          socket.destroy();
+        }
+        if (!this.destroyed) {
+          tick(() => this.destroy(error(Error, 'ECONNRESET', 'Socket is closed')));
+        }
+        return;
+      }
+      c.socket = socket;
+      assignedSockets.set(socket, this);
+      const parser = c.parser;
 
       socket.on('data', (bytes) => {
         if (!c.failed) {
@@ -344,32 +499,11 @@ export default function createHttpClient(host, protocol, messages) {
       });
 
       socket.on('close', () => {
-        // Request errors precede response abortion/close. Native teardown owns
-        // the incomplete response; queued response errors follow request close.
+        assignedSockets.delete(socket);
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, 'ECONNRESET', 'socket hang up'));
         }
-        if (!c.closed) {
-          c.closed = true;
-          if (!this.destroyed) {
-            this.destroy();
-          }
-
-          const finish = () => {
-            if (c.current && !c.current.complete && !c.current.destroyed) {
-              c.current.aborted = true;
-              c.current.emit('aborted');
-              c.current.destroy(error(Error, 'ECONNRESET', 'aborted'));
-            }
-            this.emit('close');
-          };
-
-          if (c.errorPending) {
-            tick(finish);
-          } else {
-            finish();
-          }
-        }
+        closeRequest(this);
       });
 
       socket.on('timeout', () => {
@@ -383,33 +517,28 @@ export default function createHttpClient(host, protocol, messages) {
         throw error(Error, 'ERR_HTTP_SOCKET_ENCODING', 'HTTP sockets require byte data');
       };
 
-      socket.once(transport.readyEvent, () => {
+      socket.once(c.transport.readyEvent, () => {
         if (!this.destroyed) {
-          this._activate();
+          c.ready = true;
+          if (c.published) {
+            this._activate();
+          }
         }
       });
 
-      if (opts.timeout) {
-        socket.setTimeout(opts.timeout);
+      if (c.timeout !== undefined) {
+        socket.setTimeout(c.timeout);
+      }
+      if (c.noDelay !== undefined) {
+        socket.setNoDelay(c.noDelay);
+      }
+      if (c.keepAlive) {
+        socket.setKeepAlive(...c.keepAlive);
       }
 
-      if (opts.signal) {
-        const signal = opts.signal;
-
-        const cancel = () => {
-          const failure = error(Error, 'ABORT_ERR', 'The operation was aborted');
-          failure.name = 'AbortError';
-          failure.cause = abort.reason(signal);
-          this.destroy(failure);
-        };
-
-        if (signal.aborted) {
-          // Writable.destroy queues error delivery, so state is already destroyed
-          // on return while callers can still attach error/close listeners.
-          cancel();
-        } else {
-          c.unsubscribe = abort.subscribe(signal, cancel);
-        }
+      const direct = directToken === clientToken;
+      if (!direct) {
+        c.ready = c.transport.protocol === 'https:' ? !socket.secureConnecting : !socket.connecting;
       }
 
       tick(() => {
@@ -417,22 +546,29 @@ export default function createHttpClient(host, protocol, messages) {
           return;
         }
         this.socket = socket;
+        c.published = true;
         this.emit('socket', socket);
         if (this.destroyed) {
           return;
         }
-        try {
-          socket.connect({
-            port: config.port,
-            host: config.hostname,
-            family: opts.family,
-            lookup: opts.lookup,
-            hints: opts.hints,
-            autoSelectFamily: opts.autoSelectFamily,
-            autoSelectFamilyAttemptTimeout: opts.autoSelectFamilyAttemptTimeout
-          });
-        } catch (err) {
-          this.destroy(err);
+        if (direct) {
+          const { config } = c;
+          const opts = config.opts;
+          try {
+            socket.connect({
+              port: config.port,
+              host: config.hostname,
+              family: opts.family,
+              lookup: opts.lookup,
+              hints: opts.hints,
+              autoSelectFamily: opts.autoSelectFamily,
+              autoSelectFamilyAttemptTimeout: opts.autoSelectFamilyAttemptTimeout
+            });
+          } catch (err) {
+            this.destroy(err);
+          }
+        } else if (c.ready) {
+          this._activate();
         }
       });
     }
@@ -507,8 +643,10 @@ export default function createHttpClient(host, protocol, messages) {
           c.errorPending = false;
         });
       }
-      if (c && !c.socket.destroyed) {
+      if (c?.socket && !c.socket.destroyed) {
         c.socket.destroy();
+      } else if (c && !c.socket) {
+        tick(() => closeRequest(this));
       }
     }
 
@@ -527,17 +665,25 @@ export default function createHttpClient(host, protocol, messages) {
       if (callback) {
         this.once('timeout', callback);
       }
-      clients.get(this).socket.setTimeout(value);
+      integer(value, 'timeout');
+      const c = clients.get(this);
+      c.timeout = value;
+      c.socket?.setTimeout(value);
       return this;
     }
 
     setNoDelay(value = true) {
-      clients.get(this).socket.setNoDelay(value);
+      const c = clients.get(this);
+      c.noDelay = !!value;
+      c.socket?.setNoDelay(value);
       return this;
     }
 
     setSocketKeepAlive(enable = false, initialDelay = 0) {
-      clients.get(this).socket.setKeepAlive(enable, initialDelay);
+      integer(initialDelay, 'initialDelay');
+      const c = clients.get(this);
+      c.keepAlive = [!!enable, initialDelay];
+      c.socket?.setKeepAlive(enable, initialDelay);
       return this;
     }
 

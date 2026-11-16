@@ -1,7 +1,7 @@
 /** Unsupported TLS policies must reach validation through HTTPS rather than disappear. */
 import https from 'node:https';
 const cases = [
-  () => new https.Agent(),
+  () => new https.Agent({ keepAlive: true }),
   () => new https.Server(),
   () => https.createServer(),
   ...[

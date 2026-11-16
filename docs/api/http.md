@@ -48,7 +48,7 @@ Run the existing [server](../../examples/mite-http/server.mjs), then the
 | headers | Object or flat name/value array; common header accessors from OutgoingMessage |
 | auth | Basic authentication string; explicit Authorization header takes precedence |
 | setHost | false suppresses the generated Host header |
-| agent | false or omitted; one connection per request, no pool |
+| agent | Agent-like object, false for direct transport, or omitted/null for globalAgent; no socket reuse |
 | maxHeaderSize | Default 16384; zero selects that default; strict parser, bounded status/header fields |
 | joinDuplicateHeaders | Enable joining singleton response headers; set-cookie stays an array |
 | timeout | Socket inactivity timeout; emits timeout without automatically aborting |
@@ -57,10 +57,53 @@ Run the existing [server](../../examples/mite-http/server.mjs), then the
 | highWaterMark | Writable stream buffering option |
 | signal | Realm-local AbortSignal; cancel request/transport, including after upload finish |
 
-Unsupported agents, custom createConnection, socketPath, local binding,
+Invalid Agent values fail with ERR_INVALID_ARG_TYPE. Request-level custom createConnection, socketPath, local binding,
 uniqueHeaders, custom IncomingMessage, defaultPort and insecure parser mode throw
 ERR_MITE_UNSUPPORTED_API. Protocol upgrades and CONNECT are rejected explicitly.
 Non-close Connection headers are rejected; there is no silent pooling emulation.
+
+## Agent admission and socket ownership
+
+`Agent`, `globalAgent` and the corresponding HTTPS constructors manage actual
+connections. `new Agent({ maxSockets, maxTotalSockets })` limits simultaneous
+connections per origin and across the Agent. Both limits default to Infinity.
+Waiting requests appear in `requests`; admitted sockets appear in `sockets`.
+`totalSocketCount` counts actual owned sockets. `freeSockets` remains empty.
+Private admission records include asynchronous connectors, so public bookkeeping
+changes made by subclasses cannot bypass the connection limits.
+
+`addRequest(request, options)` calls the overridable
+`createSocket(request, options, callback)`, which uses
+`createConnection(options, callback)`. A connector can return a connecting or
+already connected native socket, or supply it asynchronously through the callback.
+The client adopts it once, publishes `socket` before activating HTTP writes and
+does not connect it a second time. `getName(options)` supplies origin keys;
+HTTPS keys also distinguish TLS settings. HTTPS Agent inherits from HTTP Agent.
+
+Aborting a queued request removes it before socket admission. Late or duplicate
+connector completions cannot revive a closed request. Actual socket closure
+returns connection credit and admits the next waiting request. `destroy()` closes
+owned connections and cancels currently queued/pending requests; the Agent can
+subsequently admit new requests. Cancelling pending requests is a deliberate
+stronger cleanup policy than Node's socket-only Agent destruction.
+
+This implementation does not reuse sockets: requests send `Connection: close`.
+`keepAlive: true`, `reuseSocket` and automatic `proxyEnv` routing fail explicitly;
+`keepSocketAlive` returns false. Unlike modern Node, Mite's `globalAgent` also
+defaults to no reuse. Custom proxy negotiation, CONNECT and wrapped existing TLS
+sockets remain separate work. A successful Agent import does not prove that a
+proxy or VS Code extension can perform all its network operations.
+
+Reference: [Node Agent API](https://nodejs.org/docs/latest-v24.x/api/http.html#class-httpagent).
+
+Local macOS ARM64 validation compares six real loopback groups in Node 24.15 and
+Mite: per-origin FIFO, cross-origin total limits, asynchronous/already-connected
+subclasses, queued cancellation, delayed failure and teardown. Three additional
+groups run the unchanged, SHA-256-checked `agent-base` 7.1.4 dependency from the
+pinned Code-OSS stage, including genuine delegated Agents. The optional package
+fixture requires `--stage`; ordinary CI explicitly reports it skipped when no
+Code-OSS dependencies are staged. Fresh Windows/Linux Agent acceptance remains
+unverified. See [ADR 0197](../architecture/0197-native-http-agent-admission.md).
 
 ## ClientRequest and streams
 
@@ -139,8 +182,8 @@ See the [cancellation example](../../examples/mite-http/cancellation.mjs),
 ## Differences and remaining work
 
 Default connections close after each response, unlike Node's reusable default
-agent. Agent/globalAgent, direct HTTP-helper redirects, tunneling and upgrades remain
-absent. Global [Fetch](fetch.md) supplies its own redirect/body layer.
+agent. Connection pooling, direct HTTP-helper redirects, tunneling and upgrades
+remain absent. Global [Fetch](fetch.md) supplies its own redirect/body layer.
 [node:https](https.md) now provides the shared client over verified native TLS;
 node:http continues to reject https: inputs rather than changing transports. Error text, all event timing/option/header
 parity and every stream edge case are not certified. The client uses the existing

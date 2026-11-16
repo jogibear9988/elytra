@@ -529,6 +529,10 @@ export default function createTlsModule(host) {
   Object.defineProperty(host.clientHooks, 'createSocket', {
     value: (options) => new TLSSocket(token, options)
   });
+  // Validate HTTPS policy before Agent admission without allocating a native
+  // engine/socket. Socket construction repeats the same authoritative checks.
+  Object.defineProperty(host.clientHooks, 'validateOptions', { value: configuration });
+  Object.defineProperty(host.clientHooks, 'isSocket', { value: (socket) => states.has(socket) });
 
   return {
     connect,

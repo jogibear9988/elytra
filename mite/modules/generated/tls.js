@@ -465,6 +465,8 @@ function createTlsModule(host) {
   Object.defineProperty(host.clientHooks, "createSocket", {
     value: (options) => new TLSSocket(token, options)
   });
+  Object.defineProperty(host.clientHooks, "validateOptions", { value: configuration });
+  Object.defineProperty(host.clientHooks, "isSocket", { value: (socket) => states.has(socket) });
   return {
     connect,
     TLSSocket,

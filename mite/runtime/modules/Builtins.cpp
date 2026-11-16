@@ -126,7 +126,7 @@ static constexpr std::string_view dns_promises_exports[]
     = { "lookup", "setDefaultResultOrder", "getDefaultResultOrder" };
 static constexpr std::string_view http_exports[] = { "Server", "ServerResponse", "OutgoingMessage",
     "IncomingMessage", "ClientRequest", "request", "get", "createServer", "METHODS", "STATUS_CODES",
-    "validateHeaderName", "validateHeaderValue", "maxHeaderSize" };
+    "validateHeaderName", "validateHeaderValue", "maxHeaderSize", "Agent", "globalAgent" };
 static constexpr std::string_view inspector_exports[]
     = { "url", "open", "close", "waitForDebugger", "Session" };
 static constexpr std::string_view os_exports[] = { "arch", "availableParallelism", "endianness",
@@ -155,7 +155,7 @@ static constexpr std::string_view timers_promises_exports[] = { "setTimeout", "s
 static constexpr std::string_view tls_exports[]
     = { "connect", "TLSSocket", "createServer", "createSecureContext", "getCACertificates" };
 static constexpr std::string_view https_exports[]
-    = { "request", "get", "createServer", "Server", "Agent" };
+    = { "request", "get", "createServer", "Server", "Agent", "globalAgent" };
 static constexpr BuiltinDefinition definitions[] = {
     { "diagnostics_channel",
         { MITE_DIAGNOSTICS_CHANNEL_SOURCE, sizeof(MITE_DIAGNOSTICS_CHANNEL_SOURCE) - 1 },
@@ -354,6 +354,7 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
         host->define_direct_property(
             "fileURLToPath"_utf16, TRY(url->get("fileURLToPath"_utf16)), JS::default_attributes);
     }
+
     if (name == "child_process") {
         host->define_direct_property(
             "childIpc"_utf16, JS::Value(m_fork_child), JS::default_attributes);
@@ -458,6 +459,9 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     }
 
     if (name == "http") {
+        auto events = TRY(builtin("events"));
+        host->define_direct_property(
+            "EventEmitter"_utf16, TRY(events->get("EventEmitter"_utf16)), JS::default_attributes);
         m_http_client_hooks = JS::Object::create(m_realm, nullptr);
         host->define_direct_property(
             "clientHooks"_utf16, m_http_client_hooks.ptr(), JS::default_attributes);

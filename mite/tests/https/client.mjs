@@ -24,6 +24,13 @@ const config = {
   ...(mode === 'custom-host' ? { headers: { host: 'localhost' } } : {}),
   ...(mode === 'permissive' ? { rejectUnauthorized: false } : {})
 };
+if (mode === 'agent') {
+  // Exercise trusted Agent defaults through the independent TLS peer rather
+  // than passing CA/SNI directly on the request.
+  config.agent = new https.Agent({ keepAlive: false, ca: config.ca, servername: 'localhost' });
+  delete config.ca;
+  delete config.servername;
+}
 if (mode === 'pre') {
   controller.abort('before HTTPS');
 }

@@ -172,6 +172,7 @@ def main():
     )
     for mode in [
         "get",
+        "agent",
         "ip",
         "ipv6",
         "dns",

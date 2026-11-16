@@ -572,7 +572,7 @@ ${headerLines(headers)}\r
 }
 
 // mite/modules/network/http/client.mjs
-function createHttpClient(host, protocol, messages) {
+function createHttpClient(host, protocol, messages, agents) {
   const Buffer = host.Buffer;
   const URL = host.URL;
   const tick = host.process.nextTick;
@@ -582,6 +582,7 @@ function createHttpClient(host, protocol, messages) {
   const { IncomingMessage, OutgoingMessage, incoming, outgoing } = messages;
   const clients = /* @__PURE__ */ new WeakMap();
   const clientToken = {};
+  const assignedSockets = /* @__PURE__ */ new WeakMap();
   const plainTransport = Object.freeze({
     protocol: "http:",
     defaultPort: 80,
@@ -621,8 +622,15 @@ function createHttpClient(host, protocol, messages) {
     if (opts.protocol !== void 0 && opts.protocol !== transport.protocol) {
       throw error(TypeError, "ERR_INVALID_PROTOCOL", `Expected ${transport.protocol} protocol`);
     }
-    if (opts.agent !== void 0 && opts.agent !== false) {
-      unsupported("HTTP agents and connection pooling");
+    const agent = opts.agent == null ? transport.globalAgent ?? agents.globalAgent : opts.agent;
+    if (agent !== false && (typeof agent !== "object" || typeof agent.addRequest !== "function")) {
+      throw error(TypeError, "ERR_INVALID_ARG_TYPE", "agent must supply addRequest or be false");
+    }
+    if (agent !== false) {
+      const expected = agent.protocol;
+      if (expected !== void 0 && expected !== transport.protocol) {
+        throw error(TypeError, "ERR_INVALID_PROTOCOL", `Expected ${expected} protocol`);
+      }
     }
     for (const key of [
       "createConnection",
@@ -653,7 +661,7 @@ function createHttpClient(host, protocol, messages) {
     if (hostname.startsWith("[") && hostname.endsWith("]")) {
       hostname = hostname.slice(1, -1);
     }
-    const port = opts.port ?? transport.defaultPort;
+    const port = opts.port ?? (agent !== false ? agent.defaultPort : void 0) ?? transport.defaultPort;
     const number = Number(port);
     if (!["number", "string"].includes(typeof port) || typeof port === "string" && !port.trim() || !Number.isInteger(number) || number < 0 || number > 65535) {
       throw error(RangeError, "ERR_SOCKET_BAD_PORT", "Invalid HTTP port");
@@ -684,7 +692,7 @@ function createHttpClient(host, protocol, messages) {
     if (opts.timeout !== void 0) {
       integer(opts.timeout, "timeout");
     }
-    return { opts, hostname, port: number, method, path, maximum, callback };
+    return { opts, hostname, port: number, method, path, maximum, callback, agent };
   }
   function clientFailure(req, err) {
     const c = clients.get(req);
@@ -694,6 +702,31 @@ function createHttpClient(host, protocol, messages) {
     c.failed = true;
     if (!req.destroyed) {
       req.destroy(err);
+    }
+  }
+  function closeRequest(req) {
+    const c = clients.get(req);
+    if (c.closed) {
+      return;
+    }
+    c.closed = true;
+    c.unsubscribe?.();
+    c.unsubscribe = null;
+    if (!req.destroyed) {
+      req.destroy();
+    }
+    const finish = () => {
+      if (c.current && !c.current.complete && !c.current.destroyed) {
+        c.current.aborted = true;
+        c.current.emit("aborted");
+        c.current.destroy(error(Error, "ECONNRESET", "aborted"));
+      }
+      req.emit("close");
+    };
+    if (c.errorPending) {
+      tick(finish);
+    } else {
+      finish();
     }
   }
   function clientEvents(req, result, raw) {
@@ -824,10 +857,18 @@ function createHttpClient(host, protocol, messages) {
       if (config.callback) {
         this.once("response", config.callback);
       }
+      const transportOptions = transport.agentOptions?.(config, this);
       const parser = native.createParser(config.maximum, true, this.method === "HEAD");
-      const socket = transport.createSocket(config, this);
       const c = {
-        socket,
+        socket: null,
+        transport,
+        config,
+        socketDone: false,
+        published: false,
+        ready: false,
+        timeout: opts.timeout,
+        noDelay: void 0,
+        keepAlive: void 0,
         parser,
         options: opts,
         current: null,
@@ -839,6 +880,102 @@ function createHttpClient(host, protocol, messages) {
         errorPending: false
       };
       clients.set(this, c);
+      if (opts.signal) {
+        const signal = opts.signal;
+        const cancel = () => {
+          const failure = error(Error, "ABORT_ERR", "The operation was aborted");
+          failure.name = "AbortError";
+          failure.cause = abort.reason(signal);
+          this.destroy(failure);
+        };
+        if (signal.aborted) {
+          cancel();
+        } else {
+          c.unsubscribe = abort.subscribe(signal, cancel);
+        }
+      }
+      if (!this.destroyed) {
+        if (config.agent === false) {
+          this.onSocket(transport.createSocket(config, this), void 0, clientToken);
+        } else {
+          this.agent = config.agent;
+          try {
+            config.agent.addRequest(this, {
+              ...opts,
+              ...transportOptions,
+              noDelay: opts.noDelay ?? true,
+              host: config.hostname,
+              hostname: config.hostname,
+              port: config.port,
+              protocol: transport.protocol,
+              secureEndpoint: transport.protocol === "https:"
+            });
+          } catch (err) {
+            tick(() => this.destroy(err));
+          }
+        }
+      }
+    }
+    onSocket(socket, err, directToken = void 0) {
+      const c = clients.get(this);
+      const genuine = socket instanceof host.net.Socket;
+      if (c.socketDone) {
+        if (genuine && c.socket !== socket && !assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+        return;
+      }
+      c.socketDone = true;
+      if (err) {
+        if (genuine && !assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+        tick(() => {
+          if (!this.destroyed) {
+            this.destroy(err);
+          }
+        });
+        return;
+      }
+      if (!genuine) {
+        tick(
+          () => this.destroy(
+            error(TypeError, "ERR_INVALID_ARG_TYPE", "Agent returned an unsupported socket")
+          )
+        );
+        return;
+      }
+      if (c.transport.isSocket && !c.transport.isSocket(socket)) {
+        if (!assignedSockets.has(socket)) {
+          socket.destroy();
+        }
+        tick(
+          () => this.destroy(
+            error(Error, "ERR_MITE_UNSUPPORTED_API", "HTTPS requires a native TLS socket")
+          )
+        );
+        return;
+      }
+      if (assignedSockets.has(socket)) {
+        tick(
+          () => this.destroy(
+            error(Error, "ERR_HTTP_SOCKET_ASSIGNED", "Socket already belongs to a request")
+          )
+        );
+        return;
+      }
+      if (this.destroyed || socket.destroyed) {
+        if (!socket.destroyed) {
+          socket.destroy();
+        }
+        if (!this.destroyed) {
+          tick(() => this.destroy(error(Error, "ECONNRESET", "Socket is closed")));
+        }
+        return;
+      }
+      c.socket = socket;
+      assignedSockets.set(socket, this);
+      const parser = c.parser;
       socket.on("data", (bytes) => {
         if (!c.failed) {
           clientEvents(this, parser(bytes), bytes);
@@ -869,34 +1006,17 @@ function createHttpClient(host, protocol, messages) {
           }
         }
       });
-      socket.on("error", (err) => {
+      socket.on("error", (err2) => {
         if (!this.destroyed) {
-          clientFailure(this, err);
+          clientFailure(this, err2);
         }
       });
       socket.on("close", () => {
+        assignedSockets.delete(socket);
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, "ECONNRESET", "socket hang up"));
         }
-        if (!c.closed) {
-          c.closed = true;
-          if (!this.destroyed) {
-            this.destroy();
-          }
-          const finish = () => {
-            if (c.current && !c.current.complete && !c.current.destroyed) {
-              c.current.aborted = true;
-              c.current.emit("aborted");
-              c.current.destroy(error(Error, "ECONNRESET", "aborted"));
-            }
-            this.emit("close");
-          };
-          if (c.errorPending) {
-            tick(finish);
-          } else {
-            finish();
-          }
-        }
+        closeRequest(this);
       });
       socket.on("timeout", () => {
         this.emit("timeout");
@@ -907,49 +1027,55 @@ function createHttpClient(host, protocol, messages) {
       socket.setEncoding = () => {
         throw error(Error, "ERR_HTTP_SOCKET_ENCODING", "HTTP sockets require byte data");
       };
-      socket.once(transport.readyEvent, () => {
+      socket.once(c.transport.readyEvent, () => {
         if (!this.destroyed) {
-          this._activate();
+          c.ready = true;
+          if (c.published) {
+            this._activate();
+          }
         }
       });
-      if (opts.timeout) {
-        socket.setTimeout(opts.timeout);
+      if (c.timeout !== void 0) {
+        socket.setTimeout(c.timeout);
       }
-      if (opts.signal) {
-        const signal = opts.signal;
-        const cancel = () => {
-          const failure = error(Error, "ABORT_ERR", "The operation was aborted");
-          failure.name = "AbortError";
-          failure.cause = abort.reason(signal);
-          this.destroy(failure);
-        };
-        if (signal.aborted) {
-          cancel();
-        } else {
-          c.unsubscribe = abort.subscribe(signal, cancel);
-        }
+      if (c.noDelay !== void 0) {
+        socket.setNoDelay(c.noDelay);
+      }
+      if (c.keepAlive) {
+        socket.setKeepAlive(...c.keepAlive);
+      }
+      const direct = directToken === clientToken;
+      if (!direct) {
+        c.ready = c.transport.protocol === "https:" ? !socket.secureConnecting : !socket.connecting;
       }
       tick(() => {
         if (this.destroyed) {
           return;
         }
         this.socket = socket;
+        c.published = true;
         this.emit("socket", socket);
         if (this.destroyed) {
           return;
         }
-        try {
-          socket.connect({
-            port: config.port,
-            host: config.hostname,
-            family: opts.family,
-            lookup: opts.lookup,
-            hints: opts.hints,
-            autoSelectFamily: opts.autoSelectFamily,
-            autoSelectFamilyAttemptTimeout: opts.autoSelectFamilyAttemptTimeout
-          });
-        } catch (err) {
-          this.destroy(err);
+        if (direct) {
+          const { config } = c;
+          const opts = config.opts;
+          try {
+            socket.connect({
+              port: config.port,
+              host: config.hostname,
+              family: opts.family,
+              lookup: opts.lookup,
+              hints: opts.hints,
+              autoSelectFamily: opts.autoSelectFamily,
+              autoSelectFamilyAttemptTimeout: opts.autoSelectFamilyAttemptTimeout
+            });
+          } catch (err2) {
+            this.destroy(err2);
+          }
+        } else if (c.ready) {
+          this._activate();
         }
       });
     }
@@ -1014,8 +1140,10 @@ ${headerLines(headers)}\r
           c.errorPending = false;
         });
       }
-      if (c && !c.socket.destroyed) {
+      if (c?.socket && !c.socket.destroyed) {
         c.socket.destroy();
+      } else if (c && !c.socket) {
+        tick(() => closeRequest(this));
       }
     }
     abort() {
@@ -1030,15 +1158,23 @@ ${headerLines(headers)}\r
       if (callback) {
         this.once("timeout", callback);
       }
-      clients.get(this).socket.setTimeout(value);
+      integer(value, "timeout");
+      const c = clients.get(this);
+      c.timeout = value;
+      c.socket?.setTimeout(value);
       return this;
     }
     setNoDelay(value = true) {
-      clients.get(this).socket.setNoDelay(value);
+      const c = clients.get(this);
+      c.noDelay = !!value;
+      c.socket?.setNoDelay(value);
       return this;
     }
     setSocketKeepAlive(enable = false, initialDelay = 0) {
-      clients.get(this).socket.setKeepAlive(enable, initialDelay);
+      integer(initialDelay, "initialDelay");
+      const c = clients.get(this);
+      c.keepAlive = [!!enable, initialDelay];
+      c.socket?.setKeepAlive(enable, initialDelay);
       return this;
     }
     writeContinue() {
@@ -1444,14 +1580,469 @@ Connection: close\r
   return { Server, createServer };
 }
 
+// mite/modules/network/http/agent.mjs
+function getAgentName(options = {}, secure = false) {
+  let key = `${options.host || "localhost"}:${options.port || ""}:${options.localAddress || ""}`;
+  if (options.family === 4 || options.family === 6) {
+    key += `:${options.family}`;
+  }
+  if (options.socketPath) {
+    key += `:${options.socketPath}`;
+  }
+  if (!secure) {
+    return key;
+  }
+  for (const field of [
+    "ca",
+    "cert",
+    "clientCertEngine",
+    "ciphers",
+    "key",
+    "pfx",
+    "rejectUnauthorized",
+    "servername",
+    "minVersion",
+    "maxVersion",
+    "secureProtocol",
+    "crl",
+    "honorCipherOrder",
+    "ecdhCurve",
+    "dhparam",
+    "secureOptions",
+    "sessionIdContext",
+    "sigalgs",
+    "privateKeyIdentifier",
+    "privateKeyEngine"
+  ]) {
+    const value = options[field];
+    const present = ["rejectUnauthorized", "honorCipherOrder", "secureOptions"].includes(field) ? value !== void 0 : !!value;
+    key += ":";
+    if (present && !(field === "servername" && value === options.host)) {
+      key += field === "sigalgs" ? JSON.stringify(value) : String(value);
+    }
+  }
+  return key;
+}
+function createHttpAgent(host, protocol, defaultConnect) {
+  const { EventEmitter, net, process } = host;
+  const tick = process.nextTick.bind(process);
+  const Socket = net.Socket;
+  const states = /* @__PURE__ */ new WeakMap();
+  const socketOwners = /* @__PURE__ */ new WeakMap();
+  function error(code, message, Type = Error) {
+    return Object.assign(new Type(message), { code });
+  }
+  function unsupported(message) {
+    throw error("ERR_MITE_UNSUPPORTED_API", message);
+  }
+  function stateFor(agent) {
+    const state = states.get(agent);
+    if (!state) {
+      throw error("ERR_INVALID_THIS", "Invalid Agent receiver", TypeError);
+    }
+    return state;
+  }
+  function maximum(value, name) {
+    if (value !== Infinity && (typeof value !== "number" || !Number.isInteger(value) || value < 1)) {
+      throw error("ERR_OUT_OF_RANGE", `${name} must be a positive integer or Infinity`, RangeError);
+    }
+    return value;
+  }
+  function removePublic(agent, table, name, value) {
+    const list = agent[table][name];
+    if (!Array.isArray(list)) {
+      return;
+    }
+    const index = list.indexOf(value);
+    if (index !== -1) {
+      list.splice(index, 1);
+    }
+    if (!list.length) {
+      delete agent[table][name];
+    }
+  }
+  function destroyExtra(socket, entry) {
+    if (socket instanceof Socket && socket !== entry.socket && socket !== entry.delegated && !socketOwners.has(socket) && !socket.destroyed) {
+      socket.destroy();
+    }
+  }
+  function schedule(agent, state) {
+    if (state.scheduled || state.destroying) {
+      return;
+    }
+    state.scheduled = true;
+    tick(() => {
+      state.scheduled = false;
+      pump(agent, state);
+    });
+  }
+  function release(agent, state, entry) {
+    if (entry.phase === "released") {
+      return;
+    }
+    const queued = entry.phase === "queued";
+    entry.phase = "released";
+    state.entries.delete(entry);
+    state.byRequest.delete(entry.req);
+    const index = state.queue.indexOf(entry);
+    if (index !== -1) {
+      state.queue.splice(index, 1);
+    }
+    if (queued) {
+      removePublic(agent, "requests", entry.name, entry.req);
+    }
+    if (entry.socket) {
+      removePublic(agent, "sockets", entry.name, entry.socket);
+      if (socketOwners.get(entry.socket) === entry) {
+        socketOwners.delete(entry.socket);
+      }
+      agent.totalSocketCount--;
+      entry.socket.removeListener("close", entry.socketClose);
+      entry.socket.removeListener("agentRemove", entry.agentRemove);
+    }
+    entry.req.removeListener("close", entry.requestClose);
+    entry.req.removeListener("socket", entry.requestSocket);
+    schedule(agent, state);
+  }
+  function record(agent, state, req, options) {
+    const entry = {
+      req,
+      options,
+      name: agent.getName(options),
+      phase: "queued",
+      socket: null,
+      delegated: null,
+      callbackDone: false
+    };
+    entry.requestClose = () => {
+      if (entry.phase === "socket") {
+        if (!entry.socket.destroyed) {
+          entry.socket.destroy();
+        }
+      } else {
+        release(agent, state, entry);
+      }
+    };
+    entry.requestSocket = (socket) => {
+      if (entry.phase === "connecting" && entry.socket !== socket) {
+        entry.delegated = socket;
+        release(agent, state, entry);
+      }
+    };
+    state.entries.add(entry);
+    state.byRequest.set(req, entry);
+    req.once("close", entry.requestClose);
+    req.on("socket", entry.requestSocket);
+    return entry;
+  }
+  function available(agent, state, name) {
+    const perOrigin = maximum(agent.maxSockets, "maxSockets");
+    const total = maximum(agent.maxTotalSockets, "maxTotalSockets");
+    let originCount = 0;
+    let count = 0;
+    for (const entry of state.entries) {
+      if (entry.phase !== "connecting" && entry.phase !== "socket") {
+        continue;
+      }
+      count++;
+      if (entry.name === name) {
+        originCount++;
+      }
+    }
+    return count < total && originCount < perOrigin;
+  }
+  function ownSocket(agent, state, entry, socket) {
+    if (!(socket instanceof Socket) || socket.destroyed) {
+      throw error(
+        "ERR_INVALID_RETURN_VALUE",
+        "Agent connector must return a live net.Socket",
+        TypeError
+      );
+    }
+    if (entry.socket === socket) {
+      return;
+    }
+    if (socketOwners.has(socket)) {
+      throw error("ERR_INVALID_ARG_VALUE", "Socket already belongs to a request");
+    }
+    if (entry.phase === "released" || entry.req.destroyed || state.destroying) {
+      destroyExtra(socket, entry);
+      throw error("ECONNRESET", "Request closed before socket admission");
+    }
+    entry.socket = socket;
+    entry.phase = "socket";
+    socketOwners.set(socket, entry);
+    agent.sockets[entry.name] ??= [];
+    agent.sockets[entry.name].push(socket);
+    agent.totalSocketCount++;
+    entry.socketClose = () => release(agent, state, entry);
+    entry.agentRemove = () => release(agent, state, entry);
+    socket.once("close", entry.socketClose);
+    socket.once("agentRemove", entry.agentRemove);
+  }
+  function dispatch(agent, state, entry) {
+    entry.phase = "connecting";
+    entry.dispatched = true;
+    removePublic(agent, "requests", entry.name, entry.req);
+    const done = (failure, socket) => {
+      if (entry.callbackDone) {
+        destroyExtra(socket, entry);
+        return;
+      }
+      entry.callbackDone = true;
+      if (entry.phase === "released" || entry.req.destroyed) {
+        destroyExtra(socket, entry);
+        return;
+      }
+      try {
+        if (!failure) {
+          ownSocket(agent, state, entry, socket);
+        }
+      } catch (err) {
+        failure = err;
+      }
+      if (failure) {
+        destroyExtra(socket, entry);
+        release(agent, state, entry);
+        entry.req.onSocket(null, failure);
+      } else {
+        entry.req.onSocket(socket);
+      }
+    };
+    try {
+      agent.createSocket(entry.req, entry.options, done);
+    } catch (failure) {
+      done(failure);
+    }
+  }
+  function pump(agent, state) {
+    if (state.pumping || state.destroying) {
+      return;
+    }
+    state.pumping = true;
+    try {
+      for (let index = 0; index < state.queue.length; ) {
+        const entry = state.queue[index];
+        if (entry.req.destroyed) {
+          release(agent, state, entry);
+          continue;
+        }
+        let allowed;
+        try {
+          allowed = available(agent, state, entry.name);
+        } catch (failure) {
+          release(agent, state, entry);
+          entry.req.onSocket(null, failure);
+          continue;
+        }
+        if (!allowed) {
+          index++;
+          continue;
+        }
+        state.queue.splice(index, 1);
+        dispatch(agent, state, entry);
+      }
+    } finally {
+      state.pumping = false;
+    }
+  }
+  class Agent extends EventEmitter {
+    constructor(options = {}) {
+      super();
+      if (!options || typeof options !== "object" || Array.isArray(options)) {
+        throw error("ERR_INVALID_ARG_TYPE", "Agent options must be an object", TypeError);
+      }
+      if (options.keepAlive === true) {
+        unsupported("Agent keep-alive/reuse is not implemented");
+      }
+      if (options.keepAlive !== void 0 && typeof options.keepAlive !== "boolean") {
+        throw error("ERR_INVALID_ARG_TYPE", "keepAlive must be boolean", TypeError);
+      }
+      if (options.proxyEnv !== void 0) {
+        unsupported("Agent proxyEnv is not implemented");
+      }
+      this.options = { ...options, path: null };
+      this.options.noDelay ??= true;
+      this.defaultPort = options.defaultPort ?? (protocol === "https:" ? 443 : 80);
+      this.protocol = options.protocol ?? protocol;
+      this.requests = /* @__PURE__ */ Object.create(null);
+      this.sockets = /* @__PURE__ */ Object.create(null);
+      this.freeSockets = /* @__PURE__ */ Object.create(null);
+      this.keepAlive = false;
+      this.keepAliveMsecs = options.keepAliveMsecs ?? 1e3;
+      this.maxSockets = maximum(options.maxSockets ?? Agent.defaultMaxSockets, "maxSockets");
+      this.maxTotalSockets = maximum(options.maxTotalSockets ?? Infinity, "maxTotalSockets");
+      this.maxFreeSockets = options.maxFreeSockets ?? 256;
+      this.totalSocketCount = 0;
+      this.scheduling = options.scheduling ?? "lifo";
+      if (!["lifo", "fifo"].includes(this.scheduling)) {
+        throw error("ERR_INVALID_ARG_VALUE", "Invalid Agent scheduling");
+      }
+      states.set(this, {
+        entries: /* @__PURE__ */ new Set(),
+        byRequest: /* @__PURE__ */ new WeakMap(),
+        queue: [],
+        scheduled: false,
+        pumping: false,
+        destroying: false
+      });
+    }
+    getName(options = {}) {
+      return getAgentName(options, protocol === "https:");
+    }
+    createConnection(options, callback) {
+      stateFor(this);
+      return defaultConnect(options, callback);
+    }
+    createSocket(req, options, callback) {
+      const state = stateFor(this);
+      if (typeof callback !== "function") {
+        throw error("ERR_INVALID_ARG_TYPE", "callback must be a function", TypeError);
+      }
+      let entry = state.byRequest.get(req);
+      if (!entry) {
+        const merged = { ...options, ...this.options };
+        entry = record(this, state, req, merged);
+        if (!available(this, state, entry.name)) {
+          release(this, state, entry);
+          tick(() => callback(error("ERR_SOCKET_CANNOT_SEND", "Agent connection limit reached")));
+          return;
+        }
+        entry.phase = "connecting";
+      }
+      let completed = false;
+      let accepted;
+      const finish = (failure, socket) => {
+        if (completed) {
+          if (socket !== accepted) {
+            destroyExtra(socket, entry);
+          }
+          return;
+        }
+        completed = true;
+        if (entry.phase === "released" || req.destroyed) {
+          destroyExtra(socket, entry);
+          return;
+        }
+        try {
+          if (!failure) {
+            ownSocket(this, state, entry, socket);
+          }
+        } catch (err) {
+          failure = err;
+        }
+        if (failure) {
+          destroyExtra(socket, entry);
+          if (!entry.dispatched) {
+            release(this, state, entry);
+          }
+        } else {
+          accepted = socket;
+        }
+        callback(failure, socket);
+      };
+      try {
+        const socket = this.createConnection({ ...entry.options, ...this.options }, finish);
+        if (socket !== void 0 && socket !== null) {
+          finish(null, socket);
+        }
+      } catch (failure) {
+        finish(failure);
+      }
+    }
+    addRequest(req, options, port, localAddress) {
+      const state = stateFor(this);
+      if (!req || typeof req.onSocket !== "function" || typeof req.once !== "function") {
+        throw error("ERR_INVALID_ARG_TYPE", "request must be a ClientRequest", TypeError);
+      }
+      if (req.destroyed) {
+        return;
+      }
+      req.shouldKeepAlive = false;
+      if (state.destroying) {
+        req.onSocket(null, error("ECONNRESET", "Agent is being destroyed"));
+        return;
+      }
+      if (this.keepAlive) {
+        unsupported("Agent keep-alive/reuse is not implemented");
+      }
+      if (state.byRequest.has(req)) {
+        throw error("ERR_INVALID_ARG_VALUE", "Request already admitted by this Agent");
+      }
+      if (typeof options === "string") {
+        options = { host: options, port, localAddress };
+      }
+      const merged = { ...options, ...this.options };
+      const entry = record(this, state, req, merged);
+      this.requests[entry.name] ??= [];
+      this.requests[entry.name].push(req);
+      state.queue.push(entry);
+      pump(this, state);
+    }
+    destroy() {
+      const state = stateFor(this);
+      state.destroying = true;
+      try {
+        for (const entry of [...state.entries]) {
+          if (entry.socket) {
+            if (!entry.socket.destroyed) {
+              entry.socket.destroy();
+            }
+          } else {
+            release(this, state, entry);
+            entry.req.onSocket(null, error("ECONNRESET", "Agent connection destroyed"));
+          }
+        }
+      } finally {
+        state.destroying = false;
+      }
+    }
+    keepSocketAlive() {
+      stateFor(this);
+      return false;
+    }
+    reuseSocket() {
+      stateFor(this);
+      unsupported("Agent socket reuse is not implemented");
+    }
+  }
+  Agent.defaultMaxSockets = Infinity;
+  return { Agent, globalAgent: new Agent() };
+}
+
 // mite/modules/network/http.mjs
 function createHttpModule(host) {
   const protocol = createHttpProtocol(host.native);
   const messages = createHttpMessages(host, protocol);
-  const client = createHttpClient(host, protocol, messages);
+  const agents = createHttpAgent(host, "http:", (options) => {
+    for (const key of ["socketPath", "localAddress", "localPort", "proxyEnv"]) {
+      if (options[key] !== void 0) {
+        protocol.unsupported(`HTTP connection option ${key}`);
+      }
+    }
+    if (options.path != null) {
+      protocol.unsupported("HTTP Unix-domain connections");
+    }
+    return host.net.createConnection({
+      port: options.port ?? 80,
+      host: options.host ?? options.hostname ?? "localhost",
+      family: options.family,
+      lookup: options.lookup,
+      hints: options.hints,
+      autoSelectFamily: options.autoSelectFamily,
+      autoSelectFamilyAttemptTimeout: options.autoSelectFamilyAttemptTimeout,
+      noDelay: options.noDelay ?? true,
+      keepAlive: false,
+      highWaterMark: options.highWaterMark
+    });
+  });
+  const client = createHttpClient(host, protocol, messages, agents);
   const server = createHttpServer(host, protocol, messages);
   Object.defineProperty(host.clientHooks, "request", { value: client.requestWithTransport });
+  Object.defineProperty(host.clientHooks, "Agent", { value: agents.Agent });
   return {
+    Agent: agents.Agent,
+    globalAgent: agents.globalAgent,
     Server: server.Server,
     ServerResponse: messages.ServerResponse,
     OutgoingMessage: messages.OutgoingMessage,

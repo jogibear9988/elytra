@@ -207,10 +207,11 @@ await pipeline(
   METHODS, STATUS_CODES, validateHeaderName, validateHeaderValue and maxHeaderSize.
   Request/response streams, headers, keep-alive and selected timeouts are implemented
   in part. ClientRequest, request and get now provide partial native HTTP/1 client
-  streams; see the [HTTP reference](http.md). Agents and upgrades remain absent; global [Fetch](fetch.md) uses these client streams.
+  streams and non-reusing Agent/globalAgent connection admission; see the
+  [HTTP reference](http.md). Pooling and upgrades remain absent; global [Fetch](fetch.md) uses these client streams.
 - `node:https`: partial HTTP/1 clients over verified native TLS, sharing HTTP
-  request/response classes; see the [HTTPS reference](https.md). Servers and Agents
-  remain unavailable.
+  request/response classes and real TLS Agents; see the [HTTPS reference](https.md).
+  Servers and pooling remain unavailable.
 
 ```js
 import {createServer} from 'node:http';

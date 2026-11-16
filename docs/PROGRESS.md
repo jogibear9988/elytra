@@ -14215,6 +14215,57 @@ including native wire prerequisites, also passes
 (ladybird-2026-11-16-isolation-gate.log). Fresh hosted candidate/platform gates remain open.
 No additional desktop windows were launched or closed during this work.
 
+## 2026-11-16 — Genuine HTTP Agents advance the Code-OSS agent host
+
+Implement HTTP Agent/globalAgent connection admission using existing native
+TCP/TLS and llhttp, with no Node/V8 or LibWeb dependency. Keep maintained ESM
+boundaries and generated adapters reproducible. Private connecting/socket records
+enforce configured per-origin/total limits independently of mutable public arrays
+used by actual agent-base. Adopt asynchronous or already connected sockets once;
+preserve deferred socket publication, queued AbortSignal cancellation, late/
+duplicate completion refusal and real-close credit release. Handle genuine
+delegated Agents without leaking the outer reservation. HTTPS inherits the same
+Agent and keeps native CA/SNI/ALPN validation, including constructor defaults and
+an unforgeable private TLS-socket check. Defaults remain Connection:close;
+keep-alive/pooling, proxyEnv, TLS wrapping/session cache and CONNECT explicitly
+remain unsupported. Document pending-request cancellation on destroy as a Node
+difference; do not claim complete proxy support from class availability.
+
+Release Mite and Firefly/offscreen builds pass against b872
+(http-agent-mite-build.log, http-agent-mite-build-2.log;
+http-agent-firefly-build{,-2}.log). Node 24.15 and the actual new Mite pass six
+loopback Agent groups plus three real, unchanged agent-base 7.1.4 consumer groups
+(http-agent-native-final.log). Verify the consumer entry hash equals both the
+accepted dependency tree and stage, then run the hash-pinned native and Node
+fixture (http-agent-pinned-consumer{,-node}.log). Register the ordinary Agent
+fixture in CTest; optional staged-package coverage is explicitly skipped without
+--stage. The five targeted HTTP client/server/abort/Agent/HTTPS CTest suites all
+pass (http-agent-final-regressions.log), including a new independent-peer TLS
+case using Agent constructor CA/SNI instead of request CA/SNI. Source generation,
+formatting and diff checks pass. Fresh native Windows/Linux Agent validation is
+still open; packaging is not regenerated in this slice.
+
+Actual offscreen Code-OSS startup initially finds the old owned /tmp profile's
+native-titlebar settings missing after restart; it refuses titleBarOverlay.
+Restore only the absent CA-28 settings in that same owned private profile,
+without changing Code-OSS or personal settings. The subsequent genuine run
+establishes main/renderer SharedProcess connections and advances beyond the old
+agent-base class error. AgentHost now fails at @xterm/headless with
+ReferenceError: navigator is not defined
+(codeoss-http-agent-native-profile.log). Missing built-in extensions and native
+bindings remain visible. Cocoa-only Services/native-handle refusal is expected
+offscreen; no menu, editor, extension activation or open/edit/save acceptance is
+claimed. Stop the verified task-owned diagnostic group and redact environment/
+configuration diagnostics; no desktop windows were launched or closed.
+
+Next: implement genuine standalone Node-style Navigator metadata for the xterm
+consumer, continue the original built-in extension build/staging work, and inspect
+the pending hosted candidate gates before upstream promotion. Windows candidate
+058 has 148/149 CLI tests passing; its sole failure is the Node24.15 TLS reference
+crashing with 0xC0000409, not an observed Mite failure. A documented Node/libuv
+Windows defect matches that failure; investigate a pinned reference-runtime update
+without suppressing tests or retrying the defective reference blindly.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

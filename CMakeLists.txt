@@ -631,6 +631,9 @@ if(BUILD_TESTING)
         NAME mite-http-client
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_client.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-http-agent
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_agent.py"
+                     --mite "$<TARGET_FILE:mite>")
     add_test(
         NAME mite-os-constants
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_os_constants.py"
