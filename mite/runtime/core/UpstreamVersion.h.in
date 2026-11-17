@@ -1,2 +1,3 @@
 #pragma once
 inline constexpr char MITE_LIBJS_REVISION[] = "@MITE_LADYBIRD_REVISION@";
+inline constexpr int MITE_SQLITE_VERSION_NUMBER = @MITE_SQLITE_VERSION_NUMBER@;

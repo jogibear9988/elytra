@@ -15990,6 +15990,31 @@ build success claimed yet. SDK/user app untouched. Fresh full native CLI,
 renderer/isolation/permission, packaging and hosted platform gates remain REQUIRED
 before master/alpha promotion. Full project goal remains active.
 
+## New-engine local CLI acceptance and honest provider-limit repair (2026-11-17)
+
+Complete fresh dependency installation after copying upstream's explicit Meson
+1.9.0#10 pin. Remove duplicate hardcoded native version selection: the shared Mite
+CMake graph reads reviewed root manifest SQLite/zlib/ICU versions; its generated
+header keeps SQLite's compile-time EXACT assertion. The independent disk fixture
+also requires that actual native SQLite.VERSION equals that reviewed manifest.
+Current native versions include SQLite3.54.1/zlib1.4. Update active compression docs.
+Release CLI+embedded host compile/link PASS with actual new9803LibJS and142-package
+Rust aggregate. Logs: build/ladybird-9803-cli-{configure-final,native-rebuild}.log.
+
+Full non-GUI CTest initially passes163/165. Two real failures are diagnosed rather
+than waived. Rust origin root added only FfiUrlHost re-export; parser/origin hook
+unchanged, so review/update exact lib.rs fingerprint and retain reversal/driver
+checks. Pipe oversize test's200-byte suffix is no longer oversized: actual libuv1.53
+supports253-byte Darwin Unix addresses, and the242-byte full native endpoint really
+binds/exchanges/closes. Increase ONLY fixture suffix to4096, preserving EINVAL,
+syscall and no-truncation/filesystem assertions; no production cap or timeout raise.
+Actual full Node24.22/Mite pipe runner and independent Python peers PASS; positive
+extended-endpoint proof PASS. Evidence: build/pipe-9803-{full-runner-fixed,
+extended-endpoint-proof}.log. Re-run precisely thetwo failed CTests: BOTH PASS
+(build/ladybird-9803-cli-repaired-gates.log). All165 local CLI gates thus have passing
+new-engine evidence; fresh hosted platform and SDK/GUI/package acceptance remain
+pending. No SDK rebuild or desktop test. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

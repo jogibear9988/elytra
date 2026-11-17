@@ -6,7 +6,9 @@ import { once } from 'node:events';
 if (process.platform === 'win32') {
   throw Error('Unix sockaddr_un test only');
 }
-const endpoint = process.env.MITE_TEST_PIPE + 'x'.repeat(200);
+// libuv 1.53 uses Darwin's larger SOCK_MAXADDRLEN, not only sockaddr_un.sun_path.
+// Exceed both that 253-byte path and Linux's 108-byte limit even under short /tmp.
+const endpoint = process.env.MITE_TEST_PIPE + 'x'.repeat(4096);
 const directory = path.dirname(endpoint);
 const before = fs.readdirSync(directory).sort().join('\n');
 const server = net.createServer();

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibURL/Rust/src"
 PIN = {
     "ffi.rs": "17a5426baa3c27705c9fdd353008b1e6d6429361232b0125ee7e9098dbf6ab2b",
-    "lib.rs": "f274dd19884261dba5a2774c0304430cb227fc85939b5c2a2306bea89118043c",
+    "lib.rs": "502fc48c9e0ac4092f9a799eba7a1e5efbdb0bdfead16b6ccaa56a695c8d3544",
     "origin.rs": "6b8d5e7d8b0354e198f539d4e4a5422653f812cef2d4c0ee28512408a2838121",
 }
 SEAM = "    pub fn origin(&self) -> Origin {\n"

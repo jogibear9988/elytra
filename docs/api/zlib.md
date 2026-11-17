@@ -2,7 +2,7 @@
 
 Status: **partial**, tested locally on macOS with Node 24.15.0, independent Python
 codecs and the non-GUI native VM host. Fresh Linux/Windows execution remains open.
-Mite uses the already pinned native zlib 1.3.2#2 without Node/V8 or LibWeb.
+Mite uses the already pinned native zlib 1.4#0 without Node/V8 or LibWeb.
 
 ## Formats and imports
 

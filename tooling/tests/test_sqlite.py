@@ -2,6 +2,7 @@
 """Run the actual Mite SQLite extension and independently inspect its closed disk database."""
 
 import argparse
+import json
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -23,7 +24,11 @@ def main():
             timeout=30,
         )
         assert result.returncode == 0 and not result.stderr, result
-        assert "PASS real SQLite 3.53.4 disk" in result.stdout, result
+        overrides = json.loads((ROOT / "vcpkg.json").read_text())["overrides"]
+        version = next(
+            item["version"].split("#", 1)[0] for item in overrides if item["name"] == "sqlite3"
+        )
+        assert f"PASS real SQLite {version} disk" in result.stdout, result
         assert filename.read_bytes().startswith(b"SQLite format 3\0")
         with sqlite3.connect(filename) as database:
             rows = dict(database.execute("SELECT key,value FROM ItemTable"))

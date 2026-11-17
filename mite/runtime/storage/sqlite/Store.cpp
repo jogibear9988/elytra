@@ -1,5 +1,6 @@
 /** Execute real SQLite connections/statements on workers with bounded results and cancellation. */
 #include "Store.h"
+#include "UpstreamVersion.h"
 #include <AK/Base64.h>
 #include <AK/JsonArray.h>
 #include <AK/ScopeGuard.h>
@@ -8,7 +9,8 @@
 #include <cstring>
 #include <sqlite3.h>
 
-static_assert(SQLITE_VERSION_NUMBER == 3053004, "Review the directly pinned SQLite version");
+static_assert(SQLITE_VERSION_NUMBER == MITE_SQLITE_VERSION_NUMBER,
+    "SQLite headers must match the reviewed dependency manifest");
 
 namespace Mite::SQLite {
 namespace {
