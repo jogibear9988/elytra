@@ -7,6 +7,7 @@ on:
       - '.github/actions/windows-environment/setup.ps1'
       - 'firefly/native/sandbox/windows/**'
       - 'tooling/tests/test_windows_sandbox.py'
+      - 'tooling/tests/test_windows_sandbox_evidence.py'
       - 'tooling/tests/_windows_processes.py'
   workflow_dispatch:
 permissions:
@@ -27,6 +28,8 @@ jobs:
       - name: Native Visual Studio compiler only
         shell: pwsh
         run: '& ./.github/actions/windows-environment/setup.ps1'
+      - name: Reject insufficient network evidence
+        run: python tooling/tests/test_windows_sandbox_evidence.py
       - name: Compile static native broker and worker without LibWeb or a GUI
         shell: pwsh
         run: |

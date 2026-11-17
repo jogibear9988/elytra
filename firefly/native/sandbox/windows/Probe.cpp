@@ -11,6 +11,7 @@
 #include <io.h>
 #include <iostream>
 #include <iterator>
+#include <netfw.h>
 #include <sddl.h>
 #include <sstream>
 #include <stdexcept>
@@ -130,7 +131,53 @@ struct NetworkResult {
     bool denied;
     char const* operation;
     int error;
+    DWORD policy_status = ERROR_PROC_NOT_FOUND;
+    NETISO_ERROR_TYPE policy_error = NETISO_ERROR_TYPE_NONE;
 };
+
+bool network_denial(NetworkResult const& result)
+{
+    bool socket_denied = (std::strcmp(result.operation, "WSASocket") == 0
+                             || std::strcmp(result.operation, "connect") == 0
+                             || std::strcmp(result.operation, "SO_ERROR") == 0)
+        && result.error == WSAEACCES;
+    // A timeout is NOT denial evidence. Only a successful, independent native
+    // network-isolation diagnosis of this calling AppContainer's missing
+    // capability corroborates it. Never admit a successful connection, an
+    // unavailable/failed diagnosis, NONE, or an unknown enum value.
+    // https://learn.microsoft.com/windows/win32/api/netfw/nf-netfw-networkisolationdiagnoseconnectfailureandgetinfo
+    bool diagnosed_denial = std::strcmp(result.operation, "WSAPoll timeout") == 0
+        && result.error == WSAETIMEDOUT && result.policy_status == ERROR_SUCCESS
+        && (result.policy_error == NETISO_ERROR_TYPE_PRIVATE_NETWORK
+            || result.policy_error == NETISO_ERROR_TYPE_INTERNET_CLIENT
+            || result.policy_error == NETISO_ERROR_TYPE_INTERNET_CLIENT_SERVER);
+    return socket_denied || diagnosed_denial;
+}
+
+void network_evidence_controls()
+{
+    for (auto capability : { NETISO_ERROR_TYPE_PRIVATE_NETWORK, NETISO_ERROR_TYPE_INTERNET_CLIENT,
+             NETISO_ERROR_TYPE_INTERNET_CLIENT_SERVER }) {
+        require(
+            network_denial({ false, "WSAPoll timeout", WSAETIMEDOUT, ERROR_SUCCESS, capability }),
+            "exact native capability diagnosis");
+        require(!network_denial({ false, "connect", 0, ERROR_SUCCESS, capability }),
+            "successful socket cannot be diagnosed denied");
+        for (auto status : { ERROR_ACCESS_DENIED, ERROR_PROC_NOT_FOUND, ERROR_MOD_NOT_FOUND })
+            require(!network_denial({ false, "WSAPoll timeout", WSAETIMEDOUT, status, capability }),
+                "failed or unavailable diagnosis cannot admit timeout");
+    }
+
+    for (auto capability :
+        { NETISO_ERROR_TYPE_NONE, NETISO_ERROR_TYPE_MAX, static_cast<NETISO_ERROR_TYPE>(255) })
+        require(
+            !network_denial({ false, "WSAPoll timeout", WSAETIMEDOUT, ERROR_SUCCESS, capability }),
+            "timeout requires exact capability denial");
+    require(!network_denial({ false, "WSAPoll timeout", WSAETIMEDOUT }), "timeout alone fails");
+    require(!network_denial({ false, "SO_ERROR", WSAECONNREFUSED }), "refusal is not isolation");
+    for (auto operation : { "WSASocket", "connect", "SO_ERROR" })
+        require(network_denial({ false, operation, WSAEACCES }), "actual socket access denial");
+}
 
 NetworkResult denied_network(unsigned short port)
 {
@@ -177,11 +224,28 @@ NetworkResult denied_network(unsigned short port)
         }
     }
 
+    NetworkResult evidence { false, operation, error };
+    if (std::strcmp(operation, "WSAPoll timeout") == 0 && error == WSAETIMEDOUT) {
+        // Diagnose while Winsock and the attempted socket are still live. The
+        // API takes the target, not a socket or a captured last-error value.
+        // Load only the OS implementation; never search the fixture/current directory.
+        auto library = LoadLibraryExW(L"FirewallAPI.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        if (library) {
+            using Diagnose = DWORD(WINAPI*)(LPCWSTR, NETISO_ERROR_TYPE*);
+            auto diagnose = reinterpret_cast<Diagnose>(
+                GetProcAddress(library, "NetworkIsolationDiagnoseConnectFailureAndGetInfo"));
+            if (diagnose)
+                evidence.policy_status = diagnose(L"127.0.0.1", &evidence.policy_error);
+            FreeLibrary(library);
+        } else {
+            evidence.policy_status = GetLastError();
+        }
+    }
+
     closesocket(socket);
     WSACleanup();
-    return { (std::strcmp(operation, "connect") == 0 || std::strcmp(operation, "SO_ERROR") == 0)
-            && error == WSAEACCES,
-        operation, error };
+    evidence.denied = network_denial(evidence);
+    return evidence;
 }
 
 int worker(int argc, wchar_t** argv)
@@ -231,7 +295,9 @@ int worker(int argc, wchar_t** argv)
               << ",\"writeDenied\":" << write_denied << ",\"handleIsolated\":" << handle_isolated
               << ",\"cleanEnvironment\":" << clean_env << ",\"childSpawnDenied\":" << !nested
               << ",\"networkDenied\":" << network.denied << ",\"networkOperation\":\""
-              << network.operation << "\",\"networkError\":" << network.error << "}\n"
+              << network.operation << "\",\"networkError\":" << network.error
+              << ",\"networkPolicyStatus\":" << network.policy_status
+              << ",\"networkPolicyError\":" << static_cast<unsigned>(network.policy_error) << "}\n"
               << std::flush;
     return all ? 0 : 1;
 }
@@ -239,6 +305,12 @@ int worker(int argc, wchar_t** argv)
 
 int run_probe(int argc, wchar_t** argv)
 {
+    if (argc == 2 && std::wstring(argv[1]) == L"--network-evidence-controls") {
+        network_evidence_controls();
+        std::cout << "PASS network evidence controls\n";
+        return 0;
+    }
+
     if (argc > 1 && std::wstring(argv[1]) == L"--worker")
         return worker(argc, argv);
     require(argc == 4, "probe requires fresh root, port and checks/hold mode");

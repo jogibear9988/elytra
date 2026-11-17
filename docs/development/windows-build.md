@@ -348,6 +348,25 @@ is not native Firefly windows/sandbox, Windows app packaging, an installer or a
 published Windows release. Those requirements remain open.
 
 
+## AppContainer network evidence on Server 2025
+
+The small sandbox component compiles natively at `273d905`, but its first runtime
+gate fails: the socket remains pending until WSAPoll times out instead of returning
+WSAEACCES. All other reported isolation checks pass; that run is still red. A
+connection timeout alone does not establish network isolation.
+
+The revised probe retains the actual socket result and asks the native Windows
+[network-isolation diagnosis API](https://learn.microsoft.com/en-us/windows/win32/api/netfw/nf-netfw-networkisolationdiagnoseconnectfailureandgetinfo)
+inside that same AppContainer, for the exact attempted server, before socket/Winsock
+cleanup. Only ERROR_SUCCESS plus an exact missing private/internet capability can
+corroborate the pending connection. NONE, unknown results, missing/failed APIs,
+connection refusal and successful sockets fail. The parent still independently
+requires no connection at its live listener and verifies zero token capabilities.
+Native predicate controls and an independent Python verifier cover those refusals.
+This changes diagnostic evidence, not the sandbox policy or loopback exemptions.
+Fresh hosted Windows execution remains pending; the OS may report no diagnosis and
+correctly leave the gate red. This component does not accept real renderer startup.
+
 ## Owned helper and desktop-provider integration (2026-11-17)
 
 The current review adds native Windows locale, monitor/cursor, Qt clipboard,

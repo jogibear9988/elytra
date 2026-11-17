@@ -16156,6 +16156,27 @@ Do not rewrite a live stream or weaken ownership cleanup. Pinned YAML formatter
 and scoped diff checks PASS; no native/GUI test for artifact-path configuration.
 User Code-OSS PID95070 and its private log are untouched. Full goal active.
 
+## Diagnose native AppContainer network policy without accepting a timeout (2026-11-17)
+
+Actual273 Windows componentjob133977269529 compiles successfully, but runtime
+network evidence fails: genuine pendingconnect+WSAPolltimeout10060; other six
+worker isolationchecks true. Keep that run red. Timeout alone remains insufficient.
+Inside the exact AppContainer, query Windows' documented target capability diagnosis
+before closing Winsock. Admit only actualWSAEACCES or timeout10060 corroborated by
+ERROR_SUCCESS and oneofthree exactmissing-network-capability enums. Preserve raw
+socket/policy result fields, parentlivepeer noaccept and actualzero-capabilitytoken.
+Successfulsockets/refusedconnections/NONE/MAX/unknown/APIerror/missingAPI reject.
+System32-only OS DLL loading; no sandbox/firewall/loopback policy mutation.
+
+Nativepredicate negativecontrols join actualprobe runner; independentPython4groups
+PASS locally and join CTest/nativecomponentCI. Independent source review GO; actual
+nativeWindows compile/runtime PENDING and diagnosis may correctlyleavegate red.
+Verify documented SDK header/signature againstMicrosoftSDK, use netfw.h. Detailed
+Windowsguide and source comments distinguish policydiagnosis from observed socket
+denial and realLibWeb readiness. Scoped native/Python/YAML/CMakeformat+diff and
+built367pages/27551links PASS. No localnative/GUI run. Full goal active; release
+and master promotion remain gated by actual current native builds/packages.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

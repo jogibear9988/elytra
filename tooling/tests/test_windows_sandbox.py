@@ -2,7 +2,9 @@
 """Require actual AppContainer tokens, denied native I/O and broker-owned child lifetime.
 
 This fixture uses a static native worker, not LibWeb. Renderer integration and
-its complete resource/IPC policy remain separate required acceptance.
+its complete resource/IPC policy remain separate required acceptance. A socket
+access error is observed denial; a pending timeout requires separate successful
+OS network-isolation capability diagnosis, not a timeout-as-denial inference.
 """
 
 import argparse
@@ -19,6 +21,21 @@ import tempfile
 import time
 
 from _windows_processes import WindowsProcesses
+
+
+def network_evidence(report):
+    """Verify native socket evidence independently of the worker's success boolean."""
+    operation = report.pop("networkOperation")
+    error = report.pop("networkError")
+    status = report.pop("networkPolicyStatus")
+    capability = report.pop("networkPolicyError")
+    if operation in ("WSASocket", "connect", "SO_ERROR") and error == 10013:
+        return "observed socket access denial"
+    assert operation == "WSAPoll timeout" and error == 10060, (operation, error)
+    # ERROR_SUCCESS with an exact documented missing-capability result. Neither
+    # NONE/MAX/unknown, API failure/absence, nor a socket success establishes this.
+    assert status == 0 and capability in (1, 2, 3), (status, capability)
+    return "OS capability-policy diagnosis corroborates pending connection"
 
 
 def line(process, timeout=20):
@@ -116,10 +133,8 @@ def exercise(probe, artifacts, mode):
                     stdout, stderr = process.communicate(timeout=20)
                     assert process.returncode == 0, (process.returncode, stdout, stderr)
                     report = json.loads(stdout)
-                    assert report.pop("networkError") == 10013, report  # WSAEACCES only.
-                    assert report.pop("networkOperation") in ("WSASocket", "connect", "SO_ERROR"), (
-                        report
-                    )
+                    evidence = network_evidence(report)
+                    print("PASS native network evidence:", evidence)
                     assert report == {
                         "allowedRead": True,
                         "privateReadDenied": True,
@@ -163,6 +178,11 @@ def main():
     artifacts = args.artifacts_dir.resolve()
     artifacts.mkdir(parents=True, exist_ok=True)
     probe = args.probe.resolve(strict=True)
+    controls = subprocess.run(
+        [str(probe), "--network-evidence-controls"], capture_output=True, timeout=10, check=True
+    )
+    assert controls.stdout == b"PASS network evidence controls\n", controls
+    assert controls.stderr == b"", controls
     exercise(probe, artifacts, "checks")
     exercise(probe, artifacts, "suspended")
     exercise(probe, artifacts, "hold")
