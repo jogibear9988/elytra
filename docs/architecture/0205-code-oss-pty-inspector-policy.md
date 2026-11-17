@@ -2,7 +2,8 @@
 
 Status: implemented source adaptation CA-31; 32 focused Node/Mite cases and
 existing source/local-desktop/shared/engine policy controls pass locally. Actual
-Code-OSS advances through PTY-host startup, but terminal acceptance remains open.
+Code-OSS now passes a controlled diagnostic-flagged native terminal workflow;
+general terminal reliability and visible UI acceptance remain open.
 This is not an inspector backend.
 
 ## Observed blocker
@@ -62,8 +63,18 @@ result; the extension's 30-second deadline expires. All 14 observed processes st
 with zero cleanup signals. The connection/runtime cause remains under
 investigation; neither the guard nor the native backend is established as its
 cause. Evidence: `build/codeoss-pty-host-debug-{acceptance.log,workbench.log}` and
-`build/codeoss-pty-bash-{acceptance.log,workbench.log}`. No terminal workflow is
-accepted; source controls do not establish it.
+`build/codeoss-pty-bash-{acceptance.log,workbench.log}`. These earlier failed attempts did not accept a terminal workflow; source controls
+alone do not establish it.
+
+
+A later actual diagnostic-flagged run passes original CJS editor operations plus
+terminal creation, strict native Bash identity, sendText printf, exit17 and
+independent physical byte verification. Main exits0, all15 observed processes are
+absent and cleanupSignals0. No quotas changed. One separate 364-byte transfer is
+still refused at the 16-active outgoing IPC window, so generic under-load
+reliability remains open. This is controlled local macOS offscreen evidence, not
+an inspector or visible terminal UI claim. See the
+[exact hashes and evidence](../api/pty.md#controlled-code-oss-terminal-result).
 
 CA-31 remains an open deferral. Remove the helper/import/manifest transformation
 when a genuine inspector contract can execute the original flags, or an upstream

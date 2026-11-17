@@ -2,7 +2,8 @@
 
 Status: implemented partial POSIX backend; focused standalone macOS differential,
 native lifecycle/GC and shutdown controls pass standalone and in rebuilt Firefly
-embedding. Actual Code-OSS terminal use and fresh Linux acceptance remain pending.
+embedding. A controlled diagnostic-flagged Code-OSS terminal workflow passes;
+fresh Linux and general terminal/UI acceptance remain pending.
 Windows is unsupported.
 
 ## Demand
@@ -77,11 +78,16 @@ platform acceptance. Windows needs a real ConPTY provider with output-drain-awar
 closure, process handles and native lifetime tests; WSL and pipe emulation are not
 substitutes. General node:tty streams, privilege changes, arbitrary encodings,
 arbitrary native addons and full process-tree cleanup are outside this slice.
-The actual Code-OSS terminal fixture reaches the original ElectronPtyHostStarter
+The first actual Code-OSS terminal fixture reached the original ElectronPtyHostStarter
 but fails its unsupported utility-process inspector flag request before any PTY
 PID/output gate. It times out; all 13 observed processes stop without cleanup
-signals. Actual Code-OSS terminal acceptance remains pending; this native backend
-slice does not relax utility-process policy. See the API validation evidence.
+signals. That historical failure preceded CA-31; this native backend slice does not relax
+utility-process policy. A later controlled diagnostic-flagged run now passes real
+terminal creation, native shell identity, sendText, exit17 and independent physical
+output verification alongside the original CJS editor workflow. Main exits0; all15
+observed processes are absent without cleanup signals. A separate active-window
+port refusal remains, so reliability under load is not accepted. See the
+[exact current evidence](../api/pty.md#controlled-code-oss-terminal-result).
 
 ## Primary source basis
 

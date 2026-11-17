@@ -1,13 +1,43 @@
 # VS Code / Code-OSS compatibility target
 
 Status: **experimental**. Controlled macOS offscreen CommonJS and ESM
-extension/command/open-edit-save workflows are accepted. General desktop use, visible interaction,
-terminal and broad extension/platform compatibility remain unaccepted. Requested
+extension/command/open-edit-save workflows are accepted. A controlled diagnostic-flagged
+native terminal workflow also passes. General desktop use, visible interaction,
+under-load terminal reliability and broad extension/platform compatibility remain unaccepted. Requested
 as a priority target on 2026-11-07. The original pinned application runs with the
 explicit temporary adaptations documented below; this is not unchanged full
 Electron compatibility or a percentage-complete estimate.
 
 ## Current priority: first real workbench, then developer workflows
+
+## Controlled Code-OSS terminal result
+
+A local macOS offscreen run with `FIREFLY_IPC_BYTES_DIAGNOSTIC=1` now passes the
+original CommonJS extension activation/commands/open-edit-save workflow AND real
+terminal creation. It obtains Bash PID 70351 through the original PTY host,
+authenticates native birth/UID/exact executable/owned-tree identity, sends printf
+through `Terminal.sendText`, observes terminal exit 17 and independently verifies
+the physical terminal-output bytes in Python. Main exits 0; all 15 observed native
+processes are independently absent and cleanup sends zero signals.
+
+Terminal-output SHA-256:
+`416a3fc023adf8f1ead2c9fd75ec57f6ce4dec1cdc271d6492593b3e61d491df`.
+Editor-output SHA-256:
+`4077386fa9fddf27feeab8e86fb0fc3645ee636c8c12d244c8b3dc4a621cfee6`.
+Stage SHA-256:
+`f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573`.
+Evidence: `build/codeoss-pty-admission-diagnostic-{acceptance.log,evidence.json,workbench.log}`.
+
+This accepts the controlled API/PTY workflow, not visible terminal rendering/input,
+fresh platforms or general reliability under load. No admission quota changes
+were made. Scalar diagnostics also observe a separate 364-byte port transfer
+refused while 16 ordinary outgoing IPC events occupy the active window (status1,
+phase30, state1, count1, pending0, global16, frames0). That contention remains an
+open reliability issue even though this run's terminal workflow passes. A
+non-diagnostic repeat and broader scheduling/failure coverage remain open; do not
+attribute all queue behavior to the independent Console bootstrap correction.
+
+The checkpoints below preserve their earlier source/run scope.
 
 Updated 2026-11-17. The actual regular `--extensionDevelopmentPath` /
 `--extensionTestsPath` workflow now passes using the real `vscode` API: original
@@ -22,7 +52,7 @@ confirmed absent. The preceding SDK binary's ESM
 control passes with exit 0 and two helper-cleanup signals before all 12 observed
 processes are absent. Earlier CJS/ESM predecessors had zero-cleanup runs; these
 must not replace the final binary's teardown evidence. Full natural helper teardown
-remains unaccepted; immediate harness cleanup is not itself a demonstrated leak or
+was not established by those preceding runs; immediate harness cleanup is not itself a demonstrated leak or
 runtime failure.
 The accepted extension host reports genuine Mite identity. This is a controlled
 API/editing acceptance result without visible desktop input, not every extension,
@@ -55,7 +85,8 @@ Its 32-case source/policy controls pass. A post-guard run reaches a genuine nati
 shell PID, but the strict executable gate correctly refuses macOS `/bin/sh`'s
 actual Bash target. A repeat requesting explicit Bash without user startup files
 creates the PTY host but times out before terminal-ready PID/output. Actual
-terminal use remains unaccepted; the connection/runtime cause is unresolved. See [ADR 0205](../architecture/0205-code-oss-pty-inspector-policy.md).
+terminal use was not accepted by those earlier attempts. The subsequent controlled
+diagnostic milestone above passes, while under-load contention remains open. See [ADR 0205](../architecture/0205-code-oss-pty-inspector-policy.md).
 
 The scanner stall is resolved in the latest offscreen run: all 60 packaged system
 extensions and their NLS files are read, and the original scanner reports

@@ -15260,6 +15260,78 @@ difference from full Node inspection; do not equate this with a general Console
 compatibility claim. Commit the genuine bootstrap/formatting slice separately
 from the opt-in port-admission diagnostics under investigation.
 
+
+## 2026-11-17 — Controlled original Code-OSS editor AND native PTY workflow PASS
+
+After genuine Console bootstrap commit597f427 and the bounded diagnostic-only
+port/JS close-source instrumentation, the actual offscreen application run26729
+PASSES both the original CommonJS extension workflow and actual native terminal
+workflow. This is new controlled evidence, not a rewrite of earlier failure
+entries. Keep the existing native admission rules/quotas unchanged.
+
+Actual original CJS extension activation, nested/repeated require('vscode'),
+commands, document/editor opening, WorkspaceEdit and physical save all pass. The
+same extension creates a real terminal through the original Code-OSS PTY host,
+receives Bash PID70351, and passes strict native birth/UID/exact-executable/owned
+process-tree authentication. It sends printf through Terminal.sendText, observes
+terminal exit17, and an independent Python parent verifies the physical terminal
+bytes. No fabricated PID, output or completion gate is used. Main exits0; all15
+observed native processes are independently absent by original birth/executable
+identity, and cleanupSignals0. No visible terminal window or desktop input is used.
+
+Final terminal SHA256:
+416a3fc023adf8f1ead2c9fd75ec57f6ce4dec1cdc271d6492593b3e61d491df.
+Final editor SHA256:
+4077386fa9fddf27feeab8e86fb0fc3645ee636c8c12d244c8b3dc4a621cfee6.
+Stage SHA256:
+f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573.
+Evidence: build/codeoss-pty-admission-diagnostic-{acceptance.log,evidence.json,
+workbench.log}. The one reused stage/profile retains the exact pinned source,
+32-file overlay/seven package adaptations and60 static extensions. No duplicate
+application/dependency package or new GUI launch is retained.
+
+IMPORTANT scope: this run explicitly enables FIREFLY_IPC_BYTES_DIAGNOSTIC=1.
+Scalar observations ALSO report another 364-byte port-transfer refusal: status1,
+phase30, state1, count1, outgoing16, pending0, global16, frames0. Thus ordinary
+16-active outgoing IPC contention can still block a small port transfer even
+though this terminal workflow completed. Do not raise quotas or infer general
+under-load reliability from the green milestone. No-budget-change diagnostics
+remain separate from the Console commit; actual Console function errors are gone,
+but that does not establish a causal fix for every queue/connection failure.
+
+Update current status, Code-OSS compatibility, PTY API and ADR0204/0205 to accept
+only this controlled local macOS diagnostic-flagged editor+terminal contract.
+Previous run2 strict sh/Bash refusal and run3 no-ready-PID timeout remain valid
+history. Remaining work: genuine shared-credit/backpressure reliability and a
+non-diagnostic repeat, broader shell/termination failure coverage, visible
+terminal rendering/input, arbitrary extensions and fresh Linux/Windows acceptance.
+This is not full VSCode/Electron compatibility or master/release promotion.
+
+
+Final diagnostic slice checks: actual offscreen main MessageChannelMain controls
+pass (FIFO/snapshots/aliases/multi-hop/atomic failure/close), and actual utility
+port controls pass (failed-admission ownership, queued transfer,32binary FIFO
+snapshots,512KiB duplex/close/child exit). Evidence:
+build/port-admission-{main-controls,utility-controls,firefly-build}.log. Generated
+Firefly inputs, native style/diff and unmodified b872e601 checks pass. Website
+362pages/27154local targets passes after its completed build. No quota was raised.
+
+Next implementation: ordinary webContents.send already has an existing bounded
+waiting-event queue, while port transfers currently reject when16active event
+ACK credits are occupied. Extend that SAME ordered waiting-delivery queue to port
+transfers within existing256/document,1024/global waiting counts and wire leases;
+retain16/document,64/global active bounds. Reserve immutable wire/identities before
+returning successful transfer descriptors; preserve failure-before-detach, gate
+DATA/CLOSE until transfer promotion, assign outer sequence at promotion, move the
+existing lease once, and cancel/revoke old-epoch waiting routes on navigation/EOF.
+A focused offscreen regression should send16ordinary events and one actual port
+transfer in one main turn, then prove FIFO/nonce echo, bounded recovery and epoch
+cancellation without application retries. Bulk port DATA consuming physical
+control slots needed for Reply/ACK/CLOSE is a separate tracked liveness risk;
+reserve within existing limits rather than exempting receiver admission. Genuine
+process.kill(pid,0) parent-liveness support also remains a Code-OSS runtime gap.
+The full goal stays active; native platform CI/master/release gates remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

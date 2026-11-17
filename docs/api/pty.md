@@ -3,7 +3,8 @@
 Status: partial native pseudoterminal service. Standalone Mite passes the focused
 headless macOS controls against Node 24.15 with unchanged node-pty 1.2.0-beta.18.
 The same six groups and two policy/one shutdown groups also pass in rebuilt
-Firefly-as-Node. An actual Code-OSS terminal workflow is not yet accepted.
+Firefly-as-Node. A controlled diagnostic-flagged Code-OSS terminal workflow now
+passes on local macOS; general terminal reliability/UI acceptance remains open.
 Linux requires glibc 2.34 or newer for the current descriptor-closing spawn path;
 fresh Linux acceptance is pending. Windows has an explicit unsupported provider.
 
@@ -121,11 +122,37 @@ ElectronPtyHostStarter requests unsupported utility-process inspector flags.
 The fixture times out; all 13 observed processes stop with zero cleanup signals.
 Evidence: `build/codeoss-pty-acceptance.log` and `build/codeoss-pty-workbench.log`.
 This records a separate launch-policy blocker, not accepted Code-OSS terminal use.
-The subsequent scoped CA-31 policy advances through the original PTY host, but
-actual terminal PID/output acceptance remains open; the latest exact-executable
-and timeout observations are recorded in
+The scoped CA-31 policy then advances through the original PTY host. Earlier
+exact-executable and timeout observations are recorded in
 [ADR 0205](../architecture/0205-code-oss-pty-inspector-policy.md).
 
 No terminal window or desktop interaction is used. These controls do not establish
-Windows, fresh Linux, terminal rendering/input in Code-OSS, or
+Windows, fresh Linux, visible terminal rendering/input in Code-OSS, or
 arbitrary process-tree cleanup.
+
+## Controlled Code-OSS terminal result
+
+A local macOS offscreen run with `FIREFLY_IPC_BYTES_DIAGNOSTIC=1` now passes the
+original CommonJS extension activation/commands/open-edit-save workflow AND real
+terminal creation. It obtains Bash PID 70351 through the original PTY host,
+authenticates native birth/UID/exact executable/owned-tree identity, sends printf
+through `Terminal.sendText`, observes terminal exit 17 and independently verifies
+the physical terminal-output bytes in Python. Main exits 0; all 15 observed native
+processes are independently absent and cleanup sends zero signals.
+
+Terminal-output SHA-256:
+`416a3fc023adf8f1ead2c9fd75ec57f6ce4dec1cdc271d6492593b3e61d491df`.
+Editor-output SHA-256:
+`4077386fa9fddf27feeab8e86fb0fc3645ee636c8c12d244c8b3dc4a621cfee6`.
+Stage SHA-256:
+`f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573`.
+Evidence: `build/codeoss-pty-admission-diagnostic-{acceptance.log,evidence.json,workbench.log}`.
+
+This accepts the controlled API/PTY workflow, not visible terminal rendering/input,
+fresh platforms or general reliability under load. No admission quota changes
+were made. Scalar diagnostics also observe a separate 364-byte port transfer
+refused while 16 ordinary outgoing IPC events occupy the active window (status1,
+phase30, state1, count1, pending0, global16, frames0). That contention remains an
+open reliability issue even though this run's terminal workflow passes. A
+non-diagnostic repeat and broader scheduling/failure coverage remain open; do not
+attribute all queue behavior to the independent Console bootstrap correction.

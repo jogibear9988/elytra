@@ -1,6 +1,16 @@
 # Current support and tested examples
 
-Latest Code-OSS checkpoint, **2026-11-17**, on the isolated Ladybird review branch:
+Latest Code-OSS checkpoint, **2026-11-17**: the local macOS offscreen diagnostic
+run now accepts the original CommonJS activation/command/editor/edit-save workflow
+AND real terminal creation/Bash PID authentication/sendText/exit17, with independent
+physical terminal/editor byte verification. Main exits0; all15 native processes
+are independently absent and cleanupSignals0. This run used
+`FIREFLY_IPC_BYTES_DIAGNOSTIC=1` and changed no quotas. A separate small port transfer
+still hit the 16-active outgoing IPC window, so under-load reliability, visible
+terminal input/painting, non-diagnostic repeat and fresh platforms remain open.
+See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result).
+
+The preceding CommonJS/ESM checkpoint on the isolated review branch:
 controlled original Code-OSS CommonJS and ESM extension/command/open-edit-save
 workflows pass on macOS without a visible window. The CJS path exercises the real
 Module interceptor, including nested/repeated require('vscode'); both workflows
@@ -9,11 +19,12 @@ use actual extension/editor APIs and independent physical-file readback.
 The final CJS run exits 0; all 13 tracked native processes are absent after two
 authenticated helper-cleanup signals. The ESM control on the preceding SDK also
 passes, with 12 processes and two cleanup signals. The harness starts cleanup
-immediately after main exit, so full natural helper teardown remains unverified.
+immediately after main exit, so those earlier runs did not establish full natural
+helper teardown; the latest controlled terminal run has zero cleanup signals.
 
 Generic native data-URL modules, genuine CommonJS dispatch and real GC/utility
 flags replace the previous loader failures. This is experimental controlled API
-review evidence, not master promotion, visible painting/input, terminal/PTY,
+review evidence, not master promotion, visible painting/input, general terminal reliability,
 all-extension/native-addon or fresh platform acceptance. See
 [current accepted scope and evidence](compatibility/vscode.md),
 [CommonJS dispatch](api/module.md#module-constructor-and-commonjs-dispatch),

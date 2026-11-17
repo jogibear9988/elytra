@@ -40,26 +40,27 @@ process ownership is not implemented by this runner and fails explicitly.
 
 A result file without correct native saved bytes is a failure. A timeout, test
 failure or nonzero application exit is a failure. Even success proves only this
-controlled activation/open/edit/save workflow, not terminal, search, extension
-marketplace, external network or general CodeOSS compatibility.
+selected workflow. Editor-only success does not establish the optional terminal
+workflow, search, marketplace, external network or general CodeOSS compatibility.
 
-Current local macOS result (2026-11-17): accepted with the rebuilt SDK after genuine
-native GC/utility flag support, generic data-URL ESM loading and real CommonJS
-Module interception. Both extension formats pass activation, command, document/
-editor/edit/save and independent native byte checks. The final CommonJS run exits
-0; all 13 observed processes are absent after two authenticated helper-cleanup
-signals. The separate ESM control exits 0 with 12 processes and two cleanup
-signals. Cleanup begins immediately after the main process exits, so these runs
-prove bounded cleanup, not fully natural helper shutdown.
+Current local macOS result (2026-11-17): the CommonJS extension/editor workflow
+and the real terminal workflow pass together. The original ESM test driver uses
+actual APIs, with independent physical-file readback for both editor and shell
+output. The application exits 0; all 15 observed native processes are independently
+absent, with no cleanup signals. This checkpoint enabled
+`FIREFLY_IPC_BYTES_DIAGNOSTIC=1`; it changed no queue limits or admission checks.
+Evidence: `build/codeoss-pty-admission-diagnostic-{evidence.json,workbench.log,acceptance.log}`.
 
-Final CommonJS evidence is retained as
-`build/codeoss-commonjs-{evidence.json,workbench.log,acceptance.log}`; the separate
-ESM control is `build/codeoss-commonjs-esm-{evidence.json,workbench.log,control.log}`.
-Executable hashes distinguish their builds: the ESM control preceded the narrow
-unknown-builtin error correction; the final CommonJS run includes it and still
-uses the original ESM test runner. Earlier data-module acceptance remains in the
-progress log. This does not certify visible painting/input, PTY, all extensions
-or other platforms.
+This is one controlled offscreen API workflow, not visible painting/keyboard input,
+all extensions, shell integration or another platform. Native diagnostics also
+observed a separate 364-byte port transfer refused while 16 ordinary IPC messages
+were outstanding. Startup and terminal reliability under load remain open.
+
+Earlier editor-only ESM/CommonJS evidence is retained as
+`build/codeoss-commonjs-{evidence.json,workbench.log,acceptance.log}` and
+`build/codeoss-commonjs-esm-{evidence.json,workbench.log,control.log}`. Those runs
+used separate binaries and required two helper-cleanup signals; their executable
+hashes and teardown scope remain distinct from the current terminal checkpoint.
 
 Add `--terminal` to opt into a separate real terminal workflow in the same
 application batch. The default editor-only workflow remains unchanged. For
@@ -86,6 +87,6 @@ Actual `Terminal.sendText` runs a quoted `printf` into an owned file and exits
 Python verification of the exact physical bytes after application cleanup. A
 wrong nonce, foreign/dead PID, missing output, timeout or nonzero application
 exit fails. `report.json` includes the terminal flag, native identity and output
-hash only for this mode. The new terminal mode is prepared and has not yet been
-run as CodeOSS acceptance; the previously accepted editor-only evidence above
-does not certify this terminal workflow.
+hash only for this mode. The accepted terminal checkpoint above covers these
+checks; prior failures and outstanding admission reliability are recorded in
+`docs/PROGRESS.md`.

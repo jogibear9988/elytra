@@ -11,6 +11,8 @@
 #include <LibJS/Runtime/VM.h>
 #include <QTimer>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 namespace Firefly {
 namespace {
@@ -155,37 +157,64 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
 {
     auto* state = renderer_port_state(vm);
     int status = state ? success : retired;
+    unsigned phase = state ? 0 : 10;
     auto count = positive(vm.argument(3), 16);
     auto wire = wire_bytes(vm.argument(2), realm);
     std::vector<Ports::Identity> identities;
-    if (!count.has_value() || wire.is_error())
+    if (!count.has_value() || wire.is_error()) {
         status = invalid;
-    if (!status) {
-        if (wire.value().length() > Ports::physical_limit - Ports::header_size - *count * 8)
-            status = invalid;
-        else if (state->ipc_outgoing.size() + state->port_event_pending.size() >= 16
-            || ipc_outgoing_count >= 64
-            || state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit)
-            status = blocked;
-        else if (state->renderer_port_next == 0xffffffffu
-            || !state->renderer_ports.prepare_transfer(*count, identities))
-            status = blocked;
+        phase = 20;
     }
 
     if (!status) {
-        auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());
-        if (graph.is_error())
+        if (wire.value().length() > Ports::physical_limit - Ports::header_size - *count * 8) {
             status = invalid;
-        else {
+            phase = 21;
+        } else if (state->ipc_outgoing.size() + state->port_event_pending.size() >= 16
+            || ipc_outgoing_count >= 64
+            || state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit) {
+            status = blocked;
+            phase = 30;
+        } else if (state->renderer_port_next == 0xffffffffu
+            || !state->renderer_ports.prepare_transfer(*count, identities)) {
+            status = blocked;
+            phase = 31;
+        }
+    }
+
+    // Opt-in scalar diagnostics distinguish capacity from ownership/shape
+    // refusals. Never inspect channel names, payloads, cookies or environment.
+    auto diagnose = [&](int result, unsigned at) {
+        static thread_local unsigned reports = 0;
+        if (!result || !std::getenv("FIREFLY_IPC_BYTES_DIAGNOSTIC") || reports >= 4)
+            return;
+        ++reports;
+        fprintf(stderr,
+            "FIREFLY_PORT_ADMISSION status=%d phase=%u state=%u count=%u "
+            "outgoing=%zu pending=%zu global=%zu frames=%zu wire=%zu report=%u\n",
+            result, at, state ? 1u : 0u, count.value_or(0), state ? state->ipc_outgoing.size() : 0,
+            state ? state->port_event_pending.size() : 0, static_cast<size_t>(ipc_outgoing_count),
+            state ? state->ipc_byte_queue.size() : 0, wire.is_error() ? 0 : wire.value().length(),
+            reports);
+    };
+
+    if (!status) {
+        auto graph = BridgeData::decode_wire(wire.value().view(), message_port_limits());
+        if (graph.is_error()) {
+            status = invalid;
+            phase = 40;
+        } else {
             auto value = graph.value().materialize(realm, {}, BridgeData::Materialization::Mutable);
-            if (value.is_error())
+            if (value.is_error()) {
                 status = invalid;
-            else {
+                phase = 41;
+            } else {
                 auto root = GC::Root<JS::Value>::create(value.value(), SourceLocation::current());
                 if (!root.value().is_object()
-                    || !JS::Array::is_engine_class_of(root.value().as_object()))
+                    || !JS::Array::is_engine_class_of(root.value().as_object())) {
                     status = invalid;
-                else {
+                    phase = 42;
+                } else {
                     auto& array = root.value().as_object();
                     // Array length is an engine slot, not an ordinary property
                     // in the Rust-backed SDK. Read it without user hooks.
@@ -194,8 +223,10 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
                     if (!length.has_value() || !length->value.has_value()
                         || !length->value->is_number() || length->value->as_double() != 2
                         || !channel.is_string()
-                        || channel.as_string().length_in_utf16_code_units() > 256)
+                        || channel.as_string().length_in_utf16_code_units() > 256) {
                         status = invalid;
+                        phase = 43;
+                    }
                 }
             }
         }
@@ -228,6 +259,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
         // No application code or event pumping runs between this probe and queueing.
         auto reservation = state->ipc_wire_budget->reserve(frame.length());
         if (!reservation) {
+            diagnose(blocked, 50);
             result->define_direct_property(
                 "status"_utf16, JS::Value(blocked), JS::default_attributes);
             return JS::Value(result.ptr());
@@ -243,12 +275,14 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
             // source wrappers on a failed admission.
             retire_ipc_channel(id);
             status = retired;
+            phase = 60;
         } else {
             VERIFY(state->renderer_ports.admit_transfer(identities));
         }
     }
 
     result->define_direct_property("status"_utf16, JS::Value(status), JS::default_attributes);
+    diagnose(status, phase);
     return JS::Value(result.ptr());
 }
 

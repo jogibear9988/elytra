@@ -274,6 +274,16 @@ function createMessageChannels(native, EventEmitter, error) {
   let sequence = 0;
   let totalBytes = 0;
   let stopped = false;
+  const diagnostic = process.env?.FIREFLY_IPC_BYTES_DIAGNOSTIC === "1";
+  let diagnosticBudgetErrors = 0;
+  function queueBudgetMessage(stage, record, size) {
+    const message = "Port queue budget exceeded";
+    if (!diagnostic || diagnosticBudgetErrors >= 4) {
+      return message;
+    }
+    diagnosticBudgetErrors++;
+    return message + " [stage=" + stage + " remote=" + (record.remote ? 1 : 0) + " id=" + record.lease.id + " generation=" + record.lease.generation + " count=" + record.lease.count + " bytes=" + record.lease.bytes + " totalBytes=" + totalBytes + " size=" + size + " started=" + (record.started ? 1 : 0) + " scheduled=" + (record.scheduled ? 1 : 0) + " closed=" + (record.closed ? 1 : 0) + "]";
+  }
   function ownerOf(record) {
     return record.owner ? apply2(deref, record.owner, []) : void 0;
   }
@@ -605,7 +615,7 @@ function createMessageChannels(native, EventEmitter, error) {
         throw error("ERR_FIREFLY_PORT_LIMIT", "Port message exceeds its native frame limit");
       }
       if (destination && !destination.closed && (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304)) {
-        throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
+        throw error("ERR_FIREFLY_PORT_LIMIT", queueBudgetMessage(1, destination, size));
       }
       const staged = [];
       for (let slot = 0; slot < moves.length; slot++) {
@@ -632,7 +642,7 @@ function createMessageChannels(native, EventEmitter, error) {
         return;
       }
       if (destination.lease.count >= 64 || destination.lease.bytes + size > 1048576 || totalBytes + size > 4194304) {
-        throw error("ERR_FIREFLY_PORT_LIMIT", "Port queue budget exceeded");
+        throw error("ERR_FIREFLY_PORT_LIMIT", queueBudgetMessage(2, destination, size));
       }
       const received = [];
       for (let index = 0; index < moves.length; index++) {
