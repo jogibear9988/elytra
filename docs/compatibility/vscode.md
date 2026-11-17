@@ -1,8 +1,7 @@
 # VS Code / Code-OSS compatibility target
 
 Status: **experimental**. Controlled macOS offscreen CommonJS and ESM
-extension/command/open-edit-save workflows are accepted. A controlled diagnostic-flagged
-native terminal workflow also passes. General desktop use, visible interaction,
+extension/command/open-edit-save workflows are accepted. A controlled native terminal workflow also passes without diagnostic flags. General desktop use, visible interaction,
 under-load terminal reliability and broad extension/platform compatibility remain unaccepted. Requested
 as a priority target on 2026-11-07. The original pinned application runs with the
 explicit temporary adaptations documented below; this is not unchanged full
@@ -28,14 +27,21 @@ Stage SHA-256:
 `f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573`.
 Evidence: `build/codeoss-pty-admission-diagnostic-{acceptance.log,evidence.json,workbench.log}`.
 
-This accepts the controlled API/PTY workflow, not visible terminal rendering/input,
-fresh platforms or general reliability under load. No admission quota changes
-were made. Scalar diagnostics also observe a separate 364-byte port transfer
-refused while 16 ordinary outgoing IPC events occupy the active window (status1,
-phase30, state1, count1, pending0, global16, frames0). That contention remains an
-open reliability issue even though this run's terminal workflow passes. A
-non-diagnostic repeat and broader scheduling/failure coverage remain open; do not
-attribute all queue behavior to the independent Console bootstrap correction.
+A subsequent local macOS offscreen run **without the diagnostic flag** passes
+both workflows after bounded queued attachment admission. It authenticates Bash
+PID 74547; main exits 0, all 14 observed native processes are independently absent
+and cleanup sends zero signals. Terminal SHA-256:
+`ec081f8801c32b9b8ad3fb4d5f7cb9e796ffc415b07aeef46689cb55e152b163`;
+editor SHA-256:
+`02248aa5ab28eec5dfd835ef833e2c60422794f2e0630249b6bf85f1f74a410c`.
+The stage digest is unchanged. Evidence:
+`build/codeoss-queued-port-{acceptance.log,evidence.json,workbench.log}`.
+The mixed renderer-port regression also passes full active-window handoff,
+finite backlog refusal/recovery and old-window cancellation, without increasing
+quotas. See [ADR 0206](../architecture/0206-queued-renderer-port-attachments.md).
+Visible rendering/input, fresh platforms and broader load/failure coverage remain
+unaccepted. The diagnostic checkpoint above retains its original run scope.
+
 
 The checkpoints below preserve their earlier source/run scope.
 

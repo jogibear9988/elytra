@@ -15358,6 +15358,35 @@ These changes correct reference-test assumptions, not runtime failures. Native
 platform CI, master promotion and alpha publication remain pending. The separate
 queued renderer-port implementation is still awaiting build/runtime acceptance.
 
+## Bounded queued renderer attachments and non-diagnostic Code-OSS acceptance (2026-11-17)
+
+Implement ADR0206: ordinary events and immutable port attachments share the SAME
+bounded FIFO waiting queue and wire leases. Reserve identities before successful
+ownership transfer, gate both directions on reserved routes, assign sequences at
+promotion, wake waiting DATA/CLOSE and revoke old-epoch queued routes. Keep every
+existing active/waiting/byte quota and deadline. No Code-OSS adaptation is added.
+
+Validation: Release firefly/offscreen build and native/generated/style checks pass.
+The existing renderer-port batch passes all six groups, including a full16-active
+ordinary window then real DOM handoff, actual finite waiting rejection preserving
+source ownership/recovery, and queued destruction/fresh-document exchange. Logs:
+build/queued-port-{firefly-build,renderer-controls}.log.
+
+Actual original CommonJS Code-OSS activation/command/editor WorkspaceEdit/save
+AND Bash terminal sendText/exit17 pass WITHOUT FIREFLY_IPC_BYTES_DIAGNOSTIC.
+Native Bash PID74547 is authenticated. Main exits0; all14 observed native process
+identities are independently rechecked stopped; cleanupSignals0. Evidence:
+build/codeoss-queued-port-{acceptance.log,evidence.json,workbench.log}. Nonce-free
+compact evidence includes executable hash, process identities and readback hashes;
+that executable hash is not a proof of the whole dependency closure. The reused
+stage digest remains f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573.
+No visible GUI launch or extra application stage is retained.
+
+Remaining: physical bulk DATA/control-slot competition, genuine process.kill(pid,0)
+liveness, broader terminal/failure coverage, visible rendering/input, arbitrary
+extensions, native platform CI and master/release promotion. No full-desktop or
+Windows acceptance is inferred. The full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -201,6 +201,9 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         std::unordered_set<u32> ipc_pending {};
         bool ipc_outgoing_failed { false };
         Utility::Ports::Ledger renderer_ports;
+        // These live ledger capabilities are reserved by a queued attachment,
+        // but cannot send data/close until that attachment enters wire order.
+        std::unordered_set<u32> renderer_port_waiting;
         Utility::Ports::Reassembler renderer_port_fragments;
         u32 renderer_port_fragment_serial { 0 };
         u32 renderer_port_next { 0 };
@@ -215,6 +218,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
             ByteString wire;
             MonotonicTime deadline;
             RefPtr<IpcWireReservation> reservation;
+            std::vector<Utility::Ports::Identity> ports {};
         };
 
         Vector<WaitingEvent> ipc_waiting_events {};

@@ -250,6 +250,12 @@ void Bridge::Impl::flush_ipc_packets(int id, u64 epoch)
                 event->second = MonotonicTime::now() + AK::Duration::from_seconds(30);
         }
 
+        if (packet.kind == ApplicationIpc::Kind::PortControl && packet.offset == 0) {
+            auto transfer = state.port_event_pending.find(packet.request);
+            if (transfer != state.port_event_pending.end())
+                transfer->second = MonotonicTime::now() + AK::Duration::from_seconds(30);
+        }
+
         packet.offset = next.next_offset;
         if (next.complete)
             state.ipc_byte_queue.take_first();

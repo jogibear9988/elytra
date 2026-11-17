@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one owned offscreen DOM-port and real utility relay acceptance batch."""
 
-import _support
+import _support  # noqa: F401 — shared standalone test import setup
 
 import argparse
 import os
@@ -18,7 +18,15 @@ def main():
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="firefly-renderer-ports-") as directory:
         root = Path(directory).resolve()
-        for name in ("main.mjs", "preload.mjs", "child.mjs", "page.html"):
+        for name in (
+            "main.mjs",
+            "preload.mjs",
+            "child.mjs",
+            "page.html",
+            "mixed.mjs",
+            "mixed-preload.mjs",
+            "mixed-page.js",
+        ):
             shutil.copyfile(ROOT / "firefly/tests/renderer-ports" / name, root / name)
         config = root / "config"
         config.mkdir()
@@ -45,7 +53,7 @@ def main():
         )
         try:
             stdout, stderr = process.communicate(timeout=40)
-            assert process.returncode == 0 and stdout.count("PASS renderer ports:") == 3, (
+            assert process.returncode == 0 and stdout.count("PASS renderer ports:") == 6, (
                 command,
                 process.returncode,
                 stdout,

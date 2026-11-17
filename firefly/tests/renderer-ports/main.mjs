@@ -1,6 +1,8 @@
 /** One hidden offscreen batch: genuine DOM handoff and utility-to-renderer relay. */
 import { app, BrowserWindow, ipcMain, MessageChannelMain, utilityProcess } from 'firefly';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import runMixed from './mixed.mjs';
 
 app.setPath('userData', path.join(import.meta.dirname, 'config'));
 let window;
@@ -226,6 +228,22 @@ app
     console.log(
       'PASS renderer ports: real utility/native DOM relay, 512 KiB fragmented binary aliases, close and PID retirement'
     );
+    await runMixed({
+      current: () => window,
+
+      replace: () => {
+        window = new BrowserWindow({
+          show: false,
+          webPreferences: { preload: path.join(import.meta.dirname, 'preload.cjs') }
+        });
+        return window;
+      },
+
+      page: pathToFileURL(path.join(import.meta.dirname, 'page.html')).href,
+      reports,
+      check,
+      until
+    });
     ended = true;
     clearTimeout(timer);
     window.destroy();

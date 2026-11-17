@@ -3,7 +3,7 @@
 Status: partial native pseudoterminal service. Standalone Mite passes the focused
 headless macOS controls against Node 24.15 with unchanged node-pty 1.2.0-beta.18.
 The same six groups and two policy/one shutdown groups also pass in rebuilt
-Firefly-as-Node. A controlled diagnostic-flagged Code-OSS terminal workflow now
+Firefly-as-Node. A controlled Code-OSS terminal workflow without diagnostic flags now
 passes on local macOS; general terminal reliability/UI acceptance remains open.
 Linux requires glibc 2.34 or newer for the current descriptor-closing spawn path;
 fresh Linux acceptance is pending. Windows has an explicit unsupported provider.
@@ -148,11 +148,17 @@ Stage SHA-256:
 `f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573`.
 Evidence: `build/codeoss-pty-admission-diagnostic-{acceptance.log,evidence.json,workbench.log}`.
 
-This accepts the controlled API/PTY workflow, not visible terminal rendering/input,
-fresh platforms or general reliability under load. No admission quota changes
-were made. Scalar diagnostics also observe a separate 364-byte port transfer
-refused while 16 ordinary outgoing IPC events occupy the active window (status1,
-phase30, state1, count1, pending0, global16, frames0). That contention remains an
-open reliability issue even though this run's terminal workflow passes. A
-non-diagnostic repeat and broader scheduling/failure coverage remain open; do not
-attribute all queue behavior to the independent Console bootstrap correction.
+A subsequent local macOS offscreen run **without the diagnostic flag** passes
+both workflows after bounded queued attachment admission. It authenticates Bash
+PID 74547; main exits 0, all 14 observed native processes are independently absent
+and cleanup sends zero signals. Terminal SHA-256:
+`ec081f8801c32b9b8ad3fb4d5f7cb9e796ffc415b07aeef46689cb55e152b163`;
+editor SHA-256:
+`02248aa5ab28eec5dfd835ef833e2c60422794f2e0630249b6bf85f1f74a410c`.
+The stage digest is unchanged. Evidence:
+`build/codeoss-queued-port-{acceptance.log,evidence.json,workbench.log}`.
+The mixed renderer-port regression also passes full active-window handoff,
+finite backlog refusal/recovery and old-window cancellation, without increasing
+quotas. See [ADR 0206](../architecture/0206-queued-renderer-port-attachments.md).
+Visible rendering/input, fresh platforms and broader load/failure coverage remain
+unaccepted. The diagnostic checkpoint above retains its original run scope.

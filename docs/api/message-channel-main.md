@@ -139,6 +139,15 @@ when no JavaScript listener is registered; posting to an unstarted DOM queue doe
 not refund credit. Close preserves preceding accepted messages. Private route
 identities never enter application payloads.
 
+Main-to-renderer attachments share the ordinary event FIFO waiting queue: at
+most 256 waiting/document and 1024 globally, with unchanged active credit of
+16/document and 64 globally. A successful postMessage can wait for ACK credit;
+its peer data/close stays queued until the attachment enters wire order. Full
+waiting admission throws before detaching source wrappers. Document teardown
+revokes waiting routes. A focused macOS offscreen batch accepts mixed ordinary
+traffic/DOM handoff, bounded rejection/recovery and old-window cancellation.
+See [ADR 0206](../architecture/0206-queued-renderer-port-attachments.md).
+
 The physical native frame bound remains 128 KiB including framing and route
 metadata. DATA graphs above one physical payload use native fragmentation up to
 the 1 MiB encoded logical bound. Initial port-attachment payloads still fit one

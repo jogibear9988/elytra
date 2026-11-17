@@ -1,5 +1,6 @@
 /** The maintained CodeOSS handoff: transfer genuine ports from preload to principal. */
 import { contextBridge, ipcRenderer } from 'firefly';
+import './mixed-preload.mjs';
 
 ipcRenderer.on('handoff', (event, nonce) => window.postMessage(nonce, '*', event.ports));
 

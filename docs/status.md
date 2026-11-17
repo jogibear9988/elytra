@@ -1,14 +1,16 @@
 # Current support and tested examples
 
-Latest Code-OSS checkpoint, **2026-11-17**: the local macOS offscreen diagnostic
-run now accepts the original CommonJS activation/command/editor/edit-save workflow
-AND real terminal creation/Bash PID authentication/sendText/exit17, with independent
-physical terminal/editor byte verification. Main exits0; all15 native processes
-are independently absent and cleanupSignals0. This run used
-`FIREFLY_IPC_BYTES_DIAGNOSTIC=1` and changed no quotas. A separate small port transfer
-still hit the 16-active outgoing IPC window, so under-load reliability, visible
-terminal input/painting, non-diagnostic repeat and fresh platforms remain open.
-See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result).
+Latest Code-OSS checkpoint, **2026-11-17**: a local macOS offscreen run
+without diagnostic flags accepts original CommonJS activation/command/editor
+edit-save AND real terminal creation/Bash PID authentication/sendText/exit17,
+with independent physical terminal/editor byte verification. Main exits 0;
+all 14 native processes are independently absent and cleanup sends zero signals.
+Attachments now share the bounded ordinary waiting queue without larger quotas.
+Six renderer-port cases pass, including full active-window handoff, finite backlog
+refusal/recovery and queued old-window cancellation. General load/failure behavior,
+visible terminal input/painting and fresh platforms remain open.
+See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result) and
+[queued attachment design](architecture/0206-queued-renderer-port-attachments.md).
 
 The preceding CommonJS/ESM checkpoint on the isolated review branch:
 controlled original Code-OSS CommonJS and ESM extension/command/open-edit-save

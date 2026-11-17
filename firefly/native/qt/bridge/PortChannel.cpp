@@ -86,6 +86,7 @@ void Bridge::Impl::reset_renderer_ports(int id)
     // helper endpoint starts its ledger at zero after reload; old frames still
     // cannot cross the non-reused outer epoch.
     state.renderer_ports = Ports::Ledger {};
+    state.renderer_port_waiting.clear();
     state.renderer_port_fragments.clear();
     state.renderer_port_fragment_serial = 0;
     ipc_outgoing_count -= state.port_event_pending.size();
@@ -170,11 +171,9 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
         if (wire.value().length() > Ports::physical_limit - Ports::header_size - *count * 8) {
             status = invalid;
             phase = 21;
-        } else if (state->ipc_outgoing.size() + state->port_event_pending.size() >= 16
-            || ipc_outgoing_count >= 64
-            || state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit) {
+        } else if (state->ipc_waiting_events.size() >= 256 || ipc_waiting_event_count >= 1024) {
             status = blocked;
-            phase = 30;
+            phase = 32;
         } else if (state->renderer_port_next == 0xffffffffu
             || !state->renderer_ports.prepare_transfer(*count, identities)) {
             status = blocked;
@@ -231,8 +230,9 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
             }
         }
     }
-    // Allocate the complete JS result before native admission; no application code
-    // runs between wire queue admission and committing the native capability ledger.
+    // Allocate the complete JS result before logical queue admission. No author
+    // callbacks or event pumping run while wire/identities are committed below;
+    // a failed admission must leave the source JavaScript wrappers attached.
     GC::Root ports { TRY(JS::Array::create(realm, status ? 0 : *count)) };
     if (!status) {
         for (size_t i = 0; i < identities.size(); ++i) {
@@ -255,8 +255,9 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
         auto id = static_cast<int>(*positive(vm.argument(0)));
         auto frame = packet_bytes(
             Ports::encode(Ports::Kind::Transfer, {}, identities, span(wire.value())));
-        // Probe the same shared wire budget before committing event credit.
-        // No application code or event pumping runs between this probe and queueing.
+        // This same lease follows the immutable encoded attachment through the
+        // existing waiting queue and physical queue. Active ACK credit is not
+        // consumed until the ordered scheduler can promote the attachment.
         auto reservation = state->ipc_wire_budget->reserve(frame.length());
         if (!reservation) {
             diagnose(blocked, 50);
@@ -265,19 +266,19 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS
             return JS::Value(result.ptr());
         }
 
-        reservation = nullptr;
-        auto request = state->renderer_port_next + 1;
-        state->port_event_pending.emplace(
-            request, MonotonicTime::now() + AK::Duration::from_seconds(30));
-        ++ipc_outgoing_count;
-        if (!queue_renderer_port(id, frame)) {
-            // Channel retirement refunds its pending event map; never detach the
-            // source wrappers on a failed admission.
-            retire_ipc_channel(id);
+        VERIFY(state->renderer_ports.admit_transfer(identities));
+        for (auto identity : identities)
+            state->renderer_port_waiting.insert(identity.id);
+        state->ipc_waiting_events.append(
+            { move(frame), MonotonicTime::now() + AK::Duration::from_seconds(30), move(reservation),
+                move(identities) });
+        ++ipc_waiting_event_count;
+        drain_ipc_events();
+        auto current = windows.find(id);
+        if (current == windows.end() || current->second.ipc_outgoing_failed
+            || !current->second.ipc_byte_epoch) {
             status = retired;
             phase = 60;
-        } else {
-            VERIFY(state->renderer_ports.admit_transfer(identities));
         }
     }
 
@@ -311,6 +312,11 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
 
     if (live != Ports::Ledger::State::Live)
         return JS::Value(invalid);
+    // A successful postMessage has transferred ownership, but its attachment
+    // may still be waiting for native event credit. Preserve queued DATA/CLOSE
+    // in the existing JS link rather than letting them overtake the attachment.
+    if (state->renderer_port_waiting.contains(route.id))
+        return JS::Value(blocked);
     if (state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit)
         return JS::Value(blocked);
     ByteString wire;
@@ -432,6 +438,13 @@ void Bridge::Impl::receive_renderer_port(
     if (live == Ports::Ledger::State::Retired)
         return;
     if (live != Ports::Ledger::State::Live) {
+        retire_ipc_channel(id);
+        return;
+    }
+    // A reserved attachment has not entered the peer's wire history. Even a
+    // guessed live route/generation cannot authorize an early ACK, close or
+    // payload that would mutate its ledger before ordered promotion.
+    if (state.renderer_port_waiting.contains(packet.route.id)) {
         retire_ipc_channel(id);
         return;
     }

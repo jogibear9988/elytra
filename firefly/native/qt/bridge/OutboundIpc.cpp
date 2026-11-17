@@ -40,7 +40,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::send_ipc_event(JS::VM& vm)
         return preload_error(
             vm, "ERR_FIREFLY_IPC_LIMIT", "Main-to-renderer wire budget exceeded"sv);
     window->ipc_waiting_events.append({ bytes.release_value(),
-        MonotonicTime::now() + AK::Duration::from_seconds(30), move(reservation) });
+        MonotonicTime::now() + AK::Duration::from_seconds(30), move(reservation), {} });
     ++ipc_waiting_event_count;
     drain_ipc_events();
     auto current = windows.find(id);
@@ -98,30 +98,46 @@ void Bridge::Impl::drain_ipc_events()
                 continue;
             if (!ipc_current(id, window.ipc_document, window.ipc_realm)
                 || window.ipc_waiting_events.first().deadline <= MonotonicTime::now()
-                || window.ipc_outgoing_next == 0xffffffffu) {
+                || (window.ipc_waiting_events.first().ports.empty()
+                        ? window.ipc_outgoing_next == 0xffffffffu
+                        : window.renderer_port_next == 0xffffffffu)) {
                 retire_ipc_channel(id);
                 continue;
             }
-            // Waiting events never enter the physical control/reply queue.
-            // Admit one only when it can start; a large fragmented message may
-            // subsequently retain one in-progress slot until its contiguous end.
+            // Ordinary events and attachments share FIFO waiting ownership and
+            // ACK admission. They enter the physical queue only when they can
+            // start, leaving the existing reply/control priority unchanged.
             if (window.ipc_outgoing.size() + window.port_event_pending.size() >= 16
                 || !window.ipc_byte_queue.is_empty()
                 || window.ipc_byte_channel->pending_send_count() >= Bytes::max_pending)
                 continue;
             auto event = window.ipc_waiting_events.take_first();
             --ipc_waiting_event_count;
-            auto request = ++window.ipc_outgoing_next;
-            // Until the first fragment is accepted this is the waiting deadline;
-            // flush_ipc_packets starts a fresh ACK deadline at that exact point.
-            window.ipc_outgoing.emplace(request, event.deadline);
+            bool transfer = !event.ports.empty();
+            // Port-control sequence numbers describe actual wire order, not the
+            // earlier logical admission: other live routes can emit meanwhile.
+            auto request = transfer ? ++window.renderer_port_next : ++window.ipc_outgoing_next;
+            if (transfer)
+                window.port_event_pending.emplace(request, event.deadline);
+            else
+                window.ipc_outgoing.emplace(request, event.deadline);
             ++ipc_outgoing_count;
             auto epoch = window.ipc_byte_epoch;
-            window.ipc_byte_queue.append({ ApplicationIpc::Kind::Event, request, false,
-                move(event.wire), 0, move(event.reservation) });
+            window.ipc_byte_queue.append(
+                { transfer ? ApplicationIpc::Kind::PortControl : ApplicationIpc::Kind::Event,
+                    request, false, move(event.wire), 0, move(event.reservation) });
+            if (transfer) {
+                for (auto identity : event.ports)
+                    window.renderer_port_waiting.erase(identity.id);
+            }
+
             ipc_last_event_window = id;
             progress = true;
             flush_ipc_packets(id, epoch);
+            // DATA/CLOSE offered immediately after logical attachment admission
+            // may be backpressured. Wake those links even if no later ACK arrives.
+            if (transfer)
+                emit_renderer_port(id, epoch, "renderer-port-writable");
         }
     }
 }
