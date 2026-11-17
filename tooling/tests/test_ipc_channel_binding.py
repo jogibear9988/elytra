@@ -18,6 +18,36 @@ READY = re.compile(
 )
 
 
+def verify_handoffs(records, rejected, output):
+    # Two primary-document epochs, two simultaneous burst peers, then
+    # the final binding-only window. Peer READY callbacks may race.
+    assert len(records) == 5, (records, output)
+    primary = records[0][0]
+    assert records[1][0] == primary, records
+    assert records[0][1] < records[1][1], records
+    peers = {records[2][0], records[3][0]}
+    assert len(peers) == 2 and primary not in peers, records
+    assert records[4][0] not in peers | {primary}, records
+    assert max(record[1] for record in records[:2]) < min(record[1] for record in records[2:4]), (
+        records
+    )
+    assert max(record[1] for record in records[2:4]) < records[4][1], records
+    assert len({record[1] for record in records}) == 5, records
+    assert len({record[3:] for record in records}) == 5, records
+    expected = {(window, epoch) for window, epoch, *_ in records}
+    assert {(window, epoch) for window, epoch, _ in rejected} == expected, (
+        records,
+        rejected,
+    )
+    assert len(rejected) == 15, (records, rejected)
+    for window, epoch in expected:
+        assert sorted(case for w, e, case in rejected if (w, e) == (window, epoch)) == [
+            0,
+            1,
+            2,
+        ], (records, rejected, output)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--firefly", required=True, type=Path)
@@ -93,16 +123,7 @@ def main():
             assert b"VERIFICATION FAILED" not in output["stderr"], output
             assert b"ERR_FIREFLY_IPC_BYTES" not in output["stderr"], output
             assert b"BAD_HANDOFF_ACCEPTED" not in output["stderr"], output
-            assert len(records) == 3, (records, output)
-            assert records[0][0] == records[1][0] and records[2][0] != records[0][0], records
-            assert records[0][1] < records[1][1] < records[2][1], records
-            assert len({record[3:] for record in records}) == 3, records
-            for window, epoch, *_ in records:
-                assert {case for w, e, case in rejected if w == window and e == epoch} == {
-                    0,
-                    1,
-                    2,
-                }, (records, rejected, output)
+            verify_handoffs(records, rejected, output)
             print(
                 "PASS native document IPC channel: real owned helper PID, exact epoch/document handshake, reload/multiwindow rebinding and teardown"
             )

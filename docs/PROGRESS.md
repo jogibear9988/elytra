@@ -15569,6 +15569,34 @@ macOSRelease44024361687 and Windows44024361655 are still pending withoutjobs.
 Site365pages/27383localtargets passes before this final text-only CI note.
 The full projectgoal remains active.
 
+## Linux renderer CI: complete shared-fixture handoff topology (2026-11-17)
+
+Run44022434469/job133836619253 at034a211 now passes the COMPLETE actual owned
+renderer/helper suite, including corrected mutable-result/frame/Promise gates.
+Its later binding observer fails because it still expects three READY records.
+The unchanged shared outbound fixture now creates five: primary initial+reload,
+two concurrent hidden cross-window burst peers, and one final binding-only window.
+Actual public IPC/burst/backlog/cross-window/close behavior already reports PASS
+before this observer assertion. Do not waive the native handoff validation.
+
+Refactor the observer's topology validation into a readable helper. Require exact
+five records/four distinct windows, two ordered primary epochs, two unique peers,
+unique final window, five unique epochs/documents and lifecycle-relative epoch
+ordering. The two simultaneous peer READY callbacks may arrive in either order.
+Require exactly fifteen rejected probes, exactly cases0/1/2 per observed document,
+and no unknown/duplicate/missing rejection. Preserve live native helper PID/OS
+parent validation and failure checks in the real runner.
+
+Validation without another local app launch: replay the EXACT five READY and15
+rejection records captured by that actual hosted Linux failure. Correct trace and
+concurrent-peer permutation pass; missing/replayed documents and missing/duplicate/
+unknown rejections fail. Compact native metadata only (no page/application bytes):
+build/ipc-binding-ci-topology.json; controls:
+build/ipc-binding-topology-controls.log. Python formatting/import/diff pass.
+This is a corrected observer expectation, not new renderer behavior; a fresh hosted
+run remains required. The separate bounded physical-control queue change is still
+being implemented/reviewed and has no runtime acceptance yet.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
