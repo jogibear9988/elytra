@@ -16406,6 +16406,17 @@ Windows staging/source job toidentifystrictmapfailure withoutfullSDKwait. Actual
 nativeaudit/staging acceptance PENDING. No localGUI. Fullgoalactive. Also official
 upstreamCowSetfix59158f57c is nowavailable; prefernextofficialpin overdownstreamshim.
 
+## Pin the upstream CowSet build fix (2026-11-17)
+
+Linux renderer run 44162635618 fails with four Rust E0599 errors because
+the pinned engine's layout code calls CowSet::is_empty after the method was
+removed upstream. Pin the official fix 59158f57cb0b0bb19189af57629b20ca4e49b504
+and synchronize the gitlink and manifest. Select the first upstream revision
+with the fix so the later LibCrypto dependency migration can be reviewed
+separately. Cargo and vcpkg dependency pins are identical. The upstream source,
+142-package Rust lock, protocol composition and Windows helper/broker source
+checks pass. The local CLI rebuild and hosted renderer acceptance are pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
