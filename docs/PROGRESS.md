@@ -16615,6 +16615,16 @@ forwarded symbol in the DEF file. Select lld-link through clang-cl for the
 single forwarder DLL. Keep MSVC for the other fixture images and DUMPBIN
 for closure inspection. Native execution remains pending.
 
+## Verify relocated Windows plugins and forwarded export loading
+
+Windows Server 2025 job 134383078028 passes the native launcher and PE
+fixtures. Two relocated executables return 37 and 5 with the SDK moved
+away and PATH limited to System32. The second loads a nested plugin
+whose dependency forwards its exported function to another DLL.
+Missing provider and unsafe placement refusals pass. Record this in
+the Windows guide and platform status. Actual application assembly,
+complete helper confinement and Windows release assets remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
