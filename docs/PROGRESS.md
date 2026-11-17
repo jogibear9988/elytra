@@ -16441,6 +16441,19 @@ status and Code-OSS packaging guide with the verified scope. The site builds
 367 pages and passes 27,571 local link and resource checks. Current SDK,
 application packages and release acceptance remain pending.
 
+## Exercise the sealed Code-OSS release entry offscreen (2026-11-17)
+
+Run the actual release sample builder using a clean official Git checkout at
+6531648f, the existing verified production dependency tree and pinned archive.
+Compile 12,348 source files and stage 558 static extension files. The builder
+seals the inventory and verifies the result. Retain one current sample output.
+Run the production sample entry with the preceding macOS SDK's offscreen host.
+Actual CommonJS extension activation, command, editor edit/save with independent
+readback, three timed liveness continuations and the Bash terminal with exit 17
+all pass. All 17 tracked processes stop, with one cleanup signal. Logs are in
+build/code-oss-release-{compile,entry-check}.log. Verification of the new SDK,
+relocated signed Launcher, full packages and Windows apps remains outstanding.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

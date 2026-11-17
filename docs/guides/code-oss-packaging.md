@@ -7,6 +7,11 @@ esbuild are build tools only; there is no packaged Node/V8/Electron engine fallb
 The four-product release integration is implemented, but its new native CI and
 relocated Code-OSS bundle acceptance are pending. The current Ladybird candidate `59158f57c` passes the local standalone CLI
 suite. The SDK, renderer and packaged sample still require their own acceptance.
+The builder has compiled and verified the sealed sample locally. Its release
+entry passes the controlled offscreen CommonJS extension, editor save, terminal
+and parent-liveness checks with the preceding macOS SDK. The new SDK and the
+relocated macOS bundle still require runtime verification.
+
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the
 remaining general input/extension/startup limitations.
