@@ -13,6 +13,7 @@ from npm_payload import copy_dependencies
 from designer_shell import verify_designer_shell
 from native_package.notices import cache_value, notices
 from native_package.icu_data import stage_data
+from native_package.runtime_options import verify_libjs_revision
 from package_size import bundle_size
 from build_code_oss import verify_sample as verify_code_oss_sample
 import sys
@@ -264,6 +265,9 @@ def main():
     for file in [renderer / "bin/firefly", mite / "bin/mite", designer / "BUILD.json"]:
         if not file.is_file():
             parser.error("Required build output missing: " + str(file))
+    ladybird = json.loads((ROOT / "vendor/ladybird.json").read_text())
+    verify_libjs_revision(mite / "bin/mite", ladybird["revision"])
+    verify_libjs_revision(renderer / "bin/firefly", ladybird["revision"], firefly=True)
     helper_source = (
         ROOT / "vendor/ladybird/Meta/CMake/ladybird_helper_processes.cmake"
     ).read_text()
@@ -326,7 +330,7 @@ def main():
             "firefly": cache_value(renderer, "CMAKE_BUILD_TYPE"),
         },
         "commit": output("git", "-C", ROOT, "rev-parse", "HEAD").strip(),
-        "ladybird": json.loads((ROOT / "vendor/ladybird.json").read_text()),
+        "ladybird": ladybird,
         "designer": json.loads((designer / "upstream.json").read_text()),
         "platform": "macos",
         "architecture": output("uname", "-m").strip(),

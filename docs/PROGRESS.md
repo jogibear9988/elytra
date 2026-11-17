@@ -16489,6 +16489,21 @@ build/code-oss-relocated-launcher.log and the compact process report in
 GitHub package workflow for the current SDK is queued. The current Linux
 CLI run 44174672031 passes all 171 tests with Ladybird 59158f57c.
 
+## Check the executable engine revision before macOS packaging
+
+The macOS packager previously took Ladybird provenance from the checkout
+without checking the selected build directories. An older SDK could
+therefore be staged with the newer pin in BUILD.json. Before creating the
+output directory, query process.versions.libjs in both the standalone
+Mite binary and Firefly's pre-Qt CLI mode, and require both to match the
+manifest. Direct native checks read the expected pins from the current
+CLI and preceding SDK. The actual packager rejects their mismatched pair
+and creates no staging directory. Formatting and diff checks pass.
+
+Hosted Windows CLI run 44174671897 passes all 169 tests with Ladybird
+59158f57c, alongside the Linux run's 171. Current macOS release artifacts
+and Windows renderer confinement and application packaging remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
