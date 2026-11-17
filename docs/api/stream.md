@@ -26,6 +26,29 @@ across an early return. Local native tests cover ordinary EOF, break, throw,
 explicit retention and a real delayed-read TCP half-close/reply. These are scoped
 lifecycle guarantees; full Node stream parity remains partial.
 
+## writable.write(chunk[, encoding][, callback])
+
+Queues a supported chunk and returns a boolean for producer backpressure. A false
+return means stop producing until `drain`; it is not a write-error result. Inspect
+the callback/error event for failure. `highWaterMark` is an admission threshold,
+not a maximum accepted chunk length. `writableLength` reports retained data.
+
+Admission is computed after the actual `_write` call. A successful synchronous
+write that releases all queued bytes returns true, including when highWaterMark
+is zero; it does not create a spurious drain event. An asynchronous write that
+retains data at or above the threshold returns false and emits drain when the
+pending queue is released. Synchronous completion still defers the public callback
+until after write returns. Error/destroyed state can cause a false return even
+without retained bytes.
+
+The Node24 rule is composed into the exact pinned readable-stream provider during
+bundling, with full input/output hashes, lock/license checks and exact reversal;
+installed dependency files remain unchanged. Actual macOS Mite and embedded-host
+controls pass against Node24.15.0/24.22.3 for synchronous/delayed writes, zero HWM,
+FIFO, a single drain and callback/error identity/order. Native Windows pipe
+backpressure exposed the earlier provider mismatch; its fresh hosted rerun remains
+required. These controls do not certify every stream scheduling/error combination.
+
 ## Conversion methods
 
 Import Readable, Writable or Duplex from `node:stream`. Each conversion creates a

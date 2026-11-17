@@ -7,6 +7,7 @@ import * as esbuild from 'esbuild';
 import { compileFactory } from './factories.mjs';
 import { verifyWebSocketSources } from './ws-engine-source.mjs';
 import { composeReadableSource, verifyReadableSources } from './streams/readable-source.mjs';
+import { composeWritableSource, verifyWritableSources } from './streams/writable-source.mjs';
 const filename = fileURLToPath(import.meta.url);
 const root = path.dirname(filename);
 const repository = path.resolve(root, '../..');
@@ -15,6 +16,7 @@ const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'u
 const check = process.argv.includes('--check');
 verifyWebSocketSources();
 verifyReadableSources();
+verifyWritableSources();
 
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -119,7 +121,9 @@ function save(name, text, manifest) {
     'tooling/runtime-js/ws-engine-source.mjs',
     'tooling/runtime-js/ws-engine-pin.json',
     'tooling/runtime-js/streams/readable-source.mjs',
-    'tooling/runtime-js/streams/readable-source-pin.json'
+    'tooling/runtime-js/streams/readable-source-pin.json',
+    'tooling/runtime-js/streams/writable-source.mjs',
+    'tooling/runtime-js/streams/writable-source-pin.json'
   ]) {
     manifest.sources[source] = digest(fs.readFileSync(path.join(repository, source)));
   }
@@ -187,6 +191,28 @@ function save(name, text, manifest) {
                   }
                   return {
                     contents: composeReadableSource(fs.readFileSync(args.path, 'utf8')),
+                    loader: 'js'
+                  };
+                }
+              );
+            }
+            if (name === 'stream') {
+              const leaf = path.join(
+                root,
+                'node_modules/readable-stream/lib/internal/streams/writable.js'
+              );
+
+              build.onLoad(
+                {
+                  filter:
+                    /[\\/]node_modules[\\/]readable-stream[\\/]lib[\\/]internal[\\/]streams[\\/]writable\.js$/
+                },
+                (args) => {
+                  if (path.resolve(args.path) !== leaf) {
+                    throw Error('Unexpected Writable admission provider path');
+                  }
+                  return {
+                    contents: composeWritableSource(fs.readFileSync(args.path, 'utf8')),
                     loader: 'js'
                   };
                 }

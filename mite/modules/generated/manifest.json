@@ -1,6 +1,6 @@
 {
   "generator": "esbuild 0.25.12",
-  "builderSha256": "b9d9fc3b223d635638ba56b115071b6648f847e16708770f712e21782b5768dd",
+  "builderSha256": "d218201c2ef4eb84cfa2fcfe0038c8d573175bd4071061fb3147958dba8cbe28",
   "lockSha256": "35684537c3d2e34f7c72fb9ab980fcdcb763f2fbacfb7c9cdb2bbb9b562ae335",
   "files": {
     "events.js": "ff0c002c9ae7345cb19af4f714e301d1972674d44cd93cce82695d0ecf38c63f",
@@ -44,7 +44,7 @@
     "native-keymap.js": "ab1e9b512b1f846078b45831c1c84e213f49cf1bdb845daa850709c7e9a6ee83",
     "string-decoder.js": "8aa0f9a948b94bd157b8683f0a2e1e6b7280e6634d81f1695f20cdcff8ca60e4",
     "string-decoder.LICENSE.txt": "934daa947fcbb5aa6511ed5c7bc73c3e5057318e4bed03818d1b08d4b674fb69",
-    "stream.js": "c0d0ec3642d1630ac622d35fe987bb12be22ab453fc6b8120d2075babded008c",
+    "stream.js": "22dd01555ca2569ba925412a74869215a3bc99ca45ac5553d5739f2afd4f04a4",
     "stream.LICENSE.txt": "f57872ce9c44e1ec7d55404d79e0e9484326bd68a0f5b60379f9ee4786a6e8f3",
     "web-globals.js": "f3ec64cfb23ad847ee923dbb597cd549713cf27856b8d1269c33b162e2c224bb",
     "web-globals.LICENSE.txt": "eb3ca84ead2bd450fd4ecd2e1d1940fc4aa0b833052066d80f6c31d65646339e",
@@ -1280,6 +1280,8 @@
     "tooling/runtime-js/ws-engine-pin.json": "a76ba69e3cc0804233695c5205ddabab9b1db9a6694c6594773d58f411a5b581",
     "tooling/runtime-js/streams/readable-source.mjs": "7e851b1a1ca8532933167db714916d97e060e6282e50e34590001df11d6ac9ca",
     "tooling/runtime-js/streams/readable-source-pin.json": "2d7627f82efad9f38a6b4a67298d7a7b87d0f5c9ab400006e5faad525cac7c7c",
+    "tooling/runtime-js/streams/writable-source.mjs": "2438eda92d827694e3cb5b960c8ace8906ab78e2d20ec958b744cb1cd02c51ad",
+    "tooling/runtime-js/streams/writable-source-pin.json": "4734e813199dbc193b61841e1bbc9173f13f5eab90c9969831ccdfd13a5b523c",
     "mite/modules/core/event-rejections.mjs": "9997d62c7d332c6a62d5c2aaf41536b5a89b44192a1962b7aeddb99e5467b51a",
     "mite/modules/core/events.mjs": "6968186cb8255b3c3f70e9baf05eccd8f79dec44d1600a395b88433296b2e0be",
     "mite/modules/core/diagnostics-channel.mjs": "9c3056a48c10cd2174cbee898837a1561d0005f74af57550c8a5408d4eeeb605",

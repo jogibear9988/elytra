@@ -43,6 +43,7 @@ jobs:
         run: |
           node tooling/runtime-js/build.mjs --check
           python3 tooling/tests/test_stream_iterator_source.py
+          python3 tooling/tests/test_stream_writable.py
           node tooling/runtime-js/build-firefly.mjs --check
           python3 tooling/check_runtime_js.py
           python3 tooling/check_firefly_js.py

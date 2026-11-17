@@ -1,0 +1,14 @@
+{
+  "name": "readable-stream",
+  "version": "4.7.0",
+  "license": "MIT",
+  "integrity": "sha512-oIGGmcpTLwPga8Bn6/Z75SVaH1z5dUut2ibSyAMVhmUggWpmDn2dapB0n7f8nwaSiRtepAsfJyfXIO5DCVAODg==",
+  "entry": "lib/internal/streams/writable.js",
+  "reference": "https://github.com/nodejs/node/blob/v24.22.3/lib/internal/streams/writable.js#L512-L545",
+  "composedSha256": "f10bb1aada93d8dd64ebfd89fa590b78808ab3fa2b666a13cc080ce518cbe0b9",
+  "sha256": {
+    "LICENSE": "ec62dc96da0099b87f4511736c87309335527fb7031639493e06c95728dc8c54",
+    "package.json": "246e18f32bc77525436b73f8ac600560f246f9bc05a36dedc07f448ae19239ac",
+    "lib/internal/streams/writable.js": "28b0cfad8e4d3528d72f6354cbf17b520c56023407cb6d92c1a3a9890af95647"
+  }
+}

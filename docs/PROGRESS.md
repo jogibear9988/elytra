@@ -16112,6 +16112,26 @@ PASS. No native/GUI launch. Independently, new9803 Linux CLI8a30 job133966019302
 PASS all163 enabled suites in129.50s; later source slices require their own gates.
 Full user goal active, no Windows EXE/new release/master promotion claimed.
 
+## Correct synchronous Writable admission for native Windows stdio (2026-11-17)
+
+Completed Windows493 job133922769539 passes159/160; onlystdio backpressure fails.
+The actual Windows native pipe path completes synchronously, correctly, while
+portable readable-stream4.7 decides write admission before _write releases data.
+Current Node24 decides afterward and admits zero retained bytes even with HWM0.
+Compose exactly that semantic seam in an owned ESM build adapter; preserve provider
+files/licenses, full input/output hashes, lock fingerprint and exact reversal.
+No Windows assertion is waived; callback/error/destroy implementation unchanged.
+
+Register focused portable/native/embedding controls in CTest and source CI. Actual
+Node24.15/24.22.3 and composed provider controls PASS. Release Mite+embedded rebuild
+PASS; native CLI+host sync/delayed/zeroHWM/drain/FIFO/error-order controls PASS. Host
+requires its exact intentional HOST_SHUTDOWN stderr, not arbitrary output filtering.
+Twelve affected stream/Web/stdio/file/HTTP/Fetch/compression and Windows source
+CTest controls PASS in11.76s; new admission CTest PASS. Generated runtime manifests
+and detailed write/backpressure docs updated. No SDK rebuild or GUI. Evidence:
+build/writable-9803-{build,regressions}.log. Fresh native Windows suite pending;
+full goal active and release/master gates remain outstanding.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

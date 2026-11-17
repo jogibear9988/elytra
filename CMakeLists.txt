@@ -763,6 +763,10 @@ if(BUILD_TESTING)
         NAME mite-net-addresses
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_net_addresses.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-stream-writable-admission
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_stream_writable.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(NAME mite-streams
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_streams.py"
                      --mite "$<TARGET_FILE:mite>")

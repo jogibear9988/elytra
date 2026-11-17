@@ -3993,8 +3993,6 @@ var require_writable = __commonJS({
     function writeOrBuffer(stream2, state, chunk, encoding, callback) {
       const len = state.objectMode ? 1 : chunk.length;
       state.length += len;
-      const ret = state.length < state.highWaterMark;
-      if (!ret) state.needDrain = true;
       if (state.writing || state.corked || state.errored || !state.constructed) {
         state.buffered.push({
           chunk,
@@ -4015,6 +4013,8 @@ var require_writable = __commonJS({
         stream2._write(chunk, encoding, state.onwrite);
         state.sync = false;
       }
+      const ret = state.length < state.highWaterMark || state.length === 0;
+      if (!ret) state.needDrain = true;
       return ret && !state.errored && !state.destroyed;
     }
     function doWrite(stream2, state, writev, len, chunk, encoding, cb) {
