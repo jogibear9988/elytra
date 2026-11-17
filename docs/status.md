@@ -1,24 +1,33 @@
 # Current support and tested examples
 
-Latest Code-OSS observation, 2026-11-11: the user-requested native Cocoa process
-starts but complete editor operation remains unaccepted. The subsequent non-GUI build fixes `crypto.getHashes` and the menu item cap.
-Current failures include missing `node:worker_threads` and a DOM port queue limit. See the [current audit](compatibility/vscode.md) and
-[temporary adaptation TODOs](development/code-oss-adaptations.md). The historical
-checkpoints below are scoped evidence, not later startup acceptance.
+Latest Code-OSS checkpoint, **2026-11-17**, on the isolated Ladybird review branch:
+a controlled original Code-OSS ESM extension/command/open-edit-save workflow passes
+on macOS without a visible window. The real extension and editor APIs change an
+owned document, save it, and an independent native parent verifies its bytes.
+The application exits 0; all 12 observed native processes stop without cleanup
+signals. Generic native data-URL modules and real GC/utility flags replace the
+previous failures. This is experimental review evidence, not master promotion,
+visible painting/input, terminal, all-extension or new platform acceptance. See
+[current accepted scope and evidence](compatibility/vscode.md), the
+[API contract](api/data-modules.md) and [temporary adaptation TODOs](development/code-oss-adaptations.md).
 
-Reviewed **2026-11-10** against the implementation, example catalog and completed
+The tables and earlier checkpoints below retain their original source/run scope.
+They do not validate every subsequent review change; current SDK promotion still
+requires the outstanding native CI gates.
+
+Baseline tables reviewed **2026-11-10** against the implementation, example catalog and completed
 native CI logs. Mite and Firefly remain partial implementations. A checked-in
 example, a successful unsupported-API rejection or a green formatting job does
 not establish working feature support. Newer master commits need their own native
 gates; the source snapshots below are deliberately explicit.
 
-The latest isolated native-titlebar Code-OSS trace passes channel initialization,
+The earlier November 11 native-titlebar Code-OSS trace passed channel initialization,
 the audited disabled V8 window-cache adaptation, spellcheck:false and native
-zoomFactor. It now rejects webPreferences.autoplayPolicy before window creation.
+zoomFactor. At that checkpoint it rejected webPreferences.autoplayPolicy before window creation.
 The default custom-titlebar profile still rejects titleBarOverlay. Captured stacks
 and source CallSites are implemented; native spdlog bindings remain unavailable,
 and the handled device-ID fallback still logs synchronous ESM require failure.
-No workbench or open/edit/save workflow is accepted. See the
+That checkpoint did not accept a workbench/open-edit-save workflow. See the
 [current Code-OSS audit](compatibility/vscode.md).
 
 Native [browser zoom](api/web-contents.md#browser-zoom) now works from the main

@@ -33,9 +33,12 @@ process ownership is not implemented by this runner and fails explicitly.
 A result file without correct native saved bytes is a failure. A timeout, test
 failure or nonzero application exit is a failure. Even success proves only this
 controlled activation/open/edit/save workflow, not terminal, search, extension
-marketplace, external network or general CodeOSS compatibility. This fixture is
-prepared, not yet an accepted application run. The current local extension-host
-policy explicitly rejects development/test mode before host startup. No ordinary
-CLI debug option bypasses that admission: in this development tree,
-`--inspect-extensions=0` still selects the implicit debug port. The runner does
-not weaken that policy or claim activation acceptance while it remains blocked.
+marketplace, external network or general CodeOSS compatibility.
+
+Current local macOS result (2026-11-17): accepted with the rebuilt SDK after genuine
+native GC/utility flag support and generic data-URL ESM loading. All activation,
+command, document/editor/edit/save and independent native byte checks pass; the
+application exits 0 and all 12 observed processes stop naturally, without cleanup
+signals. Evidence is retained as `build/codeoss-data-module-{evidence.json,workbench.log,acceptance.log}`
+in the active review worktree. Earlier failures remain in the progress log;
+this does not certify visible painting/input, PTY, all extensions or other platforms.

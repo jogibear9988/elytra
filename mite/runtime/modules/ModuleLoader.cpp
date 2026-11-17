@@ -178,7 +178,9 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
                 json_type = true;
             }
 
-            bool json_file = url.scheme() == "file"sv && url_path(url).extension() == ".json";
+            bool json_file = url.scheme() == "data"sv
+                ? TRY(data_module(url)).format == DataModule::Format::Json
+                : url.scheme() == "file"sv && url_path(url).extension() == ".json";
             if (json_file && !json_type)
                 return error(
                     "ERR_IMPORT_ATTRIBUTE_MISSING", "JSON modules require type: json", true);
@@ -198,7 +200,6 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
         VERIFY(source);
         auto url = URL::Parser::basic_parse(view(source->url));
         VERIFY(url.has_value());
-        auto path = url_path(*url);
         auto add = [&](JS::PropertyKey const& name, std::string const& value) {
             properties.set(name,
                 JS::PrimitiveString::create(
@@ -206,8 +207,12 @@ ModuleLoader::ModuleLoader(JS::VM& vm, JS::Realm& realm, EventLoop& event_loop, 
         };
 
         add("url"_utf16, source->url);
-        add("filename"_utf16, path_string(path));
-        add("dirname"_utf16, path_string(path.parent_path()));
+        if (url->scheme() == "file"sv) {
+            auto path = url_path(*url);
+            add("filename"_utf16, path_string(path));
+            add("dirname"_utf16, path_string(path.parent_path()));
+        }
+
         properties.set("main"_utf16, JS::Value(source->url == m_entry_url));
         return properties;
     };
@@ -278,16 +283,28 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
         return URL::Parser::basic_parse("mite-host:mite-native-keymap"sv).release_value();
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
+    if (bare_builtin(specifier))
+        return URL::Parser::basic_parse(view("node:" + specifier)).release_value();
     auto base = URL::Parser::basic_parse(view(referrer));
     VERIFY(base.has_value());
     bool relative
         = specifier.starts_with("./") || specifier.starts_with("../") || specifier.starts_with("/");
     auto url = relative ? URL::Parser::basic_parse(view(specifier), *base)
                         : URL::Parser::basic_parse(view(specifier));
-    if (!url.has_value())
+    if (!url.has_value()) {
+        if (base->scheme() != "file"sv)
+            return error("ERR_UNSUPPORTED_RESOLVE_REQUEST",
+                "Relative and package imports require a file module parent", true);
         url = TRY(resolve_package(specifier, url_path(*base), false, 0, conditions));
+    }
+
     if (url->scheme() == "node"sv || url->scheme() == "mite-host"sv)
         return url.release_value();
+    if (url->scheme() == "data"sv) {
+        (void)TRY(data_module(*url));
+        return url.release_value();
+    }
+
     if (url->scheme() != "file"sv)
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME",
             "Unsupported module URL scheme: " + string(url->scheme()));
@@ -330,6 +347,27 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
     return canonical_url;
 }
 
+JS::ThrowCompletionOr<DataModule::Result> ModuleLoader::data_module(
+    URL::URL const& url, bool decode)
+{
+    auto result = DataModule::inspect(url, decode);
+    switch (result.failure) {
+    case DataModule::Failure::None:
+        return result;
+    case DataModule::Failure::Limit:
+        return error(
+            "ERR_MITE_DATA_MODULE_LIMIT", "Data module exceeds its bounded source/URL budget");
+    case DataModule::Failure::InvalidURL:
+        return error("ERR_INVALID_URL", "Invalid data module URL", true);
+    case DataModule::Failure::UnknownFormat:
+        return error("ERR_UNKNOWN_MODULE_FORMAT", "Unsupported data module MIME type");
+    case DataModule::Failure::UnsupportedWasm:
+        return error("ERR_MITE_UNSUPPORTED_API", "WebAssembly data modules are not implemented");
+    }
+
+    VERIFY_NOT_REACHED();
+}
+
 JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& url)
 {
     auto identity = string(url.serialize());
@@ -339,6 +377,40 @@ JS::ThrowCompletionOr<GC::Ref<JS::Module>> ModuleLoader::load(URL::URL const& ur
         return builtin_module(identity.substr(5));
     if (url.scheme() == "mite-host"sv)
         return host_module(identity.substr(10));
+    if (url.scheme() == "data"sv) {
+        if (m_data_module_count >= DataModule::module_limit)
+            return error("ERR_MITE_DATA_MODULE_LIMIT", "Data module record budget exceeded");
+        auto data = TRY(data_module(url, true));
+        // Charge UTF-16 source storage conservatively, plus both native identity
+        // copies (cache and host metadata). Cache hits and failed parses charge
+        // nothing; successful records live for this loader's lifetime.
+        auto retained = identity.size() * 2 + data.source.size() * 2;
+        if (retained > DataModule::retained_limit - m_data_module_bytes)
+            return error("ERR_MITE_DATA_MODULE_LIMIT", "Data module cache budget exceeded");
+        // JSON modules, like Node's UTF-8 JSON translator, accept a leading BOM.
+        // Keep the admitted byte charge for the original decoded source.
+        if (data.format == DataModule::Format::Json && data.source.starts_with("\xef\xbb\xbf"))
+            data.source.erase(0, 3);
+        auto text = Utf16String::from_utf8_with_replacement_character(view(data.source));
+        auto parse = [&]() -> JS::ThrowCompletionOr<GC::Ref<JS::Module>> {
+            if (data.format == DataModule::Format::Json)
+                return TRY(JS::parse_json_module(m_realm, text, ByteString(view(identity))));
+            GC::Root metadata { m_vm.heap().allocate<ModuleSource>(identity) };
+            auto parsed
+                = JS::SourceTextModule::parse(text, m_realm, view(identity), {}, metadata.ptr());
+            if (parsed.is_error())
+                return m_vm.throw_completion<JS::SyntaxError>(
+                    parsed.error().first().to_utf16_string());
+            return parsed.release_value();
+        };
+
+        auto module = TRY(parse());
+        m_modules.emplace(identity, GC::Root<JS::Module> { module.ptr() });
+        m_data_module_bytes += retained;
+        ++m_data_module_count;
+        return module;
+    }
+
     auto path = url_path(url);
     auto extension = path.extension();
     if (extension != ".mjs" && extension != ".js" && extension != ".cjs" && extension != ".json")
@@ -531,6 +603,9 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::legacy_path(fs::path con
 JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_require(
     std::string const& request, fs::path const& parent, std::vector<std::string> const* conditions)
 {
+    if (view(request).starts_with("data:"sv, CaseSensitivity::CaseInsensitive))
+        return error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
+            "Synchronous require of data ES modules is not implemented yet");
     if (request.empty())
         return error("ERR_INVALID_ARG_VALUE", "Module ID must not be empty", true);
     if (request.find('\0') != std::string::npos)

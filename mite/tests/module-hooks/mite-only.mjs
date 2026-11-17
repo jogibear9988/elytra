@@ -22,12 +22,12 @@ try {
 }
 await import('./value.mjs');
 check(!called, 'atomic registration refusal');
+// data: hook results are supported and covered by the data-modules fixture.
 for (const url of [
   'mite:internal/cjs',
   'mite:internal/builtin',
   'mite:internal/host',
   'mite-host:missing',
-  'data:text/javascript,export default 1',
   'https://example.invalid/x'
 ]) {
   const hooks = registerHooks({ resolve: () => ({ url, shortCircuit: true }) });

@@ -14956,6 +14956,64 @@ builtin-stage verifier still reports60extensions/558files/7673634bytes and seal
 app package or installed dependency tree retained. Commit this vertical slice on
 the Ladybird review branch; master promotion still needs open native CI gates.
 
+## 2026-11-17 — Real data-URL modules and first controlled Code-OSS edit/save
+
+Implement generic native data: JavaScript/JSON modules, independently of Code-OSS,
+using only LibURL percent decoding/AK forgivingbase64 and actual LibJS module
+parsers. No LibWebCommon/Firefly/Node/V8 dependency enters Mite. Match observed
+Node24JS case/whitespace MIME selection and exact JSON/Wasm essence rules, JSON
+BOM/attributes, query-as-source and fragment-as-cache-identity. Hook resolution and
+defaultResolve accept data parents; builtins and absolute URL imports work, while
+relative/package requests never coerce a data parent into a filesystem path.
+Importmeta data exposes real url/main and no filename/dirname. Preserve private
+CJS/builtin/host shim record identity; direct/hooked CJS data require and Wasm fail
+explicitly instead of loading a substitute or relaxing synchronousESM refusal.
+
+Bound encodedURL8MiB, decodedsource4MiB, conservative retained2URL+2source32MiB and
+1024successful data-module records perloader. Separate record limit bounds tiny
+module metadata; neither cap is a total heap-memory promise. Cache hits return
+before reservation and failed parses/decodes charge nothing. Keep actual source/
+module/JSON values rooted across forced real GC. Remove only the obsolete dataURL
+negative from the old module-hook boundary fixture; network/private URLs remain
+refused. Add mite-data-modules CTest and detailed API/ADR0202/site navigation.
+
+Standalone/embedded-host and Firefly/offscreen builds pass. Actual Node/Mite seven
+shared data groups pass, including original-CodeOSS-shaped registry exports via
+real resolve hooks, plus real-GC repeat, three native boundary/byte-cache quota
+groups and a separate1024record/failure/cachehit control. The SAME complete runner
+passes embedded Firefly under ELECTRON_RUN_AS_NODE=1, without GUI initialization.
+Existing module, resolve-hook and CommonJS suites3/3pass. Evidence:
+data-modules-{mite-build,controls,existing-controls,firefly-build,embedded-controls}.log.
+Fresh Windows/Linux acceptance remains open; no full MIME/loader parity claim.
+
+The unchanged regular Code-OSS development/test workflow now PASSES. Genuine
+extensionhost52280 discovers/activates the owned ESM extension exactlyonce,
+registers/invokes its command, opens the actual file with workspace API, creates
+its editor with showTextDocument, applies WorkspaceEdit, verifies dirty/model
+state, saves, and checks native bytes. Independent Python reads the physical
+85-byte file after shutdown and verifies its exact nonce-bound content/hash.
+Result reports real Mite identity, allsix API-step flags true. Application exits0
+naturally; all12observed native processes are absent; cleanupSignals0. No fake
+vscode API, test success guard, input injection or new Code-OSS data-loader patch.
+Native generic support lets its original base64 API-export hook execute unchanged.
+
+Compact preserved evidence: build/codeoss-data-module-{acceptance.log,evidence.json,
+workbench.log}. Stage manifest SHA4c333ee340d9e897b57f5a68ab8fe432f53dc3d5fba2791a2c65ce43ecfc6e34;
+physical bytes SHA2893388bbf46030baab51e0c0838fbf1a49e00873d9019ca687860a54e740034.
+Sanitized logs copied only after all owned processes stopped. Reuse one marker-owned
+/tmp profile and existing12347-file stage,60staticextensions/6packageadapters;
+no duplicate app/source/dependency tree retained. Actual Code-OSS acceptance here
+is a controlled macOS offscreen ESM/API editing workflow, not visible painting/
+input, PTY/search/marketplace, every extension or another platform. Keep real CJS
+Module._load/resolver interception, remaining native services and SDK CI/promotion
+open. Full thread goal remains active; this milestone does not complete it.
+
+Update current status/API/matrices/fixture guide to lead with accepted scope and
+separate earlier failed checkpoints. Owned source style, generated Mite/Firefly,
+unmodified b872e601 upstream and diff checks pass. Website358pages/26481local
+links/resources/fragments passes before this progress-only append. Push the
+coherent slice on the review branch; master/release still require open gates.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

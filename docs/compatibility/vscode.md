@@ -1,17 +1,30 @@
 # VS Code / Code-OSS compatibility target
 
-Status: **not supported**. Requested as a priority compatibility target on
-2026-11-07. This is a source-based blocker audit and implementation order, not a
-successful launch, complete dependency inventory or percentage-complete estimate.
-Running Monaco in Designer does not establish Code-OSS desktop compatibility.
+Status: **experimental**. A controlled macOS offscreen ESM extension/command/
+open-edit-save workflow is accepted. General desktop use, visible interaction,
+terminal and broad extension/platform compatibility remain unaccepted. Requested
+as a priority target on 2026-11-07. The original pinned application runs with the
+explicit temporary adaptations documented below; this is not unchanged full
+Electron compatibility or a percentage-complete estimate.
 
 ## Current priority: first real workbench, then developer workflows
 
-Updated 2026-11-17. The previously accepted background checkpoint reaches the actual renderer
-lifecycle `Restored` (3) and `Eventually` (4). Main/renderer SharedProcess
-connections establish, and the AgentHost exchanges real protocol requests.
-This is recorded application startup, not visible rendering or usable editor
-acceptance. The last visible Cocoa observation remains the November 11 run.
+Updated 2026-11-17. The actual regular `--extensionDevelopmentPath` /
+`--extensionTestsPath` workflow now passes using the real `vscode` API: original
+scanner discovery, one extension activation, command registration/invocation,
+`workspace.openTextDocument`, `window.showTextDocument`, `WorkspaceEdit`, model
+coherence/dirty state and save. The extension host AND an independent Python
+parent verify the physical saved bytes. The application exits naturally with
+code 0, all 12 observed native processes stop, and cleanup uses zero signals.
+The accepted extension host reports genuine Mite identity. This is a controlled
+API/editing acceptance result without visible desktop input, not every extension,
+painting, terminal or user-workspace workflow.
+
+Compact evidence: `build/codeoss-data-module-evidence.json`,
+`build/codeoss-data-module-workbench.log` and `build/codeoss-data-module-acceptance.log`
+in the active review worktree. It uses the one reused diagnostic stage, original
+60 packaged static extensions and the documented 30-file/6-package adaptations.
+The source/runtime manifests and exact fixture checks define the accepted scope.
 
 The standalone runtime now supplies real workers, async contexts, querystring,
 TTY queries, HTTP/TLS Agents, native process.title and bounded structuredClone.
@@ -102,16 +115,14 @@ still refuses requested inspector/profiler/V8 settings. Thirty actual Node/Mite
 CLI controls, native Firefly utility lifecycle/port/GC checks and 40 policy
 scenarios in each runtime pass locally.
 
-The next actual regular Code-OSS test (`codeoss-native-gc-acceptance.log`) reaches
-`$extensionTestsExecute` and `_doHandleExtensionTests`, then fails while loading
-its real ESM test runner with `Unsupported module URL scheme: data`. Original
-source waits for `_eagerExtensionsActivated` before entering that path, so this
-proves the startup/eager-activation barrier has been crossed. It does not prove
-all 60 extensions activate or that the controlled test extension/editor APIs work.
-The unchanged `vscode` ESM hook returns `data:text/javascript;base64,...`; implement
-real data-URL modules in Mite next, preserving ordinary module identity, resolution
-hooks and private bridge isolation. Do not add a Code-OSS guard or fake API module.
-The actual run exits nonzero; all 12 observed processes stop and logs are sanitized.
+The first regular test after native GC reached the eager-activation barrier and
+failed on the original `vscode` ESM hook's standard base64 data URL. Mite now loads
+those URLs as genuine [JavaScript/JSON modules](../api/data-modules.md), retaining
+actual registry-export identity and resolution hooks. It adds no Code-OSS-specific
+module or fake API. The next unchanged test passes the complete controlled
+activation/command/editor/save workflow described above. This does not establish
+CommonJS interception or broad native-addon extension compatibility; those remain
+separate gaps, alongside visible Cocoa, PTY and platform acceptance.
 
 The previous early navigation stall is not reproduced under these observations;
 no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is

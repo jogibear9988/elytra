@@ -63,7 +63,10 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::hook_result_url(
             return error(
                 "ERR_INVALID_RETURN_PROPERTY_VALUE", "Resolve hook format must be a string", true);
         auto expected = std::string("builtin");
-        if (parsed->scheme() == "file"sv) {
+        if (parsed->scheme() == "data"sv) {
+            expected
+                = TRY(data_module(*parsed)).format == DataModule::Format::Json ? "json" : "module";
+        } else if (parsed->scheme() == "file"sv) {
             auto path = url_path(*parsed);
             expected = path.extension() == ".json" ? "json"
                 : TRY(is_es_module(path))          ? "module"
@@ -98,6 +101,9 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
         return RequireResolution { {}, name, request == name ? name : "node:" + name, {} };
     }
 
+    if (url.scheme() == "data"sv)
+        return error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
+            "Synchronous require of data ES modules is not implemented yet");
     return resolve_require(path_string(url_path(url)), parent);
 }
 
@@ -126,19 +132,21 @@ void ModuleLoader::install_resolve_hook_host(JS::Object& host)
                 auto& context = vm.argument(1).as_object();
                 auto parent = TRY(context.get("parentURL"_utf16));
                 if (!parent.is_string())
-                    return self->error("ERR_INVALID_ARG_TYPE",
-                        "Resolve parentURL must be a file URL string", true);
+                    return self->error(
+                        "ERR_INVALID_ARG_TYPE", "Resolve parentURL must be a URL string", true);
                 auto parent_text = hook_text(parent);
                 auto parent_url = URL::Parser::basic_parse(view(parent_text));
-                if (!parent_url.has_value() || parent_url->scheme() != "file"sv)
-                    return self->error(
-                        "ERR_MITE_UNSUPPORTED_API", "Only file parent URLs are implemented");
+                if (!parent_url.has_value()
+                    || (parent_url->scheme() != "file"sv && parent_url->scheme() != "data"sv))
+                    return self->error("ERR_MITE_UNSUPPORTED_API",
+                        "Only file and data parent URLs are implemented");
                 // Apply the same file URL host/separator/NUL validation as createRequire.
                 auto encoded = parent_url->serialize_path();
-                if (!parent_url->serialized_host().is_empty()
-                    || parent_url->file_path().contains('\0')
-                    || encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive)
-                    || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive))
+                if (parent_url->scheme() == "file"sv
+                    && (!parent_url->serialized_host().is_empty()
+                        || parent_url->file_path().contains('\0')
+                        || encoded.contains("%2f"sv, CaseSensitivity::CaseInsensitive)
+                        || encoded.contains("%5c"sv, CaseSensitivity::CaseInsensitive)))
                     return self->error(
                         "ERR_INVALID_ARG_VALUE", "Invalid resolve parent file URL", true);
                 auto conditions_value = TRY(context.get("conditions"_utf16));
@@ -164,6 +172,9 @@ void ModuleLoader::install_resolve_hook_host(JS::Object& host)
                 bool require = vm.argument(2).to_boolean();
                 Optional<URL::URL> url;
                 if (require) {
+                    if (parent_url->scheme() != "file"sv)
+                        return self->error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
+                            "CommonJS require needs a file parent");
                     auto target
                         = TRY(self->resolve_require(specifier, url_path(*parent_url), &conditions));
                     url = !target.host.empty()
@@ -180,6 +191,14 @@ void ModuleLoader::install_resolve_hook_host(JS::Object& host)
                 result->define_direct_property(
                     "url"_utf16, hook_string(vm, string(url->serialize())), JS::default_attributes);
                 // Node omits a format hint for builtins/CommonJS require resolution.
+                if (!require && url->scheme() == "data"sv) {
+                    auto format = TRY(self->data_module(*url)).format == DataModule::Format::Json
+                        ? "json"
+                        : "module";
+                    result->define_direct_property(
+                        "format"_utf16, hook_string(vm, format), JS::default_attributes);
+                }
+
                 if (!require && url->scheme() == "file"sv) {
                     auto path = url_path(*url);
                     auto format = path.extension() == ".json" ? "json"

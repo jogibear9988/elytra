@@ -111,6 +111,7 @@ function(mite_add_runtime target root js_target)
         modules/StorageAndKeyboard
         modules/HostModules
         modules/ModuleLoader
+        modules/DataModule
         modules/CommonJSExports
         modules/ModuleUtilities
         modules/ResolveHooks

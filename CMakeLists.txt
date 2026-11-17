@@ -632,6 +632,11 @@ if(BUILD_TESTING)
                      --mite "$<TARGET_FILE:mite>")
     set_tests_properties(mite-expose-gc PROPERTIES TIMEOUT 120 LABELS "runtime;gc")
     add_test(
+        NAME mite-data-modules
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_data_modules.py"
+                --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-data-modules PROPERTIES TIMEOUT 120 LABELS "runtime;modules")
+    add_test(
         NAME mite-http-client
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_client.py"
                 --mite "$<TARGET_FILE:mite>")

@@ -112,7 +112,7 @@ extension installation or a complete VS Code workbench.
 
 Return true for an available Mite builtin, with or without node: prefix. Return
 false for non-strings, unknown names and unavailable Node modules. For example,
-fs and node:fs are true; v8, http2 and worker_threads remain false. This is an
+fs and node:fs are true; unavailable v8 and http2 remain false. This is an
 intentional inventory difference from Node, which provides those modules.
 
 ## builtinModules
@@ -156,17 +156,26 @@ the specifier, parentURL or package conditions. Native conditions are node/impor
 node-addons for ESM and require/node/node-addons for CommonJS; module-sync remains
 absent because synchronous require(ESM) is unsupported.
 
-Context includes parentURL (a file URL) and conditions. ESM also receives
+Context includes parentURL (a file or data URL for ESM; a file URL for require)
+and conditions. ESM also receives
 importAttributes; CommonJS omits it. Hooks can return a different importAttributes
 object, limited to the existing JSON type contract. Merely changing nextResolve's
 context attributes does not replace the final result attributes, matching the
 Node reference. No general attribute-dependent cache variants are implemented.
+The new data target/parent paths pass local macOS Node/Mite differential and real
+GC controls in standalone Mite and rebuilt embedded Firefly. An original controlled
+Code-OSS extension fixture also passes activation, a command, document open/show
+and edit/save with independent physical-file readback and clean native teardown.
+This does not establish visible editor, PTY, arbitrary-extension/native-addon or
+fresh Windows/Linux acceptance; see [data-module evidence](data-modules.md#validation).
 
 Return a synchronous object with an absolute url. Call nextResolve or return
 shortCircuit:true. Optional format hints must agree with the native module type;
 transforms/overrides require unsupported load hooks. Supported targets are actual
-local file modules, builtins and registered native host modules; ordinary module
-cache identity is preserved. Unsupported protocols/private bridge URLs fail
+local file modules, [data-URL JavaScript/JSON modules](data-modules.md), builtins
+and registered native host modules; ordinary module cache identity is preserved.
+Data-parent resolution supports builtins and absolute URLs; relative/package
+imports fail without a file base. Data JSON still requires its type attribute. Unsupported protocols/private bridge URLs fail
 explicitly. Native addon and require(ESM) restrictions remain in force.
 
 Deregistration removes the hook from future chains, preserving an in-flight
@@ -180,7 +189,9 @@ to a renderer or preload.
 | Null/missing options or invalid hook function | TypeError; invalid function has ERR_INVALID_ARG_TYPE |
 | Promise/primitive/missing URL or broken continuation chain | TypeError; some malformed-result codes/messages differ from Node |
 | Relative/invalid result URL | ERR_INVALID_URL |
-| Non-file protocol or private shim target | ERR_UNSUPPORTED_ESM_URL_SCHEME |
+| Unsupported URL scheme or private shim target | ERR_UNSUPPORTED_ESM_URL_SCHEME |
+| Data target via CommonJS require / require.resolve | ERR_MITE_UNSUPPORTED_REQUIRE_ESM |
+| Data URL/source/cache/record bound | ERR_MITE_DATA_MODULE_LIMIT |
 | load function or mismatching format override | ERR_MITE_UNSUPPORTED_API |
 | More than 64 active resolve hooks or 1,024 conditions | ERR_MITE_RESOLVE_HOOK_LIMIT |
 

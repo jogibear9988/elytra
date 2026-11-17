@@ -29,6 +29,8 @@ Node-compatible contracts and actual runtime evidence.
 The [TTY reference](tty.md) covers genuine terminal descriptor queries and
 explicitly unsupported stream/raw-mode APIs.
 The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
+The [data-URL module reference](data-modules.md) covers native JavaScript/JSON
+sources, hook resolution, URL identity and explicit source/cache limits.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
 cache identity and the available builtin inventory.
 The [querystring reference](querystring.md) covers the shared parser, custom codecs

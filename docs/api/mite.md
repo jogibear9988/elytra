@@ -23,7 +23,9 @@ mite --version
 
 Script arguments are available in `process.argv`. `.mjs` is ESM, `.cjs` is CommonJS;
 `.js` follows package.json type. ESM supports static/dynamic imports, top-level await,
-live bindings and JSON imports with `with {type: 'json'}`. CommonJS supports require,
+live bindings and JSON imports with `with {type: 'json'}`. Native
+[data-URL modules](data-modules.md) support bounded JavaScript/JSON sources,
+resolver hooks and independent URL-based cache identity. CommonJS supports require,
 module.exports, require.resolve/cache/main and cycles. ESM imports of CommonJS expose
 the default/module.exports value and a tested static named-export subset; synchronous
 require(ESM) remains unsupported. See [module details](module.md#commonjs-named-exports-in-es-modules). Unsettled top-level await exits with status 13.

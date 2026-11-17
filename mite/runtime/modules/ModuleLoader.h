@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/GCCaptures.h"
+#include "modules/DataModule.h"
 #include <AK/JsonValue.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
@@ -64,6 +65,7 @@ public:
 
 private:
     JS::ThrowCompletionOr<void> install_policy_watcher();
+
     JS::ThrowCompletionOr<void> install_storage_and_keyboard();
 
     struct RequireResolution {
@@ -161,6 +163,8 @@ private:
 
     JS::ThrowCompletionOr<GC::Ref<JS::Module>> load(URL::URL const&);
 
+    JS::ThrowCompletionOr<DataModule::Result> data_module(URL::URL const&, bool decode = false);
+
     std::string referrer_url(JS::ImportedModuleReferrer const&) const;
 
     static URL::URL path_to_url(std::filesystem::path const&);
@@ -199,6 +203,8 @@ private:
     std::unordered_map<std::string, GC::Root<JS::Object>> m_builtins;
     std::unordered_set<void const*> m_commonjs_shims;
     std::unordered_map<std::string, GC::Root<JS::Module>> m_modules;
+    size_t m_data_module_bytes {};
+    size_t m_data_module_count {};
 };
 
 }
