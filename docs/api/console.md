@@ -39,7 +39,19 @@ ASCII argument text plus the Console newline reaches the writer hook; multibyte
 Unicode and separator overflow reject atomically with `ERR_MITE_CONSOLE_LIMIT`
 without invoking the writer. Evidence: `build/global-console-{mite-build,firefly-build,controls,
 runtime-controls,existing-controls,embedded-controls}.log`. Fresh Linux/Windows
-acceptance remains open. The subsequent Code-OSS run still times out before terminal PID/bytes; all 14
-observed processes stop without cleanup signals. Its separate native document-port
-admission failure occurs directly in ElectronPtyHostStarter's connection delivery.
-This bootstrap correction is not established as the terminal failure's cause or fix.
+acceptance remains open. Later controlled Code-OSS editor/terminal runs pass with
+zero cleanup signals, including a repeat without diagnostic flags; see the
+[current checkpoint](../compatibility/vscode.md#controlled-code-oss-terminal-result).
+This does not attribute all terminal/IPC behavior to Console bootstrap.
+
+Subsequent Linux/macOS CI exposed a transport regression in always-asynchronous
+filesystem-backed stdio: small exit/fatal messages could be deferred, unrelated
+unreferenced work kept alive and output blocked behind occupied filesystem workers.
+The [native stdio transport](process.md#standard-output) now removes that dependency
+while retaining Console identity, formatting and write hooks. Actual local macOS
+exit/immediate/abort/process-error/DNS, Console and builtin controls pass after the
+Release rebuild, together with independent slow-pipe, regular-file, EPIPE and
+borrowed-descriptor checks. Evidence: build/native-stdio-{controls,regressions,
+console-controls,builtin-controls}.log. Fresh hosted platform acceptance remains open.
+The latest real Code-OSS editor/terminal repeat passes, but helper cleanup sends
+two signals; it does not establish fully natural helper teardown.

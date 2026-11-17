@@ -87,3 +87,7 @@ extension host or workbench. Ladybird remains unmodified.
 See the [utilityProcess API scope](../api/utility-process.md),
 [ADR 0154](0154-main-message-port-ownership.md) and
 [current Code-OSS status](../compatibility/vscode.md).
+
+Current output transport: [ADR 0207](0207-native-standard-output.md) supersedes the
+initial asynchronous fs.write stdio adapter described above. The same real Writable
+streams now use descriptor-specific native writes in main and utility runtimes.

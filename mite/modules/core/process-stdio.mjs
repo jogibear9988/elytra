@@ -7,6 +7,13 @@ export default function installProcessStdio(host, process) {
       autoDestroy: false,
 
       write(chunk, encoding, callback) {
+        // Production uses descriptor-specific native writes: synchronous files
+        // and POSIX terminals, immediate pipe writes plus an owned async suffix.
+        // The fallback exists only for directly constructed factory test hosts.
+        if (host.native) {
+          host.native.write(fd, chunk, callback);
+          return;
+        }
         let offset = 0;
 
         function advance() {

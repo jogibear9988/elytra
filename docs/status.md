@@ -1,16 +1,17 @@
 # Current support and tested examples
 
-Latest Code-OSS checkpoint, **2026-11-17**: a local macOS offscreen run
-without diagnostic flags accepts original CommonJS activation/command/editor
-edit-save AND real terminal creation/Bash PID authentication/sendText/exit17,
-with independent physical terminal/editor byte verification. Main exits 0;
-all 14 native processes are independently absent and cleanup sends zero signals.
-Attachments now share the bounded ordinary waiting queue without larger quotas.
-Six renderer-port cases pass, including full active-window handoff, finite backlog
-refusal/recovery and queued old-window cancellation. General load/failure behavior,
-visible terminal input/painting and fresh platforms remain open.
-See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result) and
-[queued attachment design](architecture/0206-queued-renderer-port-attachments.md).
+Latest Code-OSS checkpoint, **2026-11-17**: the native-stdio Release rebuild
+passes the non-diagnostic macOS offscreen CommonJS activation/command/editor
+edit-save AND real terminal creation/Bash PID authentication/sendText/exit17.
+Independent Python checks verify the physical editor/terminal bytes and all 15
+observed native process identities are absent. Two helper cleanup signals were
+needed; fully natural helper teardown remains open. The preceding queued-port
+run passed with zero cleanup signals; these are individual controlled checkpoints.
+Native stdio also passes pipe/file/EPIPE/backpressure/borrowed-descriptor controls
+and the targeted exit/immediate/abort/process-error/DNS regression suites locally.
+Visible terminal input/painting, general load/failure behavior and fresh native
+platform CI remain open. See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result)
+and [native stdio](architecture/0207-native-standard-output.md).
 
 The preceding CommonJS/ESM checkpoint on the isolated review branch:
 controlled original Code-OSS CommonJS and ESM extension/command/open-edit-save

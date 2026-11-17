@@ -13,6 +13,7 @@
 #include "platform/network/tls/ExtraCertificates.h"
 #include "platform/process/InheritedPipe.h"
 #include "platform/process/ProcessHost.h"
+#include "platform/stdio/Host.h"
 #include "platform/terminal/pty/Posix.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
@@ -463,8 +464,10 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
             if (event_loop.has_pending_work()) {
                 // A partially initialized host can already own blocking work.
                 fflush(nullptr);
-                if (!session.worker)
+                if (!session.worker) {
+                    restore_stdio_before_process_exit();
                     std::_Exit(1);
+                }
             }
 
             vm->pop_execution_context();
@@ -581,8 +584,10 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
         // Fatal termination must not wait for a blocking filesystem worker (e.g.
         // a FIFO with no writer). The OS reclaims requests and handles at exit.
         fflush(nullptr);
-        if (!session.worker)
+        if (!session.worker) {
+            restore_stdio_before_process_exit();
             std::_Exit(status);
+        }
     }
 
     vm->pop_execution_context();

@@ -125,6 +125,8 @@ function(mite_add_runtime target root js_target)
         platform/process/Exit
         platform/process/Timing
         platform/process/Signals
+        # platform/stdio
+        platform/stdio/Host
         # platform/terminal
         platform/terminal/TTY
         platform/terminal/pty/Host

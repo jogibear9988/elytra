@@ -34,7 +34,7 @@ console.log(hrtime.bigint() - start, cpuUsage(before));
 | `hrtime([previous])`, `hrtime.bigint()` | Monotonic native elapsed-time samples |
 | `uptime()` | Fractional seconds since runtime load/bootstrap |
 | `cpuUsage([previous])` | Process-wide user/system CPU microseconds |
-| `stdout`, `stderr` | Writable wrappers around native borrowed descriptor 1/2; async copied fs writes |
+| `stdout`, `stderr` | Writable wrappers around borrowed descriptor 1/2; native descriptor-specific writes |
 | EventEmitter methods | Custom events, listener order/removal/once and explicit native signal subset below |
 
 Timing methods are shared between global process, CommonJS and named ESM exports.
@@ -80,25 +80,43 @@ detection; constructing its Terminal currently requires the still-missing global
 ## Standard output
 
 process.stdout and process.stderr are real Writable streams using borrowed native
-OS descriptors 1 and 2. They are shared by global/default/CommonJS and named process
-exports. Strings use ordinary Writable UTF-8/encoding conversion; binary writes
-preserve bytes. The async native fs.write path completes short writes before
-invoking the caller's callback. Pending filesystem work keeps the Mite event loop
-alive during ordinary completion. These are available in Mite and Firefly main/
-utility runtimes; no Node/V8 runtime or utility-only output shim is involved.
+OS descriptors 1 and 2. Global/default/CommonJS and named process exports share
+them. Writable converts strings to their requested encoding and preserves binary
+bytes, FIFO, backpressure, write callbacks and application write hooks.
 
-Writable backpressure and write callbacks apply. There is no TTY detection, terminal
-control, synchronous Node stdio behavior, ref/unref or stdin implementation.
-Reading process.stdin explicitly throws ERR_MITE_UNSUPPORTED_API; it is not a named
-ESM export. Native filesystem chunk limits still apply. end()/destroy() retire the
-wrapper but never close the embedding process's descriptors. A write already
-submitted to native fs may still complete after destroy. This is ordinary Writable
-retirement, not Node's special non-ending stdio contract. process.exit() remains
-immediate and can truncate pending writes; await callbacks for required output.
-Local macOS raw-pipe/UTF-8/short-write/callback/borrowed-fd acceptance passes on
-actual Node and rebuilt Mite. The runner verifies exact bytes and native process
-EOF, plus write-after-wrapper-retirement and zero-progress failure. Fresh Windows/
-Linux stdio acceptance and full Node stdio parity remain unverified.
+The native transport selects synchronous writes for files on all platforms,
+POSIX terminals and Windows pipes. POSIX pipes/sockets first attempt immediate
+writes; only an unwritten suffix creates a copied libuv write request. Windows
+terminals use a libuv stream; Windows TCP-backed stdio explicitly rejects the
+unsupported CRT/socket conversion. No output is queued in the filesystem worker
+pool. A completed small write creates no native loop reference; actual pending
+requests retain liveness. Native limits are 2 MiB per chunk and 8 MiB retained
+pending bytes per runtime; excess writes report ENOBUFS.
+
+Descriptors 1/2 remain borrowed. Runtime teardown closes owned duplicates and
+restores shared nonblocking flags after the final runtime/native handle retires.
+stdout/stderr aliases share that lease. Active asynchronous pipes share their
+nonblocking state with the host; embeddings must keep standard descriptors stable
+while runtimes are active. Supported process-ending paths also restore flags,
+without flushing pending data or driving application callbacks. SIGKILL/crash
+cleanup is not guaranteed. See [ADR 0207](../architecture/0207-native-standard-output.md).
+
+end()/destroy() retire the JS wrapper without closing the host's descriptor or
+shutting down its shared pipe/socket. An already submitted write may still finish.
+This differs from Node's special non-ending standard streams. process.exit()
+remains immediate and may truncate genuinely pending asynchronous output; await
+callbacks for required output. Public stdout TTY metadata/control/ref-unref and
+process.stdin remain separate work. Reading process.stdin explicitly throws
+ERR_MITE_UNSUPPORTED_API; it is not a named ESM export.
+
+Actual local macOS Node/Mite controls pass binary/UTF-8 bytes, short writes,
+callbacks/EOF, small-write unref behavior, regular files, slow pipe backpressure
+and exact suffix/FIFO, closed-pipe EPIPE callback/error identity, separate/aliased
+borrowed flag restoration and parent-descriptor survival. The genuine embedded
+host also passes separate/aliased restoration. Exit/immediate/abort/process-error/
+DNS regression suites and Console write-hook/boundary controls pass. Evidence:
+build/native-stdio-{controls,regressions,console-controls,builtin-controls}.log.
+Fresh native Linux/Windows stdio acceptance and full Node stdio parity remain open.
 
 ## process.hrtime([previous])
 

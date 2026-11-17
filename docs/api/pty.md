@@ -162,3 +162,14 @@ finite backlog refusal/recovery and old-window cancellation, without increasing
 quotas. See [ADR 0206](../architecture/0206-queued-renderer-port-attachments.md).
 Visible rendering/input, fresh platforms and broader load/failure coverage remain
 unaccepted. The diagnostic checkpoint above retains its original run scope.
+
+A subsequent native-stdio Release rebuild repeats the non-diagnostic real
+CommonJS editor/terminal workflow successfully (Bash PID 79529, main exit 0).
+All 15 observed native process identities are independently absent after two
+helper cleanup signals. This run proves the controlled workflow, not natural
+helper teardown. Terminal SHA-256:
+`7d1b1876f9ac9f207a0d4bc39c7d4df2ddd0a3b6c7624108fea0673046b09deb`;
+editor SHA-256:
+`4243d6c29145a57c85b19a5c54c23668eda606a3fa81d5263e5f18f707912ab1`.
+The reused stage digest is unchanged. Evidence:
+`build/codeoss-native-stdio-{acceptance.log,evidence.json,workbench.log}`.

@@ -15462,6 +15462,65 @@ build/early-world-probe-rebuild.log. No visible windows or new app package.
 Fresh hosted Linux rerun remains required; local macOS acceptance does not prove
 Linux/Windows. Native stdio production work remains in progress, unaccepted here.
 
+## Native descriptor-specific stdio and real regression recovery (2026-11-17)
+
+Implement ADR0207 without reverting global Console stream identity/write hooks.
+Files/allOS, POSIXTTY and Windowspipe use native synchronous writes; POSIXpipe/TCP
+try immediate writes then retain ONLY an unwritten suffix in real uv_write.
+WindowsTTY has a native stream; WindowsTCP-backed CRTstdio explicitly refuses.
+No output enters the filesystem worker pool. Idle streams stay unreferenced;
+actual pending requests retain liveness. Preserve Writable serialization/callback/
+backpressure and real EPIPE identity. Bound2MiB/chunk and8MiB retained bytes/owner;
+free completed bytes before author reentry. Root callback/context/native error
+allocations; suppress author callbacks on shutdown.
+
+Borrow fd1/2, own only CLOEXEC duplicates, never call shutdown on host endpoints.
+Snapshot BOTH flags before opening either stream because outputs may alias the
+same OFD; share one lease across runtimes and restore only owned nonblocking bits
+after last request/handle close. Normal std::exit uses atexit flag-only restore;
+Runtime fatal _Exit branches restore flags before termination, with no callbacks,
+flush or event-loop drive. Stable host descriptors are the active-lifetime contract;
+forced SIGKILL/crash restoration is not promised. Sticky native initialization
+failures cannot reuse an unopened handle. Producer syntax and independent native
+lifecycle/GC review are clear; root performs all codegen/builds.
+
+Release Mite/embedded-host and Firefly/offscreen builds PASS. Actual complete
+process-stdio controls PASS: rawbytes/UTF8, factoryshortwrites/zero-progresserror,
+smallwrite/unrefimmediate, redirectedregularfiles, independent slow>2MiBpipe drain
+with byte-exact suffix/FIFO/backpressure/callback order, parent-gated closedpipe
+EPIPE callback/event identity, separate/aliased fullborrowedflags and parentfd
+survival. Genuine embeddedhost repeats the separate/aliased restoration controls.
+The initial fullflags comparison observed1->65537. Verify XNU sys/fcntl.h:
+0x10000 is kernel FWASWRITTEN, not a failed NONBLOCK refund. Prime+drain one OWNED
+pipe byte BEFORE the initial snapshot, then retain exactFULLflag equality; add
+actualNode separate/aliased flag controls too. No production bitmask workaround.
+Reference: https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/fcntl.h.
+Log: build/native-stdio-controls.log.
+
+ALL six targeted regression runners PASS: process-exit, immediates, abort,
+process-errors (including embeddedhost), DNS (including saturatedpooltimermarker),
+and performance (including originalNode origincontrol and embeddedhost).
+Evidence: build/native-stdio-regressions.log. Console/utiltypes and builtin runners
+PASS; same actual Console/native boundary controls PASS in rebuiltFirefly-asNode.
+Logs: build/native-stdio-{console-controls,builtin-controls,embedded-console-controls}.log.
+Generated runtime inputs, native/Pythonstyle, Fireflyinputs and unmodifiedb872e601
+checks PASS. Buildlogs: build/native-stdio-{codegen,mite-build,firefly-build}.log.
+
+Actual non-diagnostic Code-OSS CommonJS extension activation/command/editor edit-save
+AND realBashTerminal/sendText/exit17 PASS afternewSDK. BashPID79529 authenticated;
+mainexit0. All15 native identities independently rechecked absent; cleanupSignals2.
+Do NOT claim natural helper teardown for this run. Stage digest unchanged;
+nonce-free evidence and sanitized logs retained as
+build/codeoss-native-stdio-{acceptance.log,evidence.json,workbench.log}. Executable
+hash covers the executable, not the complete dependencyclosure. Reuseonestage/
+profile; no visible GUI or newpackage retained. Update process/Console/PTY/current
+Code-OSS docs and record originalutilitystdio ADR as superseded.
+
+Fresh hosted Linux/Windows/macOS gates, directTTY coverage, broadterminal/workbench
+failure modes, fullynaturalhelper teardown and nativeWindowsdesktop remain open.
+This fixes the reproduced stdio regressions locally; it does not complete VSCode,
+master promotion, release publication or the full project goal.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -8,6 +8,10 @@ function installProcessStdio(host, process) {
     const stream = new Writable({
       autoDestroy: false,
       write(chunk, encoding, callback) {
+        if (host.native) {
+          host.native.write(fd, chunk, callback);
+          return;
+        }
         let offset = 0;
         function advance() {
           if (offset === chunk.byteLength) {

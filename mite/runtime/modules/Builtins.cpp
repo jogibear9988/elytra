@@ -26,6 +26,7 @@
 #include "platform/process/ProcessHost.h"
 #include "platform/process/Signals.h"
 #include "platform/process/Timing.h"
+#include "platform/stdio/Host.h"
 #include "platform/system/Inspector.h"
 #include "platform/system/OS.h"
 #include "platform/terminal/TTY.h"
@@ -742,6 +743,8 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     TRY(JS::call(m_vm, events_factory, JS::js_undefined(), signal_host.ptr(), m_process.ptr()));
     // process is cached before stream/fs are resolved: no recursive process construction.
     GC::Root stdio_host { JS::Object::create(m_realm, nullptr) };
+    stdio_host->define_direct_property(
+        "native"_utf16, create_stdio_host(m_realm, m_event_loop), JS::default_attributes);
     auto stdio_streams = TRY(builtin("stream"));
     stdio_host->define_direct_property(
         "Writable"_utf16, TRY(stdio_streams->get("Writable"_utf16)), JS::default_attributes);
