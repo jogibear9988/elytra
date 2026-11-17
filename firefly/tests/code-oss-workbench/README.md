@@ -5,6 +5,14 @@ This ordinary ESM development extension and extension-test runner use the real
 open an owned file in a real editor, apply a WorkspaceEdit and save. The parent
 runner independently verifies the saved bytes and the nonce-bound result.
 
+The default extension stays ESM. `--extension-format commonjs` selects the
+explicit `.cjs` compatibility fixture using the same original extension scanner
+and ESM test runner. Its entry and nested helper repeatedly require `vscode`
+through CodeOSS's original `Module._load` interceptor, verify API identity, and
+run the same actual command/open/edit/save checks. The parent authenticates the
+requested format in the current result; a previous ESM result cannot pass a
+CommonJS run. Both modes reuse the same owned profile and stage.
+
 Run as an offscreen acceptance batch using the existing prepared stage and
 current diagnostic binary:
 
@@ -36,9 +44,19 @@ controlled activation/open/edit/save workflow, not terminal, search, extension
 marketplace, external network or general CodeOSS compatibility.
 
 Current local macOS result (2026-11-17): accepted with the rebuilt SDK after genuine
-native GC/utility flag support and generic data-URL ESM loading. All activation,
-command, document/editor/edit/save and independent native byte checks pass; the
-application exits 0 and all 12 observed processes stop naturally, without cleanup
-signals. Evidence is retained as `build/codeoss-data-module-{evidence.json,workbench.log,acceptance.log}`
-in the active review worktree. Earlier failures remain in the progress log;
-this does not certify visible painting/input, PTY, all extensions or other platforms.
+native GC/utility flag support, generic data-URL ESM loading and real CommonJS
+Module interception. Both extension formats pass activation, command, document/
+editor/edit/save and independent native byte checks. The final CommonJS run exits
+0; all 13 observed processes are absent after two authenticated helper-cleanup
+signals. The separate ESM control exits 0 with 12 processes and two cleanup
+signals. Cleanup begins immediately after the main process exits, so these runs
+prove bounded cleanup, not fully natural helper shutdown.
+
+Final CommonJS evidence is retained as
+`build/codeoss-commonjs-{evidence.json,workbench.log,acceptance.log}`; the separate
+ESM control is `build/codeoss-commonjs-esm-{evidence.json,workbench.log,control.log}`.
+Executable hashes distinguish their builds: the ESM control preceded the narrow
+unknown-builtin error correction; the final CommonJS run includes it and still
+uses the original ESM test runner. Earlier data-module acceptance remains in the
+progress log. This does not certify visible painting/input, PTY, all extensions
+or other platforms.

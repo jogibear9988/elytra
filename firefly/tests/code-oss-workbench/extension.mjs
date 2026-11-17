@@ -12,6 +12,8 @@ export function activate(context) {
     }))
   );
   return {
+    extensionFormat: 'esm',
+
     get activations() {
       return activations;
     }

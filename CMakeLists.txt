@@ -247,6 +247,11 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_module_hooks.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
+        NAME mite-commonjs-interception
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_commonjs_interception.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    set_tests_properties(mite-commonjs-interception PROPERTIES TIMEOUT 120 LABELS "runtime;modules;gc")
+    add_test(
         NAME mite-host-filesystem
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_original_fs.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")

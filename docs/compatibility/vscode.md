@@ -1,7 +1,7 @@
 # VS Code / Code-OSS compatibility target
 
-Status: **experimental**. A controlled macOS offscreen ESM extension/command/
-open-edit-save workflow is accepted. General desktop use, visible interaction,
+Status: **experimental**. Controlled macOS offscreen CommonJS and ESM
+extension/command/open-edit-save workflows are accepted. General desktop use, visible interaction,
 terminal and broad extension/platform compatibility remain unaccepted. Requested
 as a priority target on 2026-11-07. The original pinned application runs with the
 explicit temporary adaptations documented below; this is not unchanged full
@@ -14,8 +14,16 @@ Updated 2026-11-17. The actual regular `--extensionDevelopmentPath` /
 scanner discovery, one extension activation, command registration/invocation,
 `workspace.openTextDocument`, `window.showTextDocument`, `WorkspaceEdit`, model
 coherence/dirty state and save. The extension host AND an independent Python
-parent verify the physical saved bytes. The application exits naturally with
-code 0, all 12 observed native processes stop, and cleanup uses zero signals.
+parent verify the physical saved bytes. The latest CommonJS run also verifies the
+original Module interceptor with nested/repeated require('vscode'). The final
+binary's CJS repeat exits 0; the harness immediately sends two authenticated
+helper-cleanup signals, and all 13 observed native processes are independently
+confirmed absent. The preceding SDK binary's ESM
+control passes with exit 0 and two helper-cleanup signals before all 12 observed
+processes are absent. Earlier CJS/ESM predecessors had zero-cleanup runs; these
+must not replace the final binary's teardown evidence. Full natural helper teardown
+remains unaccepted; immediate harness cleanup is not itself a demonstrated leak or
+runtime failure.
 The accepted extension host reports genuine Mite identity. This is a controlled
 API/editing acceptance result without visible desktop input, not every extension,
 painting, terminal or user-workspace workflow.
@@ -25,6 +33,11 @@ Compact evidence: `build/codeoss-data-module-evidence.json`,
 in the active review worktree. It uses the one reused diagnostic stage, original
 60 packaged static extensions and the documented 30-file/6-package adaptations.
 The source/runtime manifests and exact fixture checks define the accepted scope.
+Current CJS evidence is `build/codeoss-commonjs-{acceptance.log,evidence.json,workbench.log}`;
+the saved file SHA-256 is
+`9cec19ed5d8e80b0de57bbd7ddc4cb7df2aedd5831784b11177cc8d6ac24b439`.
+The ESM repeat is separately recorded in
+`build/codeoss-commonjs-esm-{evidence.json,workbench.log,control.log}`.
 
 The standalone runtime now supplies real workers, async contexts, querystring,
 TTY queries, HTTP/TLS Agents, native process.title and bounded structuredClone.
@@ -78,14 +91,16 @@ fallback output. Consequently absent `Eager extensions activated` or module-load
 traces cannot prove that execution never reached them. Observe genuine marks,
 RPC activation results or an actual extension workflow before classifying a stall.
 
-A separate source audit identifies an upcoming loader compatibility gap.
-`NodeModuleRequireInterceptor` and proxy setup patch `module._load` and
-`_resolve*` hooks; Mite's current `node:module` facade does not connect these
-assigned fields to its native CommonJS loader. Property assignment is not hook
-support. The original ESM `vscode` interceptor also returns a generated
-`data:text/javascript;base64` URL, while Mite currently rejects non-file module
-URLs outside its builtin/host schemes. Both routes need genuine loader support
-and activation acceptance; neither is established as the current causal await.
+The earlier loader gaps now have genuine native replacements. The original
+`NodeModuleRequireInterceptor` patches the live Module._load/resolver path;
+Module instances, native cache/cycles and actual lookup paths participate in those
+calls. The ESM interceptor loads its generated data:text/javascript;base64 source
+as a real LibJS module. Five Node/Mite/embedding/Firefly CommonJS differential
+groups pass with actual GC, and the controlled original CommonJS extension workflow
+passes nested/repeated requires, activation, command and document edit/save.
+This is no longer an import-only constructor or assigned-field claim. See
+[CommonJS dispatch](../api/module.md#module-constructor-and-commonjs-dispatch) and
+[ADR 0203](../architecture/0203-commonjs-module-interception.md).
 
 Remaining observed gaps include native `@vscode/spdlog` bindings, missing
 `isAlwaysOnTop` and `setBackgroundThrottling` desktop methods, macOS Services menu
@@ -120,9 +135,10 @@ failed on the original `vscode` ESM hook's standard base64 data URL. Mite now lo
 those URLs as genuine [JavaScript/JSON modules](../api/data-modules.md), retaining
 actual registry-export identity and resolution hooks. It adds no Code-OSS-specific
 module or fake API. The next unchanged test passes the complete controlled
-activation/command/editor/save workflow described above. This does not establish
-CommonJS interception or broad native-addon extension compatibility; those remain
-separate gaps, alongside visible Cocoa, PTY and platform acceptance.
+activation/command/editor/save workflow described above. The newer CommonJS
+fixture independently accepts the original interceptor path too. Broad native-addon
+extension compatibility, visible Cocoa, PTY and fresh platform acceptance remain
+open.
 
 The previous early navigation stall is not reproduced under these observations;
 no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is
@@ -142,8 +158,9 @@ VSIXs are not downloaded. The partial static scan is verified; activation remain
 
 Native binding gaps remain visible. Cocoa-only Services/native-handle refusal in
 the offscreen frontend is not a Cocoa menu acceptance result. Native menu
-interaction, stable extension activation, workspace open/edit/save, integrated
-terminal/PTY and Linux/Windows desktop operation remain unaccepted. A real Cocoa
+interaction, arbitrary/repeated user extension and workspace workflows, integrated
+terminal/PTY and Linux/Windows desktop operation remain unaccepted. The controlled
+activation/open-edit-save checks above do not certify these broader workflows. A real Cocoa
 editor run is required after the remaining startup/lifetime blockers are fixed.
 
 Temporary Code-OSS changes are permitted for development, with their reasons and
@@ -361,9 +378,10 @@ The new [node:module utility slice](../api/module.md) implements createRequire o
 the existing native loader, with shared CJS/JSON instances, real package require
 conditions and actual GC acceptance locally on macOS. This targets the pinned
 [bootstrap-node createRequire call](https://github.com/microsoft/vscode/blob/6531648f5ace8b77ae799262bdc97bf048461938/src/bootstrap-node.ts#L7).
-It does not implement the separate compile-cache imports, node:v8 or execute the
-whole desktop bootstrap. The explicit application cache adaptation below addresses
-its optional engine imports without changing Mite's public API inventory.
+The later genuine Module interception and controlled CJS workflow are accepted
+above. Compile-cache imports and node:v8 remain separate unsupported APIs; the
+explicit application cache adaptation below handles those optional engine imports
+without claiming them in Mite's public inventory.
 
 The newer non-GUI **mite-code-oss-bootstrap** gate executes the actual pinned
 bootstrap-node.ts after type erasure, using VSCODE_DEV=1. It proves module

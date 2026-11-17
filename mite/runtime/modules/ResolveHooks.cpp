@@ -28,13 +28,24 @@ static std::string hook_text(JS::Value value)
     return string(MUST(value.as_string().utf16_string_view().to_byte_string()));
 }
 
-JS::ThrowCompletionOr<JS::Value> ModuleLoader::run_resolve_hooks(
-    std::string const& specifier, std::string const& parent, bool require, JS::Value attributes)
+JS::ThrowCompletionOr<JS::Value> ModuleLoader::run_resolve_hooks(std::string const& specifier,
+    std::string const& parent, bool require, JS::Value attributes,
+    std::vector<std::filesystem::path> const* paths)
 {
     if (!m_resolve_hook_dispatcher)
         return JS::js_undefined();
+    GC::RootVector<JS::Value> values;
+    if (paths) {
+        for (auto const& path : *paths)
+            values.append(hook_string(m_vm, path_string(path)));
+    }
+
+    GC::Root<JS::Object> array;
+    if (paths)
+        array = JS::Array::create_from(m_realm, values).ptr();
     return JS::call(m_vm, m_resolve_hook_dispatcher.ptr(), JS::js_undefined(),
-        hook_string(m_vm, specifier), hook_string(m_vm, parent), JS::Value(require), attributes);
+        hook_string(m_vm, specifier), hook_string(m_vm, parent), JS::Value(require), attributes,
+        array ? JS::Value(array.ptr()) : JS::js_undefined());
 }
 
 JS::ThrowCompletionOr<URL::URL> ModuleLoader::hook_result_url(
@@ -82,12 +93,13 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::hook_result_url(
 }
 
 JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_require_hooked(
-    std::string const& request, std::filesystem::path const& parent)
+    std::string const& request, std::filesystem::path const& parent,
+    std::vector<std::filesystem::path> const* paths)
 {
     auto parent_url = string(path_to_url(parent).serialize());
-    auto value = TRY(run_resolve_hooks(request, parent_url, true, JS::js_undefined()));
+    auto value = TRY(run_resolve_hooks(request, parent_url, true, JS::js_undefined(), paths));
     if (value.is_undefined())
-        return resolve_require(request, parent);
+        return resolve_require(request, parent, nullptr, paths);
     GC::Root result { value.as_object() };
     auto url = TRY(hook_result_url(*result, parent_url));
     auto text = string(url.serialize());
@@ -175,8 +187,12 @@ void ModuleLoader::install_resolve_hook_host(JS::Object& host)
                     if (parent_url->scheme() != "file"sv)
                         return self->error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
                             "CommonJS require needs a file parent");
-                    auto target
-                        = TRY(self->resolve_require(specifier, url_path(*parent_url), &conditions));
+                    std::vector<std::filesystem::path> paths;
+                    bool has_paths = !vm.argument(3).is_undefined();
+                    if (has_paths)
+                        paths = TRY(self->lookup_paths(vm.argument(3)));
+                    auto target = TRY(self->resolve_require(specifier, url_path(*parent_url),
+                        &conditions, has_paths ? &paths : nullptr));
                     url = !target.host.empty()
                         ? URL::Parser::basic_parse(view("mite-host:" + target.host))
                         : !target.builtin.empty()

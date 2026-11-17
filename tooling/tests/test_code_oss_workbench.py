@@ -217,7 +217,7 @@ def write_json(path, value):
     path.chmod(0o600)
 
 
-def prepare(state, stage):
+def prepare(state, stage, extension_format="esm"):
     marker = state / ".elytra-owned.json"
     if not state.exists():
         state.mkdir(mode=0o700)
@@ -242,8 +242,11 @@ def prepare(state, stage):
         "security.workspace.trust.enabled": False,
     }
     write_json(user / "settings.json", settings)
-    for name in ("package.json", "extension.mjs", "tests.mjs"):
+    for name in ("extension.mjs", "extension.cjs", "commonjs-helper.cjs", "tests.mjs"):
         (extension / name).write_bytes((FIXTURE / name).read_bytes())
+    manifest = json.loads((FIXTURE / "package.json").read_text())
+    manifest["main"] = "./extension.cjs" if extension_format == "commonjs" else "./extension.mjs"
+    write_json(extension / "package.json", manifest)
     nonce = str(uuid.uuid4())
     document = workspace / "owned-workbench.txt"
     initial = "owned-workbench-input\n"
@@ -259,6 +262,7 @@ def prepare(state, stage):
     document.write_text(initial)
     config = {
         "schema": 1,
+        "extensionFormat": extension_format,
         "nonce": nonce,
         "document": str(document),
         "initial": initial,
@@ -322,6 +326,7 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--extension-format", choices=("esm", "commonjs"), default="esm")
     args = parser.parse_args()
     if os.name != "posix" or not (sys.platform == "darwin" or sys.platform.startswith("linux")):
         parser.error("Native descendant authentication is not implemented on this platform")
@@ -349,7 +354,7 @@ def main():
             raise RuntimeError("Refusing an unowned existing profile")
         if not marker.exists():
             write_json(marker, {"owner": OWNER})
-        arguments, config = prepare(state, stage)
+        arguments, config = prepare(state, stage, args.extension_format)
         command = [str(binary), "--electron-compat", *arguments]
         if args.prepare_only:
             print(
@@ -443,6 +448,7 @@ def main():
             result.get("schema") != 1
             or result.get("nonce") != config["nonce"]
             or result.get("extensionId") != "elytra-owned.workbench-acceptance"
+            or result.get("extensionFormat") != args.extension_format
         ):
             raise RuntimeError("No authenticated current extension-test result")
         if not tree or result.get("pid") not in tree.members or result["pid"] == process.pid:
@@ -468,6 +474,7 @@ def main():
             {
                 "schema": 1,
                 "accepted": True,
+                "extensionFormat": args.extension_format,
                 "nonce": config["nonce"],
                 "savedSha256": hashlib.sha256(saved).hexdigest(),
                 "nativeExit": natural_exit,

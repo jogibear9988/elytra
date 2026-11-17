@@ -266,7 +266,7 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_exports(fs::path const& ro
 
 JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const& request,
     fs::path const& parent_file, bool require, size_t depth,
-    std::vector<std::string> const* active_conditions)
+    std::vector<std::string> const* active_conditions, std::vector<fs::path> const* lookup_paths)
 {
     if (depth > 64)
         return error(
@@ -342,55 +342,49 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const&
                 *scope, subpath, *exports, require, depth + 1, active_conditions);
     }
 
-    auto directory = parent_file.parent_path();
-    while (!directory.empty()) {
-        if (directory.filename() != "node_modules") {
-            auto utf8_name
-                = std::u8string(reinterpret_cast<char8_t const*>(name.data()), name.size());
-            auto root = directory / "node_modules" / fs::path(utf8_name);
-            std::error_code ec;
-            if (fs::is_directory(root, ec)) {
-                auto package = TRY(read_package(root));
-                if (package.has_value()) {
-                    auto exports = package->as_object().get("exports"sv);
-                    if (exports.has_value()
-                        && (exports->is_string() || exports->is_object() || exports->is_array()))
-                        return resolve_exports(
-                            root, subpath, *exports, require, depth + 1, active_conditions);
-                }
-
-                if (subpath == ".") {
-                    auto found = TRY(legacy_path(root));
-                    if (found.has_value())
-                        return path_to_url(*found);
-                    return error(require ? "MODULE_NOT_FOUND" : "ERR_MODULE_NOT_FOUND",
-                        "Cannot find package entry: " + name);
-                }
-
-                auto relative = subpath.substr(2);
-                if (require) {
-                    auto path = root
-                        / fs::path(std::u8string(
-                            reinterpret_cast<char8_t const*>(relative.data()), relative.size()));
-                    auto found = TRY(legacy_path(path));
-                    if (found.has_value())
-                        return path_to_url(*found);
-                    return error("MODULE_NOT_FOUND", "Cannot find package subpath: " + request);
-                }
-
-                auto resolved
-                    = URL::Parser::basic_parse(view(subpath), path_to_url(root / "package.json"));
-                if (!resolved.has_value())
-                    return error("ERR_INVALID_MODULE_SPECIFIER",
-                        "Invalid package subpath: " + request, true);
-                return resolved.release_value();
+    auto defaults
+        = lookup_paths ? std::vector<fs::path> {} : node_module_paths(parent_file.parent_path());
+    auto const& roots = lookup_paths ? *lookup_paths : defaults;
+    for (auto const& directory : roots) {
+        auto utf8_name = std::u8string(reinterpret_cast<char8_t const*>(name.data()), name.size());
+        auto root = directory / fs::path(utf8_name);
+        std::error_code ec;
+        if (fs::is_directory(root, ec)) {
+            auto package = TRY(read_package(root));
+            if (package.has_value()) {
+                auto exports = package->as_object().get("exports"sv);
+                if (exports.has_value()
+                    && (exports->is_string() || exports->is_object() || exports->is_array()))
+                    return resolve_exports(
+                        root, subpath, *exports, require, depth + 1, active_conditions);
             }
-        }
 
-        auto parent = directory.parent_path();
-        if (parent == directory)
-            break;
-        directory = parent;
+            if (subpath == ".") {
+                auto found = TRY(legacy_path(root));
+                if (found.has_value())
+                    return path_to_url(*found);
+                return error(require ? "MODULE_NOT_FOUND" : "ERR_MODULE_NOT_FOUND",
+                    "Cannot find package entry: " + name);
+            }
+
+            auto relative = subpath.substr(2);
+            if (require) {
+                auto path = root
+                    / fs::path(std::u8string(
+                        reinterpret_cast<char8_t const*>(relative.data()), relative.size()));
+                auto found = TRY(legacy_path(path));
+                if (found.has_value())
+                    return path_to_url(*found);
+                return error("MODULE_NOT_FOUND", "Cannot find package subpath: " + request);
+            }
+
+            auto resolved
+                = URL::Parser::basic_parse(view(subpath), path_to_url(root / "package.json"));
+            if (!resolved.has_value())
+                return error(
+                    "ERR_INVALID_MODULE_SPECIFIER", "Invalid package subpath: " + request, true);
+            return resolved.release_value();
+        }
     }
 
     return error(

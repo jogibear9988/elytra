@@ -99,7 +99,8 @@ private:
 
     JS::ThrowCompletionOr<URL::URL> resolve_package(std::string const&,
         std::filesystem::path const&, bool require, size_t depth = 0,
-        std::vector<std::string> const* conditions = nullptr);
+        std::vector<std::string> const* conditions = nullptr,
+        std::vector<std::filesystem::path> const* lookup_paths = nullptr);
 
     JS::ThrowCompletionOr<URL::URL> resolve_exports(std::filesystem::path const&,
         std::string const&, AK::JsonValue const&, bool require, size_t depth,
@@ -119,14 +120,23 @@ private:
         std::filesystem::path const&);
 
     JS::ThrowCompletionOr<RequireResolution> resolve_require(std::string const&,
-        std::filesystem::path const&, std::vector<std::string> const* conditions = nullptr);
+        std::filesystem::path const&, std::vector<std::string> const* conditions = nullptr,
+        std::vector<std::filesystem::path> const* lookup_paths = nullptr);
 
-    JS::ThrowCompletionOr<RequireResolution> resolve_require_hooked(
-        std::string const&, std::filesystem::path const&);
+    JS::ThrowCompletionOr<RequireResolution> resolve_require_hooked(std::string const&,
+        std::filesystem::path const&,
+        std::vector<std::filesystem::path> const* lookup_paths = nullptr);
+
+    static std::vector<std::filesystem::path> node_module_paths(std::filesystem::path);
+
+    JS::ThrowCompletionOr<std::vector<std::filesystem::path>> lookup_paths(JS::Value);
+
+    JS::ThrowCompletionOr<void> sync_commonjs_cache();
 
     // Only trusted main-process module resolution enters these realm-owned hooks.
-    JS::ThrowCompletionOr<JS::Value> run_resolve_hooks(
-        std::string const&, std::string const&, bool require, JS::Value attributes);
+    JS::ThrowCompletionOr<JS::Value> run_resolve_hooks(std::string const&, std::string const&,
+        bool require, JS::Value attributes,
+        std::vector<std::filesystem::path> const* lookup_paths = nullptr);
 
     JS::ThrowCompletionOr<URL::URL> hook_result_url(JS::Object&, std::string const&);
 
@@ -178,6 +188,7 @@ private:
     GC::Root<JS::Object> m_promise_constructor;
     GC::Root<JS::Object> m_process;
     GC::Root<JS::Object> m_commonjs_cache;
+    GC::Root<JS::Object> m_commonjs_constructor;
     GC::Root<JS::Object> m_filesystem_native;
     GC::Root<JS::Object> m_main_module;
     GC::Root<JS::Module> m_commonjs_bridge;

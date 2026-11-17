@@ -48,7 +48,7 @@ export default function createResolveHooks(host) {
     };
   }
 
-  function dispatch(specifier, parentURL, require, importAttributes) {
+  function dispatch(specifier, parentURL, require, importAttributes, lookupPaths) {
     if (!hooks.length) {
       return undefined;
     }
@@ -67,7 +67,7 @@ export default function createResolveHooks(host) {
         throw failure('ERR_INVALID_ARG_TYPE', 'Module specifier must be a string', TypeError);
       }
       if (index < 0) {
-        return host.defaultResolve(request, input, require);
+        return host.defaultResolve(request, input, require, lookupPaths);
       }
       let called = false;
 

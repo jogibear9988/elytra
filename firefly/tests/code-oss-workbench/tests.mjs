@@ -19,6 +19,16 @@ export async function run() {
   check(extension, 'Development extension discovered by the original scanner');
   const api = await extension.activate();
   check(extension.isActive && api.activations === 1, 'Genuine extension activation and export');
+  check(
+    api.extensionFormat === config.extensionFormat,
+    'Requested extension module format activated'
+  );
+  if (config.extensionFormat === 'commonjs') {
+    check(
+      api.commands === vscode.commands,
+      'CJS interceptor and ESM hook expose the same commands API'
+    );
+  }
   const reply = await vscode.commands.executeCommand('elytra.workbenchAcceptance', config.nonce);
   check(
     reply.nonce === config.nonce && reply.activations === 1 && reply.extensionId === extension.id,
@@ -49,6 +59,7 @@ export async function run() {
   );
   const result = {
     schema: 1,
+    extensionFormat: config.extensionFormat,
     nonce: config.nonce,
     extensionId: extension.id,
     pid: process.pid,

@@ -106,7 +106,8 @@ static constexpr std::string_view console_exports[]
           "timeEnd", "timeLog", "count", "countReset", "group", "groupCollapsed", "groupEnd",
           "clear", "trace", "dirxml", "profile", "profileEnd", "timeStamp" };
 static constexpr std::string_view module_exports[]
-    = { "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
+    = { "Module", "_load", "_resolveFilename", "_resolveLookupPaths", "_nodeModulePaths", "_cache",
+          "globalPaths", "createRequire", "isBuiltin", "builtinModules", "registerHooks" };
 static constexpr std::string_view perf_hooks_exports[] = { "performance" };
 static constexpr std::string_view stream_exports[] = { "Stream", "Readable", "Writable", "Duplex",
     "Transform", "PassThrough", "pipeline", "finished", "compose", "destroy", "addAbortSignal",

@@ -1,9 +1,13 @@
 # node:module
 
-Status: partial utility and synchronous resolve API. createRequire, isBuiltin and builtinModules have local
-macOS ARM64 Node differential and actual embedded-host GC tests. Native Linux and
-Windows x64 also pass at 678c85e (all 68 runtime suites). See
-[current evidence](../status.md).
+Status: partial native Module constructor, CommonJS dispatch and synchronous
+resolve API. The new interception/lookup slice passes five real Node/Mite groups
+with `--expose-gc`, the native embedding host and rebuilt Firefly's embedded runtime
+on macOS ARM64. Existing module/hook/CJS/data regressions also pass. Older utility
+APIs have Linux/Windows evidence at 678c85e; that does not validate the new dispatcher
+on those platforms. A controlled original Code-OSS CommonJS activation/command/
+open-edit-save workflow also passes offscreen on macOS; visible input, PTYs and
+arbitrary-extension acceptance remain open. See [current evidence](../status.md).
 
 ```js
 import {createRequire, isBuiltin, builtinModules} from 'node:module';
@@ -17,7 +21,8 @@ console.log(isBuiltin('node:fs'), builtinModules.includes('fs'));
 This supports ESM applications consuming existing CommonJS dependencies; application
 examples should continue to use modern ESM. The ordinary module and node:module
 names share one default object and the same named functions. Mite's default export
-is a utility object, not Node's constructible Module class.
+is the actual constructible Module function. Module.Module is that same function,
+and native-loaded CommonJS parent records use its prototype.
 
 ## createRequire(filename)
 
@@ -50,12 +55,97 @@ retained; no permanent synthetic-module root is added to the loader.
 | Reserved but unimplemented Node builtin | ERR_MITE_UNSUPPORTED_BUILTIN; no local npm fallback |
 | Native addon / synchronous require(ESM) | Existing explicit unsupported error |
 
-require.resolve options, require.extensions, global lookup folders, load hooks,
-synchronous require(ESM) remain unsupported. Source-analyzed CommonJS named exports
+require.resolve supports the actual options.paths lookup described below.
+require.extensions, automatic Node global-folder/NODE_PATH discovery, load hooks
+and synchronous require(ESM) remain unsupported. Source-analyzed CommonJS named exports
 are described below.
 Native Windows current-drive rooted paths and trailing backslashes pass the
 678c85e native gate. Existing platform-specific loader limits,
 including UNC module URLs, still apply.
+
+## Module constructor and CommonJS dispatch
+
+The default export, require('module'), require('node:module') and Module.Module
+share the same constructor. `new Module(id, parent)` creates a real CommonJS
+metadata object with exports, children, parent and loaded state. Loaded file
+records also carry their actual filename/path and lookup paths; createRequire
+uses a real but uncached synthetic parent. This does not implement every Node
+Module internal such as _compile or _findPath.
+
+`Module.prototype.require` consults the current Module._load on each call. Native
+lexical require functions consult their actual parent's current require method,
+so instance/prototype overrides and nested wrappers take effect before default
+resolution or cache lookup. A wrapper can return a genuine virtual-module export
+or delegate to the captured original. For ordinary requests, the default _load
+consults the current _resolveFilename and then performs the native load. Prefixed
+node: requests use the native builtin path without the mutable filename resolver
+or cache, while registered native resolve hooks still participate. Unknown
+require.resolve('node:missing') reports MODULE_NOT_FOUND; loading that unknown
+builtin reports ERR_UNKNOWN_BUILTIN_MODULE. This is not an import-only stub.
+
+```js
+import Module, {createRequire} from 'node:module';
+const require = createRequire(import.meta.url);
+const original = Module._load;
+const api = {answer: 42};
+Module._load = function(request, parent, isMain) {
+  if (request === 'application-api') return api;
+  return Reflect.apply(original, this, arguments);
+};
+try {
+  console.log(require('application-api') === api); // true
+} finally {
+  Module._load = original;
+}
+```
+
+Native caching and cycles remain authoritative: a module is published before
+executing its body, cycles see its partial exports, repeated loads reuse the actual
+exports, and a failed load removes its provisional cache/parent-child entry.
+Original exception identity survives cleanup and collection. Cached parents and
+retained require functions remain GC-traced. Module._cache is the real native
+CommonJS cache; replacing it is consulted by subsequent default loads. Existing
+require.cache references retain the object assigned when those functions were made.
+Bare builtin cache shadows are supported; node:-prefixed builtin loads bypass that
+cache. Neither dispatcher invents an ESM namespace or bypasses native-addon/data/
+synchronous-ESM restrictions.
+
+## CommonJS lookup paths
+
+`Module._resolveFilename(request, parent, isMain[, options])`,
+`Module._resolveLookupPaths(request, parent)` and `Module._nodeModulePaths(from)`
+are live methods used by the default loader. Returned paths govern actual package
+lookup. Module._nodeModulePaths computes native ancestor node_modules directories;
+parent.paths and explicitly supplied Module.globalPaths contribute real roots.
+Mite does not discover a Node installation's global directories automatically.
+
+`require.resolve(request, {paths: [directory]})` and the corresponding
+_resolveFilename option search actual roots without modifying the supplied array.
+Relative requests use those directories directly; package requests expand through
+node_modules ancestors and normal package main/exports rules. Default builtin
+resolution does not consult filesystem lookup paths/options. Native admission
+allows at most 1,024 final lookup paths, with string/NUL validation; exceeding it
+uses ERR_MITE_MODULE_PATH_LIMIT. Invalid arrays use ERR_INVALID_ARG_VALUE, invalid
+elements ERR_INVALID_ARG_TYPE. options.conditions remains explicitly unsupported
+with ERR_MITE_UNSUPPORTED_API; this is separate from supported registerHooks
+condition contexts.
+
+These are tested partial internal APIs, not complete Node loader parity.
+Unsupported Module internals, arbitrary cache/proxy mutation timing, automatic
+global-folder discovery and full Windows path behavior remain outside this slice's
+acceptance. See [ADR 0203](../architecture/0203-commonjs-module-interception.md).
+
+The original controlled Code-OSS CommonJS interceptor now passes nested/repeated
+require('vscode'), extension activation and its registered command, followed by
+openTextDocument/showTextDocument and WorkspaceEdit/save with independent physical
+file readback. The final binary's CJS repeat exits 0; the harness then sends two
+authenticated helper-cleanup signals, and all 13 tracked native processes are
+independently confirmed absent. An ESM control on the preceding SDK binary also
+passes its workflow, with exit 0 and two cleanup signals before its 12 tracked
+processes are absent. Full natural teardown is unaccepted; this immediate harness
+cleanup is not itself evidence of a leak or runtime failure. These are local macOS
+offscreen API workflows, not visible editor input, PTY, broad native-addon/extension
+or all-platform acceptance.
 
 ## CommonJS named exports in ES modules
 
@@ -201,9 +291,10 @@ CLI, worker inheritance or ASAR filesystem support is supplied. See
 
 ## Remaining module APIs
 
-The Module constructor, asynchronous register, findPackageJSON, compile-cache APIs and
-syncBuiltinESMExports are not exported. In particular this does not supply a V8
-compile cache or allow the complete Code-OSS bootstrap to run. Its cache/diagnostic
+Asynchronous register, findPackageJSON, compile-cache APIs and
+syncBuiltinESMExports are not exported. Constructible Module and its partial
+CommonJS dispatch surface are described above. This does not supply a V8 compile
+cache or certify every Code-OSS bootstrap/feature path. Its cache/diagnostic
 imports use an explicit application-only [LibJS cache policy](../architecture/0106-code-oss-libjs-cache-policy.md),
 not new Mite builtin exports; see the
 [Code-OSS inventory](../compatibility/vscode.md).

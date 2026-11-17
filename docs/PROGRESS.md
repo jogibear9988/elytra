@@ -15038,6 +15038,73 @@ first-script preload acceptance. Prior macRelease6e909a2 run43992102319 passes
 fresh recursive controls pass, so retain this unresolved gate without changing
 or relaxing it. Full goal and native CI/master/release promotion remain open.
 
+## 2026-11-17 — Genuine CommonJS Module interception and controlled CJS editing
+
+Implement the actual constructible node:module default/Module identity and native
+CommonJS parent prototype. Lexical require consults the real parent's live require;
+its base dispatches through live Module._load, then actual filename resolution and
+native loading. Nested wrappers and virtual API exports run before resolution/cache
+lookup, not through a test-only require replacement. Preserve native cache/cycles,
+parent metadata, retry/rollback and original exception identity. Root cached modules
+and exceptions across author accessors/cleanup/GC, remove the recursive own-require
+alias, and retain the existing private ESM bridge and data/native-addon/synchronous
+ESM refusals. Actual parent.paths, Module.globalPaths and options.paths feed native
+package lookup; final lookup roots are explicitly bounded to1024.
+
+A broader builtin control caught genuine require.resolve('node:unknown') regression:
+it returned the identifier instead of MODULE_NOT_FOUND. Fix native resolution/load
+intent separately. Public resolution refuses unknown builtin names with
+MODULE_NOT_FOUND, while actual prefixed loading reaches the real builtin error
+ERR_UNKNOWN_BUILTIN_MODULE. The default node: load bypasses author _resolveFilename
+and cache, while registered resolve hooks still participate. Do not catch/rewrite
+hook exceptions to fake this distinction.
+
+Final standalone Mite, native embedding host and rebuilt Firefly-as-Mite pass all
+five Node24.15 differential interception groups with actual --expose-gc, including
+an author filename-resolver throw proving prefixed loads bypass it. Eight existing
+module/resolve/CommonJS/namespace-GC/reentry/data/builtin/package regression CTests
+pass. Final SDK/firefly-offscreen build passes. This is scoped local macOS evidence,
+not a fresh platform-wide green or SDK/master promotion.
+
+Run the original regular Code-OSS CommonJS extension fixture through genuine
+NodeModuleRequireInterceptor: repeated/nested require('vscode'), activation,
+registered command, openTextDocument/showTextDocument, WorkspaceEdit/save and
+independent Python physical readback all pass. The final corrected binary's report
+records accepted:true, nativeExit0, cleanupSignals2. The harness sends those two
+authenticated helper-cleanup signals immediately after main exit; all13 original
+observed native processes are independently absent by birth/executable identity.
+Full natural helper teardown is NOT accepted. This immediate cleanup is neither
+proof of a leak nor a runtime failure. An earlier CJS predecessor had13/0, not the
+final binary's teardown. The ESM control also passes on the preceding SDK binary
+with12 processes/exit0/cleanup2; do not label it the exact final executable.
+
+Final compact CJS evidence: build/codeoss-commonjs-{acceptance.log,evidence.json,
+workbench.log}; saved file SHA256
+9cec19ed5d8e80b0de57bbd7ddc4cb7df2aedd5831784b11177cc8d6ac24b439.
+Those final evidence files replace the earlier CJS predecessor report. Separate
+ESM control: build/codeoss-commonjs-esm-{evidence.json,workbench.log,control.log}.
+The controlled offscreen workflow does not establish visible painting/input, PTY,
+search/marketplace, arbitrary extensions/native addons or Linux/Windows desktop.
+No additional local GUI acceptance is planned for this documentation slice.
+
+Update Module API, ADR0203, current status/Mite matrix and stale Code-OSS loader-gap
+paragraphs around the actual partial native implementation and measured workflows.
+Keep compile-cache/load hooks, further Module internals, automatic global-folder
+lookup, arbitrary cache/proxy mutation timing and fresh path/platform behavior
+explicitly open. Current CI limits remain as recorded in the preceding entry:
+LinuxCLI02502d7 green, Windows runtime/reference issues, Linux renderer first-script
+preload failure and unresolved hosted recursive-watcher evidence. No waiver or
+unverified full-platform claim follows from local module acceptance. A fresh query
+also confirms6f5346e LinuxCLI44005680650 green and Linuxrenderer44005680649 failed;
+its Windows/macOS runs remain in progress/pending at that observation.
+
+Final owned source formatting, generated Mite/Firefly inputs, unmodified upstream
+b872e601 and diff checks pass. Website359pages/26563local links/resources/fragments
+passes after documentation freeze. Reuse the same stage/profile and installed
+dependencies; no duplicate app/source/dependency package is retained. Commit/push
+this coherent dispatcher and actual-workbench slice on the existing review branch;
+master/release promotion and the full thread objective remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -35,6 +35,7 @@ void ModuleLoader::visit_capture_edges(GC::Cell::Visitor& visitor) const
     visitor.visit(m_promise_constructor.ptr());
     visitor.visit(m_process.ptr());
     visitor.visit(m_commonjs_cache.ptr());
+    visitor.visit(m_commonjs_constructor.ptr());
     visitor.visit(m_filesystem_native.ptr());
     visitor.visit(m_main_module.ptr());
     visitor.visit(m_commonjs_bridge.ptr());
@@ -601,7 +602,8 @@ JS::ThrowCompletionOr<Optional<fs::path>> ModuleLoader::legacy_path(fs::path con
 }
 
 JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_require(
-    std::string const& request, fs::path const& parent, std::vector<std::string> const* conditions)
+    std::string const& request, fs::path const& parent, std::vector<std::string> const* conditions,
+    std::vector<fs::path> const* lookup_paths)
 {
     if (view(request).starts_with("data:"sv, CaseSensitivity::CaseInsensitive))
         return error("ERR_MITE_UNSUPPORTED_REQUIRE_ESM",
@@ -613,9 +615,12 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
     auto path
         = fs::path(std::u8string(reinterpret_cast<char8_t const*>(request.data()), request.size()));
     bool relative = request == "." || request == ".." || request.starts_with("./")
-        || request.starts_with("../");
+        || request.starts_with("../") || request.starts_with("..\\");
+#ifdef _WIN32
+    relative = relative || request.starts_with(".\\");
+#endif
     if (!relative && !path.is_absolute()) {
-        auto url = TRY(resolve_package(request, parent, true, 0, conditions));
+        auto url = TRY(resolve_package(request, parent, true, 0, conditions, lookup_paths));
         if (url.scheme() == "mite-host"sv) {
             auto name = string(url.serialize()).substr(10);
             return RequireResolution { {}, {}, name, name };
@@ -645,7 +650,17 @@ JS::ThrowCompletionOr<ModuleLoader::RequireResolution> ModuleLoader::resolve_req
         return RequireResolution { canonical, {}, path_string(canonical), {} };
     }
 
-    auto found = TRY(legacy_path(path.is_absolute() ? path : parent.parent_path() / path));
+    Optional<fs::path> found;
+    if (!path.is_absolute() && lookup_paths) {
+        for (auto const& directory : *lookup_paths) {
+            found = TRY(legacy_path(directory / path));
+            if (found.has_value())
+                break;
+        }
+    } else {
+        found = TRY(legacy_path(path.is_absolute() ? path : parent.parent_path() / path));
+    }
+
     if (!found.has_value())
         return error("MODULE_NOT_FOUND", "Cannot find module '" + request + "'");
     auto filename = found.release_value();
@@ -690,7 +705,9 @@ JS::ThrowCompletionOr<void> ModuleLoader::remove_child(JS::Object& parent, JS::O
 
 JS::Completion ModuleLoader::require_error(JS::Completion completion, JS::Object& module)
 {
-    auto exception = completion.value();
+    GC::RootVector<JS::Value> retained;
+    retained.append(completion.value());
+    auto exception = retained[0];
     if (!exception.is_object())
         return completion;
     auto code = exception.as_object().get_without_side_effects("code"_utf16);
@@ -712,39 +729,23 @@ JS::Completion ModuleLoader::require_error(JS::Completion completion, JS::Object
     return completion;
 }
 
-GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
-    fs::path const& filename, GC::Ref<JS::Object> module)
+GC::Ref<JS::NativeFunction> ModuleLoader::make_require(fs::path const&, GC::Ref<JS::Object> module)
 {
     auto require = JS::NativeFunction::create(m_realm,
-        GC::create_function(m_realm.vm().heap(),
-            GC::captures(native_reference(*this), filename, module),
-            [](auto& captured_self, auto& filename, auto& module,
-                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this), module),
+            [](auto& captured_self, auto& module, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto* self = &captured_self.get();
 
                 if (!vm.argument(0).is_string())
                     return self->error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
-                auto request
-                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                auto resolved = self->resolve_require_hooked(string(request), filename);
-                if (resolved.is_error())
-                    return self->require_error(resolved.release_error(), *module);
-                auto target = resolved.release_value();
-                if (!target.host.empty())
-                    return self->m_host_modules.at(target.host).exports.ptr();
-                if (!target.builtin.empty()) {
-                    if (!target.identifier.starts_with("node:")) {
-                        auto cached = TRY(self->m_commonjs_cache->get(
-                            Utf16String::from_utf8_with_replacement_character(
-                                view(target.identifier))));
-                        if (cached.is_object())
-                            return cached.as_object().get("exports"_utf16);
-                    }
-
-                    return TRY(self->builtin(target.builtin));
-                }
-
-                return self->load_commonjs(target.path, module);
+                // The caller's Module instance is the fixed parent; author patches
+                // to its require method and the shared Module._load run before any
+                // native resolution or cache lookup.
+                auto callback = TRY(module->get("require"_utf16));
+                auto result = JS::call(vm, callback, module.ptr(), vm.argument(0));
+                if (result.is_error())
+                    return self->require_error(result.release_error(), *module);
+                return result.release_value();
             }),
         1, "require"_utf16);
     require->define_direct_property("cache"_utf16, m_commonjs_cache.ptr(), JS::default_attributes);
@@ -752,27 +753,19 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
         m_main_module ? JS::Value(m_main_module.ptr()) : JS::js_undefined(),
         JS::default_attributes);
     require->define_native_function(m_realm, "resolve"_utf16,
-        GC::create_function(m_realm.vm().heap(),
-            GC::captures(native_reference(*this), filename, module),
-            [](auto& captured_self, auto& filename, auto& module,
-                JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this), module),
+            [](auto& captured_self, auto& module, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
                 auto* self = &captured_self.get();
 
                 if (!vm.argument(0).is_string())
                     return self->error("ERR_INVALID_ARG_TYPE", "Module ID must be a string", true);
-                if (vm.argument_count() > 1 && !vm.argument(1).is_undefined())
-                    return self->error("ERR_MITE_UNSUPPORTED_API",
-                        "require.resolve options are not implemented yet");
-                auto request
-                    = MUST(vm.argument(0).as_string().utf16_string_view().to_byte_string());
-                auto resolved = self->resolve_require_hooked(string(request), filename);
-                if (resolved.is_error())
-                    return self->require_error(resolved.release_error(), *module);
-                auto target = resolved.release_value();
-                if (!target.builtin.empty() && !known_builtin(target.builtin))
-                    return self->error(
-                        "MODULE_NOT_FOUND", "Cannot resolve unknown builtin: " + target.builtin);
-                return js_string(vm, target.identifier);
+                GC::Root constructor { TRY(self->builtin("module")) };
+                auto callback = TRY(constructor->get("_resolveFilename"_utf16));
+                auto result = JS::call(vm, callback, constructor.ptr(), vm.argument(0),
+                    module.ptr(), JS::Value(false), vm.argument(1));
+                if (result.is_error())
+                    return self->require_error(result.release_error(), *module);
+                return result.release_value();
             }),
         1, JS::default_attributes);
     return require;
@@ -781,12 +774,14 @@ GC::Ref<JS::NativeFunction> ModuleLoader::make_require(
 JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(
     fs::path const& filename, GC::Ptr<JS::Object> parent, bool main)
 {
+    TRY(sync_commonjs_cache());
     auto key = Utf16String::from_utf8_with_replacement_character(view(path_string(filename)));
     auto cached = TRY(m_commonjs_cache->get(key));
     if (cached.is_object()) {
+        GC::Root cached_module { cached.as_object() };
         if (parent)
-            TRY(add_child(*parent, cached.as_object()));
-        return cached.as_object().get("exports"_utf16);
+            TRY(add_child(*parent, *cached_module));
+        return cached_module->get("exports"_utf16);
     }
 
     if (filename.extension() == ".node")
@@ -800,7 +795,6 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(
     if (main)
         m_main_module = module.ptr();
     auto require = make_require(filename, *module);
-    module->define_direct_property("require"_utf16, require, JS::default_attributes);
     m_commonjs_cache->define_direct_property(key, module.ptr(), JS::default_attributes);
     // Publish before executing: cycles must observe the initial exports object.
     auto execute = [&]() -> JS::ThrowCompletionOr<JS::Value> {
@@ -852,6 +846,10 @@ JS::ThrowCompletionOr<JS::Value> ModuleLoader::load_commonjs(
 
     auto result = execute();
     if (result.is_error()) {
+        // Cleanup can invoke user accessors on parent.children/cache proxies.
+        // Retain the original exception and preserve it if cleanup also throws.
+        GC::RootVector<JS::Value> retained;
+        retained.append(result.error().value());
         if (parent) {
             auto cleanup = remove_child(*parent, *module);
             (void)cleanup;
