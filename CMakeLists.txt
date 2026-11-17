@@ -217,6 +217,9 @@ if(BUILD_TESTING)
     add_test(NAME firefly-release-artifacts
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_release_artifacts.py")
+    add_test(NAME firefly-code-oss-sample-source
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_sample.py")
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
                                         "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"
@@ -248,9 +251,12 @@ if(BUILD_TESTING)
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
         NAME mite-commonjs-interception
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_commonjs_interception.py"
-                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
-    set_tests_properties(mite-commonjs-interception PROPERTIES TIMEOUT 120 LABELS "runtime;modules;gc")
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_commonjs_interception.py" --mite
+            "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    set_tests_properties(mite-commonjs-interception PROPERTIES TIMEOUT 120 LABELS
+                                                               "runtime;modules;gc")
     add_test(
         NAME mite-host-filesystem
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_original_fs.py"
@@ -539,9 +545,12 @@ if(BUILD_TESTING)
             "$<TARGET_FILE:mite>")
     add_test(
         NAME mite-code-oss-pty-host-debug
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_pty_host_debug.py"
-                --mite "$<TARGET_FILE:mite>")
-    set_tests_properties(mite-code-oss-pty-host-debug PROPERTIES TIMEOUT 120 LABELS "runtime;code-oss")
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_pty_host_debug.py" --mite
+            "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-code-oss-pty-host-debug PROPERTIES TIMEOUT 120 LABELS
+                                                                 "runtime;code-oss")
     add_test(
         NAME mite-code-oss-window-preferences
         COMMAND

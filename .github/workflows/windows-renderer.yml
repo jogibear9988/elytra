@@ -1,7 +1,7 @@
 name: Experimental native Windows renderer
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/ladybird-update-*']
     paths:
       - '.github/workflows/windows-renderer.yml'
       - '.github/actions/windows-environment/**'
@@ -114,6 +114,11 @@ jobs:
         run: |
           cmake --build build/windows-renderer --target check-firefly-protocol-fetch --parallel 3 2>&1 | Tee-Object build/windows-renderer-protocol-fetch.log
           if ($LASTEXITCODE) { throw 'Native LibWeb protocol response acceptance failed' }
+      - name: Actual headless notification query and request policy
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-renderer-permission-policy --parallel 3 2>&1 | Tee-Object build/windows-renderer-permission-policy.log
+          if ($LASTEXITCODE) { throw 'Native notification policy acceptance failed' }
       - name: Actual LibJS DOM, absent Node privileges and compositor PNG
         shell: pwsh
         run: |

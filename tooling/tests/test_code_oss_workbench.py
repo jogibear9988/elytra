@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Run one real offscreen CodeOSS development-extension edit/save workflow, with owned cleanup."""
+"""Run real CodeOSS extension/editor acceptance offscreen or through a signed native bundle."""
+
+import _support
 
 import argparse
 import ctypes
@@ -116,8 +118,11 @@ def native_process(pid):
 
 
 class OwnedTree:
-    def __init__(self, process, executable):
+    def __init__(self, process, executable, bundle_runtime=None):
         self.process = process
+        self.main_executables = {executable, bundle_runtime} if bundle_runtime else None
+        self.bundle_runtime = bundle_runtime
+        self.runtime_observed = False
         self.members = {}
         self.signals = 0
         current = native_process(process.pid)
@@ -126,16 +131,25 @@ class OwnedTree:
             or current.parent != os.getpid()
             or current.uid != os.getuid()
             or current.session != process.pid
-            or Path(current.executable).resolve() != executable
+            or Path(current.executable).resolve() not in (self.main_executables or {executable})
         ):
             raise RuntimeError("Cannot authenticate the spawned native application")
         self.members[current.pid] = current
+        self.runtime_observed = Path(current.executable).resolve() == bundle_runtime
 
     def scan(self):
         live = set()
         for pid, previous in list(self.members.items()):
             current = native_process(pid)
             if current and current.birth == previous.birth and current.uid == previous.uid:
+                if self.main_executables and pid == self.process.pid:
+                    executable = Path(current.executable).resolve()
+                    if executable not in self.main_executables:
+                        raise RuntimeError(
+                            "Packaged main executed outside its verified bundle allowlist"
+                        )
+                    if executable == self.bundle_runtime:
+                        self.runtime_observed = True
                 self.members[pid] = (
                     current  # A proven same process may exec or change process group.
                 )
@@ -335,13 +349,22 @@ def redact(raw, destination):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--firefly", type=Path, required=True)
-    parser.add_argument("--stage", type=Path, required=True)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--firefly", type=Path)
+    selection.add_argument(
+        "--bundle", type=Path, help="Launch this relocated, signed macOS Code-OSS.app"
+    )
+    parser.add_argument("--stage", type=Path)
     parser.add_argument(
         "--state-directory", type=Path, default=Path("/tmp/ef-workbench-acceptance")
     )
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument(
+        "--sample-entry",
+        action="store_true",
+        help="Verify and launch the native-package sample entry instead of original src/main.js",
+    )
     parser.add_argument(
         "--terminal",
         action="store_true",
@@ -358,10 +381,44 @@ def main():
         parser.error("Native descendant authentication is not implemented on this platform")
     if not 30 <= args.timeout <= 300:
         parser.error("--timeout must be 30..300 seconds")
-    binary = args.firefly.resolve(strict=True)
-    stage = args.stage.resolve(strict=True)
-    if not (stage / "src/main.js").is_file() or not (stage / "ELYTRA-COMPILE.json").is_file():
-        parser.error("Use the existing prepared CodeOSS stage")
+    bundle_runtime = None
+    if args.bundle:
+        if sys.platform != "darwin" or args.stage or args.sample_entry:
+            parser.error("--bundle requires macOS and derives its own stage/entry")
+        bundle = args.bundle.resolve(strict=True)
+        stage = bundle / "Contents/Resources/app"
+        binary = bundle / "Contents/MacOS/Launcher"
+        bundle_runtime = bundle / "Contents/MacOS/firefly"
+        for executable in (binary, bundle_runtime):
+            if (
+                executable.resolve(strict=True) != executable
+                or executable.is_symlink()
+                or not executable.is_file()
+                or not os.access(executable, os.X_OK)
+            ):
+                parser.error("Bundle executables must be physical executable files")
+        if stage.resolve(strict=True) != stage:
+            parser.error("Bundle app stage must be a physical directory within the verified bundle")
+        subprocess.run(
+            ["codesign", "--verify", "--deep", "--strict", str(bundle)],
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+        from build_code_oss import verify_sample
+
+        verify_sample(stage)
+    else:
+        if not args.stage:
+            parser.error("--firefly requires --stage")
+        binary = args.firefly.resolve(strict=True)
+        stage = args.stage.resolve(strict=True)
+        if not (stage / "src/main.js").is_file() or not (stage / "ELYTRA-COMPILE.json").is_file():
+            parser.error("Use the existing prepared CodeOSS stage")
+        if args.sample_entry:
+            from build_code_oss import verify_sample
+
+            verify_sample(stage)
     state = args.state_directory.resolve()
     if sys.platform == "darwin" and len(os.fsencode(state / "profile")) > 60:
         parser.error("Use a short /tmp state directory for native Unix socket paths")
@@ -383,7 +440,14 @@ def main():
         arguments, config = prepare(
             state, stage, args.extension_format, args.terminal, args.parent_liveness
         )
-        command = [str(binary), "--electron-compat", *arguments]
+        if args.bundle:
+            # Launcher owns --electron-compat and the sealed main.mjs prefix.
+            # Supply only normal application CLI arguments, never another entry.
+            command = [str(binary), *arguments[1:]]
+        else:
+            if args.sample_entry:
+                arguments[0] = str(stage / "main.mjs")
+            command = [str(binary), "--electron-compat", *arguments]
         if args.prepare_only:
             print(
                 json.dumps(
@@ -410,6 +474,16 @@ def main():
             XDG_DATA_HOME=str(state / "xdg"),
             XDG_CACHE_HOME=str(state / "xdg"),
         )
+        if args.bundle:
+            # This acceptance exercises the actual Cocoa provider; no offscreen
+            # omission or inherited runtime diagnostic mode substitutes for it.
+            environment = {
+                key: value
+                for key, value in environment.items()
+                if not key.startswith(("FIREFLY_", "MITE_"))
+            }
+            environment.pop("ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC", None)
+            environment["QT_QPA_PLATFORM"] = "cocoa"
         raw = state / "run.private.log"
         raw.unlink(missing_ok=True)
         failure = None
@@ -428,7 +502,7 @@ def main():
                     stderr=subprocess.STDOUT,
                     start_new_session=True,
                 )
-                tree = OwnedTree(process, binary)
+                tree = OwnedTree(process, binary, bundle_runtime)
                 end = time.monotonic() + args.timeout
                 while process.poll() is None:
                     tree.scan()
@@ -503,12 +577,19 @@ def main():
                 "processes": [asdict(value) for value in tree.members.values()] if tree else [],
                 "allStopped": True,
                 "cleanupSignals": tree.signals if tree else 0,
+                **(
+                    {"bundleRuntimeObserved": tree.runtime_observed} if args.bundle and tree else {}
+                ),
             },
         )
         if failure:
             raise failure
         if natural_exit != 0:
             raise RuntimeError("CodeOSS extension workflow exited nonzero")
+        if args.bundle and not tree.runtime_observed:
+            raise RuntimeError(
+                "Packaged Launcher was never observed executing the exact bundled Firefly runtime"
+            )
         result = json.loads((state / "result.json").read_text())
         if (
             result.get("schema") != 1

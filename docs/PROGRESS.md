@@ -16015,6 +16015,41 @@ extended-endpoint-proof}.log. Re-run precisely thetwo failed CTests: BOTH PASS
 new-engine evidence; fresh hosted platform and SDK/GUI/package acceptance remain
 pending. No SDK rebuild or desktop test. Full goal remains active.
 
+## Build and gate a real Code-OSS release sample (2026-11-17)
+
+Add build_code_oss.py: exact clean Git root/remote/revision, separate production
+dependencies and reviewed local/cache/engine overlay, compiled NLS+renderer assets,
+allseven genuine package adapters and pinned60 static extensions. Node/pnpm remain
+build tools only. Seal all physical files/executable metadata and safe relative
+out/src+pnpm aliases; require physical BUILD/inventory/compile/package/entry metadata
+before reading. Refuse enclosing Git checkout, drift, escapes and metadata aliases.
+Independent review found/fixed parent-repo checkout and metadata-link boundaries.
+
+Mac packager stages Code-OSS.app with real Firefly/helpers/resources and Electron
+alias, preserves/re-verifies sealed symlinks, signs/audits native closure. Release
+builder requires original CommonJS activation/editor/terminal/parent-liveness
+workflow through verified sample entry before packaging. Then copy ONE app to an
+owned relocated path and execute actual native Launcher in Cocoa, passing only
+normal VSCode arguments; authenticate exact Launcher/Firefly main native identity
+across exec, require actual Firefly observed and retain cleanup/tree protections.
+Relocated copy is removed only after successful owned cleanup. No local app run.
+
+Four product archives (Mite, Firefly, Designer, Code-OSS) plus SIZE/SHA assets are
+required; provenance/remote draft size+digest checks remain strict and published
+releases are not overwritten. Update source CTest, candidate source CI, macOS size
+report and release labels/Windows Node24.22.3 reference. New headless notification
+policy target joins relevant native CI/release gates. Expanded release/packaging
+sources describe exact new pipeline and limits; historical alpha1/2 remain facts.
+
+Source controls PASS: sample seals/alias/hash/exec/physical metadata and Git-root
+negative cases; four-product/remote artifact provenance; mocked native Launcher
+command/exec/foreign-image refusal; formatter/parse/diff and23 guide links. Windows
+chmod control asserts its real unchanged mode rather than claiming POSIX execute
+coverage. Actual new sample compilation, SDK/package/relocated GUI CI and uploads
+are PENDING. No new release exists. Windows full app/EXEs remain blocked by complete
+native helper confinement, broker flow and packaging; no fake wrappers substituted.
+Full user goal remains active; master promotion waits actual relevant native gates.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

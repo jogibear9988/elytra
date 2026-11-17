@@ -14,6 +14,7 @@ from designer_shell import verify_designer_shell
 from native_package.notices import cache_value, notices
 from native_package.icu_data import stage_data
 from package_size import bundle_size
+from build_code_oss import verify_sample as verify_code_oss_sample
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -81,8 +82,14 @@ def stage_bundle(
     dependencies_mode,
     strip_symbols,
     electron_compat=False,
+    code_oss=False,
 ):
-    verify_designer_shell(application)
+    if code_oss:
+        verify_code_oss_sample(application)
+        if not electron_compat:
+            raise ValueError("Code-OSS requires the verified limited Electron module alias")
+    else:
+        verify_designer_shell(application)
     if electron_compat:
         from native_package.runtime_options import verify_electron_compat
 
@@ -112,7 +119,11 @@ def stage_bundle(
             else []
         )
 
-    shutil.copytree(application, resources / "app", ignore=omit_dependencies)
+    # pnpm and the compiler's out -> src alias use relative internal links.
+    # Dereferencing them would change the sealed graph and can duplicate cycles.
+    shutil.copytree(application, resources / "app", ignore=omit_dependencies, symlinks=code_oss)
+    if code_oss:
+        verify_code_oss_sample(resources / "app")
     if dependency_lock.is_file() and not bundled:
         metadata = json.loads((application / "BUILD.json").read_text())
         if (
@@ -216,6 +227,9 @@ def main():
     parser.add_argument("--renderer-build", type=Path, default=ROOT / "build/renderer")
     parser.add_argument("--mite-build", type=Path, default=ROOT / "build/dev")
     parser.add_argument("--designer", type=Path, default=ROOT / "build/designer-app")
+    parser.add_argument(
+        "--code-oss", type=Path, help="Verified build_code_oss.py sample to package"
+    )
     parser.add_argument("--output", type=Path, default=ROOT / "build/release-stage")
     parser.add_argument("--version", default="0.1.0")
     parser.add_argument(
@@ -245,6 +259,8 @@ def main():
     if stage.exists():
         parser.error("Output exists; use a fresh staging directory")
     verify_designer_shell(designer, required=True)
+    code_oss = args.code_oss.resolve() if args.code_oss else None
+    code_oss_metadata = verify_code_oss_sample(code_oss) if code_oss else None
     for file in [renderer / "bin/firefly", mite / "bin/mite", designer / "BUILD.json"]:
         if not file.is_file():
             parser.error("Required build output missing: " + str(file))
@@ -261,6 +277,8 @@ def main():
         parser.error("Upstream helper inventory changed; review the owned packaging adapter")
     stage.mkdir(parents=True)
     license_count = notices(stage / "licenses", renderer, mite)
+    if code_oss:
+        shutil.copytree(code_oss / "licenses", stage / "licenses/Code-OSS")
     (stage / "bin").mkdir()
     shutil.copy2(mite / "bin/mite", stage / "bin/mite")
     icu_data = {"mite": stage_data(mite, stage / "share/Lagom/icu", stage)}
@@ -273,6 +291,8 @@ def main():
         ("Firefly", hello, "org.elytra.Firefly"),
         ("Web Component Designer", designer, "org.elytra.WebComponentDesigner"),
     ]
+    if code_oss:
+        apps.append(("Code-OSS", code_oss, "org.elytra.CodeOSS"))
     counts = {}
     for name, app, identifier in apps:
         bundle = stage / (name + ".app")
@@ -286,7 +306,8 @@ def main():
             stage / "licenses",
             args.dependencies,
             args.symbols == "stripped",
-            args.electron_compat,
+            args.electron_compat or app == code_oss,
+            code_oss=app == code_oss,
         )
         icu_data[name] = stage_data(renderer, bundle / "Contents/Resources/icu", stage)
     shutil.rmtree(hello)
@@ -318,6 +339,8 @@ def main():
         name: cache_value(build, "ENABLE_LTO_FOR_RELEASE")
         for name, build in [("mite", mite), ("firefly", renderer)]
     }
+    if code_oss_metadata:
+        manifest["codeOSS"] = code_oss_metadata
     manifest["cpuBaseline"] = {
         name: cache_value(build, "ENABLE_CI_BASELINE_CPU")
         for name, build in [("mite", mite), ("firefly", renderer)]

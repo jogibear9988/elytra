@@ -24,7 +24,7 @@ def rejected(operation):
     raise AssertionError("Unsafe publication input was accepted")
 
 
-def fixture(root):
+def fixture(root, code_oss_override=None):
     run = {
         "id": 123,
         "status": "completed",
@@ -41,8 +41,18 @@ def fixture(root):
         "platform": "macos",
         "architecture": "arm64",
         "signing": "ad-hoc; not notarized",
+        "codeOSS": {
+            "kind": "firefly-code-oss-sample",
+            "runtime": "firefly",
+            "electronCompat": True,
+            "builtinExtensions": "partial-static-only",
+            "desktopAcceptance": "not-established-by-build",
+            "inventorySha256": "c" * 64,
+        },
     }
-    for product in ["mite", "firefly", "web-component-designer"]:
+    if code_oss_override:
+        build["codeOSS"].update(code_oss_override)
+    for product in ["mite", "firefly", "web-component-designer", "code-oss"]:
         with zipfile.ZipFile(root / f"{product}-v0.1.0-dev.5-macos-arm64.zip", "w") as archive:
             archive.writestr(f"archive-{product}/BUILD.json", json.dumps(build))
             archive.writestr(
@@ -51,6 +61,7 @@ def fixture(root):
     sizes = {
         "Firefly": {"bytes": 1000},
         "Web Component Designer": {"bytes": 2000},
+        "Code-OSS": {"bytes": 3000},
         "archives": {path.name: path.stat().st_size for path in root.glob("*.zip")},
     }
     (root / "SIZE-macos-arm64.json").write_text(json.dumps(sizes))
@@ -72,6 +83,22 @@ def main():
         report = verify(root, run, REPOSITORY)
         assert report["version"] == "0.1.0-dev.5" and report["commit"] == REVISION
         assert "retain snapshot version" in notes(report)
+        assert len(report["files"]) == 6 and "partial Code-OSS" in notes(report)
+        missing = root / "code-oss-v0.1.0-dev.5-macos-arm64.zip"
+        missing.unlink()
+        checksums(root)
+        rejected(lambda: verify(root, run, REPOSITORY))
+        fixture(root)
+        for change in [
+            {"runtime": "node"},
+            {"electronCompat": False},
+            {"builtinExtensions": "all"},
+            {"desktopAcceptance": "accepted-by-compilation"},
+            {"inventorySha256": "not-a-hash"},
+        ]:
+            fixture(root, change)
+            rejected(lambda: verify(root, run, REPOSITORY))
+        fixture(root)
         for key, value in [
             ("status", "in_progress"),
             ("conclusion", "failure"),

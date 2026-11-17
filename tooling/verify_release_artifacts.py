@@ -9,7 +9,7 @@ import re
 import zipfile
 
 JSON_LIMIT = 1024 * 1024
-PRODUCTS = {"mite", "firefly", "web-component-designer"}
+PRODUCTS = {"mite", "firefly", "web-component-designer", "code-oss"}
 
 
 def require(condition, message):
@@ -71,9 +71,9 @@ def verify(assets, run, repository):
     require(type(run.get("id")) is int and run["id"] > 0, "Invalid source run ID")
     files = {path.name: path for path in assets.iterdir()}
     require(
-        len(files) == 5
+        len(files) == len(PRODUCTS) + 2
         and all(path.is_file() and not path.is_symlink() for path in files.values()),
-        "Expected exactly five regular release assets",
+        "Expected exactly four product archives and two regular metadata assets",
     )
     checksums_name = "SHA256SUMS-macos-arm64.json"
     sizes_name = "SIZE-macos-arm64.json"
@@ -99,7 +99,7 @@ def verify(assets, run, repository):
     products = set()
     for name in sorted(archives):
         match = re.fullmatch(
-            r"(mite|firefly|web-component-designer)-v(\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?)-macos-arm64\.zip",
+            r"(mite|firefly|web-component-designer|code-oss)-v(\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?)-macos-arm64\.zip",
             name,
         )
         require(match is not None, f"Unexpected archive name: {name}")
@@ -137,7 +137,18 @@ def verify(assets, run, repository):
         products == PRODUCTS and all(build == builds[0] for build in builds),
         "Mixed build provenance",
     )
-    for name in ["Firefly", "Web Component Designer"]:
+    code_oss = builds[0].get("codeOSS", {})
+    require(
+        code_oss.get("kind") == "firefly-code-oss-sample"
+        and code_oss.get("runtime") == "firefly"
+        and code_oss.get("electronCompat") is True
+        and code_oss.get("builtinExtensions") == "partial-static-only"
+        and code_oss.get("desktopAcceptance") == "not-established-by-build"
+        and isinstance(code_oss.get("inventorySha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", code_oss["inventorySha256"]),
+        "Missing or unsupported Code-OSS sample provenance",
+    )
+    for name in ["Firefly", "Web Component Designer", "Code-OSS"]:
         require(isinstance(sizes.get(name), dict), "Missing measured bundle size")
         size = sizes[name].get("bytes")
         require(type(size) is int and size > 0, "Invalid measured bundle size")
@@ -178,7 +189,7 @@ def verify_remote(report, release, tag):
 
 def notes(report):
     repository = report["repository"]
-    return f"""Experimental **macOS ARM64 only** alpha of Mite, Firefly and Web Component Designer.
+    return f"""Experimental **macOS ARM64 only** alpha of Mite, Firefly, Web Component Designer and partial Code-OSS.
 Windows/Linux desktop packages remain incomplete. Apps are ad-hoc signed, **not notarized**.
 
 Promoted unchanged from [successful native/package CI run {report["run"]}](https://github.com/{repository}/actions/runs/{report["run"]}),
@@ -187,8 +198,12 @@ Archive filenames and BUILD.json retain snapshot version **{report["version"]}**
 the alpha tag identifies this exact source, without rewriting/repacking the verified binaries.
 
 Measured framework: {report["sizes"]["Firefly"]["bytes"] / 1024**2:.2f} MiB;
-Designer app: {report["sizes"]["Web Component Designer"]["bytes"] / 1024**2:.2f} MiB uncompressed.
-SIZE and SHA256SUMS records accompany all three original archives.
+Designer app: {report["sizes"]["Web Component Designer"]["bytes"] / 1024**2:.2f} MiB;
+Code-OSS sample: {report["sizes"]["Code-OSS"]["bytes"] / 1024**2:.2f} MiB uncompressed.
+SIZE and SHA256SUMS records accompany all four original archives.
+Code-OSS uses Mite/LibJS and LibWeb, with explicitly limited local-desktop adapters
+and static built-in extensions. It is not Microsoft Visual Studio Code; general
+extension/addon support and packaged desktop acceptance are not established by compilation.
 Public API/platform compatibility remains partial; consult the source's compatibility matrices.
 No older-macOS compatibility, notarization or production security audit is claimed.
 """

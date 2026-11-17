@@ -156,6 +156,10 @@ jobs:
         run: |
           set -o pipefail
           python tooling/tests/test_renderer_helper.py --probe build/linux-renderer/bin/firefly-preload-probe --control build/linux-renderer/bin/firefly-renderer-probe 2>&1 | tee build/linux-renderer-helper.log
+      - name: Actual headless notification query and request policy
+        run: |
+          set -o pipefail
+          cmake --build build/linux-renderer --target check-firefly-renderer-permission-policy --parallel 3 2>&1 | tee build/linux-renderer-permission-policy.log
       - name: Trusted native byte handoff to actual headless WebContent
         run: |
           set -o pipefail

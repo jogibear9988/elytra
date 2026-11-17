@@ -109,7 +109,7 @@ jobs:
           else
             python3 tooling/build_release.py --snapshot "0.1.0-dev.$SNAPSHOT_NUMBER" --jobs 3 "${options[@]}" 2>&1 | tee build/macos-release.log
           fi
-      - name: Report measured framework and Designer sizes
+      - name: Report measured framework, Designer and Code-OSS sizes
         if: always()
         run: |
           python3 - <<'PY'
@@ -126,7 +126,7 @@ jobs:
                       out.write(f"| {name} | {metadata.get('cpuBaseline',{}).get(name,'not recorded')} | {metadata.get('cppLTO',{}).get(name,'not recorded')} | {flag} |\n")
                   out.write('\n')
                   out.write('## Release package sizes\n\nProduction npm dependencies; stripped local/debug native symbols. Actual dynamic exports and notices retained.\n\n| Bundle | Uncompressed file bytes |\n| --- | ---: |\n')
-                  for name in ['Firefly','Web Component Designer']:
+                  for name in ['Firefly','Web Component Designer','Code-OSS']:
                       out.write(f"| {name} | {data[name]['bytes']/1024**2:.1f} MiB |\n")
                   out.write('\n### Compressed downloads\n\n')
                   for name,size in data['archives'].items():out.write(f'- {name}: {size/1024**2:.1f} MiB\n')

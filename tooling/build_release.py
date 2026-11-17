@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile both projects and the pinned sample, test, package, and write release archives."""
+"""Compile both projects and both pinned samples, test, package, and write release archives."""
 
 import argparse
 import hashlib
@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -137,6 +138,7 @@ def main():
         "check-firefly-gpu-state",
         "check-firefly-global-shortcut-host",
         "check-firefly-global-shortcut-unavailable",
+        "check-firefly-renderer-permission-policy",
     ]
     if sys.platform == "darwin":
         native_services.extend(
@@ -226,6 +228,41 @@ def main():
         "--firefly",
         ROOT / "build/renderer/bin/firefly",
     )
+    code_oss = ROOT / "build/code-oss-app"
+    run(sys.executable, "tooling/build_code_oss.py", "--output", code_oss)
+    if sys.platform == "darwin":
+        run(
+            "cmake",
+            "--build",
+            "build/renderer",
+            "--target",
+            "firefly-view-offscreen",
+            "--parallel",
+            args.jobs,
+        )
+        # The explicit offscreen provider is a CI fixture only. The packaged
+        # entry carries no offscreen/debug environment or acceptance shortcut.
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(("FIREFLY_", "MITE_"))
+        }
+        run(
+            sys.executable,
+            "tooling/tests/test_code_oss_workbench.py",
+            "--stage",
+            code_oss,
+            "--firefly",
+            ROOT / "build/renderer/bin/firefly-view-offscreen",
+            "--extension-format",
+            "commonjs",
+            "--terminal",
+            "--parent-liveness",
+            "--sample-entry",
+            "--state-directory",
+            "/tmp/ef-release-codeoss",
+            env=environment,
+        )
     stage = ROOT / "build/release-stage"
     if sys.platform != "darwin":
         raise RuntimeError("Native desktop packaging not implemented for " + sys.platform)
@@ -243,6 +280,8 @@ def main():
         "production",
         "--symbols",
         "stripped",
+        "--code-oss",
+        code_oss,
     )
     run(
         sys.executable,
@@ -276,6 +315,31 @@ def main():
         "--launcher",
         packaged / "MacOS/Launcher",
     )
+    # Run the actual signed bundle from a different physical location, preserving
+    # relative renderer/pnpm links. Retain only this owned temporary copy, then
+    # remove it after all authenticated application processes have stopped.
+    relocation = Path(tempfile.mkdtemp(prefix="ef-release-codeoss-")).resolve()
+    relocated = relocation / "Code-OSS.app"
+    try:
+        shutil.copytree(stage / "Code-OSS.app", relocated, symlinks=True)
+        run(
+            sys.executable,
+            "tooling/tests/test_code_oss_workbench.py",
+            "--bundle",
+            relocated,
+            "--extension-format",
+            "commonjs",
+            "--terminal",
+            "--parent-liveness",
+            "--state-directory",
+            "/tmp/ef-release-codeoss",
+        )
+    except Exception as error:
+        # Authentication failures deliberately retain private evidence/locks.
+        # Never remove executable/resources that a surviving process may own.
+        raise RuntimeError(f"Code-OSS bundle acceptance failed; retained {relocated}") from error
+    else:
+        shutil.rmtree(relocation)
     # Separate runtime/framework/sample archives; all include relevant notices.
     destination = ROOT / "build/release-assets"
     destination.mkdir()
@@ -284,6 +348,7 @@ def main():
         ("mite", stage / "bin"),
         ("firefly", stage / "Firefly.app"),
         ("web-component-designer", stage / "Web Component Designer.app"),
+        ("code-oss", stage / "Code-OSS.app"),
     ]
     for name, item in items:
         directory = ROOT / "build" / ("archive-" + name)

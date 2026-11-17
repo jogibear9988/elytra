@@ -2,14 +2,51 @@
 
 The Native release GitHub Actions workflow responds to version tags (`v*`) and
 manual dispatch for an existing version tag. It compiles Mite and Firefly from their
-pinned sources, builds the pinned Web Component Designer sample and validates native
-behavior before packaging. There is no Node/V8/Electron runtime fallback.
+pinned sources, builds the pinned Web Component Designer and explicitly partial
+Code-OSS samples, and requires native behavior before packaging. Node/pnpm/esbuild
+are build tools; there is no Node/V8/Electron runtime fallback.
 
-**Current limitation:** native Windows Firefly window/process/sandbox adapters and
-packaging are not implemented. The required Windows job will fail explicitly, so
-the workflow cannot yet publish a complete macOS + Windows release. There are no
-skip/continue-on-error success paths for a required native platform. Hosted macOS package builds now pass; the full cross-platform release workflow
-remains incomplete. This is not a claim of available Windows/Linux desktop binaries.
+**Current limitation:** full native Windows desktop/helper confinement and packaging
+remain blocked. Win32 providers and guarded AppContainer/broker components exist,
+but their new native acceptance is pending; Browser-origin broker retention and
+backpressure remain unresolved. A component option cannot open the full runtime
+without its separately verified helper-role property. The required Windows job
+must fail rather than certify an incomplete desktop, so no complete macOS + Windows
+release can yet publish. There are no skip/continue-on-error success paths for a
+required native platform.
+
+Historical macOS packages passed at their recorded sources below. The current
+four-product pipeline and latest Ladybird candidate are **not** a new native/package
+CI pass. Candidate `9803f2d5d888e2afd23d69d1da920f78f4279918` has local standalone
+CLI coverage (165 gates); renderer/SDK, relocated Code-OSS and fresh platform/package
+acceptance remain separate and pending. No new release is published by this source change.
+
+## Current four-product pipeline
+
+The release driver now stages and archives Mite, Firefly, Web Component Designer
+and partial Code-OSS. A successful macOS run must produce exactly four original
+ZIPs plus SIZE-macos-arm64.json and SHA256SUMS-macos-arm64.json: six release assets.
+The updated promotion verifier requires this four-product inventory. It does not
+reinterpret the five assets of the historical three-product alphas below.
+
+Code-OSS is compiled from its exact pinned clean Git source, with selected owned
+local-desktop adaptations, generated renderer/NLS assets and only the static
+builtin extensions. Its metadata explicitly says that compilation does not
+establish desktop acceptance. The builder seals physical metadata, byte hashes,
+executable-bit records and internal relative dependency/renderer links; the native
+packager verifies that seal before and after copying. See the
+[Code-OSS packaging guide](../guides/code-oss-packaging.md) for prerequisites,
+commands, source ownership, limits and the exact native gate.
+
+Before packaging, the driver requires the ordinary CJS extension/editor/save,
+terminal and parent-liveness workflow through the sample entry with the explicit
+offscreen fixture. After packaging and existing native audits, it relocates one
+signed Code-OSS.app and launches the **actual native Launcher** on Cocoa. That
+launcher supplies its recorded runtime/entry; the fixture supplies only normal
+application arguments. Exact Launcher/Firefly executable, birth, UID and owned-tree
+authentication, genuine terminal exit and independent saved-file readback remain
+required. This new relocated bundle gate is implemented, not yet accepted on a
+native CI run. A source-only seal or command-construction test cannot replace it.
 
 ## Published macOS Alpha 2
 
@@ -35,8 +72,8 @@ The macOS Release packages workflow builds master in Release mode, runs the nati
 runtime/renderer/security/sample gates and uploads verified archives plus size
 reports. It defaults to production npm dependencies, browser bundling and stripped
 nonessential native symbols. The job summary shows uncompressed framework/Designer
-bytes and compressed download sizes, rather than assuming that Ladybird is smaller
-than Electron. Build prerequisites remain external tools.
+bytes and compressed download sizes (including Code-OSS for the new pipeline),
+rather than assuming that Ladybird is smaller than Electron. Build prerequisites remain external tools.
 
 Manual dispatch can build an exact existing tag and publish a **macOS-only alpha**
 when publish_alpha is selected and the tag matches vX.Y.Z-alpha.N. Publication runs
@@ -90,7 +127,7 @@ native/package gates, publication can use its original artifacts without another
 lengthy native rebuild. This is the reproducible equivalent of alpha.1's promotion.
 
 The verifier requires a completed successful native macOS workflow from this same
-repository and a push/manual event. It checks exactly the three native archives,
+repository and a push/manual event. It now checks exactly the four native archives,
 SIZE and SHA256SUMS; hashes are streamed. Every archive's root BUILD.json must
 match the workflow head commit, filename version, macOS ARM64 platform, known
 ad-hoc signing policy and the other archives' complete build metadata. Metadata
@@ -127,11 +164,11 @@ this path only publishes the explicitly scoped experimental macOS ARM64 alpha.
 
 ## Desktop example gate
 
-Current master additionally builds the [23 ESM example apps](../examples/index.md)
-for explicit Firefly and pinned Electron runtimes. The release driver compares
-six supported native slices plus forced exit, and requires explicit API/platform
-rejection for the 17 blocked Firefly examples. Reference-only examples remain
-manual/unverified. The static asset allowlist is probed by an independent HTTP peer
+The release driver additionally builds the [ESM example catalog](../examples/index.md)
+for explicit Firefly and pinned Electron runtimes. It compares the catalog's
+supported smoke cases plus forced exit, and requires explicit API/platform or
+manual-validation rejection for cases that do not claim native acceptance.
+Reference-only examples remain manual/unverified. The static asset allowlist is probed by an independent HTTP peer
 against Node and Mite. These gates do not request device permissions, perform
 purchases, register protocols or modify OS recent-document lists.
 
@@ -145,8 +182,8 @@ environment, not WSL. Node/npm/Python/Rust/CMake are build/test prerequisites.
 Manual dispatch requires an existing exact tag; the `publish` input defaults false.
 When false, validated archives are Actions artifacts only. For a tag push or a manual
 publish request, a final job runs only after every required native job succeeds. It
-creates a **draft prerelease**, uploads runtime/framework/Designer archives and their
-checksums, and refuses to overwrite an already published release. A failed platform
+creates a **draft prerelease**, uploads runtime/framework/Designer/partial-Code-OSS
+archives and their checksums, and refuses to overwrite an already published release. A failed platform
 prevents that final job. Failure logs are retained separately as diagnostic artifacts.
 No workflow secret beyond the scoped GitHub token is required for draft upload.
 
@@ -188,16 +225,20 @@ so this also defaults off. Combining
 --lto and --optimize-size requires its own native validation; no size/performance
 claim follows merely from selecting either flag.
 
-Use fresh build/release-stage, build/designer-app, build/archive-* and
-build/release-assets directories; the scripts reject existing output instead of
+Use fresh owned build/release-stage, build/designer-app, build/code-oss-app,
+build/code-oss-release-overlay, build/archive-* and build/release-assets outputs; the scripts reject existing output instead of
 silently mixing versions. The driver checks the tag and tracked source state,
 bootstraps pinned dependencies, configures a Release Mite build, runs CTest, builds
-Firefly and its renderer/isolation/helper gates, compiles the demo, tests it, packages
-and tests the relocated app, then creates archives/checksum manifests. The hello-world
+Firefly and its renderer/isolation/helper gates, compiles both samples, runs their
+required workflows, packages and tests the relocated apps, then creates
+archives/checksum manifests. The hello-world
 is authored in ESM; packaging builds its sandbox preload with pinned esbuild and
 checks the actual ESM main/page against Electron/Firefly plus the native app launcher. Renderer build
 is already Release. It stops at the first failed required command. A supported macOS
-build may take substantial time/disk space; no complete hosted run is claimed yet.
+build may take substantial time/disk space; no complete hosted run of the new
+four-product/latest-SDK pipeline is claimed yet. Reuse verified source/dependency
+inputs, remove superseded owned outputs only after their processes stop, and
+preserve Finder metadata.
 
 ## macOS package layout
 
@@ -206,12 +247,14 @@ The current experimental packager consumes existing native outputs:
 ```sh
 python3 tooling/package_macos.py --mite-build build/release-mite \
   --renderer-build build/renderer --designer build/designer-app \
+  --code-oss build/code-oss-app \
   --output build/release-stage --version 0.1.0 \
   --dependencies production --symbols stripped
 ```
 
-It produces bin/mite, a Firefly.app hello-world application and a Web Component
-Designer.app. Each app has a small native Finder launcher, the Firefly executable,
+With --code-oss, it produces bin/mite, a Firefly.app hello-world application,
+a Web Component Designer.app and Code-OSS.app. Direct packager use may omit the
+optional Code-OSS input; the current release driver always supplies it. Each app has a small native Finder launcher, the Firefly executable,
 physical renderer resources, our production Firefly WebContent helper, the other
 upstream helper executables and internal dynamic libraries. Our Firefly adapter
 prefers adjacent helpers/resources in that layout; development uses the separate
@@ -242,7 +285,7 @@ All shipped package notices remain. Symbol stripping retains dynamic exports and
 helper entitlements/flags, followed by code-signature validation.
 
 SIZE.json records actual app/component file bytes. The release-assets directory
-contains SIZE-macos-arm64.json with both bundles and compressed archives.
+contains SIZE-macos-arm64.json with all selected bundles and compressed archives.
 BUILD.json records version, source/upstream pins, architecture, host/signing details
 and inventory. SHA256SUMS.json describes staged regular files; archive checksums are
 written after compression. The sample's `--smoke` gate tests document boot/editing,
@@ -252,8 +295,7 @@ open. Windows/Linux packages and installer formats remain implementation work.
 
 For the opt-in macOS ARM64 shared crypto experiment, pass --shared-openssl to the
 release driver or select shared_openssl in the macOS workflow. It keeps the same
-native/Designer/package gates and adds complete provider-inventory checks to both
-apps. BUILD.json records sharedOpenSSL and OPENSSL-*.json records input archive
+native/Designer/package gates and adds provider-inventory checks to the selected native apps. BUILD.json records sharedOpenSSL and OPENSSL-*.json records input archive
 hashes and physical consumers. Defaults remain off pending hosted acceptance;
 this flag does not add a system OpenSSL dependency or change standalone Mite.
 See the [measured size report](package-size.md) and

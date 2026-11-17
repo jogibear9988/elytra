@@ -23,8 +23,13 @@ copying only the main executable is insufficient.
 Build Mite/Firefly and the pinned Designer as described in [getting started](../getting-started.md)
 and the [sample README](../../examples/web-component-designer/README.md). Then use
 [the native release guide](../development/releases.md) for the exact packaging command,
-layout, checksums and driver. The staged output includes a Mite CLI, Firefly hello-world
-app and Designer app. Paths with spaces and relocation have native smoke evidence.
+layout, checksums and driver. The current release-driver output adds partial Code-OSS to the Mite CLI,
+Firefly hello-world and Designer apps. Direct packager use selects it with
+--code-oss. Its [separate packaging guide](code-oss-packaging.md) describes the
+pinned source, sealed inventory, internal aliases and required real Launcher
+acceptance. This new four-product/latest-SDK package pipeline has not yet passed
+native CI or published a release. Existing path/relocation evidence belongs to the
+recorded earlier packages; it is not automatically acceptance for the new sample.
 
 The packager records pins, host, architecture, signing and source/build state. Notices
 live inside apps and alongside archives. Treat those records as part of the artifact;
@@ -68,7 +73,10 @@ native jobs. Verified archives/checksums become Actions artifacts. Publication c
 a draft prerelease only after every required platform succeeds, with manual publish
 opt-in where applicable; an existing published release is not overwritten.
 
-The current Windows gaps block the complete requested macOS/Windows Designer release.
+The current Windows gaps block the complete requested macOS/Windows desktop release.
+Source-level native providers and guarded AppContainer/broker components are not
+complete Windows runtime or executable-package acceptance. Full helper-role
+confinement and Browser-origin broker retention/backpressure remain blockers.
 No release tag is created just to make documentation or CI appear complete.
 See [release implementation](../development/releases.md), [roadmap](../roadmap.md)
 and [security](security.md) before distributing an app to users.
