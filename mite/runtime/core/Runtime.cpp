@@ -5,6 +5,7 @@
 
 #include "core/Runtime.h"
 #include "core/EventLoop.h"
+#include "core/console/Formatting.h"
 #include "core/errors/StackTrace.h"
 #include "modules/ModuleLoader.h"
 #include "modules/ModulePaths.h"
@@ -106,39 +107,8 @@ static void report_exception(JS::Value value)
 
 static JS::ThrowCompletionOr<JS::Value> print(JS::VM& vm, FILE* stream)
 {
-    for (size_t i = 0; i < vm.argument_count(); ++i) {
-        auto value = vm.argument(i);
-        if (i)
-            fputc(' ', stream);
-        if (value.is_object() && JS::Error::is_engine_class_of(value.as_object())) {
-            auto& error = static_cast<JS::Error&>(value.as_object());
-            // Inspect data properties only. Accessor overrides must never run
-            // while reporting the application's original failure.
-            auto name = error.get_without_side_effects("name"_utf16);
-            auto message = error.get_without_side_effects("message"_utf16);
-            write_text(
-                stream, name.is_string() ? name.as_string().utf16_string_view() : "Error"_utf16);
-            if (message.is_string() && message.as_string().length_in_utf16_code_units()) {
-                fputs(": ", stream);
-                write_text(stream, message.as_string().utf16_string_view());
-            }
-
-            auto stack = error.stack_string();
-            if (!stack.is_empty()) {
-                fputc('\n', stream);
-                write_text(stream, stack);
-            }
-
-            continue;
-        }
-        // Logging must not invoke application coercion, getters, or Proxy traps.
-        // LibJS renders object class labels directly, including null-prototype
-        // objects and functions; primitive conversion retains existing output.
-        auto text = value.is_object() ? value.to_utf16_string_without_side_effects()
-                                      : TRY(value.to_utf16_string(vm));
-        write_text(stream, text);
-    }
-
+    auto formatted = TRY(Mite::format_console_arguments(vm));
+    write_text(stream, formatted);
     fputc('\n', stream);
     // Servers must publish readiness/log lines while the process remains alive,
     // including when stdout is a pipe rather than a terminal.

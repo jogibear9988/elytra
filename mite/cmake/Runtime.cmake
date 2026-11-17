@@ -102,6 +102,7 @@ function(mite_add_runtime target root js_target)
         core/Runtime
         core/EventLoop
         core/ImmediateQueue
+        core/console/Formatting
         core/workers/Host
         core/async/Context
         core/errors/StackTrace

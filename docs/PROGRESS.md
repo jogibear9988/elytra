@@ -15208,6 +15208,58 @@ pass after documentation freeze. Keep this guarded development-profile deferral
 separate from native runtime fixes; the actual terminal command/exit/file gate
 stays unaccepted. The full implementation goal remains active.
 
+
+## 2026-11-17 — Complete global Console before application bootstrap
+
+Fix a genuine runtime contract gap: global console initially had native log/error/
+warn only, so an application could capture missing info/debug before importing
+node:console. Complete the existing builtin immediately after real process stdio,
+before embedding hooks/author code. Retire the minimal native bootstrap writers
+before they escape: every global method now uses the same actual stdout/stderr
+Writable queues. Preserve global/builtin identity and installed application logging
+wrappers; do not replace accessors merely because their value was not read.
+
+An initial minimal fill-missing implementation failed mixed-method output ordering
+and was replaced, not accepted. Extract the existing Runtime::print argument
+rendering into core/console/Formatting.{h,cpp}, with a PRIVATE formatGlobal hook
+only for the global Console instance. It formats but performs no I/O. Preserve
+safe native Error stack/name/message and no-side-effect object/class labels;
+never invoke author object getters, Proxy traps or coercion hooks. Bound global
+argument text to 1 MiB UTF-8 and throw ERR_MITE_CONSOLE_LIMIT before output on
+excess. Custom new Console formatter/limits remain unchanged. This is genuine
+stream-backed behavior, not fake aliases or a claim of full Node inspection.
+
+Actual standalone build and Node/Mite native type/Console controls PASS:
+pre-import info/debug, captured/dynamic identity, stdout ordering, detached methods,
+real streams, assertion/error behavior and authored wrapper preservation. Full
+runtime CLI controls PASS including UNMODIFIED safe-objects. Three existing
+builtin/stdio/PTY CTests PASS. SDK build PASS and the same Console controls PASS in
+Firefly-as-Node. Evidence: build/global-console-{mite-build,firefly-build,controls,
+runtime-controls,existing-controls,embedded-controls}.log. Focused native boundary controls now PASS standalone and embedded: exactly 1 MiB
+ASCII argument text plus newline reaches the actual writer hook; multibyte Unicode
+and separator overflow atomically throw ERR_MITE_CONSOLE_LIMIT without writer
+invocation. These cases are in the same controls/embedded evidence logs. Fresh
+platform acceptance is not inferred.
+
+This is independently proven Console bootstrap correctness. Code-OSS console RPC
+errors can be handled independently, so do not attribute the PTY connection stall
+to this change without actual workflow proof. The subsequent actual Code-OSS run still reaches the extension's 30-second
+deadline with no terminal PID/bytes; all14 observed processes stop with
+cleanupSignals0. Safe native evidence identifies document-port admission failure
+directly in ElectronPtyHostStarter._onWindowConnection postMessage107, also observed
+in WorkerMainService. Thus the renderer does not receive that PTY channel; the
+exact native refusal cause is under investigation. No queue-budget error is
+observed in this run, which is not proof of permanent queue correctness. Terminal
+acceptance is still OPEN. Phase/capacity diagnostics preserve admission behavior
+and belong to a separate slice; keep them out of the genuine Console commit.
+No GUI or terminal-window test is used for this change.
+
+Final Console native style/generated-input/diff checks pass; website362pages/27148
+local targets passes. Preserve safe class-label diagnostics as an intentional
+difference from full Node inspection; do not equate this with a general Console
+compatibility claim. Commit the genuine bootstrap/formatting slice separately
+from the opt-in port-admission diagnostics under investigation.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

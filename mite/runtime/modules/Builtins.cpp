@@ -8,6 +8,7 @@
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
 #include "core/NativeByteSource.h"
+#include "core/console/Formatting.h"
 #include "core/workers/Host.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
@@ -547,6 +548,14 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
             "native"_utf16, create_util_types_host(m_realm), JS::default_attributes);
 
     if (name == "console") {
+        // Format only. The existing Console instance owns all public writes;
+        // no native FILE writer escapes into the application after bootstrap.
+        host->define_native_function(
+            m_realm, "formatGlobal"_utf16,
+            +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                return JS::PrimitiveString::create(vm, TRY(format_console_arguments(vm)));
+            },
+            0, JS::default_attributes);
         host->define_direct_property("process"_utf16, m_process.ptr(), JS::default_attributes);
         host->define_direct_property(
             "types"_utf16, TRY(builtin("util/types")), JS::default_attributes);
@@ -748,6 +757,22 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     auto stdio_factory = TRY(m_vm.run(*stdio_script));
     GC::Root stdio_factory_root { stdio_factory.as_object() };
     TRY(JS::call(m_vm, stdio_factory, JS::js_undefined(), stdio_host.ptr(), m_process.ptr()));
+    // Retire only our three temporary bootstrap writers before any embedding or
+    // author code can capture/replace them. Keeping raw FILE writes alongside
+    // queued Console stream writes reorders log/info/debug output. Reuse the
+    // original object, then let the existing factory install every public method
+    // from one Console instance over the real stdout/stderr queues. Native C++
+    // exception reporting is independent of these JavaScript properties.
+    auto bootstrap_value = m_realm.global_object().get_without_side_effects("console"_utf16);
+    VERIFY(bootstrap_value.is_object());
+    GC::Root bootstrap_console { bootstrap_value.as_object() };
+    for (auto name : { "log"_utf16, "error"_utf16, "warn"_utf16 }) {
+        if (!TRY(bootstrap_console->internal_delete(name)))
+            return error(
+                "ERR_MITE_CONSOLE_INITIALIZATION", "Cannot retire bootstrap console writer");
+    }
+
+    (void)TRY(builtin("console"));
     auto parsed_fetch = JS::Script::parse(
         Utf16String::from_utf8(StringView(MITE_FETCH_SOURCE, sizeof(MITE_FETCH_SOURCE) - 1)),
         m_realm, "mite:fetch"sv);

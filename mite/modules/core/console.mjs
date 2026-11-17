@@ -108,6 +108,11 @@ export default function createConsoleModule(host) {
     ].join(' ');
   }
 
+  function formatArguments(receiver, args) {
+    const formatter = state(receiver).globalFormatter;
+    return formatter ? apply(formatter, undefined, args) : format(args);
+  }
+
   function write(receiver, error, text) {
     const record = state(receiver);
     if (text.length > 1024 * 1024) {
@@ -204,12 +209,12 @@ export default function createConsoleModule(host) {
 
   for (const name of ['log', 'info', 'debug']) {
     Console.prototype[name] = function (...args) {
-      write(this, false, format(args));
+      write(this, false, formatArguments(this, args));
     };
   }
   for (const name of ['warn', 'error']) {
     Console.prototype[name] = function (...args) {
-      write(this, true, format(args));
+      write(this, true, formatArguments(this, args));
     };
   }
 
@@ -217,13 +222,21 @@ export default function createConsoleModule(host) {
     if (options !== undefined) {
       unsupported('dir options');
     }
-    write(this, false, inspect(value));
+    write(
+      this,
+      false,
+      state(this).globalFormatter ? formatArguments(this, [value]) : inspect(value)
+    );
   };
 
   Console.prototype.assert = function (value, ...args) {
     state(this);
     if (!value) {
-      write(this, true, 'Assertion failed' + (args.length ? ': ' + format(args) : ''));
+      write(
+        this,
+        true,
+        'Assertion failed' + (args.length ? ': ' + formatArguments(this, args) : '')
+      );
     }
   };
 
@@ -250,6 +263,12 @@ export default function createConsoleModule(host) {
     };
   }
   const instance = new Console(host.process.stdout, host.process.stderr);
+  // Native argument rendering belongs only to the runtime's global instance.
+  // It never writes: ordering, write hooks and error policy stay in Console.
+  // Ordinary new Console instances keep the existing bounded JS formatter.
+  if (typeof host.formatGlobal === 'function') {
+    states.get(instance).globalFormatter = host.formatGlobal;
+  }
   const output = host.console ?? {};
   for (const name of [
     ...methods,

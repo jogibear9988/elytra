@@ -1,5 +1,4 @@
 /** Real stream writes, callback ownership and explicit partial Console surface. */
-import { Console } from 'node:console';
 import { Writable } from 'node:stream';
 import createConsoleModule from '../../modules/core/console.mjs';
 
@@ -8,6 +7,24 @@ const check = (value, message) => {
     throw Error(message);
   }
 };
+
+// Static console imports execute before a module's body. Keep this import
+// dynamic so these assertions exercise genuine bootstrap defaults first.
+const startupConsole = globalThis.console;
+const startupMethods = Object.fromEntries(
+  ['log', 'error', 'warn', 'info', 'debug'].map((name) => [name, startupConsole[name]])
+);
+check(typeof startupMethods.info === 'function', 'Global info exists before console import');
+check(typeof startupMethods.debug === 'function', 'Global debug exists before console import');
+const startupInfo = startupMethods.info;
+const startupDebug = startupMethods.debug;
+startupInfo('PASS global console info before module import');
+startupDebug('PASS global console debug before module import');
+const { default: consoleModule, Console } = await import('node:console');
+check(consoleModule === startupConsole, 'Global and builtin console share actual identity');
+for (const [name, method] of Object.entries(startupMethods)) {
+  check(consoleModule[name] === method, 'Captured bootstrap method preserved: ' + name);
+}
 
 const out = [];
 const err = [];

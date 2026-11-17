@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare actual engine brands against Node without invoking author hooks."""
 
-import _support
+import _support  # noqa: F401 — shared standalone test import setup
 
 import argparse
 from pathlib import Path
@@ -38,6 +38,20 @@ def main():
             outputs.append(result.stdout)
         assert outputs[0] == outputs[1], (fixture, outputs)
         print(outputs[1].strip())
+    boundary = subprocess.run(
+        [str(args.mite.resolve()), str(ROOT / "mite/tests/console/native-boundary.mjs")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert (
+        boundary.returncode == 0
+        and not boundary.stderr
+        and boundary.stdout.strip()
+        == "PASS native global Console stream hooks and UTF8/separator atomic bounds"
+    ), boundary
+    print(boundary.stdout.strip())
 
 
 if __name__ == "__main__":

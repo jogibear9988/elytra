@@ -1,18 +1,45 @@
 # Console basics
 
+The global console is completed before embedding hooks or application code run,
+after real process stdout/stderr are installed. `console.info` and `console.debug`
+are callable without importing `node:console`; a later import returns that same
+object and captured methods keep their identity. All global output methods use
+the actual stdout/stderr Writable queues, so mixing log/info/debug does not bypass
+stream ordering or installed write hooks. Minimal native bootstrap writers are
+retired before any application captures them.
+
 `node:console` exposes a real stream-backed Console constructor. New instances
 support log/info/debug/warn/error/dir/assert with stdout/stderr Writable sinks,
-bound methods and write-error handling. Default/module construction preserves the
-existing global console object and its methods/accessor wrappers, including
-Code-OSS parent-process logging hooks; it attaches Console and fills missing names.
+bound methods and write-error handling. Module construction preserves the existing
+global object and authored methods/accessor wrappers, including Code-OSS
+parent-process logging hooks; presence checks do not execute those getters.
 
-Formatting is intentionally smaller than Node's full inspector: simple primitive
-placeholders and bounded own-data inspection, depth two, at most 100 object keys
-and 1 MiB formatted text. Accessors are displayed without executing their getters;
-Proxy inspection and ANSI colors are explicitly unsupported. New instances refuse
-table, timers/counters/groups/profiling and other advanced methods rather than
-silently ignoring them. Existing global logger methods retain their prior behavior.
+The global instance retains the runtime's safe diagnostic formatting: arguments
+are space-separated, objects/functions use native class labels without author
+getters, Proxy traps or coercion hooks, and native Error values retain safe
+name/message and real engine stack text. Its private native formatter performs no
+I/O and limits argument text to 1 MiB of UTF-8, excluding Console's newline/prefix;
+overflow throws `ERR_MITE_CONSOLE_LIMIT`. This is not Node's full global inspector
+or placeholder formatter.
 
-Focused Node/reference and actual Mite fixtures pass real stream output, detached
-methods, assertion/error handling and preserved existing wrappers. Advanced console
-parity and fresh Linux/Windows acceptance remain open.
+Custom `new Console(...)` instances keep the existing smaller JS formatter: simple
+primitive placeholders and bounded own-data inspection, depth two, at most 100
+object keys and 1 MiB formatted text. Accessors are displayed without executing
+their getters; Proxy inspection and ANSI colors are explicitly unsupported.
+Advanced table, timer/counter/group/profiling methods reject rather than silently
+ignoring calls. No full Console parity is claimed.
+
+Focused Node/reference and actual Mite controls pass stream output, detached
+methods, assertions/errors, existing wrappers, pre-import global info/debug,
+shared identity and output ordering. The standalone runtime CLI suite, including
+unchanged safe-object logging, passes; existing builtin/stdio/PTY controls pass.
+The rebuilt SDK and the same Console controls in Firefly-as-Node also pass locally
+on macOS. Native boundary controls pass standalone and embedded: exactly 1 MiB
+ASCII argument text plus the Console newline reaches the writer hook; multibyte
+Unicode and separator overflow reject atomically with `ERR_MITE_CONSOLE_LIMIT`
+without invoking the writer. Evidence: `build/global-console-{mite-build,firefly-build,controls,
+runtime-controls,existing-controls,embedded-controls}.log`. Fresh Linux/Windows
+acceptance remains open. The subsequent Code-OSS run still times out before terminal PID/bytes; all 14
+observed processes stop without cleanup signals. Its separate native document-port
+admission failure occurs directly in ElectronPtyHostStarter's connection delivery.
+This bootstrap correction is not established as the terminal failure's cause or fix.
