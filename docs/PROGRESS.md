@@ -15674,6 +15674,30 @@ Logs: build/windows-contract-mite-build.log,
 build/windows-blob-native-endings-controls.log. Native Windows rerun remains open.
 Full project goal remains active; visible Code-OSS launch repair continues.
 
+## Visible Code-OSS: native Cocoa Services startup repair (2026-11-17)
+
+Defer Windows/Help/Services binding until the complete Qt menu tree exists. Match
+Qt's hidden placeholder workaround for an empty Windows menu. Actual visible
+launches exposed AppKit refusing replacement of the initial Services provider,
+even inside a real application bundle and the real application menu. An isolated
+no-window AppKit probe confirms initial registration succeeds, replacement/nil
+reset fail, and reuse/restoration of the exact provider succeed.
+
+Reuse Qt's already registered OS Services provider through the authored native
+item. Retain the original Qt submenu/item/positions for guarded restoration before
+Qt destruction; preserve QAction linkage and separate model/provider identity for
+idempotence. No Ladybird or Code-OSS source edits, role disabling or identity waiver.
+Strict actual compile-DB syntax, formatting and independent ownership review pass.
+Release firefly build passes: build/codeoss-visible-services-reuse-build.log.
+
+Actual visible Code-OSS PID97303 now stays alive and displays its native window and
+application/File/Edit/Selection/View/Go/Run/Terminal/Window/Help menu bar. CUA confirms
+the workbench URL displays a webRequest canceled/retired error, so a usable visible
+editor is NOT accepted. The previous menu abort is resolved for this startup path;
+physical role commands, repeated native menu replacement and broader GUI workflows
+remain unaccepted. User launch remains under active investigation. Task-only
+AppKit evidence: build/services-provider-probe.{mm,log}. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

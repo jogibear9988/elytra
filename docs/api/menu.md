@@ -105,7 +105,11 @@ cut, copy, paste, pasteAndMatchStyle, undo, redo and selectAll. Minimize/zoom us
 the live focused window. Cocoa owns actual hide/show/front application actions and
 Windows/Help/Services menu registration. Those macOS roles require the real Cocoa
 provider; they fail explicitly under offscreen/Linux providers. Duplicate native
-submenu roles are rejected before replacing the old menu. Editing scope is below.
+submenu roles are rejected before replacing the old menu. On macOS, Services is
+populated by the operating system. Its authored item exposes the existing AppKit
+Services provider rather than a separate Qt submenu, preserving the native
+provider across menu replacement. Physical Services command acceptance remains
+open. Editing scope is below.
 
 Popup/context menus (popup/closePopup), global shortcuts, radio items, icons,
 other roles, positioning options, native menu lifecycle events/EventEmitter behavior

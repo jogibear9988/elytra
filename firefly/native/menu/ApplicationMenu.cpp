@@ -48,6 +48,22 @@ namespace {
         return true;
     }
 
+    bool bind_roles(QWidget& widget)
+    {
+        for (auto* action : widget.actions()) {
+            auto* menu = action->menu();
+            if (!menu)
+                continue;
+            if (!bind_roles(*menu))
+                return false;
+            auto role = menu->property("_fireflyNativeMenuRole");
+            if (role.isValid() && !MenuRoles::bind(*menu, role.toString()))
+                return false;
+        }
+
+        return true;
+    }
+
     void checked(QJsonArray& items, int command, bool value)
     {
         for (int i = 0; i < items.size(); ++i) {
@@ -234,8 +250,8 @@ void ApplicationMenu::populate(
             populate(*menu, node.value("submenu").toArray(),
                 enabled && node.value("enabled").toBool(),
                 visible && node.value("visible").toBool(), requested_generation);
-            if (node.contains("role") && !MenuRoles::bind(*menu, node.value("role").toString()))
-                qFatal("Native menu role registration failed after validated admission");
+            if (node.contains("role"))
+                menu->setProperty("_fireflyNativeMenuRole", node.value("role").toString());
         } else {
             action = new MenuAction(node.value("label").toString(), &target);
             // Set before insertion: Cocoa may infer and merge roles as soon as
@@ -299,6 +315,11 @@ QMenuBar* ApplicationMenu::create_bar(QWidget* parent)
     bar->setNativeMenuBar(false);
 #endif
     populate(*bar, m_items);
+    // Cocoa rebuilds/customizes NSApp.mainMenu during each incremental Qt
+    // insertion. Bind special AppKit menus only after the complete native tree
+    // has settled, not while later insertions can reset those registrations.
+    if (!bind_roles(*bar))
+        qFatal("Native menu role registration failed after validated admission");
     m_bars.append(bar);
     return bar;
 }
