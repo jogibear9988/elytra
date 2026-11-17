@@ -111,5 +111,10 @@ export default function createRandomApi(host) {
     attempt();
   }
 
-  return { randomBytes, randomUUID, randomInt };
+  /** Fill only the native validated view range; preserve the original receiver. */
+  function randomFillSync(value, offset, size) {
+    return native.randomFillSync(value, offset, size);
+  }
+
+  return { randomBytes, randomUUID, randomInt, randomFillSync };
 }

@@ -65,6 +65,7 @@ export default function installWebGlobals(host) {
   // Keep the module's original constructors alive independently of writable globals.
   // Copies avoid exposing esbuild's internal namespace getters to application code.
   return {
+    events: { Event, EventTarget, getEventAttributeValue, setEventAttributeValue },
     abort: hooks,
     streams: { ...streams },
     streamState: {

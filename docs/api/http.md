@@ -43,12 +43,13 @@ Run the existing [server](../../examples/mite-http/server.mjs), then the
 | --- | --- |
 | protocol | http: only; other protocols throw ERR_INVALID_PROTOCOL |
 | hostname / host | hostname takes precedence; default localhost; bracketed IPv6 URLs normalized |
-| port | Default 80; integer or numeric string from 0 through 65535 |
+| port / defaultPort | Explicit port wins; otherwise request defaultPort, Agent defaultPort, then transport default 80 (HTTP) or 443 (HTTPS); integer or numeric string from 0 through 65535 |
 | method / path | Default GET and /; URL path includes query; token and unescaped-character validation |
 | headers | Object or flat name/value array; common header accessors from OutgoingMessage |
 | auth | Basic authentication string; explicit Authorization header takes precedence |
 | setHost | false suppresses the generated Host header |
-| agent | Agent-like object, false for direct transport, or omitted/null for globalAgent; no socket reuse |
+| agent | Agent-like object, false for direct transport, or omitted/null for globalAgent unless a callable request createConnection is supplied; no socket reuse |
+| createConnection | Request-local native socket connector when agent is omitted/null; explicit Agent or false takes precedence |
 | maxHeaderSize | Default 16384; zero selects that default; strict parser, bounded status/header fields |
 | joinDuplicateHeaders | Enable joining singleton response headers; set-cookie stays an array |
 | timeout | Socket inactivity timeout; emits timeout without automatically aborting |
@@ -57,10 +58,21 @@ Run the existing [server](../../examples/mite-http/server.mjs), then the
 | highWaterMark | Writable stream buffering option |
 | signal | Realm-local AbortSignal; cancel request/transport, including after upload finish |
 
-Invalid Agent values fail with ERR_INVALID_ARG_TYPE. Request-level custom createConnection, socketPath, local binding,
-uniqueHeaders, custom IncomingMessage, defaultPort and insecure parser mode throw
-ERR_MITE_UNSUPPORTED_API. Protocol upgrades and CONNECT are rejected explicitly.
-Non-close Connection headers are rejected; there is no silent pooling emulation.
+Invalid Agent values fail with ERR_INVALID_ARG_TYPE. socketPath, local binding,
+uniqueHeaders, custom IncomingMessage and insecure parser mode throw
+ERR_MITE_UNSUPPORTED_API. CONNECT remains unsupported. A non-close Connection
+header is accepted only for an explicit, token-validated Upgrade request;
+ordinary persistent HTTP connections remain unsupported.
+
+A request-local createConnection(options, callback) may return a real connecting
+or connected native socket, or supply one asynchronously with callback(error,
+socket). It receives normalized host/port and transport options, with this equal
+to that options object; the HTTP request path is removed from socket options.
+The client adopts the socket once and never reconnects it. HTTPS requires a real
+native TLS socket. Duplicate callbacks cannot attach another HTTP parser, and
+late unowned sockets are closed after cancellation. An explicit Agent, including
+agent:false, takes precedence over the request-local connector. defaultPort also
+defines when the generated Host header omits the port suffix.
 
 ## Agent admission and socket ownership
 
@@ -82,7 +94,8 @@ HTTPS keys also distinguish TLS settings. HTTPS Agent inherits from HTTP Agent.
 
 Aborting a queued request removes it before socket admission. Late or duplicate
 connector completions cannot revive a closed request. Actual socket closure
-returns connection credit and admits the next waiting request. `destroy()` closes
+returns connection credit and admits the next waiting request; a client upgrade
+also releases credit when ownership is handed off. `destroy()` closes
 owned connections and cancels currently queued/pending requests; the Agent can
 subsequently admit new requests. Cancelling pending requests is a deliberate
 stronger cleanup policy than Node's socket-only Agent destruction.
@@ -109,6 +122,31 @@ CLI runs at f52fcb5; the overall Windows run still has separate reference/API
 failures. The staged agent-base cases remain locally verified only. See
 [ADR 0197](../architecture/0197-native-http-agent-admission.md).
 
+## Client protocol upgrades
+
+A successful HTTP/1 switching response emits upgrade(response, socket, head)
+once instead of response. head contains exactly the bytes already received after
+the switching headers, including binary bytes; the client does not feed them
+back into the HTTP parser. The receiver owns subsequent socket reads and writes
+and can use socket.unshift(head) before attaching its protocol reader.
+
+The handoff removes only the client's own socket listeners and encoding guard,
+preserves application listeners, and releases Agent ownership through agentRemove.
+The request closes without closing the upgraded socket. Later destruction or
+signal cancellation of that request does not destroy the handed-off transport.
+Without an upgrade listener, the client closes the socket. A non-switching reply
+to an Upgrade request remains an ordinary HTTP response. This is a generic client
+handoff, not a WebSocket-only path; it does not add server upgrade handling,
+CONNECT tunnels or connection pooling.
+
+The focused runner `python3 tooling/tests/test_http_upgrade.py --mite <mite>`
+compares seven groups against Node: coalesced binary head and duplex socket
+ownership, split switching headers, non-101 rejection, unobserved upgrade cleanup,
+connector return/callback and Agent precedence, late cancellation/error identity,
+and real defaultPort selection. These shared cases pass in the Node 24.15
+reference; platform acceptance for the new native client path must be recorded
+separately from the older Linux/Windows HTTP baseline above.
+
 ## ClientRequest and streams
 
 The request extends OutgoingMessage/Writable. Supported workflows include end(data),
@@ -120,12 +158,13 @@ transmission, including mutable header-array values. flushHeaders is available.
 Selected methods: setHeader, appendHeader, getHeader(s), getHeaderNames,
 getRawHeaderNames, hasHeader, removeHeader, addTrailers, setTimeout, setNoDelay,
 setSocketKeepAlive, destroy and abort. abort marks aborted and schedules the abort
-event. destroy(error) reports the error and closes the owned socket.
+event. destroy(error) reports the error and closes the owned HTTP socket; an
+upgraded socket has already been handed off.
 Inspect method, path, host, protocol, socket, res, finished, writableEnded,
 writableFinished, destroyed and reusedSocket (always false).
 
 Events covered by tests include socket, finish, response, information, continue,
-timeout, error and close. HTTP 100 emits continue and information; other interim
+timeout, error, upgrade and close. HTTP 100 emits continue and information; other interim
 responses emit information. Response streams expose statusCode/statusMessage,
 HTTP version, raw/merged/distinct headers, trailers, complete, aborted and req.
 HEAD, 204, chunked and connection-delimited bodies are supported. Pausing a body
@@ -151,9 +190,10 @@ response. Callback exceptions are fatal through the normal runtime error path.
 
 `request` / `get` / `new ClientRequest` accept signal in options, including URL plus
 options overloads. A real abort destroys the request with an Error named AbortError,
-code ABORT_ERR and cause equal to the original reason. It closes the actual TCP
-connection. Request.aborted and the legacy abort event belong to request.abort();
-signal cancellation does not set/emit them.
+code ABORT_ERR and cause equal to the original reason. Before an upgrade handoff,
+it closes the actual TCP connection. Request.aborted and the legacy abort event belong to request.abort();
+signal cancellation does not set/emit them. After a successful upgrade, the
+request no longer owns or cancels that socket.
 
 A pre-aborted request is already destroyed when returned; its error/close events
 are deferred so the caller can install listeners. It does not publish a socket or
@@ -186,8 +226,8 @@ See the [cancellation example](../../examples/mite-http/cancellation.mjs),
 ## Differences and remaining work
 
 Default connections close after each response, unlike Node's reusable default
-agent. Connection pooling, direct HTTP-helper redirects, tunneling and upgrades
-remain absent. Global [Fetch](fetch.md) supplies its own redirect/body layer.
+agent. Connection pooling, direct HTTP-helper redirects, CONNECT tunneling and
+server-side upgrades remain absent. Global [Fetch](fetch.md) supplies its own redirect/body layer.
 [node:https](https.md) now provides the shared client over verified native TLS;
 node:http continues to reject https: inputs rather than changing transports. Error text, all event timing/option/header
 parity and every stream edge case are not certified. The client uses the existing
@@ -197,7 +237,8 @@ The mite-http-client suite uses an independent Python TCP peer, comparing Node
 and Mite for uploads, fragmented replies, duplicate headers/trailers, HEAD/204,
 EOF/information, 2 MiB paused data, parser/overflow/ambiguous framing, truncation,
 lookup failure, timeout, abort, lifecycle and argument validation. Separate cases
-exercise explicit upgrade/options rejection and fatal callbacks. Existing server
+exercise unsupported option/CONNECT rejection and fatal callbacks; the separate
+client-upgrade runner covers the switching handoff described above. Existing server
 suites remain required. The HTTP cancellation suite additionally checks request/
 response event order, startup/lookup/finish/paused/deadline cancellation, signal
 validation, settled disposal and independent OS-peer closure during partial
@@ -210,3 +251,6 @@ STATUS_CODES, validateHeaderName/Value and maxHeaderSize remain available. The
 [server guide](../guides/http-server.md),
 [runtime reference](mite.md#tcp-dns-and-http) and
 [server design](../architecture/0019-http-server.md) describe that partial surface.
+
+Server-side protocol upgrades and CONNECT remain explicitly unsupported. The
+client upgrade event does not change that server policy.

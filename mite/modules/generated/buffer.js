@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 // mite/modules/core/buffer.mjs
-function createBufferModule() {
+function createBufferModule(host) {
   const MAX_LENGTH = 2147483647;
   function fail(code, message, Type = TypeError) {
     const error = new Type(message);
@@ -737,7 +737,10 @@ function createBufferModule() {
   function SlowBuffer(length) {
     return Buffer.alloc(+length || 0);
   }
-  return { Buffer, SlowBuffer };
+  function isUtf8(input) {
+    return host.native.isUtf8(input);
+  }
+  return { Buffer, SlowBuffer, isUtf8 };
 }
 return createBufferModule;
 })()

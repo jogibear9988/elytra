@@ -106,7 +106,10 @@ function createRandomApi(host) {
     }
     attempt();
   }
-  return { randomBytes, randomUUID, randomInt };
+  function randomFillSync(value, offset, size) {
+    return native.randomFillSync(value, offset, size);
+  }
+  return { randomBytes, randomUUID, randomInt, randomFillSync };
 }
 
 // mite/modules/crypto/digest.mjs

@@ -42,7 +42,6 @@ function createTlsModule(host) {
       "secureProtocol",
       "requestCert",
       "enableTrace",
-      "handshakeTimeout",
       "secureOptions",
       "sigalgs",
       "ecdhCurve",

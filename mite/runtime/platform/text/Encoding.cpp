@@ -6,8 +6,10 @@
 
 #include "platform/text/Encoding.h"
 #include "core/GCCaptures.h"
+#include "core/NativeByteSource.h"
 #include <AK/UnicodeUtils.h>
 #include <AK/Utf16StringBuilder.h>
+#include <AK/Utf8View.h>
 #include <LibGC/CellAllocator.h>
 #include <LibJS/Runtime/AbstractOperations.h>
 #include <LibJS/Runtime/DataView.h>
@@ -157,6 +159,24 @@ namespace {
 
         return invalid_input(vm);
     }
+}
+
+GC::Ref<JS::Object> create_buffer_validation_host(JS::Realm& realm)
+{
+    auto host = JS::Object::create(realm, nullptr);
+    host->define_native_function(
+        realm, "isUtf8"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            // Node's buffer.isUtf8 accepts ArrayBuffer/TypedArrays, not DataView.
+            auto source = TRY(native_byte_source(vm, vm.argument(0), false));
+            if (!source.length)
+                return JS::Value(true);
+            auto* bytes = reinterpret_cast<char const*>(source.buffer->data_at(source.offset));
+            return JS::Value(
+                Utf8View(StringView(bytes, source.length)).validate(AllowLonelySurrogates::No));
+        },
+        1, JS::default_attributes);
+    return host;
 }
 
 GC::Ref<JS::Object> create_encoding_host(JS::Realm& realm)

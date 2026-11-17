@@ -8,5 +8,7 @@
 #include <LibJS/Runtime/Realm.h>
 
 namespace Mite {
+GC::Ref<JS::Object> create_buffer_validation_host(JS::Realm&);
+
 GC::Ref<JS::Object> create_encoding_host(JS::Realm&);
 }

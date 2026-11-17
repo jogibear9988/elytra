@@ -6,6 +6,7 @@
 #include "platform/crypto/Crypto.h"
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
+#include "core/NativeByteSource.h"
 #include "platform/UV.h"
 #include "platform/crypto/CryptoVerify.h"
 #include <LibJS/Runtime/AbstractOperations.h>
@@ -71,6 +72,45 @@ GC::Ref<JS::Object> create_crypto_host(JS::VM&, JS::Realm& realm, EventLoop& loo
     host->define_direct_property("hash"_utf16, create_hash_host(realm), JS::default_attributes);
     host->define_direct_property("x509"_utf16, create_x509_host(realm), JS::default_attributes);
     host->define_direct_property("verify"_utf16, create_verify_host(realm), JS::default_attributes);
+    host->define_native_function(
+        realm, "randomFillSync"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto original = vm.argument(0);
+            auto source = TRY(native_byte_source(vm, original, true));
+            auto offset = vm.argument(1);
+            auto size = vm.argument(2);
+            auto range = [&](JS::Value value, size_t maximum) -> JS::ThrowCompletionOr<size_t> {
+                if (!value.is_number())
+                    return byte_source_error(
+                        vm, "ERR_INVALID_ARG_TYPE", u"Random fill offset/size must be a number"sv);
+                // Node measures TypedArray arguments in elements, multiplying
+                // before range validation/truncation. DataView/ArrayBuffer use bytes.
+                auto bytes = value.as_double() * source.element_size;
+                if (!std::isfinite(bytes) || bytes < 0 || bytes > maximum || bytes > 2147483647.0)
+                    return byte_source_error<JS::RangeError>(vm, "ERR_OUT_OF_RANGE",
+                        u"Random fill offset/size is outside its byte source"sv);
+                return static_cast<size_t>(bytes);
+            };
+
+            auto start = offset.is_undefined() ? 0 : TRY(range(offset, source.length));
+            auto count = size.is_undefined() ? source.length - start
+                                             : TRY(range(size, source.length - start));
+            if (count > 2147483647u)
+                return byte_source_error<JS::RangeError>(
+                    vm, "ERR_OUT_OF_RANGE", u"Random fill exceeds the supported range"sv);
+            if (count) {
+                // Obtain all entropy before touching caller storage. Validation or
+                // OS entropy failure cannot leave a partially modified view.
+                std::vector<unsigned char> bytes(count);
+                if (auto status = uv_random(nullptr, nullptr, bytes.data(), count, 0, nullptr);
+                    status)
+                    return JS::throw_completion(entropy_error(vm, status));
+                source.buffer->overwrite(source.offset + start, bytes.data(), count);
+            }
+
+            return original;
+        },
+        3, JS::default_attributes);
     host->define_native_function(
         realm, "webRandomFill"_utf16,
         +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {

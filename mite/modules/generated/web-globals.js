@@ -3788,6 +3788,7 @@ function installWebGlobals(host) {
     Object.defineProperty(globalThis, name, { value, writable: true, configurable: true });
   }
   return {
+    events: { Event, EventTarget, getEventAttributeValue, setEventAttributeValue },
     abort: hooks,
     streams: { ...ponyfill_exports },
     streamState: {

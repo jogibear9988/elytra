@@ -12,8 +12,7 @@ const cases = [
     { requestOCSP: true },
     { cert: '' },
     { checkServerIdentity() {} },
-    { secureContext: {} },
-    { createConnection() {} }
+    { secureContext: {} }
   ].map((options) => () => https.request({ host: '127.0.0.1', port: 9, ...options }))
 ];
 for (const invoke of cases) {

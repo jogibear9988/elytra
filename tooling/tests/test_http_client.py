@@ -275,7 +275,7 @@ def main():
                     errors
                 )
                 fixture.write_text(
-                    "const http=require('http');for(const options of [{createConnection(){}},{socketPath:'/x'},{insecureHTTPParser:true},{uniqueHeaders:[]},{IncomingMessage:class{}},{localAddress:'127.0.0.1'},{headers:{upgrade:'test'}}]){let caught=false;try{http.request(options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported option accepted')}let invalid=false;try{http.request({agent:{}})}catch(e){if(e.code!=='ERR_INVALID_ARG_TYPE')throw e;invalid=true}if(!invalid)throw Error('Invalid Agent accepted');console.log('POLICY_OK');"
+                    "const http=require('http');for(const options of [{socketPath:'/x'},{insecureHTTPParser:true},{uniqueHeaders:[]},{IncomingMessage:class{}},{localAddress:'127.0.0.1'}]){let caught=false;try{http.request(options)}catch(e){if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;caught=true}if(!caught)throw Error('Unsupported option accepted')}let invalid=false;try{http.request({agent:{}})}catch(e){if(e.code!=='ERR_INVALID_ARG_TYPE')throw e;invalid=true}if(!invalid)throw Error('Invalid Agent accepted');console.log('POLICY_OK');"
                 )
                 result = subprocess.run(
                     [args.mite, str(fixture)], capture_output=True, text=True, timeout=10
@@ -304,19 +304,23 @@ console.log('MUTATION_REJECTED');
                     and not result.stderr
                     and result.stdout.strip() == "MUTATION_REJECTED"
                 ), result
+                # Generic 101 handoff is supported. Without an upgrade listener,
+                # Node and Mite must close the transport instead of emitting response.
+                # Exact head bytes and connector cases live in test_http_upgrade.py.
                 fixture.write_text(
-                    "const http=require('http');http.get("
+                    "const http=require('http');let socket;const timer=setTimeout(()=>{throw Error('Upgrade close timed out')},5000);const req=http.get("
                     + json.dumps(f"http://127.0.0.1:{port}/upgrade")
-                    + ",req=>{throw Error('Upgrade accepted')}).on('error',e=>{if(e.code!=='ERR_MITE_UNSUPPORTED_API')throw e;console.log('UPGRADE_REJECTED')});"
+                    + ",()=>{throw Error('101 emitted response')});req.on('socket',s=>{socket=s});req.on('error',e=>{throw e});req.on('close',()=>{if(!socket||!socket.destroyed)throw Error('Unobserved upgraded transport survived');clearTimeout(timer);console.log('UPGRADE_CLOSED')});"
                 )
-                result = subprocess.run(
-                    [args.mite, str(fixture)], capture_output=True, text=True, timeout=10
-                )
-                assert (
-                    result.returncode == 0
-                    and not result.stderr
-                    and result.stdout.strip() == "UPGRADE_REJECTED"
-                ), result
+                for exe in [args.node, args.mite]:
+                    result = subprocess.run(
+                        [exe, str(fixture)], capture_output=True, text=True, timeout=10
+                    )
+                    assert (
+                        result.returncode == 0
+                        and not result.stderr
+                        and result.stdout.strip() == "UPGRADE_CLOSED"
+                    ), result
                 fixture.write_text(
                     "require('http').get("
                     + json.dumps(f"http://127.0.0.1:{port}/echo")

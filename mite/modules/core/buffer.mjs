@@ -5,7 +5,7 @@
  * Native dependencies are supplied by the embedding loader. One factory call
  * constructs the shared builtin instance for one runtime/realm.
  */
-export default function createBufferModule() {
+export default function createBufferModule(host) {
   const MAX_LENGTH = 0x7fffffff;
 
   function fail(code, message, Type = TypeError) {
@@ -826,5 +826,10 @@ export default function createBufferModule() {
     return Buffer.alloc(+length || 0);
   }
 
-  return { Buffer, SlowBuffer };
+  /** Strict native byte validation; no replacement decoding or author coercion. */
+  function isUtf8(input) {
+    return host.native.isUtf8(input);
+  }
+
+  return { Buffer, SlowBuffer, isUtf8 };
 }

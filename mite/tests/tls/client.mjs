@@ -7,6 +7,8 @@ const controller = new AbortController();
 const ca = readFileSync(directory + '/ca.pem');
 const config = {
   host: '127.0.0.1',
+  // tls.connect ignores this server-only option, including during a real handshake.
+  handshakeTimeout: 1,
   keepAlive: true,
   keepAliveInitialDelay: 1000,
   port: Number(port),

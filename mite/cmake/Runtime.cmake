@@ -41,6 +41,8 @@ function(mite_add_runtime target root js_target)
         process_events
         process_stdio
         structured-clone
+        websocket
+        ws-engine
         policy-watcher
         sqlite
         native-keymap

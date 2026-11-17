@@ -14680,6 +14680,68 @@ redact environment/config records atomically only after shutdown. No GUIwindow,
 new app package or dependency tree retained. Website351pages/25246local targets
 and unmodifiedb872e601 upstream check pass.
 
+## 2026-11-17 — Real standalone WebSocket client and next Code-OSS observation
+
+Implement genuine global WebSocket/MessageEvent/CloseEvent over the existing
+EventTarget, private source/SRI-pinned MIT ws8.21.0 client engine and native
+Mite TCP/TLS/HTTP. Add real client101 upgrade/socket/exact-head handoff, request
+createConnection/defaultPort with Agent precedence and once-only socket adoption,
+native crypto.randomFillSync and buffer.isUtf8. Byte-source inspection uses
+intrinsic slots/ranges, never author getters/Proxy traps. Preserve original
+identity and element-based random-fill offsets. Shared/resizable/detached storage
+fails explicitly. Mite gains no Node/V8/LibWeb/Firefly dependency; Ladybird remains
+unmodified with synchronized b872e601 manifest/gitlink. Preserve MIT notice and
+generated-source verification. See ADR0199 and the new WebSocket/Buffer references.
+
+The facade owns real connection/event lifetime, message snapshots, immutable Blob
+FIFO and close ordering; it cancels CONNECTING via the real engine handshake,
+rather than leaving a socket waiting for an open queue. Bounds:128active clients,
+64protocols,1MiB messages,4MiB buffered sends,1024pending entries,10secondhandshake
+and5secondclose. Shadowed bufferedAmount cannot override private accounting.
+Node24.15 drops a queued Blob on immediate close and can leave readyState2 inside
+an early-close event; Mite preserves admitted FIFO and reaches CLOSED. These are
+documented differences. Custom Undici dispatcher/proxy/header/certificate options
+fail explicitly; no proxy bypass, fake constructor, compression or server claim.
+Client TLS handshakeTimeout is ignored like Node's server-only metadata; actual
+WebSocket request timeout remains enforced. A bare TLS timeout event alone does
+not terminate the connection; AbortSignal can supply that deadline.
+
+Standalone Release and embedded-host builds pass, followed by rebuilt Firefly
+and offscreen Release targets. Actual Node/Mite raw-peer HTTP7groups and byte
+primitive controls pass. The independent WebSocket peer validates real nonce/
+accept/masking, coalesced101+frame, subprotocols, binary snapshots, Blob ordering,
+fragmentation/ping/pong, frame/UTF8 failure, close/EOF, trusted/untrustedWSS and
+message/send limits. Event/constructor controls3groups and focused CONNECTING
+cancellation pass. The COMPLETE WebSocket runner also passes against rebuilt
+Firefly in ELECTRON_RUN_AS_NODE mode:10shared Node/native cases,2Mite-specific
+cases and3event groups, without a desktop window. Existing HTTPclient/Agent/server/
+headers/abort/TLS/HTTPS checks pass after replacing obsolete unsupported-upgrade/
+connector expectations with real no-listener101 socket-teardown comparison.
+Evidence: websocket-{related-ctest,policy-ctest,embedded-controls}.log and focused
+websocket-{byte-primitive,http-upgrade,native,event,send-bound}-controls.log;
+initial related CTest records two stale-policy failures, subsequently corrected,
+not silently removed. Fresh Linux/Windows acceptance remains pending.
+
+Actual offscreen Code-OSS main32273, selected renderer32293 and extensionhost32567
+reach window-reported-ready, SharedProcess IPC/overall-ready, Workbench3/4 and
+original scan60. The former originalWebSocket.prototype error does NOT recur;
+this removes the observed missing-global failure, not proof of extension
+activation or usable editor. Remaining logged gaps: native spdlog bindings,
+isAlwaysOnTop, setBackgroundThrottling, offscreen Services menu refusal and a
+Blob-worker script fetch failure. AgentHost provider session catalog is also
+unavailable. Diagnose the next causal blocker from actual host/renderer state;
+keep visible editor/open-edit-save/PTY acceptance open. Evidence:
+codeoss-websocket-start.log. Stopped the authenticated main group AND separately
+authenticated native helpers; all12tracked PIDs gone (including owned utility/
+agent subprocesses). Stopped log atomically redacted9environment/configuration
+records. No GUI launch, retained app copy or dependency tree added.
+
+Owned code formatting, generated runtime/Firefly hashes and diff checks pass.
+Website builds354pages with25817local links/resources/fragments checked. API docs,
+Mite matrix and Code-OSS status distinguish actual local evidence from planned
+proxy/platform/editor support. Current work remains on the Ladybird review branch;
+SDK promotion to master still needs its outstanding platform/release gates.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -40,16 +40,24 @@ binds document IPC, restores Workbench lifecycle 3/4, scans all 60 extensions an
 passes the previous large-port failure: four native fragment control frames are
 observed with no capture/frame refusals. The extension host remains alive.
 
-The next concrete initialization error is a missing standalone global WebSocket:
-unchanged `@vscode/proxy-agent.createWebSocketPatch` reads
-`originalWebSocket.prototype` from `connectProxyResolver`. No extension activation
-or usable editor is established. Implement a real browser-style WebSocket client,
-not a placeholder class or a Code-OSS guard. Reusing a pinned RFC6455 engine needs
-a real HTTP101/socket/head handoff plus required native entropy/UTF-8 primitives;
-verify direct ws/wss, events/state, snapshots, bounded framing/queues and close
-against independent loopback peers. Custom Undici dispatcher/proxy/certificate
-policy must be genuinely supported or fail explicitly, never silently ignored.
-Direct Undici reuse currently requires its unavailable WebAssembly HTTP parser.
+The standalone runtime now implements a real [WebSocket client](../api/websocket.md)
+over native HTTP101, TCP/TLS, entropy and UTF-8 validation. Independent raw TCP/TLS
+peers and Node differential controls pass locally. In the next actual offscreen
+Code-OSS run (`codeoss-websocket-start.log`), the window reports ready, SharedProcess
+reports IPC/overall ready, Workbench reaches lifecycle 3/4 and scans 60 system
+extensions, and the local extension host starts. The former
+`originalWebSocket.prototype` failure does not recur during the observation.
+That removes the observed missing-global failure; absence of that error alone
+is not evidence of completed extension activation or a usable editor.
+
+Remaining observed gaps include native `@vscode/spdlog` bindings, missing
+`isAlwaysOnTop` and `setBackgroundThrottling` desktop methods, macOS Services menu
+support in this offscreen frontend, and a Blob-backed worker script fetch failure.
+AgentHost also reports an unavailable provider session catalog; do not confuse
+that application/provider limitation with successful editor acceptance. Determine
+the next causal initialization blocker from real host/renderer state. Custom
+Undici dispatcher/proxy/certificate policy must still be genuinely supported or
+fail explicitly, never silently ignored. The direct WebSocket slice rejects it.
 
 The previous early navigation stall is not reproduced under these observations;
 no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is

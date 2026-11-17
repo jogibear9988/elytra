@@ -235,7 +235,14 @@ public:
 
         m_events.clear();
         result->define_direct_property("events"_utf16, events.ptr(), JS::default_attributes);
-        if (status) {
+        // llhttp stops exactly after the switching response headers. The bytes
+        // beyond this offset belong to the new protocol, never another HTTP run.
+        bool upgraded = m_response && status == HPE_PAUSED_UPGRADE;
+        result->define_direct_property(
+            "upgrade"_utf16, JS::Value(upgraded), JS::default_attributes);
+        result->define_direct_property(
+            "bytesParsed"_utf16, JS::Value(static_cast<double>(consumed)), JS::default_attributes);
+        if (status && !upgraded) {
             auto error = JS::Object::create(realm, nullptr);
             error->define_direct_property("code"_utf16,
                 latin1(vm, m_overflow ? "HPE_HEADER_OVERFLOW" : llhttp_errno_name(status)),

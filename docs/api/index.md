@@ -43,6 +43,9 @@ The [worker_threads reference](worker-threads.md) covers genuine independent-VM
 threads, message snapshots, termination and unsupported shared-memory/transfer modes.
 The [structuredClone reference](structured-clone.md) covers synchronous graph and
 binary copies, capability refusal, quotas and unsupported transfer modes.
+The [WebSocket reference](websocket.md) covers standalone WS/WSS clients, native
+upgrade/TLS transport, events, bounded binary queues and unsupported dispatchers.
+The [Buffer reference](buffer.md) covers native UTF-8 byte validation and its supported inputs.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
 error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,

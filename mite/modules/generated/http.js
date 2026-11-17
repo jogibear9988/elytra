@@ -583,6 +583,10 @@ function createHttpClient(host, protocol, messages, agents) {
   const clients = /* @__PURE__ */ new WeakMap();
   const clientToken = {};
   const assignedSockets = /* @__PURE__ */ new WeakMap();
+  const descriptor = Object.getOwnPropertyDescriptor;
+  const define = Object.defineProperty;
+  const apply = Reflect.apply;
+  const removeListener = host.net.Socket.prototype.removeListener;
   const plainTransport = Object.freeze({
     protocol: "http:",
     defaultPort: 80,
@@ -622,7 +626,8 @@ function createHttpClient(host, protocol, messages, agents) {
     if (opts.protocol !== void 0 && opts.protocol !== transport.protocol) {
       throw error(TypeError, "ERR_INVALID_PROTOCOL", `Expected ${transport.protocol} protocol`);
     }
-    const agent = opts.agent == null ? transport.globalAgent ?? agents.globalAgent : opts.agent;
+    const connector = opts.agent == null && typeof opts.createConnection === "function" ? opts.createConnection : void 0;
+    const agent = connector ? false : opts.agent == null ? transport.globalAgent ?? agents.globalAgent : opts.agent;
     if (agent !== false && (typeof agent !== "object" || typeof agent.addRequest !== "function")) {
       throw error(TypeError, "ERR_INVALID_ARG_TYPE", "agent must supply addRequest or be false");
     }
@@ -633,13 +638,11 @@ function createHttpClient(host, protocol, messages, agents) {
       }
     }
     for (const key of [
-      "createConnection",
       "socketPath",
       "localAddress",
       "localPort",
       "uniqueHeaders",
-      "IncomingMessage",
-      "defaultPort"
+      "IncomingMessage"
     ]) {
       if (opts[key] !== void 0) {
         unsupported(`HTTP client option ${key}`);
@@ -661,7 +664,8 @@ function createHttpClient(host, protocol, messages, agents) {
     if (hostname.startsWith("[") && hostname.endsWith("]")) {
       hostname = hostname.slice(1, -1);
     }
-    const port = opts.port ?? (agent !== false ? agent.defaultPort : void 0) ?? transport.defaultPort;
+    const defaultPort = opts.defaultPort || (agent !== false ? agent.defaultPort : void 0) || transport.defaultPort;
+    const port = opts.port ?? defaultPort;
     const number = Number(port);
     if (!["number", "string"].includes(typeof port) || typeof port === "string" && !port.trim() || !Number.isInteger(number) || number < 0 || number > 65535) {
       throw error(RangeError, "ERR_SOCKET_BAD_PORT", "Invalid HTTP port");
@@ -692,7 +696,75 @@ function createHttpClient(host, protocol, messages, agents) {
     if (opts.timeout !== void 0) {
       integer(opts.timeout, "timeout");
     }
-    return { opts, hostname, port: number, method, path, maximum, callback, agent };
+    return {
+      opts,
+      hostname,
+      port: number,
+      method,
+      path,
+      maximum,
+      callback,
+      agent,
+      connector,
+      defaultPort
+    };
+  }
+  function validateConnection(upgrade, connection) {
+    const requested = upgrade !== void 0;
+    if (requested) {
+      const protocols = String(upgrade).split(",");
+      if (!protocols.length || protocols.some((value) => {
+        const parts = value.trim().split("/");
+        return parts.length > 2 || parts.some((part) => !token.test(part));
+      })) {
+        throw error(TypeError, "ERR_INVALID_HTTP_TOKEN", "Invalid Upgrade protocol");
+      }
+    }
+    if (connection === void 0 || String(connection).toLowerCase() === "close") {
+      return;
+    }
+    const tokens = String(connection).split(",").map((value) => value.trim());
+    if (tokens.some((value) => !token.test(value))) {
+      throw error(TypeError, "ERR_INVALID_HTTP_TOKEN", "Invalid Connection token");
+    }
+    if (!requested || !tokens.some((value) => value.toLowerCase() === "upgrade")) {
+      unsupported("Persistent HTTP client connections");
+    }
+  }
+  function handoff(req, res, result, raw) {
+    const c = clients.get(req);
+    const socket = c.socket;
+    if (!result.upgrade || !raw || !Number.isInteger(result.bytesParsed) || result.bytesParsed < 0 || result.bytesParsed > raw.byteLength) {
+      clientFailure(req, error(Error, "HPE_INVALID_UPGRADE", "Invalid HTTP upgrade boundary"));
+      return;
+    }
+    c.upgraded = true;
+    c.complete = true;
+    res.complete = true;
+    for (const [name, callback] of c.socketListeners) {
+      apply(removeListener, socket, [name, callback]);
+    }
+    c.socketListeners.length = 0;
+    if (descriptor(socket, "setEncoding")?.value === c.noEncoding) {
+      if (c.encodingDescriptor) {
+        define(socket, "setEncoding", c.encodingDescriptor);
+      } else {
+        delete socket.setEncoding;
+      }
+    }
+    assignedSockets.delete(socket);
+    c.unsubscribe?.();
+    c.unsubscribe = null;
+    const head = Buffer.from(
+      raw.buffer,
+      raw.byteOffset + result.bytesParsed,
+      raw.byteLength - result.bytesParsed
+    );
+    socket.emit("agentRemove");
+    req.destroy();
+    if (!req.emit("upgrade", res, socket, head)) {
+      socket.destroy();
+    }
   }
   function clientFailure(req, err) {
     const c = clients.get(req);
@@ -736,15 +808,8 @@ function createHttpClient(host, protocol, messages, agents) {
         break;
       }
       if (event.type === 0) {
-        if (event.upgrade) {
-          clientFailure(
-            req,
-            error(Error, "ERR_MITE_UNSUPPORTED_API", "HTTP upgrades are not implemented")
-          );
-          break;
-        }
         const values = merged(event.headers, c.options.joinDuplicateHeaders);
-        if (event.statusCode < 200) {
+        if (event.statusCode < 200 && !event.upgrade) {
           if (event.statusCode === 100) {
             req.emit("continue");
           }
@@ -781,6 +846,10 @@ function createHttpClient(host, protocol, messages, agents) {
         res.headersDistinct = headers.distinct;
         incoming.get(res).connection = c;
         c.current = res;
+        if (event.upgrade) {
+          handoff(req, res, result, raw);
+          return;
+        }
         if (!req.emit("response", res)) {
           res.resume();
         }
@@ -839,7 +908,7 @@ function createHttpClient(host, protocol, messages, agents) {
       if (!this.hasHeader("host") && opts.setHost !== false) {
         this.setHeader(
           "Host",
-          (config.hostname.includes(":") ? "[" + config.hostname + "]" : config.hostname) + (config.port === transport.defaultPort ? "" : ":" + config.port)
+          (config.hostname.includes(":") ? "[" + config.hostname + "]" : config.hostname) + (config.port === Number(config.defaultPort) ? "" : ":" + config.port)
         );
       }
       if (opts.auth !== void 0 && !this.hasHeader("authorization")) {
@@ -848,12 +917,7 @@ function createHttpClient(host, protocol, messages, agents) {
         }
         this.setHeader("Authorization", "Basic " + Buffer.from(opts.auth).toString("base64"));
       }
-      if (this.hasHeader("upgrade")) {
-        unsupported("HTTP upgrades");
-      }
-      if (this.hasHeader("connection") && String(this.getHeader("connection")).toLowerCase() !== "close") {
-        unsupported("Persistent HTTP client connections");
-      }
+      validateConnection(this.getHeader("upgrade"), this.getHeader("connection"));
       if (config.callback) {
         this.once("response", config.callback);
       }
@@ -864,6 +928,10 @@ function createHttpClient(host, protocol, messages, agents) {
         transport,
         config,
         socketDone: false,
+        socketListeners: [],
+        upgraded: false,
+        encodingDescriptor: null,
+        noEncoding: null,
         published: false,
         ready: false,
         timeout: opts.timeout,
@@ -895,7 +963,33 @@ function createHttpClient(host, protocol, messages, agents) {
         }
       }
       if (!this.destroyed) {
-        if (config.agent === false) {
+        if (config.connector) {
+          const connectionOptions = {
+            ...opts,
+            ...transportOptions,
+            noDelay: opts.noDelay ?? true,
+            host: config.hostname,
+            hostname: config.hostname,
+            port: config.port,
+            protocol: transport.protocol,
+            secureEndpoint: transport.protocol === "https:"
+          };
+          if (!opts.path) {
+            Object.setPrototypeOf(connectionOptions, null);
+          }
+          delete connectionOptions.path;
+          try {
+            const socket = apply(config.connector, connectionOptions, [
+              connectionOptions,
+              (err, socket2) => this.onSocket(socket2, err)
+            ]);
+            if (socket) {
+              this.onSocket(socket);
+            }
+          } catch (err) {
+            tick(() => this.destroy(err));
+          }
+        } else if (config.agent === false) {
           this.onSocket(transport.createSocket(config, this), void 0, clientToken);
         } else {
           this.agent = config.agent;
@@ -976,12 +1070,20 @@ function createHttpClient(host, protocol, messages, agents) {
       c.socket = socket;
       assignedSockets.set(socket, this);
       const parser = c.parser;
-      socket.on("data", (bytes) => {
+      const listen = (name, callback, once = false) => {
+        c.socketListeners.push([name, callback]);
+        if (once) {
+          socket.once(name, callback);
+        } else {
+          socket.on(name, callback);
+        }
+      };
+      listen("data", (bytes) => {
         if (!c.failed) {
           clientEvents(this, parser(bytes), bytes);
         }
       });
-      socket.on("end", () => {
+      listen("end", () => {
         if (!c.failed && !c.complete) {
           const result = parser();
           if (result.error && c.current) {
@@ -1006,35 +1108,41 @@ function createHttpClient(host, protocol, messages, agents) {
           }
         }
       });
-      socket.on("error", (err2) => {
+      listen("error", (err2) => {
         if (!this.destroyed) {
           clientFailure(this, err2);
         }
       });
-      socket.on("close", () => {
+      listen("close", () => {
         assignedSockets.delete(socket);
         if (!c.complete && !c.failed && !this.destroyed) {
           clientFailure(this, error(Error, "ECONNRESET", "socket hang up"));
         }
         closeRequest(this);
       });
-      socket.on("timeout", () => {
+      listen("timeout", () => {
         this.emit("timeout");
         if (c.current) {
           c.current.emit("timeout");
         }
       });
-      socket.setEncoding = () => {
+      c.encodingDescriptor = descriptor(socket, "setEncoding");
+      c.noEncoding = () => {
         throw error(Error, "ERR_HTTP_SOCKET_ENCODING", "HTTP sockets require byte data");
       };
-      socket.once(c.transport.readyEvent, () => {
-        if (!this.destroyed) {
-          c.ready = true;
-          if (c.published) {
-            this._activate();
+      socket.setEncoding = c.noEncoding;
+      listen(
+        c.transport.readyEvent,
+        () => {
+          if (!this.destroyed) {
+            c.ready = true;
+            if (c.published) {
+              this._activate();
+            }
           }
-        }
-      });
+        },
+        true
+      );
       if (c.timeout !== void 0) {
         socket.setTimeout(c.timeout);
       }
@@ -1081,6 +1189,9 @@ function createHttpClient(host, protocol, messages, agents) {
     }
     _prepare() {
       const s = outgoing.get(this);
+      if (clients.get(this)?.upgraded) {
+        throw error(Error, "ERR_STREAM_DESTROYED", "HTTP request has upgraded");
+      }
       if (s.prepared) {
         return;
       }
@@ -1092,12 +1203,7 @@ function createHttpClient(host, protocol, messages, agents) {
       }
       const headers = new Map(s.headers);
       const has = (name) => headers.has(name);
-      if (has("upgrade")) {
-        unsupported("HTTP upgrades");
-      }
-      if (has("connection") && String(headers.get("connection").value).toLowerCase() !== "close") {
-        unsupported("Persistent HTTP client connections");
-      }
+      validateConnection(headers.get("upgrade")?.value, headers.get("connection")?.value);
       if (has("content-length") && has("transfer-encoding")) {
         throw error(
           Error,
@@ -1140,9 +1246,9 @@ ${headerLines(headers)}\r
           c.errorPending = false;
         });
       }
-      if (c?.socket && !c.socket.destroyed) {
+      if (c?.socket && !c.socket.destroyed && !c.upgraded) {
         c.socket.destroy();
-      } else if (c && !c.socket) {
+      } else if (c && (!c.socket || c.upgraded)) {
         tick(() => closeRequest(this));
       }
     }

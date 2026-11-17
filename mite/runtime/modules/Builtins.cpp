@@ -7,6 +7,7 @@
 #include "BuiltinSources.h"
 #include "core/EventLoop.h"
 #include "core/GCCaptures.h"
+#include "core/NativeByteSource.h"
 #include "core/workers/Host.h"
 #include "modules/BuiltinNames.h"
 #include "modules/ModuleLoader.h"
@@ -70,7 +71,8 @@ static constexpr std::string_view process_exports[] = { "nextTick", "cwd", "chdi
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };
-static constexpr std::string_view buffer_exports[] = { "Buffer", "SlowBuffer", "Blob", "File" };
+static constexpr std::string_view buffer_exports[]
+    = { "Buffer", "SlowBuffer", "Blob", "File", "isUtf8" };
 static constexpr std::string_view fs_exports[] = { "open", "openSync", "close", "closeSync", "read",
     "readSync", "write", "writeSync", "fstat", "fstatSync", "ftruncate", "ftruncateSync", "fsync",
     "fsyncSync", "fdatasync", "fdatasyncSync", "constants", "Stats", "Dirent", "promises",
@@ -141,9 +143,10 @@ static constexpr std::string_view zlib_exports[] = { "constants", "DeflateRaw", 
     "createBrotliDecompress", "createZstdCompress", "createZstdDecompress", "brotliCompress",
     "brotliCompressSync", "brotliDecompress", "brotliDecompressSync", "zstdCompress",
     "zstdCompressSync", "zstdDecompress", "zstdDecompressSync", "crc32" };
-static constexpr std::string_view crypto_exports[] = { "randomBytes", "randomUUID", "randomInt",
-    "getHashes", "createHash", "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto",
-    "getRandomValues", "X509Certificate", "createPublicKey", "verify" };
+static constexpr std::string_view crypto_exports[]
+    = { "randomFillSync", "randomBytes", "randomUUID", "randomInt", "getHashes", "createHash",
+          "Hash", "createHmac", "Hmac", "timingSafeEqual", "webcrypto", "getRandomValues",
+          "X509Certificate", "createPublicKey", "verify" };
 static constexpr std::string_view child_process_exports[]
     = { "spawn", "execFile", "exec", "fork", "ChildProcess" };
 static constexpr std::string_view tty_exports[] = { "isatty", "ReadStream", "WriteStream" };
@@ -294,6 +297,9 @@ JS::ThrowCompletionOr<GC::Ref<JS::Object>> ModuleLoader::construct_builtin(std::
     GC::Root script { parsed.release_value() };
     auto factory = TRY(m_vm.run(*script));
     GC::Root host { JS::Object::create(m_realm, nullptr) };
+    if (name == "buffer")
+        host->define_direct_property(
+            "native"_utf16, create_buffer_validation_host(m_realm), JS::default_attributes);
     // This private realm-local symbol state preserves named callback results and
     // stays separate from the mutable public util/fs/dns facades.
     if (name == "util" || name == "fs" || name == "dns")
@@ -896,6 +902,78 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
     VERIFY(clone.is_function());
     m_realm.global_object().define_direct_property(
         "structuredClone"_utf16, clone, JS::default_attributes);
+    // Initialize the private RFC engine only after all genuine globals and
+    // builtin transports exist. It never becomes a public builtin module.
+    GC::Root socket_host { JS::Object::create(m_realm, nullptr) };
+    socket_host->define_direct_property("Buffer"_utf16, constructor, JS::default_attributes);
+    socket_host->define_native_function(m_realm, "requireBuiltin"_utf16,
+        GC::create_function(m_realm.vm().heap(), GC::captures(native_reference(*this)),
+            [](auto& captured_self, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                auto& self = captured_self.get();
+                auto name = TRY(vm.argument(0).to_utf16_string(vm));
+                auto bytes = MUST(name.utf16_view().to_utf8());
+                auto text = bytes.bytes_as_string_view();
+                constexpr StringView allowed[] { "node:buffer"sv, "node:crypto"sv, "node:events"sv,
+                    "node:http"sv, "node:https"sv, "node:net"sv, "node:process"sv, "node:stream"sv,
+                    "node:tls"sv, "node:url"sv, "node:util"sv, "node:zlib"sv };
+                bool permitted = false;
+                for (auto label : allowed)
+                    permitted |= text == label;
+                if (!permitted)
+                    return self.error(
+                        "ERR_MITE_UNSUPPORTED_BUILTIN", "Unexpected WebSocket dependency");
+                return TRY(self.builtin(
+                    std::string(text.substring_view(5).characters_without_null_termination(),
+                        text.length() - 5)));
+            }),
+        1, JS::default_attributes);
+    auto engine_source = JS::Script::parse(Utf16String::from_utf8(StringView(MITE_WS_ENGINE_SOURCE,
+                                               sizeof(MITE_WS_ENGINE_SOURCE) - 1)),
+        m_realm, "mite:ws-engine"sv);
+    VERIFY(!engine_source.is_error());
+    GC::Root engine_script { engine_source.release_value() };
+    auto engine_factory = TRY(m_vm.run(*engine_script));
+    auto engine_value = TRY(JS::call(m_vm, engine_factory, JS::js_undefined(), socket_host.ptr()));
+    VERIFY(engine_value.is_function());
+    GC::Root engine { engine_value.as_function() };
+    socket_host->define_direct_property("Engine"_utf16, engine.ptr(), JS::default_attributes);
+    socket_host->define_direct_property(
+        "URL"_utf16, TRY(url->get("URL"_utf16)), JS::default_attributes);
+    for (auto name : { "Blob"_utf16, "DOMException"_utf16 })
+        socket_host->define_direct_property(
+            name, TRY(m_realm.global_object().get(name)), JS::default_attributes);
+    socket_host->define_direct_property(
+        "events"_utf16, TRY(installed->get("events"_utf16)), JS::default_attributes);
+    socket_host->define_direct_property(
+        "types"_utf16, create_structured_clone_types_host(m_realm), JS::default_attributes);
+    socket_host->define_native_function(
+        m_realm, "snapshotBytes"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            auto source = TRY(native_byte_source(vm, vm.argument(0), true));
+            if (source.length > 1024 * 1024)
+                return byte_source_error<JS::RangeError>(
+                    vm, "ERR_MITE_WEBSOCKET_LIMIT", u"WebSocket message exceeds 1 MiB"sv);
+            GC::Root copy { TRY(JS::Uint8Array::create(vm.realm(), source.length)) };
+            if (source.length)
+                copy->viewed_array_buffer()->overwrite(
+                    0, source.buffer->data_at(source.offset), source.length);
+            return copy.ptr();
+        },
+        1, JS::default_attributes);
+    auto websocket_source = JS::Script::parse(
+        Utf16String::from_utf8(
+            StringView(MITE_WEBSOCKET_SOURCE, sizeof(MITE_WEBSOCKET_SOURCE) - 1)),
+        m_realm, "mite:websocket"sv);
+    VERIFY(!websocket_source.is_error());
+    GC::Root websocket_script { websocket_source.release_value() };
+    auto websocket_factory = TRY(m_vm.run(*websocket_script));
+    auto websocket_value
+        = TRY(JS::call(m_vm, websocket_factory, JS::js_undefined(), socket_host.ptr()));
+    VERIFY(websocket_value.is_object());
+    GC::Root websocket_globals { websocket_value.as_object() };
+    for (auto name : { "WebSocket"_utf16, "MessageEvent"_utf16, "CloseEvent"_utf16 })
+        m_realm.global_object().define_direct_property(
+            name, TRY(websocket_globals->get(name)), JS::default_attributes);
     return {};
 }
 

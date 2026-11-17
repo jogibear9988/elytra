@@ -82,7 +82,7 @@ def main():
     policy = subprocess.run(
         [args.mite, str(root / "policy.mjs")], capture_output=True, text=True, timeout=10
     )
-    assert policy.returncode == 0 and not policy.stderr and policy.stdout == "HTTPS policy 15\n", (
+    assert policy.returncode == 0 and not policy.stderr and policy.stdout == "HTTPS policy 14\n", (
         policy
     )
     defaults = [

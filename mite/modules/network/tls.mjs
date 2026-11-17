@@ -31,6 +31,9 @@ export default function createTlsModule(host) {
   }
 
   function configuration(options) {
+    // Like Node's tls.connect, this client does not pass the server-only
+    // handshakeTimeout option to TLSSocket. Actual client deadlines use timeout
+    // or AbortSignal; HTTP/WebSocket owns its separate handshake timeout.
     for (const key of [
       'socket',
       'secureContext',
@@ -45,7 +48,6 @@ export default function createTlsModule(host) {
       'secureProtocol',
       'requestCert',
       'enableTrace',
-      'handshakeTimeout',
       'secureOptions',
       'sigalgs',
       'ecdhCurve',

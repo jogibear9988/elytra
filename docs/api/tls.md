@@ -96,10 +96,10 @@ forced GC checks native record ownership in the non-GUI host.
 
 Direct TLSSocket construction/wrapping, TLS servers, reusable SecureContext,
 client certificates/key/PFX, custom ciphers, custom checkServerIdentity, sessions,
-PSK callbacks, renegotiation, tracing, handshakeTimeout and key material export
+PSK callbacks, renegotiation, tracing and key material export
 remain unsupported. Unavailable provider policies (secureOptions, sigalgs,
 ecdhCurve, OCSP, partial-chain settings and client-key engines) and TCP local
-binding/descriptor/IPC options reject explicitly. Use AbortSignal.timeout for a handshake deadline. createServer,
+binding/descriptor/IPC options reject explicitly. Like Node tls.connect, the server-only handshakeTimeout option is ignored by the client; it does not establish a deadline. Use AbortSignal.timeout for a terminating client handshake deadline; timeout only emits the normal socket timeout event. createServer,
 createSecureContext and the exposed unsupported methods throw ERR_MITE_UNSUPPORTED_API.
 Peer-certificate/cipher inspection is not yet implemented. Full Node TLS option,
 metadata, half-close/error and native platform parity remain unfinished.

@@ -28,8 +28,7 @@ const cases = [
     [{ requestOCSP: true }, 'ERR_MITE_UNSUPPORTED_API'],
     [{ allowPartialTrustChain: false }, 'ERR_MITE_UNSUPPORTED_API'],
     [{ localAddress: '127.0.0.1' }, 'ERR_MITE_UNSUPPORTED_API'],
-    [{ path: '/tmp/tls-socket' }, 'ERR_MITE_UNSUPPORTED_API'],
-    [{ handshakeTimeout: 1 }, 'ERR_MITE_UNSUPPORTED_API']
+    [{ path: '/tmp/tls-socket' }, 'ERR_MITE_UNSUPPORTED_API']
   ].map(([options, code]) => [() => tls.connect({ host: '127.0.0.1', port: 9, ...options }), code])
 ];
 for (const [invoke, code] of cases) {

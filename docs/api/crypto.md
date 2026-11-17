@@ -7,7 +7,7 @@ subsequent compiler/CPU/SDK profiles and broader provider/failure cases remain o
 Ladybird renderers do not receive this module or a privileged global crypto object.
 
 ```js
-import {randomBytes, randomUUID, randomInt, createHash, Hash, createHmac, Hmac, timingSafeEqual} from 'node:crypto';
+import {randomBytes, randomFillSync, randomUUID, randomInt, createHash, Hash, createHmac, Hmac, timingSafeEqual} from 'node:crypto';
 ```
 
 CommonJS require('crypto') and require('node:crypto') return the same module.
@@ -76,6 +76,54 @@ job receiver. Callback exceptions follow the runtime's uncaught-exception path.
 
 Maximum-size allocations and forced OS/provider failure are not acceptance-tested.
 The accepted numeric bound is not a guarantee that an allocation will succeed.
+
+## randomFillSync(buffer[, offset[, size]])
+
+Fill an existing ArrayBuffer, TypedArray (including Buffer and floating-point
+views) or DataView with synchronous OS entropy through `uv_random`. Return the
+**exact original argument**. Filling a view respects its native byte offset and
+length; bytes outside the requested range are unchanged. Zero-size fills are
+no-ops.
+
+`offset` defaults to zero and `size` defaults to the remainder of the supplied
+view. For TypedArrays, both arguments are measured in **elements**, including
+fractional values. The implementation multiplies by the native element size,
+validates the resulting byte range, then truncates toward zero. For ArrayBuffer,
+DataView and one-byte views, the units are bytes. For example:
+
+```js
+const storage = new ArrayBuffer(16);
+const words = new Uint16Array(storage, 4, 4);
+randomFillSync(words, 1, 2); // Four bytes at storage byte offsets 6 through 9.
+randomFillSync(words, 0.5, 1); // Two bytes at storage byte offsets 5 and 6.
+```
+
+| Failure | Error contract |
+| --- | --- |
+| Unsupported argument brand, including Proxy; non-number offset/size | TypeError, `ERR_INVALID_ARG_TYPE` |
+| NaN, infinite, negative or excessive offset/size | RangeError, `ERR_OUT_OF_RANGE` |
+| Detached, shared or resizable backing storage | Error, `ERR_MITE_UNSUPPORTED_API` |
+| Native entropy failure | Error with native code/errno and syscall `uv_random` |
+
+The supported native byte range is bounded by the supplied storage and
+2,147,483,647 bytes. Maximum-size allocations and forced OS entropy failures
+remain untested. Validation and entropy acquisition finish before the caller's
+storage is modified, so validation/provider errors do not leave a partial fill.
+
+Native intrinsic checks read engine byte-source slots directly. Shadowed
+`buffer`, `byteOffset`, `byteLength`, `length` or `BYTES_PER_ELEMENT` properties on
+a genuine view are not consulted, and Proxy rejection invokes no traps. Node's
+JavaScript random-fill wrapper and argument-error formatting may observe those
+properties/traps; this is an intentional Mite validation difference.
+
+Focused Node/Mite byte-primitive controls pass locally on macOS, covering
+fractional element ranges, original identity, surrounding bytes, validation
+failures and [strict UTF-8 checking](buffer.md). Fresh Linux/Windows acceptance
+for these new primitives remains pending.
+
+```sh
+python3 tooling/tests/test_crypto_byte_primitives.py --mite build/upstream-review/bin/mite
+```
 
 ## randomUUID([options])
 
@@ -289,8 +337,9 @@ differ between executions. See [modules](../concepts/modules-and-packages.md) an
 
 ## Unsupported APIs and verification
 
-randomFill, ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, getHashes
-and WebCrypto subtle algorithms are absent. Calling an absent property fails as an ordinary JS
+Asynchronous randomFill, ciphers, private-key signing, KDFs and WebCrypto subtle
+algorithms are absent. Public-key verification and certificate parsing are scoped
+separately below; their partial key objects do not implement the full KeyObject/CryptoKey APIs. Calling an absent property fails as an ordinary JS
 TypeError; importing an absent named export fails during module loading. There is
 no fallback to Node/V8. Do not treat incremental hashing as encryption or password
 storage support.

@@ -145,6 +145,7 @@ const groups = [
       ['docs/api/mite', 'Mite runtime'],
       ['docs/api/process', 'process'],
       ['docs/api/structured-clone', 'structuredClone'],
+      ['docs/api/websocket', 'WebSocket'],
       ['docs/api/crypto', 'node:crypto'],
       ['docs/api/net', 'node:net'],
       ['docs/api/tls', 'node:tls'],

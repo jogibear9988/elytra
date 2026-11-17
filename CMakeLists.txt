@@ -631,6 +631,22 @@ if(BUILD_TESTING)
         NAME mite-http-client
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_client.py"
                 --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-http-upgrade
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_upgrade.py"
+                --mite "$<TARGET_FILE:mite>")
+    add_test(
+        NAME mite-crypto-byte-primitives
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_byte_primitives.py" --mite
+            "$<TARGET_FILE:mite>")
+    add_test(NAME mite-websocket
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_websocket.py"
+                     --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-http-upgrade mite-crypto-byte-primitives PROPERTIES TIMEOUT 60 LABELS
+                                                                                  "runtime;network")
+    set_tests_properties(mite-websocket PROPERTIES TIMEOUT 90 LABELS "runtime;network")
     add_test(NAME mite-http-agent
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_agent.py"
                      --mite "$<TARGET_FILE:mite>")
