@@ -14,6 +14,21 @@ import time
 from test_renderer import ROOT, environment, run, stop
 
 
+def assert_compositor_cpu_policy(command):
+    """Inspect the pinned engine's actual feature contract, not a removed flag."""
+    # Ladybird serializes enabled compositor features into one comma-separated
+    # argv value. --force-cpu-painting disables gpu_painting in that set.
+    tokens = command.split()
+    features = [
+        token.partition("=")[2] for token in tokens if token.startswith("--platform-features=")
+    ]
+    assert len(features) == 1, command
+    assert "gpu_painting" not in features[0].split(","), command
+    assert not any(
+        token == "--disable-sandbox" or token.startswith("--disable-sandbox=") for token in tokens
+    ), command
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--firefly", type=Path, required=True)
@@ -115,10 +130,7 @@ def main():
             compositor_args = subprocess.check_output(
                 ["ps", "-ww", "-o", "command=", "-p", str(compositors[0])], text=True
             )
-            assert (
-                "--force-cpu-painting" in compositor_args
-                and "--disable-sandbox" not in compositor_args
-            ), compositor_args
+            assert_compositor_cpu_policy(compositor_args)
             stdout, stderr = process.communicate(timeout=15)
             assert process.returncode == 0, (prefix + stdout, stderr)
             assert "PASS actual public command-line" in prefix + stdout, (prefix + stdout, stderr)

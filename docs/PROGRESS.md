@@ -15749,6 +15749,23 @@ Targeted non-GUI Node/Mite/embedded stdio, lifetime and socket controls pass:
 build/windows-test-policy-controls.log. No SDK build or GUI run; live user Code-OSS
 is untouched. Native Windows CI rerun remains required. Full goal remains active.
 
+## Follow pinned compositor CPU feature transport (2026-11-17)
+
+Actual Linux renderer run44041463811/job133896798862 builds and runs helpers, but
+command-line acceptance expects a removed compositor --force-cpu-painting argv.
+The pinned Ladybird now consumes that browser switch by disabling gpu_painting in
+its serialized --platform-features= list (LibWebView Application.cpp720 and
+HelperProcess.cpp540 onward; ProcessFeatures lists enabled features only).
+Correct the observer to require exactly one native feature argument without GPU
+painting and retain strict sandbox checks. Do not alter Ladybird or production
+launch flags merely to satisfy an obsolete observer.
+
+Non-GUI replay of the exact hosted compositor argv passes; explicit GPU enable,
+missing/duplicate feature transport and disabled sandbox controls fail. Evidence:
+build/compositor-feature-contract-controls.log. Formatting/diff checks pass. No
+local renderer launched while user inspects Code-OSS. Fresh hosted native runtime
+acceptance remains required. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
