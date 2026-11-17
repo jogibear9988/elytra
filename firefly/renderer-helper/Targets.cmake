@@ -41,24 +41,36 @@ set_target_properties(
     FireflyWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                         "${firefly_helper_binary_dir}")
 ladybird_sign_helper_process(FireflyWebContent)
+if(WIN32)
+    set_target_properties(
+        FireflyWebContent PROPERTIES OUTPUT_NAME FireflyWebContent RUNTIME_OUTPUT_DIRECTORY
+                                                                   "${CMAKE_BINARY_DIR}/bin")
+    target_link_libraries(FireflyWebContent PRIVATE firefly-windows-helper-launch)
+    ladybird_windows_bin(FireflyWebContent CONSOLE)
+endif()
 ladybird_check_skia_confinement(FireflyWebContent)
-add_custom_target(
-    stage-firefly-helper
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${firefly_helper_binary_dir}"
-    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
-            --source "${firefly_resource_source}" --destination "${firefly_helper_resources}"
-    DEPENDS FireflyWebContent ladybird ${ladybird_helper_processes}
-    VERBATIM)
-foreach(helper IN LISTS ladybird_helper_processes)
-    if(NOT helper STREQUAL "WebContent")
-        add_custom_command(
-            TARGET stage-firefly-helper
-            POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>"
-                    "${firefly_helper_binary_dir}/${helper}"
-            VERBATIM)
-    endif()
-endforeach()
+if(WIN32)
+    firefly_stage_windows_helper(stage-firefly-helper FireflyWebContent
+                                 "${firefly_helper_binary_dir}")
+else()
+    add_custom_target(
+        stage-firefly-helper
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${firefly_helper_binary_dir}"
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
+                --source "${firefly_resource_source}" --destination "${firefly_helper_resources}"
+        DEPENDS FireflyWebContent ladybird ${ladybird_helper_processes}
+        VERBATIM)
+    foreach(helper IN LISTS ladybird_helper_processes)
+        if(NOT helper STREQUAL "WebContent")
+            add_custom_command(
+                TARGET stage-firefly-helper
+                POST_BUILD
+                COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>"
+                        "${firefly_helper_binary_dir}/${helper}"
+                VERBATIM)
+        endif()
+    endforeach()
+endif()
 add_executable(firefly-preload-probe "${FIREFLY_SOURCE_DIR}/firefly/renderer/main.cpp")
 target_link_libraries(
     firefly-preload-probe
@@ -135,24 +147,37 @@ if(FIREFLY_BUILD_RUNTIME)
         FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME WebContent RUNTIME_OUTPUT_DIRECTORY
                                                                    "${firefly_runtime_binary_dir}")
     ladybird_sign_helper_process(FireflyRuntimeWebContent)
+    if(WIN32)
+        set_target_properties(
+            FireflyRuntimeWebContent PROPERTIES OUTPUT_NAME FireflyRuntimeWebContent
+                                                RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+        target_link_libraries(FireflyRuntimeWebContent PRIVATE firefly-windows-helper-launch)
+        ladybird_windows_bin(FireflyRuntimeWebContent CONSOLE)
+    endif()
     ladybird_check_skia_confinement(FireflyRuntimeWebContent)
-    add_custom_target(
-        stage-firefly-runtime-helper
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${firefly_runtime_binary_dir}"
-        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
+    if(WIN32)
+        firefly_stage_windows_helper(stage-firefly-runtime-helper FireflyRuntimeWebContent
+                                     "${firefly_runtime_binary_dir}")
+    else()
+        add_custom_target(
+            stage-firefly-runtime-helper
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${firefly_runtime_binary_dir}"
+            COMMAND
+                "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/stage_renderer_resources.py"
                 --source "${firefly_resource_source}" --destination "${firefly_runtime_resources}"
-        DEPENDS FireflyRuntimeWebContent ladybird ${ladybird_helper_processes}
-        VERBATIM)
-    foreach(helper IN LISTS ladybird_helper_processes)
-        if(NOT helper STREQUAL "WebContent")
-            add_custom_command(
-                TARGET stage-firefly-runtime-helper
-                POST_BUILD
-                COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>"
-                        "${firefly_runtime_binary_dir}/${helper}"
-                VERBATIM)
-        endif()
-    endforeach()
+            DEPENDS FireflyRuntimeWebContent ladybird ${ladybird_helper_processes}
+            VERBATIM)
+        foreach(helper IN LISTS ladybird_helper_processes)
+            if(NOT helper STREQUAL "WebContent")
+                add_custom_command(
+                    TARGET stage-firefly-runtime-helper
+                    POST_BUILD
+                    COMMAND "${CMAKE_COMMAND}" -E create_symlink "$<TARGET_FILE:${helper}>"
+                            "${firefly_runtime_binary_dir}/${helper}"
+                    VERBATIM)
+            endif()
+        endforeach()
+    endif()
     add_dependencies(firefly stage-firefly-runtime-helper check-firefly-js)
     if(TARGET firefly-background-probe)
         add_dependencies(firefly-background-probe stage-firefly-runtime-helper check-firefly-js)

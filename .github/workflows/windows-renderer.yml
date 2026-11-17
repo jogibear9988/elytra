@@ -65,6 +65,15 @@ jobs:
           if ($LASTEXITCODE) { throw 'Pinned Rust selection failed' }
           cmake --version
           clang-cl --version
+      - name: Reproduce owned Windows source and runtime-refusal contracts
+        shell: pwsh
+        run: |
+          python tooling/tests/test_windows_desktop_policy.py
+          if ($LASTEXITCODE) { throw 'Full runtime confinement gate failed' }
+          python tooling/tests/test_windows_helper_source.py
+          if ($LASTEXITCODE) { throw 'Helper composition and physical staging controls failed' }
+          python tooling/tests/test_windows_broker_source.py
+          if ($LASTEXITCODE) { throw 'Broker source ownership controls failed' }
       - name: Check native paths and prepare dependency cache
         shell: pwsh
         run: |
@@ -141,6 +150,27 @@ jobs:
         run: |
           python tooling/tests/test_window.py --probe build/windows-renderer/bin/firefly-window-probe.exe 2>&1 | Tee-Object build/windows-renderer-window-acceptance.log
           if ($LASTEXITCODE) { throw 'Native Windows window acceptance failed' }
+      - name: Native provider compilation and read-only Windows data
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-windows-desktop-provider firefly-windows-window-geometry firefly-windows-clipboard firefly-runtime-paths-probe --parallel 3 2>&1 | Tee-Object build/windows-renderer-providers.log
+          if ($LASTEXITCODE) { throw 'Native Windows provider component failed' }
+          python tooling/tests/test_runtime_paths.py --probe build/windows-renderer/bin/firefly-runtime-paths-probe.exe 2>&1 | Tee-Object build/windows-renderer-paths.log
+          if ($LASTEXITCODE) { throw 'Native Unicode runtime relocation failed' }
+      # Keep ordinary engine/window evidence above separate from the explicit, incomplete
+      # WebContent-only confinement component. Neither enables the full desktop runtime.
+      - name: Configure explicit native AppContainer and broker component
+        shell: pwsh
+        run: |
+          python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-renderer-probe --experimental-windows-helper-launch --configure-only --jobs 3 2>&1 | Tee-Object build/windows-renderer-helper-configure.log
+          if ($LASTEXITCODE) { throw 'Native helper integration configuration failed' }
+      - name: Real Core AppContainer child and private handle broker
+        shell: pwsh
+        run: |
+          cmake --build build/windows-renderer --target check-firefly-windows-broker --parallel 3 2>&1 | Tee-Object build/windows-renderer-helper-broker.log
+          if ($LASTEXITCODE) { throw 'Native helper and broker component acceptance failed' }
+          # The probe image is named WebContent.exe; this is not a LibWeb startup test.
+          # Full helper roles, Browser-origin flow control and application packages remain blocked.
       - name: Record unmodified upstream
         if: always()
         run: python tooling/check_upstream.py

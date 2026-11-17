@@ -16075,6 +16075,43 @@ and troubleshooting guides link actual permission and process-error/inspection
 contracts. Site build366 documentation pages and all local resource/fragment links
 PASS; no runtime or GUI test needed for documentation-only changes. Goal active.
 
+## Owned Windows providers and confined helper/broker component (2026-11-17)
+
+Add native locale, monitor/cursor+DIP geometry, window centering, Qt clipboard and
+Unicode runtime-path providers independently of full desktop. Rotation conversion
+is reviewed against Win32 counterclockwise/Electron clockwise semantics. Preserve
+macOS AppKit clipboard; extract shared Qt byte protocol for Windows/X11. No theme,
+AX, hidden-titlebar or full Windows application claim. Source configure fixtures
+require the real owned target's complete-role property, not a spoofable cachebool.
+
+Default-OFF helper option composes exact pinned/reversible spawn/Core lifetime and
+broker seams into owned outputs, never Ladybird source. One shared DLL retains
+Job/profile/sealed-resource authority; exact SID/zeroCaps/low-integrity/ownedJob
+checked BEFOREresume, no inherited Job or parent DUP_HANDLE. Explicit environment
+selects socket+trusted native system paths, not blanket ambient inheritance.
+Inventory hashes/revision/physical singlelinks and retained create/rename/directory
+handles precede scoped ACL grants. Normal rollback/revoke is bounded by one5s
+transaction lock. Independent final security review GO after correcting pathname
+writer/ancestor races. Abrupt parent death may leave profile/ACE residue although
+Jobchildren terminate; recovery remains open.
+
+Broker remote-owner quotas/refunds reject pseudo/truncated handles and undo partial
+copies. Browser-origin retention intentionally unchanged: actual upstream MUST
+send paths require genuine sender backpressure before imposing global admission.
+FullRole property FALSE; onlyWebContent scoped launch supported. Actual LibWeb
+preVM securitysnapshot/DOM/privateIPC/preload startup, allother helper roles,
+Browserflow, GUIstd-descriptors and PE/DLL packaging remain release blockers.
+Native probe runs a real Core/AppContainer probe image namedWebContent.exe, NOT a
+real renderer. Fresh native Windows compilation/execution remains PENDING.
+
+Register cross-platform source controls and separate native CI provider/broker
+phases; ordinary headless/window evidence stays before explicit helperoptin.
+Source controls PASS:6helper,4broker,full-runtime refusal+manifest;25native,
+13CMake,10Python and2config formatting clean; upstream9803 clean; built site links
+PASS. No native/GUI launch. Independently, new9803 Linux CLI8a30 job133966019302
+PASS all163 enabled suites in129.50s; later source slices require their own gates.
+Full user goal active, no Windows EXE/new release/master promotion claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

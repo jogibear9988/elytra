@@ -220,6 +220,12 @@ if(BUILD_TESTING)
     add_test(NAME firefly-code-oss-sample-source
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_sample.py")
+    # These reproduce source/transaction and refusal contracts, not native Windows execution.
+    foreach(component desktop_policy helper_source broker_source)
+        add_test(NAME firefly-windows-${component}
+                 COMMAND "${Python3_EXECUTABLE}"
+                         "${CMAKE_SOURCE_DIR}/tooling/tests/test_windows_${component}.py")
+    endforeach()
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
                                         "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"

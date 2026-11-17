@@ -15,11 +15,27 @@ execute_process(COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/c
 if(NOT firefly_upstream_check EQUAL 0)
     message(FATAL_ERROR "Firefly requires the synchronized, unmodified Ladybird pin")
 endif()
+# Every SDK consumer must see the same broker class definition. Generate this opt-in Windows header
+# before upstream subdirectories declare their targets.
+if(WIN32 AND FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH)
+    set(FIREFLY_WINDOWS_BROKER_OVERLAY "${CMAKE_BINARY_DIR}/firefly-adapters/windows-broker")
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/broker.py"
+                --output "${FIREFLY_WINDOWS_BROKER_OVERLAY}"
+        RESULT_VARIABLE firefly_windows_broker_result)
+    if(NOT firefly_windows_broker_result EQUAL 0)
+        message(FATAL_ERROR "Cannot compose the verified Windows handle broker")
+    endif()
+    include_directories(BEFORE "${FIREFLY_WINDOWS_BROKER_OVERLAY}")
+endif()
+
 cmake_language(DEFER CALL include "${FIREFLY_SOURCE_DIR}/firefly/renderer/Targets.cmake")
 
 set(firefly_runtime_dependency_args)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND firefly_runtime_dependency_args --linux)
+elseif(WIN32)
+    list(APPEND firefly_runtime_dependency_args --windows)
 endif()
 if(FIREFLY_BUILD_RUNTIME)
     execute_process(

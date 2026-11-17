@@ -1,5 +1,13 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
+option(FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH
+       "Build the incomplete native WebContent AppContainer integration" OFF)
+if(FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH)
+    if(NOT WIN32)
+        message(FATAL_ERROR "The experimental AppContainer helper requires native Windows")
+    endif()
+    include("${FIREFLY_SOURCE_DIR}/firefly/native/sandbox/windows/helper/Targets.cmake")
+endif()
 add_library(
     firefly-port-wire STATIC
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
@@ -217,7 +225,9 @@ add_custom_target(
     DEPENDS firefly-autoplay-audio-probe
     VERBATIM)
 
-if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(APPLE
+   OR CMAKE_SYSTEM_NAME STREQUAL "Linux"
+   OR (WIN32 AND FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH))
     include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Targets.cmake")
 endif()
 

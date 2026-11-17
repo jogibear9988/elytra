@@ -61,13 +61,17 @@ static ByteString runtime_directory()
     auto executable = Core::System::current_executable_path();
 #ifdef __APPLE__
     constexpr auto layout = RuntimeLayout::MacOS;
+#elif defined(_WIN32)
+    constexpr auto layout = RuntimeLayout::Windows;
 #else
     constexpr auto layout = RuntimeLayout::Linux;
 #endif
-    auto selected = Firefly::runtime_directory(
-        executable.is_error() ? std::filesystem::path {} : executable.value().characters(),
-        FIREFLY_LADYBIRD_DIRECTORY, layout);
-    return ByteString(selected.string().c_str());
+    auto selected = Firefly::runtime_directory(executable.is_error()
+            ? std::filesystem::path {}
+            : std::filesystem::u8path(executable.value().characters()),
+        std::filesystem::u8path(FIREFLY_LADYBIRD_DIRECTORY), layout);
+    auto utf8 = selected.u8string();
+    return ByteString(StringView(reinterpret_cast<char const*>(utf8.data()), utf8.size()));
 }
 
 // Owned by ladybird_main: both Qt and borrowed native argv outlive the entire
@@ -391,14 +395,18 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     QSurfaceFormat::setDefaultFormat(format);
     std::error_code entry_error;
     auto entry_directory
-        = std::filesystem::absolute(options.arguments[1], entry_error).parent_path().string();
+        = std::filesystem::absolute(std::filesystem::u8path(options.arguments[1]), entry_error)
+              .parent_path()
+              .u8string();
     if (entry_error)
         return Error::from_string_literal("Cannot resolve application directory");
     Firefly::BootstrapStorage storage;
     int result;
     {
         auto app = adopt_own(*new Firefly::Application(storage,
-            QString::fromUtf8(entry_directory.data(), entry_directory.size()), cpu_painting));
+            QString::fromUtf8(
+                reinterpret_cast<char const*>(entry_directory.data()), entry_directory.size()),
+            cpu_painting));
         result = app->run_script(options.argc(), options.arguments.data(), options.electron_compat);
     }
 

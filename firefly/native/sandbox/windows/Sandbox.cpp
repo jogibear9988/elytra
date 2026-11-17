@@ -131,6 +131,45 @@ Profile::~Profile()
         FreeSid(m_sid);
 }
 
+bool verify_token(HANDLE process, PSID expected_sid, Failure& error)
+{
+    HANDLE raw = nullptr;
+    if (!OpenProcessToken(process, TOKEN_QUERY, &raw))
+        return fail(error, "OpenProcessToken");
+    Handle token(raw);
+    DWORD bytes = 0;
+    DWORD is_container = 0;
+    if (!GetTokenInformation(
+            token.get(), TokenIsAppContainer, &is_container, sizeof(is_container), &bytes)
+        || is_container != 1)
+        return fail(error, "verify AppContainer token", ERROR_ACCESS_DENIED);
+    auto information = [&](TOKEN_INFORMATION_CLASS kind, std::vector<unsigned char>& data) {
+        DWORD size = 0;
+        GetTokenInformation(token.get(), kind, nullptr, 0, &size);
+        if (!size || size > 65536)
+            return false;
+        data.resize(size);
+        return GetTokenInformation(token.get(), kind, data.data(), size, &size) != FALSE;
+    };
+
+    std::vector<unsigned char> sid, capabilities, integrity;
+    if (!information(TokenAppContainerSid, sid) || !information(TokenCapabilities, capabilities)
+        || !information(TokenIntegrityLevel, integrity))
+        return fail(error, "query sandbox token");
+    auto* actual_sid
+        = reinterpret_cast<TOKEN_APPCONTAINER_INFORMATION*>(sid.data())->TokenAppContainer;
+    auto* groups = reinterpret_cast<TOKEN_GROUPS*>(capabilities.data());
+    auto* label = reinterpret_cast<TOKEN_MANDATORY_LABEL*>(integrity.data());
+    if (!actual_sid || !IsValidSid(actual_sid)
+        || (expected_sid && !EqualSid(actual_sid, expected_sid)) || groups->GroupCount != 0
+        || !IsValidSid(label->Label.Sid))
+        return fail(error, "verify sandbox identity/capabilities", ERROR_ACCESS_DENIED);
+    auto count = *GetSidSubAuthorityCount(label->Label.Sid);
+    if (!count || *GetSidSubAuthority(label->Label.Sid, count - 1) > SECURITY_MANDATORY_LOW_RID)
+        return fail(error, "verify low integrity", ERROR_ACCESS_DENIED);
+    return true;
+}
+
 std::unique_ptr<Child> Child::create(
     std::shared_ptr<Profile> profile, Launch const& options, Failure& error)
 {
@@ -144,7 +183,8 @@ std::unique_ptr<Child> Child::create(
     auto invalid_string
         = [](std::wstring const& value) { return value.find(L'\0') != std::wstring::npos; };
     if (invalid_string(options.executable) || invalid_string(options.directory)
-        || std::any_of(options.arguments.begin(), options.arguments.end(), invalid_string)) {
+        || std::any_of(options.arguments.begin(), options.arguments.end(), invalid_string)
+        || std::any_of(options.environment.begin(), options.environment.end(), invalid_string)) {
         fail(error, "NUL launch input", ERROR_INVALID_PARAMETER);
         return {};
     }
@@ -257,10 +297,48 @@ std::unique_ptr<Child> Child::create(
     std::wstring local_directory(local_app_data);
     CoTaskMemFree(local_app_data);
     // Ambient main-process secrets/configuration never enter the renderer environment.
-    std::wstring environment;
+    std::vector<std::wstring> entries;
+    size_t environment_size = 1;
     for (auto const& entry : { std::wstring(L"LOCALAPPDATA=") + local_directory,
              std::wstring(L"PATH=") + windows + L"\\System32",
              std::wstring(L"SystemRoot=") + windows, std::wstring(L"WINDIR=") + windows }) {
+        entries.push_back(entry);
+        environment_size += entry.size() + 1;
+    }
+
+    // Entries are already selected by the native caller. Never inherit ambient
+    // configuration or allow replacement of the fixed startup environment.
+    std::vector<std::wstring> names;
+    for (auto const& entry : options.environment) {
+        auto separator = entry.find(L'=');
+        if (!separator || separator == std::wstring::npos || entry.size() > 65536) {
+            fail(error, "explicit environment entry", ERROR_INVALID_PARAMETER);
+            return {};
+        }
+
+        auto name = entry.substr(0, separator);
+        if (_wcsicmp(name.c_str(), L"LOCALAPPDATA") == 0 || _wcsicmp(name.c_str(), L"PATH") == 0
+            || _wcsicmp(name.c_str(), L"SystemRoot") == 0 || _wcsicmp(name.c_str(), L"WINDIR") == 0
+            || std::any_of(names.begin(), names.end(),
+                [&](auto const& prior) { return _wcsicmp(prior.c_str(), name.c_str()) == 0; })) {
+            fail(error, "duplicate startup environment", ERROR_INVALID_PARAMETER);
+            return {};
+        }
+
+        names.push_back(std::move(name));
+        entries.push_back(entry);
+        environment_size += entry.size() + 1;
+        if (environment_size > 1024 * 1024) {
+            fail(error, "environment limit", ERROR_INVALID_PARAMETER);
+            return {};
+        }
+    }
+
+    std::sort(entries.begin(), entries.end(),
+        [](auto const& a, auto const& b) { return _wcsicmp(a.c_str(), b.c_str()) < 0; });
+    std::wstring environment;
+    environment.reserve(environment_size);
+    for (auto const& entry : entries) {
         environment += entry;
         environment.push_back(L'\0');
     }
@@ -294,6 +372,8 @@ std::unique_ptr<Child> Child::create(
         return {};
     }
 
+    if (!verify_token(child->m_process.get(), child->m_profile->sid(), error))
+        return {};
     return child;
 }
 

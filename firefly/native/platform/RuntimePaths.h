@@ -6,6 +6,7 @@ namespace Firefly {
 enum class RuntimeLayout {
     MacOS,
     Linux,
+    Windows,
 };
 
 std::filesystem::path runtime_directory(std::filesystem::path const& executable,

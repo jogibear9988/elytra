@@ -1,8 +1,16 @@
-# Select real native adapters; the Linux runtime remains experimental until its hosted gate passes.
-if(NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+# Select native adapters without granting a Windows launch through upstream's no-op sandbox.
+option(FIREFLY_EXPERIMENTAL_WINDOWS_RUNTIME "Build the explicitly experimental Windows desktop" OFF)
+if(WIN32 AND NOT FIREFLY_EXPERIMENTAL_WINDOWS_RUNTIME)
+    message(FATAL_ERROR "Windows desktop requires explicit FIREFLY_EXPERIMENTAL_WINDOWS_RUNTIME")
+endif()
+if(NOT APPLE
+   AND NOT WIN32
+   AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "No native Firefly desktop runtime for this platform")
 endif()
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/Layout.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../platform/WindowsRuntime.cmake")
+firefly_require_windows_runtime()
 include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
@@ -205,7 +213,11 @@ if(APPLE)
                                 PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarMac.mm"
                                 PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-else()
+elseif(WIN32)
+    list(APPEND firefly_native_services
+         "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp"
+         "${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarUnsupported.cpp")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND firefly_native_services "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryLinux.cpp"
          "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp"
          "${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarUnsupported.cpp")
@@ -217,7 +229,7 @@ target_link_libraries(firefly-linux-environment PUBLIC AK Qt::Core)
 add_executable(firefly-linux-environment-probe
                "${CMAKE_CURRENT_LIST_DIR}/../platform/EnvironmentProbe.cpp")
 target_link_libraries(firefly-linux-environment-probe PRIVATE firefly-linux-environment)
-if(NOT APPLE)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_library(
         firefly-linux-desktop-services STATIC
         "${CMAKE_CURRENT_LIST_DIR}/../platform/Linux.cpp"
@@ -321,7 +333,11 @@ target_link_libraries(
            firefly-app-paths
            firefly-locale
            firefly-safe-storage)
-if(NOT APPLE)
+if(WIN32)
+    target_link_libraries(
+        firefly-application PUBLIC firefly-windows-desktop-services firefly-windows-window-geometry
+                                   firefly-windows-clipboard firefly-windows-helper-launch)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_link_libraries(firefly-application PUBLIC firefly-linux-desktop-services
                                                      firefly-x11-clipboard)
 endif()
@@ -332,6 +348,9 @@ add_executable(firefly)
 target_link_libraries(firefly PRIVATE firefly-application)
 add_dependencies(firefly ladybird ${ladybird_helper_processes} check-firefly-upstream)
 ladybird_check_skia_confinement(firefly)
+if(WIN32)
+    ladybird_windows_bin(firefly CONSOLE)
+endif()
 
 if(NOT TARGET Qt6::QOffscreenIntegrationPlugin)
     find_package(Qt6QOffscreenIntegrationPlugin QUIET PATHS "${Qt6Gui_DIR}" NO_DEFAULT_PATH)

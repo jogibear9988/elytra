@@ -23,6 +23,16 @@ def main():
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument("--configure-only", action="store_true")
     parser.add_argument(
+        "--experimental-windows-runtime",
+        action="store_true",
+        help="Request the gated native Windows desktop graph; incomplete confinement still fails",
+    )
+    parser.add_argument(
+        "--experimental-windows-helper-launch",
+        action="store_true",
+        help="Build the incomplete native Windows AppContainer helper component; not desktop acceptance",
+    )
+    parser.add_argument(
         "--ccache",
         action="store_true",
         help="Cache C/C++ objects; retain all native execution gates",
@@ -74,9 +84,17 @@ def main():
         ("linux", "x86_64"),
     ]:
         parser.error("--baseline-cpu currently supports macOS ARM64 and Linux x64 commands")
-    if args.target == "firefly" and sys.platform not in ["darwin", "linux"]:
+    if args.experimental_windows_helper_launch and sys.platform != "win32":
+        parser.error("--experimental-windows-helper-launch requires native Windows")
+    if args.experimental_windows_runtime and (sys.platform != "win32" or args.target != "firefly"):
+        parser.error("--experimental-windows-runtime requires native Windows --target firefly")
+    if (
+        args.target == "firefly"
+        and sys.platform not in ["darwin", "linux"]
+        and not (sys.platform == "win32" and args.experimental_windows_runtime)
+    ):
         parser.error(
-            "The desktop runtime currently supports macOS and experimental Linux X11 builds"
+            "Desktop requires macOS/Linux or explicitly gated --experimental-windows-runtime"
         )
     if args.target == "firefly-window-probe" and sys.platform not in ["darwin", "linux", "win32"]:
         parser.error(
@@ -122,8 +140,21 @@ def main():
         "-DCMAKE_SKIP_INSTALL_RULES=ON",
     ]
     command.extend(cache_options)
+    if sys.platform == "win32":
+        command.extend(["-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl"])
+    command.append(
+        f"-DFIREFLY_EXPERIMENTAL_WINDOWS_RUNTIME={'ON' if args.experimental_windows_runtime else 'OFF'}"
+    )
+    command.append(
+        f"-DFIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH={'ON' if args.experimental_windows_helper_launch else 'OFF'}"
+    )
     if args.target == "firefly":
-        manifest = prepare(ROOT, build / "firefly-manifest", linux=sys.platform == "linux")
+        manifest = prepare(
+            ROOT,
+            build / "firefly-manifest",
+            linux=sys.platform == "linux",
+            windows=sys.platform == "win32",
+        )
         command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=ON"])
     elif sys.platform == "linux":
         manifest = prepare_linux_renderer(ROOT, build / "renderer-manifest")

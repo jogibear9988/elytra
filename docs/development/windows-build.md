@@ -346,6 +346,60 @@ is not native Firefly windows/sandbox, Windows app packaging, an installer or a
 published Windows release. Those requirements remain open.
 
 
+## Owned helper and desktop-provider integration (2026-11-17)
+
+The current review adds native Windows locale, monitor/cursor, Qt clipboard,
+window centering and Unicode runtime-path providers. They can compile separately
+from the full application. Read-only provider and relocation probes join the
+native Windows renderer workflow. Source controls pass locally; their actual
+Windows compilation/execution remains pending. Theme/accessibility, hidden title
+bars and broader desktop behavior are not accepted by those components.
+
+A second, explicit configuration selects
+`--experimental-windows-helper-launch`. The default remains off. It composes only
+reviewed, hash-pinned upstream helper spawn/Core lifetime and broker seams into
+owned build outputs; the Ladybird checkout stays unmodified. One shared DLL owns
+scoped launch authority and Job/profile/resource leases across SDK libraries.
+Only WebContent is admitted; other roles refuse. The parent verifies the exact
+AppContainer SID, zero capabilities, low integrity and its freshly owned Job
+before resuming the child. A child never inherits the Job handle or a parent
+`PROCESS_DUP_HANDLE` capability.
+
+The component uses an explicit environment, selected socket takeover and trusted
+Windows system paths, rather than copying ambient variables. This does not yet
+supply all actual LibWeb pre-VM security configuration. Resource staging requires
+an exact-revision, hashed physical inventory, rejects hardlinks/reparse points,
+retains write/rename/directory handles and verifies the complete inventory before
+scoped SID ACL grants. Normal cleanup revokes its owned grants. Abrupt parent
+death terminates Job children but may leave profile/ACL residue; automatic residue
+recovery is not implemented.
+
+The private broker rejects pseudo/truncated handles, rolls back partial duplicates
+and bounds remote-owned tokens/handles with disconnect refunds. Browser-origin
+retention deliberately remains unchanged: upstream synchronous send paths can
+abort on rejected admission, so a global quota would introduce a receiver-driven
+Browser failure. Real Browser sender backpressure/shutdown and retention control
+remain required before complete desktop acceptance.
+
+```powershell
+python tooling/tests/test_windows_desktop_policy.py
+python tooling/tests/test_windows_helper_source.py
+python tooling/tests/test_windows_broker_source.py
+python tooling/build_renderer.py --build-dir build/windows-renderer --target firefly-renderer-probe --experimental-windows-helper-launch --configure-only --jobs 3
+cmake --build build/windows-renderer --target check-firefly-windows-broker --parallel 3
+```
+
+The native broker probe stages its own real Core/AppContainer test executable as
+`WebContent.exe`; it is **not actual LibWeb/DOM/preload startup**. Its passing source
+controls do not establish native token, ACL, race, process or broker execution.
+The hosted native target must pass independently. Actual FireflyWebContent startup,
+all other helper roles including network/loopback policy, pre-VM security transport,
+Browser broker flow control, WinMain/std-descriptor behavior and PE/DLL packaging
+remain release blockers. The producer target's
+`FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE` property stays false; an unrelated cache
+boolean cannot open the full runtime gate. No Designer/Code-OSS Windows EXE is
+advertised from this slice.
+
 ## Experimental native LibWeb renderer gate
 
 The independent Experimental native Windows renderer workflow now configures the

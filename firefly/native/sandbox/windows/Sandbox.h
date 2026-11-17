@@ -94,12 +94,17 @@ struct Launch {
     std::wstring executable;
     std::wstring directory;
     std::vector<std::wstring> arguments;
+    // Additional explicit entries; system/startup variables cannot be overridden.
+    std::vector<std::wstring> environment;
     // Already-owned inheritable handles. Originals are never changed here.
     std::vector<HANDLE> inherited;
     HANDLE input { nullptr };
     HANDLE output { nullptr };
     HANDLE error { nullptr };
 };
+
+// Query the actual primary token; a null expected SID is for the child-side verifier.
+bool verify_token(HANDLE process, PSID expected_sid, Failure&);
 
 class Child {
 public:
