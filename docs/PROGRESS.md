@@ -15860,6 +15860,29 @@ build/current-final-streams-controls.log,
 build/old-reference-final-streams-controls.log. SDK/user app untouched; native
 Windows acceptance and full stream parity remain open. Full goal remains active.
 
+## Legacy URL ASCII IDNA boundary and current Windows evidence (2026-11-17)
+
+Match current Node24.22/Ada's legacy ASCII domain fast path, preserving malformed
+ASCII ACE spellings that old ICU conversion rejected. Keep parser lowercasing,
+forbidden-host checks and native Unicode IDNA; do not change WHATWG URL or public
+domainToASCII. Actual references prove four ASCII ACE old/new differences while
+mixed Unicode invalid ACE, ZWJ and fullwidth separator/spoofing inputs still reject.
+Fixture independently asserts exact old reference failures and modern host output.
+
+Regeneration and Release CLI/embedded build pass. Complete67-case legacy runner
+passes with both Node24.15.0 and official24.22.3; maintained factory boundary
+controls also pass. Logs: build/current-final-legacy-controls.log,
+build/old-reference-final-legacy-controls.log. Related modern data, Buffer and Web
+adapter complete runners pass after the combined build; SDK/live app untouched.
+
+Refresh Windows headline from actual05149fe run44041463772/job133896889031:
+151/160 pass; remaining nine suites are legacyURL/lifetime/stdio/web-adapters/
+fetch-data/compression/DNS/net/URL. Follow-up runtime/fixture changes now have local
+old/current reference acceptance, but Windows rerun is still required, especially
+for its synchronous pipe contract. Linux renderer run44041463811's removed CPU
+argv expectation was independently corrected earlier. No platform green claim or
+master/alpha promotion. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -28,7 +28,6 @@ const cases = [
   'http://a..b/',
   'http://-a.com/',
   'http://a\u200db.com/',
-  'http://xn--a/',
   'http://a'.replace('a', 'a'.repeat(70)) + '.com/',
   'http://user@name:p@host/a',
   'http://a@b?@c',
@@ -105,6 +104,25 @@ for (const entry of cases) {
     }
     rows.push({ error: error.name, code: error.code ?? null, input: error.input ?? null });
   }
+}
+// Node 24.15 used ICU validation for ASCII ACE labels; Node 24.22's Ada
+// fast path preserves them. Keep the old oracle's exact rejection observable
+// while requiring the modern spelling in Mite, without changing Unicode IDNA.
+for (const hostname of ['xn--a', 'xn--', 'xn--invalid-', 'xn--a.example']) {
+  const input = `http://${hostname.toUpperCase()}/`;
+  if (process.versions.node === '24.15.0') {
+    assert.throws(() => parse(input), { name: 'TypeError', code: 'ERR_INVALID_URL' });
+  } else {
+    assert.equal(parse(input).hostname, hostname);
+    assert.equal(parse(input).href, `http://${hostname}/`);
+  }
+  rows.push({ asciiAceReference: hostname });
+}
+for (const hostname of ['xn--a.é', 'a\u200db.com', 'a\uff1a80', 'a\uff20b']) {
+  assert.throws(() => parse(`http://${hostname}/`), {
+    name: 'TypeError',
+    code: 'ERR_INVALID_URL'
+  });
 }
 const changed = new Url();
 changed.protocol = 'http';

@@ -26,8 +26,12 @@ Without it, query remains the legacy string/null value. Relative inputs, authori
 syntax, escaped auth, IPv6, IDNA, default ports, escaping and legacy numeric hosts
 follow the differential fixture. A separate native ICU IDNA operation avoids WHATWG
 numeric-IP normalization without changing public domainToASCII/URL behavior.
+Legacy parsing follows current Node24.22.3's ASCII fast path, including preserving
+ASCII ACE spellings that strict Unicode IDNA would reject. Non-ASCII domains
+still use native IDNA, and forbidden-host validation remains in place. This legacy
+behavior is not a change to WHATWG URL or public domainToASCII validation.
 
-All 64 focused Node/Mite cases pass locally on macOS; native Linux/Windows acceptance
+All 67 focused Node/Mite cases pass locally on macOS; native Linux/Windows acceptance
 for this new parser remains unverified. The Node reference suppresses deprecation
 warnings in this comparison; Mite does not emit Node's legacy-API deprecation warnings.
 These legacy APIs are compatibility tools, not validation for untrusted URLs. Prefer

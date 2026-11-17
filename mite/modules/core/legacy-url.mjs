@@ -41,7 +41,13 @@ export default function createLegacyUrl(native, Buffer) {
 
   const StringPrototypeSlice = (value, start, end) => value.slice(start, end);
 
-  const toASCII = (value) => native.asciiDomain(value);
+  function toASCII(value) {
+    // Node 24.22's non-strict Ada conversion preserves already-ASCII labels,
+    // including malformed ACE spellings. parse() lowercases first and still
+    // checks forbidden host characters after conversion. Unicode always takes
+    // the native IDNA path; this does not change the WHATWG URL converter.
+    return /^[\x00-\x7f]*$/.test(value) ? value : native.asciiDomain(value);
+  }
 
   const unsafeProtocol = new Set(['javascript', 'javascript:']);
   const hostlessProtocol = new Set(['javascript', 'javascript:']);

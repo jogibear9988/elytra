@@ -889,7 +889,9 @@ function createLegacyUrl(native, Buffer) {
   const StringPrototypeIndexOf = (value, search) => value.indexOf(search);
   const StringPrototypeReplaceAll = (value, search, replacement) => value.replaceAll(search, replacement);
   const StringPrototypeSlice = (value, start, end) => value.slice(start, end);
-  const toASCII = (value) => native.asciiDomain(value);
+  function toASCII(value) {
+    return /^[\x00-\x7f]*$/.test(value) ? value : native.asciiDomain(value);
+  }
   const unsafeProtocol = /* @__PURE__ */ new Set(["javascript", "javascript:"]);
   const hostlessProtocol = /* @__PURE__ */ new Set(["javascript", "javascript:"]);
   const slashedProtocol = new Set(

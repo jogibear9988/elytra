@@ -2,19 +2,20 @@
 
 Earlier scoped Mite baselines passed native Windows CI; the current review runtime
 is not accepted on Windows. Full Firefly/desktop/package support remains unverified.
-At 034a211, [run 44022434498](https://github.com/jogibear9988/elytra/actions/runs/44022434498)
-compiles with clang-cl but fails 14 of 159 runtime suites. That run predates the
-native stdio correction; later changes require fresh acceptance. Windows uses the
-fixed Node 24.22.3 reference because Node 24.15 has a separately observed native
-TCP-connect crash there. Linux/macOS use Node 24.15.0. Do not downgrade that Windows
-pin or waive assertions to hide the newer reference differences.
+At 05149fe, [run 44041463772](https://github.com/jogibear9988/elytra/actions/runs/44041463772)
+compiles with clang-cl and passes151 of160 runtime suites. Its nine failures are
+legacy URL, lifetime, stdio, Web adapters, Fetch data, compression, DNS, net and URL.
+Native stdio/process signals and HTTP behavior have advanced beyond the earlier
+034a211 fourteen-failure baseline; this is still not a green Windows baseline.
 
-Remaining failures need separate classification: exit/abort/process-error/immediate
-failures may be addressed by native stdio but need a real Windows rerun. The newer
-reference also changes lifetime listener retention, Blob native newline conversion,
-URL handling, stream adapters, compression and HTTP/parser behavior; both runtime
-and fixtures must be compared to the declared contracts. The latest recorded
-Windows failures are not a green baseline or evidence of a working Windows desktop.
+Windows uses fixed Node24.22.3 because Node24.15 has a separately observed native
+TCP-connect crash there. Linux/macOS use Node24.15.0. Do not downgrade that Windows
+pin or waive assertions to hide newer reference differences. Follow-up commits
+fix modern runtime contracts and independently classified test assumptions. Both
+pinned references now pass the affected local macOS controls; Windows-only pipe
+behavior still requires actual hosted acceptance. Fresh Windows CI is mandatory
+before claiming this review runtime accepted, and native Firefly desktop/package
+support remains unverified.
 
 Native Windows development Actions builds Mite
 on Windows Server 2025 with Visual Studio clang-cl x64, the pinned Rust toolchain
