@@ -305,23 +305,17 @@ public:
             check(m_application && m_application->size > 0 && m_application->data,
                 "WFP nonempty application identity");
 
-            std::array<FWPM_FILTER_CONDITION0, 3> conditions {};
-            conditions[0].fieldKey = FWPM_CONDITION_ALE_APP_ID;
-            conditions[0].matchType = FWP_MATCH_EQUAL;
-            conditions[0].conditionValue.type = FWP_BYTE_BLOB_TYPE;
-            conditions[0].conditionValue.byteBlob = m_application;
-            conditions[1].fieldKey = FWPM_CONDITION_IP_PROTOCOL;
-            conditions[1].matchType = FWP_MATCH_EQUAL;
-            conditions[1].conditionValue.type = FWP_UINT8;
-            conditions[1].conditionValue.uint8 = IPPROTO_TCP;
-            conditions[2].fieldKey = FWPM_CONDITION_IP_REMOTE_PORT;
-            conditions[2].matchType = FWP_MATCH_EQUAL;
-            conditions[2].conditionValue.type = FWP_UINT16;
-            conditions[2].conditionValue.uint16 = port;
+            // Some drop events omit the transport fields. Subscribe only to
+            // our worker image so the callback can count those incomplete
+            // events. Endpoint checks still gate every retained record.
+            FWPM_FILTER_CONDITION0 application {};
+            application.fieldKey = FWPM_CONDITION_ALE_APP_ID;
+            application.matchType = FWP_MATCH_EQUAL;
+            application.conditionValue.type = FWP_BYTE_BLOB_TYPE;
+            application.conditionValue.byteBlob = m_application;
             FWPM_NET_EVENT_ENUM_TEMPLATE0 selection {};
-            selection.numFilterConditions = static_cast<UINT32>(conditions.size());
-
-            selection.filterCondition = conditions.data();
+            selection.numFilterConditions = 1;
+            selection.filterCondition = &application;
 
             FWPM_NET_EVENT_SUBSCRIPTION0 subscription {};
             subscription.enumTemplate = &selection;

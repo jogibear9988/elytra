@@ -16454,6 +16454,16 @@ all pass. All 17 tracked processes stop, with one cleanup signal. Logs are in
 build/code-oss-release-{compile,entry-check}.log. Verification of the new SDK,
 relocated signed Launcher, full packages and Windows apps remains outstanding.
 
+## Count incomplete Windows drop notifications for the owned worker
+
+The Windows audit now verifies that the capability-drop keyword is enabled
+and subsequently restored. It still receives zero callbacks. Subscribe by
+the exact worker image so incomplete event headers can reach the diagnostic
+counters. The callback still requires the owned endpoint and lifetime for
+retained metadata, and the acceptance predicate still requires an exact
+capability drop. The six source checks, four evidence checks and native
+formatting pass locally. Native callback delivery still needs verification.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
