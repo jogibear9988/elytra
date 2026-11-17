@@ -16197,6 +16197,16 @@ those remain required. Update Windows guide with established source transport an
 remaining native gates. YAMLformatter and upstreamsource composition controls PASS;
 actual Windows compilation pending. No localSDK rebuild/GUI. Fullgoalactive.
 
+## Repair native Windows diagnostic control's exact status type (2026-11-17)
+
+Fresh4df3 AppContainerjob133983067016 reaches nativeProbe compilation and rejects
+a nonconstant signedlong-to-DWORD list-initialization conversion in the new
+negativecontrol loop. Use DWORD explicitly for the loop's native status value;
+keep every tested error and admission assertion unchanged. Pinnednativeformat,
+Python4evidencegroups and diff PASS. This is a real hosted compiler finding;
+Windowsruntime/network diagnosis remains unverified until the corrected run.
+No localnative/GUI launch; fullgoal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -163,7 +163,7 @@ void network_evidence_controls()
             "exact native capability diagnosis");
         require(!network_denial({ false, "connect", 0, ERROR_SUCCESS, capability }),
             "successful socket cannot be diagnosed denied");
-        for (auto status : { ERROR_ACCESS_DENIED, ERROR_PROC_NOT_FOUND, ERROR_MOD_NOT_FOUND })
+        for (DWORD status : { ERROR_ACCESS_DENIED, ERROR_PROC_NOT_FOUND, ERROR_MOD_NOT_FOUND })
             require(!network_denial({ false, "WSAPoll timeout", WSAETIMEDOUT, status, capability }),
                 "failed or unavailable diagnosis cannot admit timeout");
     }
