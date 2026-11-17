@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage and relocate a real x64 EXE with normal and delay-loaded DLL imports."""
+"""Run a relocated x64 EXE with ordinary imports, delay imports and a plugin."""
 
 import _support
 
@@ -68,6 +68,42 @@ def main():
             "__declspec(dllimport) int bridge(void);\nint main(void) { return bridge(); }",
             link=(bridge.with_suffix(".lib"),),
         )
+        plugin_dependency = build(
+            inputs,
+            "PluginProvider",
+            "__declspec(dllexport) int plugin_value(void) { return 5; }",
+            dll=True,
+        )
+        plugin = build(
+            inputs,
+            "PlatformFixture",
+            "__declspec(dllimport) int plugin_value(void);\n"
+            "__declspec(dllexport) int platform_value(void) { return plugin_value(); }",
+            dll=True,
+            link=(plugin_dependency.with_suffix(".lib"),),
+        )
+        plugin_host = build(
+            inputs,
+            "plugin-host",
+            r"""
+#include <windows.h>
+#include <wchar.h>
+int main(void) {
+    wchar_t path[32768];
+    DWORD size = GetModuleFileNameW(NULL, path, 32768);
+    if (!size || size >= 32768) return 2;
+    wchar_t *slash = wcsrchr(path, L'\\');
+    if (!slash || (slash - path) + 40 >= 32768) return 2;
+    wcscpy_s(slash + 1, 32768 - (slash + 1 - path), L"platforms\\PlatformFixture.dll");
+    HMODULE module = LoadLibraryExW(path, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    if (!module) return 3;
+    int (*query)(void) = (int (*)(void))GetProcAddress(module, "platform_value");
+    int status = query ? query() : 4;
+    FreeLibrary(module);
+    return status;
+}
+""",
+        )
         stage = root / "stage" / "bin"
         refused(lambda: pe.stage(stage, [image], [bridge]), "No explicit DLL provider for leaf.dll")
         assert not stage.exists()
@@ -77,8 +113,33 @@ def main():
             lambda: pe.stage(stage, [image], [bridge, leaf, duplicate]), "duplicate DLL provider"
         )
         assert not stage.exists()
-        metadata = pe.stage(stage, [image], [bridge, leaf])
-        assert set(metadata["objects"]) == {"firefly.exe", "Bridge.dll", "Leaf.dll"}, metadata
+        for relative in (
+            "../PlatformFixture.dll",
+            "NUL/PlatformFixture.dll",
+            "C:/PlatformFixture.dll",
+        ):
+            refused(
+                lambda: pe.stage(stage, [image], [bridge, leaf], plugins=[(relative, plugin)]),
+                "Invalid or duplicate PE plugin",
+            )
+        placement = ("platforms/PlatformFixture.dll", plugin)
+        refused(
+            lambda: pe.stage(stage, [plugin_host], [], plugins=[placement]),
+            "No explicit DLL provider for pluginprovider.dll",
+        )
+        assert not stage.exists()
+        metadata = pe.stage(
+            stage, [image, plugin_host], [bridge, leaf, plugin_dependency], plugins=[placement]
+        )
+        assert set(metadata["objects"]) == {
+            "firefly.exe",
+            "Bridge.dll",
+            "Leaf.dll",
+            "plugin-host.exe",
+            "PluginProvider.dll",
+            "platforms/PlatformFixture.dll",
+        }, metadata
+        assert "pluginprovider.dll" in metadata["objects"][placement[0]]["imports"]
         assert "bridge.dll" in metadata["objects"][image.name]["imports"]
         assert "leaf.dll" in metadata["objects"][bridge.name]["imports"]
         assert "kernel32.dll" in metadata["hostDlls"]
@@ -96,7 +157,14 @@ def main():
             timeout=15,
         )
         assert result.returncode == 37, result.returncode
-    print("PASS native x64 PE closure, ordinary and delayed imports, and relocated execution")
+        result = subprocess.run(
+            [str(moved / "bin/plugin-host.exe")],
+            cwd=working,
+            env={**os.environ, "PATH": str(pe.system_directory())},
+            timeout=15,
+        )
+        assert result.returncode == 5, result.returncode
+    print("PASS native x64 PE closure, delayed imports, explicit plugin, and relocated execution")
 
 
 if __name__ == "__main__":

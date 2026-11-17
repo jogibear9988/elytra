@@ -16571,6 +16571,16 @@ SHA-256 verification. The staged EXE returns 37 after the source SDK
 directory is moved aside. Record the verified scope in the Windows build
 guide. Full application packages and runtime confinement remain open.
 
+## Stage the imports of explicitly selected Windows plugins
+
+Add PE plugin roots with explicit nested paths. Traverse their ordinary
+and delayed imports and stage app-local providers beside the executable.
+Reject invalid Win32 placements and duplicate plugin or provider names.
+The native fixture now loads a platform DLL from a subdirectory after
+relocation and checks its imported dependency and returned value with
+the SDK moved aside. Local format, syntax and diff checks pass. Native
+verification and integration with the actual Firefly package remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

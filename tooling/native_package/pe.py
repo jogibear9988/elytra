@@ -8,6 +8,7 @@ import stat
 import subprocess
 import tempfile
 
+from check_checkout_paths import reason
 from native_package.elf import digest
 
 # This list covers the Windows desktop ABI used by the native build. A VC
@@ -107,8 +108,12 @@ def system_directory():
     return Path(buffer.value)
 
 
-def stage(output, images, providers):
-    """Place the selected x64 images and explicit providers in one fresh bin directory."""
+def stage(output, images, providers, *, plugins=()):
+    """Stage executable roots and explicitly placed dynamic plugin roots.
+
+    Each plugin is a (relative path, source) pair. Its linked app-local DLLs
+    live beside the executable, just like the executable's other providers.
+    """
     if os.name != "nt":
         raise RuntimeError("PE closure staging requires native Windows")
     dumpbin = shutil.which("dumpbin")
@@ -122,26 +127,41 @@ def stage(output, images, providers):
     pending = {}
     for source in providers:
         name = source.name.lower()
-        if not DLL.fullmatch(name) or name in HOST_DLLS or name in supplied:
+        if not DLL.fullmatch(name) or reason(name) or name in HOST_DLLS or name in supplied:
             raise ValueError(f"Invalid or duplicate DLL provider: {source}")
         physical_file(source)
-        supplied[name] = source
+        supplied[name] = (source.name, source)
     for source in images:
         name = source.name.lower()
-        if source.suffix.lower() != ".exe" or name in pending:
+        if source.suffix.lower() != ".exe" or reason(name) or name in pending:
             raise ValueError(f"Invalid or duplicate executable input: {source}")
         physical_file(source)
-        pending[name] = source
+        pending[name] = (source.name, source)
     if not pending:
         raise ValueError("PE closure requires at least one executable")
+
+    for relative, source in plugins:
+        name = source.name.lower()
+        if (
+            "/" not in relative
+            or reason(relative)
+            or relative.rsplit("/", 1)[1].lower() != name
+            or not DLL.fullmatch(name)
+            or name in HOST_DLLS
+            or name in supplied
+            or name in pending
+        ):
+            raise ValueError(f"Invalid or duplicate PE plugin: {relative!r}")
+        physical_file(source)
+        pending[name] = (relative, source)
 
     planned = {}
     host = set()
     while pending:
-        key, source = pending.popitem()
+        key, (relative, source) = pending.popitem()
         fingerprint = digest(source)
         dependencies = imports(dumpbin, source)
-        planned[key] = (source, fingerprint, dependencies)
+        planned[key] = (relative, source, fingerprint, dependencies)
         for name in dependencies:
             if name in HOST_DLLS:
                 physical_file(os_directory / name)
@@ -156,8 +176,9 @@ def stage(output, images, providers):
     with tempfile.TemporaryDirectory(prefix=".pe-stage-", dir=output.parent) as temporary:
         payload = Path(temporary) / "bin"
         payload.mkdir()
-        for source, fingerprint, _ in planned.values():
-            target = payload / source.name
+        for relative, source, fingerprint, _ in planned.values():
+            target = payload / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
             if digest(target) != fingerprint:
                 raise ValueError(f"PE input changed during staging: {source}")
@@ -165,8 +186,8 @@ def stage(output, images, providers):
 
     return {
         "objects": {
-            source.name: {"sha256": fingerprint, "imports": dependencies}
-            for source, fingerprint, dependencies in planned.values()
+            relative: {"sha256": fingerprint, "imports": dependencies}
+            for relative, _, fingerprint, dependencies in planned.values()
         },
         "hostDlls": sorted(host),
     }
