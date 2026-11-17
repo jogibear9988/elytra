@@ -5,10 +5,14 @@ import _support  # Shared build-helper import path for standalone test CLIs.
 
 import argparse
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -73,7 +77,6 @@ def main():
         "http.METHODS",
         "http.STATUS_CODES",
         "http.maxHeaderSize",
-        "process.versions.llhttp",
     ]
     policies = [
         '(()=>{const values=["ok"];res.setHeader("X-Test",values);values.push("bad\\r\\nInjected: yes");res.writeHead(200);return res.headersSent;})()',
@@ -83,6 +86,9 @@ def main():
         f"""{{const res=new http.ServerResponse(new http.IncomingMessage(new Socket()));try{{console.log(JSON.stringify({{value:({expr})}}));}}catch(e){{console.log(JSON.stringify({{error:e.name,code:e.code}}));}}}}"""
         for expr in cases + policies
     )
+    # The parser version is provider metadata, not HTTP behavior. Mite must
+    # report its actual pinned dependency; Node may embed a different release.
+    source += "\nconsole.log(JSON.stringify({llhttp:process.versions.llhttp}));\n"
     with tempfile.TemporaryDirectory(prefix="mite-http-") as directory:
         fixture = Path(directory) / "headers.mjs"
         fixture.write_text(source)
@@ -95,6 +101,16 @@ def main():
             print(result)
             return 1
     rows = [[json.loads(line) for line in result.stdout.splitlines()] for result in results]
+    metadata = [row.pop() for row in rows]
+    overrides = json.loads((ROOT / "vcpkg.json").read_text())["overrides"]
+    pinned = next(
+        entry["version"].split("#", 1)[0] for entry in overrides if entry["name"] == "llhttp"
+    )
+    assert isinstance(metadata[0].get("llhttp"), str) and re.fullmatch(
+        r"[0-9]+\.[0-9]+\.[0-9]+", metadata[0]["llhttp"]
+    ), metadata[0]
+    assert metadata[1] == {"llhttp": pinned}, (pinned, metadata)
+    print("PASS parser metadata: native pinned llhttp and independently versioned Node provider")
     failures = 0
     for expr, expected, actual in zip(cases, *rows):
         if expected != actual:

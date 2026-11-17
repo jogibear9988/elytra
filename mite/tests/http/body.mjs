@@ -41,5 +41,45 @@ for await (const chunk of socket) {
   text += chunk.toString();
 }
 console.log(JSON.stringify(observed));
-console.log(JSON.stringify(text));
+// HTTP chunk boundaries may change when Node corks adjacent writes. Decode the
+// actual framing independently, while still requiring exact headers/body/trailers.
+const boundary = text.indexOf('\r\n\r\n');
+if (boundary < 0) {
+  throw Error('Missing response headers');
+}
+const headers = text.slice(0, boundary);
+let offset = boundary + 4;
+let body = '';
+let trailers;
+while (offset < text.length) {
+  const end = text.indexOf('\r\n', offset);
+  const sizeText = text.slice(offset, end);
+  if (end < 0 || !/^[0-9a-f]+$/i.test(sizeText)) {
+    throw Error('Invalid response chunk size');
+  }
+  const size = parseInt(sizeText, 16);
+  offset = end + 2;
+  if (!Number.isSafeInteger(size) || size > text.length - offset) {
+    throw Error('Truncated chunk');
+  }
+  if (size === 0) {
+    const last = text.indexOf('\r\n\r\n', offset);
+    if (last < 0 || last + 4 !== text.length) {
+      throw Error('Invalid response trailer termination');
+    }
+    trailers = text.slice(offset, last);
+    offset = text.length;
+    break;
+  }
+  body += text.slice(offset, offset + size);
+  offset += size;
+  if (text.slice(offset, offset + 2) !== '\r\n') {
+    throw Error('Invalid response chunk terminator');
+  }
+  offset += 2;
+}
+if (body !== 'onetwo' || trailers !== 'X-End: done') {
+  throw Error('Response body/trailers changed');
+}
+console.log(JSON.stringify({ headers, body, trailers }));
 await new Promise((resolve) => server.close(resolve));

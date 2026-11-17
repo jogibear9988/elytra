@@ -15641,6 +15641,23 @@ confirmchangedloneCRnormalization; no unrelatedproductionchange made inthisslice
 FreshplatformCI, broadersaturation/failure/teardown andWindowsnativeDesktop remain
 open; no master/alpha promotion. Fullprojectgoal remainsactive.
 
+## HTTP reference checks across pinned Node versions (2026-11-17)
+
+Correct two test assumptions exposed by native Windows Node24.22.3 CI. Compare
+HTTP response headers, independently decoded chunk framing, exact body and trailers;
+legal coalescing of adjacent writes must not fail the body fixture. Keep strict
+size/CRLF/truncation/trailer termination checks. Treat process.versions.llhttp as
+provider metadata: require Mite's actual vcpkg-pinned version and a valid Node
+provider version independently, while preserving all behavioral comparisons.
+
+Targeted non-GUI Node24.15/Mite macOS controls pass: complete HTTP server runner
+(11 scenarios, fatal callbacks and timeout/unsupported policies), plus complete
+header runner. Logs: build/windows-http-body-controls.log and
+build/windows-http-metadata-controls.log. This changes test expectations, not HTTP
+production behavior. Native Windows rerun remains required. Visible Code-OSS launch
+is separately under repair at Cocoa Services-menu registration; no visible launch
+acceptance is claimed. Full project goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
