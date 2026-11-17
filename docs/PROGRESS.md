@@ -16527,6 +16527,14 @@ working directory. Formatter, Python syntax and diff checks pass locally.
 Native execution is pending. This component leaves full Firefly confinement,
 dependency bundling and application acceptance open.
 
+## Pass the Windows launcher library to the native linker
+
+The first hosted launcher fixture stops before runtime because clang-cl
+counts shell32.lib as a second driver input with /Fo. Move the import
+library behind /link with the GUI subsystem flag. The test still
+compiles and executes both launcher modes and has the same assertions.
+Python syntax, formatting and diff checks pass. Native rerun pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -36,7 +36,7 @@ def compile_program(source, output, *options, gui=False):
             str(source),
             "/Fo" + str(output.with_suffix(".obj")),
             "/Fe" + str(output),
-            *(["/link", "/SUBSYSTEM:WINDOWS"] if gui else []),
+            *(["/link", "/SUBSYSTEM:WINDOWS", "shell32.lib"] if gui else []),
         ],
         check=True,
         timeout=90,
@@ -71,7 +71,6 @@ def main():
                 launcher_source,
                 launcher,
                 f"/DFIREFLY_ELECTRON_COMPAT={int(compatible)}",
-                "shell32.lib",
                 gui=True,
             )
             moved = root / f"Relocated Grüße 中文 {compatible}"
