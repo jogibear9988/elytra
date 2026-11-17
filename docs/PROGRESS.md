@@ -16249,6 +16249,20 @@ No compiler/app/GUI launch and no claim this accepts the renderer. PinnedYAMLfor
 PASS; actual hosted job pending on push. Main native builds remain independently
 required before master/release promotion. Fullgoalactive.
 
+## Match the upstream curl response representation without changing its hash (2026-11-17)
+
+Independent nativeassetjob133990011491 returnsHTTP200 with the scoped CI credential
+but correctly refuses SHA512 mismatch. Reproduce actualpublicrequests: without
+Accept, GitHub returns781-byte compactJSON (8b19209...); explicitAccept:*/* returns
+848bytes EXACToriginal719fa... . This soleheader matches curl's existing default;
+UA/version unchanged. Add explicitAccept, never rewriteJSON or replaceexpectedhash.
+Retain exactpublicresponsefixture+attribution and prove compactresponse rejection,
+originalresponse publication and requestheader contract. Diagnostics print only
+bounded scalarstatus/bytes/digest and whitelisted contenttype/APIversion labels,
+never arbitraryresponseheaders/body/credential. Tencontrols and pinnedPythonformat/
+diff PASS. Freshauthenticated hostedfetch/cachehit stillpending. Fullgoalactive;
+no localSDK/GUI test and no release/master promotion claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -91,7 +91,13 @@ def prefetch(root, vcpkg, downloads, *, opener=None, environment=None):
         raise PrefetchError("Cache miss requires a valid " + TOKEN_ENV + " environment credential")
     request = urllib.request.Request(
         URL,
-        headers={"Authorization": "Bearer " + token, "User-Agent": "Elytra-native-asset-prefetch"},
+        headers={
+            "Authorization": "Bearer " + token,
+            "User-Agent": "Elytra-native-asset-prefetch",
+            # Match vcpkg/curl content negotiation: an absent Accept returns a
+            # compact JSON representation with a different (correctly refused) hash.
+            "Accept": "*/*",
+        },
     )
     opener = opener or urllib.request.build_opener(NoRedirect())
     deadline = time.monotonic() + TIMEOUT
@@ -115,6 +121,25 @@ def prefetch(root, vcpkg, downloads, *, opener=None, environment=None):
         # Network exceptions may contain request headers or hostile response text.
         # Never propagate them or their chained exception into build logs.
         raise PrefetchError("Native asset fetch failed; no cache entry published") from None
+    # Fixed scalar diagnostics only. Do not echo arbitrary response headers,
+    # response bodies, request headers, credentials, or exception text.
+    content_type = response.headers.get("Content-Type", "")
+    api_version = response.headers.get("X-GitHub-Api-Version-Selected", "")
+    print(
+        "Native asset response:",
+        json.dumps(
+            {
+                "status": 200,
+                "bytes": len(data),
+                "sha512": hashlib.sha512(data).hexdigest(),
+                "contentType": content_type
+                if content_type == "application/json; charset=utf-8"
+                else "other",
+                "apiVersion": api_version if api_version == "2022-11-28" else "other",
+            },
+            sort_keys=True,
+        ),
+    )
     verify_bytes(data)
     downloads.mkdir(parents=True, exist_ok=True)
     temporary = None
