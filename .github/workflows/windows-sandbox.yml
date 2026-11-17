@@ -8,6 +8,7 @@ on:
       - 'firefly/native/sandbox/windows/**'
       - 'tooling/tests/test_windows_sandbox.py'
       - 'tooling/tests/test_windows_sandbox_evidence.py'
+      - 'tooling/tests/test_windows_network_evidence_source.py'
       - 'tooling/tests/_windows_processes.py'
   workflow_dispatch:
 permissions:
@@ -29,7 +30,11 @@ jobs:
         shell: pwsh
         run: '& ./.github/actions/windows-environment/setup.ps1'
       - name: Reject insufficient network evidence
-        run: python tooling/tests/test_windows_sandbox_evidence.py
+        run: |
+          python tooling/tests/test_windows_sandbox_evidence.py
+          if ($LASTEXITCODE) { throw 'Insufficient network evidence admitted' }
+          python tooling/tests/test_windows_network_evidence_source.py
+          if ($LASTEXITCODE) { throw 'Kernel network evidence source contract failed' }
       - name: Compile static native broker and worker without LibWeb or a GUI
         shell: pwsh
         run: |

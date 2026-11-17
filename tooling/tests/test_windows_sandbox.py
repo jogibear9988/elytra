@@ -23,19 +23,37 @@ import time
 from _windows_processes import WindowsProcesses
 
 
-def network_evidence(report):
-    """Verify native socket evidence independently of the worker's success boolean."""
+def network_evidence(report, kernel, child, remote_port, exit_code):
+    """Raw child results and independent exact-parent kernel evidence stay separate."""
     operation = report.pop("networkOperation")
     error = report.pop("networkError")
     status = report.pop("networkPolicyStatus")
     capability = report.pop("networkPolicyError")
+    local_port = report.pop("networkLocalPort")
+    denied = report.pop("networkDenied")
+    assert type(local_port) is int and 0 <= local_port <= 65535, local_port
+    assert kernel["retainedIdentity"] is True and kernel["pid"] == child["pid"], kernel
+    assert kernel["birth"] == str(child["creationTicks"]), kernel
+    events = kernel["events"]
+    assert isinstance(events, list) and len(events) <= 8, kernel
+    for event in events:
+        assert event["type"] == "capability-drop", event
+        assert type(event["localPort"]) is int and 1 <= event["localPort"] <= 65535, event
+        assert event["remotePort"] == remote_port and event["capability"] in (0, 1, 2), event
+        assert isinstance(event["filter"], str) and event["filter"].isdigit(), event
+        assert int(event["filter"]) > 0, event
     if operation in ("WSASocket", "connect", "SO_ERROR") and error == 10013:
+        assert denied is True and exit_code == 0, (report, exit_code)
         return "observed socket access denial"
     assert operation == "WSAPoll timeout" and error == 10060, (operation, error)
-    # ERROR_SUCCESS with an exact documented missing-capability result. Neither
-    # NONE/MAX/unknown, API failure/absence, nor a socket success establishes this.
-    assert status == 0 and capability in (1, 2, 3), (status, capability)
-    return "OS capability-policy diagnosis corroborates pending connection"
+    # Successful connection / other socket errors cannot borrow unrelated WFP evidence.
+    if status == 0 and capability in (1, 2, 3):
+        assert denied is True and exit_code == 0, (report, exit_code)
+        return "OS capability-policy diagnosis corroborates pending connection"
+    # The child explicitly reports UNRESOLVED (exit 2, false), never fake denial.
+    assert denied is False and exit_code == 2, (report, exit_code)
+    assert local_port != 0 and any(event["localPort"] == local_port for event in events), kernel
+    return "exact parent-observed WFP AppContainer capability drop"
 
 
 def line(process, timeout=20):
@@ -131,9 +149,21 @@ def exercise(probe, artifacts, mode):
                         )
                 else:
                     stdout, stderr = process.communicate(timeout=20)
-                    assert process.returncode == 0, (process.returncode, stdout, stderr)
-                    report = json.loads(stdout)
-                    evidence = network_evidence(report)
+                    assert process.returncode in (0, 2) and not stderr, (
+                        process.returncode,
+                        stdout,
+                        stderr,
+                    )
+                    envelope = json.loads(stdout)
+                    assert envelope["childExit"] == process.returncode, envelope
+                    report = envelope["worker"]
+                    evidence = network_evidence(
+                        report,
+                        envelope["kernel"],
+                        child,
+                        listener.getsockname()[1],
+                        process.returncode,
+                    )
                     print("PASS native network evidence:", evidence)
                     assert report == {
                         "allowedRead": True,
@@ -142,7 +172,6 @@ def exercise(probe, artifacts, mode):
                         "handleIsolated": True,
                         "cleanEnvironment": True,
                         "childSpawnDenied": True,
-                        "networkDenied": True,
                     }, report
                     assert (root / "private/secret.txt").read_text() == "PRIVATE_TEST_ONLY"
                     assert not (root / "resources ü/blocked.txt").exists()

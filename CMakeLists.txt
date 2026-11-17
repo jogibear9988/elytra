@@ -221,7 +221,8 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}"
                      "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_sample.py")
     # These reproduce source/transaction and refusal contracts, not native Windows execution.
-    foreach(component desktop_policy helper_source broker_source sandbox_evidence)
+    foreach(component desktop_policy helper_source broker_source sandbox_evidence
+                      network_evidence_source)
         add_test(NAME firefly-windows-${component}
                  COMMAND "${Python3_EXECUTABLE}"
                          "${CMAKE_SOURCE_DIR}/tooling/tests/test_windows_${component}.py")

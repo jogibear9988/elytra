@@ -367,6 +367,23 @@ This changes diagnostic evidence, not the sandbox policy or loopback exemptions.
 Fresh hosted Windows execution remains pending; the OS may report no diagnosis and
 correctly leave the gate red. This component does not accept real renderer startup.
 
+The subsequent native `dfd71f2` run compiles the diagnosis code but returns
+ERROR_SUCCESS with NONE. Its timeout therefore still fails; absence of a diagnosis
+is never evidence of isolation. A probe-only parent WFP observer now separately
+requires an exact AppContainer capability-drop event. Attribution uses the fresh
+unique package SID, OS application identity, TCP loopback socket tuple and event
+time inside the retained child's actual lifetime. WFP's event header has no PID;
+the parent independently retains and verifies the child's handle/birth identity.
+Only capability drops qualify, not generic firewall drops.
+
+The observer reads existing event-collection state, subscribes while the child is
+suspended, stores at most eight matching scalar records and drains callbacks before
+retiring the child/profile. It does not change collection settings, firewall rules
+or loopback exemptions. The child's raw timeout/NONE remains false with an explicit
+unresolved exit status; only the separate exact kernel record can corroborate it.
+Disabled collection, unavailable rights or no matching event keep acceptance red.
+Source/negative controls are separate from the still-pending native Windows run.
+
 ## Owned helper and desktop-provider integration (2026-11-17)
 
 The current review adds native Windows locale, monitor/cursor, Qt clipboard,

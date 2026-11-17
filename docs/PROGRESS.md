@@ -16263,6 +16263,28 @@ never arbitraryresponseheaders/body/credential. Tencontrols and pinnedPythonform
 diff PASS. Freshauthenticated hostedfetch/cachehit stillpending. Fullgoalactive;
 no localSDK/GUI test and no release/master promotion claimed.
 
+## Attribute unresolved Windows TCP denial to an exact kernel capability drop (2026-11-17)
+
+Native dfd component compiles but reports policyNONE+timeout, so remains red. Add a
+probe-only parent WFP observer, not a sandbox policy change. It reads collection
+state (disabled/unreadable fails), subscribes while child suspended and arms before
+resume. Match onlyCAPABILITY_DROP, exactfreshpackageSID/OSAppId/TCPloopbacktuple,
+nonzerofilter/documentedcapability and closedGO..childexit timestamp window. Header
+hasnoPID; parent independently retains realChildHANDLE/birth and rechecks both.
+Eight fixedscalarrecords,2s deliverywait, drainingunsubscribe outsidecallbackmutex,
+thenobserverretirement beforeChild/Profile; noSetOption/filter/exemption changes.
+
+Rawchildtimeout/NONE remainsfalse with explicitunresolvedexit2 onlyifallotherchecks
+pass. Parent reports separatekernelrecord; independentPython requires actualsocket
+localport/listenerport and exactretainedchildidentity, never rewriteschilddenial.
+Noevents/APIrights/collection or evidence mismatch fails. Genericfirewalldrops and
+successfulsockets cannotborrowevidence. Add Fwpuclnt ONLYto nativeprobe linkage.
+Independent finalsource/lifetime reviewGO after selfcontainedWinsockheader and
+oldverifier-signature repairs. Fourexisting+threenewsource/negativegroups PASS,
+native/CMake/Python/YAMLformat+diff and site367pages PASS. ActualWindowscompile,
+eventshape/collectionrights and run remainPENDING. No localGUI/SDK rebuild. Fullgoal
+active; realrenderer/allhelperroles/WindowsEXE and releasegates remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -1,5 +1,6 @@
 /** Native security fixture. Mutate only a fresh owned test tree/profile and exercise real denied
  * I/O. */
+#include "NetworkEvidence.h"
 #include "Sandbox.h"
 #include <aclapi.h>
 #include <cstdint>
@@ -133,6 +134,7 @@ struct NetworkResult {
     int error;
     DWORD policy_status = ERROR_PROC_NOT_FOUND;
     NETISO_ERROR_TYPE policy_error = NETISO_ERROR_TYPE_NONE;
+    unsigned short local_port = 0;
 };
 
 bool network_denial(NetworkResult const& result)
@@ -152,6 +154,74 @@ bool network_denial(NetworkResult const& result)
             || result.policy_error == NETISO_ERROR_TYPE_INTERNET_CLIENT
             || result.policy_error == NETISO_ERROR_TYPE_INTERNET_CLIENT_SERVER);
     return socket_denied || diagnosed_denial;
+}
+
+void wfp_evidence_controls()
+{
+    PSID package = nullptr, other = nullptr;
+    require(ConvertStringSidToSidW(L"S-1-15-2-1", &package), "control package SID");
+    require(ConvertStringSidToSidW(L"S-1-15-2-2", &other), "control other SID");
+    BYTE app[] { 1, 2, 3 };
+    BYTE other_app[] { 1, 2, 4 };
+    FWP_BYTE_BLOB application { sizeof(app), app };
+    SandboxNetworkProbe::Identity identity { package, application, 45001, 100, 200 };
+    FWPM_NET_EVENT_CAPABILITY_DROP0 drop {};
+    drop.filterId = 7;
+    drop.isLoopback = TRUE;
+    drop.networkCapabilityId = FWPM_APPC_NETWORK_CAPABILITY_INTERNET_CLIENT;
+    FWPM_NET_EVENT3 event {};
+    event.type = FWPM_NET_EVENT_TYPE_CAPABILITY_DROP;
+    event.capabilityDrop = &drop;
+    auto& header = event.header;
+    header.flags = FWPM_NET_EVENT_FLAG_IP_PROTOCOL_SET | FWPM_NET_EVENT_FLAG_IP_VERSION_SET
+        | FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET | FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET
+        | FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET | FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET
+        | FWPM_NET_EVENT_FLAG_APP_ID_SET | FWPM_NET_EVENT_FLAG_PACKAGE_ID_SET;
+    header.ipVersion = FWP_IP_VERSION_V4;
+    header.ipProtocol = IPPROTO_TCP;
+    header.localAddrV4 = header.remoteAddrV4 = INADDR_LOOPBACK;
+    header.localPort = 45000;
+    header.remotePort = identity.remote_port;
+    header.packageSid = static_cast<SID*>(package);
+    header.appId = application;
+    header.timeStamp.dwLowDateTime = 150;
+    require(SandboxNetworkProbe::matches(event, identity), "exact WFP predicate control");
+    auto reject = [&](auto change) {
+        auto candidate = event;
+        change(candidate);
+        require(
+            !SandboxNetworkProbe::matches(candidate, identity), "unattributed WFP event rejected");
+    };
+
+    for (UINT32 bit = 1; bit != 0; bit <<= 1) {
+        if (header.flags & bit)
+            reject([&](auto& value) { value.header.flags &= ~bit; });
+    }
+
+    reject([](auto& value) { value.type = FWPM_NET_EVENT_TYPE_CLASSIFY_DROP; });
+    reject([](auto& value) { value.capabilityDrop = nullptr; });
+    reject([](auto& value) { value.header.ipProtocol = IPPROTO_UDP; });
+    reject([](auto& value) { value.header.ipVersion = FWP_IP_VERSION_V6; });
+    reject([](auto& value) { value.header.localAddrV4 = 0; });
+    reject([](auto& value) { value.header.remoteAddrV4 = 0; });
+    reject([](auto& value) { value.header.localPort = 0; });
+    reject([](auto& value) { ++value.header.remotePort; });
+    reject([&](auto& value) { value.header.packageSid = static_cast<SID*>(other); });
+    reject([](auto& value) { value.header.packageSid = nullptr; });
+    reject([&](auto& value) { value.header.appId.data = other_app; });
+    reject([](auto& value) { --value.header.appId.size; });
+    reject([](auto& value) { value.header.timeStamp.dwLowDateTime = 99; });
+    reject([](auto& value) { value.header.timeStamp.dwLowDateTime = 201; });
+    drop.filterId = 0;
+    require(!SandboxNetworkProbe::matches(event, identity), "filter identity required");
+    drop.filterId = 7;
+    drop.isLoopback = FALSE;
+    require(!SandboxNetworkProbe::matches(event, identity), "loopback drop required");
+    drop.isLoopback = TRUE;
+    drop.networkCapabilityId = static_cast<FWPM_APPC_NETWORK_CAPABILITY_TYPE>(255);
+    require(!SandboxNetworkProbe::matches(event, identity), "unknown missing capability rejected");
+    LocalFree(other);
+    LocalFree(package);
 }
 
 void network_evidence_controls()
@@ -242,6 +312,11 @@ NetworkResult denied_network(unsigned short port)
         }
     }
 
+    sockaddr_in local {};
+    int local_size = sizeof(local);
+    if (getsockname(socket, reinterpret_cast<sockaddr*>(&local), &local_size) == 0
+        && local.sin_family == AF_INET)
+        evidence.local_port = ntohs(local.sin_port);
     closesocket(socket);
     WSACleanup();
     evidence.denied = network_denial(evidence);
@@ -289,17 +364,27 @@ int worker(int argc, wchar_t** argv)
     }
 
     auto network = denied_network(port);
-    auto all = can_read && read_denied && write_denied && handle_isolated && clean_env && !nested
-        && network.denied;
+    auto other_checks
+        = can_read && read_denied && write_denied && handle_isolated && clean_env && !nested;
     std::cout << "{\"allowedRead\":" << can_read << ",\"privateReadDenied\":" << read_denied
               << ",\"writeDenied\":" << write_denied << ",\"handleIsolated\":" << handle_isolated
               << ",\"cleanEnvironment\":" << clean_env << ",\"childSpawnDenied\":" << !nested
               << ",\"networkDenied\":" << network.denied << ",\"networkOperation\":\""
               << network.operation << "\",\"networkError\":" << network.error
               << ",\"networkPolicyStatus\":" << network.policy_status
-              << ",\"networkPolicyError\":" << static_cast<unsigned>(network.policy_error) << "}\n"
+              << ",\"networkPolicyError\":" << static_cast<unsigned>(network.policy_error)
+              << ",\"networkLocalPort\":" << network.local_port << "}\n"
               << std::flush;
-    return all ? 0 : 1;
+    if (!other_checks)
+        return 1;
+    if (network.denied)
+        return 0;
+    // Exit 2 preserves an unresolved raw timeout; only independent parent WFP
+    // evidence can make the Python acceptance gate accept this result.
+    return std::strcmp(network.operation, "WSAPoll timeout") == 0 && network.error == WSAETIMEDOUT
+            && network.local_port != 0
+        ? 2
+        : 1;
 }
 }
 
@@ -307,6 +392,7 @@ int run_probe(int argc, wchar_t** argv)
 {
     if (argc == 2 && std::wstring(argv[1]) == L"--network-evidence-controls") {
         network_evidence_controls();
+        wfp_evidence_controls();
         std::cout << "PASS network evidence controls\n";
         return 0;
     }
@@ -402,6 +488,12 @@ int run_probe(int argc, wchar_t** argv)
         return 1;
     }
 
+    std::unique_ptr<SandboxNetworkProbe::Observer> network_observer;
+    if (std::wstring(argv[3]) == L"checks") {
+        network_observer = std::make_unique<SandboxNetworkProbe::Observer>(image.c_str(),
+            profile->sid(), static_cast<UINT16>(std::stoul(argv[2])), child->process());
+    }
+
     Failure busy;
     require(
         !profile->remove(busy) && busy.code == ERROR_BUSY, "profile lifetime while child exists");
@@ -412,6 +504,8 @@ int run_probe(int argc, wchar_t** argv)
     std::string signal;
     require(static_cast<bool>(std::getline(std::cin, signal)) && signal == "GO",
         "independent token observation before resume");
+    if (network_observer)
+        network_observer->arm();
     require(child->resume(error), "resume isolated worker");
     if (hold) {
         auto running = read_file(read.get());
@@ -431,7 +525,33 @@ int run_probe(int argc, wchar_t** argv)
         require(report.size() < 4096, "bounded worker report");
     }
 
-    std::cout << report << std::flush;
+    if (network_observer) {
+        FILETIME birth {}, exit {}, kernel {}, user {};
+        require(GetProcessTimes(child->process(), &birth, &exit, &kernel, &user),
+            "actual completed child times");
+        network_observer->finish(exit);
+        auto records = network_observer->records();
+        require(!report.empty() && report.back() == '\n', "complete worker report");
+        report.pop_back();
+        std::cout << "{\"worker\":" << report << ",\"childExit\":" << status
+                  << ",\"kernel\":{\"retainedIdentity\":true,\"pid\":" << child->pid()
+                  << ",\"birth\":\"" << SandboxNetworkProbe::timestamp(birth) << "\",\"events\":[";
+        bool first = true;
+        for (auto const& record : records) {
+            if (!first)
+                std::cout << ',';
+            first = false;
+            std::cout << "{\"type\":\"capability-drop\",\"localPort\":" << record.local_port
+                      << ",\"remotePort\":" << std::stoul(argv[2]) << ",\"filter\":\""
+                      << record.filter << "\",\"capability\":" << record.capability << '}';
+        }
+
+        std::cout << "]}}\n" << std::flush;
+        network_observer.reset(); // Revoke observer before Child/Profile retirement.
+    } else {
+        std::cout << report << std::flush;
+    }
+
     child.reset();
     require(profile->remove(error), "remove owned profile");
     require(!Child::create(profile, launch, error) && error.code == ERROR_INVALID_PARAMETER,

@@ -12,4 +12,5 @@ target_compile_definitions(firefly-windows-sandbox PUBLIC UNICODE _UNICODE _WIN3
                                                           NOMINMAX WIN32_LEAN_AND_MEAN)
 target_link_libraries(firefly-windows-sandbox PUBLIC userenv bcrypt advapi32 shell32 ole32 uuid)
 add_executable(firefly-windows-sandbox-probe Probe.cpp)
-target_link_libraries(firefly-windows-sandbox-probe PRIVATE firefly-windows-sandbox ws2_32)
+# WFP is a read-only observer in the diagnostic parent, never a production policy dependency.
+target_link_libraries(firefly-windows-sandbox-probe PRIVATE firefly-windows-sandbox ws2_32 Fwpuclnt)

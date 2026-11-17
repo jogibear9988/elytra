@@ -13,26 +13,34 @@ class NetworkEvidenceTests(unittest.TestCase):
             "networkError": error,
             "networkPolicyStatus": status,
             "networkPolicyError": capability,
+            "networkLocalPort": 45670,
+            "networkDenied": True,
         }
+
+    def verify(self, report, exit_code=0):
+        # Empty kernel events cannot rescue a missing/invalid diagnosis. This
+        # suite retains direct child evidence controls; the WFP source suite
+        # separately checks the fully attributed parent-kernel branch.
+        child = {"pid": 1234, "creationTicks": 100}
+        kernel = {"retainedIdentity": True, "pid": 1234, "birth": "100", "events": []}
+        return network_evidence(report, kernel, child, 45671, exit_code)
 
     def test_exact_policy_diagnoses(self):
         for capability in (1, 2, 3):
-            self.assertIn(
-                "OS capability-policy", network_evidence(self.report(capability=capability))
-            )
+            self.assertIn("OS capability-policy", self.verify(self.report(capability=capability)))
 
     def test_observed_access_denial(self):
         for operation in ("WSASocket", "connect", "SO_ERROR"):
-            self.assertIn("observed", network_evidence(self.report(operation, 10013)))
+            self.assertIn("observed", self.verify(self.report(operation, 10013)))
 
     def test_timeout_without_valid_diagnosis_fails(self):
         for capability in (0, 4, 255):
             with self.assertRaises(AssertionError):
-                network_evidence(self.report(capability=capability))
+                self.verify({**self.report(capability=capability), "networkDenied": False}, 2)
         for status in (5, 126, 127):  # Denied, missing library, missing procedure.
             for capability in (1, 2, 3):
                 with self.assertRaises(AssertionError):
-                    network_evidence(self.report(status=status, capability=capability))
+                    self.verify(self.report(status=status, capability=capability))
 
     def test_socket_success_or_other_failure_never_passes(self):
         for operation, error in (
@@ -43,7 +51,7 @@ class NetworkEvidenceTests(unittest.TestCase):
         ):
             for capability in (1, 2, 3):
                 with self.assertRaises(AssertionError):
-                    network_evidence(self.report(operation, error, capability=capability))
+                    self.verify(self.report(operation, error, capability=capability))
 
 
 if __name__ == "__main__":
