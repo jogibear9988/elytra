@@ -2,6 +2,7 @@
 #include "Gate.h"
 #include "loading/workers/Fetch.h"
 #include "native/platform/QueueSnapshots.h"
+#include "native/web-request/Diagnostics.h"
 #include "native/web-request/Headers.h"
 #include "native/web-request/Limits.h"
 #include <AK/JsonArray.h>
@@ -174,18 +175,40 @@ namespace {
         }
 
         schedule();
-        bool allowed = current(*job) && decision.has_value();
+        bool live = current(*job);
+        if (!live) {
+            unsigned flags = state().draining ? 1 : 0;
+            flags |= job->epoch != state().policy.epoch ? 2 : 0;
+            flags |= MonotonicTime::now() >= job->deadline ? 4 : 0;
+            flags |= job->params && job->params->is_canceled() ? 8 : 0;
+            flags |= !job->document ? 16 : 0;
+            flags |= job->document && !job->document->is_fully_active() ? 32 : 0;
+            flags |= job->document && !job->document->navigable() ? 64 : 0;
+            // Do not call worker_valid a second time merely for diagnostics.
+            WebRequest::rejection_diagnostic("gate-current", flags ? flags : 128);
+        }
+
+        unsigned reason = !live ? 1 : !decision.has_value() ? 2 : 0;
+        bool allowed = live && decision.has_value();
         if (allowed) {
             auto validated = WebRequest::validate_decision(
                 *decision, &job->original_headers, job->stage == Stage::Before);
-            if (validated.is_error())
+            if (validated.is_error()) {
                 allowed = false;
+                reason = 3;
+            }
         }
 
         if (allowed) {
             auto cancel = decision->get_bool("cancel"sv);
             allowed = cancel.has_value() && !*cancel;
+            if (!allowed)
+                reason = 4;
         }
+
+        if (!allowed)
+            WebRequest::rejection_diagnostic(
+                job->stage == Stage::Before ? "gate-before" : "gate-headers", reason);
 
         if (job->worker_completion) {
             // Apply mutations only in the request's actual worker VM. This owner
@@ -244,6 +267,8 @@ namespace {
         }
 
         if (!allowed) {
+            if (!reason)
+                WebRequest::rejection_diagnostic("gate-mutation", 5);
             stop_body(*job);
             cancel(*job->params);
             auto error = Response::network_error(
@@ -395,18 +420,23 @@ namespace {
 
     bool submit(std::shared_ptr<Job> job)
     {
-        if (!current(*job) || !state().submit || state().jobs.size() >= process_job_limit)
+        auto refuse = [](unsigned reason) {
+            WebRequest::rejection_diagnostic("gate-submit", reason);
             return false;
+        };
+
+        if (!current(*job) || !state().submit || state().jobs.size() >= process_job_limit)
+            return refuse(1);
         auto usage = document_usage(job->document.ptr());
         if (usage.first >= document_job_limit)
-            return false;
+            return refuse(2);
         auto data = metadata_for(*job);
         if (!data.has_value())
-            return false;
+            return refuse(3);
         auto bytes = data->serialized().byte_count();
         if (bytes > document_byte_limit - usage.second
             || bytes > process_byte_limit - state().bytes)
-            return false;
+            return refuse(4);
         job->bytes = bytes;
         job->accounted = true;
         state().bytes += bytes;

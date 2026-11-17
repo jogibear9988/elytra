@@ -1,13 +1,31 @@
 # VS Code / Code-OSS compatibility target
 
 Status: **experimental**. Controlled macOS offscreen CommonJS and ESM
-extension/command/open-edit-save workflows are accepted. A controlled native terminal workflow also passes without diagnostic flags. General desktop use, visible interaction,
+extension/command/open-edit-save workflows are accepted. A controlled native terminal workflow also passes without diagnostic flags. A macOS Cocoa launch now visibly displays the Welcome workbench and native menu bar. General desktop use, editing/input acceptance,
 under-load terminal reliability and broad extension/platform compatibility remain unaccepted. Requested
 as a priority target on 2026-11-07. The original pinned application runs with the
 explicit temporary adaptations documented below; this is not unchanged full
 Electron compatibility or a percentage-complete estimate.
 
 ## Current priority: first real workbench, then developer workflows
+
+## Visible macOS launch checkpoint (2026-11-17)
+
+An actual Cocoa launch (PID2398) displays the Welcome workbench, Explorer/Search/
+Source Control/Run/Extensions selectors, title actions and native application menu
+bar. CUA verifies the real vscode-file workbench URL; the app is left running for
+user inspection. This launch uses opt-in scalar diagnostics, the existing explicit
+local-desktop adaptations and the ordinary profile, without an injected test
+extension. No application-source changes were added for this launch.
+
+The preceding Cocoa attempts reached a webRequest canceled/retired error. A
+same-profile offscreen launch proceeds without those rejections. Diagnostics
+identify policy replacement and navigation-authority refusal, but do not yet prove
+which is primary; an old-epoch request can also fail the navigation check. The
+successful retry does not establish reliable startup. Track this intermittent
+startup race before claiming general desktop acceptance. Native Services startup
+was separately repaired by reusing the exact AppKit provider; menu command/input
+and broad interactive workflows remain unaccepted.
 
 ## Controlled Code-OSS terminal result
 

@@ -2,6 +2,7 @@
 #include "Impl.h"
 #include "Value.h"
 #include "native/web-request/Authority.h"
+#include "native/web-request/Diagnostics.h"
 #include "native/web-request/Headers.h"
 #include <LibJS/Runtime/NativeFunction.h>
 #include <LibJS/Runtime/PrimitiveString.h>
@@ -40,25 +41,30 @@ void Bridge::Impl::initialize_web_request()
 Optional<JsonObject> Bridge::Impl::authenticate_web_request(
     WebView::WebContentClient& client, WebRequest::Packet const& packet)
 {
-    if (stopping)
+    auto refuse = [](unsigned reason) -> Optional<JsonObject> {
+        WebRequest::rejection_diagnostic("authority", reason);
         return {};
+    };
+
+    if (stopping)
+        return refuse(1);
     auto* page = client.page(Web::PageId { packet.page });
     if (!page || !page->is_open() || &page->client() != &client)
-        return {};
+        return refuse(2);
     auto navigable = page->hosted_navigable({ packet.navigable_namespace, packet.navigable_local });
     Web::HTML::CrossProcessId document { packet.document_namespace, packet.document_local };
     if (!navigable.has_value() || !page->hosts_active_document_of(*navigable)
         || navigable->active_document().id() != document)
-        return {};
+        return refuse(3);
     auto contents = permission_contents(*page, document);
     auto owner = windows.find(contents);
     if (!contents || owner == windows.end() || owner->second.closing || !owner->second.native_view()
         || !owner->second.native_view()->has_traversable())
-        return {};
+        return refuse(4);
     // Populate public frame identity from the complete canonical tree, never from
     // a packet's URL or a page-authored IPC payload.
     if (frames.snapshot(contents, &owner->second.native_view()->traversable()).is_error())
-        return {};
+        return refuse(5);
     auto url = packet.payload.get_string("url"sv);
     auto method = packet.payload.get_string("method"sv);
     auto type = packet.payload.get_string("resourceType"sv);
@@ -66,17 +72,17 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
     if (!url.has_value() || url->byte_count() > 32768 || !method.has_value() || method->is_empty()
         || method->byte_count() > 64 || !type.has_value() || type->byte_count() > 64
         || !referrer.has_value() || referrer->byte_count() > 32768)
-        return {};
+        return refuse(6);
     auto parsed_url = URL::Parser::basic_parse(*url);
     if (!parsed_url.has_value() || url->bytes_as_string_view().contains('\0')
         || method->bytes_as_string_view().contains('\0')
         || method->bytes_as_string_view().contains('\r')
         || method->bytes_as_string_view().contains('\n')
         || referrer->bytes_as_string_view().contains('\0'))
-        return {};
+        return refuse(7);
     auto navigation = packet.payload.get_string("navigation"sv);
     if (navigation.has_value() && !WebRequest::owns_navigation(*page, *navigable, *navigation))
-        return {};
+        return refuse(8);
     JsonObject result;
     result.set("contentsId"sv, contents);
     result.set(
@@ -89,7 +95,7 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
     if (packet.kind == WebRequest::Kind::Before) {
         auto headers = packet.payload.get_object("requestHeaders"sv);
         if (!headers.has_value() || WebRequest::validate_headers(*headers).is_error())
-            return {};
+            return refuse(9);
         result.set("requestHeaders"sv, *headers);
     }
 
@@ -100,7 +106,7 @@ Optional<JsonObject> Bridge::Impl::authenticate_web_request(
         if (!status.has_value() || *status < 100 || *status > 599
             || (line.has_value() && line->byte_count() > 4096) || !headers.has_value()
             || WebRequest::validate_headers(*headers).is_error())
-            return {};
+            return refuse(10);
         result.set("statusCode"sv, *status);
         if (line.has_value())
             result.set("statusLine"sv, *line);

@@ -15698,6 +15698,36 @@ physical role commands, repeated native menu replacement and broader GUI workflo
 remain unaccepted. User launch remains under active investigation. Task-only
 AppKit evidence: build/services-provider-probe.{mm,log}. Full goal remains active.
 
+## Actual visible Code-OSS Welcome workbench (2026-11-17)
+
+Add opt-in fixed scalar rejection stages/reasons to native webRequest authority,
+broker admission/currentness and helper Gate. Bound reports to128 per thread via
+the existing diagnostic flag; never log URLs, headers, labels, configuration or
+application data. All authorization/epoch/document/deadline checks remain intact.
+Actual compile-DB syntax for four translation units, native formatting, independent
+privacy/behavior review and Release SDK builds pass.
+
+Cocoa PID99644 reproduces Gate draining(policy replacement) then navigation
+ownership refusal. After authenticated stop, all helpers exit with zero cleanup
+signals. The ordinary user profile also loads headlessly (PID1120), without test
+extension injection and without request rejection; independently stopped. This
+supports a Cocoa timing-sensitive startup problem, not a blanket navigation guard
+relaxation. Native source/host fallback is explicitly not implemented.
+
+Next actual Cocoa launch PID2398 succeeds: CUA observes Welcome workbench at the
+original vscode-file URL, navigation/sidebar/editor controls and native menu bar.
+CUA completion recorded; retain this app/process for user testing. Current compact
+native ownership/scope record: build/codeoss-visible-user-current.json. Live logs
+remain private while helpers own them; do not sanitize/copy raw environment-bearing
+records. No further local UI tests or rebuild while the user inspects this app.
+
+The successful retry used diagnostics and does NOT prove the startup race fixed,
+interactive editing, physical menu commands or general extension/platform support.
+Track independent policy epoch versus navigation-ownership timing as remaining
+work. Logs: build/codeoss-visible-webrequest-rejection.log,
+build/codeoss-ordinary-profile-headless.log and diagnostic build logs. Full project
+goal remains active; accepted controlled offscreen workflows retain their scope.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

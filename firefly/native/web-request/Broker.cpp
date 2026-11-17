@@ -1,5 +1,6 @@
 /** All admission and decisions run on the native UI owner; stale ownership fails closed. */
 #include "Broker.h"
+#include "Diagnostics.h"
 #include "Headers.h"
 #include "Limits.h"
 #include <AK/Random.h>
@@ -170,6 +171,14 @@ void Broker::receive(u64 client, ReadonlyBytes bytes)
     bool enabled = packet.kind == Kind::Before ? m_before : m_headers;
     if (!metadata.has_value() || packet.epoch != m_epoch || !enabled || m_pending.size() >= 64
         || count >= 16 || bytes.size() > 2 * 1024 * 1024 - m_bytes || m_next_token >= 2147483647) {
+        unsigned reason = !metadata.has_value()        ? 1
+            : packet.epoch != m_epoch                  ? 2
+            : !enabled                                 ? 3
+            : m_pending.size() >= 64                   ? 4
+            : count >= 16                              ? 5
+            : bytes.size() > 2 * 1024 * 1024 - m_bytes ? 6
+                                                       : 7;
+        rejection_diagnostic("broker-admission", reason);
         packet.flags = packet.kind == Kind::Headers ? 1 : 0;
         packet.kind = Kind::Decision;
         packet.payload = {};
@@ -223,11 +232,27 @@ void Broker::receive(u64 client, ReadonlyBytes bytes)
 bool Broker::current(u32 token, u32 epoch)
 {
     auto entry = m_pending.find(token);
-    return !m_stopped && epoch == m_epoch && entry != m_pending.end()
-        && entry->value.packet.epoch == epoch && MonotonicTime::now() < entry->value.deadline
-        && m_clients.contains(entry->value.client)
-        && m_authenticate(*m_clients.get(entry->value.client)->owner, entry->value.packet)
-               .has_value();
+    auto refuse = [](unsigned reason) {
+        rejection_diagnostic("broker-current", reason);
+        return false;
+    };
+
+    if (m_stopped)
+        return refuse(1);
+    if (epoch != m_epoch)
+        return refuse(2);
+    if (entry == m_pending.end())
+        return refuse(3);
+    if (entry->value.packet.epoch != epoch)
+        return refuse(4);
+    if (MonotonicTime::now() >= entry->value.deadline)
+        return refuse(5);
+    if (!m_clients.contains(entry->value.client))
+        return refuse(6);
+    if (!m_authenticate(*m_clients.get(entry->value.client)->owner, entry->value.packet)
+            .has_value())
+        return refuse(7);
+    return true;
 }
 
 bool Broker::complete(u32 token, u32 epoch, JsonObject decision)
@@ -293,11 +318,13 @@ void Broker::sweep()
             logical += entry.value.logical_ids.size();
             ready += entry.value.ready;
         }
+
         std::fprintf(stderr,
             "FIREFLY_QUEUE_SNAPSHOT stage=web-request-broker after=%u pending=%zu "
             "logical=%zu clients=%zu ready_clients=%zu pending_bytes=%zu epoch=%u\n",
             after, m_pending.size(), logical, m_clients.size(), ready, m_bytes, m_epoch);
     }
+
     Vector<u32> expired;
     for (auto const& entry : m_pending)
         if (!current(entry.key, entry.value.packet.epoch))
