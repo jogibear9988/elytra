@@ -18,6 +18,13 @@ user inspection. This launch uses opt-in scalar diagnostics, the existing explic
 local-desktop adaptations and the ordinary profile, without an injected test
 extension. No application-source changes were added for this launch.
 
+The relocated macOS preview bundle also displayed Welcome through its native
+Launcher using the separate [native title-bar profile](../guides/code-oss-packaging.md#open-the-macos-preview).
+That bundle uses the preceding SDK. Its default profile stopped at the
+unsupported `BrowserWindow.titleBarOverlay` option. A separate automated Cocoa
+run on the same bundle passed the CommonJS editor, terminal and parent-liveness
+workflow with 16 observed processes stopped and zero cleanup signals.
+
 The preceding Cocoa attempts reached a webRequest canceled/retired error. A
 same-profile offscreen launch proceeds without those rejections. Diagnostics
 identify policy replacement and navigation-authority refusal, but do not yet prove
@@ -420,10 +427,10 @@ flag, caller arguments and profile selection remain unchanged.
 
 This profile bypasses Code-OSS's optional custom chrome configuration; it does not
 implement Window Controls Overlay. The recorded diagnostic profile and all probe
-completion records explicitly keep workbenchAccepted:false. Native-profile startup
-currently reaches webRequest.onBeforeSendHeaders; an actual workbench, editing,
-extension host and terminal are not accepted. Use the freshly built runtime and
-compiled tree paths appropriate to your local build.
+completion records explicitly keep workbenchAccepted:false. The original
+diagnostic run reached webRequest.onBeforeSendHeaders. The later
+native Launcher result above uses the sealed package and has its own evidence.
+Use the runtime and compiled tree paths appropriate to your local build.
 
 ## Audited reference
 

@@ -4,13 +4,11 @@ This is an experimental macOS ARM64 sample pipeline, not a full Electron or VS C
 release. The application runs on Firefly/Mite with LibWeb/LibJS. Node, pnpm and
 esbuild are build tools only; there is no packaged Node/V8/Electron engine fallback.
 
-The four-product release integration is implemented, but its new native CI and
-relocated Code-OSS bundle acceptance are pending. The current Ladybird candidate `59158f57c` passes the local standalone CLI
-suite. The SDK, renderer and packaged sample still require their own acceptance.
-The builder has compiled and verified the sealed sample locally. Its release
-entry passes the controlled offscreen CommonJS extension, editor save, terminal
-and parent-liveness checks with the preceding macOS SDK. The relocated signed bundle also passes the same workflow through the native
-Cocoa Launcher with that SDK. Verification with the new SDK remains pending.
+The current Ladybird candidate `59158f57c` passes the standalone CLI suite.
+The sealed sample built locally and passed the controlled CommonJS extension,
+editor save, terminal and parent-liveness checks with the preceding macOS SDK.
+The relocated signed bundle passed the same workflow through the native Cocoa
+Launcher with that SDK. Current SDK and four-product release CI remain pending.
 
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the
@@ -96,6 +94,32 @@ RPATH, signing and bundle-size checks still apply. These checks cannot be replac
 by the JavaScript seal. The package is ad-hoc signed, not notarized; older-host,
 installer and update support remain unverified.
 
+## Open the macOS preview
+
+Use an isolated profile with the native title bar. On the verified preview
+bundle, the default profile requests the unsupported `titleBarOverlay` option.
+Run the following from the package directory, or set `app` to the absolute path
+of your unpacked bundle.
+
+```sh
+app="$PWD/Code-OSS.app"
+state="$(mktemp -d "${TMPDIR:-/tmp}/elytra-code-oss.XXXXXXXX")"
+mkdir -p "$state/profile/User" "$state/extensions" "$state/xdg"
+printf '%s\n' '{"window.titleBarStyle":"native","workbench.startupEditor":"welcomePage"}' > "$state/profile/User/settings.json"
+(
+  cd "$app/Contents/Resources/app" || exit
+  QT_QPA_PLATFORM=cocoa XDG_CONFIG_HOME="$state/xdg" \
+    XDG_DATA_HOME="$state/xdg" XDG_CACHE_HOME="$state/xdg" \
+    "$app/Contents/MacOS/Launcher" \
+    --user-data-dir "$state/profile" --extensions-dir "$state/extensions" \
+    --new-window --disable-crash-reporter
+)
+```
+
+The preceding macOS SDK displayed the Welcome workbench through this launch
+path. The profile and extensions directory keep the preview independent of your
+personal settings. The runtime checks that the profile directory already exists.
+
 ## Required native workflow
 
 The release driver first requires the ordinary development-extension CJS workflow
@@ -133,8 +157,9 @@ failed ownership/cleanup retains private evidence instead of declaring success.
 
 The temporary relocated copy is removed only after successful acceptance. Failure
 retains the sole owned copy for investigation rather than deleting potentially
-live executable/resources. No local GUI run or successful native execution of
-this new bundle gate is claimed here.
+live executable/resources. Local Cocoa acceptance passed on the preceding
+macOS SDK with all 16 observed processes stopping naturally. The current SDK
+still needs to pass this gate in the release pipeline.
 
 ## Artifacts and remaining support
 

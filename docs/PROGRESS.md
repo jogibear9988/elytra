@@ -16599,6 +16599,15 @@ a local symbol. Use the linker's module-definition file to declare a DLL
 forwarder and retain the same import-table and relocated execution assertions.
 Local checks pass. Native forwarder verification remains pending.
 
+## Document the verified macOS Code-OSS preview launch
+
+The preceding SDK's relocated bundle opened its Welcome workbench using
+the native Launcher and an isolated profile with the native title bar.
+The default profile stopped at the unsupported titleBarOverlay option.
+Document the manual launch and update stale statements about the separately
+verified Cocoa editor and Bash acceptance on that bundle. Current SDK
+acceptance remains pending. Shell syntax and the generated site check pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

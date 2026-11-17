@@ -12,7 +12,7 @@ not establish a working desktop application.
 | --- | --- | --- |
 | Mite / macOS ARM64 | Release CLI and embedded host build with Ladybird `59158f57c`. All 173 local CLI tests pass. | Full Node parity, broader host/architecture coverage and fresh distribution acceptance. |
 | Mite / Linux x64 | Candidate `97cba84` with Ladybird `59158f57c` passes all 171 enabled tests. [Run 44174672031](https://github.com/jogibear9988/elytra/actions/runs/44174672031) | Current complete native gate and broader distributions. |
-| Mite / Windows x64 | Candidate `97cba84` with Ladybird `59158f57c` passes all 169 enabled tests. [CLI run](https://github.com/jogibear9988/elytra/actions/runs/44174671897) | Current green CLI gate and distribution. See [Windows bring-up](development/windows-build.md). |
+| Mite / Windows x64 | Candidate `97cba84` with Ladybird `59158f57c` passes all 169 enabled tests. [CLI run](https://github.com/jogibear9988/elytra/actions/runs/44174671897) | Standalone CLI distribution and wider host coverage. See [Windows bring-up](development/windows-build.md). |
 | Firefly / macOS ARM64 | Native windows, isolated preload/IPC and documented desktop subsets. Earlier packaged Designer edit/Monaco/window-control gates pass. Controlled Code-OSS editor/terminal workflows and a visible Welcome launch pass on the preceding SDK. | Rebuild/accept the latest Ladybird SDK, fresh packages and relocated Code-OSS Launcher; broader desktop reliability, signing/notarization and installers. |
 | Firefly / Linux x64 | Earlier experimental Ubuntu 24.04 X11 app, screen/clipboard, extracted Designer and kernel-isolation gates pass at `a56d183`. | Current renderer/package CI, wider displays/hosts, Wayland and distribution. |
 | Firefly / Windows x64 | Experimental native renderer/window and confinement components are under development. No complete Windows desktop or Designer/Code-OSS executable package is accepted. | Real helper-role confinement, broker flow control, full desktop services and native PE/DLL packaging. |
@@ -44,7 +44,10 @@ exit status and three timed parent-liveness checks. Main exits 0; all 14 observe
 native identities disappear with zero cleanup signals.
 
 A separate Cocoa launch displays the Welcome workbench, sidebar and native menu
-bar and was left running for user inspection. That observation does not establish
+bar. The relocated package on the preceding SDK also opens Welcome with a
+[native title-bar profile](guides/code-oss-packaging.md#open-the-macos-preview).
+A targeted acceptance run through that same package Launcher passes the editor
+and Bash terminal workflow, and all 16 observed processes stop naturally. That observation does not establish
 menu actions, physical editing/input, arbitrary extensions or reliable startup:
 preceding Cocoa attempts encountered webRequest policy/navigation refusals whose
 cause remains unresolved. Controlled offscreen workflows are separate evidence.
