@@ -37,6 +37,14 @@ assert.deepEqual(
   callbacks,
   Array.from({ length: 32 }, (_, index) => index)
 );
-assert.equal(backpressured, true);
-assert.ok(drains > 0);
-process.stderr.write('PASS native pipe backpressure callbacks/FIFO/drain\n');
+// Node's documented process I/O contract: Windows pipes write synchronously,
+// while POSIX pipes defer blocked suffixes. The independent slow reader and
+// full byte/callback FIFO checks are identical on both platforms.
+if (process.platform === 'win32') {
+  assert.equal(backpressured, false);
+  assert.equal(drains, 0);
+} else {
+  assert.equal(backpressured, true);
+  assert.ok(drains > 0);
+}
+process.stderr.write('PASS native pipe callbacks/FIFO/platform pressure policy\n');

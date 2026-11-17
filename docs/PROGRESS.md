@@ -15728,6 +15728,27 @@ work. Logs: build/codeoss-visible-webrequest-rejection.log,
 build/codeoss-ordinary-profile-headless.log and diagnostic build logs. Full project
 goal remains active; accepted controlled offscreen workflows retain their scope.
 
+## Independent stdio/lifetime/buffered-socket reference contracts (2026-11-17)
+
+Correct native Windows reference assumptions without changing transport code.
+Windows Node pipes write synchronously and have no false-pressure/drain event;
+POSIX keeps its actual pressure/drain requirement. Retain exact bytes and callback
+ordering. Lifetime listener oracle is explicitly pinned: Node24.15.0 retains0,
+Node24.22.3 retains32; Mite always must retain32. Unknown reference versions refuse.
+
+The delayed socket buffering fixture accidentally depended on default async
+iterator destroying an allowHalfOpen writable side. Primary Node24.22.3 now
+preserves that side, whereas Node24.15.0 and the pinned stream implementation do
+not. Both older Node and Mite read all9 bytes then destroyed before replying; this
+was not proven native Windows receive loss. Isolate the intended buffering check
+with public iterator({destroyOnReturn:false}), strict9-byte/input/live-writable
+assertions and exact uppercase response. Default modern iterator semantics remain
+a separate runtime compatibility gap, not waived by this fixture correction.
+
+Targeted non-GUI Node/Mite/embedded stdio, lifetime and socket controls pass:
+build/windows-test-policy-controls.log. No SDK build or GUI run; live user Code-OSS
+is untouched. Native Windows CI rerun remains required. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

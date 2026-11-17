@@ -63,7 +63,7 @@ def slow_pipe(binary):
         len(expected),
         "Short-write suffix/FIFO mismatch",
     )
-    assert errors == b"PASS native pipe backpressure callbacks/FIFO/drain\n", bytes(errors)
+    assert errors == b"PASS native pipe callbacks/FIFO/platform pressure policy\n", bytes(errors)
 
 
 def redirected_files(binary):

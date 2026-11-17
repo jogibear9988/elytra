@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare forced-GC task lifetimes against Node using the non-GUI embedded host."""
 
-import _support  # Standalone regression helpers.
+import _support  # noqa: F401 — standalone regression helpers.
 
 import argparse
 from pathlib import Path
@@ -18,6 +18,22 @@ def main():
     args = parser.parse_args()
     if not args.node:
         parser.error("Node is required for GC differential tests")
+    version = subprocess.run(
+        [args.node, "-p", "process.versions.node"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    ).stdout.strip()
+    # Exact pinned references, not a permissive set of possible outcomes.
+    # v24.22.3 follows flattened composite sources directly and cleans only the
+    # actual dependent signal. v24.15.0 can drop listener-only leaves when their
+    # intermediate is collected. Mite must deliver all 32 on either reference.
+    # Primary sources: nodejs/node tags v24.15.0 and v24.22.3,
+    # lib/internal/abort_controller.js (followCompositeSignal/cleanup registries).
+    nested_reference = {"24.15.0": 0, "24.22.3": 32}
+    if version not in nested_reference:
+        raise AssertionError(f"Unreviewed Node lifetime reference version: {version}")
     expected = {
         "emitter-once-release": "once released true 48 96\n",
         "event-rejection-release": "capture pending true 0\ncapture released true 32\n",
@@ -45,10 +61,9 @@ def main():
         status = 1 if file.stem in {"finalizer-error", "finalizer-stop"} else 0
         assert all(result.returncode == status for result in results), (file.name, results)
         if file.stem == "nested-listener-retention":
-            # Node 24.15.0 unregisters the flattened source when the intermediate
-            # dies. Preserve the reachable leaf's contract and assert this actual
-            # reference defect separately rather than fake differential equality.
-            assert results[0].stdout == "nested listeners 0\n", results
+            # Preserve the exact observed reference result and the stronger
+            # supported Mite contract independently; never accept either value.
+            assert results[0].stdout == f"nested listeners {nested_reference[version]}\n", results
             assert results[1].stdout == "nested listeners 32\n", results
         else:
             assert results[0].stdout == results[1].stdout == expected[file.stem], (
