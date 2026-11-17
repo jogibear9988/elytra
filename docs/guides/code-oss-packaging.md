@@ -9,8 +9,8 @@ relocated Code-OSS bundle acceptance are pending. The current Ladybird candidate
 suite. The SDK, renderer and packaged sample still require their own acceptance.
 The builder has compiled and verified the sealed sample locally. Its release
 entry passes the controlled offscreen CommonJS extension, editor save, terminal
-and parent-liveness checks with the preceding macOS SDK. The new SDK and the
-relocated macOS bundle still require runtime verification.
+and parent-liveness checks with the preceding macOS SDK. The relocated signed bundle also passes the same workflow through the native
+Cocoa Launcher with that SDK. Verification with the new SDK remains pending.
 
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the

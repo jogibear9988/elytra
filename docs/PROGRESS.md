@@ -16475,6 +16475,20 @@ build/code-oss-bundle-check-relocated/Code-OSS.app and the compact log at
 build/code-oss-bundle-stage-check.log. The relocated Launcher runtime gate
 and the packages built with the current SDK remain pending.
 
+## Run the relocated Code-OSS Launcher on macOS
+
+Launch the signed relocated Code-OSS.app once with a fresh isolated test
+profile. The harness verifies the signature and sealed app before launch,
+then observes the native Cocoa Launcher exec into the Firefly binary.
+CommonJS extension activation, command, editor edit/save and independent
+readback pass. Three timed parent-liveness continuations and the owned
+Bash terminal workflow, including exit 17 and independent readback, pass.
+All 16 authenticated processes stop with zero cleanup signals. Evidence:
+build/code-oss-relocated-launcher.log and the compact process report in
+/tmp/ef-bundle-review-launch. This bundle uses the preceding SDK. The
+GitHub package workflow for the current SDK is queued. The current Linux
+CLI run 44174672031 passes all 171 tests with Ladybird 59158f57c.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
