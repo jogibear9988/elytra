@@ -1,0 +1,42 @@
+name: Pinned native dependency assets
+on:
+  push:
+    branches: [master, 'codex/ladybird-update-*']
+    paths:
+      - '.github/workflows/native-assets.yml'
+      - 'tooling/prefetch_native_assets.py'
+      - 'tooling/tests/test_prefetch_native_assets.py'
+      - 'tooling/tests/fixtures/native-assets/**'
+      - 'tooling/bootstrap.py'
+      - 'vcpkg.json'
+      - 'vendor/ladybird'
+      - 'vendor/ladybird.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-assets-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  pinned-download:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Source and cache refusal controls
+        run: python tooling/tests/test_prefetch_native_assets.py
+      - name: Bootstrap exact upstream dependency manager
+        run: python tooling/bootstrap.py
+      - name: Fetch actual API asset with the original upstream hash
+        env:
+          ELYTRA_DEPENDENCY_GITHUB_TOKEN: ${{ github.token }}
+        run: python tooling/prefetch_native_assets.py
+      - name: Reuse verified bytes without a credential
+        run: python tooling/prefetch_native_assets.py
+      - name: Verify upstream remains unmodified
+        run: python tooling/check_upstream.py

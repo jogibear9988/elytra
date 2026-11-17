@@ -16238,6 +16238,17 @@ creation/strictresolution, metadataalias/drift/escape refusals and production
 inventory unchanged; no skips or PE/package claim. Focused sample controls and
 pinnedPythonformat/diff PASS locally; native Windows rerun required. Fullgoalactive.
 
+## Independently gate the actual native dependency API fetch (2026-11-17)
+
+Add a small separate GitHub workflow for the concrete PCRE2 download failure, so
+actual credential permissions/response bytes are checked without waiting behind a
+full renderer rebuild. It bootstraps the pinned manager, runs8source/cache refusal
+controls, fetches the genuine asset with originalupstreamSHA512 in one credential-
+scoped step, then requires credential-free cache reuse and unchangedLadybird.
+No compiler/app/GUI launch and no claim this accepts the renderer. PinnedYAMLformat
+PASS; actual hosted job pending on push. Main native builds remain independently
+required before master/release promotion. Fullgoalactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
