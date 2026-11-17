@@ -4,12 +4,15 @@ include("${CMAKE_CURRENT_LIST_DIR}/Requirements.cmake")
 firefly_require_wayland_native_interfaces()
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FIREFLY_XCB_ICCCM REQUIRED IMPORTED_TARGET xcb-icccm)
+# The pinned SystemAppearance.cpp uses the desktop settings portal through GIO. Carry its
+# include/link usage requirements on our view target, as upstream does.
+pkg_check_modules(FIREFLY_GIO REQUIRED IMPORTED_TARGET gio-2.0 gio-unix-2.0)
 target_sources(
     firefly-qt-view
     PRIVATE "${LADYBIRD_SOURCE_DIR}/UI/Qt/AccessibilityInterface.cpp"
             "${LADYBIRD_SOURCE_DIR}/UI/Qt/NativeWindowContainer.cpp"
             "${LADYBIRD_SOURCE_DIR}/UI/Qt/X11Window.cpp" "${LADYBIRD_SOURCE_DIR}/UI/Qt/X11Window.h")
-target_link_libraries(firefly-qt-view PRIVATE PkgConfig::FIREFLY_XCB_ICCCM)
+target_link_libraries(firefly-qt-view PRIVATE PkgConfig::FIREFLY_XCB_ICCCM PkgConfig::FIREFLY_GIO)
 
 if(USE_VULKAN_DMABUF_IMAGES)
     # Upstream already owns the shader generation commands. Depend on those exact outputs rather

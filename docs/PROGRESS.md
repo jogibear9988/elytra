@@ -14742,6 +14742,30 @@ Mite matrix and Code-OSS status distinguish actual local evidence from planned
 proxy/platform/editor support. Current work remains on the Ladybird review branch;
 SDK promotion to master still needs its outstanding platform/release gates.
 
+## 2026-11-17 — Restore the pinned Linux Qt view GIO dependency
+
+Inspect actual failed Linux renderer job133688460765/run43978469318 atddcf2e5:
+SystemAppearance.cpp cannot find gio/gio.h. The unchanged pinned upstream Qt
+CMake target links GIO, but our smaller firefly-qt-view target did not inherit
+that private usage requirement. Add required imported gio-2.0/gio-unix-2.0 target
+to our Linux-only adapter, matching upstream. The existing Linux environment
+already installs libglib2.0-dev; no package/source fork or include-path hardcoding.
+CMake formatting and upstream/diff checks pass. Native compilation must be
+confirmed by the next hosted Linux renderer job; a macOS build cannot establish
+this Linux-specific fix. No GUI validation or retained build tree added.
+
+The WebSocket commit57328f1 is pushed. Its native Linux CLI/renderer and Windows
+jobs are running; macOS Release is pending. This is not platform acceptance or
+master promotion. Source audit of the next Code-OSS Blob-worker failure finds
+our worker-thread webRequest refusal before SDK blob lookup, followed by absent
+creator-authenticated custom-protocol worker routing. Do not hide it by making
+all worker requests bypass policy or by relaxing the top-level Window identity.
+A genuine worker fetch broker must retain creator/session/document generation,
+policy decisions, byte credit, cancellation and revocation. Background throttling
+also needs scheduler/rendering control separate from physical visibility, since
+fake Visible would change permission lifetime. Keep both tracked implementation
+work, not successful Code-OSS support.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
