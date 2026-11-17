@@ -179,35 +179,21 @@ void Bridge::Impl::retire_ipc_channel(int id)
     schedule_ipc_event_drain();
 }
 
-bool Bridge::Impl::queue_ipc_packet(
-    int id, ApplicationIpc::Kind kind, u32 request, bool success, ByteString const& wire)
+bool Bridge::Impl::queue_ipc_packet(int id, ApplicationIpc::Kind kind, u32 request, bool success,
+    ByteString const& wire, ApplicationIpc::Traffic traffic, RefPtr<IpcWireReservation> reservation)
 {
     auto& state = windows.at(id);
     if (!state.ipc_byte_channel || !state.ipc_byte_channel->is_open())
         return false;
-    auto reservation = state.ipc_wire_budget->reserve(wire.length());
-    size_t controls = 0;
-    for (auto const& packet : state.ipc_byte_queue)
-        controls += packet.kind != ApplicationIpc::Kind::Event;
+    if (!reservation)
+        reservation = state.ipc_wire_budget->reserve(wire.length());
     if (!reservation || wire.length() > ApplicationIpc::logical_wire_limit
-        || controls >= ApplicationIpc::queue_limit) {
+        || !state.ipc_byte_queue.can_append(traffic)) {
         retire_ipc_channel(id);
         return false;
     }
 
-    State::OutgoingPacket packet { kind, request, success, wire, 0, move(reservation) };
-    // Unstarted events yield to replies/ACKs. A partially emitted logical frame
-    // cannot be interleaved, but occupies only one extra slot beside 48 controls.
-    size_t insertion = state.ipc_byte_queue.size();
-    for (size_t i = 0; i < state.ipc_byte_queue.size(); ++i) {
-        auto const& queued = state.ipc_byte_queue[i];
-        if (queued.kind == ApplicationIpc::Kind::Event && queued.offset == 0) {
-            insertion = i;
-            break;
-        }
-    }
-
-    state.ipc_byte_queue.insert(insertion, move(packet));
+    state.ipc_byte_queue.append({ kind, request, success, wire, 0, move(reservation) }, traffic);
     flush_ipc_packets(id, state.ipc_byte_epoch);
     return !!state.ipc_byte_channel;
 }

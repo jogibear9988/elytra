@@ -47,9 +47,9 @@ Current local macOS result (2026-11-17): CommonJS/editor, timed parent-liveness
 continuations and the real terminal pass together without diagnostic flags.
 Three 1100 ms continuations each require native parent existence, a fresh original
 extension command reply and a coherent saved editor. The application exits 0;
-all 15 observed native identities are independently absent with zero cleanup
+all 14 observed native identities are independently absent with zero cleanup
 signals. Evidence:
-`build/codeoss-parent-liveness-{evidence.json,workbench.log,acceptance.log}`.
+`build/codeoss-physical-control-{evidence.json,workbench.log,acceptance.log}`.
 
 This is controlled offscreen API acceptance, not visible painting/keyboard input,
 all extensions, shell integration, another platform or general long-running

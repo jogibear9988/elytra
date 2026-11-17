@@ -3,6 +3,7 @@
 #pragma once
 #include "native/ipc/application/Fragment.h"
 #include "native/ipc/application/Message.h"
+#include "native/ipc/application/OutgoingQueue.h"
 #include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/utility/ports/Protocol.h"
@@ -62,7 +63,9 @@ private:
 
     void control(String const& kind, u32 request);
 
-    bool send_packet(ApplicationIpc::Kind, u32, bool, ByteString const&);
+    bool send_packet(ApplicationIpc::Kind, u32, bool, ByteString const&,
+        ApplicationIpc::Traffic = ApplicationIpc::Traffic::Critical,
+        RefPtr<IpcWireReservation> = {});
 
     void flush_packets();
 
@@ -125,7 +128,7 @@ private:
     Vector<QueuedCall> m_calls;
     size_t m_active_count { 0 };
     bool m_admission_scheduled { false };
-    Vector<QueuedPacket> m_byte_queue;
+    ApplicationIpc::OutgoingQueue<QueuedPacket> m_byte_queue;
     NonnullRefPtr<IpcWireBudget> m_wire_budget { adopt_ref(*new IpcWireBudget) };
     RefPtr<IpcWireReservation> m_receive_reservation;
     ApplicationIpc::FragmentReassembler m_reassembler;

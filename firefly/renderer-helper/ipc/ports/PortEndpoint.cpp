@@ -450,14 +450,14 @@ void PortEndpoint::flush()
     m_flushing = true;
     ScopeGuard done([&] { m_flushing = false; });
     while (!m_transfer_acks.is_empty() && live()
-        && m_endpoint.m_byte_queue.size() < ApplicationIpc::queue_limit) {
+        && m_endpoint.m_byte_queue.can_append(ApplicationIpc::Traffic::Critical)) {
         auto request = m_transfer_acks.take_first();
         if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortAck, request, false, {}))
             return;
     }
 
     while (!m_controls.is_empty() && live()
-        && m_endpoint.m_byte_queue.size() < ApplicationIpc::queue_limit) {
+        && m_endpoint.m_byte_queue.can_append(ApplicationIpc::Traffic::SequencedControl)) {
         if (m_next == 0xffffffffu) {
             m_endpoint.retire_channel();
             return;
@@ -465,7 +465,8 @@ void PortEndpoint::flush()
 
         auto wire = m_controls.take_first();
         m_control_bytes -= wire.length();
-        if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false, wire))
+        if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false, wire,
+                ApplicationIpc::Traffic::SequencedControl))
             return;
     }
 
@@ -474,7 +475,7 @@ void PortEndpoint::flush()
         ids.append(entry.value.identity);
     for (auto identity : ids) {
         while (live() && m_controls.is_empty()
-            && m_endpoint.m_byte_queue.size() < ApplicationIpc::queue_limit) {
+            && m_endpoint.m_byte_queue.can_append(ApplicationIpc::Traffic::Bulk)) {
             auto found = m_routes.find(identity.id);
             if (found == m_routes.end() || found->value.outgoing.is_empty())
                 break;
@@ -485,7 +486,7 @@ void PortEndpoint::flush()
             auto bytes = P::fragment_wire_bytes(route.outgoing.first().length());
             // Atomic logical admission: all bounded physical slots and retained
             // wire bytes must be available before the first fragment is queued.
-            if (!count || count > ApplicationIpc::queue_limit - m_endpoint.m_byte_queue.size())
+            if (!count || !m_endpoint.m_byte_queue.can_append(ApplicationIpc::Traffic::Bulk, count))
                 break;
             if (count > 0xffffffffu - m_next || (count > 1 && m_fragment_serial == 0xffffffffu)) {
                 m_endpoint.retire_channel();
@@ -495,7 +496,8 @@ void PortEndpoint::flush()
             auto reservation = m_endpoint.m_wire_budget->reserve(bytes);
             if (!reservation)
                 break;
-            reservation = nullptr;
+            // Keep one conservative batch lease across all fragments, including
+            // the ledger/sequence commit and any queued unsent suffix.
             auto serial = count > 1 ? ++m_fragment_serial : 0;
             auto wire = route.outgoing.take_first();
             route.outgoing_bytes -= wire.length();
@@ -514,8 +516,8 @@ void PortEndpoint::flush()
                 }
 
                 auto frame = ByteString(fragment.bytes.data(), fragment.bytes.size());
-                if (!m_endpoint.send_packet(
-                        ApplicationIpc::Kind::PortControl, ++m_next, false, frame))
+                if (!m_endpoint.send_packet(ApplicationIpc::Kind::PortControl, ++m_next, false,
+                        frame, ApplicationIpc::Traffic::Bulk, reservation))
                     return;
                 offset = fragment.next_offset;
             } while (offset < wire.length());

@@ -1,18 +1,21 @@
 # Current support and tested examples
 
-Latest Code-OSS checkpoint, **2026-11-17**: the native process-signals rebuild
-passes a longer non-diagnostic macOS offscreen CommonJS/editor/terminal workflow.
-Three 1100 ms continuations each check the real extension parent with signal zero,
-execute the original registered command and verify the saved editor remains
-coherent. The real Bash terminal then passes sendText/exit17. Independent Python
-checks verify physical editor/terminal bytes and that all 15 observed native
-process identities are absent; no cleanup signals are needed in this run.
-The preceding native-stdio run required two signals; these remain distinct
-controlled checkpoints, not a general natural-teardown guarantee. Native kill,
-watcher/policy and stdio controls pass locally. Visible input/painting, broader
-load/failure/extension coverage and fresh platform CI remain open. See
-[exact terminal/continuation evidence](api/pty.md#controlled-code-oss-terminal-result)
-and [native signal sending](architecture/0208-native-process-signals.md).
+Latest Code-OSS checkpoint, **2026-11-17**: the physical control-reserve rebuild
+passes the non-diagnostic macOS offscreen CommonJS/editor/three timed parent-
+liveness/real Bash terminal workflow. Independent Python readback verifies saved
+editor and shell bytes. Main exits 0; all 14 observed native identities are absent,
+with zero cleanup signals. A real native paired-transport pressure probe, six
+renderer-port cases and the five-document binding observer also pass.
+
+The shared scheduler reserves control capacity within existing limits and retains
+sequenced port order, fragment atomicity, bounded fairness and wire leases. This
+is scoped component/integration acceptance, not visible input/painting, arbitrary
+extensions, unconditional delivery or general saturation/teardown reliability.
+Native Linux CLI at fb655df passes all 161 baseline suites; later changes,
+Linux renderer, macOS packaging and Windows need their own hosted gates. See
+[current workflow evidence](api/pty.md#controlled-code-oss-terminal-result),
+[control reservation](architecture/0209-reserved-ipc-control-capacity.md) and
+[current Windows limitations](development/windows-build.md).
 
 The preceding CommonJS/ESM checkpoint on the isolated review branch:
 controlled original Code-OSS CommonJS and ESM extension/command/open-edit-save

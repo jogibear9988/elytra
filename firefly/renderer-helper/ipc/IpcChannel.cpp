@@ -67,19 +67,20 @@ void IpcEndpoint::attach_channel(
         flush_packets();
 }
 
-bool IpcEndpoint::send_packet(
-    ApplicationIpc::Kind kind, u32 id, bool success, ByteString const& wire)
+bool IpcEndpoint::send_packet(ApplicationIpc::Kind kind, u32 id, bool success,
+    ByteString const& wire, ApplicationIpc::Traffic traffic, RefPtr<IpcWireReservation> reservation)
 {
     if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document->is_fully_active())
         return false;
-    auto reservation = m_wire_budget->reserve(wire.length());
+    if (!reservation)
+        reservation = m_wire_budget->reserve(wire.length());
     if (!reservation || wire.length() > ApplicationIpc::logical_wire_limit
-        || m_byte_queue.size() >= ApplicationIpc::queue_limit) {
+        || !m_byte_queue.can_append(traffic)) {
         retire_channel();
         return false;
     }
 
-    m_byte_queue.append({ kind, id, success, wire, 0, move(reservation) });
+    m_byte_queue.append({ kind, id, success, wire, 0, move(reservation) }, traffic);
     flush_packets();
     return !m_byte_failed;
 }
@@ -101,7 +102,7 @@ void IpcEndpoint::flush_packets()
                 return;
             }
 
-            m_byte_queue.remove(0);
+            m_byte_queue.take_first();
             continue;
         }
 
@@ -114,7 +115,7 @@ void IpcEndpoint::flush_packets()
 
         queued.offset = packet.value().next_offset;
         if (packet.value().complete)
-            m_byte_queue.remove(0);
+            m_byte_queue.take_first();
         if (m_byte_channel->send(packet.value().bytes.bytes()).is_error()) {
             retire_channel();
             return;

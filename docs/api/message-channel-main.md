@@ -159,6 +159,23 @@ message is delivered. A fixed 30-second first-fragment timeout does not renew.
 Malformed/expired fragments retire the channel; document loss and teardown reclaim
 partial buffers and credits. See [ADR 0198](../architecture/0198-bounded-native-port-fragmentation.md).
 
+Both native application directions now reserve control capacity within the
+existing 48-slot packet queue: at most 16 bulk packets, 32 bulk plus sequenced
+port ACK/CLOSE, and 48 including independent replies/application ACKs/attachment
+ACKs. The existing one ordinary main Event slot remains separate. Bulk port DATA
+cannot consume those reserves. Only independent critical traffic may pass
+unstarted work; port sequence order and an in-progress logical message remain
+intact. After sixteen critical completions, eligible older noncritical work gets
+a turn. Whole DATA batches retain one existing wire-byte lease across admission
+and queued fragments. No active/logical/byte quota is raised.
+
+A native probe with real paired transports accepts bounded pressure, actual byte
+ACK progress, fragment atomicity, fairness, sequencing and lease cancellation.
+The existing actual macOS offscreen renderer batch still passes FIFO/burst/utility
+relay, mixed handoff, bounded refusal/recovery and old-owner cancellation. These
+checks do not promise delivery while a peer is paused or wire budgets are exhausted.
+See [ADR 0209](../architecture/0209-reserved-ipc-control-capacity.md).
+
 The DOM-to-main forwarding queue separately admits at most 1024 waiting messages,
 1 MiB of waiting encoded data per route, and 4 MiB across waiting data/control
 frames in the endpoint. Its native credit window remains 16: waiting admission

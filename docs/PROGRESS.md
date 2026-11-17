@@ -15597,6 +15597,50 @@ This is a corrected observer expectation, not new renderer behavior; a fresh hos
 run remains required. The separate bounded physical-control queue change is still
 being implemented/reviewed and has no runtime acceptance yet.
 
+## Reserved physical IPC control capacity and actual pressure acceptance (2026-11-17)
+
+Implement ADR0209 sharedproductionOutgoingQueue on BOTH main/helper directions.
+Keep48controls+existingEvent1, with nested16bulk/32bulk+sequencedACKClose/48total.
+Critical demand16 is derived from actual combinedInvoke+Send activecount and
+combinedEvent+Transfer admission, not assumed fromrawtransport credits. Only
+independentReply/Ack/PortAck maypassunstartedwork; preserveeveryPortControlFIFO and
+partialFIM2contiguity. Persistent16-critical-completion fairness cannotstarveolder
+noncriticalwork. PreflightwholeDATAfragmentcount+wire BEFOREledger/sequencecommit;
+sharethe SAME conservativelease acrossallqueuedfragments withnocharginggap,
+doublecharge orapplicationretry. No logical/active/waiting/bytequota increase.
+
+Producer sixactualcompileDB syntaxchecks, nativeformat and independentreview
+(includingfinalwholebatchlease lifetime) PASS. RootReleaseSDK/offscreenbuild and
+COMPLETE check-firefly-byte-channel gate PASS. Newheadlessprobe usesproductionqueue,
+actualFUP/FIMcodecs, wireleases andrealpairedBytesChannel. Accepts16/32/48+Event
+bounds,9fragmentatomicpreflight,16criticalfairness,actualpartialFIM2pinning,
+16unACKedphysicalframes+16queuedbulk/controlpressure thenrealreceiverresume/ACKs,
+byteexactFUPFIFO andallleasecancellation/refundchecks. Initialfixtureincorrectly
+fragmentedPortControl: existingcodeccorrectlyrejectsit. UsegenuineInvokeFIM2 instead;
+no productioncodecwaiver. AddWindowsLocalHandleBrokerbootstrap matchingexisting
+probe; noWindowsruntimeclaim. Log: build/physical-control-reserve-build.log.
+
+Actual offscreenrendererportbatch all6cases PASS (DOMFIFO/burst/utilityrelay/mixed
+handoff/fullwaitingrefusalrecovery/oldownercancel). Actualfixedbindingobserver now
+passesall5documents/15rejections withlivehelperOSparentchecks. Logs:
+build/physical-control-reserve-{renderer-controls,binding-controls}.log.
+Actual non-diagnostic originalCode-OSS CommonJS/editor/three1100msnativeparent+API
+continuations/BashterminalsendText+exit17 PASS onnewSDK. BashPID86056authenticated;
+mainexit0; all14 nativeidentities independentlyrecheckedabsent; cleanupSignals0.
+Stage digest unchanged. Nonce-freeevidence/executablehash(notclosureproof) and
+sanitizedlogs: build/codeoss-physical-control-{acceptance.log,evidence.json,
+workbench.log}. Reusecurrentstage/profile; novisibledesktop/newpackage retained.
+
+Update API/currentCode-OSS/PTY/fixturedocs andADR. Also refreshWindowsbringupheadline:
+034a211 run44022434498/job133840504593 compiles but14/159suitesfail, predatingstdio.
+WindowsreferenceisEXPLICITLYfixed24.22.3 toavoidNode24.15nativeTCPcrash; do NOT
+misdiagnoseasfloatingpin orblindlydowngrade. Classifyremainingreference/runtime
+mismatches (listenerretention,Blobnewlines,URL,webadapters,compression,parser versions,
+HTTP/net/DNS) ratherthanwaiveassertions. PrimaryNode24.15/24.22.3 Blob sources also
+confirmchangedloneCRnormalization; no unrelatedproductionchange made inthisslice.
+FreshplatformCI, broadersaturation/failure/teardown andWindowsnativeDesktop remain
+open; no master/alpha promotion. Fullprojectgoal remainsactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

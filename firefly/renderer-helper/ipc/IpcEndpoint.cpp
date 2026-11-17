@@ -293,7 +293,7 @@ void IpcEndpoint::schedule_admission()
 {
     if (m_admission_scheduled || m_byte_failed || m_calls.is_empty() || m_active_count >= 16
         || pending_count >= 64 || !m_byte_channel || !m_byte_channel->is_open()
-        || m_byte_queue.size() >= ApplicationIpc::queue_limit)
+        || !m_byte_queue.can_append(ApplicationIpc::Traffic::Bulk))
         return;
     m_admission_scheduled = true;
     Core::deferred_invoke([weak = make_weak_ptr()] {
@@ -309,7 +309,7 @@ void IpcEndpoint::pump_admission()
     if (m_byte_failed || !m_owner || m_owner->is_detached() || !m_document
         || !m_document->is_fully_active() || m_calls.is_empty() || m_active_count >= 16
         || pending_count >= 64 || !m_byte_channel || !m_byte_channel->is_open()
-        || m_byte_queue.size() >= ApplicationIpc::queue_limit)
+        || !m_byte_queue.can_append(ApplicationIpc::Traffic::Bulk))
         return;
     auto found = m_pending.find(m_calls.first().request);
     VERIFY(found != m_pending.end());
@@ -332,7 +332,8 @@ void IpcEndpoint::pump_admission()
                                                     : "firefly.ipc.invoke.v1"_string,
         call.request);
     m_byte_queue.append(
-        { call.kind, call.request, false, move(call.wire), 0, move(call.reservation) });
+        { call.kind, call.request, false, move(call.wire), 0, move(call.reservation) },
+        ApplicationIpc::Traffic::Bulk);
     flush_packets();
     // One request per deferred turn gives other document endpoints a chance at
     // the renderer-wide active credit; physical fragments retain their own FIFO.

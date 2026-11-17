@@ -186,3 +186,15 @@ editor SHA-256:
 `9513eef516fa89e320f647344bbe55cdaa44ac0c06acc9aa2a8edbe123648640`.
 Stage digest unchanged. Evidence:
 `build/codeoss-parent-liveness-{acceptance.log,evidence.json,workbench.log}`.
+
+After the physical control-reserve rebuild, the same non-diagnostic parent-liveness,
+editor and real terminal workflow passes again (Bash PID 86056). Main exits 0;
+all 14 observed native identities are independently absent, with zero cleanup
+signals. The separate native pressure probe and actual renderer-port/binding
+batches also pass; this is scoped regression evidence, not arbitrary-load or
+visible-desktop acceptance. Terminal SHA-256:
+`57a0ce3411d9298d58ae715d412128e55c46a6e3696574a5841d3dab45638f24`;
+editor SHA-256:
+`46090729b4b8ec4087b82d2510df7e233dd54d59fa9f88f159c900545c2588a0`.
+Stage digest unchanged. Evidence:
+`build/codeoss-physical-control-{acceptance.log,evidence.json,workbench.log}`.

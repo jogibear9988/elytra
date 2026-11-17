@@ -145,13 +145,14 @@ void Bridge::Impl::emit_renderer_port(int id, u64 epoch, ByteString type, ByteSt
     });
 }
 
-bool Bridge::Impl::queue_renderer_port(int id, ByteString const& wire)
+bool Bridge::Impl::queue_renderer_port(int id, ByteString const& wire,
+    ApplicationIpc::Traffic traffic, RefPtr<IpcWireReservation> reservation)
 {
     auto& state = windows.at(id);
     if (wire.length() > ApplicationIpc::wire_limit || state.renderer_port_next == 0xffffffffu)
         return false;
-    return queue_ipc_packet(
-        id, ApplicationIpc::Kind::PortControl, ++state.renderer_port_next, false, wire);
+    return queue_ipc_packet(id, ApplicationIpc::Kind::PortControl, ++state.renderer_port_next,
+        false, wire, traffic, move(reservation));
 }
 
 JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_send_port_transfer(JS::VM& vm)
@@ -317,7 +318,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
     // in the existing JS link rather than letting them overtake the attachment.
     if (state->renderer_port_waiting.contains(route.id))
         return JS::Value(blocked);
-    if (state->ipc_byte_queue.size() >= ApplicationIpc::queue_limit)
+    if (!state->ipc_byte_queue.can_append(action == 0 ? ApplicationIpc::Traffic::Bulk
+                                                      : ApplicationIpc::Traffic::SequencedControl))
         return JS::Value(blocked);
     ByteString wire;
     size_t size = 0;
@@ -346,7 +348,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         // fragment. No application JS or event pumping runs during admission.
         auto count = Ports::fragment_count(size);
         auto bytes = Ports::fragment_wire_bytes(size);
-        if (!count || count > ApplicationIpc::queue_limit - state->ipc_byte_queue.size())
+        if (!count || !state->ipc_byte_queue.can_append(ApplicationIpc::Traffic::Bulk, count))
             return JS::Value(blocked);
         if (count > 0xffffffffu - state->renderer_port_next
             || (count > 1 && state->renderer_port_fragment_serial == 0xffffffffu))
@@ -354,13 +356,16 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
         auto reservation = state->ipc_wire_budget->reserve(bytes);
         if (!reservation)
             return JS::Value(blocked);
-        reservation = nullptr;
+        // Share the complete batch lease until its last queued fragment is
+        // sent/canceled. No credit disappears between preflight and commit.
         auto serial = count > 1 ? ++state->renderer_port_fragment_serial : 0;
         state->renderer_ports.sent(route, size);
         size_t offset = 0;
         do {
             auto fragment = Ports::encode_next(route, serial, span(wire), offset);
-            if (fragment.bytes.empty() || !queue_renderer_port(id, packet_bytes(fragment.bytes))) {
+            if (fragment.bytes.empty()
+                || !queue_renderer_port(
+                    id, packet_bytes(fragment.bytes), ApplicationIpc::Traffic::Bulk, reservation)) {
                 retire_ipc_channel(id);
                 return JS::Value(retired);
             }
@@ -374,8 +379,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::renderer_port_action(JS::VM& vm, 
     auto reservation = state->ipc_wire_budget->reserve(frame.length());
     if (!reservation)
         return JS::Value(blocked);
-    reservation = nullptr;
-    if (!queue_renderer_port(id, frame)) {
+    if (!queue_renderer_port(
+            id, frame, ApplicationIpc::Traffic::SequencedControl, move(reservation))) {
         retire_ipc_channel(id);
         return JS::Value(retired);
     }

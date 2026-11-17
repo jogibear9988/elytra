@@ -125,7 +125,8 @@ void Bridge::Impl::drain_ipc_events()
             auto epoch = window.ipc_byte_epoch;
             window.ipc_byte_queue.append(
                 { transfer ? ApplicationIpc::Kind::PortControl : ApplicationIpc::Kind::Event,
-                    request, false, move(event.wire), 0, move(event.reservation) });
+                    request, false, move(event.wire), 0, move(event.reservation) },
+                transfer ? ApplicationIpc::Traffic::Bulk : ApplicationIpc::Traffic::Event);
             if (transfer) {
                 for (auto identity : event.ports)
                     window.renderer_port_waiting.erase(identity.id);

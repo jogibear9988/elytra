@@ -65,6 +65,7 @@ class WebContentPage;
 }
 
 #include "native/ipc/application/Fragment.h"
+#include "native/ipc/application/OutgoingQueue.h"
 #include "native/ipc/application/WireBudget.h"
 #include "native/ipc/bytes/Channel.h"
 #include "native/preload/ProcessConfig.h"
@@ -191,7 +192,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
             RefPtr<IpcWireReservation> reservation {};
         };
 
-        Vector<OutgoingPacket> ipc_byte_queue {};
+        ApplicationIpc::OutgoingQueue<OutgoingPacket> ipc_byte_queue {};
         NonnullRefPtr<IpcWireBudget> ipc_wire_budget { adopt_ref(*new IpcWireBudget) };
         ApplicationIpc::FragmentReassembler ipc_reassembler;
         RefPtr<IpcWireReservation> ipc_receive_reservation;
@@ -356,7 +357,9 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     void retire_ipc_channel(int);
 
-    bool queue_ipc_packet(int, ApplicationIpc::Kind, u32, bool, ByteString const&);
+    bool queue_ipc_packet(int, ApplicationIpc::Kind, u32, bool, ByteString const&,
+        ApplicationIpc::Traffic = ApplicationIpc::Traffic::Critical,
+        RefPtr<IpcWireReservation> = {});
 
     void flush_ipc_packets(int, u64 epoch);
 
@@ -407,7 +410,8 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     void emit_renderer_port(int, u64, ByteString, ByteString = {});
 
-    bool queue_renderer_port(int, ByteString const&);
+    bool queue_renderer_port(
+        int, ByteString const&, ApplicationIpc::Traffic, RefPtr<IpcWireReservation> = {});
 
     // Window lookup/teardown and native view callbacks share this same owner.
     JS::ThrowCompletionOr<State*> state(JS::VM&);
