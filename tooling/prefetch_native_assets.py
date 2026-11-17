@@ -21,6 +21,7 @@ PORT_TREE = "53bb7f4499d752b9e4d725b8b419ff225fef76e6"
 PORT_SHA512 = "2fcc11ebc97497e5c769019abd3a1cf195c84b6438854f570e7ed7f8a91d99d9b4d7976ac8798069d9912a0fdf29bde95e6cf48d522953cbe89381d91000a91e"
 MANIFEST_SHA512 = "ab6a5b4754b09cbe1b5c559ac3659e7239815dcb2e659e072312e7b1ed5e72116c20114b353b639a85a93095c8b78b8f0a913799960879df40a52e191b13fc5a"
 ASSET_SHA512 = "719fa1d8d8e1e749ce6f7370db32818268f84b1376ed9367fd5290ab440d8bea7a6a25a68e55045a45da68b0ce7a55daa0d7acd2f1b11774319b50268c02441c"
+COMPACT_SHA512 = "8b19209d2a8e0854af44a3845b98d9dcb20bb7a2be3937dd5e17ea37622afe3a671e48f44a5eaa0c406eb9801d1b3eefcf69c91b32c3bb2e6ac1a439d222d795"
 URL = "https://api.github.com/repos/PCRE2Project/pcre2/contents/deps/sljit?ref=pcre2-10.49"
 FILENAME = "pcre2-pcre2-10.49-sljit-gitlink.json"
 TOKEN_ENV = "ELYTRA_DEPENDENCY_GITHUB_TOKEN"
@@ -75,6 +76,23 @@ def verify_bytes(data):
         raise PrefetchError("Native asset SHA512 mismatch; cache was not published")
 
 
+def cache_payload(data):
+    """Recover only one fully pinned wire representation, then verify the original port hash."""
+    if len(data) == 781 and hashlib.sha512(data).hexdigest() == COMPACT_SHA512:
+        try:
+            recovered = (json.dumps(json.loads(data), indent=2, ensure_ascii=False) + "\n").encode(
+                "utf-8"
+            )
+        except (ValueError, UnicodeError):
+            raise PrefetchError("Pinned compact native asset could not be decoded") from None
+        if len(recovered) != 848:
+            raise PrefetchError("Pinned native asset recovery size mismatch")
+        verify_bytes(recovered)
+        return recovered
+    verify_bytes(data)
+    return data
+
+
 def prefetch(root, vcpkg, downloads, *, opener=None, environment=None):
     verify_pins(root, vcpkg)
     destination = downloads / FILENAME
@@ -95,7 +113,8 @@ def prefetch(root, vcpkg, downloads, *, opener=None, environment=None):
             "Authorization": "Bearer " + token,
             "User-Agent": "Elytra-native-asset-prefetch",
             # Match vcpkg/curl content negotiation: an absent Accept returns a
-            # compact JSON representation with a different (correctly refused) hash.
+            # compact JSON representation; only its separately pinned bytes can
+            # be recovered to the original port payload below.
             "Accept": "*/*",
         },
     )
@@ -140,7 +159,20 @@ def prefetch(root, vcpkg, downloads, *, opener=None, environment=None):
             sort_keys=True,
         ),
     )
-    verify_bytes(data)
+    payload = cache_payload(data)
+    if payload != data:
+        print(
+            "Native asset cache representation:",
+            json.dumps(
+                {
+                    "source": "recovered-pinned-compact-response",
+                    "bytes": len(payload),
+                    "sha512": hashlib.sha512(payload).hexdigest(),
+                },
+                sort_keys=True,
+            ),
+        )
+    data = payload
     downloads.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:

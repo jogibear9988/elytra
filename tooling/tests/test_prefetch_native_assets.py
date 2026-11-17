@@ -96,18 +96,42 @@ class PrefetchTests(unittest.TestCase):
             "8b19209d2a8e0854af44a3845b98d9dcb20bb7a2be3937dd5e17ea37622afe3a671e48f44a5eaa0c406eb9801d1b3eefcf69c91b32c3bb2e6ac1a439d222d795",
         )
         with patch.object(assets, "ASSET_SHA512", self.original_digest):
-            with self.assertRaises(assets.PrefetchError):
-                self.fetch(Opener(compact))
-        self.assertFalse(self.cache.exists())
-
-        class NegotiatedOpener:
-            def open(self, request, timeout):
-                # Different representation is deliberately not canonicalized.
-                return Response(payload if request.get_header("Accept") == "*/*" else b"{}")
-
-        with patch.object(assets, "ASSET_SHA512", self.original_digest):
-            self.assertEqual(self.fetch(NegotiatedOpener()), "prefetched verified asset")
+            self.assertEqual(assets.cache_payload(payload), payload)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(self.fetch(Opener(compact)), "prefetched verified asset")
+            self.assertIn('"bytes": 781', output.getvalue())
+            self.assertIn('"bytes": 848', output.getvalue())
+            self.assertIn("recovered-pinned-compact-response", output.getvalue())
         self.assertEqual((self.cache / assets.FILENAME).read_bytes(), payload)
+
+    def test_unknown_representations_metadata_and_recovery_drift_fail(self):
+        payload = (
+            Path(__file__).parent / "fixtures/native-assets/pcre2-sljit-gitlink.response"
+        ).read_bytes()
+        parsed = json.loads(payload)
+        changed = dict(parsed)
+        changed["sha"] = "0" * 40
+        variations = [
+            payload[:-1],
+            b"{malformed",
+            json.dumps(parsed).encode(),
+            json.dumps(parsed, sort_keys=True, separators=(",", ":")).encode(),
+            json.dumps(changed, separators=(",", ":")).encode(),
+        ]
+        with patch.object(assets, "ASSET_SHA512", self.original_digest):
+            for value in variations:
+                with self.assertRaises(assets.PrefetchError):
+                    self.fetch(Opener(value))
+                self.assertFalse(self.cache.exists())
+            compact = json.dumps(parsed, separators=(",", ":")).encode()
+            with patch.object(assets.json, "dumps", return_value="wrong recovered payload"):
+                with self.assertRaises(assets.PrefetchError):
+                    assets.cache_payload(compact)
+            # Even a correctly sized recovery must still pass the original SHA512.
+            with patch.object(assets.json, "dumps", return_value="x" * 847):
+                with self.assertRaises(assets.PrefetchError):
+                    assets.cache_payload(compact)
 
     def test_diagnostics_never_echo_arbitrary_headers_or_token(self):
         class HostileResponse(Response):

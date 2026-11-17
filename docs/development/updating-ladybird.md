@@ -579,7 +579,11 @@ CI runs `python tooling/prefetch_native_assets.py` after bootstrap in a separate
 step. Only that step receives ELYTRA_DEPENDENCY_GITHUB_TOKEN; application builds
 and launches do not receive this credential. The downloader refuses redirects,
 checks the exact baseline/versioned port bytes and original upstream SHA512, then
-atomically publishes the validated response into vcpkg's ordinary download cache.
+atomically publishes the validated original bytes into vcpkg's ordinary download
+cache. Authenticated CI can return the exact known 781-byte compact representation
+even with curl's Accept header. Only that separately pinned wire hash may be
+reformatted; the recovered 848 bytes must still match the original upstream
+SHA512 before publication. Unknown representations and metadata drift reject.
 No dependency source or port is changed. An existing verified cache needs no
 credential/network. A changed baseline, port or hash requires source review;
 never bypass the hash or disable PCRE2 features to hide a download failure.

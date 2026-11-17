@@ -16285,6 +16285,20 @@ native/CMake/Python/YAMLformat+diff and site367pages PASS. ActualWindowscompile,
 eventshape/collectionrights and run remainPENDING. No localGUI/SDK rebuild. Fullgoal
 active; realrenderer/allhelperroles/WindowsEXE and releasegates remain open.
 
+## Recover only the pinned wire variant and reverify original cache bytes (2026-11-17)
+
+Actualauthenticated865 nativeassetjob133992915856 still returns781-byte8b19209...
+despitecurlAccept header; cachepublication correctlyrefused. Permit exactly that
+knownwire size+fullSHA512 as a separately pinned representation. JSONindent2+
+terminalnewline recovery must produce848bytes and re-match original719...SHA512
+before publication; raworiginal bytes remain directly accepted. No genericformat
+normalization, unknownpayload acceptance or expectedupstreamhash replacement.
+Log rawresponse and recoveredcache separately. Eleven source/cache/networknegative
+controls PASS, including unknownsameJSONformat/reordered/malformed/changedmetadata
+and wrongrecovery size/hash refusal. PinnedPython/nativeformat+diff PASS; update
+upstreambuild guide. Freshactualauthenticated CI fetch remains pending. Evidence:
+build/native-asset-recovery-controls.log. No localcache/app/SDK mutation. Goalactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
