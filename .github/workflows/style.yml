@@ -50,3 +50,4 @@ jobs:
           python3 tooling/tests/test_code_oss_sample.py
           python3 tooling/tests/test_release_artifacts.py
           python3 tooling/tests/test_prefetch_native_assets.py
+          node firefly/tests/gpu/cpu-policy-controls.mjs

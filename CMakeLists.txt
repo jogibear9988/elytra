@@ -390,6 +390,10 @@ if(BUILD_TESTING)
             "${Python3_EXECUTABLE}"
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_modern_protocol_policy.py" --mite
             "$<TARGET_FILE:mite>")
+    add_test(
+        NAME firefly-compositor-cpu-argv
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_gpu_cpu_policy.py"
+                --mite "$<TARGET_FILE:mite>")
     add_test(NAME firefly-gpu-policy
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_gpu_policy.py"
                      --mite "$<TARGET_FILE:mite>")

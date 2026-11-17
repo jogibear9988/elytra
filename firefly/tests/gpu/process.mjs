@@ -2,6 +2,7 @@
 import { app, BrowserWindow } from 'firefly';
 import { execFile } from 'node:child_process';
 import path from 'node:path';
+import { hasCpuCompositorPolicy } from './cpu-policy.mjs';
 
 const directory = import.meta.dirname;
 app.setPath('userData', path.join(directory, 'config'));
@@ -99,22 +100,19 @@ app.whenReady().then(async () => {
       check(candidates.length <= 1, 'Ambiguous direct owned compositor; refuse all signals');
       return candidates[0];
     }, 'discovering one direct owned compositor');
-    check(
-      owner.args.includes('--force-cpu-painting'),
-      'Actual compositor arguments select CPU painting'
-    );
+    check(hasCpuCompositorPolicy(owner.args), 'Actual compositor arguments select CPU painting');
     // Re-read ownership immediately before signalling. Never select by name alone.
     const verified = (await ownedCompositors()).filter((entry) => entry.pid === owner.pid);
     check(
       verified.length === 1 &&
         verified[0].executable === owner.executable &&
-        verified[0].args.includes('--force-cpu-painting'),
+        hasCpuCompositorPolicy(verified[0].args),
       'Owned PID identity changed; refuse signal'
     );
     check(!killed, 'Only one owned compositor may be terminated');
     killed = true;
-    // process.kill is not yet a Mite API. Use the actual POSIX utility with
-    // direct numeric arguments after the same strict owned-child verification.
+    // Keep this fixture's actual POSIX utility signal path, using direct numeric
+    // arguments only after the same strict owned-child verification.
     await new Promise((resolve, reject) => {
       execFile('/bin/kill', ['-9', String(owner.pid)], { timeout: 1000 }, (failure) =>
         failure ? reject(failure) : resolve()
@@ -136,10 +134,7 @@ app.whenReady().then(async () => {
       const children = await ownedCompositors();
       return children.find((entry) => entry.pid !== owner.pid);
     }, 'native compositor replacement');
-    check(
-      replacement.args.includes('--force-cpu-painting'),
-      'Replacement preserves actual CPU policy'
-    );
+    check(hasCpuCompositorPolicy(replacement.args), 'Replacement preserves actual CPU policy');
     check(
       exits.filter((entry) => entry.pid === owner.pid).length === 1,
       'Single genuine termination event'

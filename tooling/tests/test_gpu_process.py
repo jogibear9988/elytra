@@ -22,7 +22,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="elytra-owned-gpu-") as temporary:
         root = Path(temporary)
         (root / "config").mkdir()
-        for name in ["process.mjs", "owned.html"]:
+        for name in ["process.mjs", "cpu-policy.mjs", "owned.html"]:
             shutil.copyfile(ROOT / "firefly/tests/gpu" / name, root / name)
         fixture_env = environment(str(root / "config"))
         fixture_env["QT_QPA_PLATFORM"] = "offscreen"

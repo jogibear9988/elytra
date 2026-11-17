@@ -16351,6 +16351,25 @@ pending. Separately mac493 actuallypasses164CLI andSDKcompile, then a distinctGP
 fixture still expectsremovedcompositorflag; productionfix is notimplied and an
 observer-only correction is inprogress. No localGUI/SDK tests; fullgoalactive.
 
+## Repair every owned GPU observer for actual compositor feature transport (2026-11-17)
+
+Mac493 job133951491668 passes164CLI andfullSDKcompilation, then GPUprocess fixture
+rejects removed --force-cpu-painting in compositorargv before sendinganysignal.
+Earlier300e2 fixed onlycommand-line observer; ownedGPUfixture'sthreechecks remained
+stale. Use sharedpureESM predicate requiring exactlyone --platform-features=,
+withoutgpu_painting and withoutany --disable-sandbox variant; rejectduplicatebare
+featureoption too. Applyto initialowner, immediatepresignalidentity and replacement.
+PreserveactualPID/parent/executableownership, oneSIGKILL, exit137, singleevent and
+native replacement assertions. Productionflags/Ladybird unchanged. Stagehelper
+withfixture and correctstale process.kill absencecomment only.
+
+Fifteen nonGUIcontrols include actualLinux/macargvshapes plus GPU/missing/duplicate/
+sandbox/malformed negatives. ActualNode24.15/24.22.3 andMite PASS; pinnedJS/Python/
+CMake/YAMLformat+diff PASS. Register pureargvcontrols inCLI CTest/sourceCI; no native
+renderer/desktop launch whileuserCodeOSS runs. Hosted fullGPUprocess/package gate
+must stillpass; previousfailedrun is not releaseacceptance. Evidence:
+build/gpu-cpu-argv-controls.log. Fullgoalactive; master/newrelease stillpending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
