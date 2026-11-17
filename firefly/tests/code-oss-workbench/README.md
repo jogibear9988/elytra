@@ -66,13 +66,19 @@ application batch. The default editor-only workflow remains unchanged. For
 example, append `--terminal --timeout 120` to the command above; it also works
 with `--extension-format commonjs` while the test driver remains ESM.
 
-The extension creates `/bin/sh -f` with startup/history environment paths set to
+The extension explicitly creates `/bin/bash --noprofile --norc -i` with
+startup/history environment paths set to
 `/dev/null`, an owned workspace cwd and `isTransient:true`. Before sending any
 commands, it records its positive shell PID with the run nonce. The Python
 parent requires that live PID to belong to the authenticated native descendant
-tree, verifies its birth/UID and actual `/bin/sh` executable, then atomically
+tree, verifies its birth/UID and actual `/bin/bash` executable, then atomically
 publishes a nonce/PID gate file. This is test ownership coordination, not a
 production permission mechanism or a replacement terminal API.
+The exact Bash executable is requested deliberately: on macOS `/bin/sh` can be a
+selector that execs `/bin/bash`, so checking the requested `sh` path against the
+live executable would be incorrect. The fixture does not allow arbitrary exec
+transitions; it requires the exact resolved Bash executable and disables user
+profile/RC loading.
 
 Actual `Terminal.sendText` runs a quoted `printf` into an owned file and exits
 17. Acceptance requires the matching `onDidCloseTerminal` event and

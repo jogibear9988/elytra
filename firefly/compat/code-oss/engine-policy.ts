@@ -22,6 +22,8 @@ const unsupportedSwitches = Object.freeze([
   'js-flags',
   'inspect-sharedprocess',
   'inspect-brk-sharedprocess',
+  'inspect-ptyhost',
+  'inspect-brk-ptyhost',
   'inspect-agenthost',
   'inspect-brk-agenthost',
   'inspect-extensions',
@@ -80,6 +82,11 @@ export function assertLibJSStartupOptions(
         continue;
       }
       const value = options[name];
+      // PTY debugger flags allow an empty value in upstream argv parsing; that
+      // is still an explicit inspector request, including in argv.json.
+      if ((name === 'inspect-ptyhost' || name === 'inspect-brk-ptyhost') && value !== undefined) {
+        refuse(name, source);
+      }
       if (value !== undefined && value !== false && value !== '') {
         refuse(name, source);
       }

@@ -533,6 +533,11 @@ if(BUILD_TESTING)
             "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_local_desktop.py" --mite
             "$<TARGET_FILE:mite>")
     add_test(
+        NAME mite-code-oss-pty-host-debug
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_code_oss_pty_host_debug.py"
+                --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-code-oss-pty-host-debug PROPERTIES TIMEOUT 120 LABELS "runtime;code-oss")
+    add_test(
         NAME mite-code-oss-window-preferences
         COMMAND
             "${Python3_EXECUTABLE}"

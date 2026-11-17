@@ -13,6 +13,7 @@ if __package__:
         disabled_updater,
         utility_auth,
         shared_process_debug,
+        pty_host_debug,
         agent_host_debug,
         extension_host_flags,
     )
@@ -24,6 +25,7 @@ else:
     import disabled_updater
     import utility_auth
     import shared_process_debug
+    import pty_host_debug
     import agent_host_debug
     import extension_host_flags
     from engine import adapt_engine
@@ -111,6 +113,7 @@ def prepare(
                 disabled_updater.SOURCE,
                 utility_auth.SOURCE,
                 shared_process_debug.SOURCE,
+                pty_host_debug.SOURCE,
                 agent_host_debug.SOURCE,
                 extension_host_flags.SOURCE,
             ]
@@ -145,6 +148,8 @@ def prepare(
             patched = extension_host_flags.adapt_extension_host_flags(original)
         elif name == agent_host_debug.SOURCE:
             patched = agent_host_debug.adapt_agent_host_debug(original)
+        elif name == pty_host_debug.SOURCE:
+            patched = pty_host_debug.adapt_pty_host_debug(original)
         elif name == shared_process_debug.SOURCE:
             patched = shared_process_debug.adapt_shared_process_debug(original)
         elif name == css_development.SOURCE:
@@ -171,6 +176,7 @@ def prepare(
         (local_desktop, css_development.HELPER_SOURCE, css_development.HELPER_TARGET),
         (local_desktop, utility_auth.HELPER_SOURCE, utility_auth.HELPER_TARGET),
         (local_desktop, shared_process_debug.HELPER_SOURCE, shared_process_debug.HELPER_TARGET),
+        (local_desktop, pty_host_debug.HELPER_SOURCE, pty_host_debug.HELPER_TARGET),
         (local_desktop, agent_host_debug.HELPER_SOURCE, agent_host_debug.HELPER_TARGET),
         (local_desktop, extension_host_flags.HELPER_SOURCE, extension_host_flags.HELPER_TARGET),
     ):
@@ -205,7 +211,7 @@ def prepare(
         )
     if local_desktop:
         report["adaptations"].append(
-            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process, agent-host and extension-host inspectors with immutable unavailable status; extension-host implicit DNS ordering/network-inspection defaults are omitted, never claimed applied; validated local extension development/test modes retain genuine native --expose-gc, while explicit inspector/V8 options still reject; unsigned-library relaxation is unavailable and opted out; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
+            "Explicit experimental local desktop: ELYTRA_CODE_OSS_LOCAL_DESKTOP=1 disables webviews, remote resources, display capture and engine caches; omit disabled V8 window cache and unavailable deprecated synchronous script paste preferences after verified LibJS/local/engine policy; native webContents.paste remains needed; disable optional utility authentication forwarding and the implicit development shared-process, agent-host, PTY-host and extension-host inspectors with immutable unavailable status; extension-host implicit DNS ordering/network-inspection defaults are omitted, never claimed applied; validated local extension development/test modes retain genuine native --expose-gc, while explicit inspector/V8 options still reject; unsigned-library relaxation is unavailable and opted out; disable optional TouchBar initialization and explicitly refuse updates, no clipboard/workbench acceptance; local CSS discovery reads compiler-inventoried actual staged stylesheets, not a user-file search replacement; skip unavailable Darwin autoUpdater subscriptions only after genuine disabled state"
         )
     output.mkdir(parents=True)
     for name, data in planned.items():

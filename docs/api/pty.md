@@ -121,6 +121,10 @@ ElectronPtyHostStarter requests unsupported utility-process inspector flags.
 The fixture times out; all 13 observed processes stop with zero cleanup signals.
 Evidence: `build/codeoss-pty-acceptance.log` and `build/codeoss-pty-workbench.log`.
 This records a separate launch-policy blocker, not accepted Code-OSS terminal use.
+The subsequent scoped CA-31 policy advances through the original PTY host, but
+actual terminal PID/output acceptance remains open; the latest exact-executable
+and timeout observations are recorded in
+[ADR 0205](../architecture/0205-code-oss-pty-inspector-policy.md).
 
 No terminal window or desktop interaction is used. These controls do not establish
 Windows, fresh Linux, terminal rendering/input in Code-OSS, or

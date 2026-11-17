@@ -31,8 +31,8 @@ async function terminalWorkflow(config) {
     });
     terminal = vscode.window.createTerminal({
       name: 'Owned terminal acceptance',
-      shellPath: '/bin/sh',
-      shellArgs: ['-f'],
+      shellPath: '/bin/bash',
+      shellArgs: ['--noprofile', '--norc', '-i'],
       cwd: vscode.Uri.file(config.terminalWorkspace),
       env: { ENV: '/dev/null', BASH_ENV: '/dev/null', HISTFILE: '/dev/null' },
       isTransient: true

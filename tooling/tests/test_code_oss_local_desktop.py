@@ -17,6 +17,7 @@ from code_oss.local_desktop import adapt_local, PATHS, OWNED, HELPER
 from code_oss.window_preferences import SOURCE as WINDOW_PREFERENCES_SOURCE
 from code_oss.css_development import SOURCE as CSS_DEVELOPMENT_SOURCE
 from code_oss.disabled_updater import SOURCE as DISABLED_UPDATER_SOURCE
+from code_oss.pty_host_debug import SOURCE as PTY_HOST_DEBUG_SOURCE
 from code_oss.overlay import prepare, FILES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +49,7 @@ def main():
             WINDOW_PREFERENCES_SOURCE,
             CSS_DEVELOPMENT_SOURCE,
             DISABLED_UPDATER_SOURCE,
+            PTY_HOST_DEBUG_SOURCE,
             "window-defaults-main.ts",
             "local-process-extension-host.ts",
             "utility-process-main.ts",

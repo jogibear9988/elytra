@@ -310,6 +310,10 @@
     "diffComputeService.ts": {
       "upstream": "src/vs/platform/agentHost/node/diffComputeService.ts",
       "sha256": "d33579abe20a405fdc4737d3e7ef2367eadbc41b7d5854b5fe30f77a78bf74de"
+    },
+    "electronPtyHostStarter.ts": {
+      "upstream": "src/vs/platform/terminal/electron-main/electronPtyHostStarter.ts",
+      "sha256": "20776b27d13f59641b0d51407fa8e0b48874e36d6226876253e3f0c3d6963e47"
     }
   }
 }

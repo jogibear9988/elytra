@@ -45,6 +45,18 @@ The unchanged pinned xterm headless component passes actual asynchronous ANSI
 parsing, buffer inspection, reset and disposal under Mite. These component gates
 do not establish an integrated PTY or terminal UI.
 
+The real [native PTY backend](../api/pty.md) now separately passes six shared
+Node/node-pty/Mite groups and binary/GC/shutdown controls, repeated in rebuilt
+Firefly-as-Node. The first actual Code-OSS terminal attempt fails before its
+PID/output gates because the original PTY-host starter requests unsupported
+implicit development inspector flags. CA-31 now discloses and omits only that
+default in the verified local LibJS profile; explicit debugging remains an error.
+Its 32-case source/policy controls pass. A post-guard run reaches a genuine native
+shell PID, but the strict executable gate correctly refuses macOS `/bin/sh`'s
+actual Bash target. A repeat requesting explicit Bash without user startup files
+creates the PTY host but times out before terminal-ready PID/output. Actual
+terminal use remains unaccepted; the connection/runtime cause is unresolved. See [ADR 0205](../architecture/0205-code-oss-pty-inspector-policy.md).
+
 The scanner stall is resolved in the latest offscreen run: all 60 packaged system
 extensions and their NLS files are read, and the original scanner reports
 `Scanned system extensions: 60`. A bounded main-to-renderer event FIFO preserves

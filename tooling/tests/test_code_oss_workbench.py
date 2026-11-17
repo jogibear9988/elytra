@@ -448,7 +448,7 @@ def main():
                             or current.birth != observed.birth
                             or current.uid != os.getuid()
                             or current.executable != observed.executable
-                            or Path(current.executable).resolve() != Path("/bin/sh").resolve()
+                            or Path(current.executable).resolve() != Path("/bin/bash").resolve()
                         ):
                             raise RuntimeError(
                                 "Terminal shell is not an authenticated owned native descendant"

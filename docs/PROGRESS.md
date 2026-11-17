@@ -15160,6 +15160,54 @@ handshakes and deterministic >1MiB native write refusal. No visible GUI is launc
 Commit this genuine native PTY slice separately from the next inspector-profile
 adaptation; full goal, actual Code-OSS terminal and platform promotion remain open.
 
+
+## 2026-11-17 — CA-31 scoped implicit PTY-host inspector omission
+
+After native PTY commit 43e223a, adapt the exact original
+ElectronPtyHostStarter parser seam rather than making utilityProcess accept
+unsupported V8 flags. Only the verified explicit local Mite/LibJS/cache-disabled
+desktop profile can replace the pinned development default port5877/nonbreak with
+no inspector. Preserve ordinary Node/Electron parser calls/results and built
+no-debug identity. Explicit inspect-ptyhost/inspect-brk-ptyhost, including false
+or empty argv.json values, reject before launch. Malformed/accessor results,
+including symbol accessors, parser/policy drift and status collisions fail;
+parser exceptions propagate unchanged. Publish immutable unavailable-feature
+status only after an actual omission, naming --nolazy/--inspect=5877. No inspector
+capability or generic utility flag relaxation is claimed. Track CA-31 separately
+from CA-30's genuine package backend port; keep both removal TODOs open.
+
+Validation: all 32 focused Node/Mite guard controls and existing source,
+local-desktop/shared/engine controls pass. Refresh the one reused compiled stage
+to 12,348 source files/32 overlay files/seven package adapters with the same
+60 static built-in extensions. Original Node/Electron package bytes/licenses and
+the pinned upstream checkout remain retained. Native standalone and embedded PTY
+controls from the preceding entry remain accepted within their measured scope.
+
+Actual post-guard run2 reaches the original PTY host and real shell PID64569;
+native birth/UID/owned-tree checks prove the process. The strict exact-executable
+gate correctly rejects requested /bin/sh versus actual /bin/bash: macOS /bin/sh
+is a distinct selector that execs Bash. Do not weaken executable authority to make
+this pass. All19 observed processes stop; harness cleanup sends14 signals, so do
+not call this natural teardown. Evidence:
+build/codeoss-pty-host-debug-{acceptance.log,workbench.log}.
+
+Correct the fixture to explicitly request /bin/bash --noprofile --norc -i,
+preserving exact executable/birth/UID/tree checks and avoiding user startup files.
+Run3 creates PTY-host65017 but does not reach terminal-ready PID or terminal bytes;
+the extension's30-second deadline expires. All14 observed processes stop with
+cleanupSignals0. Evidence: build/codeoss-pty-bash-{acceptance.log,workbench.log}.
+The terminal workflow remains UNACCEPTED. Connection/runtime cause is under
+investigation; no causal attribution or fake readiness/bytes is introduced.
+No local GUI is used. Record ADR0205, CA-31 tracker/removal criteria and current
+Code-OSS status; next work is the genuine missing runtime/connection behavior,
+then repeat exact PID/terminal I/O/cleanup acceptance. Fresh platforms, visible
+terminal UI and full arbitrary-shell/process-tree semantics remain open.
+
+Final CA-31 source formatting/diff checks and website362pages/27147local targets
+pass after documentation freeze. Keep this guarded development-profile deferral
+separate from native runtime fixes; the actual terminal command/exit/file gate
+stays unaccepted. The full implementation goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
