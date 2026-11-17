@@ -15917,6 +15917,23 @@ documentation refresh also passes366 pages/27473 targets, recorded in
 build/stream-iterator-site-{build,check}.log. No publication/master promotion is
 claimed.
 
+## Linux DOM-port gate uses its required native provider (2026-11-17)
+
+Actual run44046370016/job133912945894 passes the previous native runtime batch
+then fails renderer-port startup: fixture forcibly sets offscreen, while production
+Linux correctly requires xcb and native DISPLAY. Preserve that production refusal.
+Use explicit isolated X11/Xvfb in this workflow step and retain xcb in the fixture;
+require its isolated-test marker and DISPLAY. macOS keeps static offscreen, with no
+desktop launches. Keep six actual DOM/utility/ownership assertions unchanged.
+
+Targeted non-GUI provider selection controls pass valid X11, reject missing DISPLAY,
+offscreen/unmarked Linux and keep macOS offscreen. Format/diff pass. Evidence:
+build/linux-renderer-port-provider-controls.log. No local GUI/SDK run; hosted Linux
+native acceptance still required. User now requests a fresh upstream update,
+current API docs, working CI, direct master promotion and a release including
+Designer and Code-OSS executables. Preserve full native/platform gates and do not
+ship wrapper artifacts as unverified Windows desktop applications. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

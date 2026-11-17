@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one owned offscreen DOM-port and real utility relay acceptance batch."""
+"""Run one owned isolated DOM-port and real utility relay acceptance batch."""
 
 import _support  # noqa: F401 — shared standalone test import setup
 
@@ -8,8 +8,25 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from test_renderer import ROOT, environment, stop
+
+
+def renderer_environment(config):
+    """Use Linux's real X11 backend, or the supported static offscreen provider."""
+    fixture_env = environment(str(config))
+    if sys.platform.startswith("linux"):
+        if (
+            fixture_env.get("QT_QPA_PLATFORM") != "xcb"
+            or not fixture_env.get("DISPLAY")
+            or fixture_env.get("FIREFLY_TEST_ISOLATED_X11") != "1"
+        ):
+            raise RuntimeError("Linux renderer-port acceptance requires isolated X11 with xcb")
+    else:
+        fixture_env["QT_QPA_PLATFORM"] = "offscreen"
+    fixture_env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+    return fixture_env
 
 
 def main():
@@ -39,9 +56,7 @@ def main():
             ],
             check=True,
         )
-        fixture_env = environment(str(config))
-        fixture_env["QT_QPA_PLATFORM"] = "offscreen"
-        fixture_env["LIBGL_ALWAYS_SOFTWARE"] = "1"
+        fixture_env = renderer_environment(config)
         command = [str(args.firefly.resolve()), str(root / "main.mjs"), "--force-cpu-painting"]
         process = subprocess.Popen(
             command,
@@ -61,7 +76,7 @@ def main():
             )
             assert "VERIFICATION FAILED" not in stderr, stderr
             assert "ERR_FIREFLY_PORT_LIMIT" not in stderr, stderr
-            print("Firefly offscreen: " + stdout.strip())
+            print("Firefly renderer: " + stdout.strip())
         finally:
             stop(process)
             process.communicate()
