@@ -204,10 +204,7 @@ def main():
                 and "child-exit-fatal" in result.stderr
             ), result
         helper = root / "detached.py"
-        helper.write_text(
-            "import pathlib,sys,time\nack=pathlib.Path(sys.argv[1]);result=pathlib.Path(sys.argv[2])\nfor _ in range(400):\n if ack.exists():\n  result.write_text('CHILD_SURVIVED');break\n time.sleep(.02)\n",
-            encoding="utf-8",
-        )
+        shutil.copyfile(fixtures / "unref-marker.py", helper)
 
         def observe_parent(command, ack, expect_capture_leak=False):
             parent = subprocess.Popen(

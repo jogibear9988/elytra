@@ -24,7 +24,13 @@ const before = process.uptime() * 1000;
 const now = performance.now();
 const after = process.uptime() * 1000;
 check(now >= 0 && Number.isFinite(now), 'native relative milliseconds');
-check(before - 5 <= now && now <= after + 5, 'process uptime and performance share runtime origin');
+check(Number.isFinite(before) && before >= 0 && after >= before, 'native process uptime');
+// Node samples performance_process_start during static initialization and
+// node_start_time later in process initialization. Their absolute offsets have
+// no five-millisecond guarantee. Mite deliberately shares one native origin.
+if (typeof process.versions.mite === 'string') {
+  check(before - 5 <= now && now <= after + 5, 'Mite clocks share their native runtime origin');
+}
 let last = now;
 for (let i = 0; i < 1000; i++) {
   const next = performance.now();
@@ -40,9 +46,14 @@ Date.now = () => {
 };
 
 const start = performance.now();
+const uptimeStart = process.uptime() * 1000;
 await delay(25);
+const uptimeElapsed = process.uptime() * 1000 - uptimeStart;
 const elapsed = performance.now() - start;
 check(elapsed >= 10 && elapsed < 10000 && performance.timeOrigin === origin, 'elapsed native time');
+// Nested samples compare elapsed intervals without assuming equal origins or
+// scheduler latency. Both clocks must advance while the JS wall clock throws.
+check(uptimeElapsed >= 10 && uptimeElapsed <= elapsed + 1, 'native uptime interval');
 Date.now = oldDate;
 console.log('PASS monotonic native milliseconds advance across timers without Date.now');
 

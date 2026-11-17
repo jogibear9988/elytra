@@ -15332,6 +15332,32 @@ reserve within existing limits rather than exempting receiver admission. Genuine
 process.kill(pid,0) parent-liveness support also remains a Code-OSS runtime gap.
 The full goal stays active; native platform CI/master/release gates remain open.
 
+## CI reference controls: atomic markers and independent clock origins (2026-11-17)
+
+The preceding macOS release CI failed two Node-reference controls, before alpha
+publication. The child-survival helper exposed its result file before writing its
+contents; publish complete UTF-8 evidence through a same-directory atomic rename.
+Keep the independent parent-exit/capture-leak positive control and all original
+deadlines. Extract the helper into a readable, commented Python fixture.
+
+Node v24.15 samples performance_process_start during static initialization and
+node_start_time during process initialization; an absolute five-millisecond
+agreement is not its contract. Compare nested elapsed native-clock intervals in
+the shared differential fixture, while retaining Mite's existing five-millisecond
+shared-origin assertion. Date.now still throws throughout the timer interval.
+Primary implementation references:
+https://github.com/nodejs/node/blob/v24.15.0/src/node_perf.cc and
+https://github.com/nodejs/node/blob/v24.15.0/src/node_process_methods.cc and
+https://github.com/nodejs/node/blob/v24.15.0/src/node.cc.
+
+Validation: the complete Node/Mite child-process runner passes, including the
+inherited capture-pipe positive control; the complete performance runner passes
+with standalone Mite and the embedded host. Evidence:
+build/child-marker-atomic-controls.log and build/clock-origin-controls.log.
+These changes correct reference-test assumptions, not runtime failures. Native
+platform CI, master promotion and alpha publication remain pending. The separate
+queued renderer-port implementation is still awaiting build/runtime acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
