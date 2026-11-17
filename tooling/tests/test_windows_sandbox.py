@@ -101,7 +101,7 @@ def cleanup(profile):
     assert result >= 0 or (result & 0xFFFFFFFF) in (0x80070002, 0x80070003, 0x80070490), result
 
 
-def exercise(probe, artifacts, mode):
+def exercise(probe, artifacts, mode, audit=False):
     native = WindowsProcesses()
     with tempfile.TemporaryDirectory(prefix="firefly-sandbox-") as directory:
         root = Path(directory).resolve()
@@ -110,7 +110,8 @@ def exercise(probe, artifacts, mode):
             listener.listen()
             listener.settimeout(0.2)
             process = subprocess.Popen(
-                [str(probe), str(root), str(listener.getsockname()[1]), mode],
+                [str(probe), str(root), str(listener.getsockname()[1]), mode]
+                + (["--audit-capability-drop"] if audit and mode == "checks" else []),
                 env={**os.environ, "FIREFLY_SANDBOX_SECRET": "must-not-enter-child"},
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -217,6 +218,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--artifacts-dir", type=Path, required=True)
+    parser.add_argument(
+        "--audit-capability-drop",
+        action="store_true",
+        help="Probe-only temporary WFP capability-drop logging keyword, restored and verified; hosted CI opt-in",
+    )
     args = parser.parse_args()
     if sys.platform != "win32":
         parser.error("Native Windows AppContainer acceptance is required")
@@ -228,7 +234,7 @@ def main():
     )
     assert controls.stdout == b"PASS network evidence controls\n", controls
     assert controls.stderr == b"", controls
-    exercise(probe, artifacts, "checks")
+    exercise(probe, artifacts, "checks", args.audit_capability_drop)
     exercise(probe, artifacts, "suspended")
     exercise(probe, artifacts, "hold")
     print(

@@ -394,6 +394,19 @@ can classify an unspecified pre-connect local address; that never relaxes the
 strict accepted-event predicate. These observations still require native results.
 
 
+The native `fc7d36c` observation identifies collection enabled but keyword mask
+zero, with no callbacks. Dedicated hosted CI now explicitly selects the probe's
+`--audit-capability-drop` option: temporarily OR the capability-drop audit bit into
+the exact captured mask, verify it, unsubscribe/drain callbacks, then restore and
+verify the original mask before reporting cleanup. The default remains read-only.
+This changes diagnostic logging only; it never changes firewall rules, AppContainer
+capabilities, collection policy or loopback exemptions. Strict event acceptance is
+unchanged. Observed state drift or failed read/write/restore fails the probe.
+Windows supplies no atomic compare-and-swap here, and abrupt process death cannot
+guarantee restoration. This option is confined to isolated disposable CI machines,
+not a production sandbox mechanism or a general concurrent audit-ownership claim.
+Fresh native execution remains required.
+
 ## Owned helper and desktop-provider integration (2026-11-17)
 
 The current review adds native Windows locale, monitor/cursor, Qt clipboard,

@@ -1,4 +1,4 @@
-/** Probe-only read-only WFP observation. Never installs policy or loopback exemptions. */
+/** Probe-only WFP evidence; explicit isolated-CI audit never changes network policy. */
 #pragma once
 
 #include <winsock2.h>
@@ -12,6 +12,7 @@
 #include <cstring>
 #include <fwpmu.h>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -134,6 +135,111 @@ struct Option {
     UINT32 value;
 };
 
+// Probe-only audit lease. No firewall rule, capability or collection policy is
+// changed. The getter/setter are the actual native calls in Observer, and the
+// same ownership state machine is exercised by pure native negative controls.
+// Dedicated isolated CI only: equality checks cannot exclude an external
+// writer racing GetOption/SetOption or restore the mask after process death.
+class KeywordAudit {
+public:
+    template <typename Read, typename Write>
+    bool apply(bool requested, Option original, Read read, Write write)
+    {
+        m_requested = requested;
+        m_original = original;
+        m_temporary = original.value | FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP;
+        if (!requested)
+            return true;
+        if (!is_value(original, original.value))
+            return false;
+        if (m_temporary == original.value)
+            return true; // Already enabled: no ownership or restoration claim.
+        auto current = read();
+
+        if (!is_value(current, original.value))
+            return false; // Refuse observed drift; the OS API provides no atomic compare-and-swap.
+        m_set_status = write(m_temporary);
+
+        if (m_set_status != ERROR_SUCCESS)
+            return false;
+        m_restore_required = true; // Set succeeded even if verification fails.
+        m_after_set = read();
+
+        m_applied = is_value(m_after_set, m_temporary);
+
+        return m_applied;
+    }
+
+    template <typename Read, typename Write> bool restore(Read read, Write write)
+    {
+        if (!m_restore_required)
+            return true;
+        if (m_restore_attempted)
+            return m_restored; // Never repeat a failed write or overwrite drift.
+        m_restore_attempted = true;
+        m_before_restore = read();
+
+        if (!is_value(m_before_restore, m_temporary))
+            return false;
+        m_restore_status = write(m_original.value);
+
+        if (m_restore_status != ERROR_SUCCESS)
+            return false;
+        m_after_restore = read();
+
+        m_restored = is_value(m_after_restore, m_original.value);
+
+        if (m_restored)
+            m_restore_required = false;
+        return m_restored;
+    }
+
+    std::string report() const
+    {
+        std::ostringstream out;
+        auto option = [&](Option value) {
+            out << "{\"status\":" << value.status << ",\"type\":" << value.type
+                << ",\"value\":" << value.value << '}';
+        };
+
+        out << std::boolalpha << "{\"requested\":" << m_requested << ",\"original\":";
+        option(m_original);
+
+        out << ",\"temporaryMask\":" << m_temporary << ",\"setStatus\":" << m_set_status
+            << ",\"applied\":" << m_applied << ",\"afterSet\":";
+        option(m_after_set);
+
+        out << ",\"restoreRequired\":" << m_restore_required
+            << ",\"restoreAttempted\":" << m_restore_attempted << ",\"beforeRestore\":";
+        option(m_before_restore);
+
+        out << ",\"restoreStatus\":" << m_restore_status << ",\"afterRestore\":";
+        option(m_after_restore);
+
+        out << ",\"restored\":" << m_restored << '}';
+        return out.str();
+    }
+
+private:
+    static bool is_value(Option value, UINT32 expected)
+    {
+        return value.status == ERROR_SUCCESS && value.type == FWP_UINT32 && value.value == expected;
+    }
+
+    bool m_requested { false };
+    Option m_original {};
+    UINT32 m_temporary { 0 };
+    DWORD m_set_status { ERROR_NOT_READY };
+    Option m_after_set { ERROR_NOT_READY, FWP_EMPTY, 0 };
+    bool m_applied { false };
+    bool m_restore_required { false };
+    bool m_restore_attempted { false };
+    Option m_before_restore { ERROR_NOT_READY, FWP_EMPTY, 0 };
+    DWORD m_restore_status { ERROR_NOT_READY };
+    Option m_after_restore { ERROR_NOT_READY, FWP_EMPTY, 0 };
+    bool m_restored { false };
+};
+
 inline std::string guid(GUID const& value)
 {
     std::ostringstream out;
@@ -150,7 +256,7 @@ inline std::string guid(GUID const& value)
 
 class Observer {
 public:
-    Observer(wchar_t const* image, PSID package, UINT16 port, HANDLE child)
+    Observer(wchar_t const* image, PSID package, UINT16 port, HANDLE child, bool audit = false)
         : m_port(port)
         , m_child(child)
     {
@@ -168,13 +274,15 @@ public:
 
         try {
             FWPM_SESSION0 session {};
-            session.flags = FWPM_SESSION_FLAG_DYNAMIC;
+            // SetOption is forbidden on dynamic sessions. Only the explicitly
+            // opted-in diagnostic probe opens the ordinary audit session.
+            session.flags = audit ? 0 : FWPM_SESSION_FLAG_DYNAMIC;
             check(FwpmEngineOpen0(nullptr, RPC_C_AUTHN_WINNT, nullptr, &session, &m_engine)
                     == ERROR_SUCCESS,
                 "WFP engine open (read/subscribe rights required)");
 
             m_collection = read_option(FWPM_ENGINE_COLLECT_NET_EVENTS);
-            // Read only. SDK defines CAPABILITY_DROP as keyword bit 0x4;
+            // SDK defines CAPABILITY_DROP as keyword bit 0x4;
             // do not infer its collection state from the generic enable flag.
             // https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/shared/fwpmtypes.h
             m_keywords = read_option(FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS);
@@ -182,6 +290,14 @@ public:
             check(m_collection.status == ERROR_SUCCESS && m_collection.type == FWP_UINT32
                     && m_collection.value == 1,
                 "WFP collection disabled/unreadable; no global setting changed");
+
+            if (!m_audit.apply(
+                    audit, m_keywords,
+                    [&] { return read_option(FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS); },
+                    [&](UINT32 mask) { return write_keyword_mask(mask); })) {
+                std::cerr << "WFP_AUDIT_APPLY_FAILURE " << m_audit.report() << '\n';
+                throw std::runtime_error("WFP audit opt-in could not be applied/verified");
+            }
 
             check(FwpmGetAppIdFromFileName0(image, &m_application) == ERROR_SUCCESS,
                 "WFP exact worker application identity");
@@ -261,6 +377,9 @@ public:
         // Unsubscribe waits for callbacks. Never hold their mutex across it.
         // https://learn.microsoft.com/windows/win32/api/fwpmu/nf-fwpmu-fwpmneteventunsubscribe0
         stop_subscription();
+
+        if (!restore_audit())
+            throw std::runtime_error("WFP audit ownership/restore failed; no cleanup claim");
     }
 
     std::vector<Record> records()
@@ -337,8 +456,9 @@ public:
             << ",\"capabilityDropEnabled\":"
             << (m_keywords.status == ERROR_SUCCESS && m_keywords.type == FWP_UINT32
                    && (m_keywords.value & FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP) != 0)
-            << ",\"callbacks\":" << m_callbacks << ",\"null\":" << m_null
-            << ",\"unarmed\":" << m_unarmed << ",\"overflow\":" << m_overflow << ",\"stages\":{";
+            << ",\"audit\":" << m_audit.report() << ",\"callbacks\":" << m_callbacks
+            << ",\"null\":" << m_null << ",\"unarmed\":" << m_unarmed
+            << ",\"overflow\":" << m_overflow << ",\"stages\":{";
         constexpr char const* labels[] { "type", "flags", "protocol", "target", "application",
             "time", "matched" };
         for (size_t i = 0; i < m_stages.size(); ++i) {
@@ -369,6 +489,27 @@ private:
             FwpmFreeMemory0(reinterpret_cast<void**>(&value));
 
         return result;
+    }
+
+    DWORD write_keyword_mask(UINT32 mask)
+    {
+        // Only event-audit keywords; never COLLECT_NET_EVENTS, filters, ACLs or
+        // AppContainer exemptions/capabilities. Explicit hosted-probe opt-in.
+        FWP_VALUE0 value {};
+        value.type = FWP_UINT32;
+        value.uint32 = mask;
+        return FwpmEngineSetOption0(m_engine, FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS, &value);
+    }
+
+    bool restore_audit()
+    {
+        bool restored
+            = m_audit.restore([&] { return read_option(FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS); },
+                [&](UINT32 mask) { return write_keyword_mask(mask); });
+
+        if (!restored)
+            std::cerr << "WFP_AUDIT_RESTORE_FAILURE " << m_audit.report() << '\n';
+        return restored;
     }
 
     static void check(bool value, char const* message)
@@ -568,6 +709,9 @@ private:
     {
         stop_subscription();
 
+        if (!restore_audit())
+            std::terminate(); // Failed ownership/cleanup is never reported success.
+
         if (m_engine) {
             if (FwpmEngineClose0(m_engine) != ERROR_SUCCESS)
                 std::terminate();
@@ -594,6 +738,7 @@ private:
     std::array<Diagnostic, 8> m_records {};
     size_t m_count { 0 };
     bool m_overflow { false };
+    KeywordAudit m_audit;
     Option m_collection {};
     Option m_keywords {};
     UINT32 m_callbacks { 0 };

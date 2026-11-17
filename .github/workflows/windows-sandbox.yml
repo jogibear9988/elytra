@@ -10,6 +10,15 @@ on:
       - 'tooling/tests/test_windows_sandbox_evidence.py'
       - 'tooling/tests/test_windows_network_evidence_source.py'
       - 'tooling/tests/_windows_processes.py'
+      - 'tooling/tests/test_windows_helper_source.py'
+      - 'tooling/tests/test_prefetch_native_assets.py'
+      - 'tooling/tests/fixtures/native-assets/**'
+      - 'tooling/windows-sandbox/**'
+      - 'tooling/check_uv_headers.py'
+      - 'tooling/tests/test_uv_headers.py'
+      - '.gitattributes'
+      - 'vendor/ladybird'
+      - 'vendor/ladybird.json'
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,6 +26,34 @@ concurrency:
   group: windows-appcontainer-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  owned-source:
+    name: Native Windows physical staging and source contracts
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Pinned CMake for configure refusal controls
+        run: |
+          python -m pip install --only-binary=:all: cmake==4.2.0
+      - name: Native source boundaries and exact asset bytes
+        run: |
+          python tooling/tests/test_uv_headers.py
+          if ($LASTEXITCODE) { throw 'Owned socket boundary source contract failed' }
+          python tooling/tests/test_prefetch_native_assets.py
+          if ($LASTEXITCODE) { throw 'Native asset source contract failed' }
+      - name: Physical Windows staging and upstream source ownership
+        run: |
+          python tooling/tests/test_windows_helper_source.py
+          if ($LASTEXITCODE) { throw 'Physical Windows staging contract failed' }
+          python tooling/tests/test_windows_broker_source.py
+          if ($LASTEXITCODE) { throw 'Owned broker source contract failed' }
   sandbox:
     name: Native AppContainer launch / Windows x64
     runs-on: windows-2025
@@ -45,7 +82,7 @@ jobs:
       - name: Independent native token and real denied-operation/lifetime acceptance
         shell: pwsh
         run: |
-          python tooling/tests/test_windows_sandbox.py --probe build/windows-sandbox/firefly-windows-sandbox-probe.exe --artifacts-dir build/windows-sandbox-artifacts 2>&1 | Tee-Object windows-sandbox-acceptance.log
+          python tooling/tests/test_windows_sandbox.py --probe build/windows-sandbox/firefly-windows-sandbox-probe.exe --artifacts-dir build/windows-sandbox-artifacts --audit-capability-drop 2>&1 | Tee-Object windows-sandbox-acceptance.log
           if ($LASTEXITCODE) { throw 'Native AppContainer component acceptance failed' }
       - name: Preserve native component evidence
         if: always()

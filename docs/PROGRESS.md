@@ -16387,6 +16387,25 @@ requires freshhosted evidence. PinnedPythonformat/diff PASS. No localSDK/GUI.
 Uncommitted WFP keywordaudit is a separate pendinglogicalstep. Goalactive; no full
 Windowsapplication/newrelease/masterpromotion claim.
 
+## Explicitly enable and restore capability-drop auditing on isolated hosted CI (2026-11-17)
+
+Actualfc7 nativejob134002790002 observes collection1 but keywordmask0/callbacks0.
+Explicitprobe/runner checks-only auditflag keepsdefaultread-only/dynamic. Opt-in
+ordinarysession snapshots exacttypedoldmask, ORsonlyCAPABILITY_DROPbit4 andverifies
+actualreadback. Afterunsubscribe/drain restoreobservedownedtempmask andverifyold
+value beforeengineclose/report. Fail API/readback/observeddrift/cleanup hard; no
+firewall/filter/capability/exemption/collectionpolicy change. Report real old/temp/
+readback/applied/restored states. No atomic/crashsafe guarantee: Get/Set lacksCAS,
+externalwriters canrace/ABA and abruptdeath mayretainmask. Confine opt-in toisolated
+hostedprobe; neverproductionhelper oruser'slocal app.
+
+Independent finalsource/state/lifetime reviewGO forscope. Nativepurestatecontrols
+exercise optout/preservebits/restore/drift/API/invalidtype/readback failures;
+sixsource+fourevidencegroups and pinnednative/Python/YAMLformat PASS. Addfast native
+Windows staging/source job toidentifystrictmapfailure withoutfullSDKwait. Actual
+nativeaudit/staging acceptance PENDING. No localGUI. Fullgoalactive. Also official
+upstreamCowSetfix59158f57c is nowavailable; prefernextofficialpin overdownstreamshim.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

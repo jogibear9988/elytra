@@ -249,6 +249,85 @@ void wfp_evidence_controls()
     LocalFree(package);
 }
 
+void keyword_audit_controls()
+{
+    using SandboxNetworkProbe::KeywordAudit;
+    using SandboxNetworkProbe::Option;
+    Option current { ERROR_SUCCESS, FWP_UINT32, 32 };
+    unsigned reads = 0, writes = 0;
+    auto read = [&] {
+        ++reads;
+        return current;
+    };
+
+    auto write = [&](UINT32 mask) {
+        ++writes;
+        current.value = mask;
+        return ERROR_SUCCESS;
+    };
+
+    KeywordAudit disabled;
+    require(disabled.apply(false, current, read, write) && disabled.restore(read, write)
+            && reads == 0 && writes == 0,
+        "audit default opt-out performs no mutation");
+    KeywordAudit owned;
+    require(owned.apply(true, current, read, write) && current.value == 36 && writes == 1,
+        "audit preserves old bits and verifies temporary mask");
+    require(owned.restore(read, write) && current.value == 32 && writes == 2,
+        "audit restores exact old mask after ownership check");
+    require(owned.restore(read, write) && writes == 2, "audit restoration is not repeated");
+    require(owned.report().find("\"restored\":true") != std::string::npos,
+        "audit report true only after restoration verified");
+    KeywordAudit drift;
+    require(drift.apply(true, current, read, write), "audit drift setup");
+    current.value = 44; // Simulate an external writer after our temporary mask.
+    auto prior_writes = writes;
+    require(!drift.restore(read, write) && writes == prior_writes && current.value == 44,
+        "audit never overwrites external drift");
+    require(!drift.restore(read, write) && writes == prior_writes,
+        "audit failed ownership is not retried");
+    KeywordAudit existing;
+    require(existing.apply(true, current, read, write) && existing.restore(read, write)
+            && writes == prior_writes,
+        "audit preexisting keyword creates no restoration ownership");
+    for (Option invalid :
+        { Option { ERROR_ACCESS_DENIED, FWP_UINT32, 0 }, Option { ERROR_SUCCESS, FWP_EMPTY, 0 } }) {
+        KeywordAudit rejected;
+        require(!rejected.apply(true, invalid, read, write) && writes == prior_writes,
+            "audit refuses invalid native snapshot before set");
+    }
+
+    current.value = 32;
+    KeywordAudit changed_before_set;
+    auto original = current;
+    current.value = 64;
+    require(!changed_before_set.apply(true, original, read, write) && writes == prior_writes,
+        "audit rechecks original ownership before set");
+    current.value = 32;
+    KeywordAudit failed_set;
+    require(!failed_set.apply(true, current, read, [](UINT32) { return ERROR_ACCESS_DENIED; }),
+        "audit failed set is not success");
+    KeywordAudit failed_restore;
+    require(failed_restore.apply(true, current, read, write), "audit restore-failure setup");
+    require(!failed_restore.restore(read, [](UINT32) { return ERROR_ACCESS_DENIED; }),
+        "audit failed restore is not cleanup");
+    prior_writes = writes;
+    require(!failed_restore.restore(read, write) && writes == prior_writes,
+        "audit failed restore is not retried");
+    current.value = 32;
+    KeywordAudit verification_failure;
+    unsigned step = 0;
+    auto unreliable_read = [&] {
+        ++step;
+        return step == 2 ? Option { ERROR_ACCESS_DENIED, FWP_EMPTY, 0 } : current;
+    };
+
+    require(!verification_failure.apply(true, current, unreliable_read, write),
+        "audit verification failure cannot claim applied");
+    require(verification_failure.restore(read, write) && current.value == 32,
+        "audit cleans successfully set mask despite initial readback failure");
+}
+
 void network_evidence_controls()
 {
     for (auto capability : { NETISO_ERROR_TYPE_PRIVATE_NETWORK, NETISO_ERROR_TYPE_INTERNET_CLIENT,
@@ -418,13 +497,17 @@ int run_probe(int argc, wchar_t** argv)
     if (argc == 2 && std::wstring(argv[1]) == L"--network-evidence-controls") {
         network_evidence_controls();
         wfp_evidence_controls();
+        keyword_audit_controls();
         std::cout << "PASS network evidence controls\n";
         return 0;
     }
 
     if (argc > 1 && std::wstring(argv[1]) == L"--worker")
         return worker(argc, argv);
-    require(argc == 4, "probe requires fresh root, port and checks/hold mode");
+    bool audit = argc == 5 && std::wstring(argv[4]) == L"--audit-capability-drop"
+        && std::wstring(argv[3]) == L"checks";
+    require(argc == 4 || audit,
+        "probe requires root, port, mode and optional checks-only audit opt-in");
     fs::path root(argv[1]);
     require(root.is_absolute() && root.filename().wstring().starts_with(L"firefly-sandbox-")
             && fs::is_directory(root) && fs::is_empty(root),
@@ -516,7 +599,7 @@ int run_probe(int argc, wchar_t** argv)
     std::unique_ptr<SandboxNetworkProbe::Observer> network_observer;
     if (std::wstring(argv[3]) == L"checks") {
         network_observer = std::make_unique<SandboxNetworkProbe::Observer>(image.c_str(),
-            profile->sid(), static_cast<UINT16>(std::stoul(argv[2])), child->process());
+            profile->sid(), static_cast<UINT16>(std::stoul(argv[2])), child->process(), audit);
     }
 
     Failure busy;

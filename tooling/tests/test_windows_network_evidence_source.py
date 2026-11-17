@@ -17,7 +17,6 @@ class NetworkEvidenceSource(unittest.TestCase):
 
     def test_read_only_bounded_lifetime(self):
         for forbidden in (
-            "FwpmEngineSetOption",
             "FwpmFilterAdd",
             "FwpmNetEventsSetSecurityInfo",
             "NetworkIsolationSetAppContainerConfig",
@@ -155,6 +154,41 @@ class NetworkEvidenceSource(unittest.TestCase):
                 self.runner.index("def network_evidence(") : self.runner.index("def line(")
             ],
         )
+
+    def test_explicit_keyword_audit_ownership(self):
+        self.assertEqual(self.header.count("FwpmEngineSetOption0("), 1)
+        self.assertIn(
+            "FwpmEngineSetOption0(m_engine, FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS, &value)",
+            self.header,
+        )
+        for required in (
+            "session.flags = audit ? 0 : FWPM_SESSION_FLAG_DYNAMIC",
+            "if (!requested)",
+            "m_temporary = original.value | FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP",
+            "if (!is_value(current, original.value))",
+            "if (!is_value(m_before_restore, m_temporary))",
+            "m_restored = is_value(m_after_restore, m_original.value)",
+            "if (m_restore_attempted)",
+            "WFP_AUDIT_RESTORE_FAILURE",
+        ):
+            self.assertIn(required, self.header)
+        finish = self.header.split("void finish(FILETIME exit)", 1)[1].split(
+            "std::vector<Record> records", 1
+        )[0]
+        self.assertLess(finish.index("stop_subscription();"), finish.index("restore_audit()"))
+        close = self.header.split("void close() noexcept", 1)[1]
+        self.assertLess(close.index("restore_audit()"), close.index("FwpmEngineClose0"))
+        for required in (
+            "audit default opt-out performs no mutation",
+            "audit never overwrites external drift",
+            "audit report true only after restoration verified",
+            "audit failed restore is not cleanup",
+            "audit verification failure cannot claim applied",
+            "keyword_audit_controls();",
+        ):
+            self.assertIn(required, self.probe)
+        self.assertIn('std::wstring(argv[3]) == L"checks"', self.probe)
+        self.assertIn('if audit and mode == "checks" else []', self.runner)
 
     def test_runner_evidence_refusal(self):
         tree = ast.parse(self.runner)
