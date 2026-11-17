@@ -145,8 +145,9 @@ encodings, copying/filling/searching/comparison, slicing and numeric access are
 implemented in part. `SlowBuffer` is exported. Allocation policy uses the same
 2 GiB-minus-one limit; uninitialized-memory semantics are intentionally restricted.
 Use `Buffer.from(value[, encoding])`, `Buffer.alloc(size)` and `buffer.toString(encoding)`
-for ordinary code. [isUtf8](buffer.md) validates native ArrayBuffer/TypedArray
-byte ranges without decoding or replacement. See the matrix and Buffer
+for ordinary code. The [Buffer reference](buffer.md) lists construction, ownership,
+encoding/search and numeric methods. [isUtf8](buffer.md#isutf8input) validates native
+ArrayBuffer/TypedArray byte ranges without decoding or replacement. See the matrix and Buffer
 differential tests for full measured scope.
 
 `TextEncoder` / `TextDecoder` are globals and util exports. `node:string_decoder`

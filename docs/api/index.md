@@ -30,7 +30,8 @@ The [TTY reference](tty.md) covers genuine terminal descriptor queries and
 explicitly unsupported stream/raw-mode APIs.
 The [PTY reference](pty.md) covers real owned pseudoterminals through `mite:pty`,
 bounded byte queues, child reaping and its partial node-pty package integration.
-The [node:util reference](util.md) covers promisify, custom/named results and encoding classes.
+The [node:util reference](util.md) covers promisify, inspection/formatting,
+deprecation warnings, inheritance and encoding classes.
 The [data-URL module reference](data-modules.md) covers native JavaScript/JSON
 sources, hook resolution, URL identity and explicit source/cache limits.
 The [node:module reference](module.md) covers ESM-owned require functions, shared
@@ -49,7 +50,8 @@ The [structuredClone reference](structured-clone.md) covers synchronous graph an
 binary copies, capability refusal, quotas and unsupported transfer modes.
 The [WebSocket reference](websocket.md) covers standalone WS/WSS clients, native
 upgrade/TLS transport, events, bounded binary queues and unsupported dispatchers.
-The [Buffer reference](buffer.md) covers native UTF-8 byte validation and its supported inputs.
+The [Buffer reference](buffer.md) covers allocation, shared views versus copies,
+encodings/search, numeric fields, codec slices and strict native UTF-8 validation.
 The [events reference](events.md) covers synchronous EventEmitter dispatch,
 error delivery and cancellable Promise once waits.
 The [node:crypto reference](crypto.md) details the supported random/hash APIs,
@@ -102,7 +104,10 @@ At adc00d0 native Linux passes all 75 suites and Windows all 74. Native resolve-
 acceptance passes Linux at 6c613ec (76 suites) after its inline-definition link fix;
 promisify passes Linux/Windows at a56d183; new native protocol components
 require separate gates.
-Full desktop startup remains unfinished; see the [Code-OSS inventory](../compatibility/vscode.md).
+A macOS Welcome workbench is visibly accepted, and controlled offscreen
+editor/extension/terminal workflows pass. General desktop/input and broad
+extension compatibility remain unaccepted; see the
+[Code-OSS inventory](../compatibility/vscode.md).
 
 ```js
 import {createHash} from 'node:crypto';

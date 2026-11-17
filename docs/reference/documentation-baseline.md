@@ -42,21 +42,23 @@ Firefly should approach as its implementations grow.
 ## Runtime API breadth to account for
 
 The [Node 24 API index](https://nodejs.org/download/release/v24.15.0/docs/api/index.html)
-is the inventory baseline. Each family needs an explicit implementation decision and
+is the inventory baseline; selected current behavior is also checked against
+Node 24.22.3 with exact old-reference differences documented per API. Each family
+needs an explicit implementation decision and
 documentation status. Current module-level detail is in the [Mite matrix](../compatibility/mite-0.1.md).
 
 | Family | Current Mite scope | What remains to document/implement |
 | --- | --- | --- |
 | CLI, globals, process, console, timers | Partial | Full parameter/error reference; stdio, broader signal support, lifecycle/rejection events and diagnostics. Custom events and restricted signal ownership have a detailed process contract |
 | ESM, CommonJS, packages | Partial loader | Per-condition resolution/reference, named CJS exports, require(ESM), module tooling and unsupported loader modes |
-| Buffer, text, URL, path, OS | Partial | Per-method contracts and native platform differences; general util and legacy URL gaps |
+| Buffer, text, URL, path, OS | Partial; [Buffer](../api/buffer.md) now documents the implemented byte/numeric surface and 3558-case local differential; [legacy URL](../api/url-legacy.md) has separate parser semantics | Remaining overloads/native platform differences; full util and namespace coverage |
 | Events and streams | Partial | Backpressure/lifetime recipes, state/error contracts and unsupported cancellation/Web Streams modes |
 | Filesystem | Partial sync/callback/Promise/FileHandle APIs | Per-overload reference; streams/watch, permissions, metadata and remaining options |
-| TCP, DNS, HTTP/TLS/Fetch | Partial client/server subsets with detailed references | TLS/HTTPS servers, Agents, upgrades and wider protocol/timeout/platform parity |
-| Crypto | Random, incremental Hash/HMAC and byte equality; [detailed current-subset reference](../api/crypto.md) | Ciphers, KeyObject/CryptoKey, asymmetric signatures, KDFs, Web Crypto and complete provider/error contracts |
-| Child processes and concurrency | Native spawn/execFile, pipes and lifetime have a [partial reference](../api/child-process.md) and cross-platform CLI tests | Shell exec/fork/sync APIs, workers, IPC and broader option/error parity |
-| Testing/assertion and diagnostics | Unsupported built-ins | Decide practical assert/test, inspector, performance, tracing/reporting and async-context priorities |
-| UDP, HTTP/2, compression, readline/TTY | Native DecompressionStream/Fetch decoding is partial; other listed facilities absent | Compression encoders, remaining modules and demand-led migration coverage |
+| TCP, DNS, HTTP/TLS/Fetch | Partial client/server subsets; genuine [HTTP Agents](../api/http.md), client upgrades and [WebSocket](../api/websocket.md) have bounded contracts | TLS/HTTPS servers, pooling/proxy breadth and wider protocol/timeout/platform parity |
+| Crypto | Native randomness, Hash/HMAC, digest enumeration, byte equality, minimal X509 canonicalization and P-256 public-key verification; [current contract](../api/crypto.md) | Further key/signature algorithms, ciphers, KDFs, Web Crypto subtle and complete provider/error contracts |
+| Child processes and concurrency | Native spawn/execFile/exec/fork, pipes, bounded IPC and lifetime have a [partial reference](../api/child-process.md); independent-VM [worker threads](../api/worker-threads.md) have focused lifecycle acceptance | Sync APIs, shared-memory/transfer breadth and broader option/error/platform parity |
+| Testing/assertion and diagnostics | Partial [assert](../api/assert.md), [async context](../api/async-hooks.md), [diagnostics channels](../api/diagnostics-channel.md), [performance clocks](../api/perf-hooks.md) and inactive [inspector state](../api/inspector.md) | Test runner, active inspector/debugger, timeline/profiling and broader tracing/reporting |
+| UDP, HTTP/2, compression, readline/TTY | Partial [zlib](../api/zlib.md), [DecompressionStream](../api/decompression.md), [readline](../api/readline.md), [TTY queries](../api/tty.md) and genuine owned [PTYs](../api/pty.md) | UDP/HTTP2, remaining compression formats, full terminal streams/raw mode and wider provider acceptance |
 | Other Node facilities | Unsupported | Explicit decisions for SQLite, WASI, REPL, single-executable packaging and the remaining standard modules |
 | V8 internals / native addons | Outside initial required scope | Preserve explicit limitations; no engine-specific success substitutes |
 
@@ -74,12 +76,12 @@ The [Firefly matrix](../compatibility/firefly-0.1.md) is the measured status sou
 | Family | Current Firefly scope | Next acceptance/reference needs |
 | --- | --- | --- |
 | app / BrowserWindow / webContents | Partial main-process API with detailed per-member references | Broader API and native OS acceptance remain; document each new implementation with behavior and differential evidence |
-| Preload / contextBridge / ipcMain / ipcRenderer | [Preload/publication](../api/context-bridge.md) and [bounded request/reply IPC](../api/ipc.md) references | One-way/sync/port/subframe IPC, full clone types and broader callback/value compatibility remain |
-| dialog / Menu / MenuItem / Tray | Unsupported | Native implementations and practical application examples |
+| Preload / contextBridge / ipcMain / ipcRenderer | [Preload/publication](../api/context-bridge.md), bounded one-way/request-reply [IPC](../api/ipc.md) and genuine [message ports](../api/message-channel-main.md) have contracts | Sync/subframe IPC, full clone types, shared-memory/transfer breadth and broader callback/value compatibility |
+| dialog / Menu / MenuItem / Tray | Partial native [dialogs](../api/dialog.md) and [application/Dock menus](../api/menu.md); Tray remains absent | Broader options/providers/platform acceptance and genuine Tray integration |
 | clipboard / screen / nativeTheme | Partial macOS services; scoped X11 clipboard, new Linux screen wiring pending native acceptance | Physical/event/platform coverage and detailed references; [current status](../status.md) |
-| shell / nativeImage / session | Unsupported | Native services, permissions and migration fixtures |
-| Navigation / frames / protocol / web preferences | Narrow loading/defaults only | Frame/navigation policy, session/network controls and structured option reference |
-| System integration | Partial macOS appearance; most services absent | Native notifications, shortcuts, Linux/Windows themes, power/storage and utility services |
+| shell / nativeImage / session | Scoped native [shell](../api/shell.md), [images](../api/native-image.md) and [session](../api/session.md) providers | Broader native/platform/permission support and full Electron semantics |
+| Navigation / frames / protocol / web preferences | Owned loading, [frame identities](../api/web-frame-main.md), [custom protocols](../api/protocol.md), [webRequest](../api/web-request.md) and structured preference validation are partial | Broader navigation/subframe/network behavior and platform acceptance |
+| System integration | Scoped native appearance, [notifications](../api/notification.md), [shortcuts](../api/global-shortcut.md), power and storage providers, plus [utility processes](../api/utility-process.md) | Full OS behavior and fresh per-provider Linux/Windows acceptance; exported APIs do not establish platform support |
 | Distribution / updates / crash diagnostics | Published macOS Alpha 2; later optimized Actions artifact; experimental Linux archive/extracted Designer gates pass at 197cd2a | Native Windows and wider Linux acceptance, signed distributions, installer/update behavior and diagnostics |
 | Chromium-specific or deprecated facilities | Outside initial promise | Record deliberate differences; do not copy deprecated surfaces merely to fill an inventory |
 

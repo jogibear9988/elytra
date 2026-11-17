@@ -15934,6 +15934,24 @@ current API docs, working CI, direct master promotion and a release including
 Designer and Code-OSS executables. Preserve full native/platform gates and do not
 ship wrapper artifacts as unverified Windows desktop applications. Full goal active.
 
+## Refresh implemented API documentation and remove stale absence claims (2026-11-17)
+
+Expand node:buffer from an isUtf8-only page to the actual implemented constructor,
+statics, byte ownership/copy/view, encodings/search/comparison, numeric endian/
+BigInt, swaps and error contracts. Document zero-initialized unsafe allocations,
+missing pooling/namespace features and3558 verified local comparisons separately
+from unverified Windows desktop. Link this contract from API indices/matrix.
+Correct documentation-baseline rows that still marked implemented workers, Agents,
+upgrades, assert, diagnostics, zlib, readline, PTY, menus, shell, session and message
+ports absent; link existing scoped contracts without broadening their acceptance.
+Retain visible Welcome versus general desktop/input distinction and current
+iterator/Web gzip/67-case legacy URL scope.
+
+Review actual source and existing native evidence. All236 relative targets across
+five changed documentation files exist; diff check passes. No production/GUI change
+or new support claim. Final site build/link check will join the upcoming engine/
+release slice. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
