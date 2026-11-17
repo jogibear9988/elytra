@@ -15,6 +15,7 @@ import { createNLS } from './nls.mjs';
 import { verifiedRefresh, checkRefreshPlan } from './compile-refresh.mjs';
 import { runtimeAsset, rendererAssets } from './renderer-assets.mjs';
 import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
+import { planNodePty, applyNodePty } from './node-pty.mjs';
 import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
 import { planSQLite, applySQLite } from './sqlite.mjs';
 import { planDeviceId, applyDeviceId } from './deviceid.mjs';
@@ -32,6 +33,7 @@ const { values } = parseArgs({
     refresh: { type: 'boolean', default: false },
     'renderer-assets': { type: 'boolean', default: false },
     'mite-policy-watcher': { type: 'boolean', default: false },
+    'mite-pty': { type: 'boolean', default: false },
     'mite-native-keymap': { type: 'boolean', default: false },
     'mite-sqlite': { type: 'boolean', default: false },
     'mite-deviceid': { type: 'boolean', default: false },
@@ -195,6 +197,7 @@ const dependencies =
   preparedDependencies(values.dependencies, planned.get('package.json'), pin.revision);
 const packageSelectors = [
   ['mite-policy-watcher', planPolicyWatcher, applyPolicyWatcher],
+  ['mite-pty', planNodePty, applyNodePty],
   ['mite-native-keymap', planNativeKeymap, applyNativeKeymap],
   ['mite-sqlite', planSQLite, applySQLite],
   ['mite-deviceid', planDeviceId, applyDeviceId],

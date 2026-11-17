@@ -277,6 +277,12 @@ if(BUILD_TESTING)
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_deprecate.py"
                      --mite "$<TARGET_FILE:mite>")
     set_tests_properties(mite-deprecate PROPERTIES TIMEOUT 50 LABELS "runtime;native")
+    if(NOT WIN32)
+        add_test(NAME mite-pty
+                 COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_pty.py"
+                         --mite "$<TARGET_FILE:mite>")
+        set_tests_properties(mite-pty PROPERTIES TIMEOUT 120 LABELS "runtime;pty")
+    endif()
     add_test(NAME mite-tty
              COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_tty.py" --mite
                      "$<TARGET_FILE:mite>")

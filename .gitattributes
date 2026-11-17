@@ -13,6 +13,7 @@
 /vendor/code-oss-tests/** text eol=lf
 /vendor/node-url/** text eol=lf
 /vendor/policy-watcher/** text eol=lf
+/vendor/node-pty/** text eol=lf
 # Preserve the upstream license verbatim, including its space-before-tab line.
 /vendor/node-url/LICENSE -whitespace
 

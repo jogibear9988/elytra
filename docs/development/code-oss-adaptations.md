@@ -1,7 +1,7 @@
 # Code-OSS adaptation and removal tracker
 
 This is the inventory of the current pinned Code-OSS development overlay and its
-six optional package adapters. Temporary application changes are permitted while
+seven optional package adapters. Temporary application changes are permitted while
 the genuine Mite/Firefly capability is developed, provided the reason, replacement
 and removal check remain recorded here. An adapted application reaching a later
 startup phase does not establish compatibility with unchanged Code-OSS.
@@ -85,6 +85,7 @@ existence still means this is an adapted application.
 | CA-22 — Port | `@vscode/deviceid` 0.1.5; `deviceid.mjs`; `--mite-deviceid` | In `devdeviceid.js`, use real asynchronous uuid ESM import at an already asynchronous generation point because synchronous require(ESM) is unavailable. In `storage.js`, use real `node:fs` and recursive `mkdir` instead of fs-extra's eager dependency graph. IDs remain genuinely persisted. Replace with correct synchronous ESM loading and the needed filesystem contracts, or upstream async/runtime-neutral imports. Restore both files and prove stable identity across fresh processes and actual storage errors; never substitute temporary IDs. |
 | CA-23 — Port / optional-feature deferrals | `undici` 7.29.1; `undici.mjs`; `--mite-undici` | Three audited files: `lib/core/util.js` leaves unavailable Node version metadata undefined rather than inventing a version; `lib/util/runtime-features.js` uses genuine builtin availability to report unsupported optional `markAsUncloneable`; `lib/web/webidl/index.js` makes only the absent ambient MessagePort trait false on Mite. All other required globals remain strict. The complete runtime JS audit establishes the version fields' unused status, not full Undici support. Replace with real worker/MessagePort facilities and upstream runtime-neutral feature/version detection. Restore each file separately and run original transport/WebIDL/clone tests; never add a fake class for a type assertion. |
 | CA-24 — Port | `@vscode/fs-copyfile` 2.0.0; `fs-copyfile.mjs`; `--mite-fs-copyfile` | `native.js` selects real libuv file-copy/clone operations and native macOS volume clone capability; `cp.js` selects the actual bounded filesystem copier. No whole-directory native clone claim. Replace with upstream alternate-runtime loading or an actually compatible addon contract. Restore both files and verify file clone force/failure, directory copy, symlinks, errors and actual volume/platform capability. Other native platforms remain explicit until verified. |
+| CA-30 — Port | `node-pty` 1.2.0-beta.18; `node-pty.mjs`; `--mite-pty` | Select real `mite:pty` only under Mite at the exact package entry; preserve original Node/Electron bytes, types and MIT license. The original addon/Node `tty.ReadStream`/fd-stream path is unavailable in Mite, so a genuine alternate backend is required. Restore the entry when an upstream alternate-runtime backend or a genuine compatible native-addon/TTY stream boundary exists. Verify unchanged spawn/ctty/session, byte flow, resize/signals, exit/reaping and actual Code-OSS terminal use. Native standalone/Firefly controls pass locally on macOS; actual Code-OSS terminal launch remains blocked before PID/output by unsupported utility inspector flags. |
 
 Package provenance records original/output/package/adapter hashes. Undici also
 records the audited unchanged runtime files. `package-adaptations.mjs` verifies
@@ -143,6 +144,7 @@ Build/diagnostic items may instead be retained explicitly after review.
 - [ ] CA-22: restore deviceid UUID loading and storage dependency paths.
 - [ ] CA-23: restore Undici version, optional worker trait and MessagePort trait paths.
 - [ ] CA-24: restore fs-copyfile native loader and cp paths.
+- [ ] CA-30: restore node-pty entry after genuine upstream alternate backend/native boundary and original terminal acceptance.
 - [ ] CA-25: review continued use of the owned compiler/dependency build path.
 - [ ] CA-26: review continued use of owned NLS/resource staging against original assets.
 - [ ] CA-27: restore CSS discovery or accept an upstream built-resource path.

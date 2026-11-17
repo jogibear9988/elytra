@@ -60,3 +60,26 @@ unknown-builtin error correction; the final CommonJS run includes it and still
 uses the original ESM test runner. Earlier data-module acceptance remains in the
 progress log. This does not certify visible painting/input, PTY, all extensions
 or other platforms.
+
+Add `--terminal` to opt into a separate real terminal workflow in the same
+application batch. The default editor-only workflow remains unchanged. For
+example, append `--terminal --timeout 120` to the command above; it also works
+with `--extension-format commonjs` while the test driver remains ESM.
+
+The extension creates `/bin/sh -f` with startup/history environment paths set to
+`/dev/null`, an owned workspace cwd and `isTransient:true`. Before sending any
+commands, it records its positive shell PID with the run nonce. The Python
+parent requires that live PID to belong to the authenticated native descendant
+tree, verifies its birth/UID and actual `/bin/sh` executable, then atomically
+publishes a nonce/PID gate file. This is test ownership coordination, not a
+production permission mechanism or a replacement terminal API.
+
+Actual `Terminal.sendText` runs a quoted `printf` into an owned file and exits
+17. Acceptance requires the matching `onDidCloseTerminal` event and
+`exitStatus.code === 17`, current authenticated result data, and independent
+Python verification of the exact physical bytes after application cleanup. A
+wrong nonce, foreign/dead PID, missing output, timeout or nonzero application
+exit fails. `report.json` includes the terminal flag, native identity and output
+hash only for this mode. The new terminal mode is prepared and has not yet been
+run as CodeOSS acceptance; the previously accepted editor-only evidence above
+does not certify this terminal workflow.

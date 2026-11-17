@@ -329,6 +329,10 @@ private:
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
 {
+    // A fresh PTY exec image must acquire its controlling terminal before any
+    // VM, Qt or compositor initialization. The runtime validates the private role.
+    if (arguments.argc > 1 && std::string_view(arguments.argv[1]) == "--mite-pty-child-v1")
+        return Mite::run(arguments.argc, arguments.argv);
     if (!Mite::ignore_broken_pipe_signal())
         return Error::from_string_literal("Cannot configure Firefly broken-pipe signal policy");
     // Node-style fork children run the shared standalone engine before any Qt,

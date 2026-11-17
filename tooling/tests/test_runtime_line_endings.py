@@ -42,6 +42,8 @@ def main():
     expected.update(
         {"vendor/policy-watcher/" + name: digest for name, digest in policy["files"].items()}
     )
+    pty = json.loads((ROOT / "vendor/node-pty/manifest.json").read_text())
+    expected.update({"vendor/node-pty/" + name: digest for name, digest in pty["files"].items()})
     attributes = subprocess.check_output(
         ["git", "check-attr", "eol", "--", *expected], cwd=ROOT, text=True
     )

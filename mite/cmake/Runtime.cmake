@@ -71,6 +71,7 @@ function(mite_add_runtime target root js_target)
         child_process
         worker_threads
         tty
+        pty
         cjs-lexer
         timers_promises)
         string(TOUPPER "${module}" module_upper)
@@ -109,6 +110,7 @@ function(mite_add_runtime target root js_target)
         modules/Builtins
         modules/PolicyWatcher
         modules/StorageAndKeyboard
+        modules/PTY
         modules/HostModules
         modules/ModuleLoader
         modules/DataModule
@@ -124,6 +126,7 @@ function(mite_add_runtime target root js_target)
         platform/process/Signals
         # platform/terminal
         platform/terminal/TTY
+        platform/terminal/pty/Host
         platform/process/ChildProcess
         # platform/filesystem
         platform/filesystem/FileSystem
@@ -184,6 +187,11 @@ function(mite_add_runtime target root js_target)
                OpenSSL::SSL
                ZLIB::ZLIB
                ${mite_sqlite_target})
+    if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_sources(${target} PRIVATE "${root}/mite/runtime/platform/terminal/pty/Posix.cpp")
+    else()
+        target_sources(${target} PRIVATE "${root}/mite/runtime/platform/terminal/pty/Unsupported.cpp")
+    endif()
     if(APPLE)
         target_sources(${target} PRIVATE "${root}/mite/runtime/platform/policy/ProviderMac.cpp"
                                          "${root}/mite/runtime/platform/keyboard/ProviderMac.cpp")

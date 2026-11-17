@@ -153,6 +153,7 @@ const groups = [
       ['docs/api/http', 'node:http'],
       ['docs/api/https', 'node:https'],
       ['docs/api/child-process', 'node:child_process'],
+      ['docs/api/pty', 'mite:pty pseudoterminals'],
       ['docs/api/timers', 'node:timers'],
       ['docs/api/abort', 'Cancellation'],
       ['docs/api/firefly', 'Firefly overview'],

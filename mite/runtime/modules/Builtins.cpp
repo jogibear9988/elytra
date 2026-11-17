@@ -883,6 +883,7 @@ JS::ThrowCompletionOr<void> ModuleLoader::install_globals(
 
     TRY(install_policy_watcher());
     TRY(install_storage_and_keyboard());
+    TRY(install_pty());
     // Install after authored Web globals exist so clone admission can capture
     // their real private brands. No worker or networking capability is exposed.
     auto parsed_clone = JS::Script::parse(

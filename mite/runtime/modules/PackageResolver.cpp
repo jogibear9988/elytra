@@ -277,6 +277,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve_package(std::string const&
         return URL::Parser::basic_parse("mite-host:mite-sqlite"sv).release_value();
     if (request == "mite:native-keymap")
         return URL::Parser::basic_parse("mite-host:mite-native-keymap"sv).release_value();
+    if (request == "mite:pty")
+        return URL::Parser::basic_parse("mite-host:mite-pty"sv).release_value();
     if (m_host_modules.contains(request))
         return URL::Parser::basic_parse(view("mite-host:" + request)).release_value();
     // Reserve documented built-ins even before their implementations land;

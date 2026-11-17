@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/microsoft/node-pty",
+  "package": "node-pty",
+  "version": "1.2.0-beta.18",
+  "source": "https://registry.npmjs.org/node-pty/-/node-pty-1.2.0-beta.18.tgz",
+  "integrity": "sha512-3Rej3788OnasAwoSmTZhlCeUraJ9CQldtL5b571b9+3Nv47+PaxA5VPIGOOs+16OYQePTrC1Lrs8a9/df5WPRg==",
+  "purpose": "Exact entry/type/license inputs for the opt-in alternate-runtime package backend. No Node addon or prebuilt binary is vendored.",
+  "files": {
+    "package.json": "426bf5fa25d9c3b86fa8db19d1043f12ea40635dd44fa6137554585b28e6bbbc",
+    "lib/index.js": "17e79806518ab350cd7d729dcc94154c5d770ea03e38e53684c5a8618065f99c",
+    "typings/node-pty.d.ts": "eb805be7e8480bd3cd52cca215a6aca2320d2cc19298e875932228395c1e047c",
+    "LICENSE": "a3d60eaf32d2fb09c9d82ef39f14bd6e2c0f3ca7de30daa827486c0d6f8b6e9f"
+  }
+}

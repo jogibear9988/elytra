@@ -282,6 +282,8 @@ JS::ThrowCompletionOr<URL::URL> ModuleLoader::resolve(std::string const& specifi
         return URL::Parser::basic_parse("mite-host:mite-sqlite"sv).release_value();
     if (specifier == "mite:native-keymap")
         return URL::Parser::basic_parse("mite-host:mite-native-keymap"sv).release_value();
+    if (specifier == "mite:pty")
+        return URL::Parser::basic_parse("mite-host:mite-pty"sv).release_value();
     if (specifier.starts_with("mite-host:"))
         return error("ERR_UNSUPPORTED_ESM_URL_SCHEME", "Host module URLs are internal");
     if (bare_builtin(specifier))

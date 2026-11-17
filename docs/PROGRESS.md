@@ -15105,6 +15105,61 @@ dependencies; no duplicate app/source/dependency package is retained. Commit/pus
 this coherent dispatcher and actual-workbench slice on the existing review branch;
 master/release promotion and the full thread objective remain open.
 
+
+## 2026-11-17 — Real bounded native PTY backend and pinned package port
+
+Implement standalone `mite:pty` without Node/V8, N-API, Firefly or LibWeb
+requirements. The POSIX provider owns an actual controlling terminal, native
+master polling, bounded byte snapshots, kernel resize/signals and exact-PID
+reaping. A fresh same-executable private early child mode creates its session,
+reopens the controlling terminal, restores signals, changes cwd and execs the
+actual target; no application/VM code runs after fork from a live runtime.
+Descriptor ownership and a CLOEXEC errno pipe provide a bounded five-second
+startup handshake. Rooted callbacks and native handle closure preserve active
+wrapper lifetime; shutdown clears callbacks before closing/killing/reaping direct
+owned children. Keep 16 terminals per owner, 1 MiB pending writes, 64 KiB read
+chunks and pinned node-pty's 200 ms final-drain grace. Do not claim arbitrary
+shell-descendant cleanup, fresh Linux or Windows acceptance. Linux requires glibc
+2.34 for the current closefrom spawn path; Windows rejects explicitly.
+
+The exact node-pty 1.2.0-beta.18 package entry can opt into the actual alternate
+backend with `--mite-pty`; original Node/Electron bytes, package/type identity and
+MIT license remain retained. Record this source port as CA-30, with removal TODO
+for upstream alternate-runtime support or a genuine compatible native-addon/TTY
+stream boundary. The original Node tty.ReadStream/fd-stream backend is not
+available in Mite; this is a real backend selection, not a fake N-API module.
+
+Validation (local macOS, headless): standalone build passes; six shared Node
+24.15/unchanged pinned node-pty/Mite groups pass real ctty/session/cwd/env,
+UTF-8 FIFO/echo/listener disposal, resize/SIGWINCH, paused 128×4 KiB output,
+exit/drain/reap, Ctrl-C/SIGINT and SIGTERM. Independent Python OS checks verify
+child disappearance before the runtime owner exits. Two Mite policy groups pass
+binary data, bounds and active WeakRef GC/reclamation/destroy; one runtime-shutdown
+group passes. Rebuilt SDK/Firefly passes the same six shared plus two policy/one
+shutdown groups in Firefly-as-Node. Adapted entry repeats the unchanged Node six
+groups and Mite shared/policy/shutdown controls. No local terminal GUI is used.
+Evidence: build/pty-{mite-build,native-controls,firefly-build,embedded-controls,
+adapted-node-controls,adapted-mite-controls}.log.
+
+Refresh the existing stage additively with its seventh package adapter; preserve
+30 overlay files/12,347 source files and the same 60 static built-in extensions.
+The actual Code-OSS terminal fixture is NOT accepted: the original
+ElectronPtyHostStarter.start requests unsupported utility-process inspector flags
+before the fixture obtains a PTY PID or terminal bytes. It times out; all 13
+observed processes stop with zero cleanup signals. Evidence:
+build/codeoss-pty-{acceptance.log,workbench.log}. A separate audited inspector
+launch-policy slice is next; do not silently admit unsupported flags in this
+native PTY commit. Add API/ADR0204, navigation, Mite matrix and CA-30 removal
+tracking. Fresh Linux/Windows, actual Code-OSS terminal interaction and complete
+process-tree semantics remain open.
+
+Owned native formatting (12 files), generated Mite/Firefly inputs, upstream pin
+and diff checks pass. Website361pages/27070local targets passes. The standalone
+final controls additionally verify real missing-executable/missing-cwd errno
+handshakes and deterministic >1MiB native write refusal. No visible GUI is launched.
+Commit this genuine native PTY slice separately from the next inspector-profile
+adaptation; full goal, actual Code-OSS terminal and platform promotion remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

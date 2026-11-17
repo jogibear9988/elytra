@@ -12,6 +12,7 @@
 #include "platform/network/tls/ExtraCertificates.h"
 #include "platform/process/InheritedPipe.h"
 #include "platform/process/ProcessHost.h"
+#include "platform/terminal/pty/Posix.h"
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
@@ -147,6 +148,8 @@ static JS::ThrowCompletionOr<JS::Value> print(JS::VM& vm, FILE* stream)
 
 int Mite::run(int argc, char** argv, HostHooks const& hooks)
 {
+    if (auto status = Pty::maybe_run_pty_child(argc, argv))
+        return *status;
     argv = uv_setup_args(argc, argv);
     if (argc == 2 && std::string(argv[1]) == "--version") {
         puts("mite 0.1.0-dev (LibJS)");

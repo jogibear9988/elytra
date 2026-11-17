@@ -5,6 +5,7 @@ import os from 'node:os';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { planPolicyWatcher, applyPolicyWatcher } from './policy-watcher.mjs';
+import { planNodePty, applyNodePty } from './node-pty.mjs';
 import { planNativeKeymap, applyNativeKeymap } from './native-keymap.mjs';
 import { planSQLite, applySQLite } from './sqlite.mjs';
 import { verifyPackageAdditions } from './package-adaptations.mjs';
@@ -14,7 +15,8 @@ try {
   const packages = [
     ['policy-watcher', '@vscode/policy-watcher', ['package.json', 'index.js']],
     ['native-keymap', 'native-keymap', ['package.json', 'index.js']],
-    ['vscode-sqlite3', '@vscode/sqlite3', ['package.json', 'lib/sqlite3.js']]
+    ['vscode-sqlite3', '@vscode/sqlite3', ['package.json', 'lib/sqlite3.js']],
+    ['node-pty', 'node-pty', ['package.json', 'lib/index.js']]
   ];
   for (const [source, name, files] of packages) {
     for (const file of files) {
@@ -26,7 +28,8 @@ try {
   const plans = [
     { plan: planPolicyWatcher(root), apply: applyPolicyWatcher },
     { plan: planNativeKeymap(root), apply: applyNativeKeymap },
-    { plan: planSQLite(root), apply: applySQLite }
+    { plan: planSQLite(root), apply: applySQLite },
+    { plan: planNodePty(root), apply: applyNodePty }
   ];
   for (const { plan, apply } of verifyPackageAdditions(root, [], plans.slice(0, 1))) {
     apply(root, plan);
@@ -35,7 +38,7 @@ try {
   const additions = verifyPackageAdditions(root, previous, plans);
   assert.deepEqual(
     additions.map((item) => item.plan.record.name),
-    ['native-keymap', '@vscode/sqlite3']
+    ['native-keymap', '@vscode/sqlite3', 'node-pty']
   );
 
   assert.throws(() => verifyPackageAdditions(root, previous, plans.slice(1)));

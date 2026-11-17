@@ -9,6 +9,83 @@ function check(value, message) {
   }
 }
 
+function shellQuote(value) {
+  return "'" + value.replace(/'/g, "'\\''") + "'";
+}
+
+async function terminalWorkflow(config) {
+  let terminal;
+  let subscription;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Error('Owned terminal workflow timed out')), 30000);
+  });
+
+  const work = async () => {
+    const closed = new Promise((done) => {
+      subscription = vscode.window.onDidCloseTerminal((value) => {
+        if (value === terminal) {
+          done(value);
+        }
+      });
+    });
+    terminal = vscode.window.createTerminal({
+      name: 'Owned terminal acceptance',
+      shellPath: '/bin/sh',
+      shellArgs: ['-f'],
+      cwd: vscode.Uri.file(config.terminalWorkspace),
+      env: { ENV: '/dev/null', BASH_ENV: '/dev/null', HISTFILE: '/dev/null' },
+      isTransient: true
+    });
+    const pid = await terminal.processId;
+    check(Number.isInteger(pid) && pid > 0, 'Real terminal shell PID');
+    await writeFile(
+      config.terminalReady + '.tmp',
+      JSON.stringify({ schema: 1, nonce: config.nonce, pid }) + '\n',
+      { flag: 'wx' }
+    );
+    await rename(config.terminalReady + '.tmp', config.terminalReady);
+    let authenticated = false;
+    for (let attempt = 0; attempt < 150; attempt++) {
+      try {
+        const gate = JSON.parse(await readFile(config.terminalGate, 'utf8'));
+        check(
+          gate.schema === 1 && gate.nonce === config.nonce && gate.pid === pid,
+          'Terminal PID gate identity'
+        );
+        authenticated = true;
+        break;
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+      await new Promise((done) => setTimeout(done, 100));
+    }
+    check(authenticated, 'Native terminal ownership verified before commands');
+    check(config.terminalText.endsWith('\n'), 'Owned terminal expected output');
+    terminal.sendText(
+      "printf '%s\\n' " +
+        shellQuote(config.terminalText.slice(0, -1)) +
+        ' > ' +
+        shellQuote(config.terminalOutput) +
+        '; exit 17',
+      true
+    );
+    const ended = await closed;
+    check(ended.exitStatus?.code === 17, 'Actual terminal close reports exit status 17');
+    return pid;
+  };
+
+  try {
+    return await Promise.race([work(), deadline]);
+  } finally {
+    clearTimeout(timer);
+    subscription?.dispose();
+    terminal?.dispose();
+  }
+}
+
 export async function run() {
   const config = JSON.parse(await readFile(new URL('./acceptance.json', import.meta.url), 'utf8'));
   check(
@@ -71,6 +148,10 @@ export async function run() {
     edited: true,
     saved: true
   };
+  if (config.terminal === true) {
+    result.terminalPid = await terminalWorkflow(config);
+    result.terminal = true;
+  }
   await writeFile(config.result + '.tmp', JSON.stringify(result) + '\n', {
     encoding: 'utf8',
     flag: 'wx'

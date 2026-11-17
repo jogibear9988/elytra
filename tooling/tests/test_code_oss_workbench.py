@@ -217,7 +217,7 @@ def write_json(path, value):
     path.chmod(0o600)
 
 
-def prepare(state, stage, extension_format="esm"):
+def prepare(state, stage, extension_format="esm", terminal=False):
     marker = state / ".elytra-owned.json"
     if not state.exists():
         state.mkdir(mode=0o700)
@@ -257,6 +257,11 @@ def prepare(state, stage, extension_format="esm"):
         state / "result.json.tmp",
         state / "report.json",
         state / "processes.json",
+        state / "terminal-ready.json",
+        state / "terminal-ready.json.tmp",
+        state / "terminal-gate.json",
+        state / "terminal-gate.json.tmp",
+        state / "workspace/owned-terminal.txt",
     ):
         output.unlink(missing_ok=True)
     document.write_text(initial)
@@ -270,6 +275,15 @@ def prepare(state, stage, extension_format="esm"):
         "expected": prefix + initial,
         "result": str(result),
     }
+    if terminal:
+        config.update(
+            terminal=True,
+            terminalWorkspace=str(workspace),
+            terminalOutput=str(workspace / "owned-terminal.txt"),
+            terminalText="terminal-through-vscode:" + nonce + "\n",
+            terminalReady=str(state / "terminal-ready.json"),
+            terminalGate=str(state / "terminal-gate.json"),
+        )
     write_json(extension / "acceptance.json", config)
     command = [
         str(stage / "src/main.js"),
@@ -326,6 +340,11 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument(
+        "--terminal",
+        action="store_true",
+        help="Also verify an actual owned terminal shell workflow",
+    )
     parser.add_argument("--extension-format", choices=("esm", "commonjs"), default="esm")
     args = parser.parse_args()
     if os.name != "posix" or not (sys.platform == "darwin" or sys.platform.startswith("linux")):
@@ -354,7 +373,7 @@ def main():
             raise RuntimeError("Refusing an unowned existing profile")
         if not marker.exists():
             write_json(marker, {"owner": OWNER})
-        arguments, config = prepare(state, stage, args.extension_format)
+        arguments, config = prepare(state, stage, args.extension_format, args.terminal)
         command = [str(binary), "--electron-compat", *arguments]
         if args.prepare_only:
             print(
@@ -388,6 +407,7 @@ def main():
         tree = None
         process = None
         natural_exit = None
+        terminal_identity = None
         with raw.open("xb") as output:
             os.chmod(raw, 0o600)
             try:
@@ -403,6 +423,43 @@ def main():
                 end = time.monotonic() + args.timeout
                 while process.poll() is None:
                     tree.scan()
+                    if (
+                        args.terminal
+                        and terminal_identity is None
+                        and Path(config["terminalReady"]).exists()
+                    ):
+                        ready_path = Path(config["terminalReady"])
+                        if ready_path.stat().st_size > 4096:
+                            raise RuntimeError("Invalid terminal ownership record")
+                        ready = json.loads(ready_path.read_text())
+                        pid = ready.get("pid")
+                        if (
+                            ready.get("schema") != 1
+                            or ready.get("nonce") != config["nonce"]
+                            or type(pid) is not int
+                            or pid <= 0
+                        ):
+                            raise RuntimeError("Invalid terminal ownership identity")
+                        current = native_process(pid)
+                        observed = tree.members.get(pid)
+                        if (
+                            not current
+                            or not observed
+                            or current.birth != observed.birth
+                            or current.uid != os.getuid()
+                            or current.executable != observed.executable
+                            or Path(current.executable).resolve() != Path("/bin/sh").resolve()
+                        ):
+                            raise RuntimeError(
+                                "Terminal shell is not an authenticated owned native descendant"
+                            )
+                        terminal_identity = current
+                        gate = Path(config["terminalGate"])
+                        temporary_gate = gate.with_suffix(".json.tmp")
+                        write_json(
+                            temporary_gate, {"schema": 1, "nonce": config["nonce"], "pid": pid}
+                        )
+                        temporary_gate.replace(gate)
                     if raw.stat().st_size > MAX_LOG:
                         raise RuntimeError("Application diagnostic log exceeded 16 MiB")
                     if time.monotonic() >= end:
@@ -469,12 +526,32 @@ def main():
         saved = Path(config["document"]).read_bytes()
         if saved != config["expected"].encode():
             raise RuntimeError("Independent native saved-file readback failed")
+        terminal_bytes = None
+        if args.terminal:
+            if (
+                result.get("terminal") is not True
+                or terminal_identity is None
+                or result.get("terminalPid") != terminal_identity.pid
+            ):
+                raise RuntimeError("No authenticated terminal workflow result")
+            terminal_bytes = Path(config["terminalOutput"]).read_bytes()
+            if terminal_bytes != config["terminalText"].encode():
+                raise RuntimeError("Independent native terminal file readback failed")
         write_json(
             state / "report.json",
             {
                 "schema": 1,
                 "accepted": True,
                 "extensionFormat": args.extension_format,
+                **(
+                    {
+                        "terminal": True,
+                        "terminalProcess": asdict(terminal_identity),
+                        "terminalSha256": hashlib.sha256(terminal_bytes).hexdigest(),
+                    }
+                    if args.terminal
+                    else {}
+                ),
                 "nonce": config["nonce"],
                 "savedSha256": hashlib.sha256(saved).hexdigest(),
                 "nativeExit": natural_exit,
@@ -488,6 +565,10 @@ def main():
         print(
             "PASS actual CodeOSS extension activation, command, editor WorkspaceEdit/save and independent native readback"
         )
+        if args.terminal:
+            print(
+                "PASS actual CodeOSS terminal shell ownership, sendText, exit17 and independent native readback"
+            )
     finally:
         if not retain_lock:
             lock.unlink(missing_ok=True)
