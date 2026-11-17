@@ -16145,6 +16145,17 @@ Separately user-requested Code-OSS restartPID95070 visibly shows Welcome/sidebar
 in Cocoa; leave it running and its private live log untouched. This uses preceding
 acceptedSDK, not9803 acceptance. Full goal stays active.
 
+## Keep live private application logs out of CI artifacts (2026-11-17)
+
+The controlled Code-OSS harness retains run.private.log when native ownership or
+teardown cannot be established, deliberately deferring redaction until processes
+stop. macOS/release diagnostic upload globs previously selected every build log,
+including that retained private stream. Explicitly exclude **/*.private.log from
+both upload steps while retaining sanitized run.log and native build diagnostics.
+Do not rewrite a live stream or weaken ownership cleanup. Pinned YAML formatter
+and scoped diff checks PASS; no native/GUI test for artifact-path configuration.
+User Code-OSS PID95070 and its private log are untouched. Full goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

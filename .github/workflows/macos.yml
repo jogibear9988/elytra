@@ -155,6 +155,7 @@ jobs:
           name: macos-native-diagnostics
           path: |
             build/**/*.log
+            !build/**/*.private.log
             build/**/CMakeConfigureLog.yaml
             build/**/LastTest.log
           if-no-files-found: warn
