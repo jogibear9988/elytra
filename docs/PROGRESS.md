@@ -16514,6 +16514,19 @@ without showing a window. The fixture passes against the relocated,
 signed bundle built with the preceding SDK. The current SDK package
 still needs to run this gate. Formatting and diff checks pass.
 
+## Add the native Windows package entry point
+
+Add a Windows GUI-subsystem launcher that resolves the bundled Firefly
+image and application entry relative to its own location. It forwards
+UTF-16 arguments and the optional packaged Electron alias, preserves
+the working directory, starts the explicit bundled child without handle
+inheritance and reports its exit status. Add a small hosted native check
+with real relocated executables, Unicode and quoted arguments, child
+exit propagation and missing-file refusals despite an executable in the
+working directory. Formatter, Python syntax and diff checks pass locally.
+Native execution is pending. This component leaves full Firefly confinement,
+dependency bundling and application acceptance open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
