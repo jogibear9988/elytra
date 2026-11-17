@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 import { compileFactory } from './factories.mjs';
 import { verifyWebSocketSources } from './ws-engine-source.mjs';
+import { composeReadableSource, verifyReadableSources } from './streams/readable-source.mjs';
 const filename = fileURLToPath(import.meta.url);
 const root = path.dirname(filename);
 const repository = path.resolve(root, '../..');
@@ -13,6 +14,7 @@ const destination = path.resolve(root, '../../mite/modules/generated');
 const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
 const check = process.argv.includes('--check');
 verifyWebSocketSources();
+verifyReadableSources();
 
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -115,7 +117,9 @@ function save(name, text, manifest) {
     'tooling/runtime-js/factories.mjs',
     'tooling/runtime-js/modules.json',
     'tooling/runtime-js/ws-engine-source.mjs',
-    'tooling/runtime-js/ws-engine-pin.json'
+    'tooling/runtime-js/ws-engine-pin.json',
+    'tooling/runtime-js/streams/readable-source.mjs',
+    'tooling/runtime-js/streams/readable-source-pin.json'
   ]) {
     manifest.sources[source] = digest(fs.readFileSync(path.join(repository, source)));
   }
@@ -166,6 +170,28 @@ function save(name, text, manifest) {
           name: 'mite-builtins',
 
           setup(build) {
+            if (name === 'stream') {
+              const leaf = path.join(
+                root,
+                'node_modules/readable-stream/lib/internal/streams/readable.js'
+              );
+
+              build.onLoad(
+                {
+                  filter:
+                    /[\\/]node_modules[\\/]readable-stream[\\/]lib[\\/]internal[\\/]streams[\\/]readable\.js$/
+                },
+                (args) => {
+                  if (path.resolve(args.path) !== leaf) {
+                    throw Error('Unexpected readable iterator provider path');
+                  }
+                  return {
+                    contents: composeReadableSource(fs.readFileSync(args.path, 'utf8')),
+                    loader: 'js'
+                  };
+                }
+              );
+            }
             if (name === 'cjs-lexer') {
               // Node 24's native lexer retains a name discovered by an assignment
               // even if a later defineProperty installs an unsupported getter.

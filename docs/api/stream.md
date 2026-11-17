@@ -11,6 +11,21 @@ PassThrough, callback/Promise pipeline and finished, byte/object mode, pressure,
 cork/writev, async iteration and selected state helpers. It is not the complete
 Node stream implementation. See the [compatibility matrix](../compatibility/mite-0.1.md).
 
+## Async iteration and half-open connections
+
+Normal completion of for await over a Readable performs its ordinary cleanup.
+For an allowHalfOpen Duplex whose writable side is still open, normal readable
+EOF preserves that writable side. You can send a reply after consuming a client's
+half-close, then end or destroy the stream explicitly. This matches current
+Node24.22.3; exact Node24.15.0 destroyed that side prematurely.
+
+Breaking or throwing out of the default iterator still destroys the stream;
+cleanup errors and consumer errors retain their tested identity. Use
+stream.iterator({ destroyOnReturn: false }) when intentionally retaining a stream
+across an early return. Local native tests cover ordinary EOF, break, throw,
+explicit retention and a real delayed-read TCP half-close/reply. These are scoped
+lifecycle guarantees; full Node stream parity remains partial.
+
 ## Conversion methods
 
 Import Readable, Writable or Duplex from `node:stream`. Each conversion creates a

@@ -3596,7 +3596,8 @@ var require_readable = __commonJS({
         error = aggregateTwoErrors(error, err);
         throw error;
       } finally {
-        if ((error || (options === null || options === void 0 ? void 0 : options.destroyOnReturn) !== false) && (error === void 0 || stream2._readableState.autoDestroy)) {
+        const preserveHalfOpenDuplex = error === null && stream2.allowHalfOpen === true && stream2.writable === true && stream2.writableEnded !== true;
+        if ((error || (options === null || options === void 0 ? void 0 : options.destroyOnReturn) !== false) && (error === void 0 || stream2._readableState.autoDestroy) && !preserveHalfOpenDuplex) {
           destroyImpl.destroyer(stream2, null);
         } else {
           stream2.off("readable", next);

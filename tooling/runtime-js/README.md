@@ -84,3 +84,23 @@ provider. It is not an application builtin and has no Wasm/Node runtime dependen
 Its exact guarded unsafe-getter filter adaptation matches measured Node24 namespace
 behavior; the original installed file remains untouched. Generated source/license
 and package integrity records are checked like the other portable providers.
+
+## Portable Readable iterator composition
+
+The stream bundle retains readable-stream4.7.0 provider files unchanged. The
+owned streams/readable-source.mjs composer adds only Node24.22.3's normal-EOF
+guard, preserving a still-writable allowHalfOpen Duplex. It does not replace the
+iterator, its error aggregation or its destroy/listener cleanup branches.
+
+streams/readable-source-pin.json pins the provider lock integrity, package/leaf/
+MIT-license hashes, exact composed hash and primary Node source reference. A
+unique exact leaf path and full cleanup seam are required; byte-exact reversal
+must recover the original. Provider drift fails the build and requires explicit
+review during an upgrade. The generated manifest records the original provider
+inputs and owned composer/pin hashes; generated code remains reproducible.
+
+Run python3 tooling/tests/test_stream_iterator_source.py for source/license/
+lock/refusal/portable execution controls. Source CI runs it alongside generation
+checks. These build-time Node controls do not replace native Mite acceptance;
+tooling/tests/test_streams.py includes the actual default-iterator TCP lifecycle
+fixture. No Node or V8 engine is embedded at runtime.

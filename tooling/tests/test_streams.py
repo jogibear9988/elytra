@@ -25,6 +25,7 @@ def main():
         "pipeline.mjs",
         "errors-isolated.mjs",
         "iterate.mjs",
+        "iterator-lifetime.mjs",
         "identity.mjs",
     ]:
         results = [

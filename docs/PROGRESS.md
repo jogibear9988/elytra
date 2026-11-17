@@ -15883,6 +15883,40 @@ for its synchronous pipe contract. Linux renderer run44041463811's removed CPU
 argv expectation was independently corrected earlier. No platform green claim or
 master/alpha promotion. Full goal remains active.
 
+## Default async iterator preserves a half-open writable side (2026-11-17)
+
+Close the runtime gap separately from the earlier buffering-fixture correction.
+Compose only primary Node24.22.3's normal-EOF guard into readable-stream4.7.0:
+error===null, allowHalfOpen===true, writable===true and writableEnded!==true.
+Retain original iterator error aggregation, early return/throw/destroy and listener
+cleanup. Keep provider bytes and MIT notice unchanged. Owned composer under
+logical streams/ folder verifies lock/version/integrity, full original/composed
+hashes, unique exact leaf/seam and byteexact reversal; explicit composer/pin
+hashes enter the generated manifest. Drift fails rather than applying loosely.
+Source CI runs new source/license/lock/drift controls.
+
+Before fix, actual Mite passes four cleanup groups but fails the genuine native
+TCP half-open assertion (destroyed true); evidence:
+build/iterator-lifetime-before-fix.log. New five-group fixture independently
+requires normal cleanup, break/throw AbortError/error identities, explicit
+retention/remainder and exact9-byte native half-close/reply. Exact Node24.15.0
+old behavior is reference-only; Mite/currentNode always must preserve/reply.
+
+Independent source/ownership/pin review and negative source controls pass.
+Regeneration and Release CLI/embedded build pass. COMPLETE stream runners against
+Node24.15 and official24.22.3, complete native net/Web-adapter runners, and allfive
+new groups in the non-GUI embedded host PASS. Logs:
+build/stream-iterator-{streams-modern,streams-old,net,adapters,source,host}-controls.log;
+build/stream-iterator-native-build.log. Provider/license hashes remain unchanged.
+No SDK rebuild, visible launch or live user Code-OSS change. Native Windows rerun
+and general stream/platform acceptance remain open; full goal remains active.
+
+Documentation for prior runtime corrections also built366 pages and validated
+27471 local targets (build/current-runtime-docs-site-{build,check}.log). The lifecycle
+documentation refresh also passes366 pages/27473 targets, recorded in
+build/stream-iterator-site-{build,check}.log. No publication/master promotion is
+claimed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
