@@ -1,7 +1,16 @@
 # 0029: Revocable data-only function endpoints
 
-Status: internal synchronous adapter and macOS ARM64 native/helper gates
-implemented. Public preload/contextBridge/IPC remain unsupported.
+Status: historical initial synchronous design, extended by subsequent contextBridge
+work. Public preload/contextBridge and bounded IPC now have scoped acceptance;
+see the [current API contract](../api/context-bridge.md).
+
+The initial checkpoint below described frozen function results. Commit 1363fc9
+corrected this against Electron: synchronous and Promise results are mutable,
+independent target copies; initial API publication and copied callback inputs
+remain frozen. The 2026-11-17 actual headless helper batch validates this contract,
+including top-level/srcdoc copies, nested Promise result mutations and unchanged
+source/fresh results. Earlier unsupported and lifetime limitations below describe
+the original design rather than current support.
 
 ## Decision
 

@@ -19,7 +19,11 @@
         r.ownThis &&
         r.ownPrototype &&
         r.frozen &&
-        Object.isFrozen(r) &&
+        !Object.isFrozen(r) &&
+        (() => {
+          r.answer = 7;
+          return r.answer === 7 && __fireflyFunctionProbe({ n: 41 }).answer === 42;
+        })() &&
         Object.getPrototypeOf(r) === Object.prototype &&
         __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')() ===
           'undefined'
@@ -57,7 +61,8 @@ window.frameProof=window.name==='FIREFLY_WORLD_READY:'+location.href &&
  Object.getPrototypeOf(__fireflyDataProbe.nested)===Array.prototype &&
  Object.isFrozen(__fireflyDataProbe) && Object.isFrozen(__fireflyDataProbe.nested) &&
  (()=>{const r=__fireflyFunctionProbe({n:41});return r.answer===42 && r.ownThis &&
- r.ownPrototype && r.frozen && Object.isFrozen(r) && Object.getPrototypeOf(r)===Object.prototype &&
+ r.ownPrototype && r.frozen && !Object.isFrozen(r) &&
+ (()=>{r.answer=7;return r.answer===7 && __fireflyFunctionProbe({n:41}).answer===42})() && Object.getPrototypeOf(r)===Object.prototype &&
  __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')()==='undefined'})();
 window.callRetainedProbe=()=>__fireflyFunctionProbe({n:1});
 <\/script>`;

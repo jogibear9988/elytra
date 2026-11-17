@@ -25,7 +25,14 @@
     ['function-receiver', () => functionResult.ownThis],
     ['function-prototype', () => functionResult.ownPrototype],
     ['function-input-frozen', () => functionResult.frozen],
-    ['function-result-frozen', () => Object.isFrozen(functionResult)],
+    [
+      'function-result-independent',
+      () => {
+        if (Object.isFrozen(functionResult)) return false;
+        functionResult.answer = 7;
+        return functionResult.answer === 7 && __fireflyFunctionProbe({ n: 41 }).answer === 42;
+      }
+    ],
     ['function-result-prototype', () => Object.getPrototypeOf(functionResult) === Object.prototype],
     [
       'function-constructor-isolation',

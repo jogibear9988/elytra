@@ -5,13 +5,23 @@
     let synchronous = true,
       ran = false;
     const promise = __fireflyFunctionProbe({ mode: 'promise', n: 41 });
-    const observed = promise.then((value) => {
+    const observed = promise.then(async (value) => {
       ran = true;
+      const original = value.answer === 42 && value.nested[0] === true;
+      value.answer = 7;
+      value.nested[0] = false;
+      const next = await __fireflyFunctionProbe({ mode: 'promise', n: 41 });
       return (
         !synchronous &&
-        value.answer === 42 &&
-        Object.isFrozen(value) &&
-        Object.isFrozen(value.nested) &&
+        original &&
+        value.answer === 7 &&
+        value.nested[0] === false &&
+        next.answer === 42 &&
+        next.nested[0] === true &&
+        next !== value &&
+        next.nested !== value.nested &&
+        !Object.isFrozen(value) &&
+        !Object.isFrozen(value.nested) &&
         Object.getPrototypeOf(value) === Object.prototype &&
         Object.getPrototypeOf(value.nested) === Array.prototype
       );

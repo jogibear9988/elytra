@@ -15432,6 +15432,36 @@ Rebuild both real probe targets with the next coordinated SDK build, then run th
 positive and unchanged-helper negative controls. Hosted Linux acceptance remains
 open; this commit adds observability rather than claiming a behavior fix.
 
+## Real helper gate: mutable independent results, unchanged isolation (2026-11-17)
+
+Rebuild both actual renderer/helper probe targets (45incremental Ninja steps).
+This removes the previous local current-event-loop trap; no upstream change was
+needed. The new fixed-name diagnostic reproduces the hosted first-script failure
+as ONLY function-result-frozen. The negative unmodified helper still lacks the
+published data/functions and is correctly rejected.
+
+This is another stale fixture expectation, not a missing production freeze:
+1363fc9 already matches Electron45.2.3 synchronous and Promise result copying.
+Verify primary electron_api_context_bridge.cc: DeepFreeze is applied to API
+publication; function results are copied without that publication freeze.
+https://github.com/electron/electron/blob/v45.2.3/shell/renderer/api/electron_api_context_bridge.cc.
+Update first-script, frame,70-cycle and Promise fixtures to require mutable
+independent results. Actually mutate result fields and nested Promise arrays,
+then request fresh copies and require original values and distinct identities.
+Retain frozen initial data/callback input, prototype/realm/capability/constructor
+isolation, frame removal/revocation, exact pending Promise rejection and all
+remaining helper gates. Mark ADR0029 as the historical initial design and link
+the current documented API contract.
+
+The COMPLETE actual headless renderer-helper runner now passes all cases:
+unchanged negative/owned early world, context API, frames and70-cycle cleanup,
+Promise/jobs/async removal, errors/timers/observers/listeners/handlers, custom/error/
+message snapshots, principal callbacks and native traversal filters. Evidence:
+build/renderer-helper-mutable-result-controls.log and
+build/early-world-probe-rebuild.log. No visible windows or new app package.
+Fresh hosted Linux rerun remains required; local macOS acceptance does not prove
+Linux/Windows. Native stdio production work remains in progress, unaccepted here.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
