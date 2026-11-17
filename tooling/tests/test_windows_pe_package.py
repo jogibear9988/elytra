@@ -12,13 +12,14 @@ import tempfile
 from native_package import pe
 
 
-def build(directory, name, code, *, dll=False, link=()):
+def build(directory, name, code, *, dll=False, link=(), driver=()):
     source = directory / (name + ".c")
     source.write_text(code, encoding="ascii")
     output = source.with_suffix(".dll" if dll else ".exe")
     subprocess.run(
         [
             "clang-cl",
+            *driver,
             "/nologo",
             "/MT",
             *(["/LD"] if dll else []),
@@ -84,6 +85,8 @@ def main():
             "#include <windows.h>\nBOOL WINAPI DllMain(HINSTANCE a, DWORD b, void *c) { return TRUE; }",
             dll=True,
             link=("/DEF:" + str(exports),),
+            # The hosted MSVC linker treats the forward target as a local symbol.
+            driver=("-fuse-ld=lld",),
         )
         plugin = build(
             inputs,

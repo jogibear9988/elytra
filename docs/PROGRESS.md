@@ -16608,6 +16608,13 @@ Document the manual launch and update stale statements about the separately
 verified Cocoa editor and Bash acceptance on that bundle. Current SDK
 acceptance remains pending. Shell syntax and the generated site check pass.
 
+## Link the forwarded-export fixture with LLVM
+
+Run 44180229346 still stops at LNK2001 when the hosted MSVC linker sees the
+forwarded symbol in the DEF file. Select lld-link through clang-cl for the
+single forwarder DLL. Keep MSVC for the other fixture images and DUMPBIN
+for closure inspection. Native execution remains pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
