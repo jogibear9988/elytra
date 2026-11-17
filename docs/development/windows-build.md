@@ -567,3 +567,11 @@ in a relocated Unicode directory. It also checks missing bundled inputs
 with an executable of the same name in the working directory. Packaging
 the actual native engine, DLL closure and sample applications still
 requires the full Windows runtime and isolation gates.
+
+The PE staging component follows ordinary and delay-loaded x64 imports using
+DUMPBIN. Each app-local DLL has an explicit source and the staged copy is
+checked against its SHA-256 digest. The [native PE staging job](https://github.com/jogibear9988/elytra/actions/runs/44178764064)
+relocates one EXE and two DLLs, moves their original SDK directory out of
+reach and runs the EXE through both import types. The full application
+packager still needs to supply Firefly's dynamic plugins, DLL forwarders,
+runtime data and notices.

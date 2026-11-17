@@ -16562,6 +16562,15 @@ duplicate provider refusal, relocates the staged files, moves the SDK
 inputs aside and verifies the actual child exit code. Syntax, format
 and diff checks pass locally. Native verification is pending.
 
+## Verify ordinary and delay-loaded PE imports on Windows
+
+Hosted Windows job 134377124678 passes the launcher test and actual PE
+staging/relocation with the ordinary EXE import and transitive delay import.
+The fixture also passes missing and duplicate provider refusal and staged
+SHA-256 verification. The staged EXE returns 37 after the source SDK
+directory is moved aside. Record the verified scope in the Windows build
+guide. Full application packages and runtime confinement remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
