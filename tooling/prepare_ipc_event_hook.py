@@ -6,8 +6,10 @@ import hashlib
 from pathlib import Path
 from prepare_permission_hooks import adapt as permission_adapt
 
+# Reviewed 9803f2d5: only native notification-test handlers were added here;
+# navigation handoff, native-document preparation and IPC event ordering are intact.
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "0bfd359fc1f8ff49d1ce593556e1cdcd2abf05547afc9d898a10abdef31650f4"
+EXPECTED = "5c4e01169ba9e1cce382eab131346797edc5782a601749341b82ce213ff0e769"
 SEAM = "    if (auto* webdriver_bidi = WebDriverBiDi::the())\n        webdriver_bidi->did_receive_event(*this, navigable_id, name, move(params));"
 HOOK = "    if (Firefly::receive_native_ipc(*this, navigable_id, name, params)) return;\n"
 

@@ -7,8 +7,10 @@ import json
 from pathlib import Path
 import re
 
-SOURCE_SHA256 = "b15f0b1c1674892420d526f9fcb80ebc2df219d7792c758891cd34af5ae34980"
-HEADER_SHA256 = "bd1d086ac7bf499ccc6157361d329fa357e9942e4a5d92649c366da423d7681f"
+# Reviewed 9803f2d5: permission-status storage is now EventTarget-based; all
+# fourteen timer-map owners and the internal chunk-rearm sequence are unchanged.
+SOURCE_SHA256 = "0cd77392c22ebeb4ff943f23165599ca04e80251a2a55057504ec6defa5d2385"
+HEADER_SHA256 = "801b7e3d95568b11531967ca5b1817bf068fd7ac45b709cf829cc78e36f03192"
 CAST_OWNER = "global_scope"
 COUNTS = {"m_timers": 9, "self.m_timers": 4, CAST_OWNER + ".m_timers": 1}
 EXPRESSION = re.compile(

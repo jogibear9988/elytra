@@ -12,11 +12,13 @@ import hashlib
 from pathlib import Path
 import re
 
+# Reviewed 9803f2d5: preserve upstream ErrorOr backing-store refusal/release
+# behavior and the devtools port parameter; only the existing frontend seams differ.
 PINS = {
-    "RemoteView.h": "07445302c9f0120a21b12249f780b5338ea947bf6ed35552e883ebe201967404",
-    "RemoteView.cpp": "9404d6ce14e894a710d744d6282315b6b37542a1aabd7cc07e61cca52464201f",
-    "HubConnection.cpp": "687213cbd568f157cee690d7c983eec8ec0ae39abf9d7c1b6186b52a2a44c872",
-    "WebContentView.cpp": "0855f628a43d68ec5badd88546b1b67014feb99c63827345ae3c800797c1ea17",
+    "RemoteView.h": "d11af29c926566d2d697af4f1f04b54a6ba0c360939ba74e52f8ed47c07292cd",
+    "RemoteView.cpp": "1f26b2147965e6c405729c7142e656180a3d5143dbbb5efd94af61e30b7b4f6b",
+    "HubConnection.cpp": "ca37800d28c772a3f5f602cb6b13d59eeb0f3143ed2eac81a2b256dfc7753695",
+    "WebContentView.cpp": "a85dc975b2ed6059777558ce6ac595d1dd5da3bb3741bc93aa4b6d5218d1e5bd",
     "ContextMenus.cpp": "54fc415034b41e6a5000bcc7bae06342c5fafaad82e26b89b00e475847bb516b",
 }
 

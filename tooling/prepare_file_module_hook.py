@@ -5,8 +5,10 @@ import argparse
 import hashlib
 from pathlib import Path
 
+# Reviewed 9803f2d5: upstream adds navigation transport ownership/stop reporting;
+# retain those paths unchanged around the existing protocol and webRequest gates.
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "f122d31c7cef37acd528ec4d8eda1668cbc2376645194c91ac1e5017534d7b1b"
+EXPECTED = "bb1fee18abd38799c12dde6e40341a0139c02f300537d2987b8a37777d77fbf0"
 SEAM = "            || is_file_to_file_font_load\n"
 HOOK = "            || Firefly::FileModules::allows(*request)\n"
 PREFIX = '#include "loading/FileModules.h"\n#include "loading/protocol/Dispatch.h"\n#include "native/protocol/OriginPolicy.h"\n#include "loading/web-request/Gate.h"\n'

@@ -13,8 +13,8 @@ namespace {
     std::atomic<u64> snapshot {};
     std::atomic<Query> receiver {};
 
-    bool guarded(Web::PermissionsAPI::PermissionDescriptor const& descriptor,
-        Web::HTML::EnvironmentSettingsObject& settings)
+    bool guarded(
+        Web::Permissions::PermissionName permission, Web::HTML::EnvironmentSettingsObject& settings)
     {
         if (!Web::HTML::is_secure_context(settings))
             return false;
@@ -22,11 +22,11 @@ namespace {
         if (!window || !window->associated_document().is_fully_active())
             return false;
         Optional<Web::PermissionsPolicy::PolicyControlledFeature> feature;
-        if (descriptor.name == "geolocation"_utf16)
+        if (permission == Web::Permissions::PermissionName::Geolocation)
             feature = Web::PermissionsPolicy::PolicyControlledFeature::Geolocation;
-        else if (descriptor.name == "microphone"_utf16)
+        else if (permission == Web::Permissions::PermissionName::Microphone)
             feature = Web::PermissionsPolicy::PolicyControlledFeature::Microphone;
-        else if (descriptor.name != "notifications"_utf16)
+        else if (permission != Web::Permissions::PermissionName::Notifications)
             return false;
         return !feature.has_value()
             || window->associated_document().is_allowed_to_use_feature(*feature);
@@ -71,22 +71,18 @@ bool apply_policy(u64 epoch, bool check, bool request)
 }
 
 Optional<Web::PermissionsAPI::PermissionState> query(
-    Web::PermissionsAPI::PermissionDescriptor const& descriptor,
-    Web::HTML::EnvironmentSettingsObject& settings)
+    Web::Permissions::PermissionName permission, Web::HTML::EnvironmentSettingsObject& settings)
 {
     using State = Web::PermissionsAPI::PermissionState;
     if (!active())
         return {};
     auto current = policy();
     auto callback = receiver.load(std::memory_order_acquire);
-    if (!guarded(descriptor, settings) || !current.epoch || !current.check_enabled || !callback)
+    if (!guarded(permission, settings) || !current.epoch || !current.check_enabled || !callback)
         return State::Denied;
     auto* window = Web::HTML::window_from_global_object(settings.global_object());
-    auto name = descriptor.name.utf16_view().to_utf8(AllowLonelySurrogates::No);
-    if (name.is_error() || name.value().byte_count() > 64)
-        return State::Denied;
-    bool granted = callback(
-        window->associated_document(), current.epoch, name.value().bytes_as_string_view());
+    auto name = Web::Permissions::to_string(permission);
+    bool granted = callback(window->associated_document(), current.epoch, name);
     // A policy update processed during synchronous transport invalidates its old answer.
     if (policy().epoch != current.epoch)
         return State::Denied;
@@ -94,11 +90,29 @@ Optional<Web::PermissionsAPI::PermissionState> query(
 }
 
 Web::PermissionsAPI::PermissionState request_state(
-    Web::PermissionsAPI::PermissionDescriptor const& descriptor,
-    Web::HTML::EnvironmentSettingsObject& settings)
+    Web::Permissions::PermissionName permission, Web::HTML::EnvironmentSettingsObject& settings)
 {
-    if (active() && policy().request_enabled && guarded(descriptor, settings))
-        return Web::PermissionsAPI::PermissionState::Prompt;
-    return Web::PermissionsAPI::permission_state(descriptor, settings);
+    if (!active())
+        return Web::PermissionsAPI::permission_state(permission, settings);
+    auto current = policy();
+    if (!current.epoch || !current.request_enabled || !guarded(permission, settings))
+        return Web::PermissionsAPI::PermissionState::Denied;
+    return Web::PermissionsAPI::PermissionState::Prompt;
 }
+}
+
+extern "C" u8 firefly_renderer_notification_request_state(
+    Web::HTML::EnvironmentSettingsObject* settings)
+{
+    if (!Firefly::RendererPermissions::active())
+        return 255; // Unowned callers retain the exact upstream query algorithm.
+    if (!settings)
+        return to_underlying(Web::PermissionsAPI::PermissionState::Denied);
+    return to_underlying(Firefly::RendererPermissions::request_state(
+        Web::Permissions::PermissionName::Notifications, *settings));
+}
+
+extern "C" bool firefly_renderer_permissions_active()
+{
+    return Firefly::RendererPermissions::active();
 }

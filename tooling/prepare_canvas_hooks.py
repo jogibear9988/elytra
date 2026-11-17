@@ -5,6 +5,8 @@ import argparse
 import hashlib
 from pathlib import Path
 
+# Reviewed 9803f2d5: animation/layout implementation moved to Rust; these
+# canvas fallback seams and authored-background/opaque-canvas decisions remain native.
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "canvas/Canvas.h"\n'
 # Reviewed candidate changes retain both authored-background blend and opaque
@@ -12,13 +14,13 @@ PREFIX = '#include "canvas/Canvas.h"\n'
 ENTRIES = {
     "Document.cpp": (
         "Libraries/LibWeb/DOM/Document.cpp",
-        "e0c056098faed74ce51755787d9150d6c7a178ee8adcb259a8d09755f71d3be5",
+        "585c7f229511cce6999dcbc91669618e8ddd37e90565c8610e4fb594727350aa",
         "    return CSS::SystemColor::canvas(canvas_color_scheme(read)).blend(background_color(read));\n",
         "    return Firefly::Canvas::base(*this, CSS::SystemColor::canvas(canvas_color_scheme(read))).blend(background_color(read));\n",
     ),
     "PaintingRustBridge.cpp": (
         "Libraries/LibWeb/Painting/PaintingRustBridge.cpp",
-        "d75942e858da8564922b3958ee5188b203b227baff3bf35c7b0f1424d88c05ed",
+        "01783fa0644d6f798c83ff004afb7d03f558d3800cc24e16fe91e9ad99c55de8",
         "        inputs.canvas_color = CSS::SystemColor::canvas(color_scheme);\n",
         "        inputs.canvas_color = Firefly::Canvas::base(document, CSS::SystemColor::canvas(color_scheme));\n",
     ),

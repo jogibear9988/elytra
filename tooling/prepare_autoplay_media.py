@@ -5,9 +5,11 @@ import argparse
 import hashlib
 from pathlib import Path
 
+# Reviewed 9803f2d5: seekable ranges and video-sink bookkeeping changed;
+# autoplay admission, adoption, audible changes and native-control seams are intact.
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Libraries/LibWeb/HTML/HTMLMediaElement.cpp"
-DIGEST = "4b9bc453904ac6fcbe9beb60c75a1afd0b161a713190930f0da31d0f2f5e2e07"
+DIGEST = "1720c54f9bd0076cc934e6acee37a47284510273de3aa76855623f2bca17f46d"
 PREFIX = '#include "autoplay/Media.h"\n'
 SEAMS = [
     (

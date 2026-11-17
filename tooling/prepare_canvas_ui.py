@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Libraries/LibWebView/ViewImplementation.cpp"
-DIGEST = "43969e52e8432e3719af214807b5f1196723bfec75a939dc02ebf8073e1066fe"
+DIGEST = "60a06a3798a3fa4dae3a14f382f66f443ad9ce1d11f2e6fe114d581ddae1c181"
 PREFIX = '#include "native/canvas/UI.h"\n'
 NEEDLE = "Gfx::Color ViewImplementation::preferred_canvas_background_color() const\n{\n"
 REPLACEMENT = (

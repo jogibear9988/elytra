@@ -70,6 +70,9 @@ set_property(
     PROPERTY
         CMAKE_CONFIGURE_DEPENDS
         "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-ports/observer.py"
+        "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-permissions/notification.py"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/notifications_api/mod.rs"
+        "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/notifications_api/notification.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/html/mod.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/html/message_port.rs"
         "${FIREFLY_AUTOPLAY_ROOT}/vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src/ffi_test_stubs.rs"

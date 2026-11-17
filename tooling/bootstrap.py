@@ -7,7 +7,7 @@ import subprocess
 from check_upstream import check
 
 ROOT = Path(__file__).resolve().parents[1]
-VCPKG_REVISION = "20ceb8adbf0504d4b0d5e4058a32f9d4fc896391"
+VCPKG_REVISION = "8f363bdc11359ede4bc51e5eb32a2617538049c8"
 
 
 def run(*args, cwd=ROOT):

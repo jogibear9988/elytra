@@ -15952,6 +15952,44 @@ five changed documentation files exist; diff check passes. No production/GUI cha
 or new support claim. Final site build/link check will join the upcoming engine/
 release slice. Full goal remains active.
 
+## Fresh official Ladybird candidate 9803f2d5 (2026-11-17)
+
+User requests another update, documentation refresh, working CI, direct master
+promotion and a release with Designer/Code-OSS native executables. Fetch official
+origin and select exact9803f2d5d888e2afd23d69d1da920f78f4279918 (339 commits beyond
+b872). Detached upstream checkout remains unmodified; synchronize indexed gitlink
+and manifest. Rust stays1.98.0, upstream now requires Xcode26+. Vcpkg baseline is
+8f363bdc11359ede4bc51e5eb32a2617538049c8; copy matching dependency overrides and
+regenerate Mite's lock from candidate:142 upstream packages, no independent upgrade.
+Actual lock/checker/FFI old+new Cargo layout controls pass. Bootstrap reaches the
+exact official manager revision. Keep Mite independent of Firefly/LibWeb.
+
+Review and adapt changed renderer source composers with exact SHA/reversal and
+missing/duplicate/refusal tests. Preserve256 original server and248 client IPC IDs
+across two upstream notification insertions. Timer/media/canvas/file/zoom/Hub/
+worker and Rust port/root controls pass (16 suites); genuine upstream backing-store
+ErrorOr and u16 devtools signature are retained. Evidence:
+build/ladybird-9803-renderer-source-controls.log. No upstream patch stack.
+
+Notifications moved to Rust. Replace the obsolete C++ notification seam with
+owned exact Rust composition/FFI while keeping secure context, active document,
+PermissionsPolicy, top-level/transient activation and OS/backend checks. Query and
+request decisions remain independent; active owned sessions without request
+handler deny, unowned sessions alone delegate ordinary upstream behavior. Never
+store custom outcomes as origin-wide grants. Independent review and five source
+controls pass; new real headless policy probe covers queryGrant/noHandlerDenied,
+noActivationDenied and activated callbackDeny with query unchanged. Native SDK
+compile/runtime acceptance is still pending; old generated headers cannot prove it.
+
+Local review cache had manifest install disabled. Re-enable it and retain Release
+before compiling. Actual dependency configure then exposes missing standalone
+Meson override (newbaseline selected1.12/Python>=3.10); copy upstream's explicit
+1.9.0#10 pin and retry, preserving current installed packages/caches. Current
+configure handle/log: build/ladybird-9803-cli-dependencies-retry.log. No native
+build success claimed yet. SDK/user app untouched. Fresh full native CLI,
+renderer/isolation/permission, packaging and hosted platform gates remain REQUIRED
+before master/alpha promotion. Full project goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

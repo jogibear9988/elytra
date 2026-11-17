@@ -4,7 +4,7 @@ import hashlib
 
 PINS = {
     "html/message_port.rs": "238288f0bdb2f078742d5bcce5d80f283429dc4ae2c668c7ed43ac631325f858",
-    "html/mod.rs": "48aee74e9b468039b5b123121333887e0575f4e792f64547481acbd793ce765a",
+    "html/mod.rs": "e20dc6118f94636daf59d019992659c32f9c7e5265dcca242511f367f46e4af3",
     "ffi_test_stubs.rs": "7ffb70a758530761ceb7561fcf2cffc26c7fa5856706b9dfaee7f6393ded171e",
 }
 FIELDS = """    // Native-only observation follows legitimate transfers, never JS properties.

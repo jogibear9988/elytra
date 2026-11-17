@@ -8,17 +8,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PINS = {
-    "Notification.cpp": (
-        "Libraries/LibWeb/NotificationsAPI/Notification.cpp",
-        "31351677f3c8c5e2f9acc659b5ae5e7e992fec8ef004129c13fe6e13d5a8f74b",
-    ),
     "Permissions.cpp": (
         "Libraries/LibWeb/PermissionsAPI/Permissions.cpp",
-        "8d14b86f377a16f16cf028a910be051d55c22fbca63132befa781aac5999dab5",
+        "262bb05426411703345c0492fd1df556ee29fac17b92c4e5df9a4184115f651d",
     ),
     "WebContentPage.cpp": (
         "Libraries/LibWebView/WebContentPage.cpp",
-        "0bfd359fc1f8ff49d1ce593556e1cdcd2abf05547afc9d898a10abdef31650f4",
+        "5c4e01169ba9e1cce382eab131346797edc5782a601749341b82ce213ff0e769",
     ),
     "WebContentClient.cpp": (
         "Libraries/LibWebView/WebContentClient.cpp",
@@ -28,29 +24,11 @@ PINS = {
 
 
 def changes(name, original):
-    if name == "Notification.cpp":
-        # Keep upstream's explicit traced capture list and queued promise settlement.
-        # Only the embedder decision differs from the browser permission-store read.
-        settle = "    auto settle = GC::create_function(realm.heap(), GC::captures(realm, global, promise, deprecated_callback, GC::Ref(settings)), [](auto& realm, auto& global, auto& promise, auto& deprecated_callback, auto& settings, PermissionsAPI::PermissionState) {"
-        state = "        auto permission_state = get_the_notifications_permission_state(settings);"
-        return '#include "permissions/Hooks.h"\n', [
-            (
-                settle,
-                settle.replace(
-                    "PermissionsAPI::PermissionState)",
-                    "PermissionsAPI::PermissionState firefly_decision)",
-                ),
-            ),
-            (
-                state,
-                "        // Embedder request decisions are independent from synchronous query policy.\n        auto permission_state = Firefly::RendererPermissions::active()\n            ? firefly_decision : get_the_notifications_permission_state(settings);",
-            ),
-        ]
     if name == "Permissions.cpp":
         return '#include "permissions/Hooks.h"\n', [
             (
-                "    auto current_state = permission_state(descriptor, settings);",
-                "    auto current_state = Firefly::RendererPermissions::request_state(descriptor, settings);",
+                "    auto current_state = permission_state(name, settings);",
+                "    auto current_state = Firefly::RendererPermissions::request_state(name, settings);",
             ),
             (
                 "        if (settings->top_level_origin->is_opaque() && answer != Web::Permissions::EffectiveState::Prompt)",
@@ -58,7 +36,7 @@ def changes(name, original):
             ),
             (
                 "    // 5. Let key be the result of generating a permission key for descriptor with settings's top-level origin and settings's origin.\n",
-                "    if (auto decision = Firefly::RendererPermissions::query(descriptor, settings_object); decision.has_value())\n        return *decision;\n\n    // 5. Let key be the result of generating a permission key for descriptor with settings's top-level origin and settings's origin.\n",
+                "    if (auto decision = Firefly::RendererPermissions::query(name, settings_object); decision.has_value())\n        return *decision;\n\n    // 5. Let key be the result of generating a permission key for descriptor with settings's top-level origin and settings's origin.\n",
             ),
         ]
     if name == "WebContentPage.cpp":
@@ -129,17 +107,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
+    planned = {}
     for name, (relative, digest) in PINS.items():
         source = (ROOT / "vendor/ladybird" / relative).read_bytes()
         if hashlib.sha256(source).hexdigest() != digest:
             raise SystemExit(f"Review permission adapter after Ladybird update: {relative}")
         original = source.decode()
         output = adapt(name, original)
-        if name == "Notification.cpp":
-            assert output.count("PermissionsAPI::PermissionState firefly_decision)") == 1
-            assert (
-                "? firefly_decision : get_the_notifications_permission_state(settings);" in output
-            )
         prefix, replacements = changes(name, original)
         for old, _ in replacements:
             for invalid in (original.replace(old, ""), original + old):
@@ -149,7 +123,9 @@ def main():
                     pass
                 else:
                     raise AssertionError("Permission seam drift accepted")
-        args.output_dir.mkdir(parents=True, exist_ok=True)
+        planned[name] = output
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for name, output in planned.items():
         target = args.output_dir / name
         if not target.exists() or target.read_text() != output:
             target.write_text(output)

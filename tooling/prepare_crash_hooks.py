@@ -6,6 +6,8 @@ import hashlib
 import textwrap
 from pathlib import Path
 
+# Reviewed 9803f2d5: preserve the new sandbox-violation assertion reporting;
+# directory/profile ownership and appended application metadata seams are unchanged.
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "native/crash/Reporter.h"\n'
 # Candidate storage adds cross-filesystem adoption, website sidecars and bounded
@@ -22,7 +24,7 @@ FILES = {
         ],
     ),
     "CrashReport.cpp": (
-        "54c004d52c520c141f85098a58ef149ec4fdfc2b7110fd143f60f2630ccc5ec8",
+        "6a419a0ec8f9c894fd201404b69430a25902a077403cfc1bd02a528b03a56320",
         [
             (
                 "    append_system_description(builder);\n    return builder.to_byte_string();",

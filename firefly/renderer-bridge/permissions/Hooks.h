@@ -28,8 +28,15 @@ WEB_API Policy policy();
 WEB_API bool apply_policy(u64 epoch, bool check_enabled, bool request_enabled);
 
 WEB_API Optional<Web::PermissionsAPI::PermissionState> query(
-    Web::PermissionsAPI::PermissionDescriptor const&, Web::HTML::EnvironmentSettingsObject&);
+    Web::Permissions::PermissionName, Web::HTML::EnvironmentSettingsObject&);
 
 WEB_API Web::PermissionsAPI::PermissionState request_state(
-    Web::PermissionsAPI::PermissionDescriptor const&, Web::HTML::EnvironmentSettingsObject&);
+    Web::Permissions::PermissionName, Web::HTML::EnvironmentSettingsObject&);
 }
+
+// Private ABI for the source-routed Rust notification algorithm. Settings pointers
+// are borrowed only during these calls on the owning renderer thread.
+extern "C" WEB_API u8 firefly_renderer_notification_request_state(
+    Web::HTML::EnvironmentSettingsObject*);
+
+extern "C" WEB_API bool firefly_renderer_permissions_active();

@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Page/Page.cpp"
-EXPECTED = "b812080c79a8bc023bb789dd05a8908422bd00365a5a9bbf70d29e703b6aa3a5"
+EXPECTED = "9d83b5e90529cf0c5f2ccf3899d96a701ecd9bdf4b26fc43b6267f2b35264986"
 INCLUDE = '#include "files/Requests.h"\n'
 REQUEST = (
     "        m_client->page_did_request_file_picker(accepted_file_types, allow_multiple_files);"
