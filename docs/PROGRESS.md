@@ -16464,6 +16464,17 @@ retained metadata, and the acceptance predicate still requires an exact
 capability drop. The six source checks, four evidence checks and native
 formatting pass locally. Native callback delivery still needs verification.
 
+## Verify native Code-OSS bundle staging and relocation
+
+Stage the sealed Code-OSS sample with the production macOS packager and
+the preceding SDK. The packager audits 50 native binaries, preserves helper
+signing attributes and verifies the bundle signature. Move the bundle to
+a separate physical path and repeat strict signature and sealed inventory
+verification. Both pass. Keep one diagnostic bundle at
+build/code-oss-bundle-check-relocated/Code-OSS.app and the compact log at
+build/code-oss-bundle-stage-check.log. The relocated Launcher runtime gate
+and the packages built with the current SDK remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
