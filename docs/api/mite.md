@@ -53,6 +53,9 @@ clearTimeout/clearInterval. Global fetch/Headers/Request/Response have a partial
 [native Fetch contract](fetch.md), including [Blob/File/FormData](blob-formdata.md)
 body support. Global Web Crypto supplies native getRandomValues/randomUUID;
 subtle algorithms remain unavailable. See [crypto](crypto.md).
+Global [WebSocket, MessageEvent and CloseEvent](websocket.md) provide bounded
+native WS/WSS clients and EventTarget events; dispatcher/proxy options remain
+explicitly unsupported.
 
 - `console.log(...values)`, `console.error(...values)` and `console.warn(...values)`
   convert primitives to strings and join with spaces. Objects/functions use safe
@@ -140,7 +143,9 @@ encodings, copying/filling/searching/comparison, slicing and numeric access are
 implemented in part. `SlowBuffer` is exported. Allocation policy uses the same
 2 GiB-minus-one limit; uninitialized-memory semantics are intentionally restricted.
 Use `Buffer.from(value[, encoding])`, `Buffer.alloc(size)` and `buffer.toString(encoding)`
-for ordinary code. See the matrix and Buffer differential tests for full measured scope.
+for ordinary code. [isUtf8](buffer.md) validates native ArrayBuffer/TypedArray
+byte ranges without decoding or replacement. See the matrix and Buffer
+differential tests for full measured scope.
 
 `TextEncoder` / `TextDecoder` are globals and util exports. `node:string_decoder`
 exports `StringDecoder` for incremental text decoding. The encoding implementations
@@ -208,7 +213,9 @@ await pipeline(
   Request/response streams, headers, keep-alive and selected timeouts are implemented
   in part. ClientRequest, request and get now provide partial native HTTP/1 client
   streams and non-reusing Agent/globalAgent connection admission; see the
-  [HTTP reference](http.md). Pooling and upgrades remain absent; global [Fetch](fetch.md) uses these client streams.
+  [HTTP reference](http.md). Client 101 upgrades hand off the real socket and
+  unconsumed head; pooling, CONNECT and server upgrades remain absent. Global
+  [Fetch](fetch.md) uses these client streams.
 - `node:https`: partial HTTP/1 clients over verified native TLS, sharing HTTP
   request/response classes and real TLS Agents; see the [HTTPS reference](https.md).
   Servers and pooling remain unavailable.

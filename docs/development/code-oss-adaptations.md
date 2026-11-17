@@ -148,6 +148,51 @@ Build/diagnostic items may instead be retained explicitly after review.
 - [ ] CA-27: restore CSS discovery or accept an upstream built-resource path.
 - [ ] CA-28: validate default captions separately; retain native-titlebar profile only explicitly.
 
+The open Workbench worker validation also includes the original browser module
+worker path, separately from CA-18's Mite `worker_threads` checks. The November 17
+`codeoss-websocket-start.log` reaches a real `blob:vscode-file:` worker but reports
+that its fetched script is null. The original `webWorkerServiceImpl` creates an
+`application/javascript` Blob containing an `await import(...)` bootstrap; no
+Code-OSS worker omission or replacement is justified by this failure.
+
+The owned `prepare_file_module_hook.py` wraps Fetch's response selection with
+`WebRequestGate::before`, including Blob fetches. Code-OSS installs a session
+`onBeforeRequest` listener. With that policy active, `Gate.cpp` rejects fetches
+from another agent thread before upstream Blob loading runs. This is the concrete
+owned scope limitation that produces the null script, not evidence of a missing
+Blob or an invalid custom-scheme origin. Upstream Blob lookup, partition checks,
+MIME validation and module parsing must remain authoritative.
+
+[Electron 45.2.3's loader integration](https://github.com/electron/electron/blob/v45.2.3/shell/browser/electron_browser_client.cc)
+uses a URL-loader proxy for webRequest. Its pinned
+[Chromium 156 worker loader](https://github.com/chromium/chromium/blob/156.0.8078.80/content/browser/worker_host/worker_script_fetcher.cc)
+selects an existing Blob loader directly for a Blob worker's main script, outside
+the default network-factory construction. This supports reviewing Blob scheme
+handling separately; it does not justify bypassing HTTP or custom-protocol
+interception merely because the request comes from a worker.
+
+The native replacement TODO is an authenticated worker fetch scope. Compose the
+SDK `PageClient::start_dedicated_worker` / `DedicatedWorkerThreadLink` lifecycle
+and `WorkerHost::run` / its `perform_fetch` hook without modifying Ladybird.
+`WorkerAgentStartRequest` supplies a native owner token, serialized outside
+settings/environment ID and worker URL; the thread link supplies weak owner-loop
+posting and termination. These are starting points, not a document capability:
+the serialized document contains a URL rather than canonical document identity.
+Capture the actual creator's document/navigable, owning view/session and generation
+at admission, retain an explicit parent chain for nested workers, and revoke on
+worker termination, document replacement or owner teardown. No GC cells may cross
+threads. Extend the current document-only webRequest submit and thread-local
+protocol provider through bounded asynchronous owner-thread transport with real
+body credit, cancellation and deadlines. Custom worker imports currently fail
+the protocol provider's Window-only admission, so fixing only the first Blob load
+would not establish the complete original worker path.
+
+Acceptance must include a genuine module Blob Worker under installed webRequest
+listeners, then its original custom-protocol imports, plus denied HTTP/custom
+requests and worker/owner teardown. Do not close the Workbench worker TODO from
+source inspection or a standalone Blob success, and do not add a Code-OSS loader
+hack to conceal the missing framework scope.
+
 ## Replacement order
 
 1. Replace active runtime blockers in Mite/Firefly first. Re-run the unchanged

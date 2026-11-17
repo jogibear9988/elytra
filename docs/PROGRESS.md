@@ -14766,6 +14766,35 @@ also needs scheduler/rendering control separate from physical visibility, since
 fake Visible would change permission lifetime. Keep both tracked implementation
 work, not successful Code-OSS support.
 
+## 2026-11-17 — Separate real Code-OSS readiness from missing observations
+
+Record precise original-source startup milestones after the WebSocket run.
+Renderer Started-local-extension-host follows MessageType.Initialized, sent before
+ExtensionHostMain construction and extension-service initialize barriers. It does
+not prove API/proxy/AlmostReady/eager-activation completion. Native spdlog loader
+failure returns null and leaves logger output buffered, so missing readiness
+traces do not prove a stalled await. Document original performance-mark/RPC or
+regular --extensionTestsPath acceptance as the next reliable observation path.
+Use a controlled test extension/workspace to open/edit/save and independently
+read the file, rather than claiming usable Code-OSS from lifecycle3/4 alone.
+
+Original loader hooks still need genuine integration: assigning module._load,
+_resolveFilename and _resolveLookupPaths does not modify Mite's native CommonJS
+loader; the ESM vscode hook also returns currently unsupported data: module URLs.
+These are source-audited gaps, not established causes of this run's next await.
+Record them in the compatibility target; do not add fake module functions or
+claim extension API support from successful property assignment.
+
+The browser-worker blocker audit follows exact pinned Electron/Chromium Blob
+factory selection, and records creator/session/document/navigable generation
+capture before thread crossing, nested-worker identity chains, bounded policy/
+protocol brokers and teardown revocation in the adaptation TODO. A document URL
+alone is not an authenticated canonical document identity. No production bypass,
+Code-OSS source guard, GUI launch or extra build artifact added. Refresh the Mite
+overview's obsolete upgrade refusal and add links to real WebSocket/isUtf8 APIs.
+Documentation diff/site-link checks cover these changes; native behavior remains
+that of57328f1 with the separate Linux-only GIO fixc8bdae0 awaiting hosted build.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

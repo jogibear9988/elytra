@@ -50,6 +50,30 @@ extensions, and the local extension host starts. The former
 That removes the observed missing-global failure; absence of that error alone
 is not evidence of completed extension activation or a usable editor.
 
+The original source gives “Started local extension host” a narrower meaning than
+extension readiness. `extensionHostProcess.js` sends `MessageType.Initialized`
+after receiving init data, before constructing `ExtensionHostMain` and calling
+`extensionService.initialize()`. The later barriers still require API/interceptor
+installation, configuration and proxy initialization, workspace initialization,
+and the extension-start request before eager activation. The handshake alone
+does not establish that those barriers opened.
+
+Missing readiness/activation log lines do not identify a causal await either.
+The original `spdlogLog.js` catches native logger creation failure and returns
+null; `SpdLogLogger` then buffers info/trace messages without a working logger or
+fallback output. Consequently absent `Eager extensions activated` or module-load
+traces cannot prove that execution never reached them. Observe genuine marks,
+RPC activation results or an actual extension workflow before classifying a stall.
+
+A separate source audit identifies an upcoming loader compatibility gap.
+`NodeModuleRequireInterceptor` and proxy setup patch `module._load` and
+`_resolve*` hooks; Mite's current `node:module` facade does not connect these
+assigned fields to its native CommonJS loader. Property assignment is not hook
+support. The original ESM `vscode` interceptor also returns a generated
+`data:text/javascript;base64` URL, while Mite currently rejects non-file module
+URLs outside its builtin/host schemes. Both routes need genuine loader support
+and activation acceptance; neither is established as the current causal await.
+
 Remaining observed gaps include native `@vscode/spdlog` bindings, missing
 `isAlwaysOnTop` and `setBackgroundThrottling` desktop methods, macOS Services menu
 support in this offscreen frontend, and a Blob-backed worker script fetch failure.
