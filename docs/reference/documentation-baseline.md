@@ -1,11 +1,12 @@
 # Documentation baseline: Node.js and Electron
 
-Reference inventory reviewed 2026-11-07. Behavioral references remain **Node 24.15.0** and **Electron
-45.2.3**, matching the repository's test references. Documentation coverage follows
+Reference inventory initially reviewed 2026-11-07 and updated 2026-11-17. Behavioral
+references are **Node 24.15.0**, **Node 24.22.3** for native Windows and selected
+modern contracts, and **Electron 45.2.3**, matching the repository's test references. Documentation coverage follows
 our product specification and measured implementation; a reference chapter does not
 make its corresponding API available here.
 
-Reviewed against current code/native evidence on **2026-11-07**. See
+Current evidence is reviewed on **2026-11-17**. See
 [current support](../status.md) for exact platform/example/API status. Historical
 requirements below remain a completion checklist, not a claim that all entries work.
 
@@ -49,7 +50,7 @@ documentation status. Current module-level detail is in the [Mite matrix](../com
 
 | Family | Current Mite scope | What remains to document/implement |
 | --- | --- | --- |
-| CLI, globals, process, console, timers | Partial | Full parameter/error reference; stdio, broader signal support, lifecycle/rejection events and diagnostics. Custom events and restricted signal ownership have a detailed process contract |
+| CLI, globals, process, console, timers | Partial | Expand remaining parameter/error detail, stdin/raw TTY, broader signals and lifecycle. Native stdout/stderr, exception/rejection events and restricted signal ownership have detailed process contracts |
 | ESM, CommonJS, packages | Partial loader | Per-condition resolution/reference, named CJS exports, require(ESM), module tooling and unsupported loader modes |
 | Buffer, text, URL, path, OS | Partial; [Buffer](../api/buffer.md) now documents the implemented byte/numeric surface and 3558-case local differential; [legacy URL](../api/url-legacy.md) has separate parser semantics | Remaining overloads/native platform differences; full util and namespace coverage |
 | Events and streams | Partial | Backpressure/lifetime recipes, state/error contracts and unsupported cancellation/Web Streams modes |
@@ -59,7 +60,7 @@ documentation status. Current module-level detail is in the [Mite matrix](../com
 | Child processes and concurrency | Native spawn/execFile/exec/fork, pipes, bounded IPC and lifetime have a [partial reference](../api/child-process.md); independent-VM [worker threads](../api/worker-threads.md) have focused lifecycle acceptance | Sync APIs, shared-memory/transfer breadth and broader option/error/platform parity |
 | Testing/assertion and diagnostics | Partial [assert](../api/assert.md), [async context](../api/async-hooks.md), [diagnostics channels](../api/diagnostics-channel.md), [performance clocks](../api/perf-hooks.md) and inactive [inspector state](../api/inspector.md) | Test runner, active inspector/debugger, timeline/profiling and broader tracing/reporting |
 | UDP, HTTP/2, compression, readline/TTY | Partial [zlib](../api/zlib.md), [DecompressionStream](../api/decompression.md), [readline](../api/readline.md), [TTY queries](../api/tty.md) and genuine owned [PTYs](../api/pty.md) | UDP/HTTP2, remaining compression formats, full terminal streams/raw mode and wider provider acceptance |
-| Other Node facilities | Unsupported | Explicit decisions for SQLite, WASI, REPL, single-executable packaging and the remaining standard modules |
+| Other Node facilities | Unsupported | Explicit decisions for node:sqlite, WASI, REPL, single-executable packaging and remaining modules; the private mite:sqlite adapter is distinct from the Node API |
 | V8 internals / native addons | Outside initial required scope | Preserve explicit limitations; no engine-specific success substitutes |
 
 The inventory is broader than the initial compatibility target. It must remain clear

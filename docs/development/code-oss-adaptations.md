@@ -73,7 +73,7 @@ requires a new audit, not a generic “ignore unknown switches” rule.
 
 ## Package source adapters
 
-All six are opt-in compiler flags. They retain ordinary Node/Electron package paths
+All seven are opt-in compiler flags. They retain ordinary Node/Electron package paths
 and require the exact package/input hashes before selecting genuine Mite services.
 These are application dependency ports, not a Node/NAPI compatibility layer. Their
 existence still means this is an adapted application.

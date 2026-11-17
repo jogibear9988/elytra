@@ -2,11 +2,13 @@
 
 Earlier scoped Mite baselines passed native Windows CI; the current review runtime
 is not accepted on Windows. Full Firefly/desktop/package support remains unverified.
-At 05149fe, [run 44041463772](https://github.com/jogibear9988/elytra/actions/runs/44041463772)
-compiles with clang-cl and passes151 of160 runtime suites. Its nine failures are
-legacy URL, lifetime, stdio, Web adapters, Fetch data, compression, DNS, net and URL.
-Native stdio/process signals and HTTP behavior have advanced beyond the earlier
-034a211 fourteen-failure baseline; this is still not a green Windows baseline.
+Candidate `49386ba`, [run 44048584702](https://github.com/jogibear9988/elytra/actions/runs/44048584702),
+compiles with clang-cl and passes **159 of 160** runtime suites. Its only failure
+is native stdio backpressure: the portable Writable provider calculated admission
+before a synchronous write released its bytes. The narrow Node24 admission fix
+now passes actual macOS Mite/embedded-host and both Node references; a fresh full
+Windows run remains required. No assertion was waived. The older `05149fe` result
+was 151/160; it is superseded as a failure inventory, not a green baseline.
 
 Windows uses fixed Node24.22.3 because Node24.15 has a separately observed native
 TCP-connect crash there. Linux/macOS use Node24.15.0. Do not downgrade that Windows

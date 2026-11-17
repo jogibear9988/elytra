@@ -16132,6 +16132,19 @@ and detailed write/backpressure docs updated. No SDK rebuild or GUI. Evidence:
 build/writable-9803-{build,regressions}.log. Fresh native Windows suite pending;
 full goal active and release/master gates remain outstanding.
 
+## Refresh authoritative platform evidence and documentation inventory (2026-11-17)
+
+Update current status with actual9803 Linux8a30 all163 hosted CLI gates and the
+newer completed Windows493159/160 result. Keep latest Windows Writable/native
+renderer and package gates explicitly pending. Align documentation baseline with
+actual dual Node references and implemented native stdout/error-event contracts;
+correct package-adapter inventory fromsix toseven. No new acceptance is inferred
+from source or an older SDK. Built366 documentation pages plus homepage and27550
+local resources/links/fragments PASS. No runtime/GUI suite for these prose edits.
+Separately user-requested Code-OSS restartPID95070 visibly shows Welcome/sidebar
+in Cocoa; leave it running and its private live log untouched. This uses preceding
+acceptedSDK, not9803 acceptance. Full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
