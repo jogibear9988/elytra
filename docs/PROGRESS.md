@@ -16174,8 +16174,28 @@ nativeWindows compile/runtime PENDING and diagnosis may correctlyleavegate red.
 Verify documented SDK header/signature againstMicrosoftSDK, use netfw.h. Detailed
 Windowsguide and source comments distinguish policydiagnosis from observed socket
 denial and realLibWeb readiness. Scoped native/Python/YAML/CMakeformat+diff and
-built367pages/27551links PASS. No localnative/GUI run. Full goal active; release
+built367pages/27553links PASS. No localnative/GUI run. Full goal active; release
 and master promotion remain gated by actual current native builds/packages.
+
+## Audit existing Windows security transport and build the real helper (2026-11-17)
+
+Read-only source audit corrects the earlier suspected missing preVM environment
+channel: parent-owned origin/file/permission/webRequest snapshots already pass in
+exact HelperProcess argv and Entry consumes them before initialize_agent. Windows
+spawn preserves those arguments. Preload environment/additionalArguments/autoplay/
+canvas are authenticated document-session IPC, not OSenv. No new ambient-prefix
+allowlist or redundant snapshot mechanism is justified. Native Windows execution
+must still accept these real paths. ICU's earlier staticconstructor requires sealed
+executable/DLL-relative share/Lagom/icu; retain omitted ambient override. Optional
+LIBGC/LIBJS/LIBWEB diagnostics/tuning are not required production security inputs.
+
+Extend the opt-in Windows CI phase to compile/stage actualFireflyWebContent plus
+its sealed physical dependency/resource closure after the realCore broker probe.
+Probe-only compilation never established the owned renderer build. Do not present
+this build gate as actualLibWeb bootstrap/DOM/preload/all-role runtime acceptance;
+those remain required. Update Windows guide with established source transport and
+remaining native gates. YAMLformatter and upstreamsource composition controls PASS;
+actual Windows compilation pending. No localSDK rebuild/GUI. Fullgoalactive.
 
 ## Resume
 

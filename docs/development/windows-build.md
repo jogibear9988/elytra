@@ -387,8 +387,13 @@ before resuming the child. A child never inherits the Job handle or a parent
 `PROCESS_DUP_HANDLE` capability.
 
 The component uses an explicit environment, selected socket takeover and trusted
-Windows system paths, rather than copying ambient variables. This does not yet
-supply all actual LibWeb pre-VM security configuration. Resource staging requires
+Windows system paths, rather than copying ambient variables. Source audit confirms that origin/file,
+permission and webRequest snapshots already travel through exact parent-owned argv
+and are consumed before VM initialization; preload environment and document policy
+use authenticated session IPC. Native Windows acceptance of those paths remains
+required. ICU initialization occurs earlier, in a static constructor: the sealed
+executable/DLL-relative share/Lagom/icu data must be present, without forwarding an
+ambient LADYBIRD_ICU_DATA override. Resource staging requires
 an exact-revision, hashed physical inventory, rejects hardlinks/reparse points,
 retains write/rename/directory handles and verifies the complete inventory before
 scoped SID ACL grants. Normal cleanup revokes its owned grants. Abrupt parent
@@ -414,7 +419,7 @@ The native broker probe stages its own real Core/AppContainer test executable as
 `WebContent.exe`; it is **not actual LibWeb/DOM/preload startup**. Its passing source
 controls do not establish native token, ACL, race, process or broker execution.
 The hosted native target must pass independently. Actual FireflyWebContent startup,
-all other helper roles including network/loopback policy, pre-VM security transport,
+all other helper roles including network/loopback policy, native security-transport acceptance,
 Browser broker flow control, WinMain/std-descriptor behavior and PE/DLL packaging
 remain release blockers. The producer target's
 `FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE` property stays false; an unrelated cache
