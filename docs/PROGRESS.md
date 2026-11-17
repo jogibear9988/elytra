@@ -15766,6 +15766,26 @@ build/compositor-feature-contract-controls.log. Formatting/diff checks pass. No
 local renderer launched while user inspects Code-OSS. Fresh hosted native runtime
 acceptance remains required. Full goal remains active.
 
+## Web gzip single-member contract, independent HTTP decoding (2026-11-17)
+
+Fix genuine DecompressionStream compatibility: public Web gzip must reject any
+bytes after its single member, including another valid gzip member. Check both
+remaining bytes at Z_STREAM_END and the next native step. The private gzip-http
+mode alone retains concatenated members and zero padding for Content-Encoding.
+Do not weaken either independent contract. Tests require the actual TypeError and
+ERR_TRAILING_JUNK_AFTER_STREAM_END on readable and writable endpoints, for both
+same-chunk and split-member input. Exact Node24.15.0 records its old acceptance;
+current Node24.22.3 and Mite must reject.
+
+Official checksum-verified Node24.22.3 reference installed once/reused in the build
+area (archive removed). Both Node references pass eight Web groups. Actual native
+compile-DB syntax and Release CLI/embedded build pass. Complete native compression
+runner against Node24.22.3 passes Web errors, forced GC, pressure, example, private
+mode guards and independent HTTP concatenation/padding, early delivery/cancel/
+abort/trailer controls. Log: build/current-compression-controls.log. No SDK build,
+GUI run or change to the user's open Code-OSS. Windows rerun remains required;
+full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

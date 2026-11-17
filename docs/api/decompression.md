@@ -37,9 +37,12 @@ The differential suite records both observed behaviors.
 
 Checksums and stream termination are validated. Bad input, missing dictionary or
 truncated streams reject TypeError with the backend code/cause (for example
-Z_DATA_ERROR or Z_BUF_ERROR). gzip supports concatenated members. The public Web
-interface rejects trailing zero padding with ERR_TRAILING_JUNK_AFTER_STREAM_END,
-matching the measured Node reference. Byte counts, exact messages and every native
+Z_DATA_ERROR or Z_BUF_ERROR). The public Web gzip interface accepts exactly one
+member. A second member or trailing zero padding rejects with
+ERR_TRAILING_JUNK_AFTER_STREAM_END, whether supplied in the same write or a later
+chunk. This matches current Node24.22.3; Node24.15.0's concatenated-member acceptance
+is an explicitly recorded old reference defect. HTTP Fetch decoding retains its
+separate concatenated-member/padding behavior below. Byte counts, exact messages and every native
 provider error are not a general Node binding compatibility claim.
 
 Readable cancellation errors the writable and rejects a pending write with the

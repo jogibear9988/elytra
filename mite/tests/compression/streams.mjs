@@ -59,15 +59,37 @@ for (const format of ['gzip', 'deflate', 'deflate-raw']) {
   });
 }
 
-await run('gzip members', async () => {
+await run('Web gzip rejects concatenated members', async () => {
   const bytes = Buffer.from(fixtures.gzip, 'hex');
-  const result = await new Response(
-    ReadableStream.from([bytes, bytes]).pipeThrough(new DecompressionStream('gzip'))
-  ).bytes();
-  check(
-    result.length === fixtures.text * 2 && result.every((value) => value === 97),
-    'concatenated gzip'
-  );
+  const legacyNode = process.versions.node === '24.15.0';
+  if (process.versions.node && !legacyNode && process.versions.node !== '24.22.3') {
+    throw Error('Unreviewed Node gzip member reference: ' + process.versions.node);
+  }
+  for (const chunks of [[Buffer.concat([bytes, bytes])], [bytes, bytes]]) {
+    const decoder = new DecompressionStream('gzip');
+    if (legacyNode) {
+      // Node 24.15.0's Gunzip accepts a second member despite its Web adapter's
+      // rejectGarbageAfterEnd option. Keep this exact old-reference defect
+      // separate from the single-member Web contract required of Mite/24.22.3.
+      const consuming = new Response(decoder.readable).bytes();
+      const writing = ReadableStream.from(chunks).pipeTo(decoder.writable);
+      const [result] = await Promise.all([consuming, writing]);
+      check(
+        result.length === fixtures.text * 2 && result.every((value) => value === 97),
+        'Old Node concatenated-member observation'
+      );
+    } else {
+      const consuming = rejected(
+        new Response(decoder.readable).bytes(),
+        'ERR_TRAILING_JUNK_AFTER_STREAM_END'
+      );
+      const writing = rejected(
+        ReadableStream.from(chunks).pipeTo(decoder.writable),
+        'ERR_TRAILING_JUNK_AFTER_STREAM_END'
+      );
+      await Promise.all([consuming, writing]);
+    }
+  }
 });
 
 await run('checksum and truncation errors reach both endpoints', async () => {

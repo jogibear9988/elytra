@@ -37,6 +37,7 @@ namespace {
         bool member_ended { false };
         bool padding { false };
         bool allow_padding { false };
+        bool allow_multiple_members { false };
 
         ~Inflater()
         {
@@ -82,6 +83,11 @@ namespace {
         size_t produced = 0;
         std::array<unsigned char, output_limit> output;
         if (state.member_ended) {
+            // Web gzip has exactly one member. The private HTTP mode retains
+            // concatenated members and padding for Content-Encoding decoding.
+            if (!bytes.empty() && state.window == 31 && !state.allow_multiple_members)
+                return failure(vm, "ERR_TRAILING_JUNK_AFTER_STREAM_END",
+                    "Unexpected data after the gzip stream end");
             if (bytes.empty())
                 done = final;
             else if (state.window == 31
@@ -130,9 +136,13 @@ namespace {
                 state.stream.next_in = Z_NULL;
                 state.stream.next_out = Z_NULL;
                 state.stream.avail_in = state.stream.avail_out = 0;
-                if (status == Z_STREAM_END)
+                if (status == Z_STREAM_END) {
                     state.member_ended = true;
-                else if (status == Z_NEED_DICT)
+                    if (state.window == 31 && !state.allow_multiple_members
+                        && consumed < bytes.size())
+                        return failure(vm, "ERR_TRAILING_JUNK_AFTER_STREAM_END",
+                            "Unexpected data after the gzip stream end");
+                } else if (status == Z_NEED_DICT)
                     return failure(vm, "Z_NEED_DICT", "Compressed stream requires a dictionary");
                 else if (status != Z_OK && status != Z_BUF_ERROR)
                     return failure(vm, "Z_DATA_ERROR", "Invalid compressed stream or checksum");
@@ -171,6 +181,7 @@ GC::Ref<JS::Object> create_inflate_host(JS::Realm& realm)
             else if (name == "gzip-http"_utf16) {
                 state->window = 31;
                 state->allow_padding = true;
+                state->allow_multiple_members = true;
             } else if (name == "deflate"_utf16)
                 state->window = 15;
             else if (name == "deflate-raw"_utf16)
