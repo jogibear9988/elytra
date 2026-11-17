@@ -382,7 +382,12 @@ retiring the child/profile. It does not change collection settings, firewall rul
 or loopback exemptions. The child's raw timeout/NONE remains false with an explicit
 unresolved exit status; only the separate exact kernel record can corroborate it.
 Disabled collection, unavailable rights or no matching event keep acceptance red.
-Source/negative controls are separate from the still-pending native Windows run.
+At `6939a9d`, the actual native Windows component compiles, runs the predicate
+controls and successfully opens/subscribes to WFP with collection enabled. Its
+acceptance still fails because the exact capability-drop list is empty. This is
+useful compiler/API evidence, not a network-isolation proof or a green component.
+The next diagnostic step inspects only bounded matching event/filter metadata;
+missing evidence must never be converted into a successful denial assertion.
 
 ## Owned helper and desktop-provider integration (2026-11-17)
 

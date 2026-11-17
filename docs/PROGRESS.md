@@ -16299,6 +16299,19 @@ and wrongrecovery size/hash refusal. PinnedPython/nativeformat+diff PASS; update
 upstreambuild guide. Freshactualauthenticated CI fetch remains pending. Evidence:
 build/native-asset-recovery-controls.log. No localcache/app/SDK mutation. Goalactive.
 
+## Record actual download acceptance and native WFP limits (2026-11-17)
+
+Nativeasset2a1 job133995088672 PASS allsteps: realauthenticated network fetch,
+original719... cachehash after recognizedwire-variant recovery, credential-free
+cache reuse and cleanLadybird. This establishes the repaired transport/cache path,
+not renderer/app acceptance. Separately actualWFP693 job133994600872 compiles and
+runs nativepredicatecontrols, opensWFP/readsenabledcollection/subscribes, retains
+actualchildidentity, then correctlyfails with no exactcapabilitydrop events. Do not
+advertise native network-isolation acceptance. Windowsguide and upstreamupdate
+notes now reflect actual evidence; nextdiagnostics remain bounded/read-only and
+cannotbroaden acceptance. Site367pages/27563links PASS. No localGUI. Fullgoalactive;
+currentmacOS/renderer/packages and master/release promotion still outstanding.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

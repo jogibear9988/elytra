@@ -590,3 +590,8 @@ never bypass the hash or disable PCRE2 features to hide a download failure.
 Local builds can normally use vcpkg's original fetch; this optional cache preseed
 requires the named environment credential on a cache miss. Do not put tokens in
 command arguments, URLs or checked-in files.
+
+The separate [native asset gate](https://github.com/jogibear9988/elytra/actions/runs/44070468436)
+at `2a1c6df` passes the actual authenticated fetch, original-hash publication,
+credential-free cache reuse and unchanged-upstream checks. This verifies the
+build download path; renderer and application-package acceptance remain separate.
