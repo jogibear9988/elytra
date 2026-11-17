@@ -4490,11 +4490,18 @@ function createBlobs(SourceBlob, host2) {
       return text.call(this);
     }
     slice(start = 0, end = size.call(this), contentType = "") {
-      function integer(value) {
-        const number = Number(value);
-        return Number.isFinite(number) ? Math.trunc(number) : 0;
+      const length = size.call(this);
+      function index(value) {
+        const number = +value;
+        if (Number.isNaN(number)) {
+          return 0;
+        }
+        const bounded = Math.max(-length, Math.min(length, number));
+        const lower = Math.floor(bounded);
+        const fraction = bounded - lower;
+        return fraction < 0.5 || fraction === 0.5 && lower % 2 === 0 ? lower : lower + 1;
       }
-      return new Blob3([slice.call(this, integer(start), integer(end))], { type: contentType });
+      return new Blob3([slice.call(this, index(start), index(end))], { type: contentType });
     }
     async bytes() {
       return new Uint8Array(await arrayBuffer.call(this));

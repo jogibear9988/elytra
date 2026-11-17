@@ -31,7 +31,7 @@ an initial BOM remains part of stored content.
 | --- | --- |
 | `size` | Stored byte length, not character count |
 | `type` | Printable ASCII MIME string normalized to lowercase; invalid MIME characters produce empty type |
-| `slice(start?, end?, type?)` | Blob containing the selected byte range; negative bounds count from the end; fractional indices truncate; slices of Files are Blobs |
+| `slice(start?, end?, type?)` | Blob containing the selected byte range; negative bounds count from the end; fractional indices round to nearest with ties to even; slices of Files are Blobs |
 | `arrayBuffer()` | Promise of independent byte storage |
 | `bytes()` | Promise of an independent Uint8Array |
 | `text()` | UTF-8 decode with replacement and BOM handling |
@@ -44,10 +44,14 @@ transfer. Codecs/stream constructors are captured; replacing globals does not
 change existing Blob and Fetch behavior, including internal slice readers.
 
 `options.type` supplies MIME metadata. `options.endings` accepts transparent
-(default) or native. Native follows the measured Node newline conversion on the
-host, preserving standalone CR while converting LF/CRLF. Nonfinite slice indices
-also follow Node 24's conversion to zero. These details are not claims of complete
-File API/WebIDL conformance. Shared/resizable/detached buffers, all numeric coercion
+(default) or native. Native converts CRLF, lone CR and lone LF in each string
+part to the host line ending; binary and Blob parts retain their bytes. Slice
+indices follow the File API [Clamp] conversion: NaN becomes zero, infinities and
+large magnitudes saturate at the selected range, and half-integer ties round to
+the even integer. BigInt/Symbol indices throw TypeError. These match Node24.22.3;
+exact Node24.15.0's older newline/truncation behavior is recorded separately in
+the reference tests. These details do not establish complete File API/WebIDL
+conformance. Shared/resizable/detached buffers, all numeric coercion
 edges, huge allocations and cross-realm providers need further coverage.
 
 ## In-memory File metadata

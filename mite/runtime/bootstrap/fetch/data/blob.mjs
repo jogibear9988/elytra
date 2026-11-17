@@ -88,12 +88,23 @@ export default function createBlobs(SourceBlob, host) {
     }
 
     slice(start = 0, end = size.call(this), contentType = '') {
-      function integer(value) {
-        const number = Number(value);
-        return Number.isFinite(number) ? Math.trunc(number) : 0;
+      const length = size.call(this);
+
+      function index(value) {
+        // File API's [Clamp] long long uses round-to-nearest, ties-to-even.
+        // Saturating at +/- the immutable byte length is equivalent for slice
+        // bounds and keeps the underlying provider inside exact integer range.
+        const number = +value;
+        if (Number.isNaN(number)) {
+          return 0;
+        }
+        const bounded = Math.max(-length, Math.min(length, number));
+        const lower = Math.floor(bounded);
+        const fraction = bounded - lower;
+        return fraction < 0.5 || (fraction === 0.5 && lower % 2 === 0) ? lower : lower + 1;
       }
 
-      return new Blob([slice.call(this, integer(start), integer(end))], { type: contentType });
+      return new Blob([slice.call(this, index(start), index(end))], { type: contentType });
     }
 
     async bytes() {

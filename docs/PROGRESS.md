@@ -15803,6 +15803,24 @@ against official Node24.22.3 pass on macOS. Logs: build/current-url-controls.log
 build/current-dns-controls.log. Native Windows rerun remains required. No SDK/GUI
 changes; open user app is untouched. Full goal remains active.
 
+## Blob slice Web IDL clamping (2026-11-17)
+
+Follow File API [Clamp] indices and current Node24.22.3: round nearest/ties-to-even,
+NaN zero, infinities/huge values saturated, reject BigInt/Symbol coercions. Clamp
+within +/- immutable byte length before delegating to the underlying provider;
+this is range-equivalent and avoids overflowing provider integer conversion.
+Preserve relative negative bounds, File-to-Blob slicing and MIME behavior.
+Update the API's previous truncation/newline text to the modern supported contract.
+
+Actual Release CLI/embedded build passes. Maintained factory controls and all14
+Blob/File/FormData groups pass with exact group output on Node24.15.0, official
+Node24.22.3 and actual Mite. Old reference behavior is asserted ONLY for its exact
+version. Logs: build/blob-clamp-source-controls.log,
+build/blob-clamp-three-runtimes.log. Full Fetch runner advances through these groups
+then exposes an independent modern Buffer codec Infinity mismatch; that follow-up
+is not counted passing in this slice. No SDK build/GUI interaction. Windows rerun
+and broader Web IDL coverage remain open; full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

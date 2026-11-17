@@ -147,12 +147,32 @@ await run('Blob native endings captured platform policies', async () => {
 
 await run('Blob slice ranges and fractional indices', async () => {
   const blob = new Blob(['abcdef']);
-  check((await blob.slice(1.9, 4.8).text()) === 'bcd', 'integer indices');
+  const legacy = process.versions.node === '24.15.0';
+  // Node 24.15 truncated/wrapped slice bounds. Modern Node and Mite use
+  // the File API's Web IDL [Clamp] conversion, including ties-to-even.
+  for (const [start, end, current, previous] of [
+    [1.9, 4.8, 'cde', 'bcd'],
+    [0.5, 2.5, 'ab', 'ab'],
+    [1.5, 3.5, 'cd', 'bc'],
+    [-3.5, -1.5, 'cd', 'de'],
+    [NaN, Infinity, 'abcdef', ''],
+    [1e100, undefined, '', 'abcdef'],
+    [-Infinity, Infinity, 'abcdef', '']
+  ]) {
+    check(
+      (await blob.slice(start, end).text()) === (legacy ? previous : current),
+      'clamped slice indices'
+    );
+  }
+
+  throws(() => blob.slice(1n));
+
+  throws(() => blob.slice(Symbol('index')));
+
   check(
     (await blob.slice(-3).text()) === 'def' && (await blob.slice(4, 2).text()) === '',
     'relative ranges'
   );
-  check((await blob.slice(NaN, Infinity).text()) === '', 'Node nonfinite bounds');
   const file = new File(['file'], 'file.txt');
   const sliced = file.slice(1, 3, 'TEXT/PLAIN');
   check(
