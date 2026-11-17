@@ -15838,6 +15838,28 @@ controls.log, build/old-reference-final-data-controls.log,
 build/current-final-buffer-controls.log. No SDK/GUI work or live app changes.
 Windows rerun remains required; full goal remains active.
 
+## Writable.toWeb admission versus terminal failure (2026-11-17)
+
+Recheck actual pressure after write(false), matching current Node. The pinned
+portable stream library computes pressure before _write and retains needDrain
+on completed synchronous callback failure. Normalize only a newly errored write
+with zero outstanding writableLength; do not admit an existing failure or genuine
+pending async pressure. Clear owned drainage completion and preserve finished()
+terminal propagation, writer.closed error identity and abort/destroy ownership.
+
+Strengthen real sync-error/async-pressure-error/accepted-late-error controls,
+including the observed errored+zero-length state. Exact oldNode24.15 reference
+retains its audited write rejection; Mite/currentNode require fulfilled admission
+and rejected closed. Initial native test exposed the pinned-state difference;
+source-only factory acceptance was insufficient and was not counted as success.
+
+Regeneration, Release CLI/embedded build and COMPLETE17-group native stream bridge
+runner pass against both Node24.15 and official24.22.3, including independent HTTP
+upload, early delivery/cancellation and runnable ESM example. Logs:
+build/current-final-streams-controls.log,
+build/old-reference-final-streams-controls.log. SDK/user app untouched; native
+Windows acceptance and full stream parity remain open. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

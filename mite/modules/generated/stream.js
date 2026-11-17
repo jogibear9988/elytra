@@ -6461,9 +6461,16 @@ function installWebAdapters(stream2, host) {
           if (terminal) {
             throw error ?? failure(Error, "ERR_STREAM_DESTROYED", "Destination is closed");
           }
+          const previousError = node.errored;
           if (!node.write(chunk)) {
-            return new Promise((resolve, reject) => {
+            const waiting = new Promise((resolve, reject) => {
               drainage = { resolve, reject };
+            });
+            if (!node.writableNeedDrain || !previousError && node.errored && node.writableLength === 0) {
+              drainage.resolve();
+            }
+            return waiting.finally(() => {
+              drainage = void 0;
             });
           }
         },

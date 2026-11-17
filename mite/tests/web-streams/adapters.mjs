@@ -4,6 +4,22 @@ import { pipeline } from 'node:stream/promises';
 import { ReadableStream, WritableStream, TransformStream } from 'node:stream/web';
 import { setTimeout as sleep } from 'node:timers/promises';
 
+const writeErrorsOnly = process.argv.includes('--write-errors-only');
+const maintainedFactory = process.argv.includes('--maintained-factory');
+if (maintainedFactory) {
+  // Focused source control using real Node streams and Web Streams, before
+  // runtime codegen. This does not pretend to be a rebuilt Mite binary.
+  check(writeErrorsOnly, 'maintained factory control requires the focused selector');
+  const { default: install } = await import('../../runtime/bootstrap/streams/web-adapters.mjs');
+  const { createRequire } = await import('node:module');
+  const { default: stream } = await import('node:stream');
+  install(stream, {
+    webStreams: { ReadableStream, WritableStream },
+    process,
+    require: createRequire(import.meta.url)
+  });
+}
+
 function check(value, message) {
   if (!value) {
     throw new Error(message);
@@ -30,6 +46,9 @@ function completion(node) {
 }
 
 async function run(name, action) {
+  if (writeErrorsOnly && name !== 'toWeb writable errors abort and destroyed destinations') {
+    return;
+  }
   await action();
   console.log('PASS', name);
 }
@@ -324,17 +343,75 @@ await run('toWeb accepted write resolves before callback', async () => {
 
 await run('toWeb writable errors abort and destroyed destinations', async () => {
   const reason = new Error('node sink');
-  const writer = Writable.toWeb(
-    new Writable({
-      highWaterMark: 1,
+  let writes = 0;
+  const failed = new Writable({
+    highWaterMark: 1,
 
-      write(chunk, encoding, callback) {
-        callback(reason);
-      }
-    })
-  ).getWriter();
-  await rejected(writer.write('a'), reason);
-  await rejected(writer.closed, reason);
+    write(chunk, encoding, callback) {
+      check(chunk.toString() === 'a', 'synchronous failure receives the accepted bytes');
+      ++writes;
+      callback(reason);
+    }
+  });
+  const writer = Writable.toWeb(failed).getWriter();
+  const closing = rejected(writer.closed, reason);
+  const writing = writer.write('a');
+  // Node 24.15.0 predates the post-write writableNeedDrain recheck. Assert its
+  // exact legacy result, while current Node and Mite fulfill accepted admission.
+  // https://github.com/nodejs/node/blob/v24.22.3/lib/internal/webstreams/adapters.js#L326-L334
+  if (!maintainedFactory && process.versions.node === '24.15.0') {
+    await rejected(writing, reason);
+  } else {
+    await writing;
+  }
+  await closing;
+  check(writes === 1, 'synchronous failure writes exactly once');
+  check(
+    failed.errored === reason && failed.writableLength === 0,
+    'failed write is already complete'
+  );
+
+  let release;
+  const pressured = new Writable({
+    highWaterMark: 1,
+
+    write(chunk, encoding, callback) {
+      check(chunk.toString() === 'b', 'pressured failure receives bytes');
+      release = callback;
+    }
+  });
+  const pressuredWriter = Writable.toWeb(pressured).getWriter();
+  const pressuredClosed = rejected(pressuredWriter.closed, reason);
+  let admitted = false;
+  const pressuredWrite = pressuredWriter.write('b');
+
+  pressuredWrite.then(
+    () => {
+      admitted = true;
+    },
+    () => {}
+  );
+
+  await sleep(5);
+  check(pressured.writableNeedDrain && !admitted, 'genuine outstanding pressure stays pending');
+  const pressuredFailure = rejected(pressuredWrite, reason);
+  release(reason);
+  await pressuredFailure;
+  await pressuredClosed;
+
+  let failAccepted;
+  const accepted = new Writable({
+    write(chunk, encoding, callback) {
+      check(chunk.toString() === 'c', 'late failure receives accepted bytes');
+      failAccepted = callback;
+    }
+  });
+  const acceptedWriter = Writable.toWeb(accepted).getWriter();
+  const acceptedClosed = rejected(acceptedWriter.closed, reason);
+  await acceptedWriter.write('c');
+  check(!accepted.writableNeedDrain, 'accepted write is not pressured');
+  failAccepted(reason);
+  await acceptedClosed;
   let destroyed;
   const target = new Writable({
     write(chunk, encoding, callback) {

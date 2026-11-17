@@ -78,7 +78,11 @@ Web writes/closed Promises destroy the Node side with the original error.
 
 `Writable.toWeb` forwards each chunk to Node write. If Node accepts it without
 backpressure, the Web write resolves before the Node write callback, as in Node.
-If write returns false, the Promise waits for drain. Closing calls Node end and
+If write returns false, the Promise waits for genuine outstanding pressure. An
+already completed synchronous callback failure settles write admission as current
+Node does; the writer's closed Promise still rejects with that exact error. This
+normalizes the pinned portable library's stale pressure flag without accepting
+an asynchronous write that is still waiting under pressure. Closing calls Node end and
 waits for the writable terminal event, including finalization errors. Underlying
 failure rejects pending drain/close and errors the Web controller. Already destroyed
 or non-writable destinations convert to a closed Web writable. A completed write

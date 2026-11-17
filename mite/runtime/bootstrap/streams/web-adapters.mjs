@@ -298,9 +298,25 @@ export default function installWebAdapters(stream, host) {
           if (terminal) {
             throw error ?? failure(Error, 'ERR_STREAM_DESTROYED', 'Destination is closed');
           }
+          const previousError = node.errored;
           if (!node.write(chunk)) {
-            return new Promise((resolve, reject) => {
+            const waiting = new Promise((resolve, reject) => {
               drainage = { resolve, reject };
+            });
+            // Current Node measures pressure after _write returns. Our pinned
+            // portable stream measures it before, so a synchronous failed
+            // callback can leave needDrain set with no bytes outstanding.
+            // Admit that completed write, but never a pre-existing failure or
+            // an async callback still under pressure. finished() independently
+            // rejects closed with the actual terminal reason.
+            if (
+              !node.writableNeedDrain ||
+              (!previousError && node.errored && node.writableLength === 0)
+            ) {
+              drainage.resolve();
+            }
+            return waiting.finally(() => {
+              drainage = undefined;
             });
           }
         },
