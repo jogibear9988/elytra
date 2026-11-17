@@ -37,6 +37,7 @@ static bool admit(void* global_event_target, u64* authorization, bool sample_act
         *authorization = revision;
         return true;
     }
+
     auto top = navigable->top_level_traversable();
     if (top->has_been_destroyed())
         return false;

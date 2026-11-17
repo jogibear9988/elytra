@@ -457,6 +457,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
         metadata.preload_scripts.append({ "firefly.autoplay.v1"_string, String {}, move(arguments),
             Vector<String> { popup.handle }, {}, {} });
     };
+
     append_policy("no-user-gesture-required"sv, 1);
     TRY(Firefly::HelperAutoplay::extract(metadata));
     TRY(require(metadata.preload_scripts.is_empty(), "native policy records are stripped"sv));
@@ -514,5 +515,6 @@ ErrorOr<int> ladybird_main(Main::Arguments)
         TRY(require(A::apply(move(invalid_context)).is_error(),
             "noncanonical context identity rejected"sv));
     }
+
     return 0;
 }

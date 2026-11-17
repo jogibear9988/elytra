@@ -43,6 +43,7 @@ bool tls_system_certificates(std::vector<std::string>& certificates)
         result.emplace_back(bytes, static_cast<size_t>(size));
         total += static_cast<size_t>(size);
     }
+
     certificates = std::move(result);
     return true;
 #else

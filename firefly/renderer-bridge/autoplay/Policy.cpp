@@ -74,6 +74,7 @@ ErrorOr<void> apply(Vector<Configuration> configurations)
                 return Error::from_string_literal("Native autoplay revision exhausted");
             revision = ++next_revision;
         }
+
         TRY(next.try_set(move(configuration.context),
             Setting { configuration.generation, configuration.policy, revision }));
     }

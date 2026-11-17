@@ -16050,6 +16050,17 @@ are PENDING. No new release exists. Windows full app/EXEs remain blocked by comp
 native helper confinement, broker flow and packaging; no fake wrappers substituted.
 Full user goal remains active; master promotion waits actual relevant native gates.
 
+## Candidate CI formatting repair (2026-11-17)
+
+Source style job133966019009 on8a30dbe reported fifteen maintained native files
+and two CMake fixtures with stale formatting. Apply the pinned native formatter,
+method spacing and CMake formatter only to those tracked clean files. Independent
+comparison preserves every non-whitespace byte in all seventeen files; reviewed
+CMake wrapping and native whitespace introduce no behavior change. Keep concurrent
+Windows integration out of this commit. No native rebuild or GUI launch is needed
+for whitespace-only edits. Hosted source CI will re-run on push; native CLI,
+renderer and release runs remain independently pending. Full goal stays active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

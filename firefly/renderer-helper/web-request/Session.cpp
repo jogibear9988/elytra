@@ -156,6 +156,7 @@ namespace {
                 WebRequest::LogicalLimitStage::Session, session.get()->logical.size());
             return Error::from_string_literal("webRequest logical identity budget exceeded");
         }
+
         auto encoded = TRY(WebRequest::encode_packet(packet));
         if (encoded.size() > 2 * 1024 * 1024 - session.get()->bytes)
             return Error::from_string_literal("webRequest queued-byte budget exceeded");

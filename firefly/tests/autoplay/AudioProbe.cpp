@@ -220,6 +220,7 @@ Context create_context(Placement placement)
             .has_session_history_entry_and_ready_for_navigation = true,
             .compositor_context_id = {},
         };
+
         Vector<H::RemoteNavigableDescriptor> graph;
         graph.append({ root_id, {}, state });
         state.active_document_url = child_url;
@@ -233,6 +234,7 @@ Context create_context(Placement placement)
         document = child->active_document();
         document->browsing_context()->window_proxy()->set_window(*document->window());
     }
+
     document->set_url(child_url);
     document->set_origin(child_url.origin());
     auto& settings = document->relevant_settings_object();
@@ -257,6 +259,7 @@ ErrorOr<JS::Value> run(JS::Realm& realm, Utf16View source)
             result.error_value().to_utf16_string_without_side_effects());
         return Error::from_string_literal("Native WebAudio script threw");
     }
+
     return result.release_value();
 }
 
@@ -266,6 +269,7 @@ ErrorOr<void> require(bool value, StringView label)
         warnln("FAIL native WebAudio: {}", label);
         return Error::from_string_literal("Native WebAudio assertion failed");
     }
+
     return {};
 }
 
@@ -501,6 +505,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
             allowed.client->factories == 1, "unrestricted context acquires only its own output"sv));
         TRY(close(allowed));
     }
+
     outln("PASS WebAudio top-level, same-origin child and no-gesture policy paths");
 
     auto transitioning = create_context(Placement::CrossOriginChild);
@@ -559,6 +564,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
             "permanently retired context does not reacquire output"sv));
         TRY(close(revoked));
     }
+
     outln("PASS actual constructor/resume publication revocation rejects pending starts before "
           "Running");
 
@@ -592,6 +598,7 @@ ErrorOr<int> ladybird_main(Main::Arguments)
         GC::scrub_stack_for_testing();
         collecting.realm().vm().heap().collect_garbage();
     }
+
     TRY(require(!weak.context && !weak.promise,
         "actual blocked Rust context and queued promise are reclaimable"sv));
     TRY(require(

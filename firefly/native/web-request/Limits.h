@@ -13,6 +13,7 @@ inline void logical_limit_diagnostic(LogicalLimitStage stage, size_t retained)
     static constexpr char const* labels[] = { "gate", "session", "broker" };
     static size_t emitted[3] {};
     auto index = static_cast<size_t>(stage);
+
     if (!ipc_bytes_diagnostics_enabled() || index >= 3 || emitted[index] >= 4)
         return;
     ++emitted[index];
@@ -27,6 +28,7 @@ inline void logical_retention_diagnostic(LogicalLimitStage stage, size_t retaine
     static constexpr char const* labels[] = { "gate", "session", "broker" };
     static bool emitted[3][2] {};
     auto index = static_cast<size_t>(stage);
+
     if (!ipc_bytes_diagnostics_enabled() || index >= 3 || (retained != 1024 && retained != 1025))
         return;
     auto boundary = retained == 1024 ? 0 : 1;

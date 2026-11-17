@@ -96,6 +96,7 @@ GC::Ref<JS::Object> create_verify_host(JS::Realm& realm)
                 EVP_PKEY_free(raw);
                 return failure(vm, u"Invalid P-256 public key"sv);
             }
+
             Key key(raw, EVP_PKEY_free);
             if (!valid(key))
                 return failure(vm, u"Invalid P-256 public point"sv);

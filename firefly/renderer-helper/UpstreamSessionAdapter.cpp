@@ -46,6 +46,7 @@ void set_webdriver_bidi_session_state(Web::WebDriver::BiDiSessionState state)
         fflush(nullptr);
         std::_Exit(1);
     }
+
     auto canvas = Firefly::HelperCanvas::extract(state);
     if (canvas.is_error()) {
         warnln("Invalid native canvas configuration: {}", canvas.error());

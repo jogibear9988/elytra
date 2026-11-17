@@ -17,10 +17,12 @@ public:
             m_emitted |= 1;
             return 5;
         }
+
         if (!(m_emitted & 2) && elapsed >= AK::Duration::from_seconds(30)) {
             m_emitted |= 2;
             return 30;
         }
+
         return 0;
     }
 

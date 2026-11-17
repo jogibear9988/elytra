@@ -57,6 +57,7 @@ namespace {
             catalog.exceeded = true;
             return;
         }
+
         size_t length = 0;
         while (length <= DigestCatalog::name_limit && from[length])
             ++length;
@@ -64,6 +65,7 @@ namespace {
             catalog.exceeded = true;
             return;
         }
+
         if (catalog.names.contains(std::string(from, length)))
             return;
         // Keep failed capability probes out of subsequent native crypto errors.
@@ -86,6 +88,7 @@ namespace {
             catalog.exceeded = true;
             return;
         }
+
         catalog.names.emplace(from, length);
         catalog.bytes += length;
     }

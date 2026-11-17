@@ -64,6 +64,7 @@ GC::Ref<JS::Object> create_x509_host(JS::Realm& realm)
                 if (input)
                     certificate.reset(PEM_read_bio_X509(input.get(), nullptr, nullptr, nullptr));
             }
+
             if (!certificate) {
                 auto failure = ERR_peek_last_error();
                 char const* code = ERR_GET_LIB(failure) == ERR_LIB_PEM
@@ -73,6 +74,7 @@ GC::Ref<JS::Object> create_x509_host(JS::Realm& realm)
                 ERR_clear_error();
                 return certificate_error(vm, code, "Unable to parse X509 certificate");
             }
+
             ERR_clear_error();
             std::unique_ptr<BIO, decltype(&BIO_free)> output(BIO_new(BIO_s_mem()), BIO_free);
             if (!output || PEM_write_bio_X509(output.get(), certificate.get()) != 1)

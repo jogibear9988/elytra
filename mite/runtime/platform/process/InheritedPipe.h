@@ -45,9 +45,11 @@ inline bool is_inherited_ipc_pipe(int descriptor)
 #ifdef _WIN32
     ScopedDescriptorProbe guard;
     auto native = _get_osfhandle(descriptor);
+
     if (native == -1 || native == -2)
         return false;
     auto handle = reinterpret_cast<HANDLE>(native);
+
     DWORD flags {};
     if (!GetHandleInformation(handle, &flags) || GetFileType(handle) != FILE_TYPE_PIPE)
         return false;

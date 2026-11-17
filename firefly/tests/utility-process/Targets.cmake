@@ -1,13 +1,15 @@
 # Actual OS children/native frames; neither fixture opens a desktop window.
-add_executable(firefly-utility-port-protocol-probe
+add_executable(
+    firefly-utility-port-protocol-probe
     "${CMAKE_CURRENT_LIST_DIR}/PortProtocolProbe.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Protocol.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Ledger.cpp"
     "${FIREFLY_SOURCE_DIR}/firefly/native/utility/ports/Fragments.cpp")
-target_include_directories(firefly-utility-port-protocol-probe PRIVATE
-    "${FIREFLY_SOURCE_DIR}/firefly")
+target_include_directories(firefly-utility-port-protocol-probe
+                           PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 
-add_custom_target(check-firefly-utility-ports
+add_custom_target(
+    check-firefly-utility-ports
     COMMAND "$<TARGET_FILE:firefly-utility-port-protocol-probe>"
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_utility_ports.py"
             --firefly "$<TARGET_FILE:firefly>"
