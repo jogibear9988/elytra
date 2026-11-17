@@ -263,7 +263,11 @@ class Creator:
         import msvcrt
 
         encoded = str(destination).encode("utf-16-le")
-        buffer = ctypes.create_string_buffer(self.Rename.name.offset + len(encoded))
+        # Win32 also consumes a NUL-terminated FileName. Keep the byte count
+        # exclusive of the terminator, but reserve both bytes in the buffer.
+        buffer = ctypes.create_string_buffer(
+            self.Rename.name.offset + len(encoded) + ctypes.sizeof(ctypes.c_wchar)
+        )
         rename = self.Rename.from_buffer(buffer)
         rename.replace = True
         rename.root = None

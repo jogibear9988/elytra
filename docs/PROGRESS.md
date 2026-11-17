@@ -16417,6 +16417,18 @@ separately. Cargo and vcpkg dependency pins are identical. The upstream source,
 142-package Rust lock, protocol composition and Windows helper/broker source
 checks pass. The local CLI rebuild and hosted renderer acceptance are pending.
 
+## Terminate the native staging rename destination (2026-11-17)
+
+Windows jobs 134320238229 and 134320240059 show the handle rename succeeds
+but publishes names such as resource.txtmp and provider.dllxe. Allocate
+a zeroed trailing WCHAR in FILE_RENAME_INFO so Win32 receives a terminated
+destination, while keeping FileNameLength equal to the destination byte
+count. Preserve the original file handle, pinned ancestors and final
+inventory equality. The seven helper source controls and formatter pass
+locally. The native Windows staging job must confirm the exact filenames.
+Separately, the hosted WFP audit verified mask restoration but saw zero
+callbacks. Its isolation gate still fails.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
