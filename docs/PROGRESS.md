@@ -15658,6 +15658,22 @@ production behavior. Native Windows rerun remains required. Visible Code-OSS lau
 is separately under repair at Cocoa Services-menu registration; no visible launch
 acceptance is claimed. Full project goal remains active.
 
+## File API native Blob newline conversion (2026-11-17)
+
+Normalize CRLF, lone CR and lone LF in each Blob string part for endings=native,
+matching the File API and pinned Windows Node24.22.3. Preserve binary/Blob parts,
+transparent mode and independent part boundaries. The exact Node24.15.0 reference
+retains its audited legacy lone-CR expectation; Mite must meet the modern contract.
+Regenerate checked-in runtime code and manifest from the maintained ESM source.
+
+Release CLI/embedded build and complete Fetch data runner pass on macOS with
+Node24.15.0: fourteen data groups, codec slices, real HTTP multipart/Blob consumers,
+redirect replay and exact binary fields. Separate factory controls verify both
+platform newline policies; they do not establish native Windows acceptance.
+Logs: build/windows-contract-mite-build.log,
+build/windows-blob-native-endings-controls.log. Native Windows rerun remains open.
+Full project goal remains active; visible Code-OSS launch repair continues.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

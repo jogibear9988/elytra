@@ -4466,7 +4466,7 @@ function createBlobs(SourceBlob, host2) {
         } else {
           let text2 = scalar(part);
           if (endings === "native") {
-            text2 = text2.replace(/\r?\n/g, host2.platform === "win32" ? "\r\n" : "\n");
+            text2 = text2.replace(/\r\n|\r|\n/g, host2.platform === "win32" ? "\r\n" : "\n");
           }
           values.push(text2);
         }

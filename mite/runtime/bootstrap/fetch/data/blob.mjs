@@ -56,7 +56,9 @@ export default function createBlobs(SourceBlob, host) {
         } else {
           let text = scalar(part);
           if (endings === 'native') {
-            text = text.replace(/\r?\n/g, host.platform === 'win32' ? '\r\n' : '\n');
+            // File API conversion treats CRLF as one ending, and lone CR/LF
+            // as endings too. Convert only string parts, never stored bytes.
+            text = text.replace(/\r\n|\r|\n/g, host.platform === 'win32' ? '\r\n' : '\n');
           }
           values.push(text);
         }

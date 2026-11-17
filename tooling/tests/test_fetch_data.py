@@ -171,7 +171,7 @@ def main():
     parser.add_argument("--node", default=shutil.which("node"))
     args = parser.parse_args()
     for fixture, count, marker in [
-        ("data.mjs", 13, "DONE Fetch data\n"),
+        ("data.mjs", 14, "DONE Fetch data\n"),
         ("codec-slices.mjs", 0, "DONE codec slices 48\n"),
     ]:
         results = [

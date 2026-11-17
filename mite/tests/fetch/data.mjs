@@ -1,5 +1,6 @@
 /** Blob/File/FormData comparisons against actual Node, independent of wire boundaries. */
 import { Blob as BufferBlob, File as BufferFile } from 'node:buffer';
+import createBlobs from '../../runtime/bootstrap/fetch/data/blob.mjs';
 
 function check(value, message) {
   if (!value) {
@@ -77,15 +78,71 @@ await run('Blob scalar strings BOM and newline modes', async () => {
   check((await new Blob(['\uFEFFa']).text()) === 'a', 'text strips BOM');
   check((await new Blob(['\uD800']).text()) === '\uFFFD', 'scalar replacement');
   const text = 'a\rb\r\nc\nd';
-  const native = process.platform === 'win32' ? 'a\rb\r\nc\r\nd' : 'a\rb\nc\nd';
-  check((await new Blob([text], { endings: 'native' }).text()) === native, 'native endings');
+  const eol = process.platform === 'win32' ? '\r\n' : '\n';
+  // The audited Node 24.15.0 reference predates its lone-CR fix. Assert that
+  // exact legacy output there; Mite and current Node follow the File API.
+  // https://github.com/nodejs/node/blob/v24.15.0/lib/internal/blob.js#L110-L111
+  // https://github.com/nodejs/node/blob/v24.22.3/lib/internal/blob.js#L117-L118
+  const legacy = process.versions.node === '24.15.0';
+  const native = legacy ? `a\rb${eol}c${eol}d` : `a${eol}b${eol}c${eol}d`;
+  const converted = new Blob([text], { endings: 'native' });
+  check(
+    (await converted.bytes()).join() === [...new TextEncoder().encode(native)].join() &&
+      converted.size === new TextEncoder().encode(native).length,
+    legacy ? 'Node 24.15.0 explicit legacy native endings' : 'File API native endings'
+  );
   check((await new Blob([text]).text()) === text, 'transparent endings');
+  const binary = new Uint8Array([13, 10, 13, 10]);
+  check(
+    (await new Blob([binary, new Blob(['\r'])], { endings: 'native' }).bytes()).join() ===
+      '13,10,13,10,13',
+    'native endings leave buffer and Blob parts unchanged'
+  );
 
   throws(() => new Blob([], { endings: 'wrong' }));
 
   throws(() => new Blob('not a sequence object'));
 
   throws(() => new Blob([Symbol('invalid')]));
+});
+
+await run('Blob native endings captured platform policies', async () => {
+  // Directly exercise both maintained factory policies, not a claim that this
+  // host is Windows. The underlying immutable Blob still stores real bytes.
+  const originalStream = BufferBlob.prototype.stream;
+  try {
+    for (const platform of ['linux', 'win32']) {
+      const { Blob: PolicyBlob } = createBlobs(BufferBlob, {
+        TextEncoder,
+        TextDecoder,
+        webStreams: { ReadableStream },
+        platform
+      });
+      const eol = platform === 'win32' ? '\r\n' : '\n';
+      const source = 'a\rb\r\nc\nd\r';
+      const raw = new Uint8Array([13, 10, 13]);
+      const blob = new PolicyBlob([source, raw, new BufferBlob(['\r'])], { endings: 'native' });
+      const expected = [
+        ...new TextEncoder().encode(`a${eol}b${eol}c${eol}d${eol}`),
+        13,
+        10,
+        13,
+        13
+      ];
+      check((await blob.bytes()).join() === expected.join(), `${platform} native policy bytes`);
+      check(blob.size === expected.length, `${platform} native policy byte length`);
+      check(
+        (await new PolicyBlob(['\r', '\n'], { endings: 'native' }).text()) === eol + eol,
+        `${platform} converts each string part separately`
+      );
+      check(
+        (await new PolicyBlob([source], { endings: 'transparent' }).text()) === source,
+        `${platform} transparent policy`
+      );
+    }
+  } finally {
+    BufferBlob.prototype.stream = originalStream;
+  }
 });
 
 await run('Blob slice ranges and fractional indices', async () => {
