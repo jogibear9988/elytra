@@ -113,8 +113,15 @@ class Peer(socketserver.BaseRequestHandler):
                     assert self.message() == (1, b"tail"), "Mite pending Blob FIFO"
                     self.finish_close("blob-done")
                 else:
-                    # Node 24.15 closes immediately, dropping these queued Blob sends.
-                    self.finish_close("blob-done")
+                    # Node 24.15/24.22 Undici sends Close outside SendQueue while
+                    # its Blob read is pending. Drain that exact queued suffix
+                    # before replying: closing TCP with unread bytes can reset
+                    # Windows sockets and turn a valid close reply into 1006.
+                    opcode, payload = self.message()
+                    assert (opcode, payload) == (8, struct.pack("!H", 1000) + b"blob-done")
+                    assert self.message() == (2, b"pending"), "Node queued Blob after Close"
+                    assert self.message() == (1, b"tail"), "Node queued suffix FIFO"
+                    stream.sendall(frame(8, payload))
             elif mode == "send-bound":
                 assert self.server.mite, "Private queue bound is Mite-only"
                 stream.sendall(head)
@@ -122,7 +129,7 @@ class Peer(socketserver.BaseRequestHandler):
                 while True:
                     opcode, payload = self.message()
                     if opcode == 8:
-                        assert 1 <= received <= 8, "private admitted frame bound"
+                        assert received == 8, "eight Blobs fill the private queue"
                         assert payload == struct.pack("!H", 1000) + f"bound-{received}".encode(), (
                             "all admitted frames precede close exactly once"
                         )

@@ -14856,6 +14856,41 @@ remains failed/unaccepted, not evidence of actual open-edit-save. See the owned
 /tmp/ef-workbench-acceptance/run.log/processes.json and
 build/codeoss-extension-acceptance.log. No copies of the Code-OSS stage retained.
 
+## 2026-11-17 — Correct CI entropy inventory and deterministic WebSocket peers
+
+Inspect actual hosted runs: Linux CLI43985908701 fails2/156tests; macOS Release
+43986319372 fails2/158CLItests before package publication; Windows43985908746
+fails12/155, including10previously recorded platform/reference gaps. Two new
+failures are test defects: the old entropy inventory still forbids implemented
+randomFillSync, and synchronous TCP writes do not deterministically retain4MiB
+in a JS queue because uv_try_write/kernel consumption may complete in the same
+task. Require the real new function, preserve unsupportedKeyObject checks, and
+fill the queue with eight immutable512KiBBlob reads. They cannot drain during
+that synchronous task, and the ninth admission must fail the unchanged native
+private4MiBpolicy. Keep poisoned publicgetter, mutation isolation and exactpeer
+frame/close-order assertions. No production-limit relaxation or test skipping.
+
+Windows Node24.22.3 Blob-close reference also exposes unread TCP data in the
+peer: Undici emits Close directly while its asynchronous SendQueue later emits
+the pending Blob and tail. Echoing Close then dropping the socket too early can
+reset Windows transport, producing1006. Require and drain EXACTClose→Blob→tail
+for Node before reply; Mite remains strictBlob→tail→Close. Preserve1000/reason/
+wasClean/noerror assertions. Correct earlier docs that described the unobserved
+suffix as dropped; that wording came from a peer that closed before draining.
+Pinned Node24.22.3 connection.js254/sender.js55 agree with actual localNode24.15
+reference. No blanket close-code allowance. Fresh Windows24.22 execution still
+needs hosted confirmation.
+
+Focused NodeBlobclose, actualMiteBlobclose and deterministic sendbound allpass.
+The existing crypto suite now passes76actualNode/Mite validation/shape groups,
+UUID/native entropy smoke and callback/liveness/identity checks. Evidence:
+websocket-ci-crypto-controls.log and focused terminal controls. Only tests/API
+reference change, not runtimebinaries. Owned formatting, sourcepin/diff and local
+website checks pass. Linux renderer43986319349 now COMPILES past the GIO fix,
+then fails the existing callback/preload first-script gate (BEFORE_SCRIPT_MISSING).
+That later native failure remains unresolved; do not promote SDK/master or claim
+release success from the restored compile. Keep previous10Windows gaps open too.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

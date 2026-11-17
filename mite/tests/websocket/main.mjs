@@ -169,14 +169,15 @@ try {
       });
       let admitted = 0;
       let refusal;
-      // No yield: native write callbacks cannot refund credit in this owner task.
+      // Blob reads suspend FIFO draining, so this task deterministically retains
+      // every admitted payload even when native writes complete synchronously.
       for (let attempt = 0; attempt < 16; attempt++) {
         const bytes = new Uint8Array(512 * 1024);
         for (let offset = 0; offset < bytes.length; offset++) {
           bytes[offset] = (offset * 7 + admitted) & 255;
         }
         try {
-          socket.send(bytes);
+          socket.send(new Blob([bytes]));
           admitted++;
           bytes.fill(211);
         } catch (error) {
@@ -186,7 +187,7 @@ try {
       }
       assert.ok(refusal instanceof RangeError);
       assert.equal(refusal.code, 'ERR_MITE_WEBSOCKET_LIMIT');
-      assert.ok(admitted >= 1 && admitted <= 8, 'Private buffered bytes stay bounded');
+      assert.equal(admitted, 8, 'Eight immutable Blobs fill the private 4 MiB queue');
       assert.equal(getterCalls, 0);
       expectedReason = 'bound-' + admitted;
       socket.close(1000, expectedReason);

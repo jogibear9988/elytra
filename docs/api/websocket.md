@@ -89,8 +89,11 @@ do not start another handshake.
 
 Mite drains accepted Blob reads and later queued sends before emitting Close.
 This intentionally differs from the observed Node 24.15 behavior when closing
-immediately after a Blob send: Node drops that pending send, while Mite retains
-its accepted FIFO work. Early close during CONNECTING cancels the transport;
+immediately after a Blob send: Node writes Close ahead of the pending Blob/tail
+queue, while Mite sends its admitted FIFO work before Close. The independent Node
+peer drains that exact queued suffix before replying, avoiding a TCP reset from
+unread bytes; it still requires a clean close. Early close during CONNECTING
+cancels the transport;
 its focused regression requires no open/message event and prompt terminal close.
 Node 24.15 can retain CLOSING after the corresponding close event; Mite requires
 CLOSED. The focused early-close regression also passes on the local macOS native build.
@@ -139,3 +142,11 @@ binary in `ELECTRON_RUN_AS_NODE=1` mode (`websocket-embedded-controls.log`),
 including prompt CONNECTING cancellation. This is a real embedded Mite runtime
 check without a GUI window. These local results do not establish hosted-platform,
 proxy routing, full WHATWG conformance or real Code-OSS extension activation.
+
+The send-pressure control uses queued immutable Blob reads to fill exactly 4 MiB
+before asynchronous draining. A loop of direct socket writes is not a reliable
+queue probe: the OS may consume them synchronously. The reference Blob-close
+order is also visible in Node's pinned
+[connection](https://github.com/nodejs/node/blob/v24.22.3/deps/undici/src/lib/web/websocket/connection.js#L254)
+and [sender](https://github.com/nodejs/node/blob/v24.22.3/deps/undici/src/lib/web/websocket/sender.js#L55)
+implementations; fresh Windows execution remains a hosted acceptance gate.
