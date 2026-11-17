@@ -16545,6 +16545,23 @@ refusal despite the local decoy and forwarded exit 37 pass. Document
 the package layout and evidence. Actual Firefly application packaging
 and Windows release acceptance remain open.
 
+## Stage a native Windows x64 import-table closure
+
+Add a PE staging component that checks x64 headers with the native
+DUMPBIN tool and follows regular and delay-load imports transitively.
+It takes DLL providers from an explicit inventory and keeps the listed
+host ABI DLLs in the native Windows system directory. Missing and
+case-colliding providers fail before publication. It hashes each
+owned input and verifies the copy in a temporary sibling before
+publishing the complete bin directory. Explicit dynamic plugins,
+forwarder dependencies and app payload assembly are separate work.
+
+The hosted fixture builds an x64 EXE and two native DLLs, with an
+ordinary import and a transitive delay load. It checks missing and
+duplicate provider refusal, relocates the staged files, moves the SDK
+inputs aside and verifies the actual child exit code. Syntax, format
+and diff checks pass locally. Native verification is pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

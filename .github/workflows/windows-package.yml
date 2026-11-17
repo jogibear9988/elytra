@@ -7,6 +7,8 @@ on:
       - '.github/actions/windows-environment/setup.ps1'
       - 'firefly/packaging/LauncherWindows.cpp'
       - 'tooling/tests/test_windows_launcher.py'
+      - 'tooling/native_package/pe.py'
+      - 'tooling/tests/test_windows_pe_package.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,3 +29,5 @@ jobs:
         run: '& ./.github/actions/windows-environment/setup.ps1'
       - name: Compile and launch the relocated native fixture
         run: python tooling/tests/test_windows_launcher.py
+      - name: Stage and run the relocated PE import closure
+        run: python tooling/tests/test_windows_pe_package.py

@@ -1,0 +1,172 @@
+"""Stage the import-table DLL closure of trusted Windows x64 build outputs."""
+
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import tempfile
+
+from native_package.elf import digest
+
+# This list covers the Windows desktop ABI used by the native build. A VC
+# redistributable remains an explicit provider even if present in System32.
+HOST_DLLS = frozenset(
+    {
+        "advapi32.dll",
+        "bcrypt.dll",
+        "combase.dll",
+        "crypt32.dll",
+        "dbghelp.dll",
+        "gdi32.dll",
+        "iphlpapi.dll",
+        "kernel32.dll",
+        "ntdll.dll",
+        "ole32.dll",
+        "oleaut32.dll",
+        "psapi.dll",
+        "secur32.dll",
+        "shell32.dll",
+        "shlwapi.dll",
+        "ucrtbase.dll",
+        "user32.dll",
+        "userenv.dll",
+        "version.dll",
+        "winmm.dll",
+        "ws2_32.dll",
+    }
+)
+DLL = re.compile(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]*\.dll", re.I)
+
+
+def physical_file(path):
+    attributes = path.lstat()
+    if not stat.S_ISREG(attributes.st_mode) or (
+        getattr(attributes, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    ):
+        raise ValueError(f"Expected a physical Windows binary: {path}")
+
+
+def imports(dumpbin, path):
+    """Read ordinary and delay imports, checking PE32+ x64 before staging."""
+    result = subprocess.run(
+        [dumpbin, "/NOLOGO", "/HEADERS", "/DEPENDENTS", str(path)],
+        capture_output=True,
+        check=True,
+        timeout=30,
+    )
+    # Only the ASCII table markers are interpreted. A Unicode path in the
+    # dump banner may be represented using the runner's console code page.
+    report = result.stdout.decode("ascii", errors="replace")
+    if (
+        not re.search(r"^\s*8664 machine \(x64\)\s*$", report, re.M)
+        or not re.search(r"^\s*20B magic # \(PE32\+\)\s*$", report, re.M | re.I)
+        or not re.search(r"^\s*File Type: (?:EXECUTABLE IMAGE|DLL)\s*$", report, re.M)
+        or not re.search(r"^\s*Summary\s*$", report, re.M)
+    ):
+        raise ValueError(f"Expected a native x64 PE image: {path}")
+
+    names = set()
+    lines = iter(report.splitlines())
+    for line in lines:
+        heading = line.strip().lower()
+        if heading not in (
+            "image has the following dependencies:",
+            "image has the following delay load dependencies:",
+        ):
+            continue
+        first = next(lines, "").strip()
+        while not first:
+            first = next(lines, None)
+            if first is None:
+                raise ValueError(f"Empty PE dependency table: {path}")
+            first = first.strip()
+        for name in (first, *take_table(lines)):
+            if not DLL.fullmatch(name):
+                raise ValueError(f"Invalid PE import name in {path.name}: {name!r}")
+            names.add(name.lower())
+    return sorted(names)
+
+
+def take_table(lines):
+    for line in lines:
+        name = line.strip()
+        if not name:
+            break
+        yield name
+
+
+def system_directory():
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(32768)
+    size = ctypes.windll.kernel32.GetSystemDirectoryW(buffer, len(buffer))
+    if not 0 < size < len(buffer):
+        raise ctypes.WinError()
+    return Path(buffer.value)
+
+
+def stage(output, images, providers):
+    """Place the selected x64 images and explicit providers in one fresh bin directory."""
+    if os.name != "nt":
+        raise RuntimeError("PE closure staging requires native Windows")
+    dumpbin = shutil.which("dumpbin")
+    if not dumpbin:
+        raise RuntimeError("Missing native packaging tool: dumpbin")
+    if output.exists() or output.is_symlink():
+        raise ValueError("PE output directory must be fresh")
+
+    os_directory = system_directory()
+    supplied = {}
+    pending = {}
+    for source in providers:
+        name = source.name.lower()
+        if not DLL.fullmatch(name) or name in HOST_DLLS or name in supplied:
+            raise ValueError(f"Invalid or duplicate DLL provider: {source}")
+        physical_file(source)
+        supplied[name] = source
+    for source in images:
+        name = source.name.lower()
+        if source.suffix.lower() != ".exe" or name in pending:
+            raise ValueError(f"Invalid or duplicate executable input: {source}")
+        physical_file(source)
+        pending[name] = source
+    if not pending:
+        raise ValueError("PE closure requires at least one executable")
+
+    planned = {}
+    host = set()
+    while pending:
+        key, source = pending.popitem()
+        fingerprint = digest(source)
+        dependencies = imports(dumpbin, source)
+        planned[key] = (source, fingerprint, dependencies)
+        for name in dependencies:
+            if name in HOST_DLLS:
+                physical_file(os_directory / name)
+                host.add(name)
+            elif name in supplied:
+                if name not in planned:
+                    pending[name] = supplied[name]
+            else:
+                raise ValueError(f"No explicit DLL provider for {name}, imported by {source.name}")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".pe-stage-", dir=output.parent) as temporary:
+        payload = Path(temporary) / "bin"
+        payload.mkdir()
+        for source, fingerprint, _ in planned.values():
+            target = payload / source.name
+            shutil.copy2(source, target)
+            if digest(target) != fingerprint:
+                raise ValueError(f"PE input changed during staging: {source}")
+        payload.rename(output)
+
+    return {
+        "objects": {
+            source.name: {"sha256": fingerprint, "imports": dependencies}
+            for source, fingerprint, dependencies in planned.values()
+        },
+        "hostDlls": sorted(host),
+    }
