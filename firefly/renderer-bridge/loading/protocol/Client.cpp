@@ -53,11 +53,13 @@ namespace {
             ++counts.missing;
             return nullptr;
         }
+
         if (auto* waiting = entry->get_pointer<Web::HTML::ModuleMap::CallbackList>()) {
             ++counts.loading;
             counts.callbacks += waiting->size();
             return nullptr;
         }
+
         auto script = entry->get<GC::Ref<Web::HTML::ModuleScript>>();
         ++counts.fetched;
         if (!script->parse_error().is_null() || !script->error_to_rethrow().is_null()
@@ -90,11 +92,13 @@ namespace {
                 truncated = true;
                 return;
             }
+
             key_bytes += key.length();
             targets.set(move(key));
             if (auto script = observe_module(map, url, type, counts[scheme_class(url)]))
                 work.append(GC::Root { *script });
         };
+
         add(root, u"javascript-or-wasm"sv);
         for (size_t index = 0; index < work.size() && !truncated; ++index) {
             auto& script = *work[index];
@@ -111,6 +115,7 @@ namespace {
                     truncated = true;
                     break;
                 }
+
                 auto type = u"javascript-or-wasm"_utf16;
                 bool unsupported = false, typed = false;
                 for (auto const& attribute : request.attributes) {
@@ -120,6 +125,7 @@ namespace {
                         unsupported = true;
                         break;
                     }
+
                     typed = true;
                     type = attribute.value;
                 }
@@ -134,6 +140,7 @@ namespace {
                     ++skipped;
                     continue;
                 }
+
                 auto specifier = request.module_specifier.view();
                 auto url = specifier.starts_with("/"sv) || specifier.starts_with("./"sv)
                         || specifier.starts_with("../"sv)
@@ -149,6 +156,7 @@ namespace {
                         ++skipped;
                     continue;
                 }
+
                 bool prefix = false;
                 for (auto const& mapping : imports.imports())
                     if (mapping.key.utf16_view().ends_with('/')
@@ -158,9 +166,11 @@ namespace {
                     ++skipped;
                     continue;
                 }
+
                 add(*url, type.utf16_view());
             }
         }
+
         static constexpr char const* schemes[] = { "blob", "custom", "file", "other" };
         std::fprintf(stderr,
             "FIREFLY_MODULE_GRAPH after=%u records=%zu targets=%zu edges=%zu skipped=%zu "
@@ -182,6 +192,7 @@ namespace {
                 (void)observe_module(map, *mapping.value, u"javascript-or-wasm"sv,
                     mapped[scheme_class(*mapping.value)]);
         }
+
         for (size_t i = 0; i < 4; ++i)
             std::fprintf(stderr,
                 "FIREFLY_IMPORT_MAP_SCHEME after=%u scheme=%s missing=%zu loading=%zu "
@@ -214,6 +225,7 @@ void Client::remove_job(u32 id)
         --m_active;
         --process_active;
     }
+
     wake_clients();
 }
 
@@ -312,9 +324,13 @@ void Client::revoke()
     process_url_bytes -= m_waiting_url_bytes;
     m_active = 0;
     m_waiting_url_bytes = 0;
-    for (auto& entry : jobs)
+    for (auto& entry : jobs) {
         if (entry.value.response)
             entry.value.response->stop();
+        if (entry.value.remote.has_value() && entry.value.remote->closed)
+            entry.value.remote->closed();
+    }
+
     wake_clients();
     m_navigation = nullptr;
     m_document = nullptr;
@@ -347,6 +363,7 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
             m_jobs.size());
         return Error::from_string_literal("Protocol request is outside the admitted scope");
     }
+
     auto url = request.current_url().serialize();
     if (url.bytes().size() > Protocols::file_request_url_limit
         || url.bytes().size() > document_url_limit - m_waiting_url_bytes
@@ -354,6 +371,7 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
         Protocols::diagnostic(Protocols::DiagnosticStage::ClientUrl, m_jobs.size());
         return Error::from_string_literal("Protocol request URL exceeds the transport limit");
     }
+
     auto id = ++m_next;
     auto weak = make_weak_ptr();
     auto response = TRY(Response::create(params, m_epoch, id,
@@ -386,6 +404,37 @@ ErrorOr<NonnullRefPtr<Response>> Client::fetch(
     return response;
 }
 
+ErrorOr<u32> Client::fetch_worker(
+    Web::DOM::Document& document, URL::URL const& url, bool head, Remote remote)
+{
+    VERIFY(m_thread == AK::ThreadID::current());
+    bool file = url.scheme() == "file"sv && Protocols::file_policy_snapshot().active;
+    if (m_navigation || &document != m_document.ptr() || !scope_is_active() || !m_channel
+        || !m_channel->is_open() || !remote.valid || !remote.valid() || !remote.packet
+        || !remote.closed
+        || (!file
+            && (!Protocols::is_standard_scheme(url.scheme())
+                || !url.origin().is_same_origin(m_origin)))
+        || (file && !m_origin.is_file_origin()) || m_jobs.size() >= document_job_limit
+        || process_jobs >= process_job_limit || m_next == NumericLimits<u32>::max())
+        return Error::from_string_literal("Worker protocol scope is not active or admitted");
+    auto text = url.serialize().to_byte_string();
+    if (text.length() > Protocols::file_request_url_limit
+        || text.length() > document_url_limit - m_waiting_url_bytes
+        || text.length() > process_url_limit - process_url_bytes)
+        return Error::from_string_literal("Worker protocol URL exceeds its budget");
+    auto id = ++m_next;
+    Job job { {}, move(text), MonotonicTime::now() + AK::Duration::from_seconds(30), 0, head };
+    job.remote = move(remote);
+    auto length = job.url.length();
+    TRY(m_jobs.try_set(id, move(job)));
+    m_waiting_url_bytes += length;
+    process_url_bytes += length;
+    ++process_jobs;
+    schedule();
+    return id;
+}
+
 void Client::credit(u32 id, u64 count)
 {
     if (m_revoked)
@@ -410,13 +459,20 @@ void Client::cancel(u32 id)
     if (found == m_jobs.end())
         return;
     if (!found->value.sent) {
+        auto remote = move(found->value.remote);
         remove_job(id);
+        if (remote.has_value() && remote->closed)
+            remote->closed();
         return;
     }
     // Keep this bounded retired job until a terminal frame consumes any already
     // in-flight data. Release its VM owner immediately, without granting credit.
     found->value.cancelled = true;
+    auto remote = move(found->value.remote);
+    found->value.remote.clear();
     found->value.response = nullptr;
+    if (remote.has_value() && remote->closed)
+        remote->closed();
     found->value.credit = 0;
     schedule();
 }
@@ -440,6 +496,19 @@ void Client::receive(ReadonlyBytes bytes)
     }
 
     if (found->value.cancelled) {
+        if (packet.value().kind == Protocols::FilePacketKind::Cancel
+            || packet.value().kind == Protocols::FilePacketKind::Complete)
+            remove_job(id);
+        return;
+    }
+
+    if (found->value.remote.has_value()) {
+        auto remote = *found->value.remote;
+        if (!remote.valid() || !remote.packet(bytes)) {
+            cancel(id);
+            return;
+        }
+
         if (packet.value().kind == Protocols::FilePacketKind::Cancel
             || packet.value().kind == Protocols::FilePacketKind::Complete)
             remove_job(id);
@@ -488,6 +557,7 @@ void Client::pump()
             if (!entry.value.sent && (!oldest_waiting.has_value() || entry.key < *oldest_waiting))
                 oldest_waiting = entry.key;
     }
+
     Optional<u32> first, after;
     for (auto const& entry : m_jobs) {
         auto const& job = entry.value;
@@ -505,11 +575,18 @@ void Client::pump()
         return;
     m_last_pumped = *id;
     auto& job = m_jobs.find(*id)->value;
+    if (job.remote.has_value() && !job.remote->valid()) {
+        cancel(*id);
+        schedule();
+        return;
+    }
+
     if (MonotonicTime::now() >= job.deadline) {
         Protocols::diagnostic(Protocols::DiagnosticStage::ClientDeadline, m_jobs.size());
         revoke();
         return;
     }
+
     using Kind = Protocols::FileRequestKind;
     auto kind = !job.sent ? (job.head ? Kind::Head : Kind::Get)
         : job.cancelled   ? Kind::Cancel
@@ -530,6 +607,7 @@ void Client::pump()
         job.sent = true;
         job.url = {};
     }
+
     if (kind == Kind::Credit)
         job.credit = 0;
     if (kind == Kind::Cancel)
@@ -545,6 +623,7 @@ void Client::sweep()
             waiting += !entry.value.sent;
             credit_ready += entry.value.sent && !!entry.value.credit;
         }
+
         std::fprintf(stderr,
             "FIREFLY_QUEUE_SNAPSHOT stage=protocol-client after=%u jobs=%zu active=%zu "
             "waiting=%zu credit_ready=%zu url_bytes=%zu native_frames=%zu "
@@ -597,6 +676,7 @@ void Client::sweep()
                             environment = !!(*source)->environment();
                     }
                 }
+
                 std::fprintf(stderr,
                     "FIREFLY_MODULE_SNAPSHOT label=%s after=%u state=%s callbacks=%zu "
                     "record_empty=%u parse_error=%u rethrow=%u source_environment=%u\n",
@@ -605,11 +685,18 @@ void Client::sweep()
             }
         }
     }
+
     if (!scope_is_active() || !m_channel->is_open()) {
         revoke();
         return;
     }
 
+    Vector<u32> retired_workers;
+    for (auto const& entry : m_jobs)
+        if (entry.value.remote.has_value() && !entry.value.remote->valid())
+            retired_workers.append(entry.key);
+    for (auto id : retired_workers)
+        cancel(id);
     auto now = MonotonicTime::now();
     for (auto const& entry : m_jobs)
         if (now >= entry.value.deadline) {

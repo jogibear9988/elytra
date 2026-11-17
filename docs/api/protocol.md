@@ -82,8 +82,9 @@ frozen object containing lowercase origin, derived from the native document bind
 it is not copied from renderer-supplied request metadata. For same-origin requests,
 headers remains absent. Other request headers/referrer/uploadData/webContentsId are
 not supplied. Do not infer trusted initiator identity from missing fields. Top-level
-Window resources and the CORS subset below are eligible; workers, child frames,
-POST and ranges are refused.
+Window resources and the CORS subset below are eligible. Authenticated dedicated
+workers have the narrower same-origin GET/HEAD path described below; child frames,
+POST and ranges remain outside this scope.
 
 The callback accepts:
 
@@ -185,7 +186,8 @@ The handler receives a genuine captured Request. Renderer URL/method and the opt
 cross-origin Origin header come from the native document/navigation binding. Other
 request headers, upload bodies, webContentsId and initiatorOrigin are not supplied;
 do not infer trusted initiator identity from ordinary Request defaults. Renderer
-GET/HEAD only, top-level owned documents/navigation, no ranges, workers or child frames.
+GET/HEAD only for top-level owned documents/navigation and the authenticated
+same-origin dedicated-worker subset below; no ranges or child frames.
 Main net.fetch carries its own genuine Request fields and shares this registry.
 
 Responses preserve status 200–599, MIME/HTTP headers, binary data, nullable bodies and
@@ -203,6 +205,30 @@ Request.signal and body readers are canceled on native navigation/document/chann
 retirement, timeout, unhandle, window close and application shutdown. Late async
 handlers, body results and generations cannot revive a retired request. Removing a
 custom target conservatively retires the entire document channel; reload to rebind.
+
+### Dedicated-worker resources
+
+A dedicated worker may load same-origin custom-protocol GET/HEAD resources through
+the actual creator document's native channel. This includes imports from a genuine
+Blob module Worker. The native admission records exact document/navigable/page IDs,
+environment identity and binding epoch; matching a URL or origin alone cannot select
+a channel. Owner-thread authorization and worker-local response/body state remain
+separate, with no GC objects crossing threads. Existing streaming credit, body bounds,
+CORS/CSP and cancellation remain authoritative. Session webRequest decisions also
+apply before transport and before exposing response headers.
+
+A missing creator grant does not itself prevent ordinary SDK worker creation, but
+it cannot grant custom-protocol access. Navigation, binding refresh, termination and
+shutdown reject pending worker requests and invalidate late results. Cross-origin
+custom worker resources, non-GET/HEAD methods, ranges, shared/service workers,
+worklets and worker builtin-file interception are not accepted by this slice.
+
+Local macOS ARM64 native tests pass Blob-module import/custom resources plus HTTP,
+zero handler/transport hits for denied requests, and held-decision cancellation
+across worker termination and owner navigation. Nested module imports/HTTP,
+response-header edits and parent-termination revocation also pass locally.
+Broader worker and fresh platform
+acceptance remain pending. See [ADR 0200](../architecture/0200-authenticated-worker-fetch.md).
 
 ### Intercepting file
 
@@ -261,7 +287,8 @@ unless an original AbortSignal reason is available. Renderer failures remain net
 errors rather than exposing these private main-process error details.
 
 Custom partitions, HTTP(S)/other builtin interception, broader request fields,
-workers/frames and additional privileges remain unavailable. The unchanged pinned
+worker scopes beyond the dedicated subset above, frames and additional privileges
+remain unavailable. The unchanged pinned
 Code-OSS ProtocolMainService now passes genuine file-denial and managed-remote
 404/500/binary/MIME consumer tests. The actual local-desktop/NLS startup advances
 past this service. Subsequent startup blockers are tracked in the

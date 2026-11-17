@@ -16,6 +16,10 @@ public:
     ErrorOr<NonnullRefPtr<ProtocolFetch::Response>> fetch(
         Web::Fetch::Infrastructure::FetchParams const&);
 
+    ErrorOr<NonnullRefPtr<ProtocolFetch::Client>> client_for(Web::DOM::Document&);
+
+    Optional<u64> generation(Web::DOM::Document&);
+
     void sweep();
 
     void revoke();

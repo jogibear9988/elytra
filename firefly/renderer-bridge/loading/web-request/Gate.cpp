@@ -1,5 +1,6 @@
 /** Suspend Fetch without body buffering; each continuation is rooted and settled at most once. */
 #include "Gate.h"
+#include "loading/workers/Fetch.h"
 #include "native/platform/QueueSnapshots.h"
 #include "native/web-request/Headers.h"
 #include "native/web-request/Limits.h"
@@ -40,6 +41,9 @@ namespace {
         u32 id;
         GC::Weak<Controller> controller;
         GC::Weak<Web::DOM::Document> document;
+        u64 worker_token {};
+        u32 worker_logical {};
+        std::function<bool()> valid {};
     };
 
     struct Job {
@@ -58,6 +62,11 @@ namespace {
         bool accounted {};
         bool submitted {};
         bool completed {};
+        u64 worker_token {};
+        u32 worker_logical {};
+        Optional<JsonObject> worker_metadata;
+        Completion worker_completion;
+        std::function<bool()> worker_valid {};
     };
 
     struct State {
@@ -135,8 +144,9 @@ namespace {
     bool current(Job const& job)
     {
         return !state().draining && job.epoch == state().policy.epoch
-            && MonotonicTime::now() < job.deadline && !job.params->is_canceled() && job.document
-            && job.document->is_fully_active() && job.document->navigable();
+            && MonotonicTime::now() < job.deadline && (!job.params || !job.params->is_canceled())
+            && job.document && job.document->is_fully_active() && job.document->navigable()
+            && (!job.worker_valid || job.worker_valid());
     }
 
     void stop_body(Job const& job)
@@ -175,6 +185,14 @@ namespace {
         if (allowed) {
             auto cancel = decision->get_bool("cancel"sv);
             allowed = cancel.has_value() && !*cancel;
+        }
+
+        if (job->worker_completion) {
+            // Apply mutations only in the request's actual worker VM. This owner
+            // FIFO authorizes the decision while retaining the canonical document.
+            auto completion = move(job->worker_completion);
+            completion(allowed ? move(decision) : Optional<JsonObject> {});
+            return;
         }
 
         if (allowed) {
@@ -297,38 +315,22 @@ namespace {
         }
     }
 
-    Optional<JsonObject> metadata(
-        Params const& params, Web::DOM::Document& doc, RefPtr<Response> response)
+    Optional<JsonObject> metadata(Params const& params, RefPtr<Response> response)
     {
         auto const& request = *params.request();
         auto url = request.current_url().serialize();
         if (url.byte_count() > 65536 || request.method().length() > 32)
-            return {};
-        auto logical = logical_id(params, doc);
-        if (!logical.has_value())
             return {};
         JsonObject result;
         result.set("url"sv, move(url));
         result.set("method"sv, MUST(String::from_utf8(request.method().view())));
         result.set("resourceType"sv, resource_type(request));
         result.set("referrer"sv, ""sv);
-        result.set("logicalId"sv, *logical);
         if (auto const* referrer = request.referrer().get_pointer<URL::URL>()) {
             auto text = referrer->serialize();
             if (text.byte_count() > 65536)
                 return {};
             result.set("referrer"sv, move(text));
-        }
-
-        if (request.is_navigation_request()) {
-            auto nav = doc.navigable();
-            auto local = as_if<Web::HTML::LocalNavigable>(nav.ptr());
-            auto const* navigation
-                = local ? local->ongoing_navigation().get_pointer<Utf16String>() : nullptr;
-            if (!navigation || navigation->length_in_code_units() > 1024)
-                return {};
-            auto text = navigation->to_utf8();
-            result.set("navigation"sv, move(text));
         }
 
         if (response)
@@ -367,6 +369,30 @@ namespace {
         return result;
     }
 
+    Optional<JsonObject> metadata_for(Job const& job)
+    {
+        if (job.worker_metadata.has_value())
+            return job.worker_metadata;
+        auto result = metadata(*job.params, job.response);
+        if (!result.has_value())
+            return {};
+        auto logical = logical_id(*job.params, *job.document);
+        if (!logical.has_value())
+            return {};
+        result->set("logicalId"sv, *logical);
+        if (job.params->request()->is_navigation_request()) {
+            auto nav = job.document->navigable();
+            auto local = as_if<Web::HTML::LocalNavigable>(nav.ptr());
+            auto const* navigation
+                = local ? local->ongoing_navigation().get_pointer<Utf16String>() : nullptr;
+            if (!navigation || navigation->length_in_code_units() > 1024)
+                return {};
+            result->set("navigation"sv, navigation->to_utf8());
+        }
+
+        return result;
+    }
+
     bool submit(std::shared_ptr<Job> job)
     {
         if (!current(*job) || !state().submit || state().jobs.size() >= process_job_limit)
@@ -374,7 +400,7 @@ namespace {
         auto usage = document_usage(job->document.ptr());
         if (usage.first >= document_job_limit)
             return false;
-        auto data = metadata(*job->params, *job->document, job->response);
+        auto data = metadata_for(*job);
         if (!data.has_value())
             return false;
         auto bytes = data->serialized().byte_count();
@@ -406,7 +432,7 @@ namespace {
                 continue;
             }
             // Native identity, URL and headers must still be valid at promotion.
-            auto data = metadata(*job->params, *job->document, job->response);
+            auto data = metadata_for(*job);
             auto usage = document_usage(job->document.ptr());
             auto bytes = data.has_value() ? data->serialized().byte_count() : 0;
             if (!data.has_value() || bytes > document_byte_limit - (usage.second - job->bytes)
@@ -508,8 +534,8 @@ void sweep()
 
     std::vector<u32> expired;
     std::erase_if(state().logical, [&](auto const& record) {
-        if (record.controller.ptr() && record.document.ptr()
-            && record.document.ptr()->is_fully_active())
+        if ((record.worker_token ? record.valid && record.valid() : !!record.controller.ptr())
+            && record.document.ptr() && record.document.ptr()->is_fully_active())
             return false;
         expired.push_back(record.id);
         return true;
@@ -542,8 +568,7 @@ GC::Ref<Pending> before(JS::Realm& realm, Params const& params, GC::Ref<Before> 
     if (!selected.before && !selected.headers)
         return continuation->function()();
     if (!state().owner.is_current_thread())
-        return Pending::create(params,
-            Response::network_error("webRequest worker interception is unsupported"_string));
+        return WorkersFetch::before(realm, params, continuation);
     auto doc = source(params);
     if (!doc && params.request()->is_navigation_request()) {
         auto const* id = params.request()
@@ -599,13 +624,8 @@ bool headers(Params const& params, NonnullRefPtr<Response> response, GC::Ref<Hea
 {
     if (!policy().headers || response->is_network_error())
         return false;
-    if (!state().owner.is_current_thread()) {
-        response->release_request_transfer_lease();
-        params.stop_body_transport();
-        continuation->function()(
-            Response::network_error("webRequest worker interception is unsupported"_string));
-        return true;
-    }
+    if (!state().owner.is_current_thread())
+        return WorkersFetch::headers(params, move(response), continuation);
 
     auto doc = source(params);
     auto job = std::make_shared<Job>();
@@ -623,10 +643,71 @@ bool headers(Params const& params, NonnullRefPtr<Response> response, GC::Ref<Hea
     return true;
 }
 
+Optional<JsonObject> describe(Params const& params, RefPtr<Response> response)
+{
+    return metadata(params, move(response));
+}
+
+bool submit_worker(Stage stage, Web::DOM::Document& document, u64 token, u32 key, JsonObject data,
+    Completion completion, std::function<bool()> valid)
+{
+    VERIFY(state().owner.is_current_thread());
+    if (!token || !key || !valid || !valid() || !document.is_fully_active())
+        return false;
+    Optional<u32> logical;
+    for (auto const& record : state().logical)
+        if (record.worker_token == token && record.worker_logical == key
+            && record.document.ptr().ptr() == &document)
+            logical = record.id;
+    if (!logical.has_value()) {
+        sweep();
+        if (state().logical.size() >= WebRequest::logical_request_limit
+            || state().next_logical == 2147483647)
+            return false;
+        logical = ++state().next_logical;
+        state().logical.push_back({ *logical, {}, GC::Weak { document }, token, key, valid });
+    }
+
+    data.set("logicalId"sv, *logical);
+    auto job = std::make_shared<Job>();
+    job->epoch = policy().epoch;
+    job->stage = stage;
+    job->document = document;
+    job->worker_token = token;
+    job->worker_logical = key;
+    job->worker_metadata = move(data);
+    job->worker_completion = move(completion);
+    job->worker_valid = move(valid);
+    return submit(move(job));
+}
+
+void cancel_worker(u64 token, u32 key)
+{
+    VERIFY(state().owner.is_current_thread());
+    auto jobs = state().jobs;
+    for (auto& job : jobs)
+        if (job->worker_token == token && job->worker_logical == key) {
+            if (state().cancel && job->request)
+                state().cancel(job->request);
+            settle(job, {});
+        }
+
+    std::erase_if(state().logical, [&](auto const& record) {
+        if (record.worker_token != token || record.worker_logical != key)
+            return false;
+        if (state().finish)
+            state().finish(record.id);
+        return true;
+    });
+}
+
 void finish(Params const& params)
 {
-    if (!state().owner.is_current_thread())
+    if (!state().owner.is_current_thread()) {
+        WorkersFetch::finish(params);
         return;
+    }
+
     for (auto it = state().logical.begin(); it != state().logical.end();) {
         if (it->controller.ptr() == params.controller()) {
             auto id = it->id;
@@ -640,8 +721,11 @@ void finish(Params const& params)
 
 void cancel(Params const& params)
 {
-    if (!state().owner.is_current_thread())
+    if (!state().owner.is_current_thread()) {
+        WorkersFetch::cancel(params);
         return;
+    }
+
     auto* controller = params.controller().ptr();
     if (std::find(state().cancelling.begin(), state().cancelling.end(), controller)
         != state().cancelling.end())
@@ -650,7 +734,7 @@ void cancel(Params const& params)
     ScopeGuard done([] { state().cancelling.pop_back(); });
     auto jobs = state().jobs;
     for (auto& job : jobs)
-        if (job->params->controller().ptr() == controller) {
+        if (job->params && job->params->controller().ptr() == controller) {
             if (state().cancel && job->request)
                 state().cancel(job->request);
             settle(job, {});

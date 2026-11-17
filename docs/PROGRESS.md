@@ -14795,6 +14795,67 @@ overview's obsolete upgrade refusal and add links to real WebSocket/isUtf8 APIs.
 Documentation diff/site-link checks cover these changes; native behavior remains
 that of57328f1 with the separate Linux-only GIO fixc8bdae0 awaiting hosted build.
 
+## 2026-11-17 — Authenticated dedicated-worker policy and protocol fetch
+
+Implement native dedicated-worker admission/lifetime through four exact pinned
+service-source compositions. Bind actual creator environment, canonical document/
+navigable/page IDs and native document-channel generation before thread startup;
+never infer authority from URL alone. Nested workers inherit their authenticated
+parent chain. Owner registry retains GC weak-document metadata only on its own
+thread; shared scopes carry immutable IDs/atomic retirement/weak loop references.
+Missing protocol authority preserves ordinary SDK worker creation, without granting
+intercepted network/file access. Keep Ladybird unmodified and Mite independent.
+
+Worker-local FetchParams, continuations, streams and GC roots never cross threads.
+Serialize policy metadata and copied protocol frames with numeric callback IDs.
+All worker policy stages share the existing canonical-document owner FIFO and its
+16active slots; independent worker job retention is32MiB/16384jobs,8192logical IDs
+perworker. Native scope limits128/document,1024/helper. Revalidate actual generation
+and creator on request/completion; active revocation settles worker pending state.
+Streaming native protocol jobs share existing credit/URL/body/timeout/framing
+limits. Fix both unsent-job and terminal-frame relay cleanup independently of
+whether a retired worker can receive completion. Custom worker resources remain
+same-origin GET/HEAD without Range. Shared/service/worklet, cross-origin custom
+and builtin-file worker modes are not accepted. Blob main-worker scripts preserve
+upstream store/partition/origin/MIME checks through their distinct loader path.
+
+Release Firefly/offscreen/helper and both protocol probes build. Existing native
+PendingResponse/CORS/GC/cancellation checks and16real process-channel cases pass.
+Six actual offscreen groups pass: real Blob module/custom import/HTTP; asynchronous
+header policy and mutation with stable logical identity; nested Blob module worker
+imports/HTTP/headers; no nested transport after parent termination; no stale request
+after Worker.terminate; no stale request after owner navigation. Independent denied
+HTTP/protocol counters stayzero, genuine typed postMessage payloads and fresh-worker
+barriers pass. Add guarded macOS check-firefly-worker-fetch release target and
+per-build pinned lifecycle source check. Fresh platform/full Workbench worker
+acceptance remains pending. Evidence: worker-fetch-{fourth-build,final-build,
+protocol-controls,acceptance}.log. ADR0200/APIreferences record the exact subset.
+
+Normal actual Code-OSS main40677/renderer40686 starts local extensionhost40700,
+scans60 and reaches Workbench3/4. No previous Blob-script-null failure appears
+during this observation; absence alone does not establish successful Workbench
+worker-service operations or usable editing. Original startup still logs desktop
+isAlwaysOnTop/background-throttling/native binding gaps. Stop authenticated main
+AND separate native helper groups: all12trackedPIDs gone; atomically redact9env/
+configuration records after shutdown. Evidence: codeoss-worker-fetch-start.log and
+codeoss-worker-fetch-owned-processes.json. No visible GUI or new app/stage copy.
+
+Deliver a regular ESM development-extension/test fixture for real activation,
+command, openTextDocument/showTextDocument, WorkspaceEdit/save and independent
+native file readback. Its runner reuses one marker-owned short profile, verifies
+native ancestry/birth/executable ownership, cleans separate helper groups and
+sanitizes bounded logs only after all exit. Actual first call exposes missing
+--disable-crash-reporter in the new runner; restore the prior ordinary CLI baseline
+and rerun. The next call exits1 because existing CA-17 explicitly rejects
+extension development/test modes, before extension startup; all tracked processes
+exit and cleanup records allStopped:true. No fake API result/Code-OSS guard change.
+No ordinary no-debug CLI flag resolves that mode restriction; --inspect-extensions=0
+selects the implicit5870 in development, and testmode requests --expose-gc. Implement
+real required runtime/execArgv behavior before accepting these modes. The fixture
+remains failed/unaccepted, not evidence of actual open-edit-save. See the owned
+/tmp/ef-workbench-acceptance/run.log/processes.json and
+build/codeoss-extension-acceptance.log. No copies of the Code-OSS stage retained.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

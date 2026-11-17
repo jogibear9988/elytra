@@ -171,21 +171,22 @@ the default network-factory construction. This supports reviewing Blob scheme
 handling separately; it does not justify bypassing HTTP or custom-protocol
 interception merely because the request comes from a worker.
 
-The native replacement TODO is an authenticated worker fetch scope. Compose the
-SDK `PageClient::start_dedicated_worker` / `DedicatedWorkerThreadLink` lifecycle
+The initial native replacement is now implemented as an authenticated worker
+fetch scope ([ADR 0200](../architecture/0200-authenticated-worker-fetch.md)). It composes the SDK `PageClient::start_dedicated_worker` / `DedicatedWorkerThreadLink` lifecycle
 and `WorkerHost::run` / its `perform_fetch` hook without modifying Ladybird.
 `WorkerAgentStartRequest` supplies a native owner token, serialized outside
 settings/environment ID and worker URL; the thread link supplies weak owner-loop
 posting and termination. These are starting points, not a document capability:
 the serialized document contains a URL rather than canonical document identity.
-Capture the actual creator's document/navigable, owning view/session and generation
-at admission, retain an explicit parent chain for nested workers, and revoke on
-worker termination, document replacement or owner teardown. No GC cells may cross
-threads. Extend the current document-only webRequest submit and thread-local
-protocol provider through bounded asynchronous owner-thread transport with real
-body credit, cancellation and deadlines. Custom worker imports currently fail
-the protocol provider's Window-only admission, so fixing only the first Blob load
-would not establish the complete original worker path.
+The implementation captures the actual creator's document/navigable, owning
+view/session and generation at admission, retains an explicit parent chain and
+revokes on termination, document replacement or owner teardown. GC cells stay on
+their own threads. The bounded owner broker shares webRequest admission and relays
+custom-protocol packets with body credit/cancellation. Six actual local macOS
+controls cover same-origin imports/HTTP, asynchronous header edits, nested workers
+and stale decisions after worker/parent termination or navigation. Broader worker
+origins/methods/platforms remain open, and original Workbench worker-service
+acceptance must still be established.
 
 Acceptance must include a genuine module Blob Worker under installed webRequest
 listeners, then its original custom-protocol imports, plus denied HTTP/custom

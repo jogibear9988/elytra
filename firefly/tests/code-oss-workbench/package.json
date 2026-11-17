@@ -1,0 +1,20 @@
+{
+  "name": "workbench-acceptance",
+  "publisher": "elytra-owned",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "main": "./extension.mjs",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "elytra.workbenchAcceptance",
+        "title": "Owned Workbench Acceptance"
+      }
+    ]
+  }
+}

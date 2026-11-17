@@ -7,14 +7,13 @@ include("${CMAKE_CURRENT_LIST_DIR}/../platform/RuntimePaths.cmake")
 add_library(firefly-application-menu STATIC "${CMAKE_CURRENT_LIST_DIR}/../menu/ApplicationMenu.cpp")
 target_link_libraries(firefly-application-menu PUBLIC Qt::Widgets)
 if(APPLE)
-    target_sources(firefly-application-menu PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm")
+    target_sources(firefly-application-menu PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm")
     set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../menu/RolesMac.mm"
-        PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+                                PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     target_link_libraries(firefly-application-menu PRIVATE "-framework Cocoa")
 else()
-    target_sources(firefly-application-menu PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesUnsupported.cpp")
+    target_sources(firefly-application-menu
+                   PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../menu/RolesUnsupported.cpp")
 endif()
 add_library(firefly-app-paths STATIC "${CMAKE_CURRENT_LIST_DIR}/../app-paths/Paths.cpp")
 target_link_libraries(firefly-app-paths PUBLIC Qt::Core LibCore AK)
@@ -379,8 +378,8 @@ endif()
 # hosted native/Xvfb acceptance supplies the desktop backend.
 set(fork_driver firefly)
 set(fork_driver_options)
-# Linux's production startup requires the isolated native X11 backend, even
-# when the test-only offscreen static plugin is available to other probes.
+# Linux's production startup requires the isolated native X11 backend, even when the test-only
+# offscreen static plugin is available to other probes.
 if(APPLE AND TARGET firefly-view-offscreen)
     set(fork_driver firefly-view-offscreen)
     list(APPEND fork_driver_options --offscreen)
@@ -650,6 +649,7 @@ include("${FIREFLY_SOURCE_DIR}/firefly/tests/session-permissions/Targets.cmake")
 
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/frames/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/web-request/Targets.cmake")
+include("${FIREFLY_SOURCE_DIR}/firefly/tests/worker-fetch/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/background-color/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/spellcheck/Targets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/tests/zoom/Targets.cmake")

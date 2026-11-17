@@ -46,6 +46,8 @@ All three listeners receive `(details, callback)`. Details contain a stable nume
 url, method, resourceType, referrer, timestamp and frame. Renderer requests also
 carry webContentsId, webContents and a canonical native frame proxy. Frame data is
 derived from the actual helper, page and document, independently of preload IPC.
+Admitted dedicated-worker requests identify their authenticated creator
+webContents and canonical owner frame, not a fabricated worker Window.
 Main-process net requests have frame null and no webContents properties.
 An available initiatorOrigin describes the native requesting document.
 
@@ -106,12 +108,30 @@ broker. Normal body completion, cancellation and document retirement release the
 Native SDK body-error cleanup still needs a complete audit; a loaded response head
 alone is not body completion. This is bounded admission, not unlimited concurrency.
 
-The current renderer scope covers document requests and authenticated top-level
-navigation. Worker requests and unbound/subframe navigation fail closed when
-interception is active. WebSocket handshakes currently bypass upstream Fetch and
-therefore fail explicitly before connect while a blocking handler is active. Worker
-policy reads are thread-safe; actual worker/socket interception remains open.
-This is not full browser-session coverage. Existing helper
+The current renderer scope covers document requests, authenticated top-level
+navigation and a partial dedicated-worker path. A worker must inherit its actual
+creator document, native binding epoch and environment identity. Its HTTP requests
+use the SDK transport after the same session policy decisions; same-origin GET/HEAD
+custom-protocol requests use the creator's authenticated streaming channel. Worker
+policy jobs share the owner FIFO and its existing 16 active slots, rather than
+creating another independent decision window. Worker retained metadata/jobs are
+bounded to 32 MiB and 16,384 jobs per helper, with 8,192 logical identities per worker.
+
+A Blob module worker's main script stays on the SDK Blob loader, including store,
+partition/origin, MIME and module checks; it is not a network-policy event. This
+narrow scheme/destination path does not bypass HTTP or custom-protocol decisions.
+Worker termination and creator navigation/generation replacement revoke pending
+work and reject worker continuations. Unknown worker scopes, shared/service workers,
+worklets and unbound/subframe navigation remain outside the accepted subset;
+intercepted requests without native authority fail closed. WebSocket handshakes
+currently bypass upstream Fetch and therefore fail explicitly before connect while
+a blocking handler is active. This is not full browser-session coverage.
+
+Six native macOS ARM64 offscreen groups verify real Blob module/custom imports
+and HTTP Fetch, zero transport hits for denied HTTP/custom requests, and stale
+held decisions after termination/navigation. They also cover asynchronous response
+header edits, nested module workers and cancellation after parent termination.
+Broader worker and fresh cross-platform acceptance remain pending. See [ADR 0200](../architecture/0200-authenticated-worker-fetch.md). Existing helper
 policy changes propagate over an ordered asynchronous channel; registration is not
 an atomic barrier across all already-running helpers. New helpers receive the
 policy before VM initialization. Filter allowance never grants filesystem access

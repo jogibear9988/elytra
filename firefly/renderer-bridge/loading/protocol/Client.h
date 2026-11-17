@@ -7,6 +7,7 @@
 #include "native/protocol/files/RequestPacket.h"
 #include <LibCore/Timer.h>
 #include <LibWeb/DOM/Document.h>
+#include <functional>
 
 namespace Firefly::ProtocolFetch {
 class Client final : public RefCounted<Client>, public Weakable<Client> {
@@ -24,6 +25,31 @@ public:
     ~Client();
 
     ErrorOr<NonnullRefPtr<Response>> fetch(Web::Fetch::Infrastructure::FetchParams const&);
+
+    // Native packet relay for a separately authenticated worker scope. All these
+    // methods and callbacks run on the owning document thread, never a worker VM.
+    struct Remote {
+        std::function<bool(ReadonlyBytes)> packet;
+        std::function<void()> closed;
+        std::function<bool()> valid;
+    };
+
+    ErrorOr<u32> fetch_worker(Web::DOM::Document&, URL::URL const&, bool head, Remote);
+
+    void worker_credit(u32 id, u64 count)
+    {
+        credit(id, count);
+    }
+
+    void worker_cancel(u32 id)
+    {
+        cancel(id);
+    }
+
+    u64 epoch() const
+    {
+        return m_epoch;
+    }
 
     void revoke();
 
@@ -47,6 +73,7 @@ private:
         bool sent { false };
         bool cancelled { false };
         bool cancel_sent { false };
+        Optional<Remote> remote {};
     };
 
     Client(u64, Web::DOM::Document&);

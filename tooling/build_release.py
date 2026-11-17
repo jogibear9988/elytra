@@ -167,6 +167,7 @@ def main():
                 "check-firefly-window-input",
                 "check-firefly-title-bar",
                 "check-firefly-web-request",
+                "check-firefly-worker-fetch",
             ]
         )
     run("cmake", "--build", "build/renderer", "--target", *native_services, "--parallel", args.jobs)

@@ -6,6 +6,7 @@
 #include <LibWeb/Export.h>
 #include <LibWeb/Fetch/Fetching/PendingResponse.h>
 #include <LibWeb/Fetch/Infrastructure/FetchParams.h>
+#include <functional>
 
 namespace Web::DOM {
 class Document;
@@ -35,6 +36,16 @@ WEB_API void sweep();
 WEB_API Policy policy();
 
 WEB_API bool configure(Policy);
+
+// Native worker broker entry points. Call on the document owner thread only;
+// the worker token/validity closure comes from an admitted native Worker scope.
+WEB_API bool submit_worker(Stage, Web::DOM::Document&, u64 token, u32 logical, JsonObject,
+    Completion, std::function<bool()> valid);
+
+WEB_API void cancel_worker(u64 token, u32 logical);
+
+WEB_API Optional<JsonObject> describe(Web::Fetch::Infrastructure::FetchParams const&,
+    RefPtr<Web::Fetch::Infrastructure::Response> response = {});
 
 WEB_API GC::Ref<Web::Fetch::Fetching::PendingResponse> before(
     JS::Realm&, Web::Fetch::Infrastructure::FetchParams const&, GC::Ref<Before>);

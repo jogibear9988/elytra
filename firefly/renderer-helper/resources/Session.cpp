@@ -2,6 +2,8 @@
 #include "Session.h"
 #include "Documents.h"
 #include "loading/protocol/Client.h"
+#include "loading/workers/Fetch.h"
+#include "loading/workers/Scope.h"
 #include "native/protocol/FilePolicy.h"
 #include <LibCore/System.h>
 #include <LibIPC/FireflyBootstrap.h>
@@ -35,6 +37,7 @@ namespace {
     void sweep()
     {
         session->documents.sweep();
+        Workers::sweep();
         Vector<Web::HTML::CrossProcessId> destroyed;
         for (auto& entry : session->records) {
             auto& record = entry.value;
@@ -171,6 +174,30 @@ void initialize()
 {
     VERIFY(!session);
     session = new Session;
+    Workers::install_generation_resolver([](Web::DOM::Document& document) -> Optional<u64> {
+        if (!session)
+            return {};
+        return session->documents.generation(document);
+    });
+    WorkersFetch::install_client_provider(
+        [](Web::DOM::Document& document, URL::URL const& url, bool head,
+            WorkersFetch::Remote remote) -> ErrorOr<WorkersFetch::Endpoint> {
+            if (!session)
+                return Error::from_string_literal("Worker document service unavailable");
+            auto client = TRY(session->documents.client_for(document));
+            auto id = TRY(client->fetch_worker(document, url, head,
+                { move(remote.packet), move(remote.closed), move(remote.valid) }));
+            auto weak = client->make_weak_ptr();
+            return WorkersFetch::Endpoint { client->epoch(), id,
+                [weak, id](u64 count) {
+                    if (auto client = weak.strong_ref())
+                        client->worker_credit(id, count);
+                },
+                [weak, id] {
+                    if (auto client = weak.strong_ref())
+                        client->worker_cancel(id);
+                } };
+        });
     // Install before the first page: an active interception without a native grant
     // must deny instead of falling through to the filesystem.
     MUST(ensure_provider());
@@ -192,6 +219,8 @@ void shutdown()
     if (!session)
         return;
     session->timer->stop();
+    Workers::shutdown();
+    WorkersFetch::install_client_provider({});
     if (session->provider)
         session->provider->revoke();
     session->documents.revoke();

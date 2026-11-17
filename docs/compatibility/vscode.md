@@ -83,6 +83,26 @@ the next causal initialization blocker from real host/renderer state. Custom
 Undici dispatcher/proxy/certificate policy must still be genuinely supported or
 fail explicitly, never silently ignored. The direct WebSocket slice rejects it.
 
+The dedicated browser-worker bridge is now implemented in the framework. Six
+actual macOS offscreen groups pass Blob module startup, same-origin custom imports,
+HTTP/header policy, nested workers and revocation after worker/parent termination
+or navigation. Existing protocol/CORS/stream controls still pass. The next normal
+Code-OSS observation (`codeoss-worker-fetch-start.log`) reaches Workbench 3/4,
+starts the local extension host and scans 60 system extensions; the former Blob
+script failure is not observed during that run. That absence is not a positive
+Code-OSS worker-service, activation or editor acceptance result. See
+[ADR 0200](../architecture/0200-authenticated-worker-fetch.md).
+
+A regular development-extension/extension-test acceptance fixture now exercises
+real activation, command registration and open/edit/save, with independent native
+file readback and authenticated process cleanup. Its actual invocation fails
+before extension startup because the existing CA-17 development/test admission
+policy rejects those modes. `--inspect-extensions=0` is not a no-debug workaround:
+in development Code-OSS selects the implicit port 5870. Test mode also requests
+`--expose-gc`. Implement the required native runtime/execArgv semantics and admit
+the real modes without pretending inspector or V8 flags work; do not weaken the
+guard merely to make the test green. The fixture remains unaccepted.
+
 The previous early navigation stall is not reproduced under these observations;
 no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is
 accepted. Phase markers are default-off, bounded fixed labels/scalars and added

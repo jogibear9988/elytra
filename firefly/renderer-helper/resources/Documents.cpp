@@ -55,6 +55,12 @@ ErrorOr<NonnullRefPtr<ProtocolFetch::Response>> Documents::fetch(
     if (!window)
         return Error::from_string_literal("Resource client is not a local Window");
     auto& document = window->associated_document();
+    auto client = TRY(client_for(document));
+    return client->fetch(params);
+}
+
+ErrorOr<NonnullRefPtr<ProtocolFetch::Client>> Documents::client_for(Web::DOM::Document& document)
+{
     auto found = m_records.find(document.id());
     if (found == m_records.end())
         return Error::from_string_literal("No native grant for this document identity");
@@ -81,8 +87,29 @@ ErrorOr<NonnullRefPtr<ProtocolFetch::Response>> Documents::fetch(
             binding.epoch);
     }
 
-    auto client = record.client; // Delivery can revoke its native owner reentrantly.
-    return client->fetch(params);
+    if (record.client->is_revoked())
+        return Error::from_string_literal("Native document client is revoked");
+    return NonnullRefPtr { *record.client };
+}
+
+Optional<u64> Documents::generation(Web::DOM::Document& document)
+{
+    // Claim the exact native document lease even for an inline-only page whose
+    // first resource consumer is a Blob worker. This never creates a grant.
+    if (client_for(document).is_error())
+        return {};
+    auto found = m_records.find(document.id());
+    if (found == m_records.end() || !document.is_fully_active() || !document.navigable())
+        return {};
+    auto const& record = found->value;
+    auto const& binding = record.binding.navigation;
+    if (!record.document || record.document.ptr() != &document || !record.client
+        || record.client->is_revoked()
+        || document.navigable()->id()
+            != Web::HTML::CrossProcessId { binding.navigable_namespace, binding.navigable_local }
+        || document.page().client().id().value() != binding.page)
+        return {};
+    return binding.epoch;
 }
 
 void Documents::sweep()

@@ -1,5 +1,7 @@
 /** Preserve upstream fetch policy; expose no provider registration to JavaScript or workers. */
 #include "Dispatch.h"
+#include "loading/workers/Fetch.h"
+#include "loading/workers/Scope.h"
 #include "native/protocol/Diagnostics.h"
 #include "native/protocol/FilePolicy.h"
 #include "native/protocol/OriginPolicy.h"
@@ -151,6 +153,9 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
     auto request = params.request();
     bool file
         = request->current_url().scheme() == "file"sv && Protocols::file_policy_snapshot().active;
+    if (Workers::current()
+        && (file || Protocols::is_standard_scheme(request->current_url().scheme())))
+        return WorkersFetch::dispatch(params);
     if (!file && (!provider || !Protocols::is_standard_scheme(request->current_url().scheme())))
         return nullptr;
     auto deny = [&] {
@@ -163,6 +168,7 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
         Protocols::diagnostic(Protocols::DiagnosticStage::DispatchNoProvider);
         return deny();
     } // Active native file policy must fail closed before filesystem access.
+
     bool navigation = request->is_navigation_request();
     auto& handler = navigation ? provider->navigation : provider->handler;
     if (!provider->active || !handler
@@ -177,6 +183,7 @@ GC::Ptr<Web::Fetch::Fetching::PendingResponse> dispatch(
             result.is_error() && result.error().is_errno() ? result.error().code() : 0);
         return deny();
     }
+
     auto response = result.release_value();
     GC::Root pending { response->pending() };
     if (!provider->active)
