@@ -120,9 +120,48 @@ ${warning.detail}` : "";
   process.on("warning", onWarning);
 }
 
+// mite/modules/core/process-kill.mjs
+function installProcessKill(process, signals, native) {
+  const numbers = Object.assign(/* @__PURE__ */ Object.create(null), signals);
+  const hasOwn = Object.hasOwn;
+  const send = native.kill;
+  function kill(pid, sig) {
+    if (pid != (pid | 0)) {
+      throw Object.assign(new TypeError("The pid argument must be a number"), {
+        code: "ERR_INVALID_ARG_TYPE"
+      });
+    }
+    if (sig !== (sig | 0)) {
+      sig ||= "SIGTERM";
+      if (!hasOwn(numbers, sig)) {
+        throw Object.assign(new TypeError(`Unknown signal: ${sig}`), {
+          code: "ERR_UNKNOWN_SIGNAL"
+        });
+      }
+      sig = numbers[sig];
+    }
+    send(pid | 0, sig | 0);
+    return true;
+  }
+  Object.defineProperties(process, {
+    kill: { value: kill, writable: true, configurable: true, enumerable: true },
+    _kill: {
+      value: function _kill() {
+        throw Object.assign(new Error("The private Node process._kill hook is not supported"), {
+          code: "ERR_MITE_UNSUPPORTED_API"
+        });
+      },
+      writable: true,
+      configurable: true,
+      enumerable: true
+    }
+  });
+}
+
 // mite/modules/core/process-events.mjs
 function installProcessEvents(host, process) {
   const { EventEmitter, signals, native } = host;
+  installProcessKill(process, signals, native);
   const apply = Reflect.apply;
   const bind = Function.call.bind(Function.prototype.bind);
   const base = EventEmitter.prototype;

@@ -34,6 +34,7 @@ console.log(hrtime.bigint() - start, cpuUsage(before));
 | `hrtime([previous])`, `hrtime.bigint()` | Monotonic native elapsed-time samples |
 | `uptime()` | Fractional seconds since runtime load/bootstrap |
 | `cpuUsage([previous])` | Process-wide user/system CPU microseconds |
+| `kill(pid[, signal])` | Real native signal delivery/zero checks; local macOS CLI/embedded controls, fresh platforms pending |
 | `stdout`, `stderr` | Writable wrappers around borrowed descriptor 1/2; native descriptor-specific writes |
 | EventEmitter methods | Custom events, listener order/removal/once and explicit native signal subset below |
 
@@ -98,7 +99,7 @@ restores shared nonblocking flags after the final runtime/native handle retires.
 stdout/stderr aliases share that lease. Active asynchronous pipes share their
 nonblocking state with the host; embeddings must keep standard descriptors stable
 while runtimes are active. Supported process-ending paths also restore flags,
-without flushing pending data or driving application callbacks. SIGKILL/crash
+without flushing pending data or driving application callbacks. Signal-caused termination/crash
 cleanup is not guaranteed. See [ADR 0207](../architecture/0207-native-standard-output.md).
 
 end()/destroy() retire the JS wrapper without closing the host's descriptor or
@@ -116,7 +117,9 @@ borrowed flag restoration and parent-descriptor survival. The genuine embedded
 host also passes separate/aliased restoration. Exit/immediate/abort/process-error/
 DNS regression suites and Console write-hook/boundary controls pass. Evidence:
 build/native-stdio-{controls,regressions,console-controls,builtin-controls}.log.
-Fresh native Linux/Windows stdio acceptance and full Node stdio parity remain open.
+Native Linux CI at fb655df also passes the complete 161-suite baseline, including
+these CLI stdio controls. That baseline predates the process.kill slice below;
+fresh Windows/direct-TTY coverage and full Node stdio parity remain open.
 
 ## process.hrtime([previous])
 
@@ -174,6 +177,48 @@ buffer. Full invalid-getter/proxy/reentrant and error-message behavior is not a
 general Node compatibility guarantee. Native OS failures throw with code, errno
 and syscall uv_getrusage; provider failure injection is not native-acceptance-tested.
 
+## process.kill(pid[, signal])
+
+Send a real operating-system signal through libuv; return true on success. Numeric
+signal `0` performs the native existence/permission check without sending a signal.
+It reports the OS result at that instant, not continued lifetime or stable PID
+identity. Native failures throw an Error with code, negative errno and syscall
+`kill`; a reaped target produces ESRCH.
+
+```js
+import process, { kill } from 'node:process';
+
+console.log(kill(process.pid, 0)); // true: this process currently exists
+```
+
+The default signal is SIGTERM. Numeric int32 signals, including `0` and `-0`,
+retain their OS meaning. String names are case-sensitive members of the captured
+OS signal table. As in Node's legacy API, omitted/undefined/null/false/empty-string
+signals select SIGTERM; they are not liveness checks. PIDs retain signed int32
+semantics, including supported OS process-group targets and legacy numeric-string
+coercion. Invalid PID coercion/range reports ERR_INVALID_ARG_TYPE; unknown signals
+report ERR_UNKNOWN_SIGNAL. BigInt/Symbol conversion errors remain ordinary
+TypeErrors. Underlying permission/platform failures are not converted to success.
+
+Signal sending is independent of native watcher registration and
+HostHooks.allow_process_signals. That policy controls handler ownership, not this
+OS operation. It does not add process capabilities to isolated web content.
+The private Node process._kill monkeypatch hook explicitly throws
+ERR_MITE_UNSUPPORTED_API. Signal-caused process death is abrupt: unlike the
+supported normal/std::exit/Runtime _Exit paths, it does not promise borrowed stdio
+flag restoration or JS exit-event delivery. We avoid speculative pre-signal
+restoration for calls that can fail or be caught, ignored or nonterminating.
+
+Actual local macOS Node/Mite/embedded-host controls each pass six independently
+owned child cases: default/named/numeric SIGTERM and false/null/empty defaults;
+self/parent/live-child and owned-group zero checks; coercion/validation and
+ESM/global/CommonJS identity; independently observed termination/reaping followed
+by real ESRCH. Nonzero test signals target only an authenticated direct child.
+Existing watcher/host-policy/handler restoration controls also pass. Evidence:
+build/process-kill-{controls,watcher-controls}.log. Fresh Linux/Windows and nonzero
+process-group delivery acceptance remain open; platform semantics come from the
+native OS/libuv provider. See [ADR 0208](../architecture/0208-native-process-signals.md).
+
 ## Events and native signals
 
 `process` inherits from the same [EventEmitter](events.md) exported by node:events.
@@ -227,8 +272,9 @@ entry-point origins, default exits, listener failures and GC lifetime.
 
 Registering beforeExit, multipleResolves, worker or workerMessage still
 throws ERR_MITE_UNSUPPORTED_PROCESS_EVENT. message/disconnect also reject outside
-an owned fork child. Process kill, arbitrary signals, capture callbacks and full
-lifecycle coverage remain unfinished. [ADR 0104](../architecture/0104-process-events-signals.md)
+an owned fork child. Broader signal subscriptions, capture callbacks and full
+lifecycle coverage remain unfinished. Native process.kill sending is documented
+separately above. [ADR 0104](../architecture/0104-process-events-signals.md)
 records the initial signal scope; [ADR 0182](../architecture/0182-native-process-error-events.md)
 describes the native error-event integration.
 

@@ -148,6 +148,24 @@ export async function run() {
     edited: true,
     saved: true
   };
+  if (config.parentLiveness === true) {
+    // Original CodeOSS also polls its main-process PID once per second. Keep
+    // using the real API beyond those intervals instead of ending immediately.
+    for (let round = 0; round < 3; round++) {
+      await new Promise((done) => setTimeout(done, 1100));
+      check(process.kill(process.ppid, 0) === true, 'Native extension parent still exists');
+      const continued = await vscode.commands.executeCommand(
+        'elytra.workbenchAcceptance',
+        config.nonce
+      );
+      check(
+        continued.nonce === config.nonce && continued.activations === 1,
+        'Original extension API remains responsive after parent-watch interval'
+      );
+      check(document.getText() === config.expected && !document.isDirty, 'Saved editor stays live');
+    }
+    result.parentLiveness = true;
+  }
   if (config.terminal === true) {
     result.terminalPid = await terminalWorkflow(config);
     result.terminal = true;

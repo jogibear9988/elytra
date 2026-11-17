@@ -43,18 +43,18 @@ failure or nonzero application exit is a failure. Even success proves only this
 selected workflow. Editor-only success does not establish the optional terminal
 workflow, search, marketplace, external network or general CodeOSS compatibility.
 
-Current local macOS result (2026-11-17): the CommonJS extension/editor workflow
-and the real terminal workflow pass together. The original ESM test driver uses
-actual APIs, with independent physical-file readback for both editor and shell
-output. The application exits 0; all 15 observed native processes are independently
-absent, with no cleanup signals. This checkpoint enabled
-`FIREFLY_IPC_BYTES_DIAGNOSTIC=1`; it changed no queue limits or admission checks.
-Evidence: `build/codeoss-pty-admission-diagnostic-{evidence.json,workbench.log,acceptance.log}`.
+Current local macOS result (2026-11-17): CommonJS/editor, timed parent-liveness
+continuations and the real terminal pass together without diagnostic flags.
+Three 1100 ms continuations each require native parent existence, a fresh original
+extension command reply and a coherent saved editor. The application exits 0;
+all 15 observed native identities are independently absent with zero cleanup
+signals. Evidence:
+`build/codeoss-parent-liveness-{evidence.json,workbench.log,acceptance.log}`.
 
-This is one controlled offscreen API workflow, not visible painting/keyboard input,
-all extensions, shell integration or another platform. Native diagnostics also
-observed a separate 364-byte port transfer refused while 16 ordinary IPC messages
-were outstanding. Startup and terminal reliability under load remain open.
+This is controlled offscreen API acceptance, not visible painting/keyboard input,
+all extensions, shell integration, another platform or general long-running
+stability. Queued attachment admission now passes the mixed native regression
+within unchanged quotas; broader saturation/failure coverage remains open.
 
 Earlier editor-only ESM/CommonJS evidence is retained as
 `build/codeoss-commonjs-{evidence.json,workbench.log,acceptance.log}` and
@@ -90,3 +90,11 @@ exit fails. `report.json` includes the terminal flag, native identity and output
 hash only for this mode. The accepted terminal checkpoint above covers these
 checks; prior failures and outstanding admission reliability are recorded in
 `docs/PROGRESS.md`.
+
+Add `--parent-liveness` to keep the actual extension alive across three 1100 ms
+continuations. Each checks `process.kill(process.ppid, 0)`, executes the original
+registered command and verifies the saved editor. Original Code-OSS separately
+polls its main-process PID once per second; this mode tests continued API use
+beyond that interval, without patching its watchdog or fabricating liveness.
+The parent requires the authenticated current result's parentLiveness flag; the
+report includes it only when requested. It can run together with `--terminal`.

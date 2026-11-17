@@ -1,17 +1,18 @@
 # Current support and tested examples
 
-Latest Code-OSS checkpoint, **2026-11-17**: the native-stdio Release rebuild
-passes the non-diagnostic macOS offscreen CommonJS activation/command/editor
-edit-save AND real terminal creation/Bash PID authentication/sendText/exit17.
-Independent Python checks verify the physical editor/terminal bytes and all 15
-observed native process identities are absent. Two helper cleanup signals were
-needed; fully natural helper teardown remains open. The preceding queued-port
-run passed with zero cleanup signals; these are individual controlled checkpoints.
-Native stdio also passes pipe/file/EPIPE/backpressure/borrowed-descriptor controls
-and the targeted exit/immediate/abort/process-error/DNS regression suites locally.
-Visible terminal input/painting, general load/failure behavior and fresh native
-platform CI remain open. See [exact terminal evidence](api/pty.md#controlled-code-oss-terminal-result)
-and [native stdio](architecture/0207-native-standard-output.md).
+Latest Code-OSS checkpoint, **2026-11-17**: the native process-signals rebuild
+passes a longer non-diagnostic macOS offscreen CommonJS/editor/terminal workflow.
+Three 1100 ms continuations each check the real extension parent with signal zero,
+execute the original registered command and verify the saved editor remains
+coherent. The real Bash terminal then passes sendText/exit17. Independent Python
+checks verify physical editor/terminal bytes and that all 15 observed native
+process identities are absent; no cleanup signals are needed in this run.
+The preceding native-stdio run required two signals; these remain distinct
+controlled checkpoints, not a general natural-teardown guarantee. Native kill,
+watcher/policy and stdio controls pass locally. Visible input/painting, broader
+load/failure/extension coverage and fresh platform CI remain open. See
+[exact terminal/continuation evidence](api/pty.md#controlled-code-oss-terminal-result)
+and [native signal sending](architecture/0208-native-process-signals.md).
 
 The preceding CommonJS/ESM checkpoint on the isolated review branch:
 controlled original Code-OSS CommonJS and ESM extension/command/open-edit-save

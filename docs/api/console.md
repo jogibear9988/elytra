@@ -52,6 +52,10 @@ while retaining Console identity, formatting and write hooks. Actual local macOS
 exit/immediate/abort/process-error/DNS, Console and builtin controls pass after the
 Release rebuild, together with independent slow-pipe, regular-file, EPIPE and
 borrowed-descriptor checks. Evidence: build/native-stdio-{controls,regressions,
-console-controls,builtin-controls}.log. Fresh hosted platform acceptance remains open.
-The latest real Code-OSS editor/terminal repeat passes, but helper cleanup sends
-two signals; it does not establish fully natural helper teardown.
+console-controls,builtin-controls}.log. Native Linux CLI CI at fb655df subsequently
+passes all 161 baseline suites. Windows, renderer/package gates and later runtime
+changes still need their own platform acceptance.
+The native-stdio Code-OSS editor/terminal repeat needed two helper cleanup signals.
+A subsequent native-signal rebuild passes a longer timed parent-liveness/editor/
+terminal workflow with zero signals. These are scoped checkpoints rather than a
+general teardown guarantee; see the current Code-OSS evidence linked above.

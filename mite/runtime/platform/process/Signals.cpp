@@ -154,7 +154,33 @@ GC::Ref<JS::Object> create_signal_host(JS::Realm& realm, EventLoop& loop, bool a
         while (!state->watches.empty())
             state->close(state->watches.begin()->first);
     });
-    auto host = JS::Object::create(realm, nullptr);
+    GC::Root host { JS::Object::create(realm, nullptr) };
+    host->define_native_function(
+        realm, "kill"_utf16,
+        +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+            // Signal delivery is not a subscription: preserve OS PID/group and
+            // signal-zero semantics even in hosts that cannot own watchers.
+            if (!vm.argument(0).is_int32() || !vm.argument(1).is_int32())
+                return failure(vm, "ERR_INVALID_ARG_TYPE", "Invalid native kill arguments");
+            int status = uv_kill(vm.argument(0).as_i32(), vm.argument(1).as_i32());
+            if (status) {
+                GC::Root error { JS::Error::create(
+                    vm.realm(), Utf16String::formatted("kill {}", uv_err_name(status))) };
+                error->define_direct_property("code"_utf16,
+                    JS::PrimitiveString::create(vm,
+                        Utf16String::from_utf8(
+                            StringView(uv_err_name(status), strlen(uv_err_name(status))))),
+                    JS::default_attributes);
+                error->define_direct_property(
+                    "errno"_utf16, JS::Value(status), JS::default_attributes);
+                error->define_direct_property("syscall"_utf16,
+                    JS::PrimitiveString::create(vm, "kill"_utf16), JS::default_attributes);
+                return JS::throw_completion(error);
+            }
+
+            return JS::js_undefined();
+        },
+        2, JS::default_attributes);
     host->define_native_function(realm, "start"_utf16,
         GC::create_function(realm.vm().heap(), GC::captures(shared_capture(state)),
             [](auto& state, JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
@@ -226,6 +252,6 @@ GC::Ref<JS::Object> create_signal_host(JS::Realm& realm, EventLoop& loop, bool a
                 return JS::js_undefined();
             }),
         1, JS::default_attributes);
-    return host;
+    return *host;
 }
 }

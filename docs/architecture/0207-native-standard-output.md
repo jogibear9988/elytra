@@ -38,7 +38,7 @@ open file description. Concurrent runtimes share the same process-wide lease and
 owned CLOEXEC anchors. Restore only the original nonblocking bits through those
 anchors after the final runtime, native request and handle close; preserve other
 status flags. Abrupt process-ending paths restore flags without closing anchors,
-flushing output or running callbacks. Forced external termination cannot promise
+flushing output or running callbacks. Signal-caused termination or crashes cannot promise
 cleanup. Live asynchronous streams necessarily share nonblocking state with their
 host. Hosts must keep their standard descriptors stable while runtimes are active;
 replacing fd 1/2 during that interval is outside this contract.
@@ -53,8 +53,9 @@ separate/aliased borrowed descriptor restoration. The genuine embedded host also
 passes the restoration checks. Six targeted exit/immediate/abort/process-error/
 DNS/performance runners pass, as do Console and builtin controls. Logs:
 build/native-stdio-{controls,regressions,console-controls,builtin-controls}.log.
-These are local macOS results; fresh Linux/Windows and direct TTY runtime acceptance
-remain open. The original Code-OSS editor/terminal workflow passes after this
+Native Linux CI at fb655df subsequently passes all 161 baseline suites, including
+the CLI stdio controls. Windows and direct TTY runtime acceptance remain open;
+this does not accept later runtime changes or Linux renderer packaging. The original Code-OSS editor/terminal workflow passes after this
 rebuild; all fifteen observed processes stop, with two helper cleanup signals.
 That run does not prove fully natural helper teardown. Explicit process.exit may abandon truly pending asynchronous
 output; no arbitrary event-loop drain is permitted after terminal exit dispatch.

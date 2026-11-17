@@ -217,7 +217,7 @@ def write_json(path, value):
     path.chmod(0o600)
 
 
-def prepare(state, stage, extension_format="esm", terminal=False):
+def prepare(state, stage, extension_format="esm", terminal=False, parent_liveness=False):
     marker = state / ".elytra-owned.json"
     if not state.exists():
         state.mkdir(mode=0o700)
@@ -275,6 +275,8 @@ def prepare(state, stage, extension_format="esm", terminal=False):
         "expected": prefix + initial,
         "result": str(result),
     }
+    if parent_liveness:
+        config["parentLiveness"] = True
     if terminal:
         config.update(
             terminal=True,
@@ -345,6 +347,11 @@ def main():
         action="store_true",
         help="Also verify an actual owned terminal shell workflow",
     )
+    parser.add_argument(
+        "--parent-liveness",
+        action="store_true",
+        help="Keep the real extension alive across parent-watch intervals and recheck its API",
+    )
     parser.add_argument("--extension-format", choices=("esm", "commonjs"), default="esm")
     args = parser.parse_args()
     if os.name != "posix" or not (sys.platform == "darwin" or sys.platform.startswith("linux")):
@@ -373,7 +380,9 @@ def main():
             raise RuntimeError("Refusing an unowned existing profile")
         if not marker.exists():
             write_json(marker, {"owner": OWNER})
-        arguments, config = prepare(state, stage, args.extension_format, args.terminal)
+        arguments, config = prepare(
+            state, stage, args.extension_format, args.terminal, args.parent_liveness
+        )
         command = [str(binary), "--electron-compat", *arguments]
         if args.prepare_only:
             print(
@@ -523,6 +532,8 @@ def main():
             )
         ):
             raise RuntimeError("Actual extension/editor API steps did not complete")
+        if args.parent_liveness and result.get("parentLiveness") is not True:
+            raise RuntimeError("No authenticated extension parent-liveness continuation")
         saved = Path(config["document"]).read_bytes()
         if saved != config["expected"].encode():
             raise RuntimeError("Independent native saved-file readback failed")
@@ -543,6 +554,7 @@ def main():
                 "schema": 1,
                 "accepted": True,
                 "extensionFormat": args.extension_format,
+                **({"parentLiveness": True} if args.parent_liveness else {}),
                 **(
                     {
                         "terminal": True,
@@ -565,6 +577,8 @@ def main():
         print(
             "PASS actual CodeOSS extension activation, command, editor WorkspaceEdit/save and independent native readback"
         )
+        if args.parent_liveness:
+            print("PASS actual CodeOSS parent liveness across three timed API continuations")
         if args.terminal:
             print(
                 "PASS actual CodeOSS terminal shell ownership, sendText, exit17 and independent native readback"

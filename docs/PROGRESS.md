@@ -15521,6 +15521,54 @@ failure modes, fullynaturalhelper teardown and nativeWindowsdesktop remain open.
 This fixes the reproduced stdio regressions locally; it does not complete VSCode,
 master promotion, release publication or the full project goal.
 
+## Native process.kill and timed Code-OSS continuation (2026-11-17)
+
+Implement ADR0208: genuine uv_kill, including numeric0 native existence/permission
+checks. New small ESM initializer preserves Node24.15 legacyPID/coercion order,
+signedint32 targets, numericzero, capturedcase-sensitiveOSnames andfalsySIGTERM
+defaults. Private sender validates normalizedint32s; errorsretainreal code/negative
+errno/syscallkill. Global/default/CJS/namedexport identity agrees. Root nativehost
+and errors duringallocation. Sending is independent of watcherpermission/allowlist;
+privateNode _kill monkeypatchhook explicitly rejects. No Node/V8, PIDcache,
+Code-OSS workaround or Ladybird modification. Signal-caused death stays abrupt;
+no speculative stdioflagrestore before a potentiallycaught/ignored/failedsignal.
+
+Producer actualcompileDB syntax/format passes, reviewfoundhostGCrootnowfixed.
+Rootcodegen, ReleaseMite/embeddedhost and Firefly/offscreenbuilds PASS. ActualNode,
+Mite and embeddedhost EACH PASS six independentlyownedchildcases: default/named/
+numericTERM,false/null/emptydefaults; zero/self/parent/livevictim/ownedsessiongroup,
+argument/coercionerrors, ESM/CJSidentity, Python-native victimwait/reap then ESRCH.
+No nonzero signal reaches desktop, suppliedexternalPID or unownedgroup. Existing
+watcher/hostpolicy/handler restoration runner PASS. Evidence:
+build/process-kill-{controls,watcher-controls,codegen,mite-build,firefly-build}.log.
+CTest registers the new process-kill suite with real CLI/embeddedhost targets.
+
+Extend OWNED development testdriver/harness with optional --parent-liveness;
+no originalCode-OSSsource or stageoverlay changes. Three1100ms continuations each
+perform genuine parentkill0, invoke originalregisteredcommand and verify saved
+editor coherence. Actual non-diagnostic CommonJS/editor/parent-liveness/terminal
+batch PASS with realBashPID82036/sendText/exit17 and independentphysicalbytes.
+Mainexit0; all15 observed nativeidentities independently recheckedabsent;
+cleanupSignals0. This records timedcontinuedAPIuse, not exactinternalwatchdog tick
+count or broadlong-runningstability. Stage digest unchanged:
+f695517d6ddf8bd8d6cdc3c94903beac84549ecfafba390b625eaba49b520573.
+Nonce-freecompact evidence, executablehash(notclosureproof) and sanitizedlogs:
+build/codeoss-parent-liveness-{acceptance.log,evidence.json,workbench.log}.
+No visible GUI, duplicatedstage/profile or retainedextraapplicationpackage.
+
+Update processAPI/compatibility/currentstatus/PTY/Console and fixtureREADME;
+clarify signal-abrupt stdio scope. Nativeprovider acceptance remains localmacOS;
+fresh Linux/Windows, nonzerogroupdelivery, broadersignals, arbitraryextensions,
+visibleinput/painting, saturation/failurehandling and master/releasepromotion
+remain open. Hosted fb655df NativeLinuxCLI run44024361727/job133841045227 is now
+CONFIRMED SUCCESS: 100% tests passed,0failed/161. The logs specifically pass prior
+process-exit,abort,stdio,perf-hooks,process-errors,window-preferences,immediates and
+DNS failures. This accepts that preceding stdio baseline, not this newkill slice.
+NativeLinuxrenderer fb655df run44024361731/job133843598633 is confirmed compiling;
+macOSRelease44024361687 and Windows44024361655 are still pending withoutjobs.
+Site365pages/27383localtargets passes before this final text-only CI note.
+The full projectgoal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

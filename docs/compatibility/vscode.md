@@ -53,6 +53,19 @@ editor SHA-256:
 The reused stage digest is unchanged. Evidence:
 `build/codeoss-native-stdio-{acceptance.log,evidence.json,workbench.log}`.
 
+The latest native-process-signals rebuild adds a longer non-diagnostic controlled
+run: three 1100 ms extension continuations each check the real native parent with
+signal zero, execute the original registered command and verify the saved editor.
+The real Bash terminal then passes sendText/exit17 (PID 82036). Main exits 0; all
+15 observed native identities are independently absent, with zero cleanup signals.
+This establishes this timed continuation, not every internal timer or general
+long-running stability. Terminal SHA-256:
+`41571b2d5f2ed43ec6e725f556504b47c377cbaad032eadab8ec76abd929ac75`;
+editor SHA-256:
+`9513eef516fa89e320f647344bbe55cdaa44ac0c06acc9aa2a8edbe123648640`.
+Stage digest unchanged. Evidence:
+`build/codeoss-parent-liveness-{acceptance.log,evidence.json,workbench.log}`.
+
 
 The checkpoints below preserve their earlier source/run scope.
 

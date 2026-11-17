@@ -67,9 +67,10 @@ static constexpr std::string_view diagnostics_channel_exports[]
 static constexpr std::string_view events_exports[] = { "EventEmitter", "errorMonitor",
     "captureRejectionSymbol", "captureRejections", "defaultMaxListeners", "listenerCount",
     "getEventListeners", "getMaxListeners", "setMaxListeners", "once" };
-static constexpr std::string_view process_exports[] = { "nextTick", "cwd", "chdir", "env", "pid",
-    "ppid", "platform", "arch", "execPath", "execArgv", "argv", "argv0", "version", "versions",
-    "release", "exit", "emitWarning", "hrtime", "uptime", "cpuUsage", "stdout", "stderr", "title" };
+static constexpr std::string_view process_exports[]
+    = { "nextTick", "cwd", "chdir", "env", "pid", "ppid", "platform", "arch", "execPath",
+          "execArgv", "argv", "argv0", "version", "versions", "release", "exit", "kill",
+          "emitWarning", "hrtime", "uptime", "cpuUsage", "stdout", "stderr", "title" };
 static constexpr std::string_view path_exports[] = { "resolve", "normalize", "isAbsolute", "join",
     "relative", "dirname", "basename", "extname", "format", "parse", "toNamespacedPath",
     "_makeLong", "sep", "delimiter", "win32", "posix" };

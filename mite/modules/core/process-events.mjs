@@ -1,8 +1,10 @@
 import installWarnings from './process-warnings.mjs';
+import installProcessKill from './process-kill.mjs';
 
 /** Process events backed by the native loop, terminal emitter and bounded signals. */
 export default function installProcessEvents(host, process) {
   const { EventEmitter, signals, native } = host;
+  installProcessKill(process, signals, native);
   const apply = Reflect.apply;
   const bind = Function.call.bind(Function.prototype.bind);
   const base = EventEmitter.prototype;

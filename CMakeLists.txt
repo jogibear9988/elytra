@@ -484,6 +484,11 @@ if(BUILD_TESTING)
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_events.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
     add_test(
+        NAME mite-process-kill
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_kill.py"
+                --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
+    set_tests_properties(mite-process-kill PROPERTIES TIMEOUT 120 LABELS "runtime;process")
+    add_test(
         NAME mite-process-errors
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_process_errors.py"
                 --mite "$<TARGET_FILE:mite>" --host "$<TARGET_FILE:mite-embedded-host>")
