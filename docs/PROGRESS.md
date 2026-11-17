@@ -16227,6 +16227,17 @@ YAML/JSON formatting and builtwebsite links PASS. Actual hosted authenticated fe
 and renderer compilation remain pending. CurrentWindows sandbox diagnosis honestly
 returnsNONE despite timeout atdfd; do notwaive it. Fullgoal active.
 
+## Use a native relative dependency alias in the sample source fixture (2026-11-17)
+
+Fresh9803 Windows8a30 job133966089693 passes159/161: knownstdio Writable defect
+(alreadyfixed1f689) plus a new sample-sourcefixture failure. Native Python symlink
+creation stores the literal POSIXslash target; resolving its Windows reparse data
+fails WinError123. Construct the same relative pnpm-like alias with native Path
+components and assert its actual stored target. Keep genuine Windows symlink
+creation/strictresolution, metadataalias/drift/escape refusals and production
+inventory unchanged; no skips or PE/package claim. Focused sample controls and
+pinnedPythonformat/diff PASS locally; native Windows rerun required. Fullgoalactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

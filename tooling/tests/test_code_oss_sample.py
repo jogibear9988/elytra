@@ -146,9 +146,11 @@ def main():
         packages = root / "node_modules/.pnpm/example/node_modules/example"
         packages.mkdir(parents=True)
         (packages / "index.js").write_text("// owned dependency fixture\n")
-        (root / "node_modules/example").symlink_to(
-            ".pnpm/example/node_modules/example", target_is_directory=True
-        )
+        # Win32 stores a relative symlink target verbatim; use the native path
+        # separators rather than placing POSIX slash bytes in its reparse data.
+        package_target = Path(".pnpm") / "example" / "node_modules" / "example"
+        (root / "node_modules/example").symlink_to(package_target, target_is_directory=True)
+        assert os.readlink(root / "node_modules/example") == str(package_target)
         fixture(root)
         verify_sample(root)
         metadata = json.loads((root / "BUILD.json").read_text())
