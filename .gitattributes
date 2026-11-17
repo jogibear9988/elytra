@@ -26,3 +26,6 @@
 
 # Keep the pinned Node attribution bytes, including upstream space-before-tab.
 /vendor/node-diagnostics-channel/LICENSE -whitespace
+
+# GitHub response fixture is hashed byte-for-byte; native Windows must not add CR.
+/tooling/tests/fixtures/native-assets/pcre2-sljit-gitlink.response -text

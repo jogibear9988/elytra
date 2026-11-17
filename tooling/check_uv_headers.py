@@ -9,10 +9,14 @@ BOUNDARY = Path("mite/runtime/platform/UV.h")
 SOCKET_BOUNDARY = Path("mite/runtime/platform/WindowsSockets.h")
 # This separate native WinSDK-only sandbox fixture never includes AK/LibJS or
 # runtime headers. Preserve its actual OS types rather than import runtime ones.
-SDK_ONLY_SOCKET_USERS = {Path("firefly/native/sandbox/windows/Probe.cpp")}
+SDK_ONLY_SOCKET_USERS = {
+    Path("firefly/native/sandbox/windows/Probe.cpp"),
+    Path("firefly/native/sandbox/windows/NetworkEvidence.h"),
+}
 OPENSSL = re.compile(r'^\s*#\s*include\s*[<"]openssl/', re.M)
 WINSOCK = re.compile(r'^\s*#\s*include\s*[<"]winsock2?\.h', re.M | re.I)
 OWNED_SOCKET_IMPORT = re.compile(r'^\s*#\s*include\s*"[^"\n]*(?:WindowsSockets|UV)\.h"', re.M)
+SDK_RUNTIME_IMPORT = re.compile(r'^\s*#\s*include\s*[<"](?:AK|LibJS|LibGC|LibCore)/', re.M)
 DIRECT = re.compile(r'^\s*#\s*include\s*[<"]uv(?:\.h|/)', re.M)
 
 
@@ -32,6 +36,10 @@ def check(root=ROOT):
                 and WINSOCK.search(text)
             ):
                 rejected.append(str(relative) + " (direct WinSDK socket include)")
+            if relative in SDK_ONLY_SOCKET_USERS and (
+                SDK_RUNTIME_IMPORT.search(text) or OWNED_SOCKET_IMPORT.search(text)
+            ):
+                rejected.append(str(relative) + " (SDK-only fixture imports runtime headers)")
             openssl = OPENSSL.search(text)
             if openssl and not OWNED_SOCKET_IMPORT.search(text[: openssl.start()]):
                 rejected.append(str(relative) + " (OpenSSL before socket boundary)")

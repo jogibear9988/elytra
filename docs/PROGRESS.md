@@ -16370,6 +16370,23 @@ renderer/desktop launch whileuserCodeOSS runs. Hosted fullGPUprocess/package gat
 must stillpass; previousfailedrun is not releaseacceptance. Evidence:
 build/gpu-cpu-argv-controls.log. Fullgoalactive; master/newrelease stillpending.
 
+## Resume Windows source-gate repairs without weakening staging (2026-11-17)
+
+Native693 WindowsCLI passes164/168; fourfailures are UVheaderguards(two), helper
+stagepublication and CRLF-expanded publicassetfixture. Keep native runtime results
+separate from these failures. The standalone WinSDK-only WFPheader joins its exact
+probe's socketboundary exception; require these two files toremainfree of AK/JS/GC/
+Core and ownedruntime socket imports. Unreviewed siblings/OpenSSL still reject.
+Sixheaderboundary controls PASS. Narrow -text preserves the848byte hashfixture on
+Windows; no read-time normalization/hashchange. Elevenassetcontrols PASS locally.
+
+Staging's finalmap mismatch has no proven staticcause yet. Keep strictequality and
+add boundedmissing/unexpected/changed relative-name diagnostics, with actualpostcopy
+tamper refusal beforeseal. Sevenhelpercontrols PASS locally; actualWindowscause
+requires freshhosted evidence. PinnedPythonformat/diff PASS. No localSDK/GUI.
+Uncommitted WFP keywordaudit is a separate pendinglogicalstep. Goalactive; no full
+Windowsapplication/newrelease/masterpromotion claim.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

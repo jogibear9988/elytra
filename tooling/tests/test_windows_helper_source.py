@@ -139,6 +139,31 @@ class HelperSources(unittest.TestCase):
                 stager.stage(unowned, targets, resources, revision)
             self.assertEqual(list(unowned.iterdir()), [])
 
+    def test_final_publication_still_refuses_changed_bytes_with_bounded_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            source = root / "producer"
+            source.mkdir()
+            binary = source / "image.fixture"
+            binary.write_bytes(b"owned executable fixture")
+            resources = source / "resources"
+            resources.mkdir()
+            (resources / "resource.txt").write_bytes(b"owned resource fixture")
+            targets = source / "inputs.txt"
+            targets.write_text(f"WebContent.exe|{binary}\n")
+            destination = root / "firefly-helper"
+            original = stager.entries
+
+            def mutate_before_inventory(path):
+                (path / "bin/WebContent.exe").write_bytes(b"changed after copy")
+                return original(path)
+
+            with patch.object(stager, "entries", mutate_before_inventory):
+                with self.assertRaisesRegex(ValueError, r'"changed": \["bin/WebContent.exe"\]'):
+                    stager.stage(destination, targets, resources, "1" * 40)
+            self.assertFalse((destination / stager.SEAL).exists())
+            self.assertTrue((destination / stager.JOURNAL).is_file())
+
     def test_hardlinks_and_reparse_paths_refused_before_copy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

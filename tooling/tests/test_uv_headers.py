@@ -70,6 +70,25 @@ class UVHeaders(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "OpenSSL before socket boundary"):
                 check(root)
 
+    def test_sdk_only_observer_cannot_mix_runtime_or_expand_socket_exception(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "mite").mkdir()
+            source = root / "firefly/native/sandbox/windows/NetworkEvidence.h"
+            source.parent.mkdir(parents=True)
+            source.write_text("#include <winsock2.h>\n#include <fwpmu.h>\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                check(root)
+            for imported in ("<AK/Time.h>", "<LibJS/Runtime/VM.h>", '"platform/UV.h"'):
+                source.write_text("#include <winsock2.h>\n#include " + imported + "\n")
+                with self.assertRaisesRegex(ValueError, "SDK-only fixture imports runtime"):
+                    check(root)
+            source.unlink()
+            sibling = source.with_name("Unreviewed.h")
+            sibling.write_text("#include <winsock2.h>\n")
+            with self.assertRaisesRegex(ValueError, "direct WinSDK socket include"):
+                check(root)
+
     def test_actual_sdk_alias_and_scoped_macro_restoration(self):
         root = Path(__file__).resolve().parents[2]
         header = (root / "mite/runtime/platform/WindowsSockets.h").read_text()

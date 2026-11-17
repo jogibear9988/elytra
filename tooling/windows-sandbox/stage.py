@@ -482,7 +482,28 @@ def _stage(root, targets, resources, revision, creator):
     published.pop(SEAL, None)
     published.pop(JOURNAL, None)
     if published != new:
-        raise ValueError("Helper files changed before inventory publication")
+        # Keep strict equality. Bounded relative-name diagnostics distinguish a
+        # missing/renamed file from changed bytes on hosted native filesystems;
+        # never disclose producer paths or file contents.
+        def sample(names):
+            return [name[:160] for name in sorted(names)[:8]]
+
+        raise ValueError(
+            "Helper files changed before inventory publication: "
+            + json.dumps(
+                {
+                    "missing": sample(new.keys() - published.keys()),
+                    "unexpected": sample(published.keys() - new.keys()),
+                    "changed": sample(
+                        name
+                        for name in new.keys() & published.keys()
+                        if new[name] != published[name]
+                    ),
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
+        )
     temporary = root / (SEAL + ".tmp")
     with creator.file(temporary) as output:
         output.write(content.encode("utf-8"))
