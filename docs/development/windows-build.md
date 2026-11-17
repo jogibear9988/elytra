@@ -545,3 +545,25 @@ needed. Ordinary AppContainer default access still applies; this is not LPAC or 
 complete renderer-containment proof. Actual IPC/resource integration and complete
 Windows app/Designer/package acceptance remain required. See
 [ADR 0098](../architecture/0098-native-windows-appcontainer-launch.md).
+
+
+## Native package launcher
+
+The Windows launcher expects three paths relative to the directory that
+contains it.
+
+```text
+Launch.exe
+bin/firefly.exe
+app/main.mjs
+```
+
+It opens the explicit bundled image, preserves the caller's working
+directory, forwards UTF-16 arguments and returns the actual child's exit
+status. The build can opt in to the limited Electron import alias for
+Code-OSS. The [native launcher job](https://github.com/jogibear9988/elytra/actions/runs/44178191931)
+verifies both modes on Windows Server 2025 with a real instrumented child
+in a relocated Unicode directory. It also checks missing bundled inputs
+with an executable of the same name in the working directory. Packaging
+the actual native engine, DLL closure and sample applications still
+requires the full Windows runtime and isolation gates.

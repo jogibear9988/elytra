@@ -16535,6 +16535,16 @@ library behind /link with the GUI subsystem flag. The test still
 compiles and executes both launcher modes and has the same assertions.
 Python syntax, formatting and diff checks pass. Native rerun pending.
 
+## Verify the native Windows launcher on the hosted runner
+
+Run 44178191931 (job 134375117226) compiles and runs both launcher modes
+on Windows Server 2025. The real native child reports correctly preserved
+UTF-16 arguments, including a blank argument, quotes, backslashes and
+non-BMP text. Relocation and caller working directory, missing input
+refusal despite the local decoy and forwarded exit 37 pass. Document
+the package layout and evidence. Actual Firefly application packaging
+and Windows release acceptance remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
