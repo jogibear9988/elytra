@@ -15413,6 +15413,25 @@ Explicit process.exit need not flush truly pending asynchronous pipe output.
 No runtime fix is claimed here. Latest f0e7b7c native Linux/macOS/Windows/renderer
 CI runs are pending/in-progress; no master or alpha promotion.
 
+## Hosted early-world failure diagnostics (2026-11-17)
+
+Linux renderer run44019823729 reaches genuine text/compositor/process/sandbox
+acceptance, then the owned helper emits BEFORE_SCRIPT_MISSING despite creating a
+world in the matching WebContent PID. The single short-circuit expression hides
+which boundary fails. Preserve every original requirement in the fixture, but
+collect fixed named failures (including thrown checks) and append only those names
+to the existing failure marker. Call the function bridge once as before. No URL,
+window name, payload or exception details are printed; the real helper acceptance
+still requires BEFORE_SCRIPT_OK and matching native renderer PID.
+
+Both inline scripts parse and maintained formatting passes. Local runtime attempt
+with the existing renderer-probe traps at Core::EventLoop::exec current-loop
+identity before producing page output; it does NOT accept this fixture or explain
+the Linux failure. Evidence: build/early-world-scalar-diagnostic-controls.log.
+Rebuild both real probe targets with the next coordinated SDK build, then run the
+positive and unchanged-helper negative controls. Hosted Linux acceptance remains
+open; this commit adds observability rather than claiming a behavior fix.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

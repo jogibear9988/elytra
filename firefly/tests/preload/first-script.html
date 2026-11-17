@@ -1,31 +1,51 @@
 <!doctype html>
 <script>
-  window.firstScriptOK =
-    window.name === 'FIREFLY_WORLD_READY:' + location.href &&
-    typeof __fireflyIsolatedMarker === 'undefined' &&
-    !{}.__fireflyWorldOnly &&
-    typeof __fireflyCopySource === 'undefined' &&
-    typeof __fireflyDataProbe === 'object' &&
-    __fireflyDataProbe.answer === 42 &&
-    __fireflyDataProbe.nested[0] === true &&
-    Object.getPrototypeOf(__fireflyDataProbe) === Object.prototype &&
-    Object.getPrototypeOf(__fireflyDataProbe.nested) === Array.prototype &&
-    Object.isFrozen(__fireflyDataProbe) &&
-    Object.isFrozen(__fireflyDataProbe.nested) &&
-    (() => {
-      const r = __fireflyFunctionProbe({ n: 41 });
-      return (
-        r.answer === 42 &&
-        r.ownThis &&
-        r.ownPrototype &&
-        r.frozen &&
-        Object.isFrozen(r) &&
-        Object.getPrototypeOf(r) === Object.prototype &&
+  // Keep each required boundary independently observable in hosted renderer CI.
+  // Report only fixed check names, never window names, URLs or page values.
+  let functionResult;
+  const earlyChecks = [
+    ['window-name', () => window.name === 'FIREFLY_WORLD_READY:' + location.href],
+    ['private-global', () => typeof __fireflyIsolatedMarker === 'undefined'],
+    ['private-prototype', () => !{}.__fireflyWorldOnly],
+    ['private-source', () => typeof __fireflyCopySource === 'undefined'],
+    ['copied-object', () => typeof __fireflyDataProbe === 'object'],
+    ['copied-value', () => __fireflyDataProbe.answer === 42],
+    ['copied-nested-value', () => __fireflyDataProbe.nested[0] === true],
+    ['object-prototype', () => Object.getPrototypeOf(__fireflyDataProbe) === Object.prototype],
+    ['array-prototype', () => Object.getPrototypeOf(__fireflyDataProbe.nested) === Array.prototype],
+    ['frozen-object', () => Object.isFrozen(__fireflyDataProbe)],
+    ['frozen-array', () => Object.isFrozen(__fireflyDataProbe.nested)],
+    [
+      'function-value',
+      () => {
+        functionResult = __fireflyFunctionProbe({ n: 41 });
+        return functionResult.answer === 42;
+      }
+    ],
+    ['function-receiver', () => functionResult.ownThis],
+    ['function-prototype', () => functionResult.ownPrototype],
+    ['function-input-frozen', () => functionResult.frozen],
+    ['function-result-frozen', () => Object.isFrozen(functionResult)],
+    ['function-result-prototype', () => Object.getPrototypeOf(functionResult) === Object.prototype],
+    [
+      'function-constructor-isolation',
+      () =>
         __fireflyFunctionProbe.constructor('return typeof __fireflyIsolatedMarker')() ===
-          'undefined'
-      );
-    })() &&
-    ['process', 'require', 'Buffer'].every((k) => !(k in globalThis));
+        'undefined'
+    ],
+    [
+      'no-native-capabilities',
+      () => ['process', 'require', 'Buffer'].every((k) => !(k in globalThis))
+    ]
+  ];
+  window.firstScriptFailures = earlyChecks.flatMap(([name, check]) => {
+    try {
+      return check() ? [] : [name];
+    } catch {
+      return [name + ':throws'];
+    }
+  });
+  window.firstScriptOK = firstScriptFailures.length === 0;
 </script>
 <meta charset="utf-8" />
 <title>Renderer early-world proof</title>
@@ -34,6 +54,6 @@
   <script>
     document.querySelector('#status').textContent = firstScriptOK
       ? 'BEFORE_SCRIPT_OK'
-      : 'BEFORE_SCRIPT_MISSING';
+      : 'BEFORE_SCRIPT_MISSING:' + firstScriptFailures.join(',');
   </script>
 </body>
