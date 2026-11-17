@@ -42,23 +42,26 @@ def main():
             failures += 1
             print("Node:", results[0])
             print("Mite:", results[1])
-    results = [
-        subprocess.run(
-            [exe, str(root / "null-byte.mjs")], capture_output=True, text=True, timeout=10
-        )
-        for exe in [args.node, args.mite]
-    ]
-    expected = [
-        '{"address":"127.0.0.1","family":4}\n',
-        '{"code":"ENOTFOUND","syscall":"getaddrinfo","hostname":"127.0.0.1\\u0000ignored"}\n',
-    ]
-    passed = all(
-        r.returncode == 0 and not r.stderr and r.stdout == e for r, e in zip(results, expected)
+    node_version = subprocess.run(
+        [args.node, "--version"], capture_output=True, text=True, timeout=10, check=True
+    ).stdout.strip()
+    modern = (
+        "PASS DNS callback NUL rejects before callback/options/native lookup\n"
+        "PASS DNS Promise NUL rejects synchronously before option access\n"
+        "PASS DNS valid callback and non-NUL validation retain documented scheduling\n"
     )
-    print(f"{'PASS' if passed else 'FAIL'} recorded DNS embedded-NUL rejection difference")
-    if not passed:
-        print(results)
-    failures += int(not passed)
+    for exe, reference in [(args.node, True), (args.mite, False)]:
+        legacy = reference and node_version == "v24.15.0"
+        command = [exe, str(root / "null-byte.mjs")]
+        if legacy:
+            command.append("--node-24.15-reference")
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        expected = "PASS exact Node24.15 embedded-NUL prefix reference\n" if legacy else modern
+        passed = result.returncode == 0 and not result.stderr and result.stdout == expected
+        print(f"{'PASS' if passed else 'FAIL'} strict DNS embedded-NUL contract ({Path(exe).name})")
+        if not passed:
+            print(result)
+        failures += int(not passed)
     for name, message in [
         ("fatal.cjs", "resolver callback failed"),
         ("pending-fatal.cjs", "fatal with pending resolver"),

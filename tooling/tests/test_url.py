@@ -211,6 +211,9 @@ def main():
         builtin.URL===URL,Object.prototype.toString.call(new URL('http://x')),
         Object.prototype.toString.call(new URLSearchParams()),new URL('http://x').toJSON()]""",
     )
+    node_version = subprocess.run(
+        [args.node, "--version"], capture_output=True, text=True, timeout=10, check=True
+    ).stdout.strip()
     source = """import builtin,{URL as ImportedURL,URLSearchParams as ImportedParams} from 'node:url';
 function snapshot(u){return [u.href,u.protocol,u.username,u.password,u.host,u.hostname,u.port,u.pathname,u.search,u.hash,u.origin,[...u.searchParams]];}
 function emit(label,fn){try{console.log(JSON.stringify([label,{value:fn()}]));}catch(e){console.log(JSON.stringify([label,{error:e.name,code:e.code,input:e.input,base:e.base}]));}}
@@ -231,6 +234,16 @@ function emit(label,fn){try{console.log(JSON.stringify([label,{value:fn()}]));}c
         ]
         differences = 0
         for node, mite in zip(expected, actual):
+            if node[0] == "params constructor null":
+                # Only the exact audited older oracle treats null as no input.
+                # Mite always implements the modern/spec string conversion.
+                modern = ["params constructor null", {"value": ["null=", [["null", ""]], 1]}]
+                legacy = ["params constructor null", {"value": ["", [], 0]}]
+                reference = legacy if node_version == "v24.15.0" else modern
+                if node != reference or mite != modern:
+                    differences += 1
+                    print(f"FAIL strict null constructor: Node={node!r} Mite={mite!r}")
+                continue
             if node != mite:
                 differences += 1
                 if differences <= 25:

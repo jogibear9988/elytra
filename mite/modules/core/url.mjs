@@ -61,13 +61,13 @@ export default function createUrlModule(host) {
 
   /** Keep parameters live with their associated URL while owning independent iterable state. */
   class URLSearchParams {
-    constructor(init = '') {
+    constructor(init = undefined) {
       const value = { list: [], url: null };
       params.set(this, value);
-      if (init == null) {
+      if (init === undefined) {
         return;
       }
-      if (typeof init === 'object' || typeof init === 'function') {
+      if (init !== null && (typeof init === 'object' || typeof init === 'function')) {
         const iterator = init[Symbol.iterator];
         if (iterator !== undefined && iterator !== null) {
           if (typeof iterator !== 'function') {

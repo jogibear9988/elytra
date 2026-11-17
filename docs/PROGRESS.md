@@ -15786,6 +15786,23 @@ abort/trailer controls. Log: build/current-compression-controls.log. No SDK buil
 GUI run or change to the user's open Code-OSS. Windows rerun remains required;
 full goal remains active.
 
+## Modern URL null conversion and early DNS NUL validation (2026-11-17)
+
+Explicit URLSearchParams(null) stringifies to one null= pair; undefined remains
+empty. DNS callback and Promise lookup reject embedded NUL with TypeError/
+ERR_INVALID_ARG_VALUE before any option getter, callback or native request.
+Promise NUL rejection is synchronous; retain the existing async body for other
+validation so this slice does not silently broaden timing changes. Keep native
+resolver guards. Exact old Node24.15.0 empty-null/prefix-resolution behavior is
+asserted separately; Mite and modern reference must satisfy strict modern results.
+
+Regenerate only maintained source products. Actual source-factory controls and
+Release CLI/embedded build pass. Full1013 URL comparisons and complete DNS native
+lookup/net/custom/cancel/refusal/errors/NUL/fatal/pending/loop-responsive runner
+against official Node24.22.3 pass on macOS. Logs: build/current-url-controls.log,
+build/current-dns-controls.log. Native Windows rerun remains required. No SDK/GUI
+changes; open user app is untouched. Full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

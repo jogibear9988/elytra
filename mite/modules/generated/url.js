@@ -1522,13 +1522,13 @@ function createUrlModule(host) {
     }
   }
   class URLSearchParams {
-    constructor(init = "") {
+    constructor(init = void 0) {
       const value = { list: [], url: null };
       params.set(this, value);
-      if (init == null) {
+      if (init === void 0) {
         return;
       }
-      if (typeof init === "object" || typeof init === "function") {
+      if (init !== null && (typeof init === "object" || typeof init === "function")) {
         const iterator2 = init[Symbol.iterator];
         if (iterator2 !== void 0 && iterator2 !== null) {
           if (typeof iterator2 !== "function") {

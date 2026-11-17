@@ -83,17 +83,25 @@ export default function createDnsModule(host) {
     return lookupError;
   }
 
+  function validateNullHostname(hostname) {
+    if (typeof hostname === 'string' && hostname.includes('\0')) {
+      throw createError(TypeError, 'ERR_INVALID_ARG_VALUE', 'hostname must not contain null bytes');
+    }
+  }
+
   /** Numeric/empty-host fast paths still deliver callbacks through nextTick. */
   function lookup(hostname, opts, callback) {
+    // Validate before reading options or scheduling any native resolver work.
+    if (hostname && typeof hostname !== 'string') {
+      throw createError(TypeError, 'ERR_INVALID_ARG_TYPE', 'hostname must be a string');
+    }
+    validateNullHostname(hostname);
     if (typeof opts === 'function') {
       callback = opts;
       opts = undefined;
     }
     if (typeof callback !== 'function') {
       throw createError(TypeError, 'ERR_INVALID_ARG_TYPE', 'callback must be a function');
-    }
-    if (hostname && typeof hostname !== 'string') {
-      throw createError(TypeError, 'ERR_INVALID_ARG_TYPE', 'hostname must be a string');
     }
     const config = normalizeLookupOptions(opts);
     if (!hostname) {
@@ -118,8 +126,8 @@ export default function createDnsModule(host) {
       return {};
     }
     // Pass ASCII to OS resolution while preserving the caller's original
-    // hostname in any error. Embedded NUL must never resolve a prefix.
-    let normalized = hostname.includes('\0') ? '' : domainToASCII(hostname);
+    // hostname in any error. Embedded NUL was rejected before all fast paths.
+    const normalized = domainToASCII(hostname);
 
     const complete = (status, values) => {
       if (status) {
@@ -155,22 +163,29 @@ export default function createDnsModule(host) {
     return defaultOrder;
   }
 
+  async function lookupPromise(hostname, opts) {
+    // Node's Promise API rejects family strings although its callback API
+    // accepts the legacy IPv4/IPv6 aliases.
+    if (opts && typeof opts === 'object' && typeof opts.family === 'string') {
+      throw createError(TypeError, 'ERR_INVALID_ARG_VALUE', 'Invalid address family');
+    }
+    return new Promise((resolve, reject) =>
+      lookup(hostname, opts, (e, address, family) => {
+        if (e) {
+          reject(e);
+        } else {
+          resolve(Array.isArray(address) ? address : { address, family });
+        }
+      })
+    );
+  }
+
   const promises = {
-    lookup: async (hostname, opts) => {
-      // Node's Promise API rejects family strings although its callback API
-      // accepts the legacy IPv4/IPv6 aliases.
-      if (opts && typeof opts === 'object' && typeof opts.family === 'string') {
-        throw createError(TypeError, 'ERR_INVALID_ARG_VALUE', 'Invalid address family');
-      }
-      return new Promise((resolve, reject) =>
-        lookup(hostname, opts, (e, address, family) => {
-          if (e) {
-            reject(e);
-          } else {
-            resolve(Array.isArray(address) ? address : { address, family });
-          }
-        })
-      );
+    lookup: (hostname, opts) => {
+      // Match modern Node's synchronous NUL rejection without changing other
+      // existing Promise validation/error scheduling in this narrow slice.
+      validateNullHostname(hostname);
+      return lookupPromise(hostname, opts);
     },
 
     setDefaultResultOrder,

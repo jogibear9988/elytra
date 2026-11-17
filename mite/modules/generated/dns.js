@@ -76,16 +76,22 @@ function createDnsModule(host) {
     lookupError.hostname = hostname;
     return lookupError;
   }
+  function validateNullHostname(hostname) {
+    if (typeof hostname === "string" && hostname.includes("\0")) {
+      throw createError(TypeError, "ERR_INVALID_ARG_VALUE", "hostname must not contain null bytes");
+    }
+  }
   function lookup(hostname, opts, callback) {
+    if (hostname && typeof hostname !== "string") {
+      throw createError(TypeError, "ERR_INVALID_ARG_TYPE", "hostname must be a string");
+    }
+    validateNullHostname(hostname);
     if (typeof opts === "function") {
       callback = opts;
       opts = void 0;
     }
     if (typeof callback !== "function") {
       throw createError(TypeError, "ERR_INVALID_ARG_TYPE", "callback must be a function");
-    }
-    if (hostname && typeof hostname !== "string") {
-      throw createError(TypeError, "ERR_INVALID_ARG_TYPE", "hostname must be a string");
     }
     const config = normalizeLookupOptions(opts);
     if (!hostname) {
@@ -102,7 +108,7 @@ function createDnsModule(host) {
       );
       return {};
     }
-    let normalized = hostname.includes("\0") ? "" : domainToASCII(hostname);
+    const normalized = domainToASCII(hostname);
     const complete = (status2, values) => {
       if (status2) {
         callback(createLookupError(status2, hostname));
@@ -130,20 +136,24 @@ function createDnsModule(host) {
   function getDefaultResultOrder() {
     return defaultOrder;
   }
+  async function lookupPromise(hostname, opts) {
+    if (opts && typeof opts === "object" && typeof opts.family === "string") {
+      throw createError(TypeError, "ERR_INVALID_ARG_VALUE", "Invalid address family");
+    }
+    return new Promise(
+      (resolve, reject) => lookup(hostname, opts, (e, address, family) => {
+        if (e) {
+          reject(e);
+        } else {
+          resolve(Array.isArray(address) ? address : { address, family });
+        }
+      })
+    );
+  }
   const promises = {
-    lookup: async (hostname, opts) => {
-      if (opts && typeof opts === "object" && typeof opts.family === "string") {
-        throw createError(TypeError, "ERR_INVALID_ARG_VALUE", "Invalid address family");
-      }
-      return new Promise(
-        (resolve, reject) => lookup(hostname, opts, (e, address, family) => {
-          if (e) {
-            reject(e);
-          } else {
-            resolve(Array.isArray(address) ? address : { address, family });
-          }
-        })
-      );
+    lookup: (hostname, opts) => {
+      validateNullHostname(hostname);
+      return lookupPromise(hostname, opts);
     },
     setDefaultResultOrder,
     getDefaultResultOrder

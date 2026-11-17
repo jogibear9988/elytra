@@ -63,10 +63,12 @@ full timeout/error metadata, interface scope resolution and native Windows/Linux
 remain unverified. Retry behavior is a partial implementation, not proof of
 complete Node Happy Eyeballs parity or every connection race.
 
-Embedded NUL in a hostname is deliberately rejected with ENOTFOUND before OS
-submission. Node v24.15.0 instead resolves the prefix in the recorded numeric
-fixture. Both outputs are independently asserted as a known difference; this is
-not counted as a matching workflow. Empty-host compatibility remains available,
+Updated 2026-11-17: embedded NUL in a hostname throws TypeError with
+ERR_INVALID_ARG_VALUE before options access, callback scheduling or OS submission,
+including synchronous rejection by dns.promises.lookup, matching Node24.22.3.
+Node24.15.0 instead resolves the prefix in the exact recorded fixture; only that
+old reference gets a separately asserted exception. Mite always rejects the whole
+invalid hostname. Other existing Promise validation timing remains partial. Empty-host compatibility remains available,
 but Node's deprecation warning is omitted. Request-wrapper metadata/cancellation
 is not exposed; destroying a socket ignores late resolution but cannot stop an
 in-flight getaddrinfo. The last attempt relies on the OS connect deadline.
