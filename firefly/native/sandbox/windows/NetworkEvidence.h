@@ -66,24 +66,45 @@ inline bool matches(FWPM_NET_EVENT3 const& event, Identity const& identity)
 
 // Diagnostic admission deliberately does not require a package SID. Missing
 // or unequal SID is recorded, never promoted to strict acceptance by matches().
-inline bool diagnostic_matches(FWPM_NET_EVENT3 const& event, Identity const& identity)
+enum class DiagnosticStage : size_t {
+    Type,
+    Flags,
+    Protocol,
+    Target,
+    Application,
+    Time,
+    Match,
+    Count
+};
+
+inline DiagnosticStage diagnostic_stage(FWPM_NET_EVENT3 const& event, Identity const& identity)
 {
     auto const& header = event.header;
-    constexpr UINT32 required = FWPM_NET_EVENT_FLAG_IP_PROTOCOL_SET
-        | FWPM_NET_EVENT_FLAG_IP_VERSION_SET | FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET
-        | FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET | FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET
-        | FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET | FWPM_NET_EVENT_FLAG_APP_ID_SET;
     bool drop = (event.type == FWPM_NET_EVENT_TYPE_CAPABILITY_DROP && event.capabilityDrop)
         || (event.type == FWPM_NET_EVENT_TYPE_CLASSIFY_DROP && event.classifyDrop);
 
-    return drop && (header.flags & required) == required && header.ipVersion == FWP_IP_VERSION_V4
-        && header.ipProtocol == IPPROTO_TCP && header.localAddrV4 == INADDR_LOOPBACK
-        && header.remoteAddrV4 == INADDR_LOOPBACK && header.localPort != 0
-        && header.remotePort == identity.remote_port
-        && header.appId.size == identity.application.size && header.appId.data
-        && std::memcmp(header.appId.data, identity.application.data, header.appId.size) == 0
-        && timestamp(header.timeStamp) >= identity.begin
-        && timestamp(header.timeStamp) <= identity.end;
+    if (!drop)
+        return DiagnosticStage::Type;
+    constexpr UINT32 required = FWPM_NET_EVENT_FLAG_IP_PROTOCOL_SET
+        | FWPM_NET_EVENT_FLAG_IP_VERSION_SET | FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET
+        | FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET | FWPM_NET_EVENT_FLAG_APP_ID_SET;
+    if ((header.flags & required) != required)
+        return DiagnosticStage::Flags;
+    if (header.ipVersion != FWP_IP_VERSION_V4 || header.ipProtocol != IPPROTO_TCP)
+        return DiagnosticStage::Protocol;
+    if (header.remoteAddrV4 != INADDR_LOOPBACK || header.remotePort != identity.remote_port)
+        return DiagnosticStage::Target;
+    if (header.appId.size != identity.application.size || !header.appId.data
+        || std::memcmp(header.appId.data, identity.application.data, header.appId.size) != 0)
+        return DiagnosticStage::Application;
+    if (timestamp(header.timeStamp) < identity.begin || timestamp(header.timeStamp) > identity.end)
+        return DiagnosticStage::Time;
+    return DiagnosticStage::Match;
+}
+
+inline bool diagnostic_matches(FWPM_NET_EVENT3 const& event, Identity const& identity)
+{
+    return diagnostic_stage(event, identity) == DiagnosticStage::Match;
 }
 
 struct Record {
@@ -103,6 +124,14 @@ struct Diagnostic {
     bool loopback;
     UINT16 layer;
     UINT32 direction;
+    char const* local_address_class;
+    bool local_port_present;
+};
+
+struct Option {
+    DWORD status;
+    UINT32 type;
+    UINT32 value;
 };
 
 inline std::string guid(GUID const& value)
@@ -144,15 +173,15 @@ public:
                     == ERROR_SUCCESS,
                 "WFP engine open (read/subscribe rights required)");
 
-            FWP_VALUE0* value = nullptr;
-            auto status = FwpmEngineGetOption0(m_engine, FWPM_ENGINE_COLLECT_NET_EVENTS, &value);
+            m_collection = read_option(FWPM_ENGINE_COLLECT_NET_EVENTS);
+            // Read only. SDK defines CAPABILITY_DROP as keyword bit 0x4;
+            // do not infer its collection state from the generic enable flag.
+            // https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/shared/fwpmtypes.h
+            m_keywords = read_option(FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS);
 
-            bool enabled = status == ERROR_SUCCESS && value && value->type == FWP_UINT32
-                && value->uint32 == 1;
-            if (value)
-                FwpmFreeMemory0(reinterpret_cast<void**>(&value));
-
-            check(enabled, "WFP collection disabled/unreadable; no global setting changed");
+            check(m_collection.status == ERROR_SUCCESS && m_collection.type == FWP_UINT32
+                    && m_collection.value == 1,
+                "WFP collection disabled/unreadable; no global setting changed");
 
             check(FwpmGetAppIdFromFileName0(image, &m_application) == ERROR_SUCCESS,
                 "WFP exact worker application identity");
@@ -274,7 +303,8 @@ public:
                 << ",\"timestamp\":\"" << item.record.time
                 << "\",\"sidPresent\":" << item.sid_present << ",\"sidEqual\":" << item.sid_equal
                 << ",\"loopback\":" << item.loopback << ",\"layer\":" << item.layer
-                << ",\"direction\":" << item.direction
+                << ",\"direction\":" << item.direction << ",\"localAddressClass\":\""
+                << item.local_address_class << "\",\"localPortPresent\":" << item.local_port_present
                 << ",\"capability\":" << item.record.capability
                 << ",\"strictAccepted\":" << item.accepted << ",\"filterId\":\""
                 << item.record.filter << "\",\"filter\":";
@@ -287,7 +317,60 @@ public:
         return out.str();
     }
 
+    std::string observation()
+    {
+        check(!m_subscription, "WFP counters read only after callback drain");
+
+        std::ostringstream out;
+        auto option = [&](Option const& value) {
+            out << "{\"status\":" << value.status << ",\"type\":" << value.type
+                << ",\"value\":" << value.value << '}';
+        };
+
+        out << std::boolalpha << "{\"collection\":";
+        option(m_collection);
+
+        out << ",\"keywords\":";
+        option(m_keywords);
+
+        out << ",\"capabilityDropKeyword\":" << FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP
+            << ",\"capabilityDropEnabled\":"
+            << (m_keywords.status == ERROR_SUCCESS && m_keywords.type == FWP_UINT32
+                   && (m_keywords.value & FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP) != 0)
+            << ",\"callbacks\":" << m_callbacks << ",\"null\":" << m_null
+            << ",\"unarmed\":" << m_unarmed << ",\"overflow\":" << m_overflow << ",\"stages\":{";
+        constexpr char const* labels[] { "type", "flags", "protocol", "target", "application",
+            "time", "matched" };
+        for (size_t i = 0; i < m_stages.size(); ++i) {
+            if (i)
+                out << ',';
+            out << '"' << labels[i] << "\":" << m_stages[i];
+        }
+
+        out << "}}";
+        return out.str();
+    }
+
 private:
+    Option read_option(FWPM_ENGINE_OPTION option)
+    {
+        FWP_VALUE0* value = nullptr;
+        auto status = FwpmEngineGetOption0(m_engine, option, &value);
+
+        Option result { status, static_cast<UINT32>(FWP_EMPTY), 0 };
+        if (status == ERROR_SUCCESS && value) {
+            result.type = static_cast<UINT32>(value->type);
+
+            if (value->type == FWP_UINT32)
+                result.value = value->uint32;
+        }
+
+        if (value)
+            FwpmFreeMemory0(reinterpret_cast<void**>(&value));
+
+        return result;
+    }
+
     static void check(bool value, char const* message)
     {
         if (!value)
@@ -300,9 +383,32 @@ private:
 
         std::lock_guard lock(self.m_mutex);
 
+        auto increment = [](UINT32& value) {
+            if (value < 65535)
+                ++value;
+        };
+
+        increment(self.m_callbacks);
+
+        if (!event) {
+            increment(self.m_null);
+
+            return;
+        }
+
+        if (self.m_begin == 0) {
+            increment(self.m_unarmed);
+
+            return;
+        }
+
         Identity identity { self.m_package.data(), *self.m_application, self.m_port, self.m_begin,
             self.m_end };
-        if (!event || self.m_begin == 0 || !diagnostic_matches(*event, identity))
+        auto stage = diagnostic_stage(*event, identity);
+
+        increment(self.m_stages[static_cast<size_t>(stage)]);
+
+        if (stage != DiagnosticStage::Match)
             return;
         if (self.m_count == self.m_records.size()) {
             self.m_overflow = true;
@@ -321,7 +427,13 @@ private:
         result.sid_present = present;
         result.sid_equal = present && EqualSid(event->header.packageSid, identity.package);
 
-        result.record.local_port = event->header.localPort;
+        result.local_port_present = (event->header.flags & FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET) != 0;
+        result.record.local_port = result.local_port_present ? event->header.localPort : 0;
+        result.local_address_class = !(event->header.flags & FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET)
+            ? "missing"
+            : event->header.localAddrV4 == INADDR_ANY      ? "any"
+            : event->header.localAddrV4 == INADDR_LOOPBACK ? "loopback"
+                                                           : "other";
         result.record.time = timestamp(event->header.timeStamp);
 
         if (event->type == FWPM_NET_EVENT_TYPE_CAPABILITY_DROP) {
@@ -482,5 +594,11 @@ private:
     std::array<Diagnostic, 8> m_records {};
     size_t m_count { 0 };
     bool m_overflow { false };
+    Option m_collection {};
+    Option m_keywords {};
+    UINT32 m_callbacks { 0 };
+    UINT32 m_null { 0 };
+    UINT32 m_unarmed { 0 };
+    std::array<UINT32, static_cast<size_t>(DiagnosticStage::Count)> m_stages {};
 };
 }

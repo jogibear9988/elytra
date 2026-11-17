@@ -160,6 +160,12 @@ def exercise(probe, artifacts, mode):
                     )
                     envelope = json.loads(stdout)
                     assert envelope["childExit"] == process.returncode, envelope
+                    observation = envelope["kernel"]["observation"]
+                    assert isinstance(observation, dict), observation
+                    print(
+                        "Native WFP observation counters:",
+                        json.dumps(observation, separators=(",", ":")),
+                    )
                     diagnostics = envelope["kernel"]["diagnostics"]
                     assert isinstance(diagnostics, list) and len(diagnostics) <= 8, diagnostics
                     print(

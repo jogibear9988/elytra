@@ -388,6 +388,11 @@ acceptance still fails because the exact capability-drop list is empty. This is
 useful compiler/API evidence, not a network-isolation proof or a green component.
 The next diagnostic step inspects only bounded matching event/filter metadata;
 missing evidence must never be converted into a successful denial assertion.
+Read-only collection/keyword-mask values and saturated rejection-stage counters
+now distinguish absent callbacks from event-field mismatches. Diagnostic records
+can classify an unspecified pre-connect local address; that never relaxes the
+strict accepted-event predicate. These observations still require native results.
+
 
 ## Owned helper and desktop-provider integration (2026-11-17)
 

@@ -16333,6 +16333,24 @@ ActualWindowscompile/run of newdiagnostics PENDING. Nativeasset2a1 green remains
 independent; fullrenderer/WindowsEXE/release requirements unchanged. No localGUI.
 Fullgoalactive.
 
+## Distinguish absent WFP callbacks from rejected native event fields (2026-11-17)
+
+Actualdda componentjob133999186089 compiles/runs but exactevents ANDscopeddiagnostics
+areempty; do notinfer cause or pass. Add read-only collection/keyword option status,
+type/value and SDKdocumented CAPABILITY_DROP bit4; noSetOption. Saturated65535stage
+counters identify no callbacks vsnull/unarmed/type/flags/protocol/target/AppId/time
+refusal without exposing rejected events. Diagnosticlocaladdress mayAny/other/
+missing andlocalportmaymissing/zero; logfixedclass/presence only. ExactAppId/IPv4TCP/
+remote127/ownedport/time remainrequired torecord details. ONE8record bound,
+fixed2sstrictgrace, read-onlyfilter introspection and reportbeforeassert retained.
+
+Strictnative matches bytes and PythonacceptanceAST independentlyUNCHANGED. New
+nativecontrols showdiagnosticwildcards cannotaccept. Fivenewsource+fourevidence
+controlgroups PASS, pinnednative/Pythonformat+diff PASS. FreshWindowscompile/run
+pending. Separately mac493 actuallypasses164CLI andSDKcompile, then a distinctGPU
+fixture still expectsremovedcompositorflag; productionfix is notimplied and an
+observer-only correction is inprogress. No localGUI/SDK tests; fullgoalactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

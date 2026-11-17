@@ -100,9 +100,8 @@ class NetworkEvidenceSource(unittest.TestCase):
             "filter->numFilterConditions && i < 16",
             "m_records[i].accepted",
             "WFP metadata read only after callback drain",
-            "header.localAddrV4 == INADDR_LOOPBACK",
-            "header.remoteAddrV4 == INADDR_LOOPBACK",
-            "header.remotePort == identity.remote_port",
+            "header.remoteAddrV4 != INADDR_LOOPBACK",
+            "header.remotePort != identity.remote_port",
         ):
             self.assertIn(required, self.header)
         for forbidden in (
@@ -118,6 +117,40 @@ class NetworkEvidenceSource(unittest.TestCase):
         )
         self.assertNotIn(
             "diagnostics",
+            self.runner[
+                self.runner.index("def network_evidence(") : self.runner.index("def line(")
+            ],
+        )
+
+    def test_read_only_options_and_bounded_stage_counters(self):
+        self.assertIn(
+            'event->header.localAddrV4 == INADDR_ANY ? "any"', " ".join(self.header.split())
+        )
+        for required in (
+            "m_keywords = read_option(FWPM_ENGINE_NET_EVENT_MATCH_ANY_KEYWORDS)",
+            "m_collection = read_option(FWPM_ENGINE_COLLECT_NET_EVENTS)",
+            "FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP",
+            "if (value < 65535)",
+            "DiagnosticStage::Application",
+            "DiagnosticStage::Time",
+            "DiagnosticStage::Target",
+            "result.local_port_present ? event->header.localPort : 0",
+            "WFP counters read only after callback drain",
+        ):
+            self.assertIn(required, self.header)
+        for required in (
+            "diagnostic local ANY never grants acceptance",
+            "diagnostic missing local fields never grants acceptance",
+        ):
+            self.assertIn(required, self.probe)
+        diagnostic = self.header.split("inline DiagnosticStage diagnostic_stage", 1)[1].split(
+            "struct Record", 1
+        )[0]
+        self.assertNotIn("FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET", diagnostic)
+        self.assertNotIn("FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET", diagnostic)
+        self.assertIn("std::memcmp(header.appId.data", diagnostic)
+        self.assertNotIn(
+            "observation",
             self.runner[
                 self.runner.index("def network_evidence(") : self.runner.index("def line(")
             ],

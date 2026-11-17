@@ -187,6 +187,17 @@ void wfp_evidence_controls()
     header.timeStamp.dwLowDateTime = 150;
     require(SandboxNetworkProbe::matches(event, identity), "exact WFP predicate control");
     require(SandboxNetworkProbe::diagnostic_matches(event, identity), "exact WFP diagnostic tuple");
+    auto local_any = event;
+    local_any.header.localAddrV4 = INADDR_ANY;
+    require(SandboxNetworkProbe::diagnostic_matches(local_any, identity)
+            && !SandboxNetworkProbe::matches(local_any, identity),
+        "diagnostic local ANY never grants acceptance");
+    auto local_missing = event;
+    local_missing.header.flags
+        &= ~(FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET | FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET);
+    require(SandboxNetworkProbe::diagnostic_matches(local_missing, identity)
+            && !SandboxNetworkProbe::matches(local_missing, identity),
+        "diagnostic missing local fields never grants acceptance");
     auto no_sid = event;
     no_sid.header.packageSid = nullptr;
     no_sid.header.flags &= ~FWPM_NET_EVENT_FLAG_PACKAGE_ID_SET;
@@ -560,7 +571,8 @@ int run_probe(int argc, wchar_t** argv)
                       << record.filter << "\",\"capability\":" << record.capability << '}';
         }
 
-        std::cout << "],\"diagnostics\":" << network_observer->diagnostics() << "}}\n"
+        std::cout << "],\"diagnostics\":" << network_observer->diagnostics()
+                  << ",\"observation\":" << network_observer->observation() << "}}\n"
                   << std::flush;
         network_observer.reset(); // Revoke observer before Child/Profile retirement.
     } else {
