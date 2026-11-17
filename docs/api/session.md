@@ -62,6 +62,8 @@ Accept a function or null. The function receives
 Details contain the native requestingUrl and isMainFrame; microphone requests add
 mediaTypes containing audio. The request path is separate from permission checks:
 a denied check must not suppress an otherwise valid application request callback.
+A positive query does not authorize a later request. An active owned session with
+no request handler denies that request, even when its check handler returns true.
 Configure both handlers for a consistent application policy.
 
 An asynchronous decision belongs to its original active document and policy
@@ -106,7 +108,7 @@ privacy entitlement or implements a missing device backend.
   results, notification delivery or microphone/camera access.
 
 fromPartition, fromPath, custom BrowserWindow partitions/sessions, cookies,
-webRequest, display-media request handlers, download APIs and wider session methods
+display-media request handlers, download APIs and wider session methods
 remain unimplemented. A requested custom partition is never silently routed through
 the default session. The [architecture decision](../architecture/0178-session-permissions.md)
 describes the native boundary and acceptance gates.

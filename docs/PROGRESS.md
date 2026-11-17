@@ -16061,6 +16061,20 @@ Windows integration out of this commit. No native rebuild or GUI launch is neede
 for whitespace-only edits. Hosted source CI will re-run on push; native CLI,
 renderer and release runs remain independently pending. Full goal stays active.
 
+## Replace stale status claims with current scoped evidence (2026-11-17)
+
+Replace the713-line accumulated status narrative with one current platform,
+Code-OSS, examples, API and release snapshot. Historical records remain in progress,
+ADRs and compatibility references. Explicitly separate new9803 CLI acceptance from
+the precedingb872 SDK/visible Welcome result. Keep native Windows/package and fresh
+hosted gates pending; publishedalpha2 is unchanged. Correct obsolete worker,
+dialog, webRequest and workbench absence claims without broadening their scoped
+acceptance. Session docs now state a positive permission query never grants a
+request without a handler, and remove webRequest from the absent-API list. Security
+and troubleshooting guides link actual permission and process-error/inspection
+contracts. Site build366 documentation pages and all local resource/fragment links
+PASS; no runtime or GUI test needed for documentation-only changes. Goal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -30,9 +30,11 @@ do not establish universal Ladybird/Chromium web-platform parity.
 Electron's [security guidance](https://www.electronjs.org/docs/latest/tutorial/security)
 is a useful application-review baseline: minimize renderer privileges, validate
 communication/navigation decisions and keep shipped dependencies current. Firefly
-cannot yet implement all of Electron's permission/session/navigation controls. Methods
-such as permission handlers, navigation hooks, shell controls and additional bridge APIs
-must not be assumed present.
+implements document-bound [permission handlers](../api/session.md), selected
+[request filtering](../api/web-request.md) and bounded IPC; these remain partial.
+Default/reset permission policy denies, and a successful query alone does not
+authorize a request. Review each API contract before relying on navigation,
+shell or session behavior; full Electron security-control parity is unavailable.
 
 ## Native services and local HTTP
 

@@ -14,10 +14,10 @@ and compatibility matrices distinguish partial behavior from absent APIs.
 | Named CommonJS import is missing | Check whether its source uses a recognized static export pattern; computed names remain on the default/module.exports value. See the [namespace contract](../api/module.md#commonjs-named-exports-in-es-modules) |
 | A built-in property is undefined | Check the implemented export surface; whole-module Node parity is not promised |
 | Fetch/child_process/TLS mode rejects | Check the [Fetch](../api/fetch.md), [process](../api/child-process.md) or [TLS](../api/tls.md) partial contract; compression, execution modes and TLS options have explicit limits |
-| Console output is `[object Object]` | Node object inspection is absent; use an intentional JSON/string diagnostic |
+| Console output is `[object Object]` | Global console uses safe class labels; use the bounded [util.inspect](../api/util.md#bounded-inspection-and-formatting) contract for supported object inspection |
 | Process stays alive | Close servers/sockets/handles and inspect referenced timers/work; see async/resource lifetime |
 | Program exits before an unref timer runs | An unreferenced timer alone does not keep the event loop alive |
-| Nonzero exit after a Promise/callback failure | Handle the actual Promise/error callback; process exception/rejection event APIs are not implemented |
+| Nonzero exit after a Promise/callback failure | Handle the actual Promise/error callback; review the implemented [exception/rejection events](../api/process-errors.md), their default exit policy and listener failures |
 | `ERR_FIREFLY_NOT_READY` | Await app.whenReady before constructing BrowserWindow |
 | `ERR_FIREFLY_UNSUPPORTED_API` | Remove the unsupported option/mode and review the reference; ES module preloads/unsafe web preferences intentionally reject |
 | `ERR_FIREFLY_OBJECT_DESTROYED` | Stop using the window/webContents after destruction |
