@@ -14,6 +14,7 @@ CHECK = """\t\tconst libJSFlags = libJSExtensionHostPolicy(() => ({
             isBuilt: this._environmentService.isBuilt,
             debug: this._environmentService.debugExtensionHost,
             development: this._isExtensionDevHost,
+            developmentLocations: this._environmentService.extensionDevelopmentLocationURI,
             tests: this._environmentService.extensionTestsLocationURI
         }));
 """

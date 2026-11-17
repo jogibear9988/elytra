@@ -31,7 +31,8 @@ int run(int argc, char** argv, bool electron_compat)
         fputs("Missing inherited utility channel or entry\n", stderr);
         return 1;
     }
-    // Strip the executable-owned mode switch; modulePath remains argv[1].
+    // Strip only the executable-owned mode switch. Genuine supported Mite flags
+    // remain before modulePath for Runtime to parse and report in process.execArgv.
     std::vector<char*> arguments { argv[0] };
     for (int index = 2; index < argc; ++index)
         arguments.push_back(argv[index]);
@@ -103,8 +104,6 @@ int run(int argc, char** argv, bool electron_compat)
             "parentPort"_utf16, parent, JS::default_attributes);
         process.as_object().define_direct_property(
             "type"_utf16, JS::PrimitiveString::create(vm, "utility"_utf16), JS::default_attributes);
-        process.as_object().define_direct_property(
-            "execArgv"_utf16, TRY(JS::Array::create(realm, 0)), JS::default_attributes);
         diagnose("parent-installed");
         return {};
     };

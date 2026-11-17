@@ -627,6 +627,10 @@ if(BUILD_TESTING)
         COMMAND
             "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_crypto_random_int.py"
             --mite "$<TARGET_FILE:mite>")
+    add_test(NAME mite-expose-gc
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_expose_gc.py"
+                     --mite "$<TARGET_FILE:mite>")
+    set_tests_properties(mite-expose-gc PROPERTIES TIMEOUT 120 LABELS "runtime;gc")
     add_test(
         NAME mite-http-client
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tooling/tests/test_http_client.py"

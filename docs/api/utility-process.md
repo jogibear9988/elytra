@@ -50,7 +50,7 @@ and full Electron lifecycle parity remain unverified.
 | cwd | Optional child working directory. |
 | stdio | inherit by default; pipe and ignore also supported. A three-element array may independently select stdout/stderr, with stdin fixed to ignore. |
 | serviceName | Bounded UTF-8 label retained by the native child owner; defaults to Node Utility Process. Abnormal exits emit app child-process-gone with the actual PID and this name. App process metrics remain unsupported. |
-| execArgv | Empty array accepted; nonempty engine flags explicitly refused. |
+| execArgv | Omitted or [] selects no engine flags; exactly ['--expose-gc'] opts into the real Mite gc function. Other flags and duplicates fail before fork. |
 | allowLoadingUnsignedLibraries | Omitted/false accepted; enabling explicitly refused. |
 | respondToAuthRequestsFromMainProcess | Omitted/false accepted; enabling explicitly refused. |
 
@@ -68,6 +68,40 @@ a repeated request returns false. Application shutdown closes owned channels and
 terminates owned children. Native exit/reaping is independent of JavaScript wrapper
 reachability. A delivered message is not an acknowledgement that an application task
 completed; implement a reply protocol for that purpose.
+
+## Explicit garbage collection
+
+```js
+const child = utilityProcess.fork('./worker.mjs', [], {
+  execArgv: ['--expose-gc']
+});
+```
+
+This is a genuine child-runtime option. The native launcher places the supported
+flag before the entry module, and Mite enables its actual LibJS heap collector
+before initializing that module. The child can call `globalThis.gc()` under the
+same [native CLI gc contract](cli.md). This is not a V8 implementation or support
+for V8 collection modes/options.
+
+An ordinary child has no native global gc function. Omitted execArgv and [] do not
+inherit the parent's engine flags. With the opt-in, process.execArgv contains the
+actual `--expose-gc` argument; the utility bootstrap preserves Mite's value instead
+of overwriting it with an empty array. process.argv still contains only the
+executable, entry module and application arguments; the private utility-mode switch
+and engine flag do not become script arguments.
+
+Only one exact `--expose-gc` entry is accepted. `--inspect`, V8 tuning flags,
+`--expose-gc=1`, duplicate flags and other engine options remain explicitly refused
+with ERR_FIREFLY_UNSUPPORTED_API before spawning. The JS facade snapshots the list,
+and the native host independently checks its exact allowlist before allocating a
+child endpoint or calling the OS process launcher.
+
+The updated real-child utility suite passes locally on macOS with native Firefly:
+actual gc invocation, default absence, exact execArgv and script-argument separation,
+positive port handoff, and reaping a live child when its parent exits. The native
+Mite CLI additionally passes 30 focused controls. This new utility result has not
+been compared again with Electron; fresh Windows/Linux acceptance remains pending.
+Source-policy and strict native syntax checks also pass.
 
 ## Parent and child messages
 
@@ -151,8 +185,9 @@ A connection subsequently sends an actual MessageChannelMain endpoint into that
 child and transfers another endpoint to a renderer. Main-to-utility handoff now
 has actual native component acceptance, including the subsequent renderer/DOM relay.
 The default shared-process configuration also enables authentication forwarding,
-which is explicitly unsupported. These are separate blockers before running the
-actual shared-process services or a VS Code workbench.
+which is explicitly unsupported. The explicit local Code-OSS profile opts out of authentication forwarding and
+has reached SharedProcess IPC/overall readiness. That remains partial service
+startup, not complete shared-process functionality or a usable editor.
 
 See [ADR 0155](../architecture/0155-native-utility-processes.md),
 [main ports](message-channel-main.md) and [Code-OSS status](../compatibility/vscode.md).

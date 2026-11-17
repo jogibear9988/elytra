@@ -71,7 +71,9 @@ export default function createUtilityProcesses(
         unsupported(`utilityProcess option ${key}`);
       }
     }
-    if (options.execArgv !== undefined && strings(options.execArgv, 'execArgv').length) {
+    const inputFlags = options.execArgv;
+    const execArgv = inputFlags === undefined ? [] : strings(inputFlags, 'execArgv');
+    if (execArgv.length > 1 || execArgv.some((flag) => flag !== '--expose-gc')) {
       unsupported('utilityProcess engine command-line flags');
     }
     for (const key of ['allowLoadingUnsignedLibraries', 'respondToAuthRequestsFromMainProcess']) {
@@ -104,6 +106,7 @@ export default function createUtilityProcesses(
       file: process.execPath,
       entry: paths.resolve(modulePath),
       args: strings(args, 'args'),
+      execArgv,
       cwd: options.cwd === undefined ? '' : text(options.cwd, 'cwd'),
       env: environment,
       stdio: modes(options.stdio),

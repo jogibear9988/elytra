@@ -28,14 +28,13 @@ int wmain(int argc, wchar_t** wide_argv)
     // the CLI launcher's output pipes after this parent has already exited.
     // This is process-start policy, not an implicit change in embedded run().
     uv_disable_stdio_inheritance();
-    // The CRT text default turns every LF written by console.log/error into
-    // CRLF, including when output is a child-process pipe. Node writes these
-    // bytes unchanged. Set CLI-owned output descriptors before any diagnostics;
-    // embedded hosts retain control over their own CRT stream configuration.
-    for (auto* stream : { stdout, stderr }) {
+    // Preserve raw CLI pipe bytes: CRT text input translates CRLF/Ctrl-Z, and
+    // text output expands LF. Node leaves those bytes unchanged. Configure only
+    // CLI-owned descriptors; embedded hosts retain their own CRT stream policy.
+    for (auto* stream : { stdin, stdout, stderr }) {
         auto descriptor = _fileno(stream);
         if (descriptor >= 0 && _setmode(descriptor, _O_BINARY) == -1) {
-            fputs("mite: cannot configure binary CLI output\n", stderr);
+            fputs("mite: cannot configure binary CLI stdio\n", stderr);
             return 9;
         }
     }

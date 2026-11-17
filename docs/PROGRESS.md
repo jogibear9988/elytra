@@ -14891,6 +14891,71 @@ then fails the existing callback/preload first-script gate (BEFORE_SCRIPT_MISSIN
 That later native failure remains unresolved; do not promote SDK/master or claim
 release success from the restored compile. Keep previous10Windows gaps open too.
 
+## 2026-11-17 — Genuine GC flag and regular extension-test startup
+
+Implement exact --expose-gc with an explicit native OwnerSession capability,
+separate from execArgv metadata. Install real gc before embedding initialization;
+call ordinary LibJS Heap CollectGarbage, not CollectEverything. Default owners
+expose no gc. Syncgc()/gc(undefined) protect live roots/current-job weak targets
+and reclaim unreachable targets; options/async/minor/flavor/extraargs fail coded
+ERR_MITE_UNSUPPORTED_API without author getters. Preserve Mite's independence
+from Firefly/LibWeb/Node/V8 and the unmodifiedb872e601 pin.
+
+A real CLI differential exposes prefix-only parser insufficiency: Node still
+parses --expose-gc after -e/-p source until the first application argument or --.
+Replace prefix stripping with proper option/source ordering and preserve exact
+execArgv order/duplicates. Optional print must consume actual piped bytes, not
+invent an empty expression; distinguish explicit empty source, prior expression,
+filename and terminator boundaries. Read errors/interactiveREPL fail explicitly.
+Native Windows CLI selects binary stdin as well as output, preventing CRT
+CRLF/CtrlZ translation; embedded callers retain their CRT stream policy. Actual
+30Node/Mite controls pass onmacOS, including weak/root GC, argument ordering,
+piped/EOF/invalidCTRLZ input, options/refusal and POSIXread/TTY errors. New CTest
+mite-expose-gc is registered. Fresh Windows/Linux GC/CLI acceptance remains open.
+
+utilityProcess snapshots only empty/single--expose-gc execArgv; native spawn
+independently validates before creating endpoint/fork, places it after owned
+utilitymode and beforeentry, and bootstrap preserves actual Mite execArgv instead
+of overwriting[]. Default utilities do not inherit parentflags. Actual SDK build
+passes and real children prove gc opt-in/defaultabsence, exactexecArgv/appargs,
+parentPort, binaryIPC, stdio/lifecycle/failure and parent-exit reap. That first
+suite exposed a stale utility-port unsupported assertion predating real handoff:
+replace with genuine adoption, queued typed snapshots/FIFO/replies/close and old
+wrapper detachment in the shared fixture. The native Firefly rerun passes; no new
+Electron comparison or fresh platform claim. Evidence: expose-gc-{cli-controls,
+utility-controls,final-mite-build,final-firefly-build}.log.
+
+CA-17 now admits paired original local development paths/structuredfileURIs and
+tests while retaining genuine --expose-gc. Revalidate private mode/path provenance
+after async preparation; exact original flags must match, and no local paths are
+published. Explicit inspector/debug/profiler/V8 flags still reject; the status
+continues to disclose unavailable implicit inspector/network/DNS tuning. Forty
+actual policy cases pass in EACH Node/Mite runtime, including path/scheme/built/
+mode/flag/mutation refusals and untouched Node branches. Raw-switch cases now use
+sandbox:true, ensuring they test the switch instead of rejecting earlier policy.
+Pinned source reversal/missing/duplicate/drift controls pass. See ADR0201.
+
+Refresh only the reused owned Code-OSS stage/30-file overlay:12347real source
+files, original60builtin extensions and6package adapters remain verified; Finder
+metadata preserved, no orphan guard relaxed. Actual regular extension-test run
+now crosses the previous mode refusal. ExtensionHost47543 reaches
+$extensionTestsExecute→_doHandleExtensionTests, whose unchanged source waits on
+_eagerExtensionsActivated. This proves the startup/eager phase crossed, not that
+all60extensions activate. It then fails while importing the actual ESM test runner:
+Unsupported module URL scheme:data, emitted by Mite for the original vscode hook's
+standard base64JS URL. Implement neutral data-URL modules next; no Code-OSS guard,
+fake vscode module or success result. Open/edit/save remains unaccepted. Actual
+run exits1 and all12observed processes stop (one owned cleanup signal); bounded
+logs sanitized aftershutdown. Evidence: codeoss-native-gc-acceptance.log plus
+/tmp/ef-workbench-acceptance/run.log/processes.json. The full goal stays active.
+
+Final owned style, generated Mite/Firefly hashes, diff and upstream checks pass;
+site356pages/25974localtargets pass before the progress-only append. Actual
+builtin-stage verifier still reports60extensions/558files/7673634bytes and seal
+931fe0ccfc470d098c4bb58d5f92bda2106469f11e032bc4ec4f821983fc790d. No extra stage,
+app package or installed dependency tree retained. Commit this vertical slice on
+the Ladybird review branch; master promotion still needs open native CI gates.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

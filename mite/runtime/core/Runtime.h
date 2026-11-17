@@ -51,6 +51,8 @@ struct OwnerSession {
     std::unordered_map<std::string, std::string> environment;
     bool eval {};
     bool print_completion {};
+    // Explicit owner-session capability; exec_argv is reported metadata, not parsed code.
+    bool expose_gc {};
     bool fork_child {};
     bool worker {};
 };

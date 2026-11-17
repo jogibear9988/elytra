@@ -2,6 +2,14 @@
 const parent = process.parentPort;
 const mode = process.argv[2];
 const watchdog = setTimeout(() => process.exit(23), 8000);
+let collected = false;
+if (mode === 'gc') {
+  if (typeof globalThis.gc !== 'function') {
+    throw new Error('Utility gc opt-in missing');
+  }
+  globalThis.gc();
+  collected = true;
+}
 parent.postMessage({
   kind: 'boot',
   pid: process.pid,
@@ -9,6 +17,8 @@ parent.postMessage({
   argv: process.argv,
   execPath: process.execPath,
   execArgv: process.execArgv,
+  gcType: typeof globalThis.gc,
+  collected,
   cwd: process.cwd(),
   type: process.type,
   versions: process.versions,
@@ -35,6 +45,32 @@ if (mode === 'kill') {
             ports: event.ports,
             eventKeys: Object.keys(event)
           });
+        } else if (event.data?.kind === 'port-handoff') {
+          if (event.ports.length !== 1) {
+            throw new Error('Expected one actual transferred port');
+          }
+          const port = event.ports[0];
+          let next = 0;
+
+          port.on('message', ({ data }) => {
+            if (
+              data.kind !== 'port-ping' ||
+              data.sequence !== next ||
+              !(data.bytes instanceof Uint8Array)
+            ) {
+              throw new Error('Invalid transferred port message or detached owner delivery');
+            }
+            port.postMessage({ kind: 'port-echo', sequence: next, bytes: data.bytes });
+            data.bytes.fill(211);
+            ++next;
+            if (next === 2) {
+              port.postMessage({ kind: 'port-final' });
+              port.close();
+            }
+          });
+
+          port.postMessage({ kind: 'port-ready' });
+          port.start();
         } else if (event.data?.kind === 'quit') {
           parent.postMessage({ kind: 'last-before-exit' });
           clearTimeout(watchdog);

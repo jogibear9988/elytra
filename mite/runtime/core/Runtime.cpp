@@ -15,6 +15,7 @@
 #include <AK/ScopeGuard.h>
 #include <AK/Utf16String.h>
 #include <LibGC/Function.h>
+#include <LibGC/Heap.h>
 #include <LibGC/Root.h>
 #include <LibGC/RootVector.h>
 #include <LibJS/Runtime/Array.h>
@@ -153,7 +154,8 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     }
 
     if (argc == 1 || (argc == 2 && std::string(argv[1]) == "--help")) {
-        puts("Usage: mite <script.js> [arguments...]\n       mite -e <source>\n       mite -p "
+        puts("Usage: mite [--expose-gc] <script.js> [arguments...]\n       mite [--expose-gc] -e "
+             "<source>\n       mite [--expose-gc] -p "
              "<source>\n       mite "
              "--version");
         return argc == 1 ? 1 : 0;
@@ -189,30 +191,113 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
         argv = fork_arguments.data();
     }
 
+    bool expose_gc = false;
+    bool eval_mode = false;
+    bool eval_source_provided = false;
+    bool print_completion = false;
+    std::vector<std::string> exec_options;
     std::string filename;
     std::filesystem::path native_filename;
     std::string source;
-    int script_arg = 1;
-    bool print_completion
-        = std::string_view(argv[1]) == "-p" || std::string_view(argv[1]) == "--print";
-    if (print_completion || std::string(argv[1]) == "-e" || std::string(argv[1]) == "--eval") {
-        if (argc < 3) {
-            fputs("mite: --eval/--print requires source text\n", stderr);
+    int argument = 1;
+    // Eval/print consume their source, not the remaining option prefix. Node
+    // continues scanning options until -- or the first application argument.
+    // A script filename itself ends option parsing; later flags are ordinary argv.
+    while (argument < argc) {
+        std::string_view option { argv[argument] };
+        if (option == "--") {
+            ++argument;
+            break;
+        }
+
+        if (option == "--expose-gc") {
+            expose_gc = true;
+            exec_options.emplace_back(argv[argument++]);
+            continue;
+        }
+
+        bool print_option = option == "-p" || option == "--print";
+        if (print_option || option == "-e" || option == "--eval") {
+            exec_options.emplace_back(argv[argument++]);
+            eval_mode = true;
+            print_completion |= print_option;
+            if (argument == argc || argv[argument][0] == '-') {
+                if (print_option)
+                    continue; // Node's print source is optional; options still follow.
+                fputs("mite: --eval requires source text\n", stderr);
+                return 9;
+            }
+
+            source = argv[argument];
+            eval_source_provided = true;
+            exec_options.emplace_back(argv[argument++]);
+            continue;
+        }
+
+        if (option == "--version") {
+            puts("mite 0.1.0-dev (LibJS)");
+            return 0;
+        }
+
+        if (option == "--help") {
+            puts("Usage: mite [--expose-gc] <script.js> [arguments...]\n"
+                 "       mite [--expose-gc] -e <source>\n"
+                 "       mite [--expose-gc] -p <source>\n"
+                 "       mite --version");
+            return 0;
+        }
+
+        if (!option.empty() && option.front() == '-') {
+            fprintf(stderr, "mite: unsupported option: %s\n", argv[argument]);
             return 9;
+        }
+
+        break;
+    }
+
+    int application_argument = argument;
+    if (eval_mode && !eval_source_provided && argument < argc) {
+        // A bare print flag followed later by a filename (for example after a
+        // native option or --) still selects that script, not piped evaluation.
+        eval_mode = false;
+        print_completion = false;
+    }
+
+    if (eval_mode) {
+        if (!eval_source_provided) {
+            // Optional --print source means evaluate real piped stdin, not an
+            // invented empty expression. Interactive evaluation needs a REPL.
+            if (uv_guess_handle(0) == UV_TTY) {
+                fputs("mite: interactive stdin/REPL is not implemented\n", stderr);
+                return 9;
+            }
+
+            char bytes[8192];
+            for (;;) {
+                auto count = fread(bytes, 1, sizeof(bytes), stdin);
+                source.append(bytes, count);
+                if (count != sizeof(bytes)) {
+                    if (ferror(stdin)) {
+                        fputs("mite: cannot read print source from stdin\n", stderr);
+                        return 1;
+                    }
+
+                    break;
+                }
+            }
         }
 
         filename = "[eval]";
-        source = argv[2];
-        script_arg = 2;
     } else {
-        if (argv[1][0] == '-') {
-            fprintf(stderr, "mite: unsupported option: %s\n", argv[1]);
+        if (argument == argc) {
+            fputs("mite: expected a script or --eval/--print source after options\n", stderr);
             return 9;
         }
 
+        application_argument = argument + 1;
         std::error_code error;
         native_filename
-            = std::filesystem::absolute(Mite::ModulePaths::path_from_utf8(argv[1]), error);
+            = std::filesystem::absolute(Mite::ModulePaths::path_from_utf8(argv[argument]), error);
         if (error) {
             fprintf(stderr, "mite: cannot resolve script: %s\n", error.message().c_str());
             return 1;
@@ -246,16 +331,14 @@ int Mite::run(int argc, char** argv, HostHooks const& hooks)
     session.source = std::move(source);
     session.eval = filename == "[eval]";
     session.print_completion = print_completion;
+    session.expose_gc = expose_gc;
+    session.exec_argv = std::move(exec_options);
     session.fork_child = fork_child;
     session.argv.emplace_back(argv[0]);
     if (!session.eval)
         session.argv.push_back(filename);
-    for (int index = script_arg + 1; index < argc; ++index)
+    for (int index = application_argument; index < argc; ++index)
         session.argv.emplace_back(argv[index]);
-    if (session.eval) {
-        session.exec_argv.emplace_back(argv[1]);
-        session.exec_argv.emplace_back(argv[2]);
-    }
 
     capture_tls_extra_certificates();
     return run_owner_session(session, hooks);
@@ -300,6 +383,27 @@ int Mite::run_owner_session(OwnerSession const& session, HostHooks const& hooks)
         realm, "warn"_utf16, +[](JS::VM& vm) { return print(vm, stderr); }, 0,
         JS::default_attributes);
     global.define_direct_property("global"_utf16, &global, JS::default_attributes);
+    if (session.expose_gc) {
+        global.define_native_function(
+            realm, "gc"_utf16,
+            +[](JS::VM& vm) -> JS::ThrowCompletionOr<JS::Value> {
+                // This is a real ordinary LibJS collection, preserving live
+                // roots. CollectEverything is teardown-only, never public GC.
+                // V8's generation/flavor/async option bags have no equivalent.
+                if (vm.argument_count() > 1 || !vm.argument(0).is_undefined()) {
+                    auto error = JS::Error::create(
+                        vm.realm(), "Only synchronous gc() or gc(undefined) is supported"_utf16);
+                    error->define_direct_property("code"_utf16,
+                        JS::PrimitiveString::create(vm, "ERR_MITE_UNSUPPORTED_API"_utf16),
+                        JS::default_attributes);
+                    return JS::throw_completion(error);
+                }
+
+                vm.heap().collect_garbage(GC::Heap::CollectionType::CollectGarbage);
+                return JS::js_undefined();
+            },
+            0, JS::Attribute::Writable | JS::Attribute::Enumerable);
+    }
 
     // Initialize the owned libuv loop before process queries: Windows libuv's
     // uv_os_getppid uses WinAPI pointers initialized by uv_loop_init.

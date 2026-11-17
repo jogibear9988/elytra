@@ -93,15 +93,25 @@ script failure is not observed during that run. That absence is not a positive
 Code-OSS worker-service, activation or editor acceptance result. See
 [ADR 0200](../architecture/0200-authenticated-worker-fetch.md).
 
-A regular development-extension/extension-test acceptance fixture now exercises
-real activation, command registration and open/edit/save, with independent native
-file readback and authenticated process cleanup. Its actual invocation fails
-before extension startup because the existing CA-17 development/test admission
-policy rejects those modes. `--inspect-extensions=0` is not a no-debug workaround:
-in development Code-OSS selects the implicit port 5870. Test mode also requests
-`--expose-gc`. Implement the required native runtime/execArgv semantics and admit
-the real modes without pretending inspector or V8 flags work; do not weaken the
-guard merely to make the test green. The fixture remains unaccepted.
+The regular ESM development-extension/test fixture now passes the former CA-17
+mode restriction using genuine runtime support. Mite implements native synchronous
+[--expose-gc](../api/cli.md#native-garbage-collection); utilityProcess validates and
+preserves that flag in the actual child. The adaptation pairs original local
+paths with structured file URIs, keeps GC in the exact test execArgv list, and
+still refuses requested inspector/profiler/V8 settings. Thirty actual Node/Mite
+CLI controls, native Firefly utility lifecycle/port/GC checks and 40 policy
+scenarios in each runtime pass locally.
+
+The next actual regular Code-OSS test (`codeoss-native-gc-acceptance.log`) reaches
+`$extensionTestsExecute` and `_doHandleExtensionTests`, then fails while loading
+its real ESM test runner with `Unsupported module URL scheme: data`. Original
+source waits for `_eagerExtensionsActivated` before entering that path, so this
+proves the startup/eager-activation barrier has been crossed. It does not prove
+all 60 extensions activate or that the controlled test extension/editor APIs work.
+The unchanged `vscode` ESM hook returns `data:text/javascript;base64,...`; implement
+real data-URL modules in Mite next, preserving ordinary module identity, resolution
+hooks and private bridge isolation. Do not add a Code-OSS guard or fake API module.
+The actual run exits nonzero; all 12 observed processes stop and logs are sanitized.
 
 The previous early navigation stall is not reproduced under these observations;
 no behavioral fix is claimed. Keep it tracked until a diagnostic-free startup is
@@ -316,7 +326,7 @@ from a future Code-OSS test.
 | Native services | Manifest includes node-pty, @parcel/watcher, @vscode/sqlite3, native-keymap and other native packages | Root production graph is now pinned and installed without lifecycle scripts on macOS ARM64; 27 packages have native/WASM evidence. Other install roots remain unaudited. No Node addon loader/N-API. Establish each required package/ABI; implement engine-independent bindings or compatible service adapters as required. A Node/V8 host is not an allowed shortcut |
 | Native child composition | Optional integrated browser imports WebContentsView and webContents; main workbench uses BrowserWindow | [Native child-view composition](../api/web-contents-view.md) passes shared offscreen Firefly/Electron and the complete hidden production Cocoa fixture, including stable page/process/channel identity, reparenting, viewport/ownership/registry and binary IPC cleanup. The real local desktop/NLS entry now passes these imports and passes the protocol service and, with the explicit native policy adapter, passes local IPC and permission registration and reaches webRequest.onBeforeRequest with optional capture explicitly disabled. Actual integrated BrowserView session/subframe/CDP requirements remain unsupported; on-screen/GPU/AX/performance and native Linux/XCB/Windows acceptance remain unverified |
 | OS-backed secret storage | Actual EncryptionMainService uses Buffer JSON plus synchronous encrypt/decrypt | [safeStorage](../api/safe-storage.md) passes native/public isolated macOS keychain tests and the unchanged compiled service write/read across two OS processes with 39 checked dependencies. Real Electron reference covers pre-ready behavior only. App-profile OS-held AES-256-GCM keys and Firefly ciphertext; Electron migration, async API and Linux/Windows providers remain unavailable. Component readiness is not production/workbench acceptance |
-| Auxiliary/extension processes | Bootstrap names extension-host, shared-process, pty-host and agent-host roles | The [real LibJS utility fork/parentPort payload slice](../api/utility-process.md) has six native boundary tests; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. This does not accept actual Code-OSS utility execution. Native transferred endpoints, authentication forwarding, nonempty engine flags and unsigned-library loading remain explicitly unsupported. Then accept extension-host runtime, shutdown/crash recovery and declared extension limits; spawning an executable alone is insufficient |
+| Auxiliary/extension processes | Bootstrap names extension-host, shared-process, pty-host and agent-host roles | The [real LibJS utility fork/parentPort payload slice](../api/utility-process.md) has six native boundary tests; local public Firefly/Electron lifecycle, binary messaging and parent-teardown acceptance now passes. This does not accept actual Code-OSS utility execution. Native main-to-utility transferred ports now have duplex/lifetime acceptance. Authentication forwarding, engine flags except the exact --expose-gc opt-in, arbitrary child transfer lists and unsigned-library loading remain unsupported. Then accept extension-host runtime, shutdown/crash recovery and declared extension limits; spawning an executable alone is insufficient |
 | Renderer and webviews | Complete workbench and extension UI require actual browser behavior | Monaco proof is only a subset. Run the real workbench; verify DOM/CSS/input/clipboard/workers/webviews, then required WebAssembly/storage/security features. Unmeasured features remain unverified |
 | Platforms/distribution | A usable desktop app requires the native host and packaged helpers | Windows desktop/sandbox/package and complete Linux packages remain open. Keep macOS/Linux/Windows acceptance separate |
 

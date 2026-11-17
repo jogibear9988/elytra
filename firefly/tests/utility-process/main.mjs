@@ -177,6 +177,7 @@ app
       boot.cwd === import.meta.dirname && boot.execArgv.length === 0,
       'cwd and empty executable flags'
     );
+    check(boot.gcType === 'undefined' && !boot.collected, 'ordinary utility does not expose gc');
     check(
       boot.env.sentinel === 'owned-env' && !boot.env.hasPath && !boot.env.hasHome,
       'explicit environment replaces inherited variables'
@@ -207,25 +208,49 @@ app
       'call-time copy without source detachment'
     );
 
+    stage = 'transferred port duplex';
+    const ports = new MessageChannelMain();
+    const portReplies = [];
+    const portClosed = new Promise((resolve) => ports.port1.once('close', resolve));
+
+    ports.port1.on('message', ({ data }) => portReplies.push(data));
+
+    ports.port1.start();
+    const queuedBytes = new Uint8Array([1, 7, 255]);
+    ports.port1.postMessage({ kind: 'port-ping', sequence: 0, bytes: queuedBytes });
+    child.postMessage({ kind: 'port-handoff' }, [ports.port2]);
+    queuedBytes.fill(99);
+    // The moved wrapper no longer owns the native endpoint. Neither operation
+    // may deliver a message or close the child's new endpoint.
+    ports.port2.postMessage({ kind: 'detached-owner' });
+    ports.port2.close();
+    const liveBytes = new Uint8Array([9, 0, 128]);
+    ports.port1.postMessage({ kind: 'port-ping', sequence: 1, bytes: liveBytes });
+    liveBytes.fill(66);
+    await portClosed;
+    check(
+      portReplies.length === 4 &&
+        portReplies[0].kind === 'port-ready' &&
+        portReplies[3].kind === 'port-final',
+      'handoff ready/data precede peer close'
+    );
+    for (let index = 0; index < 2; ++index) {
+      const reply = portReplies[index + 1];
+      const expected = index ? [9, 0, 128] : [1, 7, 255];
+      check(
+        reply.kind === 'port-echo' &&
+          reply.sequence === index &&
+          reply.bytes instanceof Uint8Array &&
+          JSON.stringify(Array.from(reply.bytes)) === JSON.stringify(expected),
+        'actual transferred endpoint duplex FIFO and typed snapshots'
+      );
+    }
+    ports.port1.close();
     if (limited) {
-      const ports = new MessageChannelMain();
-      check(
-        capture(() => child.postMessage(null, [ports.port2])).code ===
-          'ERR_FIREFLY_UNSUPPORTED_API',
-        'unavailable utility port transfer fails explicitly'
-      );
-      stage = 'local port ownership';
-      const alive = new Promise((resolve) => ports.port2.once('message', resolve));
-      ports.port2.start();
-      ports.port1.postMessage('still-owned');
-      check(
-        (await alive).data === 'still-owned',
-        'rejected utility handoff preserves endpoint ownership'
-      );
-      ports.port1.close();
-      ports.port2.close();
       for (const options of [
-        { execArgv: ['--expose-gc'] },
+        { execArgv: ['--inspect'] },
+        { execArgv: ['--expose-gc=1'] },
+        { execArgv: ['--expose-gc', '--expose-gc'] },
         { allowLoadingUnsignedLibraries: true },
         { respondToAuthRequestsFromMainProcess: true }
       ]) {
@@ -260,6 +285,34 @@ app
       child.postMessage(() => {}) === undefined,
       'post after exit is a no-op before serialization'
     );
+
+    stage = 'gc opt-in';
+    const gcArgs = ['gc', '--literal-application-flag'];
+    const gcChild = own(
+      utilityProcess.fork(entry, gcArgs, {
+        stdio: 'ignore',
+        execArgv: ['--expose-gc']
+      })
+    );
+    const gcExit = new Promise((resolve) => gcChild.once('exit', resolve));
+    const gcBoot = await new Promise((resolve) =>
+      gcChild.on('message', (message) => {
+        if (message.kind === 'boot') {
+          resolve(message);
+        }
+      })
+    );
+    check(gcBoot.gcType === 'function' && gcBoot.collected, 'genuine utility native gc invoked');
+    check(
+      JSON.stringify(gcBoot.execArgv) === JSON.stringify(['--expose-gc']),
+      'real utility execArgv opt-in'
+    );
+    check(
+      gcBoot.argv[1] === entry && JSON.stringify(gcBoot.argv.slice(2)) === JSON.stringify(gcArgs),
+      'engine flag precedes entry without leaking into application argv'
+    );
+    gcChild.postMessage({ kind: 'quit' });
+    check((await gcExit) === 7, 'gc utility closes through real parent endpoint');
 
     stage = 'kill';
     const killed = own(utilityProcess.fork(entry, ['kill'], { stdio: 'ignore' }));
@@ -301,7 +354,7 @@ app
     clearTimeout(watchdog);
     stop();
     console.log(
-      'PASS public utilityProcess: real PID/argv/env/cwd/stdio, queued binary graph IPC, parentPort shape, natural exit/final data, kill and module failure'
+      'PASS public utilityProcess: real PID/argv/env/cwd/stdio, queued binary graph IPC, connected ports, native GC opt-in/execArgv, parentPort shape, natural exit/final data, kill and module failure'
     );
     app.exit(0);
   })

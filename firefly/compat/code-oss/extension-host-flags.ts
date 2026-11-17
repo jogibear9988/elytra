@@ -5,6 +5,7 @@ type Options = {
   isBuilt: boolean;
   debug: { port: number | null; break: boolean; debugId?: unknown; env?: unknown };
   development: boolean;
+  developmentLocations: unknown;
   tests: unknown;
 };
 type Host = {
@@ -27,6 +28,60 @@ function refuse(): never {
     }
   );
 }
+/** Verify upstream's paired local development paths without granting URI authority. */
+function localFile(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) refuse();
+  const uri = value as Record<string, unknown>;
+  const fields = [uri.scheme, uri.authority, uri.path, uri.query, uri.fragment];
+  if (
+    fields[0] !== 'file' ||
+    fields[1] !== '' ||
+    typeof fields[2] !== 'string' ||
+    !fields[2].startsWith('/') ||
+    fields[2].includes('\0') ||
+    fields[3] !== '' ||
+    fields[4] !== ''
+  )
+    refuse();
+  return fields as string[];
+}
+
+function developmentSignature(options: Options): string {
+  const raw = options.args.extensionDevelopmentPath;
+  const locations = options.developmentLocations;
+  const rawTests = options.args.extensionTestsPath;
+  const tests = options.tests;
+  if (!options.development) {
+    if (
+      raw !== undefined ||
+      locations !== undefined ||
+      rawTests !== undefined ||
+      tests !== undefined
+    )
+      refuse();
+    return 'ordinary';
+  }
+  if (
+    !Array.isArray(raw) ||
+    !raw.length ||
+    raw.length > 1024 ||
+    !raw.every((value) => typeof value === 'string' && value.length > 0 && !value.includes('\0')) ||
+    !Array.isArray(locations) ||
+    locations.length !== raw.length
+  )
+    refuse();
+  const resolved = locations.map(localFile);
+  if ((rawTests === undefined) !== (tests === undefined)) refuse();
+  let resolvedTests: string[] | undefined;
+  if (tests !== undefined) {
+    if (typeof rawTests !== 'string' || !rawTests.length || rawTests.includes('\0')) refuse();
+    resolvedTests = localFile(tests);
+  }
+  // Recheck after upstream's asynchronous port/environment preparation, without
+  // publishing local paths or permitting another mode to reuse this selector.
+  return JSON.stringify([raw, resolved, rawTests, resolvedTests]);
+}
+
 function validate(read: () => Options): Options {
   const versions = host?.versions;
   const local = localDesktopStatus();
@@ -52,8 +107,7 @@ function validate(read: () => Options): Options {
   if (
     !options ||
     typeof options.isBuilt !== 'boolean' ||
-    options.development !== false ||
-    options.tests !== undefined ||
+    typeof options.development !== 'boolean' ||
     !options.args ||
     typeof options.args !== 'object' ||
     !options.debug ||
@@ -63,13 +117,7 @@ function validate(read: () => Options): Options {
     options.debug.port !== (options.isBuilt ? null : 5870)
   )
     refuse();
-  for (const key of [
-    'inspect-extensions',
-    'inspect-brk-extensions',
-    'extensionDevelopmentPath',
-    'extensionTestsPath',
-    'js-flags'
-  ]) {
+  for (const key of ['inspect-extensions', 'inspect-brk-extensions', 'js-flags']) {
     if (options.args[key] !== undefined) refuse();
   }
   // The upstream minimist parser includes absent boolean options as false.
@@ -79,23 +127,28 @@ function validate(read: () => Options): Options {
     options.args['prof-v8-extensions'] !== false
   )
     refuse();
+  developmentSignature(options);
   return options;
 }
-/** Reject explicit debug/test/profiling before port probing, environment or process mutations. */
+/** Admit real local extension/test modes; reject explicit debugging and profiling. */
 export function libJSExtensionHostPolicy(
   read: () => Options
 ): ((flags: string[], port: number) => string[]) | undefined {
   if (typeof host?.versions?.node === 'string' || typeof host?.versions?.electron === 'string') {
     return undefined;
   }
-  validate(read);
+  const initial = validate(read);
+  const signature = developmentSignature(initial);
+  const isBuilt = initial.isBuilt;
   return (flags, port) => {
     const options = validate(read);
+    if (options.isBuilt !== isBuilt || developmentSignature(options) !== signature) refuse();
     if (!Number.isInteger(port) || port < 0 || port > 65535 || (options.isBuilt && port !== 0))
       refuse();
     const expected = [
       '--dns-result-order=ipv4first',
       '--experimental-network-inspection',
+      ...(options.tests !== undefined ? ['--expose-gc'] : []),
       ...(port ? ['--nolazy', `--inspect=127.0.0.1:${port}`] : ['--inspect-port=0'])
     ];
     if (
@@ -112,13 +165,14 @@ export function libJSExtensionHostPolicy(
         inspectorAvailable: false,
         networkInspectionAvailable: false,
         dnsOrderingApplied: false,
+        supportedNativeFlags: Object.freeze(['--expose-gc']),
         omitted: Object.freeze([
           'implicit-inspector-configuration',
           '--dns-result-order=ipv4first',
           '--experimental-network-inspection'
         ]),
         reason:
-          'Implicit development/runtime defaults are omitted; no inspector, network inspection or requested IPv4-first ordering is provided'
+          'Implicit development/runtime defaults are omitted; test GC is passed to native LibJS, with no inspector, network inspection or requested IPv4-first ordering'
       });
       Object.defineProperty(globals, '_vscodeLibJSExtensionHostFlagsStatus', {
         value: published,
@@ -127,6 +181,6 @@ export function libJSExtensionHostPolicy(
         enumerable: false
       });
     }
-    return [];
+    return options.tests !== undefined ? ['--expose-gc'] : [];
   };
 }

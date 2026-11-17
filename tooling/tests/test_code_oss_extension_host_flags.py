@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Pinned extension-host defaults: reversal and focused Node/Mite policy checks."""
 
-import _support
+import _support  # noqa: F401 — configure owned tooling imports
 import argparse
-import json
 import os
 from pathlib import Path
 import shutil
@@ -77,41 +76,78 @@ def main():
         (work / "main.mjs").write_text("""
 import {libJSExtensionHostPolicy as policy} from './helper.js';
 const mode=process.argv[2],node=typeof process.versions.node==='string';
+const fail=()=>{throw Error('Policy assertion '+mode)};
+const uri=(path)=>({scheme:'file',authority:'',path,query:'',fragment:''});
 process._vscodeLibJSEngineStatus={engine:'LibJS/LibWeb',scope:'implicit-code-oss-engine-tuning-only'};
-const options={args:{'prof-v8-extensions':false},isBuilt:mode==='built',debug:{port:mode==='built'?null:5870,break:false},development:false,tests:undefined};
-if(mode==='explicit')options.args['inspect-extensions']='';
-if(mode==='break')options.debug.break=true;
-if(mode==='prof')options.args['prof-v8-extensions']='';
-if(mode==='test')options.tests={};
-if(mode==='development')options.development=true;
-if(mode==='unexpected-port')options.debug.port=5999;
-if(mode==='missing-engine')delete process._vscodeLibJSEngineStatus;
+const built=mode.includes('built');
+const options={args:{'prof-v8-extensions':false},isBuilt:built,debug:{port:built?null:5870,break:false},development:false,developmentLocations:undefined,tests:undefined};
+function development(tests=false){
+ options.development=true;
+ options.args.extensionDevelopmentPath=['/owned/extension'];
+ options.developmentLocations=[uri('/owned/extension')];
+ if(tests){options.args.extensionTestsPath='/owned/tests.mjs';options.tests=uri('/owned/tests.mjs');}
+}
+const validDev=mode.startsWith('dev-')||mode.startsWith('tests-');
+if(validDev)development(mode.startsWith('tests-'));
+const early={
+ explicit:()=>options.args['inspect-extensions']='',
+ 'explicit-zero':()=>options.args['inspect-extensions']='0',
+ 'explicit-false':()=>options.args['inspect-brk-extensions']=false,
+ break:()=>options.debug.break=true,
+ prof:()=>options.args['prof-v8-extensions']='',
+ 'js-flags':()=>options.args['js-flags']='',
+ 'debug-id':()=>options.debug.debugId='owned',
+ 'debug-env':()=>options.debug.env={},
+ test:()=>options.tests={},
+ development:()=>options.development=true,
+ 'raw-only':()=>options.args.extensionDevelopmentPath=['/owned/extension'],
+ 'locations-only':()=>options.developmentLocations=[uri('/owned/extension')],
+ 'missing-tests-uri':()=>{development();options.args.extensionTestsPath='/owned/tests.mjs'},
+ 'missing-tests-raw':()=>{development();options.tests=uri('/owned/tests.mjs')},
+ 'remote-uri':()=>{development();options.developmentLocations[0].scheme='vscode-remote'},
+ authority:()=>{development();options.developmentLocations[0].authority='remote'},
+ relative:()=>{development();options.developmentLocations[0].path='relative'},
+ query:()=>{development();options.developmentLocations[0].query='query'},
+ fragment:()=>{development(true);options.tests.fragment='fragment'},
+ 'bad-count':()=>{development();options.developmentLocations.push(uri('/other'))},
+ 'bad-raw':()=>{development();options.args.extensionDevelopmentPath=[false]},
+ 'unexpected-port':()=>options.debug.port=5999,
+ 'missing-engine':()=>delete process._vscodeLibJSEngineStatus,
+ 'wrong-profile':()=>{}
+};
+if(early[mode])early[mode]();
 let reads=0,select,error;
 try{select=policy(()=>{reads++;return options})}catch(e){error=e}
-if(node){if(select!==undefined||error||reads)throw Error('Changed ordinary Node/Electron behavior');}
+if(node){if(select!==undefined||error||reads)fail();}
+else if(early[mode]){if(error?.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')fail();}
 else {
- const early=['explicit','break','prof','test','development','unexpected-port','missing-engine','wrong-profile'].includes(mode);
- if(early){if(error?.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')throw Error('Explicit option accepted');}
+ if(error||typeof select!=='function'||reads!==1)fail();
+ const port=built||mode.includes('fallback')?0:5870;
+ const tests=options.tests!==undefined;
+ const flags=['--dns-result-order=ipv4first','--experimental-network-inspection',...(tests?['--expose-gc']:[]),...(port?['--nolazy',`--inspect=127.0.0.1:${port}`]:['--inspect-port=0'])];
+ if(mode==='unknown')flags.push('--prof');
+ if(mode==='gc-unrequested')flags.splice(2,0,'--expose-gc');
+ if(mode==='tests-missing-gc')flags.splice(2,1);
+ if(mode==='tests-duplicate-gc')flags.splice(2,0,'--expose-gc');
+ if(mode==='mutated')development();
+ if(mode==='dev-mutated-path'){options.args.extensionDevelopmentPath=['/different'];options.developmentLocations=[uri('/different')];}
+ if(mode==='tests-mutated-path'){options.args.extensionTestsPath='/different.mjs';options.tests=uri('/different.mjs');}
+ const original=JSON.stringify(flags);let result,failure;
+ try{result=select(flags,port)}catch(e){failure=e}
+ const late=['unknown','mutated','gc-unrequested','tests-missing-gc','tests-duplicate-gc','dev-mutated-path','tests-mutated-path'].includes(mode);
+ if(JSON.stringify(flags)!==original)fail();
+ if(late){if(failure?.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')fail();}
  else {
-  if(error||typeof select!=='function')throw Error('Local policy rejected');
-  const port=mode==='built'||mode==='fallback'?0:5870;
-  const flags=['--dns-result-order=ipv4first','--experimental-network-inspection',...(port?['--nolazy',`--inspect=127.0.0.1:${port}`]:['--inspect-port=0'])];
-  if(mode==='unknown')flags.push('--prof');
-  if(mode==='mutated')options.development=true;
-  const original=JSON.stringify(flags);let result,failure;
-  try{result=select(flags,port)}catch(e){failure=e}
-  if(['unknown','mutated'].includes(mode)){if(failure?.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')throw Error('Changed flags accepted');}
-  else {
-   if(failure||!Array.isArray(result)||result.length||JSON.stringify(flags)!==original)throw Error('Implicit flags not omitted safely');
-   const d=Object.getOwnPropertyDescriptor(globalThis,'_vscodeLibJSExtensionHostFlagsStatus'),s=d.value;
-   if(d.writable||d.configurable||!Object.isFrozen(s)||!Object.isFrozen(s.omitted)||s.inspectorAvailable!==false||s.networkInspectionAvailable!==false||s.dnsOrderingApplied!==false)throw Error('Missing immutable omission disclosure');
-  }
+  if(failure||JSON.stringify(result)!==JSON.stringify(tests?['--expose-gc']:[]))fail();
+  const d=Object.getOwnPropertyDescriptor(globalThis,'_vscodeLibJSExtensionHostFlagsStatus'),s=d.value;
+  if(d.writable||d.configurable||!Object.isFrozen(s)||!Object.isFrozen(s.omitted)||!Object.isFrozen(s.supportedNativeFlags)||s.inspectorAvailable!==false||s.networkInspectionAvailable!==false||s.dnsOrderingApplied!==false||JSON.stringify(s.supportedNativeFlags)!=='["--expose-gc"]')fail();
+  if(JSON.stringify(s).includes('/owned/'))fail();
  }
 }
 const {assertLibJSStartupOptions:checkCLI}=await import('./engine-policy.js');
-for(const name of ['inspect-extensions','inspect-brk-extensions','prof-v8-extensions']){
- let rejected=false;try{checkCLI({[name]:false},{},{hasSwitch:key=>key===name})}catch(e){if(e.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')throw e;rejected=true}
- if(rejected!==!node)throw Error('Explicit raw option presence not preserved');
+for(const name of ['inspect-extensions','inspect-brk-extensions','prof-v8-extensions','js-flags']){
+ let rejected=false;try{checkCLI({sandbox:true,[name]:false},{},{hasSwitch:key=>key===name})}catch(e){if(e.code!=='ERR_CODE_OSS_LIBJS_ENGINE_OPTION')throw e;rejected=true}
+ if(rejected!==!node)fail();
 }
 console.log('PASS extension-host flags '+mode);
 """)
@@ -119,16 +155,43 @@ console.log('PASS extension-host flags '+mode);
             "valid",
             "built",
             "fallback",
+            "dev-valid",
+            "dev-built",
+            "dev-fallback",
+            "tests-valid",
+            "tests-built",
+            "tests-fallback",
             "explicit",
+            "explicit-zero",
+            "explicit-false",
             "break",
             "prof",
+            "js-flags",
+            "debug-id",
+            "debug-env",
             "test",
             "development",
+            "raw-only",
+            "locations-only",
+            "missing-tests-uri",
+            "missing-tests-raw",
+            "remote-uri",
+            "authority",
+            "relative",
+            "query",
+            "fragment",
+            "bad-count",
+            "bad-raw",
             "unexpected-port",
             "missing-engine",
             "wrong-profile",
             "unknown",
             "mutated",
+            "gc-unrequested",
+            "tests-missing-gc",
+            "tests-duplicate-gc",
+            "dev-mutated-path",
+            "tests-mutated-path",
         ]
         for mode in modes:
             env = dict(os.environ)
@@ -148,7 +211,7 @@ console.log('PASS extension-host flags '+mode);
                     and "Error" not in r.stderr
                 ), r
     print(
-        "PASS exact extension-host source reversal/drift + 13 Node/Mite implicit/explicit policy cases"
+        f"PASS exact extension-host source reversal/drift + {len(modes)} Node/Mite implicit/explicit policy cases"
     )
 
 

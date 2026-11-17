@@ -856,6 +856,30 @@ GC::Ref<JS::Object> create_host(
                 std::string file(executable.data(), executable_size);
                 auto entry = TRY(string(vm, TRY(spec->get("entry"_utf16))));
                 auto args = TRY(strings(vm, TRY(spec->get("args"_utf16))));
+                std::vector<std::string> exec_argv;
+                auto flags = TRY(spec->get("execArgv"_utf16));
+                if (!flags.is_undefined()) {
+                    if (!flags.is_object() || !is<JS::Array>(flags.as_object()))
+                        return vm.throw_completion<JS::TypeError>("Invalid utility execArgv"_utf16);
+                    auto& array = flags.as_object();
+                    auto length = TRY(TRY(array.get("length"_utf16)).to_u32(vm));
+                    auto flag = length == 1 ? TRY(array.get(0)) : JS::js_undefined();
+                    if (length > 1
+                        || (length == 1
+                            && (!flag.is_string()
+                                || flag.as_string().utf16_string_view() != "--expose-gc"_utf16))) {
+                        GC::Root error { JS::Error::create(
+                            realm, "Unsupported utility engine command-line flag"_utf16) };
+                        error->define_direct_property("code"_utf16,
+                            JS::PrimitiveString::create(vm, "ERR_FIREFLY_UNSUPPORTED_API"_utf16),
+                            JS::default_attributes);
+                        return JS::throw_completion(error);
+                    }
+
+                    if (length)
+                        exec_argv.emplace_back("--expose-gc");
+                }
+
                 auto env = TRY(strings(vm, TRY(spec->get("env"_utf16))));
                 auto cwd = TRY(string(vm, TRY(spec->get("cwd"_utf16))));
                 auto name_value = TRY(spec->get("serviceName"_utf16));
@@ -881,9 +905,10 @@ GC::Ref<JS::Object> create_host(
                     || entry.empty())
                     return vm.throw_completion<JS::Error>(
                         "Utility process unavailable or limit exceeded"_utf16);
-                args.insert(args.begin(),
-                    { file, electron_compat ? "--firefly-utility-electron" : "--firefly-utility",
-                        entry });
+                exec_argv.insert(exec_argv.begin(),
+                    { file, electron_compat ? "--firefly-utility-electron" : "--firefly-utility" });
+                exec_argv.push_back(entry);
+                args.insert(args.begin(), exec_argv.begin(), exec_argv.end());
                 auto arguments = pointers(args), environment = pointers(env);
                 auto* endpoint = new Endpoint { *owner, owner->next_id++,
                     GC::Root { vm.argument(1).as_function() } };
