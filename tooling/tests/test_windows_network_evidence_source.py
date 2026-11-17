@@ -32,7 +32,7 @@ class NetworkEvidenceSource(unittest.TestCase):
             "FwpmNetEventUnsubscribe0",
             "FwpmEngineClose0",
             "FwpmGetAppIdFromFileName0",
-            "std::array<Record, 8>",
+            "std::array<Diagnostic, 8>",
             "std::chrono::seconds(2)",
             "timestamp(birth) == timestamp(m_birth)",
             "GetProcessId(m_child) == m_pid",
@@ -81,6 +81,47 @@ class NetworkEvidenceSource(unittest.TestCase):
             self.assertIn(required, self.probe)
         self.assertIn("Exit 2 preserves an unresolved raw timeout", self.probe)
         self.assertNotIn("network.denied = true", self.probe)
+
+    def test_diagnostic_only_scope(self):
+        wait = self.header.split("m_received.wait_for(", 1)[1].split("});", 1)[0]
+        self.assertIn("std::chrono::seconds(2)", wait)
+        self.assertIn("m_records[i].accepted && m_records[i].record.time <= m_end", wait)
+        self.assertIn("return false;", wait)
+        self.assertNotIn("return m_count != 0", wait)
+        for required in (
+            "diagnostic missing SID never grants acceptance",
+            "diagnostic classify drop never grants acceptance",
+        ):
+            self.assertIn(required, self.probe)
+        for required in (
+            "FwpmFilterGetById0",
+            "FwpmProviderGetByKey0",
+            "FwpmSubLayerGetByKey0",
+            "filter->numFilterConditions && i < 16",
+            "m_records[i].accepted",
+            "WFP metadata read only after callback drain",
+            "header.localAddrV4 == INADDR_LOOPBACK",
+            "header.remoteAddrV4 == INADDR_LOOPBACK",
+            "header.remotePort == identity.remote_port",
+        ):
+            self.assertIn(required, self.header)
+        for forbidden in (
+            "displayData.name",
+            "displayData.description",
+            "providerData.data",
+            "conditionValue.byteBlob->data",
+        ):
+            self.assertNotIn(forbidden, self.header)
+        self.assertLess(
+            self.runner.index('f"{mode}-report.json"'),
+            self.runner.index("envelope = json.loads(stdout)"),
+        )
+        self.assertNotIn(
+            "diagnostics",
+            self.runner[
+                self.runner.index("def network_evidence(") : self.runner.index("def line(")
+            ],
+        )
 
     def test_runner_evidence_refusal(self):
         tree = ast.parse(self.runner)

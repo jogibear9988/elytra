@@ -11,7 +11,10 @@
 #include <condition_variable>
 #include <cstring>
 #include <fwpmu.h>
+#include <iomanip>
+#include <memory>
 #include <mutex>
+#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -61,12 +64,60 @@ inline bool matches(FWPM_NET_EVENT3 const& event, Identity const& identity)
             || drop.networkCapabilityId == FWPM_APPC_NETWORK_CAPABILITY_INTERNET_PRIVATE_NETWORK);
 }
 
+// Diagnostic admission deliberately does not require a package SID. Missing
+// or unequal SID is recorded, never promoted to strict acceptance by matches().
+inline bool diagnostic_matches(FWPM_NET_EVENT3 const& event, Identity const& identity)
+{
+    auto const& header = event.header;
+    constexpr UINT32 required = FWPM_NET_EVENT_FLAG_IP_PROTOCOL_SET
+        | FWPM_NET_EVENT_FLAG_IP_VERSION_SET | FWPM_NET_EVENT_FLAG_LOCAL_ADDR_SET
+        | FWPM_NET_EVENT_FLAG_REMOTE_ADDR_SET | FWPM_NET_EVENT_FLAG_LOCAL_PORT_SET
+        | FWPM_NET_EVENT_FLAG_REMOTE_PORT_SET | FWPM_NET_EVENT_FLAG_APP_ID_SET;
+    bool drop = (event.type == FWPM_NET_EVENT_TYPE_CAPABILITY_DROP && event.capabilityDrop)
+        || (event.type == FWPM_NET_EVENT_TYPE_CLASSIFY_DROP && event.classifyDrop);
+
+    return drop && (header.flags & required) == required && header.ipVersion == FWP_IP_VERSION_V4
+        && header.ipProtocol == IPPROTO_TCP && header.localAddrV4 == INADDR_LOOPBACK
+        && header.remoteAddrV4 == INADDR_LOOPBACK && header.localPort != 0
+        && header.remotePort == identity.remote_port
+        && header.appId.size == identity.application.size && header.appId.data
+        && std::memcmp(header.appId.data, identity.application.data, header.appId.size) == 0
+        && timestamp(header.timeStamp) >= identity.begin
+        && timestamp(header.timeStamp) <= identity.end;
+}
+
 struct Record {
     UINT16 local_port;
     UINT64 filter;
     UINT32 capability;
     ULONGLONG time;
 };
+
+struct Diagnostic {
+    Record record;
+    bool accepted;
+    UINT32 type;
+    UINT32 flags;
+    bool sid_present;
+    bool sid_equal;
+    bool loopback;
+    UINT16 layer;
+    UINT32 direction;
+};
+
+inline std::string guid(GUID const& value)
+{
+    std::ostringstream out;
+    out << std::hex << std::setfill('0') << std::setw(8) << value.Data1 << '-' << std::setw(4)
+        << value.Data2 << '-' << std::setw(4) << value.Data3 << '-';
+    for (size_t i = 0; i < 8; ++i) {
+        if (i == 2)
+            out << '-';
+        out << std::setw(2) << static_cast<unsigned>(value.Data4[i]);
+    }
+
+    return out.str();
+}
 
 class Observer {
 public:
@@ -169,11 +220,18 @@ public:
             check(m_begin != 0 && m_end >= m_begin, "WFP exact child lifetime window");
             // Kernel notification delivery may lag the event timestamp. Retain
             // only events inside the closed child window, with a fixed wait.
-            m_received.wait_for(lock, std::chrono::seconds(2), [&] { return m_count != 0; });
+            m_received.wait_for(lock, std::chrono::seconds(2), [&] {
+                for (size_t i = 0; i < m_count; ++i) {
+                    if (m_records[i].accepted && m_records[i].record.time <= m_end)
+                        return true;
+                }
+
+                return false;
+            });
         }
         // Unsubscribe waits for callbacks. Never hold their mutex across it.
         // https://learn.microsoft.com/windows/win32/api/fwpmu/nf-fwpmu-fwpmneteventunsubscribe0
-        close();
+        stop_subscription();
     }
 
     std::vector<Record> records()
@@ -190,11 +248,43 @@ public:
 
         std::vector<Record> result;
         for (size_t i = 0; i < m_count; ++i) {
-            if (m_records[i].time <= m_end)
-                result.push_back(m_records[i]);
+            if (m_records[i].accepted && m_records[i].record.time <= m_end)
+                result.push_back(m_records[i].record);
         }
 
         return result;
+    }
+
+    std::string diagnostics()
+    {
+        check(!m_subscription, "WFP metadata read only after callback drain");
+
+        std::ostringstream out;
+        out << std::boolalpha << '[';
+        bool first = true;
+        for (size_t i = 0; i < m_count; ++i) {
+            auto const& item = m_records[i];
+            if (item.record.time > m_end)
+                continue;
+            if (!first)
+                out << ',';
+            first = false;
+            out << "{\"type\":" << item.type << ",\"flags\":" << item.flags
+                << ",\"localPort\":" << item.record.local_port << ",\"remotePort\":" << m_port
+                << ",\"timestamp\":\"" << item.record.time
+                << "\",\"sidPresent\":" << item.sid_present << ",\"sidEqual\":" << item.sid_equal
+                << ",\"loopback\":" << item.loopback << ",\"layer\":" << item.layer
+                << ",\"direction\":" << item.direction
+                << ",\"capability\":" << item.record.capability
+                << ",\"strictAccepted\":" << item.accepted << ",\"filterId\":\""
+                << item.record.filter << "\",\"filter\":";
+            filter_metadata(out, item.record.filter);
+
+            out << '}';
+        }
+
+        out << ']';
+        return out.str();
     }
 
 private:
@@ -210,23 +300,147 @@ private:
 
         std::lock_guard lock(self.m_mutex);
 
-        if (!event || self.m_begin == 0
-            || !matches(*event,
-                { self.m_package.data(), *self.m_application, self.m_port, self.m_begin,
-                    self.m_end }))
+        Identity identity { self.m_package.data(), *self.m_application, self.m_port, self.m_begin,
+            self.m_end };
+        if (!event || self.m_begin == 0 || !diagnostic_matches(*event, identity))
             return;
         if (self.m_count == self.m_records.size()) {
             self.m_overflow = true;
             return;
         }
 
-        auto const& drop = *event->capabilityDrop;
-        self.m_records[self.m_count++] = { event->header.localPort, drop.filterId,
-            static_cast<UINT32>(drop.networkCapabilityId), timestamp(event->header.timeStamp) };
+        bool present = (event->header.flags & FWPM_NET_EVENT_FLAG_PACKAGE_ID_SET)
+            && event->header.packageSid && IsValidSid(event->header.packageSid);
+
+        Diagnostic result {};
+        result.accepted = matches(*event, identity);
+
+        result.type = static_cast<UINT32>(event->type);
+
+        result.flags = event->header.flags;
+        result.sid_present = present;
+        result.sid_equal = present && EqualSid(event->header.packageSid, identity.package);
+
+        result.record.local_port = event->header.localPort;
+        result.record.time = timestamp(event->header.timeStamp);
+
+        if (event->type == FWPM_NET_EVENT_TYPE_CAPABILITY_DROP) {
+            auto const& drop = *event->capabilityDrop;
+            result.record.filter = drop.filterId;
+            result.record.capability = static_cast<UINT32>(drop.networkCapabilityId);
+
+            result.loopback = drop.isLoopback == TRUE;
+        } else {
+            auto const& drop = *event->classifyDrop;
+            result.record.filter = drop.filterId;
+            result.layer = drop.layerId;
+            result.direction = drop.msFwpDirection;
+            result.loopback = drop.isLoopback == TRUE;
+        }
+
+        self.m_records[self.m_count++] = result;
         self.m_received.notify_one();
     }
 
-    void close() noexcept
+    void filter_metadata(std::ostream& out, UINT64 id)
+    {
+        FWPM_FILTER0* filter = nullptr;
+        auto status = id ? FwpmFilterGetById0(m_engine, id, &filter) : ERROR_INVALID_PARAMETER;
+        auto release = [](auto* pointer) {
+            if (pointer)
+                FwpmFreeMemory0(reinterpret_cast<void**>(&pointer));
+        };
+
+        std::unique_ptr<FWPM_FILTER0, decltype(release)> filter_owner(filter, release);
+
+        out << "{\"status\":" << status;
+        if (status == ERROR_SUCCESS && filter) {
+            out << ",\"action\":" << filter->action.type << ",\"layerKey\":\""
+                << guid(filter->layerKey) << "\",\"subLayerKey\":\"" << guid(filter->subLayerKey)
+                << "\",\"providerKey\":";
+            if (filter->providerKey)
+                out << '"' << guid(*filter->providerKey) << '"';
+            else
+                out << "null";
+            if (filter->providerKey) {
+                FWPM_PROVIDER0* provider = nullptr;
+                auto provider_status
+                    = FwpmProviderGetByKey0(m_engine, filter->providerKey, &provider);
+
+                std::unique_ptr<FWPM_PROVIDER0, decltype(release)> provider_owner(
+                    provider, release);
+
+                out << ",\"providerStatus\":" << provider_status;
+                if (provider_status == ERROR_SUCCESS && provider)
+                    out << ",\"providerFlags\":" << provider->flags;
+            }
+
+            FWPM_SUBLAYER0* sublayer = nullptr;
+            auto sublayer_status = FwpmSubLayerGetByKey0(m_engine, &filter->subLayerKey, &sublayer);
+
+            std::unique_ptr<FWPM_SUBLAYER0, decltype(release)> sublayer_owner(sublayer, release);
+
+            out << ",\"subLayerStatus\":" << sublayer_status;
+            if (sublayer_status == ERROR_SUCCESS && sublayer) {
+                out << ",\"subLayerFlags\":" << sublayer->flags << ",\"subLayerProviderKey\":";
+                if (sublayer->providerKey)
+                    out << '"' << guid(*sublayer->providerKey) << '"';
+                else
+                    out << "null";
+            }
+
+            out << ",\"conditionCount\":" << filter->numFilterConditions
+                << ",\"truncated\":" << (filter->numFilterConditions > 16) << ",\"conditions\":[";
+            for (UINT32 i = 0; i < filter->numFilterConditions && i < 16; ++i) {
+                if (i)
+                    out << ',';
+                auto const& condition = filter->filterCondition[i];
+                auto const& value = condition.conditionValue;
+                out << "{\"field\":\"" << guid(condition.fieldKey)
+                    << "\",\"match\":" << condition.matchType << ",\"valueType\":" << value.type;
+                bool scalar = IsEqualGUID(condition.fieldKey, FWPM_CONDITION_FLAGS)
+                    || IsEqualGUID(condition.fieldKey, FWPM_CONDITION_IP_PROTOCOL)
+                    || IsEqualGUID(condition.fieldKey, FWPM_CONDITION_IP_LOCAL_PORT)
+                    || IsEqualGUID(condition.fieldKey, FWPM_CONDITION_IP_REMOTE_PORT);
+
+                switch (value.type) {
+                case FWP_UINT8:
+                    if (scalar)
+                        out << ",\"scalar\":" << static_cast<unsigned>(value.uint8);
+
+                    break;
+                case FWP_UINT16:
+                    if (scalar)
+                        out << ",\"scalar\":" << value.uint16;
+                    break;
+                case FWP_UINT32:
+                    if (scalar)
+                        out << ",\"scalar\":" << value.uint32;
+                    break;
+                case FWP_UINT64:
+                    if (scalar && value.uint64)
+                        out << ",\"scalar\":\"" << *value.uint64 << '"';
+                    break;
+                case FWP_SID:
+                    out << ",\"ownPackageSID\":"
+                        << (value.sid && IsValidSid(value.sid)
+                               && EqualSid(value.sid, m_package.data()));
+
+                    break;
+                default:
+                    break; // Never print strings, blobs, ACLs or pointers.
+                }
+
+                out << '}';
+            }
+
+            out << ']';
+        }
+
+        out << '}';
+    }
+
+    void stop_subscription() noexcept
     {
         // A failed cancellation cannot leave a callback borrowing destroyed
         // storage. Fail this diagnostic process closed instead of returning.
@@ -236,6 +450,11 @@ private:
 
             m_subscription = nullptr;
         }
+    }
+
+    void close() noexcept
+    {
+        stop_subscription();
 
         if (m_engine) {
             if (FwpmEngineClose0(m_engine) != ERROR_SUCCESS)
@@ -260,7 +479,7 @@ private:
     std::condition_variable m_received;
     ULONGLONG m_begin { 0 };
     ULONGLONG m_end { ~ULONGLONG { 0 } };
-    std::array<Record, 8> m_records {};
+    std::array<Diagnostic, 8> m_records {};
     size_t m_count { 0 };
     bool m_overflow { false };
 };

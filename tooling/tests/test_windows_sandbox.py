@@ -149,6 +149,10 @@ def exercise(probe, artifacts, mode):
                         )
                 else:
                     stdout, stderr = process.communicate(timeout=20)
+                    assert len(stdout) <= 65536, "Bounded native WFP report exceeded budget"
+                    # Save owned scalar evidence before any acceptance assertion
+                    # so a correctly red native run retains its causal evidence.
+                    (artifacts / f"{mode}-report.json").write_bytes(stdout)
                     assert process.returncode in (0, 2) and not stderr, (
                         process.returncode,
                         stdout,
@@ -156,6 +160,12 @@ def exercise(probe, artifacts, mode):
                     )
                     envelope = json.loads(stdout)
                     assert envelope["childExit"] == process.returncode, envelope
+                    diagnostics = envelope["kernel"]["diagnostics"]
+                    assert isinstance(diagnostics, list) and len(diagnostics) <= 8, diagnostics
+                    print(
+                        "Native WFP scoped diagnostics:",
+                        json.dumps(diagnostics, separators=(",", ":")),
+                    )
                     report = envelope["worker"]
                     evidence = network_evidence(
                         report,

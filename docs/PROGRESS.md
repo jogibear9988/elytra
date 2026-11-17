@@ -16312,6 +16312,27 @@ notes now reflect actual evidence; nextdiagnostics remain bounded/read-only and
 cannotbroaden acceptance. Site367pages/27563links PASS. No localGUI. Fullgoalactive;
 currentmacOS/renderer/packages and master/release promotion still outstanding.
 
+## Retain bounded kernel/filter diagnostics without broadening acceptance (2026-11-17)
+
+Native693 WFP probe compiles/subscribes but has no exactaccepted event. Add separate
+CLASSIFY_DROP/CAPABILITY_DROP diagnostics only for exactOSAppId/IPv4TCPloopback
+local+remote tuple and strictGO..childexitwindow; record SIDpresent/equal booleans,
+not acceptance whenmissing. One shared8record array retains strictaccepted bits.
+After drainingunsubscribe, keepengine/identity alive for <=8read-onlyfilter/provider/
+sublayer queries and <=16conditions/filter: onlyGUID/action/status/flags, essential
+flags/protocol/port scalars and ownSIDboolean. No displayname/blob/ACL/systemdump.
+All nativeallocationsRAIIowned. Diagnosticrecords cannotshortcircuit fixed2s strict-
+evidence deliverygrace. No policy/exemption/globalcollection mutation.
+
+Strictnative matches() bytes and Python acceptanceAST unchanged. CLASSIFY_DROP or
+missingSID neverpasses. RawtimeoutFalse/exit2 remainsunresolved. Savebounded64KiB
+ownedreport beforeassertion and emit onlyboundedmatchedmetadata, so a correctlyred
+hostedrun retains useful evidence. Independentsource/lifetime finalreviewGO;
+fourexisting+fournewnegative/sourcegroups, pinnednative/Pythonformat anddiff PASS.
+ActualWindowscompile/run of newdiagnostics PENDING. Nativeasset2a1 green remains
+independent; fullrenderer/WindowsEXE/release requirements unchanged. No localGUI.
+Fullgoalactive.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

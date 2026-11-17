@@ -186,6 +186,20 @@ void wfp_evidence_controls()
     header.appId = application;
     header.timeStamp.dwLowDateTime = 150;
     require(SandboxNetworkProbe::matches(event, identity), "exact WFP predicate control");
+    require(SandboxNetworkProbe::diagnostic_matches(event, identity), "exact WFP diagnostic tuple");
+    auto no_sid = event;
+    no_sid.header.packageSid = nullptr;
+    no_sid.header.flags &= ~FWPM_NET_EVENT_FLAG_PACKAGE_ID_SET;
+    require(SandboxNetworkProbe::diagnostic_matches(no_sid, identity)
+            && !SandboxNetworkProbe::matches(no_sid, identity),
+        "diagnostic missing SID never grants acceptance");
+    auto classified = event;
+    FWPM_NET_EVENT_CLASSIFY_DROP2 classified_drop {};
+    classified.type = FWPM_NET_EVENT_TYPE_CLASSIFY_DROP;
+    classified.classifyDrop = &classified_drop;
+    require(SandboxNetworkProbe::diagnostic_matches(classified, identity)
+            && !SandboxNetworkProbe::matches(classified, identity),
+        "diagnostic classify drop never grants acceptance");
     auto reject = [&](auto change) {
         auto candidate = event;
         change(candidate);
@@ -546,7 +560,8 @@ int run_probe(int argc, wchar_t** argv)
                       << record.filter << "\",\"capability\":" << record.capability << '}';
         }
 
-        std::cout << "]}}\n" << std::flush;
+        std::cout << "],\"diagnostics\":" << network_observer->diagnostics() << "}}\n"
+                  << std::flush;
         network_observer.reset(); // Revoke observer before Child/Profile retirement.
     } else {
         std::cout << report << std::flush;
