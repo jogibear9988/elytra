@@ -74,12 +74,16 @@ def main():
             "__declspec(dllexport) int forward_value(void) { return 5; }",
             dll=True,
         )
+        exports = inputs / "PluginProvider.def"
+        exports.write_text(
+            "EXPORTS\n    plugin_value=ForwardTarget.forward_value\n", encoding="ascii"
+        )
         plugin_dependency = build(
             inputs,
             "PluginProvider",
             "#include <windows.h>\nBOOL WINAPI DllMain(HINSTANCE a, DWORD b, void *c) { return TRUE; }",
             dll=True,
-            link=("/EXPORT:plugin_value=ForwardTarget.forward_value",),
+            link=("/DEF:" + str(exports),),
         )
         plugin = build(
             inputs,

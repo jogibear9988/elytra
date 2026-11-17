@@ -16591,6 +16591,14 @@ export, checks missing-provider refusal and executes the relocated
 dependency chain. Local formatting, syntax and diff checks pass.
 Native execution remains pending.
 
+## Declare the forwarded test export in its module-definition file
+
+Hosted run 44179718601 passes real nested plugin loading after relocation.
+Run 44179985996 stops when MSVC interprets the command-line export alias as
+a local symbol. Use the linker's module-definition file to declare a DLL
+forwarder and retain the same import-table and relocated execution assertions.
+Local checks pass. Native forwarder verification remains pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
