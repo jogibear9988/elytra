@@ -49,10 +49,10 @@ def physical_file(path):
         raise ValueError(f"Expected a physical Windows binary: {path}")
 
 
-def imports(dumpbin, path):
-    """Read ordinary and delay imports, checking PE32+ x64 before staging."""
+def image_dependencies(dumpbin, path):
+    """Read import tables and export forwarders from a native x64 PE report."""
     result = subprocess.run(
-        [dumpbin, "/NOLOGO", "/HEADERS", "/DEPENDENTS", str(path)],
+        [dumpbin, "/NOLOGO", "/HEADERS", "/DEPENDENTS", "/EXPORTS", str(path)],
         capture_output=True,
         check=True,
         timeout=30,
@@ -87,7 +87,19 @@ def imports(dumpbin, path):
             if not DLL.fullmatch(name):
                 raise ValueError(f"Invalid PE import name in {path.name}: {name!r}")
             names.add(name.lower())
-    return sorted(names)
+    forwarders = set()
+    for line in report.splitlines():
+        if "(forwarded to " not in line:
+            continue
+        match = re.search(r"\(forwarded to ([a-z0-9_][a-z0-9_.-]*)\.[^\s.()]+\)\s*$", line, re.I)
+        if not match:
+            raise ValueError(f"Unrecognized PE export forwarder in {path.name}: {line.strip()!r}")
+        module = match[1].lower()
+        name = module if module.endswith(".dll") else module + ".dll"
+        if reason(name):
+            raise ValueError(f"Invalid PE export module in {path.name}: {name!r}")
+        forwarders.add(name)
+    return {"imports": sorted(names), "forwarders": sorted(forwarders)}
 
 
 def take_table(lines):
@@ -160,9 +172,9 @@ def stage(output, images, providers, *, plugins=()):
     while pending:
         key, (relative, source) = pending.popitem()
         fingerprint = digest(source)
-        dependencies = imports(dumpbin, source)
+        dependencies = image_dependencies(dumpbin, source)
         planned[key] = (relative, source, fingerprint, dependencies)
-        for name in dependencies:
+        for name in sorted(set(dependencies["imports"]) | set(dependencies["forwarders"])):
             if name in HOST_DLLS:
                 physical_file(os_directory / name)
                 host.add(name)
@@ -170,7 +182,7 @@ def stage(output, images, providers, *, plugins=()):
                 if name not in planned:
                     pending[name] = supplied[name]
             else:
-                raise ValueError(f"No explicit DLL provider for {name}, imported by {source.name}")
+                raise ValueError(f"No explicit DLL provider for {name}, required by {source.name}")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".pe-stage-", dir=output.parent) as temporary:
@@ -186,7 +198,7 @@ def stage(output, images, providers, *, plugins=()):
 
     return {
         "objects": {
-            relative: {"sha256": fingerprint, "imports": dependencies}
+            relative: {"sha256": fingerprint, **dependencies}
             for relative, _, fingerprint, dependencies in planned.values()
         },
         "hostDlls": sorted(host),

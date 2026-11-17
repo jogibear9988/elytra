@@ -16581,6 +16581,16 @@ relocation and checks its imported dependency and returned value with
 the SDK moved aside. Local format, syntax and diff checks pass. Native
 verification and integration with the actual Firefly package remain open.
 
+## Include Windows forwarded exports in the package dependency closure
+
+Read export forwarders in the same native DUMPBIN report as ordinary
+and delayed imports. Treat their target modules as explicit app-local
+providers or members of the existing host ABI inventory. The fixture
+routes the dynamically loaded platform plugin through a real forwarded
+export, checks missing-provider refusal and executes the relocated
+dependency chain. Local formatting, syntax and diff checks pass.
+Native execution remains pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

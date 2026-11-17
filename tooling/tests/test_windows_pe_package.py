@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a relocated x64 EXE with ordinary imports, delay imports and a plugin."""
+"""Run relocated x64 EXEs with imports, delayed imports, a plugin and a forwarder."""
 
 import _support
 
@@ -68,11 +68,18 @@ def main():
             "__declspec(dllimport) int bridge(void);\nint main(void) { return bridge(); }",
             link=(bridge.with_suffix(".lib"),),
         )
+        forward_target = build(
+            inputs,
+            "ForwardTarget",
+            "__declspec(dllexport) int forward_value(void) { return 5; }",
+            dll=True,
+        )
         plugin_dependency = build(
             inputs,
             "PluginProvider",
-            "__declspec(dllexport) int plugin_value(void) { return 5; }",
+            "#include <windows.h>\nBOOL WINAPI DllMain(HINSTANCE a, DWORD b, void *c) { return TRUE; }",
             dll=True,
+            link=("/EXPORT:plugin_value=ForwardTarget.forward_value",),
         )
         plugin = build(
             inputs,
@@ -127,9 +134,16 @@ int main(void) {
             lambda: pe.stage(stage, [plugin_host], [], plugins=[placement]),
             "No explicit DLL provider for pluginprovider.dll",
         )
+        refused(
+            lambda: pe.stage(stage, [plugin_host], [plugin_dependency], plugins=[placement]),
+            "No explicit DLL provider for forwardtarget.dll",
+        )
         assert not stage.exists()
         metadata = pe.stage(
-            stage, [image, plugin_host], [bridge, leaf, plugin_dependency], plugins=[placement]
+            stage,
+            [image, plugin_host],
+            [bridge, leaf, plugin_dependency, forward_target],
+            plugins=[placement],
         )
         assert set(metadata["objects"]) == {
             "firefly.exe",
@@ -137,9 +151,13 @@ int main(void) {
             "Leaf.dll",
             "plugin-host.exe",
             "PluginProvider.dll",
+            "ForwardTarget.dll",
             "platforms/PlatformFixture.dll",
         }, metadata
         assert "pluginprovider.dll" in metadata["objects"][placement[0]]["imports"]
+        provider = metadata["objects"][plugin_dependency.name]
+        assert "forwardtarget.dll" not in provider["imports"]
+        assert provider["forwarders"] == ["forwardtarget.dll"], provider
         assert "bridge.dll" in metadata["objects"][image.name]["imports"]
         assert "leaf.dll" in metadata["objects"][bridge.name]["imports"]
         assert "kernel32.dll" in metadata["hostDlls"]
@@ -164,7 +182,7 @@ int main(void) {
             timeout=15,
         )
         assert result.returncode == 5, result.returncode
-    print("PASS native x64 PE closure, delayed imports, explicit plugin, and relocated execution")
+    print("PASS native x64 PE closure, delayed imports, forwarded export, plugin, and relocation")
 
 
 if __name__ == "__main__":
