@@ -16429,6 +16429,18 @@ locally. The native Windows staging job must confirm the exact filenames.
 Separately, the hosted WFP audit verified mask restoration but saw zero
 callbacks. Its isolation gate still fails.
 
+## Verify the new CLI pin and native Windows staging (2026-11-17)
+
+With Ladybird 59158f57c, the local macOS Release CLI and embedded host build
+and all 173 tests pass in 72 seconds. The previous Linux candidate 4ecf6f7
+passes all 171 tests in run 44162635488. The dedicated Windows staging job
+134362725021 passes the actual physical publication and integrity controls at
+97cba84. The separate sandbox job 134362724506 confirms audit restoration but
+receives zero WFP callbacks and fails network acceptance. Update the public
+status and Code-OSS packaging guide with the verified scope. The site builds
+367 pages and passes 27,571 local link and resource checks. Current SDK,
+application packages and release acceptance remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
