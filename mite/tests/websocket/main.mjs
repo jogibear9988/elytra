@@ -246,6 +246,10 @@ try {
       if (['bad-accept', 'tls-reject'].includes(mode)) {
         assert.equal(opened, 0);
       }
+      if (mode === 'bad-accept') {
+        assert.equal(closeEvent.code, 1006);
+        assert.equal(closeEvent.wasClean, false);
+      }
     }
   }
   assert.equal(attributeClose, closeEvent);

@@ -15014,6 +15014,30 @@ unmodified b872e601 upstream and diff checks pass. Website358pages/26481local
 links/resources/fragments passes before this progress-only append. Push the
 coherent slice on the review branch; master/release still require open gates.
 
+
+## 2026-11-17 — Rejected WebSocket handshake peer lifecycle
+
+Inspect actual Windows02502d7 run44000747024/job133763927136: Node24.22.3
+passes happy/connecting-close/Blob-close/abrupt groups, then bad-accept times out
+inside the raw Python peer waiting for TCP EOF. The fixture already observes the
+API rejection; Node HTTP1 handshake validation can synthesize error/close before
+assigning the upgraded socket. Do not require native TCP teardown before the API
+assertions finish. The peer now waits for the owned child stdout PASS marker,
+then closes its socket. Apply the same path to Node and Mite, retaining10second
+peer/20second child deadlines and failures for timeout/nonzero/extra output.
+Strengthen bad-accept checks to require1006/wasCleanfalse in addition to existing
+error/no-open/no-message/CLOSED checks before publishing that marker.
+
+The complete actual Node24.15/Mite WebSocket runner passes all groups, including
+TLS, invalid frames, message/queue limits and the rejected handshake. Evidence:
+build/websocket-rejected-handshake-controls.log. Fresh Windows24.22 acceptance
+remains CI work; no Mite transport behavior was changed or waived. LinuxCLI
+02502d7 run44000747889 is green; Linuxrenderer44000746794 still fails genuine
+first-script preload acceptance. Prior macRelease6e909a2 run43992102319 passes
+157/158 then fails recursive event-watcher; local complete watcher suite and12
+fresh recursive controls pass, so retain this unresolved gate without changing
+or relaxing it. Full goal and native CI/master/release promotion remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

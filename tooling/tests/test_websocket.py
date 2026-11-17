@@ -153,8 +153,11 @@ class Peer(socketserver.BaseRequestHandler):
                 stream.sendall(head)
             elif mode == "bad-accept":
                 stream.sendall(head)
-                while stream.recv(4096):
-                    pass
+                # Handshake rejection is an API assertion, not a requirement
+                # that every reference implementation eagerly closes its raw
+                # upgraded TCP socket. Close only AFTER this owned child reports
+                # all strict error/1006/no-open/no-message assertions succeeded.
+                assert self.server.api_verified.wait(10), "client did not verify rejected handshake"
             else:
                 invalid = {
                     "masked": frame(1, b"bad", masked=True),
@@ -255,6 +258,7 @@ def run(binary, mode, trusted=False, mite=False):
         server.errors = []
         server.done = threading.Event()
         server.accepted = threading.Event()
+        server.api_verified = threading.Event()
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         env = os.environ.copy()
@@ -264,14 +268,48 @@ def run(binary, mode, trusted=False, mite=False):
             env["NODE_EXTRA_CA_CERTS"] = str(ROOT / "mite/tests/tls/fixtures/ca.pem")
         url = f"{'wss' if tls else 'ws'}://127.0.0.1:{server.server_address[1]}/{mode}"
         try:
-            result = subprocess.run(
-                [str(binary), str(ROOT / "mite/tests/websocket/main.mjs"), mode, url],
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=20,
-                cwd=ROOT,
-            )
+            command = [str(binary), str(ROOT / "mite/tests/websocket/main.mjs"), mode, url]
+            if mode == "bad-accept":
+                # Reading this child's private stdout avoids waiting for process
+                # exit while the reference is itself waiting for peer TCP EOF.
+                with subprocess.Popen(
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    env=env,
+                    cwd=ROOT,
+                ) as child:
+                    output = []
+
+                    def read_output():
+                        for line in child.stdout:
+                            output.append(line)
+                            if line == "PASS standalone WebSocket bad-accept\n":
+                                server.api_verified.set()
+
+                    reader = threading.Thread(target=read_output, daemon=True)
+                    reader.start()
+                    try:
+                        child.wait(timeout=20)
+                    except subprocess.TimeoutExpired:
+                        child.kill()
+                        child.wait(timeout=2)
+                        raise
+                    reader.join(timeout=2)
+                    assert not reader.is_alive(), "owned stdout reader did not stop"
+                    result = subprocess.CompletedProcess(
+                        command, child.returncode, "".join(output), child.stderr.read()
+                    )
+            else:
+                result = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=20,
+                    cwd=ROOT,
+                )
             assert (
                 result.returncode == 0
                 and result.stdout.strip() == "PASS standalone WebSocket " + mode
