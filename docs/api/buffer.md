@@ -50,3 +50,15 @@ Linux/Windows acceptance for `isUtf8` remains pending.
 ```sh
 python3 tooling/tests/test_crypto_byte_primitives.py --mite build/upstream-review/bin/mite
 ```
+
+## Codec slices
+
+Buffer instances expose utf8Slice, latin1Slice, ucs2Slice and base64Slice with
+(start?, end?) byte bounds. They return decoded strings without modifying the
+buffer. Empty buffers return an empty string. Negative indices throw RangeError
+with ERR_OUT_OF_RANGE. Following current Node24.22.3, end <= start returns an
+empty string before upper-bound validation; this includes an infinite or oversized
+start. A nonempty selected range with end beyond the buffer still throws.
+Exact Node24.15.0's older Infinity rejection is a recorded reference exception.
+The focused codec comparisons and full3558-case Buffer runner pass locally;
+fresh Windows acceptance remains pending.

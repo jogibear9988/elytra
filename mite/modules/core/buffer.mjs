@@ -443,9 +443,23 @@ export default function createBufferModule(host) {
     base64Slice: 'base64'
   })) {
     Buffer.prototype[name] = function (start = 0, end = this.length) {
+      if (!this.length) {
+        return '';
+      }
       start = Math.trunc(+start) || 0;
+      if (start < 0) {
+        fail('ERR_OUT_OF_RANGE', 'Codec slice bounds are outside the buffer', RangeError);
+      }
       end = Math.trunc(+end) || 0;
-      if (start < 0 || start > this.length || end < 0 || end > this.length) {
+      if (end < 0) {
+        fail('ERR_OUT_OF_RANGE', 'Codec slice bounds are outside the buffer', RangeError);
+      }
+      // Current Node returns an empty slice before validating the upper bound.
+      // An oversized start (including Infinity) must not become an invalid read.
+      if (end <= start) {
+        return '';
+      }
+      if (end > this.length) {
         fail('ERR_OUT_OF_RANGE', 'Codec slice bounds are outside the buffer', RangeError);
       }
       return stringify.call(this, codec, start, end);

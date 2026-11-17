@@ -15821,6 +15821,23 @@ then exposes an independent modern Buffer codec Infinity mismatch; that follow-u
 is not counted passing in this slice. No SDK build/GUI interaction. Windows rerun
 and broader Web IDL coverage remain open; full goal remains active.
 
+## Modern Buffer codec empty-range admission (2026-11-17)
+
+Match primary Node24.22 StringSlice ordering for utf8/latin1/ucs2/base64 Slice:
+empty backing returns empty; negative indices reject; end<=start returns empty
+before upper-bound checks. Preserve bounds checks for actual nonempty reads.
+No pointer or allocation range is widened. Keep all48 differential codec rows;
+only four actual exactNode24.15.0 Infinity rows have separately required old
+RangeError/ERR_OUT_OF_RANGE vs modern empty values. Add finite oversized/equal
+bounds and empty-buffer coercion controls.
+
+Regeneration and Release CLI/embedded build pass. Full Fetch data/codec/network/
+multipart/replay runner passes against both Node24.15.0 and official24.22.3; full
+3558 Buffer comparisons pass modern reference. Logs: build/current-final-data-
+controls.log, build/old-reference-final-data-controls.log,
+build/current-final-buffer-controls.log. No SDK/GUI work or live app changes.
+Windows rerun remains required; full goal remains active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

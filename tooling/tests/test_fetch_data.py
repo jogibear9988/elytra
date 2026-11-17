@@ -184,9 +184,26 @@ def main():
             for binary in [args.node, args.mite]
         ]
         assert all(result.returncode == 0 and not result.stderr for result in results), results
-        assert (
-            results[0].stdout == results[1].stdout and results[1].stdout.count("PASS ") == count
-        ), results
+        if fixture == "codec-slices.mjs":
+            # Compare actual bytes/errors for every row. Only the audited exact
+            # old reference's four Infinity-start rows differ from modern Node.
+            lines = [result.stdout.splitlines() for result in results]
+            assert all(len(output) == 2 and output[1] == marker.rstrip("\n") for output in lines)
+            reference, actual = [json.loads(output[0]) for output in lines]
+            assert set(reference) == set(actual) == {"nodeVersion", "cases"}, results
+            assert isinstance(reference["nodeVersion"], str) and actual["nodeVersion"] is None
+            assert len(reference["cases"]) == len(actual["cases"]) == 48
+            for index, (expected, observed) in enumerate(zip(reference["cases"], actual["cases"])):
+                if reference["nodeVersion"] == "24.15.0" and index % 12 == 8:
+                    method = ["utf8Slice", "latin1Slice", "ucs2Slice", "base64Slice"][index // 12]
+                    assert expected == [method, "RangeError", "ERR_OUT_OF_RANGE"]
+                    assert observed == [method, "value", ""]
+                else:
+                    assert expected == observed, (index, expected, observed)
+        else:
+            assert (
+                results[0].stdout == results[1].stdout and results[1].stdout.count("PASS ") == count
+            ), results
         assert results[1].stdout.endswith(marker), results
         print(
             results[1].stdout if count else "PASS 48 parser Buffer codec comparisons",
