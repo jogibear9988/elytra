@@ -12,6 +12,7 @@ on:
       - 'tooling/prepare_protocol_origin_hooks.py'
       - 'tooling/rust-origin/**'
       - 'tooling/bootstrap.py'
+      - 'tooling/prefetch_native_assets.py'
       - 'tooling/check_upstream.py'
       - 'tooling/check_checkout_paths.py'
       - 'tooling/tests/test_renderer.py'
@@ -96,6 +97,10 @@ jobs:
             windows-x64-clang-release-
       - name: Bootstrap pinned native dependencies
         run: python tooling/bootstrap.py
+      - name: Preseed hash-pinned native API asset
+        env:
+          ELYTRA_DEPENDENCY_GITHUB_TOKEN: ${{ github.token }}
+        run: python tooling/prefetch_native_assets.py
       - name: Configure the actual pinned renderer and owned diagnostic targets
         shell: pwsh
         run: |

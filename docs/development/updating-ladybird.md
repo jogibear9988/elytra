@@ -570,3 +570,19 @@ setters and navigation/reload. Recheck `check-firefly-preload-zoom` and the canv
 pixel gate because the source composition and native view state are shared.
 Do not accept merely matching main-process getters or refresh hashes without
 reviewing page/helper initialization and input/compositor zoom transport.
+
+## Hash-pinned GitHub API build assets
+
+The current PCRE2 port downloads an exact SLJIT gitlink API response. Anonymous
+hosted-runner API requests can return HTTP403 before renderer configuration.
+CI runs `python tooling/prefetch_native_assets.py` after bootstrap in a separate
+step. Only that step receives ELYTRA_DEPENDENCY_GITHUB_TOKEN; application builds
+and launches do not receive this credential. The downloader refuses redirects,
+checks the exact baseline/versioned port bytes and original upstream SHA512, then
+atomically publishes the validated response into vcpkg's ordinary download cache.
+No dependency source or port is changed. An existing verified cache needs no
+credential/network. A changed baseline, port or hash requires source review;
+never bypass the hash or disable PCRE2 features to hide a download failure.
+Local builds can normally use vcpkg's original fetch; this optional cache preseed
+requires the named environment credential on a cache miss. Do not put tokens in
+command arguments, URLs or checked-in files.

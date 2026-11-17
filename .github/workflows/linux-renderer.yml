@@ -18,6 +18,7 @@ on:
       - 'tooling/npm_payload.py'
       - 'examples/web-component-designer/**'
       - 'tooling/build_renderer.py'
+      - 'tooling/prefetch_native_assets.py'
       - 'tooling/prepare_protocol_origin_hooks.py'
       - 'tooling/rust-origin/**'
       - 'tooling/compiler_cache.py'
@@ -95,6 +96,10 @@ jobs:
             linux-noble-clang22-
       - name: Bootstrap pinned native dependencies
         run: python tooling/bootstrap.py
+      - name: Preseed hash-pinned native API asset
+        env:
+          ELYTRA_DEPENDENCY_GITHUB_TOKEN: ${{ github.token }}
+        run: python tooling/prefetch_native_assets.py
       - uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
         id: compiler-cache
         with:

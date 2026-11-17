@@ -16207,6 +16207,26 @@ Python4evidencegroups and diff PASS. This is a real hosted compiler finding;
 Windowsruntime/network diagnosis remains unverified until the corrected run.
 No localnative/GUI launch; fullgoal active.
 
+## Preserve pinned dependency hashes while authenticating the API cache fetch (2026-11-17)
+
+Linuxrenderer8a30 job133966018953 fails before compiler setup: the current PCRE2
+port's GitHubAPI SLJIT gitlink download returns403. The subsequent Ninja/compiler
+errors are cascading configure failures, not evidence of missing compilers. Add an
+owned preseed utility, never modifying vcpkg or Ladybird. Verify exactbaseline,
+versionedPCRE2port tree/fullport+manifest bytes and originalSHA512. Bound response,
+refuse redirects, require exactHTTPSendpoint, atomically publish only validated
+cache bytes; verifiedcache needs neither token nor network. Failclosed on all drift.
+
+Restrict ELYTRA_DEPENDENCY_GITHUB_TOKEN to separate CI preseed steps afterbootstrap
+for renderer/native-service/release graphs. Never place it on build_release/app
+launch environment; exclude it from verification subprocessenv too. No token in
+args/URLs/logs/cache. Tests reproduce actual pinnedport objects with retainedMIT
+notice:8mocknetwork/cache/pin/credential/redirect/partialwrite controls PASS; actual
+pinnedgitobject verification PASS. CTest+sourceCI registered. Pinned Python/CMake/
+YAML/JSON formatting and builtwebsite links PASS. Actual hosted authenticated fetch
+and renderer compilation remain pending. CurrentWindows sandbox diagnosis honestly
+returnsNONE despite timeout atdfd; do notwaive it. Fullgoal active.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

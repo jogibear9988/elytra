@@ -79,6 +79,12 @@ jobs:
         run: |
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
           rustup default 1.98.0
+      - name: Bootstrap pinned native dependencies
+        run: python tooling/bootstrap.py
+      - name: Preseed hash-pinned native API asset
+        env:
+          ELYTRA_DEPENDENCY_GITHUB_TOKEN: ${{ github.token }}
+        run: python tooling/prefetch_native_assets.py
       - name: Compile, validate and package Mite, Firefly, Designer and Code-OSS
         env:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}

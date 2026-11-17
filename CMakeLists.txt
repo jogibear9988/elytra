@@ -226,6 +226,9 @@ if(BUILD_TESTING)
                  COMMAND "${Python3_EXECUTABLE}"
                          "${CMAKE_SOURCE_DIR}/tooling/tests/test_windows_${component}.py")
     endforeach()
+    add_test(NAME native-asset-prefetch-source
+             COMMAND "${Python3_EXECUTABLE}"
+                     "${CMAKE_SOURCE_DIR}/tooling/tests/test_prefetch_native_assets.py")
     add_test(NAME mite-upstream COMMAND "${Python3_EXECUTABLE}"
                                         "${CMAKE_SOURCE_DIR}/tooling/check_upstream.py")
     add_test(NAME mite-upstream-guard COMMAND "${Python3_EXECUTABLE}"

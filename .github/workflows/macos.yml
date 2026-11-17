@@ -92,6 +92,12 @@ jobs:
           restore-keys: |
             macos-arm64-release-${{ hashFiles('vendor/ladybird.json', 'vcpkg.json') }}-
             macos-arm64-release-
+      - name: Bootstrap pinned native dependencies
+        run: python tooling/bootstrap.py
+      - name: Preseed hash-pinned native API asset
+        env:
+          ELYTRA_DEPENDENCY_GITHUB_TOKEN: ${{ github.token }}
+        run: python tooling/prefetch_native_assets.py
       - name: Compile Release, test, package production dependencies and strip native symbols
         env:
           RELEASE_TAG: ${{ inputs.tag }}
