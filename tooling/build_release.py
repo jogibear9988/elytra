@@ -292,6 +292,14 @@ def main():
         ROOT
         / "build/electron-reference/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
     )
+    # Verify the packaged WebContent reports the same engine revision as
+    # the host, through a real application-authored sandbox preload.
+    run(
+        sys.executable,
+        "tooling/tests/test_preload_process.py",
+        "--firefly",
+        stage / "Code-OSS.app/Contents/MacOS/firefly",
+    )
     run(
         sys.executable,
         "tooling/tests/test_hello.py",

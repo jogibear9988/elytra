@@ -16504,6 +16504,16 @@ Hosted Windows CLI run 44174671897 passes all 169 tests with Ladybird
 59158f57c, alongside the Linux run's 171. Current macOS release artifacts
 and Windows renderer confinement and application packaging remain open.
 
+## Verify the renderer engine from the packaged macOS app
+
+The release packager checks both CLI engine pins before staging. Add the
+existing sandbox process test to the Code-OSS bundle acceptance so it
+also checks the live packaged WebContent's revision against the host.
+Its authored preload verifies the native helper identity and isolation
+without showing a window. The fixture passes against the relocated,
+signed bundle built with the preceding SDK. The current SDK package
+still needs to run this gate. Formatting and diff checks pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
