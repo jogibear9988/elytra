@@ -15387,6 +15387,32 @@ liveness, broader terminal/failure coverage, visible rendering/input, arbitrary
 extensions, native platform CI and master/release promotion. No full-desktop or
 Windows acceptance is inferred. The full goal remains active.
 
+## CI window-preference fixture completeness and stdio regression diagnosis (2026-11-17)
+
+Linux run44019823545 (3755020) fails six of161runtime suites. The window-preference
+synthetic source omitted the newly pinned original electronPtyHostStarter.ts;
+include that actual vendor input using the shared PTY source constant. Existing
+hash/provenance/reversal/drift guards remain active. Audit other local-desktop
+synthetic callers: local-desktop already stages it and diff-worker stages the
+whole manifest. Targeted window-preference18Node/Mite cases, local-desktop and
+diff-worker controls pass; root independently repeats window-preferences, log
+build/window-preferences-pty-fixture-controls.log. This corrects test preparation,
+not a production policy bypass.
+
+Other Linux failures: process-exit, abort listener-error, process-errors fatal
+handler, unref-only immediates, and DNS pool responsiveness. The global Console
+now uses real process.stdout/stderr; these always queue fs.write threadpool work.
+That delays small writes, creates loop liveness and blocks logs behind occupied
+filesystem workers. Root reproduces process-exit and immediates failures locally:
+build/stdio-before-{process-exit,immediates}.log. Native descriptor-specific stdio
+is the next production change, with immediate pipe writes and bounded async
+suffixes instead of reverting Console stream identity/write hooks. Node's stdio
+reference: https://nodejs.org/download/release/v24.15.0/docs/api/process.html#anoteonprocessio
+and https://github.com/nodejs/node/blob/v24.15.0/lib/internal/bootstrap/switches/is_main_thread.js.
+Explicit process.exit need not flush truly pending asynchronous pipe output.
+No runtime fix is claimed here. Latest f0e7b7c native Linux/macOS/Windows/renderer
+CI runs are pending/in-progress; no master or alpha promotion.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

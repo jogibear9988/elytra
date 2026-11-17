@@ -14,6 +14,7 @@ import tempfile
 
 from code_oss.local_desktop import PATHS
 from code_oss.overlay import FILES, prepare
+from code_oss.pty_host_debug import SOURCE as PTY_HOST_DEBUG_SOURCE
 from code_oss.window_preferences import (
     SOURCE,
     SOURCE_SHA256,
@@ -162,6 +163,7 @@ def main():
             "utility-process-main.ts",
             "local-process-extension-host.ts",
             "shared-process-main.ts",
+            PTY_HOST_DEBUG_SOURCE,
             "electronAgentHostStarter.ts",
             "diffComputeService.ts",
             "css-development-service.ts",
