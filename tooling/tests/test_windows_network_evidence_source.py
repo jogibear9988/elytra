@@ -89,9 +89,12 @@ class NetworkEvidenceSource(unittest.TestCase):
     def test_diagnostic_only_scope(self):
         wait = self.header.split("m_received.wait_for(", 1)[1].split("});", 1)[0]
         self.assertIn("std::chrono::seconds(2)", wait)
-        self.assertIn("m_records[i].accepted && m_records[i].record.time <= m_end", wait)
-        self.assertIn("return false;", wait)
-        self.assertNotIn("return m_count != 0", wait)
+        self.assertIn("return has_callback_record();", wait)
+        callback_check = self.header.split("bool has_callback_record() const", 1)[1].split(
+            "void read_snapshot(", 1
+        )[0]
+        self.assertIn("m_records[i].accepted && m_records[i].record.time <= m_end", callback_check)
+        self.assertIn("return false;", callback_check)
         for required in (
             "diagnostic missing SID never grants acceptance",
             "diagnostic classify drop never grants acceptance",
@@ -124,6 +127,35 @@ class NetworkEvidenceSource(unittest.TestCase):
             self.runner[
                 self.runner.index("def network_evidence(") : self.runner.index("def line(")
             ],
+        )
+
+    def test_snapshot_requires_exact_evidence_and_completed_enumeration(self):
+        finish = self.header.split("void finish(FILETIME exit)", 1)[1].split(
+            "std::vector<Record> records", 1
+        )[0]
+        self.assertLess(finish.index("stop_subscription();"), finish.index("read_snapshot(exit)"))
+        self.assertLess(finish.index("read_snapshot(exit)"), finish.index("restore_audit()"))
+        self.assertIn("if (!has_callback_record())", finish)
+        snapshot = self.header.split("void read_snapshot(FILETIME exit)", 1)[1].split(
+            "Option read_option", 1
+        )[0]
+        for required in (
+            "FWPM_CONDITION_IP_REMOTE_PORT",
+            "target.conditionValue.uint16 = m_port",
+            "selection.endTime = exit",
+            "FwpmNetEventCreateEnumHandle0",
+            "FwpmNetEventEnum3",
+            "FwpmNetEventDestroyEnumHandle0",
+            "m_snapshot_read == ERROR_SUCCESS && m_snapshot_close == ERROR_SUCCESS",
+            "m_snapshot_returned < page_size",
+            "!matches(*event, identity)",
+            "m_snapshot_count == m_snapshot_records.size()",
+            "FwpmFreeMemory0",
+        ):
+            self.assertIn(required, snapshot)
+        self.assertLess(
+            snapshot.index("!matches(*event, identity)"),
+            snapshot.index("m_snapshot_records[m_snapshot_count++]"),
         )
 
     def test_read_only_options_and_bounded_stage_counters(self):

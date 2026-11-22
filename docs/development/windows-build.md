@@ -423,6 +423,14 @@ guarantee restoration. This option is confined to isolated disposable CI machine
 not a production sandbox mechanism or a general concurrent audit-ownership claim.
 Fresh native execution remains required.
 
+The hosted audit subsequently verified setting and restoring the mask. It
+received no subscription callbacks. The probe now also queries one bounded
+snapshot for the listener port and the retained child's lifetime after draining
+the subscription. An enumerated record must satisfy the same strict
+capability-drop predicate before the Python runner can match its local port
+to the worker's socket. Enumeration errors and truncated results supply no
+evidence. The probe reports counts and status codes. [WFP enumeration API](https://learn.microsoft.com/en-us/windows/win32/api/fwpmu/nf-fwpmu-fwpmneteventenum3)
+
 ## Owned helper and desktop-provider integration (2026-11-17)
 
 The current review adds native Windows locale, monitor/cursor, Qt clipboard,

@@ -16905,6 +16905,19 @@ reload and reentrant close, exact document handoff and peer EOF, malformed
 frames, replay, bounds and reentry tests. Hosted Linux revalidation is pending.
 No visible window was opened.
 
+## Query retained Windows network evidence after subscription drain
+
+Native job 137132375570 verifies temporary audit mask setting and restoration.
+Its WFP subscription receives zero callbacks, so the network timeout remains
+unresolved. After the bounded callback wait and unsubscribe, query a single
+WFP event snapshot for the exact target port and child lifetime when no strict
+callback record is available. Apply the identical package SID, image, network
+tuple, capability-drop and timestamp checks. The independent runner still
+requires the child socket's actual local port and an unconnected live listener.
+Truncated or failed enumeration supplies no acceptance evidence. Report the
+query status and counts without event payloads. No network policy changes.
+Source and verifier checks pass. Hosted Windows execution remains pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

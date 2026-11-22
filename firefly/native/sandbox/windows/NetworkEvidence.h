@@ -359,18 +359,15 @@ public:
             check(m_begin != 0 && m_end >= m_begin, "WFP exact child lifetime window");
             // Kernel notification delivery may lag the event timestamp. Retain
             // only events inside the closed child window, with a fixed wait.
-            m_received.wait_for(lock, std::chrono::seconds(2), [&] {
-                for (size_t i = 0; i < m_count; ++i) {
-                    if (m_records[i].accepted && m_records[i].record.time <= m_end)
-                        return true;
-                }
-
-                return false;
-            });
+            m_received.wait_for(
+                lock, std::chrono::seconds(2), [&] { return has_callback_record(); });
         }
         // Unsubscribe waits for callbacks. Never hold their mutex across it.
         // https://learn.microsoft.com/windows/win32/api/fwpmu/nf-fwpmu-fwpmneteventunsubscribe0
         stop_subscription();
+
+        if (!has_callback_record())
+            read_snapshot(exit);
 
         if (!restore_audit())
             throw std::runtime_error("WFP audit ownership/restore failed; no cleanup claim");
@@ -393,6 +390,9 @@ public:
             if (m_records[i].accepted && m_records[i].record.time <= m_end)
                 result.push_back(m_records[i].record);
         }
+
+        for (size_t i = 0; i < m_snapshot_count; ++i)
+            result.push_back(m_snapshot_records[i]);
 
         return result;
     }
@@ -452,7 +452,11 @@ public:
                    && (m_keywords.value & FWPM_NET_EVENT_KEYWORD_CAPABILITY_DROP) != 0)
             << ",\"audit\":" << m_audit.report() << ",\"callbacks\":" << m_callbacks
             << ",\"null\":" << m_null << ",\"unarmed\":" << m_unarmed
-            << ",\"overflow\":" << m_overflow << ",\"stages\":{";
+            << ",\"overflow\":" << m_overflow
+            << ",\"snapshot\":{\"attempted\":" << m_snapshot_attempted
+            << ",\"openStatus\":" << m_snapshot_open << ",\"readStatus\":" << m_snapshot_read
+            << ",\"closeStatus\":" << m_snapshot_close << ",\"returned\":" << m_snapshot_returned
+            << ",\"accepted\":" << m_snapshot_count << "},\"stages\":{";
         constexpr char const* labels[] { "type", "flags", "protocol", "target", "application",
             "time", "matched" };
         for (size_t i = 0; i < m_stages.size(); ++i) {
@@ -466,6 +470,68 @@ public:
     }
 
 private:
+    bool has_callback_record() const
+    {
+        for (size_t i = 0; i < m_count; ++i) {
+            if (m_records[i].accepted && m_records[i].record.time <= m_end)
+                return true;
+        }
+
+        return false;
+    }
+
+    void read_snapshot(FILETIME exit)
+    {
+        // Query the target port and time independently of the image subscription.
+        // The same strict package, image, tuple and lifetime checks admit evidence.
+        FWPM_FILTER_CONDITION0 target {};
+        target.fieldKey = FWPM_CONDITION_IP_REMOTE_PORT;
+        target.matchType = FWP_MATCH_EQUAL;
+        target.conditionValue.type = FWP_UINT16;
+        target.conditionValue.uint16 = m_port;
+        FWPM_NET_EVENT_ENUM_TEMPLATE0 selection {};
+        selection.startTime = { static_cast<DWORD>(m_begin), static_cast<DWORD>(m_begin >> 32) };
+        selection.endTime = exit;
+        selection.numFilterConditions = 1;
+        selection.filterCondition = &target;
+
+        HANDLE enumeration = nullptr;
+        m_snapshot_attempted = true;
+        m_snapshot_open = FwpmNetEventCreateEnumHandle0(m_engine, &selection, &enumeration);
+
+        if (m_snapshot_open != ERROR_SUCCESS)
+            return;
+
+        constexpr UINT32 page_size = 64;
+        FWPM_NET_EVENT3** entries = nullptr;
+        m_snapshot_read
+            = FwpmNetEventEnum3(m_engine, enumeration, page_size, &entries, &m_snapshot_returned);
+
+        m_snapshot_close = FwpmNetEventDestroyEnumHandle0(m_engine, enumeration);
+        // Keep no evidence from a partial read or failed handle cleanup.
+        if (m_snapshot_read == ERROR_SUCCESS && m_snapshot_close == ERROR_SUCCESS && entries
+            && m_snapshot_returned < page_size) {
+            Identity identity { m_package.data(), *m_application, m_port, m_begin, m_end };
+            for (UINT32 i = 0; i < m_snapshot_returned; ++i) {
+                auto const* event = entries[i];
+                if (!event || !matches(*event, identity))
+                    continue;
+                if (m_snapshot_count == m_snapshot_records.size()) {
+                    m_overflow = true;
+                    break;
+                }
+
+                auto const& drop = *event->capabilityDrop;
+                m_snapshot_records[m_snapshot_count++] = { event->header.localPort, drop.filterId,
+                    static_cast<UINT32>(drop.networkCapabilityId),
+                    timestamp(event->header.timeStamp) };
+            }
+        }
+
+        if (entries)
+            FwpmFreeMemory0(reinterpret_cast<void**>(&entries));
+    }
+
     Option read_option(FWPM_ENGINE_OPTION option)
     {
         FWP_VALUE0* value = nullptr;
@@ -739,5 +805,12 @@ private:
     UINT32 m_null { 0 };
     UINT32 m_unarmed { 0 };
     std::array<UINT32, static_cast<size_t>(DiagnosticStage::Count)> m_stages {};
+    std::array<Record, 8> m_snapshot_records {};
+    size_t m_snapshot_count { 0 };
+    bool m_snapshot_attempted { false };
+    DWORD m_snapshot_open { ERROR_NOT_READY };
+    DWORD m_snapshot_read { ERROR_NOT_READY };
+    DWORD m_snapshot_close { ERROR_NOT_READY };
+    UINT32 m_snapshot_returned { 0 };
 };
 }
