@@ -16625,6 +16625,14 @@ Missing provider and unsafe placement refusals pass. Record this in
 the Windows guide and platform status. Actual application assembly,
 complete helper confinement and Windows release assets remain open.
 
+## Restore macOS Release compilation on the pinned SDK
+
+Hosted run 44174672036 rejected three deprecated filesystem u8path calls
+under the Release compiler's warnings-as-errors policy. Construct paths
+from typed UTF-8 bytes instead, preserving Unicode path decoding on
+Windows and byte paths on POSIX. Formatting and diff checks pass. The
+local SDK configured successfully and the renderer rebuild is pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

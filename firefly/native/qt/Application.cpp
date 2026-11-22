@@ -50,11 +50,19 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 template <> constexpr bool AllocatedWithSystemAllocator<QApplication> = true;
 
 namespace Firefly {
+static std::filesystem::path path_from_utf8(std::string_view bytes)
+{
+    // The char8_t overload decodes UTF-8 on Windows and preserves native bytes on POSIX.
+    return std::filesystem::path(std::u8string(bytes.begin(), bytes.end()));
+}
+
 // Resolve from the native executable, never argv[0] or the application's working directory.
 static ByteString runtime_directory()
 {
@@ -68,8 +76,8 @@ static ByteString runtime_directory()
 #endif
     auto selected = Firefly::runtime_directory(executable.is_error()
             ? std::filesystem::path {}
-            : std::filesystem::u8path(executable.value().characters()),
-        std::filesystem::u8path(FIREFLY_LADYBIRD_DIRECTORY), layout);
+            : path_from_utf8(executable.value().characters()),
+        path_from_utf8(FIREFLY_LADYBIRD_DIRECTORY), layout);
     auto utf8 = selected.u8string();
     return ByteString(StringView(reinterpret_cast<char const*>(utf8.data()), utf8.size()));
 }
@@ -395,7 +403,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     QSurfaceFormat::setDefaultFormat(format);
     std::error_code entry_error;
     auto entry_directory
-        = std::filesystem::absolute(std::filesystem::u8path(options.arguments[1]), entry_error)
+        = std::filesystem::absolute(Firefly::path_from_utf8(options.arguments[1]), entry_error)
               .parent_path()
               .u8string();
     if (entry_error)
