@@ -587,9 +587,18 @@ The [Windows package assembly run](https://github.com/jogibear9988/elytra/action
 also uses the real launcher to start a relocated fixture with its packaged
 application tree and normal and delayed DLL imports. It checks that a
 missing provider leaves no output directory and that an existing package
-is refused. This stage assembles the main process and application payload.
-The helper tree, sandbox policies and native resources need their own
-acceptance on the actual Firefly SDK.
+is refused.
+
+The [sealed helper package run](https://github.com/jogibear9988/elytra/actions/runs/44993296494)
+also recreates a helper SDK inside `firefly-runtime`, checks identical
+inventory bytes and verifies the resource file. The relocated package
+runs both the root launcher and the helper fixture after moving the
+original SDK away. The actual Firefly helpers and their sandbox policies
+still need native acceptance. The separate
+[AppContainer run](https://github.com/jogibear9988/elytra/actions/runs/44993152652)
+compiled successfully with the pinned LLVM, but received no WFP callback
+for the worker's network test despite enabling and restoring capability-drop
+logging. The network acceptance remains red.
 
 Windows CI uses the Visual Studio x64 SDK environment with
 [LLVM 22.1.8](https://github.com/llvm/llvm-project/releases/tag/llvmorg-22.1.8)

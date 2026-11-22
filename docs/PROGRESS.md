@@ -16693,6 +16693,17 @@ relocates a helper EXE with its DLLs and resource file along with the
 launcher. Seven local source tests, formatting and diff checks pass.
 Hosted execution and actual Firefly helper-role acceptance remain open.
 
+## Verify the Windows helper package fixture and record the separate network failure
+
+Hosted job 137118864436 passes the combined relocated launcher, PE
+closure and independently sealed helper fixture. It verifies the exact
+helper seal and resource bytes and executes the relocated fixture EXE
+with the original SDK moved aside. AppContainer job 137118430186
+compiles with the pinned LLVM but receives zero WFP callbacks. It
+confirms restoration of the capability-drop logging setting. No
+Windows runtime gate changed. Actual applications and native helper-role
+coverage remain open. The generated site and local package checks pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
