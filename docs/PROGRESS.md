@@ -16921,8 +16921,9 @@ compilation and the Internet-client token check. The snapshot open, read and
 close all succeed with zero records. Audit restoration is verified. The absence
 of exact network evidence keeps the job red. Run the two independent
 broker-death lifetime cases before that fallible network check so their actual
-results survive a red network gate. Native lifetime execution in that reordered
-lane remains pending.
+results survive a red network gate. Native Windows job 137134367583 passes
+termination of the still-suspended and already-running workers after broker
+death. Its network test independently reproduces the empty snapshot.
 
 ## Resume
 
