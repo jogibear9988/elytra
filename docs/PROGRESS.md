@@ -17079,6 +17079,30 @@ cleanup signals. Evidence is in build/code-oss-59158-workspace-switch.log.
 This covers the transition after folder selection. Cocoa, the native picker
 and a run with the updated Ladybird remain open.
 
+## Build Firefly with the updated Ladybird fetch and Hub APIs
+
+Publish completed custom-protocol response sizes through the engine's
+`EndOfBody` event before closing a delivered byte channel. Early completion
+sets the response sizes directly, as upstream does. The embedded Hub keeps
+Qt's viewport and load message order and gives active intercepted file
+navigations an empty filesystem grant. The navigation loader can accept the
+bounded in-memory body for that same requested URL. The normal upstream file
+load and filesystem scope stay in effect for other navigations.
+
+Supply the updated Hub interface with the existing Qt system appearance
+providers for motion and contrast. The host disconnects their native observers
+before retiring the Hub. Use the Qt `RemoteView::load` API in the window and
+file-picker probes and the LibWebView browser-UI load API in headless probes.
+
+The macOS arm64 Firefly release and offscreen binaries link. The offscreen
+runtime reports exact LibJS `f9acbe915b607c2cc1ad8addcc67b67797a2cec8`.
+The public modern protocol test passes all six gates, including handler HTML
+at a path absent on disk, binary responses, CSP and cancellation. The Hub
+and origin composition guards and the 367-page documentation link check pass.
+Hosted Linux standalone Mite also passed on the initial update commit.
+The updated Code-OSS folder switch and native desktop packaging remain under
+validation.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -305,7 +305,8 @@ Also preserve upstream's destination document ID before population. The resource
 gate loads real external ESM/CSS/binary GET/HEAD, refuses wrong/missing document
 grants, preserves the original against duplicate endpoints and revokes on navigation.
 Inspect exact local settings/document/page/navigable identity checks and the pending
-five-second grant expiry. It opens no desktop window. General Response handlers and broader session routing remain unimplemented. These adapters never write to the vendor tree.
+five-second grant expiry. It opens no desktop window. The public protocol suite
+covers default-session Response handlers separately.
 
 The normal main bridge now uses these seams through its default-session FileRoutes
 service. On updates, preserve canonical root ownership across selected hosts,
@@ -338,20 +339,29 @@ response filtering and CSP. Review both exact seams and the whole-source fingerp
 when updating Ladybird; retain reverse byte-preservation and ambiguous/missing-seam
 refusals. Never change vendor sources to make the seam fit. The owned Response
 adapter rejects unauthorized metadata before body credit but keeps that document's
-channel usable. Run check-firefly-protocol-fetch and batch check-firefly-public-protocol
+channel usable. Review the upstream body-handover sequence and how the network
+pump reports `EndOfBody` with the channel's delivery ID and final byte sizes.
+The owned transport follows the same ordering for streamed and early completions.
+Run check-firefly-protocol-fetch and batch check-firefly-public-protocol
 for real response filtering, policy denial, target revocation and reload. See
 [ADR 0134](../architecture/0134-simple-custom-protocol-cors.md).
 
 ## Custom protocol origin seams
 
 The renderer graph composes LibWebCommon's potentially-trustworthy-origin and
-fetch-scheme decisions, plus the WebContent launch call, through
+fetch-scheme decisions, the WebContent launch call and the UI-side navigation
+body handoff through
 [prepare_protocol_origin_hooks.py](../../tooling/prepare_protocol_origin_hooks.py).
-Review all three fingerprints, exact seams and CMake source ownership on upstream
+Review the fingerprints, exact seams and CMake source ownership on upstream
 updates. The shared Fetch/Infrastructure/URL.cpp predicate must add only explicitly
 registered standard schemes, preserve builtin HTTP/local classification and restore
 all upstream bytes. Run check-firefly-protocol-routing against the real engine and
 LibWebView URL/input classifiers; this check opens no window or external application.
+For an active file handler, the embedded Hub issues an explicitly empty file
+grant. The navigation loader accepts a bounded in-memory body for the exact
+requested file URL with that grant. It preserves upstream's file read and root
+checks for normal local navigation. The modern protocol fixture must render
+handler-supplied HTML at a URL with no corresponding file on disk.
 LibURL URL.cpp remains upstream: native and DOM consumers instead share Rust
 Url::origin through [the owned Rust composition](../../tooling/rust-origin/prepare.py).
 Review the pinned lib.rs/origin.rs/ffi.rs hashes, module layouts, borrowed-origin

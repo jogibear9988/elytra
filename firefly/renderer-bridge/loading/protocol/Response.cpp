@@ -8,9 +8,11 @@
 #include <AK/WeakPtr.h>
 #include <LibGC/Function.h>
 #include <LibHTTP/HeaderList.h>
+#include <LibWeb/Fetch/Engine/EngineEvent.h>
 #include <LibWeb/Fetch/Fetching/Checks.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/MIME.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
+#include <LibWeb/HighResolutionTime/TimeOrigin.h>
 #include <LibWebCommon/MimeSniff/MimeType.h>
 
 namespace Firefly::ProtocolFetch {
@@ -69,8 +71,7 @@ ErrorOr<NonnullRefPtr<Response>> Response::create(Infrastructure::FetchParams co
 
 Response::Response(Infrastructure::FetchParams const& params, u64 epoch, u32 request,
     NonnullRefPtr<CallbackOwner> callbacks, u64 maximum_length)
-    : m_controller(params.controller())
-    , m_pending(Web::Fetch::Fetching::PendingResponse::create(params))
+    : m_pending(Web::Fetch::Fetching::PendingResponse::create(params))
     , m_params(params)
     , m_gate(Engine::FetchBodyDeliveryGate::create(
           Engine::FetchBodyDeliveryGate::NavigationHold::None))
@@ -101,8 +102,8 @@ void Response::when_loaded(Web::Fetch::Fetching::PendingResponse::Callback callb
 void Response::release_vm_state()
 {
     m_pending = nullptr;
-    m_controller = nullptr;
     m_params = nullptr;
+    m_response = nullptr;
     m_transport = nullptr;
 }
 
@@ -202,6 +203,7 @@ void Response::finish_head(NonnullRefPtr<Infrastructure::Response> response)
             m_gate->create_channel_sink());
         response->set_body(
             Infrastructure::ResponseBody { NonnullRefPtr { *m_channel }, m_head->content_length });
+        m_response = response->make_weak_ptr<Infrastructure::Response>();
     }
 
     m_head_ready = true;
@@ -328,8 +330,21 @@ void Response::finish_complete()
     m_finished = true;
     m_gate->detach_transport();
     if (m_channel) {
+        // LibWeb assigns a delivery ID at body handover. As in the network
+        // pump, publish final sizes before closing the channel.
+        if (auto delivery_id = m_channel->delivery_id(); delivery_id.has_value()) {
+            auto* engine_record = m_params->engine_record();
+            VERIFY(engine_record);
+            engine_record->event_sink().handle_event(Engine::Event::EndOfBody {
+                .delivery_id = *delivery_id,
+                .final_sizes = { .encoded_body_size = m_received, .decoded_body_size = m_received },
+                .end_time = Web::HighResolutionTime::unsafe_shared_current_time(),
+            });
+        } else if (auto response = m_response.strong_ref()) {
+            response->set_body_sizes(m_received, m_received);
+        }
+
         (void)m_channel->close();
-        m_controller->did_complete_network_body(*m_channel);
     }
 
     auto callbacks = exchange(m_callbacks, nullptr);

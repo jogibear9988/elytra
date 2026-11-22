@@ -23,7 +23,6 @@
 #include <LibJS/Runtime/VM.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
-#include <LibWebView/CanonicalNavigable.h>
 #include <LibWebView/WebContentPage.h>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -394,13 +393,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_load(JS::VM& vm)
     // A detached/hidden widget may not have delivered its resize event.
     // Upstream pushes its actual dimensions with the current device scale.
     current->view->push_viewport_size();
-    if (intercepted_file) {
-        // An explicit empty grant also prevents inheriting the previous page's file roots.
-        auto& view = *current->view;
-        view.load(view.traversable().prepare_navigation(*url), Vector<WebView::LocalFileRoot> {});
-    } else {
-        current->view->load_from_browser_ui(*url);
-    }
+    current->view->load(*url);
 
     return JS::js_undefined();
 }

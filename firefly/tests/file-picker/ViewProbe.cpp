@@ -115,7 +115,7 @@ public:
                             return;
                         }
 
-                        view->load_from_browser_ui(*next);
+                        view->load(*next);
                     }
                 });
                 return dialog;
@@ -165,7 +165,7 @@ public:
         };
 
         window.show(); // DontShowOnScreen dispatches widget geometry without presenting desktop UI.
-        view->load_from_browser_ui(browser_options().urls.last());
+        view->load(browser_options().urls.last());
         QTimer::singleShot(15000, &window, [&] {
             warnln("Picker helper timed out: stage {} requests {}", stage, requests);
             m_loop->quit(1);

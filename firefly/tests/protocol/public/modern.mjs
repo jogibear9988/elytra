@@ -231,7 +231,9 @@ try {
     );
   });
 
-  await window.loadFile(path.join(root, 'native.html'));
+  const interceptedPath = path.join(root, 'web-handler-only.html');
+  check(!fs.existsSync(interceptedPath), 'Virtual navigation must have no file on disk');
+  await window.loadFile(interceptedPath);
   await until(
     () => window.webContents.getTitle() === 'INTERCEPTED_FILE',
     'File handler response was not used for navigation'

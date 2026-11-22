@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose explicit UI callback retirement into the pinned actual Hub endpoint.
+"""Compose callback retirement and intercepted navigation into the pinned Hub endpoint.
 
 IPC deferred invocations retain the endpoint beyond HubHost's ownership. Detach
 its application callbacks while the Hub is alive; late endpoint destruction must
@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Services/Hub/ConnectionFromUI.cpp"
 DIGEST = "2d6f5a54b85c8fe346c6e883d0f722c1a087a28a59a7087284920ea4e40f5313"
-PREFIX = '#include "native/qt/hub/ConnectionHooks.h"\n'
+PREFIX = '#include "native/qt/hub/ConnectionHooks.h"\n#include "native/protocol/FilePolicy.h"\n'
 CLEANUP = """    WebView::ApplicationWebUI::set_callbacks({});
     Application::settings().on_persist = nullptr;
     auto& browser_process = Application::the().browser_process();
@@ -47,6 +47,18 @@ DIE = """void ConnectionFromUI::die()
 }
 """
 OWNED_DIE = DIE.replace("{\n", "{\n    if (s_the != this)\n        return;\n", 1)
+LOAD = """        view->load_from_browser_ui(url, history_behavior);
+        view->push_state_to_ui();
+"""
+OWNED_LOAD = """        if (url.scheme() == "file"sv && Firefly::Protocols::file_policy_snapshot().active) {
+            // An explicit empty grant prevents inheriting a previous page's file roots.
+            auto navigation = view->traversable().prepare_navigation(url, {}, history_behavior);
+            view->load(move(navigation), Vector<WebView::LocalFileRoot> {});
+        } else {
+            view->load_from_browser_ui(url, history_behavior);
+        }
+        view->push_state_to_ui();
+"""
 SUFFIX = """
 namespace Firefly::HubLifecycle {
 void retire_ui_connection(Hub::ConnectionFromUI& connection)
@@ -55,7 +67,7 @@ void retire_ui_connection(Hub::ConnectionFromUI& connection)
 }
 }
 """
-SEAMS = ((DESTRUCTOR, DETACH), (DIE, OWNED_DIE))
+SEAMS = ((DESTRUCTOR, DETACH), (DIE, OWNED_DIE), (LOAD, OWNED_LOAD))
 
 
 def revert(source):
@@ -77,7 +89,7 @@ def adapt(original):
     result = original
     for before, after in SEAMS:
         if result.count(before) != 1 or after in result:
-            raise ValueError("Review Hub connection retirement seam")
+            raise ValueError("Review Hub connection composition seam")
         result = result.replace(before, after)
     result = PREFIX + result + SUFFIX
     if revert(result) != original:

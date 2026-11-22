@@ -73,11 +73,11 @@ private:
 
     void pause();
 
-    GC::Root<Web::Fetch::Infrastructure::FetchController> m_controller;
     GC::Root<Web::Fetch::Fetching::PendingResponse> m_pending;
     RefPtr<Web::Fetch::Infrastructure::FetchParams const> m_params;
     NonnullRefPtr<Web::Fetch::Engine::FetchBodyDeliveryGate> m_gate;
     RefPtr<Web::Fetch::Engine::FetchByteChannel> m_channel;
+    WeakPtr<Web::Fetch::Infrastructure::Response> m_response;
     RefPtr<Transport> m_transport;
     Optional<Protocols::StreamResponseHead> m_head;
     RefPtr<CallbackOwner> m_callbacks;

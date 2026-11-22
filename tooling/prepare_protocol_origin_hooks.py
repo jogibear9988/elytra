@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 HELPER_PREFIX = '#include "native/permissions/Hooks.h"\n#include "native/web-request/Policy.h"\n'
+NAVIGATION_PREFIX = '#include "native/protocol/files/Limits.h"\n'
 PREFIX = '#include "native/protocol/OriginPolicy.h"\n#include "native/protocol/FilePolicy.h"\n'
 ENTRIES = {
     "FetchURL.cpp": (
@@ -20,6 +21,23 @@ ENTRIES = {
         "88cd0b4c5faab1c93eca6a52c0ead05efbdf2491924890cc0db8d59de9a96baa",
         '    auto client = TRY(launch_server_process<WebView::WebContentClient>("WebContent"sv, move(arguments), session.is_private(), session, initial_page_id, root_navigable_id));\n',
         '    if (auto configuration = Firefly::Protocols::configuration_for_helper_launch(); configuration.has_value())\n        arguments.append(ByteString::formatted("--firefly-origin-policy={}", *configuration));\n    if (Firefly::Protocols::file_policy_snapshot().generation != 0)\n        arguments.append(ByteString::formatted("--firefly-file-policy={}", Firefly::Protocols::file_policy_for_helper_launch()));\n\n',
+    ),
+    "NavigationLoader.cpp": (
+        "Libraries/LibWebView/NavigationLoader.cpp",
+        "538e080995cd6276d53ad4f003a0883038ae2989b228a31cb279fe7d9925ea6c",
+        "            // NB: Only the UI process reads the file, so a response for it that names a body is made up.\n",
+        """            // The trusted Firefly host supplies an explicitly empty file grant
+            // for a main-process interception. It can carry a bounded in-memory
+            // response for that URL, but can never fall back to a disk read.
+            auto const* roots = m_local_file_access.get_pointer<Vector<LocalFileRoot>>();
+            if (roots && roots->is_empty()) {
+                auto const* bytes = navigation_params->response.body.get_pointer<ByteBuffer>();
+                did_acquire(Firefly::Protocols::file_policy_snapshot().active
+                    && response_url.equals(m_requested_url, URL::ExcludeFragment::Yes)
+                    && bytes && bytes->size() <= Firefly::Protocols::navigation_body_limit);
+                return;
+            }
+""",
     ),
     "SecureContexts.cpp": (
         "Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp",
@@ -47,7 +65,10 @@ def prepare(output):
                 f"Review owned protocol origin seam before updating Ladybird: {relative}"
             )
         source = data.decode("utf-8")
-        extra_prefix = HELPER_PREFIX if name == "HelperProcess.cpp" else ""
+        extra_prefix = {
+            "HelperProcess.cpp": HELPER_PREFIX,
+            "NavigationLoader.cpp": NAVIGATION_PREFIX,
+        }.get(name, "")
         if name == "HelperProcess.cpp":
             hook += (
                 "    if (Firefly::Permissions::active()) {\n"

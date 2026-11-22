@@ -3,6 +3,7 @@
 #include "Lifecycle.h"
 #include <Hub/Application.h>
 #include <Hub/ConnectionFromUI.h>
+#include <QMetaObject>
 #include <UI/Qt/HubConnection.h>
 
 #ifdef LADYBIRD_HUB_IN_OWN_PROCESS
@@ -68,6 +69,10 @@ private:
 
     bool platform_scrollbar_track_press_jumps() const override;
 
+    bool platform_prefers_reduced_motion() const override;
+
+    bool platform_prefers_more_contrast() const override;
+
     Vector<String> platform_preferred_languages() const override;
 
     Optional<Gfx::GpuDeviceIdentity> platform_presentation_gpu_device() const override;
@@ -81,6 +86,8 @@ private:
     OwnPtr<Hub::Application> m_hub;
     RefPtr<Hub::ConnectionFromUI> m_server;
     RefPtr<Ladybird::HubConnection> m_client;
+    QMetaObject::Connection m_motion_observer;
+    QMetaObject::Connection m_contrast_observer;
     bool m_stopped { false };
 };
 }

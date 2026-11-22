@@ -11,6 +11,8 @@
 #include <QFont>
 #include <QStyleHints>
 #include <QThread>
+#include <UI/Qt/SystemAppearance.h>
+#include <UI/Qt/Theme.h>
 
 namespace Firefly {
 HubHost::HubHost(Core::EventLoop& loop, ByteString binary_directory,
@@ -45,6 +47,13 @@ ErrorOr<void> HubHost::initialize(Main::Arguments const& arguments)
     m_hub = move(hub);
     m_server = move(server);
     m_client = move(client);
+    auto& appearance = Ladybird::SystemAppearance::the();
+    m_motion_observer
+        = QObject::connect(&appearance, &Ladybird::SystemAppearance::reduced_motion_changed,
+            [this] { m_hub->platform_motion_preference_changed(); });
+    m_contrast_observer
+        = QObject::connect(&appearance, &Ladybird::SystemAppearance::contrast_changed,
+            [this] { m_hub->platform_contrast_preference_changed(); });
     return {};
 }
 
@@ -53,6 +62,8 @@ void HubHost::shutdown()
     if (m_stopped)
         return;
     m_stopped = true;
+    QObject::disconnect(m_motion_observer);
+    QObject::disconnect(m_contrast_observer);
     // RemoteView destruction still sends actual destroy-view messages through
     // the live UI transport. The close callback must finish before it goes away.
     m_close_frontend();
@@ -160,6 +171,16 @@ bool HubHost::platform_scrolls_elastically() const
 bool HubHost::platform_scrollbar_track_press_jumps() const
 {
     return false;
+}
+
+bool HubHost::platform_prefers_reduced_motion() const
+{
+    return Ladybird::SystemAppearance::prefers_reduced_motion();
+}
+
+bool HubHost::platform_prefers_more_contrast() const
+{
+    return Ladybird::Theme::has_increased_contrast();
 }
 
 Vector<String> HubHost::platform_preferred_languages() const

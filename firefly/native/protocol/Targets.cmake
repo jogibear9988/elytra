@@ -12,6 +12,7 @@ set_property(
     PROPERTY CMAKE_CONFIGURE_DEPENDS
              "${FIREFLY_SOURCE_DIR}/tooling/prepare_protocol_origin_hooks.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/HelperProcess.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/NavigationLoader.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/Fetch/Infrastructure/URL.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebCommon/SecureContexts/AbstractOperations.cpp")
 
@@ -22,6 +23,8 @@ firefly_replace_source(LibWebCommon "Libraries/LibWebCommon/Fetch/Infrastructure
                        "${protocol_origin_output}/FetchURL.cpp")
 firefly_replace_source(LibWebView "Libraries/LibWebView/HelperProcess.cpp"
                        "${protocol_origin_output}/HelperProcess.cpp")
+firefly_replace_source(LibWebView "Libraries/LibWebView/NavigationLoader.cpp"
+                       "${protocol_origin_output}/NavigationLoader.cpp")
 target_sources(
     LibURL
     PRIVATE "${CMAKE_CURRENT_LIST_DIR}/OriginPolicy.cpp" "${CMAKE_CURRENT_LIST_DIR}/FilePolicy.cpp"
