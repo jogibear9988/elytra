@@ -582,3 +582,18 @@ whose export forwards to another packaged DLL. Both return their expected exit
 codes. The same job checks missing providers, duplicate names and unsafe plugin
 paths. The full application packager still needs to stage and verify Firefly's
 actual Qt plugins, helper executables, runtime data and notices.
+
+The [Windows package assembly run](https://github.com/jogibear9988/elytra/actions/runs/44992971751)
+also uses the real launcher to start a relocated fixture with its packaged
+application tree and normal and delayed DLL imports. It checks that a
+missing provider leaves no output directory and that an existing package
+is refused. This stage assembles the main process and application payload.
+The helper tree, sandbox policies and native resources need their own
+acceptance on the actual Firefly SDK.
+
+Windows CI uses the Visual Studio x64 SDK environment with
+[LLVM 22.1.8](https://github.com/llvm/llvm-project/releases/tag/llvmorg-22.1.8)
+pinned separately. The setup checks the upstream installer digest before
+installation and selects that clang-cl and lld-link ahead of the runner's
+bundled LLVM. This addresses the November 22 runner's MSVC 14.52 STL
+requirement for Clang 22 or newer.

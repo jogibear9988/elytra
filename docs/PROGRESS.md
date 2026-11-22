@@ -16670,6 +16670,17 @@ compiler and lld-link first in PATH after setting up Visual Studio.
 The header compatibility assertion remains enabled. Hosted verification
 is pending.
 
+## Verify the assembled and relocated package with the pinned Windows toolchain
+
+Windows job 137117865132 reports clang-cl 22.1.8 and passes the launcher,
+PE closure and combined application assembly fixtures. Launch.exe starts
+the relocated child through ordinary and delayed imports after the SDK
+is moved aside. Missing-provider and existing-output refusals pass.
+Local payload, release provenance, Win32 checkout path and upstream
+integrity checks also pass. Push the tested toolchain and assembly with
+the candidate renderer fixes. Full Windows applications and the current
+macOS SDK/package gates remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
