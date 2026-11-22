@@ -22,6 +22,8 @@ namespace Firefly::FileOrigins {
 constexpr size_t max_entries = 1024;
 constexpr size_t max_path_bytes = 1024 * 1024;
 
+WEB_API void did_select(Web::DOM::Document&, Web::HTML::SelectedFile const&, Web::FileAPI::File&);
+
 // The controller supplies an exact native selection span and validated path metadata.
 // A synchronous scope cannot be nested or retained by script. File creation still
 // works without one, but such selected files have explicitly unavailable provenance.
@@ -47,7 +49,6 @@ private:
     Span<Web::HTML::SelectedFile> m_files;
 };
 
-WEB_API void did_select(Web::DOM::Document&, Web::HTML::SelectedFile const&, Web::FileAPI::File&);
 // None means a File never observed at the native selection boundary (e.g. new File).
 // An observed selection without valid metadata or the right document fails. After
 // quota refusal, unrecorded identities also fail rather than being misclassified.

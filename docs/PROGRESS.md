@@ -16633,6 +16633,14 @@ from typed UTF-8 bytes instead, preserving Unicode path decoding on
 Windows and byte paths on POSIX. Formatting and diff checks pass. The
 local SDK configured successfully and the renderer rebuild is pending.
 
+## Declare the file-origin hook export before its friend declaration
+
+Hosted Windows renderer run 44174671945 rejected adding dllexport after
+the initial friend declaration. Declare the same exported function
+before the class that grants it access. The selected-file provenance
+contract is unchanged. Formatting and diff checks pass. Windows native
+compilation must be rerun.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
