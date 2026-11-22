@@ -66,6 +66,8 @@ namespace {
             return L"WebContent.exe";
         case Role::ImageDecoder:
             return L"ImageDecoder.exe";
+        case Role::Compositor:
+            return L"Compositor.exe";
         case Role::Unsupported:
             return nullptr;
         }
@@ -127,6 +129,23 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
             return Error::from_string_literal("Helper argument budget exceeded");
         bytes += argument.length();
         launch.arguments.push_back(TRY(wide(argument)));
+    }
+
+    if (current->role == Role::Compositor) {
+        // Only the resource directory verified by the helper lease is intended
+        // to back the compositor's resource loader.
+        auto const& arguments = launch.arguments;
+        auto resource = std::find(arguments.begin(), arguments.end(), L"--resource-root");
+        if (resource == arguments.end() || resource + 1 == arguments.end()
+            || std::count(resource, arguments.end(), L"--resource-root") != 1
+            || std::any_of(arguments.begin(), arguments.end(),
+                [](auto const& value) { return value.starts_with(L"--resource-root="); }))
+            return Error::from_string_literal("Expected one compositor resource root");
+
+        auto requested = std::filesystem::path(*(resource + 1)).lexically_normal();
+        if (requested.make_preferred() != root / L"share" / L"Lagom")
+            return Error::from_string_literal(
+                "Compositor resource root is outside its sealed runtime");
     }
 
     bool takeover = false;

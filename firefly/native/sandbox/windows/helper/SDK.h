@@ -13,7 +13,7 @@ struct ProcessSpawnOptions;
 }
 
 namespace Firefly::WindowsHelpers {
-enum class Role { Unsupported, WebContent, ImageDecoder };
+enum class Role { Unsupported, WebContent, ImageDecoder, Compositor };
 
 class FIREFLY_WINDOWS_HELPER_API Scope {
 public:

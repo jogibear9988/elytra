@@ -16716,6 +16716,18 @@ and requires natural teardown. Local source and broker controls pass.
 Native compilation and execution are pending. Network-capable roles,
 full renderer isolation and the Windows desktop gate remain open.
 
+## Give the native compositor a confined Windows launch path
+
+Admit the compositor only through the typed IPC launch and matching
+Compositor.exe in the sealed helper tree. Require exactly the staged
+resource root. The native compositor checks its AppContainer/Job before
+accepting control traffic. Extend the broker probe to run the real
+compositor in CPU test mode, attach a WebContent channel and require
+natural process exit. Include negative cases for the wrong role and
+resource root. Local source, broker and desktop configure-policy
+checks pass. Native compositor IPC, GPU presentation and the full
+Windows application remain unverified.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

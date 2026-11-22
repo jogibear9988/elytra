@@ -79,6 +79,7 @@ def changes(name):
                 "    switch (type) {\n"
                 "    case ProcessType::WebContent: role = SandboxRole::WebContent; break;\n"
                 "    case ProcessType::ImageDecoder: role = SandboxRole::ImageDecoder; break;\n"
+                "    case ProcessType::Compositor: role = SandboxRole::Compositor; break;\n"
                 "    default: break;\n"
                 "    }\n"
                 "    Firefly::WindowsHelpers::Scope firefly_launch_scope { role, spawn_options };\n"

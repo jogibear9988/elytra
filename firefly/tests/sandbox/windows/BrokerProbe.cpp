@@ -20,6 +20,7 @@
 #include <LibIPC/Transport.h>
 #include <LibImageDecoderClient/Client.h>
 #include <LibMain/Main.h>
+#include <LibWebView/CompositorClient.h>
 #include <LibWebView/ImageDecoderControlClient.h>
 #include <cstdio>
 #include <cstdlib>
@@ -286,7 +287,7 @@ struct Session {
 };
 
 ErrorOr<std::unique_ptr<Session>> spawn(std::filesystem::path const& executable,
-    IPC::HandleBrokerServer& server, char const* mode = "--child",
+    IPC::HandleBrokerServer& server, Vector<ByteString> arguments = { "--child"sv },
     H::Role role = H::Role::WebContent)
 {
     auto channel = TRY(Core::System::duplex_pipe());
@@ -302,9 +303,6 @@ ErrorOr<std::unique_ptr<Session>> spawn(std::filesystem::path const& executable,
     options.executable
         = ByteString(StringView(reinterpret_cast<char const*>(text.data()), text.size()));
     options.die_with_parent = true;
-    Vector<ByteString> arguments;
-    if (mode)
-        arguments.append(ByteString(mode));
     options.arguments = arguments;
     options.environment = Vector<ByteString> { ByteString::formatted(
         "SOCKET_TAKEOVER=ipc:{};handle-broker:{}", channel[1], broker[1]) };
@@ -348,12 +346,12 @@ ErrorOr<void> decode_with_confined_helper(std::filesystem::path const& renderer,
     auto decoder = renderer.parent_path() / L"ImageDecoder.exe";
     TRY(require(
         spawn(decoder, server).is_error(), "renderer role cannot launch the decoder image"));
-    TRY(require(spawn(renderer, server, nullptr, H::Role::ImageDecoder).is_error(),
+    TRY(require(spawn(renderer, server, {}, H::Role::ImageDecoder).is_error(),
         "decoder role cannot launch the renderer image"));
-    TRY(require(spawn(decoder, server, "--disable-sandbox", H::Role::ImageDecoder).is_error(),
+    TRY(require(spawn(decoder, server, { "--disable-sandbox"sv }, H::Role::ImageDecoder).is_error(),
         "decoder cannot opt out of its child-side sandbox check"));
 
-    auto session = TRY(spawn(decoder, server, nullptr, H::Role::ImageDecoder));
+    auto session = TRY(spawn(decoder, server, {}, H::Role::ImageDecoder));
     auto control_transport = TRY(IPC::Transport::adopt_fd(session->control));
     session->control = -1;
     auto control
@@ -378,6 +376,36 @@ ErrorOr<void> decode_with_confined_helper(std::filesystem::path const& renderer,
     outln("PASS real AppContainer ImageDecoder PNG, exact role and natural exit");
     return {};
 }
+
+ErrorOr<void> connect_to_confined_compositor(std::filesystem::path const& renderer,
+    IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
+{
+    auto binary_directory = renderer.parent_path();
+    auto compositor = binary_directory / L"Compositor.exe";
+    TRY(require(
+        spawn(compositor, server).is_error(), "renderer role cannot launch the compositor"));
+    TRY(require(
+        spawn(compositor, server, { "--resource-root"sv, "."sv }, H::Role::Compositor).is_error(),
+        "compositor must use the exact sealed resource directory"));
+
+    auto resource = (binary_directory.parent_path() / L"share" / L"Lagom").u8string();
+    auto resource_root
+        = ByteString(StringView(reinterpret_cast<char const*>(resource.data()), resource.size()));
+    auto session = TRY(spawn(compositor, server,
+        { "--test-mode"sv, "--resource-root"sv, move(resource_root) }, H::Role::Compositor));
+    auto transport = TRY(IPC::Transport::adopt_fd(session->control));
+    session->control = -1;
+    auto control = TRY(try_make_ref_counted<WebView::CompositorClient>(move(transport)));
+    auto response = TRY(control->try_connect_web_content());
+    TRY(require(response.web_content_connection_id() >= 0,
+        "actual compositor registers a WebContent channel"));
+    auto channel = TRY(response.take_handle().create_transport());
+    channel->close();
+    control->shutdown();
+    TRY(exited(*session, broker));
+    outln("PASS real AppContainer Compositor control IPC and natural exit");
+    return {};
+}
 }
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
@@ -399,9 +427,10 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     std::filesystem::path executable(
         std::u8string(reinterpret_cast<char8_t const*>(path.characters_without_null_termination()),
             path.length()));
-    TRY(require(spawn(executable, *server, "--child", H::Role::Unsupported).is_error(),
+    TRY(require(spawn(executable, *server, { "--child"sv }, H::Role::Unsupported).is_error(),
         "unsupported helper role never falls back to an ordinary child"));
     TRY(decode_with_confined_helper(executable, *server, broker));
+    TRY(connect_to_confined_compositor(executable, *server, broker));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();
@@ -437,7 +466,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
           "rollback and token/handle refunds");
     std::vector<std::unique_ptr<Session>> owners;
     for (size_t index = 0; index < B::remote_tokens / B::owner_tokens; ++index) {
-        owners.push_back(TRY(spawn(executable, *server, "--fill")));
+        owners.push_back(TRY(spawn(executable, *server, { "--fill"sv })));
         TRY(require(
             TRY(receive(owners.back()->control)) == 1, "independent owner fills its own share"));
     }
@@ -446,7 +475,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         "remote aggregate charged"));
     TRY(require(broker.can_park_on_behalf_of(Core::System::getpid(), B::remote_handles),
         "remote pressure never refuses Browser-origin send"));
-    auto replacement = TRY(spawn(executable, *server, "--blocked"));
+    auto replacement = TRY(spawn(executable, *server, { "--blocked"sv }));
     TRY(require(TRY(receive(replacement->control)) == 1,
         "new sibling RPC refuses saturated remote aggregate"));
     TRY(send(owners.front()->control, 1));
