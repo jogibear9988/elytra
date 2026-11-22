@@ -60,6 +60,7 @@ add_custom_target(
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/audit.py" --config
         "${rust_origin_directory}/config.json" --depfile "${rust_web_directory}/${rust_web_name}.d"
+        --with-web-css
     DEPENDS check-firefly-rust-origin-dependencies libweb_bindings_rust-build
     VERBATIM)
 add_custom_target(

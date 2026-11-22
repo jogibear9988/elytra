@@ -50,14 +50,19 @@ namespace {
         return regions->get(Web::WebDriver::BiDi::navigable_id(*navigation));
     }
 
-    GC::Ref<Web::Geometry::DOMRect> css_rect(Web::DOM::Document const& document, Gfx::IntRect rect)
+    Array<double, 4> css_lengths(Web::DOM::Document const& document, Gfx::IntRect rect)
     {
         auto navigation = document.navigable();
         auto scale = navigation ? navigation->page().client().zoom_level() : 1.0;
         if (!std::isfinite(scale) || scale <= 0)
             scale = 1;
-        return Web::Geometry::DOMRect::create(
-            rect.x() / scale, rect.y() / scale, rect.width() / scale, rect.height() / scale);
+        return { rect.x() / scale, rect.y() / scale, rect.width() / scale, rect.height() / scale };
+    }
+
+    GC::Ref<Web::Geometry::DOMRect> css_rect(Web::DOM::Document const& document, Gfx::IntRect rect)
+    {
+        auto lengths = css_lengths(document, rect);
+        return Web::Geometry::DOMRect::create(lengths[0], lengths[1], lengths[2], lengths[3]);
     }
 
     GC::Ptr<Web::DOM::EventTarget> target_for(Web::DOM::Document const& document)
@@ -103,6 +108,15 @@ namespace {
                     target->dispatch_event(*event);
                 }));
     }
+}
+
+Optional<Array<double, 4>> css_geometry(Web::DOM::Document const& document)
+{
+    if (auto window = document.window(); !window || !window->is_secure_context())
+        return {};
+    if (auto rect = geometry(document); rect.has_value())
+        return css_lengths(document, *rect);
+    return {};
 }
 
 void install(Web::DOM::Document& document)
@@ -194,8 +208,12 @@ ErrorOr<void> extract(Web::WebDriver::BiDiSessionState& state)
             auto& document = *navigation->active_document();
             auto old = previous.get(Web::WebDriver::BiDi::navigable_id(*navigation));
             auto current = geometry(document);
-            if (old != current)
+            if (old != current) {
+                // The document publishes a new media snapshot for CSS substitution.
+                document.record_style_environment_change(
+                    Web::DOM::StyleEnvironmentChange::Everything);
                 notify(document, current.value_or({}));
+            }
         }
     }
 

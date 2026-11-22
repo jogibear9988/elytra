@@ -37,6 +37,9 @@ def main():
         source = str(SOURCE / "lib.rs")
         origin = ["--crate-name=liburl_rust", source, "--emit=dep-info,link"]
         assert command(config, rustc, origin) == [rustc, origin[0], config["adapted"], origin[2]]
+        web = ["--crate-name=libweb_rust", config["web_original"], "--emit=dep-info,link"]
+        assert command(config, rustc, web) == [rustc, web[0], config["web_adapted"], web[2]]
+        rejects(lambda: command(config, rustc, [web[0], source]))
         chained = config | {"chain": str(directory / "compiler cache")}
         assert command(chained, rustc, origin) == [
             chained["chain"],
@@ -64,6 +67,15 @@ def main():
             encoding="utf-8",
         )
         audit(directory / "config.json", [depfile])
+        web_paths = [
+            directory / name
+            for name in ("web.rs", "css.rs", "parser.rs", "custom_properties.rs", "query_parser.rs")
+        ]
+        depfile.write_text(
+            "archive: " + " ".join(str(path).replace(" ", "\\ ") for path in paths + web_paths),
+            encoding="utf-8",
+        )
+        audit(directory / "config.json", [depfile], with_web_css=True)
         depfile.write_text("archive: upstream-only.rs", encoding="utf-8")
         try:
             audit(directory / "config.json", [depfile])

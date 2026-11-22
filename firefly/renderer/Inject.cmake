@@ -38,6 +38,12 @@ if(WIN32 AND FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH)
                         "${FIREFLY_WINDOWS_HELPER_OVERLAY}")
 endif()
 
+if(APPLE
+   OR CMAKE_SYSTEM_NAME STREQUAL "Linux"
+   OR (WIN32 AND FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH))
+    include("${FIREFLY_SOURCE_DIR}/firefly/renderer-helper/title-bar/MediaSnapshot.cmake")
+endif()
+
 cmake_language(DEFER CALL include "${FIREFLY_SOURCE_DIR}/firefly/renderer/Targets.cmake")
 
 set(firefly_runtime_dependency_args)

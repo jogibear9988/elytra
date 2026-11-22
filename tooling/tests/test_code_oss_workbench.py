@@ -283,6 +283,7 @@ def prepare(
     workspace_switch=False,
     *,
     sealed_entry=False,
+    native_title_bar=True,
 ):
     marker = state / ".elytra-owned.json"
     if not state.exists():
@@ -312,11 +313,12 @@ def prepare(
     for directory in (*storage.values(), user, extension, workspace, edit_workspace, state / "xdg"):
         directory.mkdir(mode=0o700, exist_ok=True)
     settings = {
-        "window.titleBarStyle": "native",
         "keyboard.touchbar.enabled": False,
         "workbench.startupEditor": "none",
         "security.workspace.trust.enabled": False,
     }
+    if native_title_bar:
+        settings["window.titleBarStyle"] = "native"
     write_json(user / "settings.json", settings)
     for name in ("extension.mjs", "extension.cjs", "commonjs-helper.cjs", "tests.mjs"):
         (extension / name).write_bytes((FIXTURE / name).read_bytes())
@@ -436,6 +438,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument(
+        "--default-title-bar",
+        action="store_true",
+        help="Use Code-OSS's normal title-bar setting in the Cocoa bundle",
+    )
+    parser.add_argument(
         "--workspace-switch",
         action="store_true",
         help="Use the public VS Code API to reopen a second folder in the same window before editing",
@@ -466,6 +473,8 @@ def main():
         parser.error("Native descendant authentication is not implemented on this platform")
     if not 30 <= args.timeout <= 300:
         parser.error("--timeout must be 30..300 seconds")
+    if args.default_title_bar and not args.bundle:
+        parser.error("--default-title-bar requires the native Cocoa bundle")
     bundle_runtime = None
     if args.bundle:
         if sys.platform != "darwin" or args.stage or args.sample_entry:
@@ -530,6 +539,7 @@ def main():
             args.parent_liveness,
             args.workspace_switch,
             sealed_entry=bool(args.bundle or args.sample_entry),
+            native_title_bar=not args.default_title_bar,
         )
         if args.bundle:
             # Launcher owns --electron-compat and the sealed main.mjs prefix.

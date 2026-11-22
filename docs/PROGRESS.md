@@ -17326,6 +17326,28 @@ existing native controls tests pass. No upstream files are changed. The CSS
 env() path, dedicated event constructor and zoom-only notifications remain
 open, as does complete Code-OSS default-profile acceptance.
 
+## Wire Cocoa overlay CSS geometry and default-profile acceptance
+
+The Firefly CSS adapter resolves the four titlebar-area environment lengths
+from the secure top-level document's native overlay snapshot. The existing
+media snapshot carries those values through retained and worker-thread style
+computation. Movement or resizing invalidates the document's style inputs.
+The fixture compares CSS and JavaScript geometry, checks authored fallbacks
+and verifies child frames receive no overlay geometry. The owned source
+routing preserves nested Rust module lookup and leaves Ladybird pristine.
+The macOS LibWeb Rust archive and Cargo dependency audit pass, as do targeted
+C++ syntax, source-style and adapter-routing checks.
+
+The Cocoa workbench harness can prepare a launch with Code-OSS's default
+title-bar settings. The profile preparation check verified that the test
+does not write a title-bar preference. The ordinary native-title-bar profile
+is still the verified route for folder picking. A renderer run with the CSS
+fixture and a Code-OSS run with the default title bar remain open.
+
+The prior branch's Windows job 137167022739 passed the native build and
+reached the standalone package/extraction step, which failed. The macOS
+release archive and standalone Windows ZIP remain unverified.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

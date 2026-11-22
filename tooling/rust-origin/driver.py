@@ -19,19 +19,24 @@ def command(config, compiler, arguments):
     if len(names) > 1:
         raise ValueError("Ambiguous Rust crate name")
     result = list(arguments)
-    if names == ["liburl_rust"]:
-        original = Path(config["original"]).resolve()
+    selections = {
+        "liburl_rust": ("original", "adapted"),
+        "libweb_rust": ("web_original", "web_adapted"),
+    }
+    if names and names[0] in selections:
+        original_key, adapted_key = selections[names[0]]
+        original = Path(config[original_key]).resolve()
         matches = [
             i
             for i, value in enumerate(arguments)
             if not value.startswith("-") and Path(value).resolve() == original
         ]
         if len(matches) != 1:
-            raise ValueError("Review Rust liburl root input selection")
+            raise ValueError(f"Review Rust {names[0]} root input selection")
         for filename, expected in config["files"].items():
             if hashlib.sha256(Path(filename).read_bytes()).hexdigest() != expected:
                 raise ValueError(f"Rust origin adapter input/output drift: {filename}")
-        result[matches[0]] = config["adapted"]
+        result[matches[0]] = config[adapted_key]
     prefix = [config["chain"]] if config.get("chain") else []
     if (
         config.get("chain")

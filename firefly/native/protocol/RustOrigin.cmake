@@ -63,11 +63,19 @@ set(RUSTC_WRAPPER
 set_property(
     DIRECTORY
     APPEND
-    PROPERTY CMAKE_CONFIGURE_DEPENDS
-             "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/prepare.py"
-             "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/driver.py"
-             "${rust_driver_source}"
-             "${FIREFLY_SOURCE_DIR}/firefly/native/protocol/rust/origin_policy.rs"
-             "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/lib.rs"
-             "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/origin.rs"
-             "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/ffi.rs")
+    PROPERTY
+        CMAKE_CONFIGURE_DEPENDS
+        "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/prepare.py"
+        "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/title_bar.py"
+        "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/driver.py"
+        "${rust_driver_source}"
+        "${FIREFLY_SOURCE_DIR}/firefly/native/protocol/rust/origin_policy.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/lib.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/origin.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibURL/Rust/src/ffi.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibWeb/Rust/src/lib.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibWeb/Rust/src/css/mod.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibWeb/Rust/src/css/custom_properties.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibWeb/Rust/src/css/parser/mod.rs"
+        "${FIREFLY_SOURCE_DIR}/vendor/ladybird/Libraries/LibWeb/Rust/src/css/parser/query_parser.rs"
+)

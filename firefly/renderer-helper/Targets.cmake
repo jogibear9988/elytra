@@ -25,8 +25,7 @@ add_executable(
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticSession.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/DiagnosticByteChannel.cpp"
     ${firefly_renderer_platform_sources})
-# DOM callback allocation is private to LibWeb; keep it in the owning library.
-target_sources(LibWeb PRIVATE "${CMAKE_CURRENT_LIST_DIR}/title-bar/Overlay.cpp")
+include("${CMAKE_CURRENT_LIST_DIR}/title-bar/Targets.cmake")
 add_dependencies(FireflyWebContent check-firefly-upstream check-firefly-renderer-hooks)
 target_include_directories(FireflyWebContent PRIVATE "${FIREFLY_SOURCE_DIR}/firefly")
 target_link_libraries(

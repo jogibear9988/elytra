@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 import sys
 
+import title_bar
+
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibURL/Rust/src"
 PIN = {
@@ -85,11 +87,15 @@ def module_source(data, directory, provenance, ffi=False):
 
 def prepare(output, driver, chain="", check=False):
     inputs = {str(SOURCE / name): expected for name, expected in PIN.items()}
+    inputs.update(
+        {str(title_bar.SOURCE / name): expected for name, expected in title_bar.PINS.items()}
+    )
     for filename, expected in inputs.items():
         if digest(Path(filename).read_bytes()) != expected:
             raise ValueError(f"Review Rust origin adapter after upstream update: {filename}")
     owned = [
         Path(__file__),
+        Path(title_bar.__file__),
         ROOT / "tooling/rust-origin/driver.py",
         ROOT / "tooling/rust-origin/Driver.cpp",
         ROOT / "firefly/native/protocol/rust/origin_policy.rs",
@@ -112,11 +118,16 @@ def prepare(output, driver, chain="", check=False):
             (SOURCE / "ffi.rs").read_text(encoding="utf-8"), output, provenance, ffi=True
         ).encode(),
     }
+    planned.update(
+        {name: text.encode() for name, text in title_bar.compose(output, literal).items()}
+    )
     config = {
         "schema": 1,
         "kind": "firefly-rust-origin-driver",
         "original": str(SOURCE / "lib.rs"),
         "adapted": str(output / "lib.rs"),
+        "web_original": str(title_bar.SOURCE / "lib.rs"),
+        "web_adapted": str(output / "web.rs"),
         "driver": str(driver),
         "chain": chain,
         "files": inputs | {str(output / name): digest(data) for name, data in planned.items()},
