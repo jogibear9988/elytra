@@ -1,0 +1,21 @@
+From a34e0685b9111b9eb1d7835ea7bea5b425dced73
+From: Martin Storsjo <martin@martin.st>
+Subject: [PATCH] compat: Fix building with newer versions of MSVC
+
+Upstream: https://code.videolan.org/videolan/dav1d/-/commit/a34e0685b9111b9eb1d7835ea7bea5b425dced73
+
+diff --git a/include/compat/msvc/stdatomic.h b/include/compat/msvc/stdatomic.h
+--- a/include/compat/msvc/stdatomic.h
++++ b/include/compat/msvc/stdatomic.h
+@@ -32,6 +32,10 @@
+ #pragma warning(push)
+ #pragma warning(disable:4067)    /* newline for __has_include_next */
+-
++
++#ifndef __has_include_next
++#define __has_include_next(x) 0
++#endif
++
+ #if defined(__clang__) && __has_include_next(<stdatomic.h>)
+    /* use the clang stdatomic.h with clang-cl*/
+ #  include_next <stdatomic.h>

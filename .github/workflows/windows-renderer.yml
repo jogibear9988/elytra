@@ -9,6 +9,8 @@ on:
       - 'mite/cmake/**'
       - 'mite/runtime/adapters/**'
       - 'tooling/build_renderer.py'
+      - 'tooling/windows_renderer_dependencies.py'
+      - 'firefly/cmake/patches/dav1d-msvc-has-include-next.patch'
       - 'tooling/prepare_protocol_origin_hooks.py'
       - 'tooling/rust-origin/**'
       - 'tooling/bootstrap.py'

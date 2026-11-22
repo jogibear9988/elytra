@@ -10,6 +10,7 @@ import platform
 import sys
 
 from check_upstream import check
+import windows_renderer_dependencies
 from firefly_dependencies import prepare
 from renderer_dependencies import prepare as prepare_linux_renderer
 import compiler_cache
@@ -141,7 +142,14 @@ def main():
     ]
     command.extend(cache_options)
     if sys.platform == "win32":
-        command.extend(["-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl"])
+        overlay = windows_renderer_dependencies.prepare(vcpkg, build)
+        command.extend(
+            [
+                "-DCMAKE_C_COMPILER=clang-cl",
+                "-DCMAKE_CXX_COMPILER=clang-cl",
+                f"-DVCPKG_OVERLAY_PORTS={overlay}",
+            ]
+        )
     command.append(
         f"-DFIREFLY_EXPERIMENTAL_WINDOWS_RUNTIME={'ON' if args.experimental_windows_runtime else 'OFF'}"
     )

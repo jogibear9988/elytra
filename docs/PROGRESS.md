@@ -16783,6 +16783,18 @@ decoder's client transport. Each process must exit with status 0.
 Local source, broker, format and desktop configure-policy checks pass.
 Native execution, audio devices and hardware video remain unverified.
 
+## Backport the upstream dav1d fix for the new Windows compiler
+
+Hosted Windows renderer job 137117362341 stops in dav1d 1.5.4 because
+MSVC 19.52 rejects the undefined has-include-next intrinsic in the
+compatibility atomics header. Generate an isolated Windows vcpkg port
+from the checked original recipe and apply dav1d commit a34e0685's
+four-line fix. Both diagnostic and full Windows renderer builds use
+that port. Ladybird, vcpkg, the dav1d version and other platforms stay
+on their original source inputs. The generated recipe and exact patch
+application are verified locally. Native dependency rebuild remains
+pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
