@@ -16641,6 +16641,15 @@ before the class that grants it access. The selected-file provenance
 contract is unchanged. Formatting and diff checks pass. Windows native
 compilation must be rerun.
 
+## Pump renderer permission tasks outside the test realm frame
+
+Hosted Linux renderer run 44174671883 reached the notification probe
+and failed LibWeb's empty execution-stack assertion at a microtask
+checkpoint. Save and suspend the headless realm's bootstrap frame for
+the event-loop pump, following the renderer fetch probe. Keep the
+real permission query, activation and request settlement assertions.
+Formatting and diff checks pass. Native reruns are pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

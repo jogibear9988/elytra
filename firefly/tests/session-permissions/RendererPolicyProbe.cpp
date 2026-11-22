@@ -53,6 +53,13 @@ ErrorOr<JS::Value> run(JS::Realm& realm, Utf16View source)
 
 ErrorOr<void> denied(JS::Promise& promise, Core::EventLoop& loop)
 {
+    // The headless realm factory leaves a testing context current. Suspend
+    // it while the HTML event loop runs its normal microtask checkpoints.
+    auto& vm = Web::Bindings::main_thread_vm();
+    vm.save_execution_context_stack();
+    vm.clear_execution_context_stack();
+    ScopeGuard restore_context([&] { vm.restore_execution_context_stack(); });
+
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
     while (promise.state() == JS::Promise::State::Pending
         && std::chrono::steady_clock::now() < deadline) {
