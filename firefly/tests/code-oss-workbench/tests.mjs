@@ -1,4 +1,4 @@
-/** Run through CodeOSS's ordinary --extensionTestsPath control, never a replacement API. */
+/** Exercise Code-OSS through its public extension API. */
 import * as vscode from 'vscode';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import process from 'node:process';
@@ -111,6 +111,27 @@ export async function run() {
     reply.nonce === config.nonce && reply.activations === 1 && reply.extensionId === extension.id,
     'Registered command crosses the actual API'
   );
+  if (config.workspaceSwitch) {
+    const { initialFolder, targetFolder, record } = config.workspaceSwitch;
+    const folders = vscode.workspace.workspaceFolders;
+    check(folders?.length === 1, 'Expected one opened workspace folder');
+    const folder = folders[0].uri.fsPath;
+    if (folder === initialFolder) {
+      await writeFile(record, JSON.stringify({ nonce: config.nonce, pid: process.pid }) + '\n', {
+        flag: 'wx'
+      });
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(targetFolder), {
+        forceReuseWindow: true,
+        noRecentEntry: true
+      });
+      // The real transition must end this extension host and start the fixture
+      // again in the target. A command reply alone proves no workspace change.
+      await new Promise((_, reject) => {
+        setTimeout(() => reject(Error('The original workspace was not replaced')), 30000);
+      });
+    }
+    check(folder === targetFolder, 'The target folder became the active workspace');
+  }
   const uri = vscode.Uri.file(config.document);
   const document = await vscode.workspace.openTextDocument(uri);
   check(document.getText() === config.initial, 'Original owned file opened through workspace API');
@@ -148,6 +169,9 @@ export async function run() {
     edited: true,
     saved: true
   };
+  if (config.workspaceSwitch) {
+    result.workspaceSwitched = true;
+  }
   if (config.parentLiveness === true) {
     // Original CodeOSS also polls its main-process PID once per second. Keep
     // using the real API beyond those intervals instead of ending immediately.
@@ -176,4 +200,7 @@ export async function run() {
   });
   await rename(config.result + '.tmp', config.result);
   process.stdout.write('ELYTRA_OWNED_WORKBENCH_EDIT_SAVE_OK\n');
+  if (config.workspaceSwitch) {
+    await vscode.commands.executeCommand('workbench.action.quit');
+  }
 }

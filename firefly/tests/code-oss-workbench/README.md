@@ -13,6 +13,15 @@ run the same actual command/open/edit/save checks. The parent authenticates the
 requested format in the current result; a previous ESM result cannot pass a
 CommonJS run. Both modes reuse the same owned profile and stage.
 
+`--workspace-switch` starts in one owned folder and calls the public
+`vscode.openFolder` command to request a second folder in the same window.
+The second extension host must see that folder and edit and save its fixture.
+The parent checks both native extension host identities and the trace ID of
+the reused workbench window. This mode uses normal development-extension
+activation so unloading the original workspace can stop its extension host
+while the editor stays alive. This covers the editor transition after folder
+selection. The native picker is a separate acceptance case.
+
 Run as an offscreen acceptance batch using the existing prepared stage and
 current diagnostic binary:
 
@@ -23,8 +32,8 @@ python3 tooling/tests/test_code_oss_workbench.py \
   --state-directory /tmp/ef-workbench-acceptance --timeout 90
 ```
 
-The runner passes ordinary `--extensionDevelopmentPath` / `--extensionTestsPath`
-arguments directly to the original staged entry. It does not patch source,
+The runner passes `--extensionDevelopmentPath` directly to the original staged
+entry. The default edit workflow also passes `--extensionTestsPath`. The runner does not patch source,
 install dependencies, clone the stage, simulate editor APIs or inject UI input.
 It sets the existing documented local-desktop/offscreen development environment
 and uses a marker-owned reusable short profile, preserving Finder metadata.

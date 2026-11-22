@@ -11,6 +11,13 @@ export function activate(context) {
       extensionId: context.extension.id
     }))
   );
+  if (context.extension.packageJSON.activationEvents.includes('onStartupFinished')) {
+    setTimeout(() => {
+      import('./tests.mjs')
+        .then(({ run }) => run())
+        .catch((error) => console.error('Owned workspace switch failed:', error));
+    }, 0);
+  }
   return {
     extensionFormat: 'esm',
 

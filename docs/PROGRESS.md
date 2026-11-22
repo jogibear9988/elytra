@@ -17060,6 +17060,25 @@ passed an empty grant so it cannot fall back to a previous page's file roots.
 The user preview still runs the earlier package. The reported Code-OSS
 Open Folder failure needs a reproduction on the updated desktop runtime.
 
+## Exercise Code-OSS folder replacement in the existing window
+
+Add the optional workspace-switch acceptance case. It uses ordinary extension
+activation and `vscode.openFolder` with an owned target, then verifies that
+the target extension host sees that folder and can edit and save in it. The
+parent authenticates both extension host processes and the unchanged window
+ID. A trial with the upstream extension-test flag confirmed that Code-OSS
+exits the application when that first test host unloads, so the switch case
+does not use that flag.
+
+The reported visible preview logged a `strings.js` module-load failure during
+the transition even though the file matched its package seal. The older
+Ladybird 59158f57c offscreen control passes the folder switch, both document
+handoffs, and editor save. The same renderer PID and window ID were observed
+on both loads. The app exits 0 and all 16 tracked processes stop without
+cleanup signals. Evidence is in build/code-oss-59158-workspace-switch.log.
+This covers the transition after folder selection. Cocoa, the native picker
+and a run with the updated Ladybird remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

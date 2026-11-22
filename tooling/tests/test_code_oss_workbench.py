@@ -265,7 +265,14 @@ def write_json(path, value):
     path.chmod(0o600)
 
 
-def prepare(state, stage, extension_format="esm", terminal=False, parent_liveness=False):
+def prepare(
+    state,
+    stage,
+    extension_format="esm",
+    terminal=False,
+    parent_liveness=False,
+    workspace_switch=False,
+):
     marker = state / ".elytra-owned.json"
     if not state.exists():
         state.mkdir(mode=0o700)
@@ -280,6 +287,7 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
     user = profile / "User"
     extension = state / "extension"
     workspace = state / "workspace"
+    edit_workspace = state / "opened-workspace" if workspace_switch else workspace
     # Match Code-OSS's transient CLI directories. Some of these default to
     # paths in the user's home even when --user-data-dir is supplied.
     storage = {
@@ -290,7 +298,7 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
         "--agents-user-data-dir": state / "agents-data",
         "--agents-extensions-dir": state / "agents-extensions",
     }
-    for directory in (*storage.values(), user, extension, workspace, state / "xdg"):
+    for directory in (*storage.values(), user, extension, workspace, edit_workspace, state / "xdg"):
         directory.mkdir(mode=0o700, exist_ok=True)
     settings = {
         "window.titleBarStyle": "native",
@@ -303,9 +311,11 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
         (extension / name).write_bytes((FIXTURE / name).read_bytes())
     manifest = json.loads((FIXTURE / "package.json").read_text())
     manifest["main"] = "./extension.cjs" if extension_format == "commonjs" else "./extension.mjs"
+    if workspace_switch:
+        manifest["activationEvents"] = ["onStartupFinished"]
     write_json(extension / "package.json", manifest)
     nonce = str(uuid.uuid4())
-    document = workspace / "owned-workbench.txt"
+    document = edit_workspace / "owned-workbench.txt"
     initial = "owned-workbench-input\n"
     prefix = "edited-through-vscode-api:" + nonce + "\n"
     result = state / "result.json"
@@ -319,7 +329,8 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
         state / "terminal-ready.json.tmp",
         state / "terminal-gate.json",
         state / "terminal-gate.json.tmp",
-        state / "workspace/owned-terminal.txt",
+        state / "workspace-switch.json",
+        edit_workspace / "owned-terminal.txt",
     ):
         output.unlink(missing_ok=True)
     document.write_text(initial)
@@ -335,11 +346,17 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
     }
     if parent_liveness:
         config["parentLiveness"] = True
+    if workspace_switch:
+        config["workspaceSwitch"] = {
+            "initialFolder": str(workspace),
+            "targetFolder": str(edit_workspace),
+            "record": str(state / "workspace-switch.json"),
+        }
     if terminal:
         config.update(
             terminal=True,
-            terminalWorkspace=str(workspace),
-            terminalOutput=str(workspace / "owned-terminal.txt"),
+            terminalWorkspace=str(edit_workspace),
+            terminalOutput=str(edit_workspace / "owned-terminal.txt"),
             terminalText="terminal-through-vscode:" + nonce + "\n",
             terminalReady=str(state / "terminal-ready.json"),
             terminalGate=str(state / "terminal-gate.json"),
@@ -348,12 +365,13 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
     command = [str(stage / "src/main.js")]
     for option, directory in storage.items():
         command.extend([option, str(directory)])
+    command.extend(["--extensionDevelopmentPath", str(extension)])
+    # The upstream extension-test lifecycle kills the entire app when the
+    # source extension host unloads. A normal activation must survive the switch.
+    if not workspace_switch:
+        command.extend(["--extensionTestsPath", str(extension / "tests.mjs")])
     command.extend(
         [
-            "--extensionDevelopmentPath",
-            str(extension),
-            "--extensionTestsPath",
-            str(extension / "tests.mjs"),
             "--new-window",
             "--skip-welcome",
             "--disable-crash-reporter",
@@ -404,6 +422,11 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument(
+        "--workspace-switch",
+        action="store_true",
+        help="Use the public VS Code API to reopen a second folder in the same window before editing",
+    )
     parser.add_argument(
         "--startup-diagnostics",
         action="store_true",
@@ -487,7 +510,12 @@ def main():
         if not marker.exists():
             write_json(marker, {"owner": OWNER})
         arguments, config = prepare(
-            state, stage, args.extension_format, args.terminal, args.parent_liveness
+            state,
+            stage,
+            args.extension_format,
+            args.terminal,
+            args.parent_liveness,
+            args.workspace_switch,
         )
         if args.bundle:
             # Launcher owns --electron-compat and the sealed main.mjs prefix.
@@ -666,6 +694,27 @@ def main():
             raise RuntimeError("No authenticated current extension-test result")
         if not tree or result.get("pid") not in tree.members or result["pid"] == process.pid:
             raise RuntimeError("Result did not originate from an observed owned extension host")
+        if args.workspace_switch:
+            transition = Path(config["workspaceSwitch"]["record"])
+            if not transition.is_file() or transition.stat().st_size > 4096:
+                raise RuntimeError("No owned workspace switch request")
+            record = json.loads(transition.read_text())
+            window_ids = re.findall(
+                r"window#load: attempt to load window \(id: ([0-9]+)\)",
+                (state / "run.log").read_text(errors="replace"),
+            )
+            if (
+                record.get("nonce") != config["nonce"]
+                or type(record.get("pid")) is not int
+                or record["pid"] not in tree.members
+                or record["pid"] in (process.pid, result["pid"])
+                or result.get("workspaceSwitched") is not True
+                or len(window_ids) != 2
+                or window_ids[0] != window_ids[1]
+            ):
+                raise RuntimeError(
+                    "No authenticated same-window folder switch and new extension host"
+                )
         if not all(
             result.get(name) is True
             for name in (
@@ -701,6 +750,7 @@ def main():
                 "schema": 1,
                 "accepted": True,
                 "extensionFormat": args.extension_format,
+                **({"workspaceSwitched": True} if args.workspace_switch else {}),
                 **({"parentLiveness": True} if args.parent_liveness else {}),
                 **(
                     {
@@ -724,6 +774,8 @@ def main():
         print(
             "PASS actual CodeOSS extension activation, command, editor WorkspaceEdit/save and independent native readback"
         )
+        if args.workspace_switch:
+            print("PASS actual CodeOSS same-window folder switch and new extension host")
         if args.parent_liveness:
             print("PASS actual CodeOSS parent liveness across three timed API continuations")
         if args.terminal:
