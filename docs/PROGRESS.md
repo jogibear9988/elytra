@@ -16873,9 +16873,10 @@ Local ZIP content and refusal checks, scoped runtime-revision verification,
 Code-OSS seal checks and production payload checks pass. The hosted native
 component fixture now extracts the Code-OSS ZIP, removes its source package and
 SDK paths, and runs the extracted launcher. It also checks the package leaves
-the fixture's DWM import to Windows. Native component CI and real Firefly
-desktop and sample acceptance remain open. The release job still requires that
-acceptance before it can publish Windows sample packages.
+the fixture's DWM import to Windows. Native Windows job 137131285284 passes
+the extracted ZIP launch, independent sealed helper fixture and PE closure.
+Real Firefly desktop and sample acceptance remain open. The release job still
+requires that acceptance before it can publish Windows sample packages.
 
 ## Resume
 

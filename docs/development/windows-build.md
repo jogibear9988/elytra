@@ -646,3 +646,8 @@ Extract the complete ZIP into its own directory and run `Launch.exe` there.
 The Code-OSS builder selects the physical renderer layout on native Windows.
 Windows desktop confinement and the actual Designer and Code-OSS launch gates
 remain prerequisites for publishing either archive as a release asset.
+
+The [native Windows package job](https://github.com/jogibear9988/elytra/actions/runs/44997398842)
+extracts a sealed Code-OSS fixture ZIP into a Unicode path and runs its launcher
+after moving the SDK away. Its PE fixture also leaves the DWM import to Windows
+and verifies app-local delayed imports and a plugin export forwarder.
