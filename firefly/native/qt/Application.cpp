@@ -292,6 +292,10 @@ private:
         // Preserve the former embedded platform option without enabling the
         // browser's global content-blocker policy in application views.
         m_storage.native_owned.append("--disable-content-blocker"sv);
+#ifdef _WIN32
+        // The Windows request helper has no writable application cache grant.
+        m_storage.native_owned.append("--disable-http-disk-cache"sv);
+#endif
         m_sandbox_launch.append_arguments(m_storage.native_owned);
         if (m_gpu.cpu_requested())
             m_storage.native_owned.append("--force-cpu-painting"sv);

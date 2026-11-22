@@ -70,11 +70,44 @@ namespace {
             return L"Compositor.exe";
         case Role::SystemProbe:
             return L"SystemProbe.exe";
+        case Role::RequestServer:
+            return L"RequestServer.exe";
         case Role::Unsupported:
             return nullptr;
         }
 
         return nullptr;
+    }
+
+    WindowsSandbox::NetworkAccess network_access(Role role)
+    {
+        return role == Role::RequestServer ? WindowsSandbox::NetworkAccess::InternetClient
+                                           : WindowsSandbox::NetworkAccess::Disabled;
+    }
+
+    ErrorOr<void> prepare_request_server_arguments(std::vector<std::wstring>& arguments)
+    {
+        bool cache_disabled = false;
+        for (size_t index = 0; index < arguments.size(); ++index) {
+            auto const& option = arguments[index];
+            if (option == L"--test-mode")
+                continue;
+            if (index + 1 == arguments.size())
+                return Error::from_string_literal("Missing RequestServer argument value");
+            auto& value = arguments[++index];
+            if (option == L"--http-disk-cache-mode" && value == L"disabled" && !cache_disabled)
+                cache_disabled = true;
+            else if (option == L"--cache-path")
+                // Even with the disk cache disabled, upstream would retire an old file here.
+                value.clear();
+            else if (option != L"--site")
+                return Error::from_string_literal("Unsupported confined RequestServer option");
+        }
+
+        if (!cache_disabled)
+            return Error::from_string_literal(
+                "Confined RequestServer requires disabled disk cache");
+        return {};
     }
 
     bool allowed_environment(StringView name)
@@ -117,6 +150,7 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
         return Error::from_string_literal("SystemProbe requires only its private report pipe");
 
     WindowsSandbox::Launch launch;
+    launch.network = network_access(current->role);
     launch.executable = TRY(wide(options.executable));
     auto executable = std::filesystem::path(launch.executable).lexically_normal();
     executable.make_preferred();
@@ -153,6 +187,9 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
             return Error::from_string_literal(
                 "Compositor resource root is outside its sealed runtime");
     }
+
+    if (current->role == Role::RequestServer)
+        TRY(prepare_request_server_arguments(launch.arguments));
 
     bool takeover = false;
     ByteString takeover_entry;
@@ -319,10 +356,10 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
     return sdk_handle.release();
 }
 
-ErrorOr<void> verify_current()
+ErrorOr<void> verify_current(Role role)
 {
     WindowsSandbox::Failure error;
-    if (!WindowsSandbox::verify_token(GetCurrentProcess(), nullptr, error))
+    if (!WindowsSandbox::verify_token(GetCurrentProcess(), nullptr, error, network_access(role)))
         return win_error(error);
     // Additional child-side containment sanity only. The exact freshly created
     // Job identity was verified by the parent before ResumeThread; no inherited

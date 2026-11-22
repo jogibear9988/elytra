@@ -24,6 +24,7 @@
 #include <LibImageDecoderClient/Client.h>
 #include <LibMain/Main.h>
 #include <LibPlatformFeatures/SystemFacts.h>
+#include <LibRequests/RequestControlClient.h>
 #include <LibWebView/CompositorClient.h>
 #include <LibWebView/ImageDecoderControlClient.h>
 #include <cstdio>
@@ -467,6 +468,47 @@ ErrorOr<void> read_confined_system_report(
     outln("PASS real AppContainer SystemProbe report pipe and natural exit");
     return {};
 }
+
+ErrorOr<void> connect_to_confined_request_server(std::filesystem::path const& renderer,
+    IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
+{
+    auto request_server = renderer.parent_path() / L"RequestServer.exe";
+    auto const role = H::Role::RequestServer;
+    TRY(require(spawn(request_server, server).is_error(),
+        "renderer role cannot launch a network-capable helper"));
+    TRY(require(
+        spawn(request_server, server, { "--http-disk-cache-mode"sv, "enabled"sv }, role).is_error(),
+        "request server cannot enable a persistent cache"));
+    TRY(require(
+        spawn(request_server, server,
+            { "--http-disk-cache-mode"sv, "disabled"sv, "--certificate=outside.pem"sv }, role)
+            .is_error(),
+        "request server cannot open caller-selected certificate files"));
+
+    auto session
+        = TRY(spawn(request_server, server, { "--http-disk-cache-mode"sv, "disabled"sv }, role));
+    S::Handle process(
+        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, session->process.pid()));
+    S::Failure error;
+    TRY(require(
+        process && S::verify_token(process.get(), nullptr, error, S::NetworkAccess::InternetClient),
+        "actual request server has exactly the Internet client capability"));
+    TRY(require(!S::verify_token(process.get(), nullptr, error),
+        "the zero-capability renderer policy refuses the request server token"));
+
+    auto transport = TRY(IPC::Transport::adopt_fd(session->control));
+    session->control = -1;
+    auto control = TRY(try_make_ref_counted<Requests::RequestControlClient>(move(transport)));
+    auto reply = TRY(control->try_connect_new_client(
+        RequestServer::IsPrivate::Yes, RequestServer::SiteBinding::Bound));
+    TRY(require(reply.client_id() >= 0, "native request server registers a site-bound client"));
+    auto channel = TRY(reply.take_handle().create_transport());
+    channel->close();
+    control->shutdown();
+    TRY(exited(*session, broker));
+    outln("PASS real AppContainer RequestServer capability, bound IPC and natural exit");
+    return {};
+}
 }
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
@@ -493,6 +535,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     TRY(decode_with_confined_helper(executable, *server, broker));
     TRY(connect_to_confined_compositor(executable, *server, broker));
     TRY(read_confined_system_report(executable, *server));
+    TRY(connect_to_confined_request_server(executable, *server, broker));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();

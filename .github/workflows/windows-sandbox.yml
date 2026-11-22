@@ -79,6 +79,17 @@ jobs:
           if ($LASTEXITCODE) { throw 'Native security component configuration failed' }
           cmake --build build/windows-sandbox --parallel 3 2>&1 | Tee-Object windows-sandbox-build.log
           if ($LASTEXITCODE) { throw 'Native security component compilation failed' }
+      - name: Verify the exact Internet client token before and after resume
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP ("firefly-sandbox-" + [guid]::NewGuid())
+          New-Item -ItemType Directory -Path $fixture | Out-Null
+          try {
+            & build/windows-sandbox/firefly-windows-sandbox-probe.exe $fixture 0 internet-client
+            if ($LASTEXITCODE) { throw 'Internet client capability fixture failed' }
+          } finally {
+            Remove-Item -LiteralPath $fixture -Recurse -Force
+          }
       - name: Independent native token and real denied-operation/lifetime acceptance
         shell: pwsh
         run: |

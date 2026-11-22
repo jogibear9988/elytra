@@ -13,7 +13,7 @@ struct ProcessSpawnOptions;
 }
 
 namespace Firefly::WindowsHelpers {
-enum class Role { Unsupported, WebContent, ImageDecoder, Compositor, SystemProbe };
+enum class Role { Unsupported, WebContent, ImageDecoder, Compositor, SystemProbe, RequestServer };
 
 class FIREFLY_WINDOWS_HELPER_API Scope {
 public:
@@ -35,5 +35,5 @@ FIREFLY_WINDOWS_HELPER_API ErrorOr<void*> spawn(Core::ProcessSpawnOptions const&
 // Remove the exact HANDLE binding before the original Core destructor closes it.
 FIREFLY_WINDOWS_HELPER_API bool release(void*);
 
-FIREFLY_WINDOWS_HELPER_API ErrorOr<void> verify_current();
+FIREFLY_WINDOWS_HELPER_API ErrorOr<void> verify_current(Role = Role::WebContent);
 }

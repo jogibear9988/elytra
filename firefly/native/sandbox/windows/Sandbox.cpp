@@ -131,7 +131,7 @@ Profile::~Profile()
         FreeSid(m_sid);
 }
 
-bool verify_token(HANDLE process, PSID expected_sid, Failure& error)
+bool verify_token(HANDLE process, PSID expected_sid, Failure& error, NetworkAccess network)
 {
     HANDLE raw = nullptr;
     if (!OpenProcessToken(process, TOKEN_QUERY, &raw))
@@ -161,9 +161,21 @@ bool verify_token(HANDLE process, PSID expected_sid, Failure& error)
     auto* groups = reinterpret_cast<TOKEN_GROUPS*>(capabilities.data());
     auto* label = reinterpret_cast<TOKEN_MANDATORY_LABEL*>(integrity.data());
     if (!actual_sid || !IsValidSid(actual_sid)
-        || (expected_sid && !EqualSid(actual_sid, expected_sid)) || groups->GroupCount != 0
-        || !IsValidSid(label->Label.Sid))
-        return fail(error, "verify sandbox identity/capabilities", ERROR_ACCESS_DENIED);
+        || (expected_sid && !EqualSid(actual_sid, expected_sid)) || !IsValidSid(label->Label.Sid))
+        return fail(error, "verify sandbox identity", ERROR_ACCESS_DENIED);
+    if (network == NetworkAccess::Disabled) {
+        if (groups->GroupCount != 0)
+            return fail(error, "verify empty sandbox capabilities", ERROR_ACCESS_DENIED);
+    } else {
+        if (network != NetworkAccess::InternetClient || groups->GroupCount != 1)
+            return fail(error, "verify Internet client capability count", ERROR_ACCESS_DENIED);
+        auto const& group = groups->Groups[0];
+        if (!group.Sid || !IsWellKnownSid(group.Sid, WinCapabilityInternetClientSid)
+            || !(group.Attributes & SE_GROUP_ENABLED)
+            || (group.Attributes & SE_GROUP_USE_FOR_DENY_ONLY))
+            return fail(error, "verify Internet client capability", ERROR_ACCESS_DENIED);
+    }
+
     auto count = *GetSidSubAuthorityCount(label->Label.Sid);
     if (!count || *GetSidSubAuthority(label->Label.Sid, count - 1) > SECURITY_MANDATORY_LOW_RID)
         return fail(error, "verify low integrity", ERROR_ACCESS_DENIED);
@@ -265,6 +277,21 @@ std::unique_ptr<Child> Child::create(
 
     SECURITY_CAPABILITIES capabilities {};
     capabilities.AppContainerSid = child->m_profile->sid();
+    alignas(SID) BYTE internet_client_sid[SECURITY_MAX_SID_SIZE];
+    SID_AND_ATTRIBUTES internet_client {};
+    if (options.network == NetworkAccess::InternetClient) {
+        DWORD size = sizeof(internet_client_sid);
+        if (!CreateWellKnownSid(
+                WinCapabilityInternetClientSid, nullptr, internet_client_sid, &size)) {
+            fail(error, "CreateWellKnownSid Internet client");
+            return {};
+        }
+
+        internet_client.Sid = internet_client_sid;
+        internet_client.Attributes = SE_GROUP_ENABLED;
+        capabilities.Capabilities = &internet_client;
+        capabilities.CapabilityCount = 1;
+    }
     // Assign atomically during creation. A later AssignProcessToJobObject call
     // would leave an orphaned suspended child if the broker died in between.
     HANDLE job = child->m_job.get();
@@ -372,7 +399,7 @@ std::unique_ptr<Child> Child::create(
         return {};
     }
 
-    if (!verify_token(child->m_process.get(), child->m_profile->sid(), error))
+    if (!verify_token(child->m_process.get(), child->m_profile->sid(), error, options.network))
         return {};
     return child;
 }

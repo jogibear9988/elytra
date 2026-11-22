@@ -16,6 +16,7 @@
 #include <sddl.h>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -435,6 +436,15 @@ int worker(int argc, wchar_t** argv)
         return 1;
     }
 
+    if (argc == 3 && std::wstring(argv[2]) == L"internet-client") {
+        Failure error;
+        require(verify_token(GetCurrentProcess(), nullptr, error, NetworkAccess::InternetClient),
+            "worker has exactly the Internet client capability");
+        require(!verify_token(GetCurrentProcess(), nullptr, error),
+            "worker cannot satisfy the zero-capability policy");
+        return 0;
+    }
+
     require(argc == 6, "worker arguments");
     auto resources = fs::path(argv[2]);
     auto secret = fs::path(argv[3]);
@@ -553,15 +563,20 @@ int run_probe(int argc, wchar_t** argv)
     Handle private_handle(CreateFileW((root / L"private/secret.txt").c_str(), GENERIC_READ,
         FILE_SHARE_READ, &inherited, OPEN_EXISTING, 0, nullptr));
     require(input && private_handle, "fixture handles");
-    auto hold = std::wstring(argv[3]) == L"hold";
+    auto mode = std::wstring_view(argv[3]);
+    auto hold = mode == L"hold";
+    auto internet_client = mode == L"internet-client";
     Launch launch;
     launch.executable = image.wstring();
     launch.directory = resources.wstring();
-    launch.arguments = hold
-        ? std::vector<std::wstring> { L"--worker", L"hold" }
-        : std::vector<std::wstring> { L"--worker", resources.wstring(),
-              (root / L"private/secret.txt").wstring(),
-              std::to_wstring(reinterpret_cast<uintptr_t>(private_handle.get())), argv[2] };
+    if (hold || internet_client)
+        launch.arguments = { L"--worker", std::wstring(mode) };
+    else
+        launch.arguments
+            = { L"--worker", resources.wstring(), (root / L"private/secret.txt").wstring(),
+                  std::to_wstring(reinterpret_cast<uintptr_t>(private_handle.get())), argv[2] };
+    if (internet_client)
+        launch.network = NetworkAccess::InternetClient;
     launch.inherited = { input.get(), write.get() };
     launch.input = input.get();
     launch.output = launch.error = write.get();
@@ -594,6 +609,21 @@ int run_probe(int argc, wchar_t** argv)
     if (!child) {
         std::cerr << error.operation << ": " << error.code << '\n';
         return 1;
+    }
+
+    if (internet_client) {
+        require(
+            verify_token(child->process(), profile->sid(), error, NetworkAccess::InternetClient),
+            "suspended token carries the exact Internet client capability");
+        require(!verify_token(child->process(), profile->sid(), error),
+            "suspended token fails the renderer capability policy");
+        require(child->resume(error), "resume capability test child");
+        DWORD status = 1;
+        require(child->wait(10000, status, error) && status == 0, "worker verifies its own token");
+        child.reset();
+        require(profile->remove(error), "remove capability test profile");
+        std::cout << "PASS exact AppContainer Internet client capability before and after resume\n";
+        return 0;
     }
 
     std::unique_ptr<SandboxNetworkProbe::Observer> network_observer;

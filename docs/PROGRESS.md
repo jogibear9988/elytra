@@ -16741,6 +16741,19 @@ requires natural exit and verifies that missing or IPC-style
 transports are refused. Local source, broker and configure-policy
 checks pass. Native execution and full desktop acceptance remain open.
 
+## Give the Windows RequestServer a distinct outbound capability
+
+Select RequestServer.exe only through its typed helper role. Attach
+exactly the Internet client SID and verify that capability in the real
+token in both parent and worker. Renderer and other helper roles still
+require zero capabilities. The Windows desktop startup chooses the
+existing no-disk-cache mode, and the request helper refuses options
+that would read arbitrary certificates/resource maps or open a disk
+cache. No host network policy changes. Add an independent native token
+fixture and an actual RequestServer site-bound control IPC test.
+Source, configure, broker and policy checks pass. Native execution,
+HTTP/TLS and the existing denied-network evidence remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

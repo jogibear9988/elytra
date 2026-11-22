@@ -90,6 +90,8 @@ private:
     bool m_registered { false };
 };
 
+enum class NetworkAccess { Disabled, InternetClient };
+
 struct Launch {
     std::wstring executable;
     std::wstring directory;
@@ -101,10 +103,12 @@ struct Launch {
     HANDLE input { nullptr };
     HANDLE output { nullptr };
     HANDLE error { nullptr };
+    NetworkAccess network { NetworkAccess::Disabled };
 };
 
 // Query the actual primary token; a null expected SID is for the child-side verifier.
-bool verify_token(HANDLE process, PSID expected_sid, Failure&);
+bool verify_token(
+    HANDLE process, PSID expected_sid, Failure&, NetworkAccess = NetworkAccess::Disabled);
 
 class Child {
 public:

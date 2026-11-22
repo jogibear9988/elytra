@@ -70,6 +70,9 @@ firefly_replace_source(LibWebView "Libraries/LibWebView/SystemProbeClient.cpp"
 firefly_replace_source(SystemProbe "Services/SystemProbe/main.cpp"
                        "${FIREFLY_WINDOWS_HELPER_OVERLAY}/SystemProbeMain.cpp")
 target_link_libraries(SystemProbe PRIVATE firefly-windows-helper-launch)
+firefly_replace_source(RequestServer "Services/RequestServer/SandboxUnimplemented.cpp"
+                       "${CMAKE_CURRENT_LIST_DIR}/RequestServerSandbox.cpp")
+target_link_libraries(RequestServer PRIVATE firefly-windows-helper-launch)
 # The compiled helper slice is not the complete desktop runtime. The default runtime/release gate
 # must remain closed until every real helper role is covered.
 set_property(TARGET firefly-windows-helper-launch PROPERTY FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE
@@ -135,6 +138,7 @@ target_link_libraries(
             LibImageDecoderClient
             LibGfx
             LibPlatformFeatures
+            LibRequests
             AK)
 ladybird_windows_bin(firefly-windows-broker-probe CONSOLE)
 set(windows_broker_inputs "${CMAKE_BINARY_DIR}/firefly-adapters/windows-broker-probe-$<CONFIG>.txt")
@@ -142,7 +146,7 @@ file(
     GENERATE
     OUTPUT "${windows_broker_inputs}"
     CONTENT
-        "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n$<TARGET_FILE:ImageDecoder>\n$<JOIN:$<TARGET_RUNTIME_DLLS:ImageDecoder>,\n>\n$<TARGET_FILE:Compositor>\n$<JOIN:$<TARGET_RUNTIME_DLLS:Compositor>,\n>\n$<TARGET_FILE:SystemProbe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:SystemProbe>,\n>\n"
+        "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n$<TARGET_FILE:ImageDecoder>\n$<JOIN:$<TARGET_RUNTIME_DLLS:ImageDecoder>,\n>\n$<TARGET_FILE:Compositor>\n$<JOIN:$<TARGET_RUNTIME_DLLS:Compositor>,\n>\n$<TARGET_FILE:SystemProbe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:SystemProbe>,\n>\n$<TARGET_FILE:RequestServer>\n$<JOIN:$<TARGET_RUNTIME_DLLS:RequestServer>,\n>\n"
 )
 add_custom_target(
     check-firefly-windows-broker
@@ -150,5 +154,5 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_windows_broker.py" --probe
         "$<TARGET_FILE:firefly-windows-broker-probe>" --targets "${windows_broker_inputs}"
         --resources "${CMAKE_BINARY_DIR}/share/Lagom" --revision "${windows_helper_revision}"
-    DEPENDS firefly-windows-broker-probe ImageDecoder Compositor SystemProbe ladybird
+    DEPENDS firefly-windows-broker-probe ImageDecoder Compositor SystemProbe RequestServer ladybird
     USES_TERMINAL VERBATIM)

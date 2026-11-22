@@ -38,15 +38,20 @@ class NetworkEvidenceSource(unittest.TestCase):
             "std::terminate()",
         ):
             self.assertIn(required, self.header)
+        observed_launch = self.probe.split(
+            "std::unique_ptr<SandboxNetworkProbe::Observer> network_observer;", 1
+        )[1]
         self.assertLess(
-            self.probe.index("network_observer->arm()"), self.probe.index("child->resume(error)")
+            observed_launch.index("network_observer->arm()"),
+            observed_launch.index("child->resume(error)"),
         )
         self.assertLess(
-            self.probe.index("network_observer->finish(exit)"),
-            self.probe.index("network_observer.reset()"),
+            observed_launch.index("network_observer->finish(exit)"),
+            observed_launch.index("network_observer.reset()"),
         )
         self.assertLess(
-            self.probe.index("network_observer.reset()"), self.probe.index("child.reset()")
+            observed_launch.index("network_observer.reset()"),
+            observed_launch.index("child.reset()"),
         )
 
     def test_exact_native_predicate_and_negative_controls(self):
