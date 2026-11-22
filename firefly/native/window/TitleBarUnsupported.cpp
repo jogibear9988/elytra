@@ -21,4 +21,9 @@ std::optional<QPoint> title_bar_button_position(QWidget&)
 {
     return {};
 }
+
+QRect title_bar_control_bounds(QWidget const&)
+{
+    return {};
+}
 }

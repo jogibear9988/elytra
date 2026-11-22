@@ -167,6 +167,14 @@ int main(int argc, char** argv)
         check_hidden_native(hidden_native);
         require(hidden.is_custom_chrome(), "Hidden title bar owns custom app-region policy");
         auto original_position = close_button_position(hidden_native);
+        auto original_controls = Firefly::title_bar_control_bounds(hidden);
+        require(original_controls.topLeft() == original_position && !original_controls.isEmpty(),
+            "AppKit control bounds use the actual initial client coordinates");
+        require(Firefly::title_bar_control_bounds(standard).isEmpty(),
+            "Normal native caption is outside the renderer drag policy");
+        hidden.set_regions({ { QRect(0, 0, 300, 40), true } });
+        require(!hidden.draggable(original_controls.center()) && hidden.draggable({ 130, 20 }),
+            "Renderer-wide drag region leaves the actual native controls reachable");
         require(
             !Firefly::title_bar_button_position(hidden).has_value(), "No custom default position");
         require(!Firefly::set_title_bar_button_position(standard, QPoint(18, 7)),
@@ -175,6 +183,12 @@ int main(int argc, char** argv)
                 && close_button_position(hidden_native) == QPoint(18, 7),
             "Existing Cocoa close button moves to the custom top-left position");
         check_native_hit_targets(hidden_native);
+        auto repositioned_controls = Firefly::title_bar_control_bounds(hidden);
+        require(repositioned_controls.topLeft() == QPoint(18, 7)
+                && repositioned_controls.size() == original_controls.size()
+                && !hidden.draggable(repositioned_controls.center()),
+            "Native control bounds and drag exclusion follow physical placement");
+        std::puts("PASS native title bar drag exclusion follows the current AppKit control bounds");
         require(!Firefly::set_title_bar_button_position(hidden, QPoint(18, 150)),
             "Position outside the native control area is rejected");
         require(!Firefly::set_title_bar_button_position(hidden, QPoint(320, 7))
@@ -183,7 +197,8 @@ int main(int argc, char** argv)
             "Out-of-window placement preserves the current native layout");
         require(Firefly::set_title_bar_button_position(hidden, {})
                 && !Firefly::title_bar_button_position(hidden).has_value()
-                && close_button_position(hidden_native) == original_position,
+                && close_button_position(hidden_native) == original_position
+                && Firefly::title_bar_control_bounds(hidden) == original_controls,
             "Reset restores the original AppKit button position");
         std::puts("PASS native title bar real Cocoa controls reposition and reset");
         std::puts("PASS native title bar hidden titled full-size transparent window preserves "

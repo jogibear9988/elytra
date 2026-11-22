@@ -119,6 +119,8 @@ top-left edge of the content area. Pass `null` to restore AppKit's placement.
 `window.getWindowButtonPosition()` returns the configured point or `null` for
 the default. Invalid window geometry is rejected, and a successful custom
 placement follows native surface recreation.
+The actual native control bounds stay reserved for window buttons even when
+an author draggable region covers the whole toolbar.
 
 Both omitted style and 'default' preserve existing platform chrome. Nonstring
 styles throw ERR_INVALID_ARG_TYPE. Unknown styles, including hiddenInset and

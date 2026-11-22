@@ -4,11 +4,10 @@ if(APPLE)
         "${CMAKE_CURRENT_LIST_DIR}/TitleBarProbe.mm" "${CMAKE_CURRENT_LIST_DIR}/RuntimeProbe.mm"
         PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
     add_executable(
-        firefly-title-bar-probe
-        "${CMAKE_CURRENT_LIST_DIR}/TitleBarProbe.mm"
-        "${FIREFLY_SOURCE_DIR}/firefly/native/qt/ChromeWindow.cpp"
-        "${FIREFLY_SOURCE_DIR}/firefly/native/window/TitleBarMac.mm")
-    target_link_libraries(firefly-title-bar-probe PRIVATE Qt::Widgets "-framework AppKit")
+        firefly-title-bar-probe "${CMAKE_CURRENT_LIST_DIR}/TitleBarProbe.mm"
+                                "${FIREFLY_SOURCE_DIR}/firefly/native/qt/ChromeWindow.cpp")
+    target_link_libraries(firefly-title-bar-probe PRIVATE firefly-native-title-bar
+                                                          "-framework AppKit")
     add_executable(firefly-title-bar-runtime-probe "${CMAKE_CURRENT_LIST_DIR}/RuntimeProbe.mm")
     target_link_libraries(firefly-title-bar-runtime-probe PRIVATE firefly-application)
     add_dependencies(firefly-title-bar-runtime-probe ladybird ${ladybird_helper_processes}

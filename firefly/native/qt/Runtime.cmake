@@ -207,20 +207,15 @@ if(APPLE)
         "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenHost.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/../screen/ScreenMac.mm"
         "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryMac.mm"
-        "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseMac.mm"
-        "${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarMac.mm")
+        "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseMac.mm")
     set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseMac.mm"
-                                PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
-    set_source_files_properties("${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarMac.mm"
                                 PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 elseif(WIN32)
     list(APPEND firefly_native_services
-         "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp"
-         "${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarUnsupported.cpp")
+         "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND firefly_native_services "${CMAKE_CURRENT_LIST_DIR}/../window/GeometryLinux.cpp"
-         "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp"
-         "${CMAKE_CURRENT_LIST_DIR}/../window/TitleBarUnsupported.cpp")
+         "${CMAKE_CURRENT_LIST_DIR}/../window/FirstMouseUnsupported.cpp")
 endif()
 # Compile startup refusal without a GUI/VM, including on macOS; native X11 bindings stay Linux-only.
 add_library(firefly-linux-environment STATIC

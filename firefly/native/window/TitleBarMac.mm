@@ -65,6 +65,31 @@ namespace {
             return m_position;
         }
 
+        QRect control_bounds() const
+        {
+            auto* native = m_native;
+            auto* content = native.contentView;
+            if (!m_hidden || !content || (native.styleMask & NSWindowStyleMaskFullScreen))
+                return {};
+
+            auto viewport = [content convertRect:content.bounds toView:nil];
+            auto cluster = NSZeroRect;
+            for (auto kind :
+                { NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton }) {
+                auto* button = [native standardWindowButton:kind];
+                if (!button || button.hiddenOrHasHiddenAncestor || button.window != native)
+                    continue;
+                cluster = NSUnionRect(cluster, [button convertRect:button.bounds toView:nil]);
+            }
+
+            auto clipped = NSIntersectionRect(cluster, viewport);
+            if (NSIsEmptyRect(clipped))
+                return {};
+            return QRectF(NSMinX(clipped) - NSMinX(viewport), NSMaxY(viewport) - NSMaxY(clipped),
+                NSWidth(clipped), NSHeight(clipped))
+                .toAlignedRect();
+        }
+
     protected:
         bool eventFilter(QObject* object, QEvent* event) override
         {
@@ -295,6 +320,17 @@ std::optional<QPoint> title_bar_button_position(QWidget& window)
         for (auto* child : window.children())
             if (auto* controller = dynamic_cast<Controller*>(child))
                 return controller->position();
+    }
+
+    return {};
+}
+
+QRect title_bar_control_bounds(QWidget const& window)
+{
+    if (title_bar_available() && window.thread() == QThread::currentThread()) {
+        for (auto* child : window.children())
+            if (auto* controller = dynamic_cast<Controller*>(child))
+                return controller->control_bounds();
     }
 
     return {};

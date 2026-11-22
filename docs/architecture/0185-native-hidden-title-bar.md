@@ -29,7 +29,10 @@ window coordinates, checks both the content area and native control container,
 and keeps AppKit's original positions for reset. On recreation it restores the
 retiring buttons it still owns and applies the configured position to the new
 surface. Geometry outside the control container is rejected so buttons remain
-reachable.
+reachable. The same controller reads the real button frames and converts their
+union into the full-window content coordinate space. The native drag hit test
+excludes that rectangle, independently of author drag regions. The shared
+provider is linked by the runtime and standalone chrome probe.
 
 The remaining constructor titleBarOverlay option requires renderer Window
 Controls Overlay state and CSS geometry. HiddenInset, custom fullscreen

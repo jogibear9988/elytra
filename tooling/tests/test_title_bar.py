@@ -60,6 +60,7 @@ def main():
                 for marker in [
                     "PASS native title bar hidden titled full-size transparent window preserves native controls",
                     "PASS native title bar real Cocoa controls reposition and reset",
+                    "PASS native title bar drag exclusion follows the current AppKit control bounds",
                     "PASS native title bar actual full content geometry with default window unchanged",
                     "PASS native title bar drag and no-drag region policy without OS input",
                     "PASS native title bar actual NSWindow recreation restores old caption and rebinds hidden policy",

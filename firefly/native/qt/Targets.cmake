@@ -112,6 +112,7 @@ target_link_libraries(
     # Qt's static ICU archives must not be selected ahead of the shared native Unicode
     # implementation, which maps the actual external data before main.
     PUBLIC LibUnicode
+           firefly-native-title-bar
            firefly-locale
            LibWebView
            hubservice
@@ -206,7 +207,7 @@ add_executable(
     firefly-chrome-probe
     "${CMAKE_CURRENT_LIST_DIR}/ChromeProbe.cpp" "${CMAKE_CURRENT_LIST_DIR}/ChromeWindow.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/ToolTip.cpp")
-target_link_libraries(firefly-chrome-probe PRIVATE Qt::Widgets)
+target_link_libraries(firefly-chrome-probe PRIVATE firefly-native-title-bar)
 
 include("${FIREFLY_SOURCE_DIR}/firefly/native/ipc/Targets.cmake")
 

@@ -4,6 +4,7 @@
  */
 
 #include "ChromeWindow.h"
+#include "../window/TitleBar.h"
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QResizeEvent>
@@ -47,7 +48,7 @@ bool ChromeWindow::draggable(QPoint position) const
             drag = true;
         }
 
-    return drag;
+    return drag && (!m_hidden_title_bar || !title_bar_control_bounds(*this).contains(position));
 }
 
 bool ChromeWindow::eventFilter(QObject* object, QEvent* event)

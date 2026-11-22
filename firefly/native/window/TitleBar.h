@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QPoint>
+#include <QRect>
 #include <optional>
 
 class QWidget;
@@ -16,4 +17,6 @@ bool configure_title_bar(QWidget& window, bool hidden);
 bool set_title_bar_button_position(QWidget& window, std::optional<QPoint>);
 
 std::optional<QPoint> title_bar_button_position(QWidget& window);
+
+QRect title_bar_control_bounds(QWidget const& window);
 }

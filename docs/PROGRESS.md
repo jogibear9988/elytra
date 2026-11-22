@@ -17277,6 +17277,26 @@ passes round-trip/reset acceptance on Cocoa and unsupported admission offscreen.
 The upstream Ladybird checkout remains unmodified. The constructor's
 titleBarOverlay option and its renderer CSS/JavaScript geometry remain open.
 
+## Derive the protected region from the actual Cocoa controls
+
+Read the AppKit button frames in native content coordinates and exclude their
+current rectangle from author-defined drag regions. The region follows real
+placement and reset. Ordinary framed windows retain their standard native
+chrome. Runtime chrome and both standalone probes share the same provider.
+
+Both Firefly targets and the standalone chrome probe compile. Hidden Cocoa
+checks pass native hit targets and drag exclusion before and after moving the
+buttons. Public title-bar checks pass on Cocoa and offscreen. The standalone
+visible chrome probe has only a Cocoa plugin and was not run visibly. No
+upstream files were modified.
+
+This supplies the native control geometry for the future Window Controls
+Overlay. The pinned Rust env() substitution currently returns fixed values
+for recognized environment lengths and exposes no per-document value seam.
+The titleBarOverlay constructor and its renderer API and CSS variables remain
+unsupported. The macOS archive workflow is queued and the Windows native
+build is still running.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
