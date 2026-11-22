@@ -512,6 +512,10 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     JS::ThrowCompletionOr<JS::Value> native_host_window_bounds(JS::VM&);
 
+    JS::ThrowCompletionOr<JS::Value> native_host_window_button_position(JS::VM&);
+
+    JS::ThrowCompletionOr<JS::Value> native_host_set_window_button_position(JS::VM&);
+
     JS::ThrowCompletionOr<JS::Value> native_host_visible(JS::VM&);
 
     JS::ThrowCompletionOr<JS::Value> native_host_window_focused(JS::VM&);

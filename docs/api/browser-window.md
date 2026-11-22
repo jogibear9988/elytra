@@ -112,22 +112,26 @@ await window.loadFile('index.html');
 
 Use [CSS app regions](#custom-title-bar-and-dragging) for your HTML toolbar:
 draggable areas move the window, and no-drag areas preserve interactive buttons.
-The application should leave room for native window controls. Firefly does not
-supply Window Controls Overlay CSS environment variables or a traffic-light
-position API in this slice.
+Leave room for the native controls in your HTML toolbar. With a hidden title
+bar on Cocoa, call `window.setWindowButtonPosition({ x: 18, y: 7 })` to move the
+native buttons as a group. The coordinates count whole points from the
+top-left edge of the content area. Pass `null` to restore AppKit's placement.
+`window.getWindowButtonPosition()` returns the configured point or `null` for
+the default. Invalid window geometry is rejected, and a successful custom
+placement follows native surface recreation.
 
 Both omitted style and 'default' preserve existing platform chrome. Nonstring
 styles throw ERR_INVALID_ARG_TYPE. Unknown styles, including hiddenInset and
 customButtonsOnHover, throw ERR_FIREFLY_UNSUPPORTED_API. Hidden also throws
 ERR_FIREFLY_UNSUPPORTED_API on offscreen/non-Cocoa backends before native allocation.
-titleBarOverlay remains unsupported and is not implied by hidden.
+The constructor `titleBarOverlay` option and the renderer Window Controls
+Overlay API and CSS environment variables remain unsupported.
 
 Hidden content geometry uses actual Qt/AppKit frame margins; there is no fixed
 caption-height subtraction. Content bounds span the native window, and ordinary
 minimum/maximum-size constraints continue to apply. Qt's automatic safe-area
 layout inset is disabled so native controls overlay the author-owned content.
-Fullscreen, custom traffic-light positions and fresh Linux/Windows acceptance
-remain separate work.
+Fullscreen and Linux/Windows custom-title-bar support remain separate work.
 
 Acceptance: shared hidden geometry/resize cases pass Electron 45.2.3 and Firefly
 Cocoa. Native probes verify real standard buttons, native hit targets, full content

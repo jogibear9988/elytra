@@ -22,10 +22,18 @@ subtraction. Native frame presence and custom HTML dragging are separate concern
 both frameless and hidden-style windows install the existing bounded drag-region
 adapter; normal framed windows retain their native behavior.
 
-Admit only default/hidden, reject unsupported styles and unavailable backends before
-preload I/O/native allocation. This slice does not provide titleBarOverlay, Window
-Controls Overlay environment variables, hiddenInset or arbitrary traffic-light
-positions. Windows/Linux need their own genuine platform implementations.
+Admit default and hidden styles. Unsupported styles and unavailable backends
+fail before preload I/O and native allocation. The Cocoa controller also moves
+the existing three AppKit buttons as a group. It converts their geometry to
+window coordinates, checks both the content area and native control container,
+and keeps AppKit's original positions for reset. On recreation it restores the
+retiring buttons it still owns and applies the configured position to the new
+surface. Geometry outside the control container is rejected so buttons remain
+reachable.
+
+The remaining constructor titleBarOverlay option requires renderer Window
+Controls Overlay state and CSS geometry. HiddenInset, custom fullscreen
+placement and Windows/Linux custom captions remain open.
 
 Native tests inspect actual NSWindow masks, caption/background properties, standard
 buttons and full-size content layout. Qt-local drag events exercise the native

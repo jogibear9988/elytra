@@ -10,6 +10,7 @@
 #include "../../sandbox/policy/Host.h"
 #include "../../tracing/Host.h"
 #include "../../window/Geometry.h"
+#include "../../window/TitleBar.h"
 #include "../ChromeWindow.h"
 #include "Impl.h"
 #include "Value.h"
@@ -59,6 +60,10 @@ GC::Ref<JS::Object> Bridge::Impl::install()
             return JS::Value(title_bar_available());
         },
         0, JS::default_attributes);
+    host->define_native_function(realm, "windowButtonPosition"_utf16,
+        native_binding<&Impl::native_host_window_button_position>(), 1, JS::default_attributes);
+    host->define_native_function(realm, "setWindowButtonPosition"_utf16,
+        native_binding<&Impl::native_host_set_window_button_position>(), 3, JS::default_attributes);
     install_desktop_services(
         realm, *host, *context, [this](char const* event) { enqueue(0, event); });
     desktop_capture
@@ -243,6 +248,41 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_reply_ipc(JS::VM& vm)
     }
 
     send_ipc_reply(id, doc, caller, request, vm.argument(4).as_bool(), wire.value());
+    return JS::js_undefined();
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_window_button_position(JS::VM& vm)
+{
+    auto* state = TRY(window_state(vm));
+    if (!title_bar_available())
+        return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API", "Window buttons require Cocoa"sv);
+    auto position = title_bar_button_position(*state->window);
+    if (!position.has_value())
+        return JS::js_null();
+    auto point = JS::Object::create(realm, realm.intrinsics().object_prototype());
+    point->define_direct_property("x"_utf16, JS::Value(position->x()), JS::default_attributes);
+    point->define_direct_property("y"_utf16, JS::Value(position->y()), JS::default_attributes);
+    return point;
+}
+
+JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_window_button_position(JS::VM& vm)
+{
+    auto* state = TRY(window_state(vm));
+    if (!title_bar_available())
+        return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API", "Window buttons require Cocoa"sv);
+    auto x = vm.argument(1);
+    auto y = vm.argument(2);
+    std::optional<QPoint> position;
+    if (!x.is_null() || !y.is_null()) {
+        if (!x.is_int32() || !y.is_int32())
+            return preload_error(
+                vm, "ERR_INVALID_ARG_TYPE", "Window button position must be integers"sv);
+        position.emplace(x.as_i32(), y.as_i32());
+    }
+
+    if (!set_title_bar_button_position(*state->window, position))
+        return preload_error(vm, "ERR_INVALID_ARG_VALUE",
+            "Window button position must fit inside a hidden-style title bar"sv);
     return JS::js_undefined();
 }
 

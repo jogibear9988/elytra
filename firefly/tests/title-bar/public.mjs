@@ -30,6 +30,14 @@ app.whenReady().then(() => {
     );
     if (!mite || cocoa) {
       const hidden = create({ titleBarStyle: 'hidden' });
+      if (process.platform === 'darwin') {
+        assert.equal(hidden.getWindowButtonPosition(), null);
+        hidden.setWindowButtonPosition({ x: 18, y: 7 });
+        assert.deepEqual(hidden.getWindowButtonPosition(), { x: 18, y: 7 });
+        hidden.setWindowButtonPosition(null);
+        assert.equal(hidden.getWindowButtonPosition(), null);
+        console.log('PASS public title bar window button position and reset');
+      }
       const outer = hidden.getBounds();
       const content = hidden.getContentBounds();
       assert.deepEqual(size(outer), [320, 220]);
@@ -61,6 +69,15 @@ app.whenReady().then(() => {
       );
 
       assert.equal(BrowserWindow.getAllWindows().length, count);
+
+      assert.throws(() => standard.getWindowButtonPosition(), {
+        code: 'ERR_FIREFLY_UNSUPPORTED_API'
+      });
+
+      assert.throws(() => standard.setWindowButtonPosition({ x: 18, y: 7 }), {
+        code: 'ERR_FIREFLY_UNSUPPORTED_API'
+      });
+
       console.log(
         'PASS Firefly title bar hidden explicitly unsupported offscreen before native admission'
       );

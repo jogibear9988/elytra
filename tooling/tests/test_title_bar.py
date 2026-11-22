@@ -59,6 +59,7 @@ def main():
                 marker in stdout
                 for marker in [
                     "PASS native title bar hidden titled full-size transparent window preserves native controls",
+                    "PASS native title bar real Cocoa controls reposition and reset",
                     "PASS native title bar actual full content geometry with default window unchanged",
                     "PASS native title bar drag and no-drag region policy without OS input",
                     "PASS native title bar actual NSWindow recreation restores old caption and rebinds hidden policy",
@@ -96,6 +97,8 @@ def main():
                 if label == "Electron" or args.platform == "cocoa"
                 else "PASS Firefly title bar hidden explicitly unsupported offscreen before native admission"
             )
+            if sys.platform == "darwin" and (label == "Electron" or args.platform == "cocoa"):
+                markers.append("PASS public title bar window button position and reset")
             if label == "Firefly":
                 markers.append(
                     "PASS Firefly title bar strict option types and unknown styles reject before native admission"

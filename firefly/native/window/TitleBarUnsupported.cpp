@@ -11,4 +11,14 @@ bool configure_title_bar(QWidget&, bool hidden)
 {
     return !hidden;
 }
+
+bool set_title_bar_button_position(QWidget&, std::optional<QPoint>)
+{
+    return false;
+}
+
+std::optional<QPoint> title_bar_button_position(QWidget&)
+{
+    return {};
+}
 }

@@ -934,6 +934,27 @@ export default function createFireflyApi(
       return bufferFrom(native.nativeWindowHandle(this.id));
     }
 
+    getWindowButtonPosition() {
+      alive(this);
+      return native.windowButtonPosition(this.id);
+    }
+
+    setWindowButtonPosition(position) {
+      alive(this);
+      if (position === null) {
+        native.setWindowButtonPosition(this.id, null, null);
+        return;
+      }
+      if (!position || typeof position !== 'object' || Array.isArray(position)) {
+        throw error('ERR_INVALID_ARG_TYPE', 'Window button position must be a point or null');
+      }
+      native.setWindowButtonPosition(
+        this.id,
+        geometry.coordinate(position.x, 'x'),
+        geometry.coordinate(position.y, 'y')
+      );
+    }
+
     isDocumentEdited() {
       alive(this);
       return native.windowDocumentEdited(this.id);

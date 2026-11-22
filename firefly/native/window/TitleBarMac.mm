@@ -1,5 +1,4 @@
-/** Cocoa title visibility only: Qt owns the native style mask, content geometry and window buttons.
- */
+/** Own title visibility and placement of the existing Cocoa caption buttons. */
 #include "TitleBar.h"
 #include <AppKit/AppKit.h>
 #include <QEvent>
@@ -10,6 +9,7 @@
 #include <QTimer>
 #include <QWidget>
 #include <QWindow>
+#include <array>
 
 namespace Firefly {
 namespace {
@@ -36,9 +36,33 @@ namespace {
         {
             if (m_stopped || !m_widget)
                 return false;
+            if (!hidden) {
+                restore_buttons();
+                m_position.reset();
+            }
+
             m_hidden = hidden;
             m_surface_stopping = false;
             return bind();
+        }
+
+        bool set_position(std::optional<QPoint> position)
+        {
+            if (!m_hidden || !bind())
+                return false;
+            if (!position.has_value()) {
+                restore_buttons();
+            } else if (!place_buttons(*position)) {
+                return false;
+            }
+
+            m_position = position;
+            return true;
+        }
+
+        std::optional<QPoint> position() const
+        {
+            return m_position;
         }
 
     protected:
@@ -71,6 +95,7 @@ namespace {
             case QEvent::WinIdChange:
             case QEvent::WindowStateChange:
             case QEvent::WindowTitleChange:
+            case QEvent::Resize:
                 schedule_bind();
                 break;
             default:
@@ -81,8 +106,72 @@ namespace {
         }
 
     private:
+        struct ButtonPlacement {
+            __weak NSButton* button { nil };
+            NSPoint original {};
+            NSPoint applied {};
+        };
+
+        void restore_buttons()
+        {
+            for (auto const& placement : m_buttons) {
+                auto* button = placement.button;
+                if (button && NSEqualPoints(button.frame.origin, placement.applied))
+                    [button setFrameOrigin:placement.original];
+            }
+
+            m_buttons = {};
+        }
+
+        bool place_buttons(QPoint position)
+        {
+            auto* native = m_native;
+            if (!native || (native.styleMask & NSWindowStyleMaskFullScreen))
+                return false;
+            auto* close = [native standardWindowButton:NSWindowCloseButton];
+            auto* minimize = [native standardWindowButton:NSWindowMiniaturizeButton];
+            auto* zoom = [native standardWindowButton:NSWindowZoomButton];
+            auto* parent = close.superview;
+            if (!parent || minimize.superview != parent || zoom.superview != parent
+                || !native.contentView)
+                return false;
+
+            auto content = [native.contentView convertRect:native.contentView.bounds toView:nil];
+            auto close_frame = [parent convertRect:close.frame toView:nil];
+            auto minimize_frame = [parent convertRect:minimize.frame toView:nil];
+            auto zoom_frame = [parent convertRect:zoom.frame toView:nil];
+            auto parent_area = [parent convertRect:parent.bounds toView:nil];
+            auto left = NSMinX(content) + position.x();
+            auto top = NSMaxY(content) - position.y();
+            auto group = NSUnionRect(close_frame, NSUnionRect(minimize_frame, zoom_frame));
+            auto placed
+                = NSOffsetRect(group, left - NSMinX(close_frame), top - NSMaxY(close_frame));
+            // Outside the native control container the buttons can lose hit-testing.
+            if (!NSContainsRect(content, placed) || !NSContainsRect(parent_area, placed))
+                return false;
+
+            auto source = [parent convertPoint:NSMakePoint(NSMinX(close_frame), NSMaxY(close_frame))
+                                      fromView:nil];
+            auto target = [parent convertPoint:NSMakePoint(left, top) fromView:nil];
+            auto delta = NSMakePoint(target.x - source.x, target.y - source.y);
+            NSArray<NSButton*>* buttons = @[ close, minimize, zoom ];
+            for (size_t index = 0; index < m_buttons.size(); ++index) {
+                auto* button = buttons[index];
+                auto& placement = m_buttons[index];
+                auto current = button.frame.origin;
+                if (placement.button != button || !NSEqualPoints(current, placement.applied))
+                    placement.original = current;
+                placement.button = button;
+                placement.applied = NSMakePoint(current.x + delta.x, current.y + delta.y);
+                [button setFrameOrigin:placement.applied];
+            }
+
+            return true;
+        }
+
         void restore()
         {
+            restore_buttons();
             auto* native = m_native;
             m_native = nil;
             if (native
@@ -130,6 +219,8 @@ namespace {
                         window->installEventFilter(this);
                 }
 
+                if (m_position.has_value() && !place_buttons(*m_position))
+                    restore_buttons();
                 m_reported_failure = false;
                 return native.titleVisibility
                     == (m_hidden ? NSWindowTitleHidden : NSWindowTitleVisible)
@@ -153,6 +244,8 @@ namespace {
             });
         }
 
+        std::optional<QPoint> m_position;
+        std::array<ButtonPlacement, 3> m_buttons;
         QPointer<QWidget> m_widget;
         QPointer<QWindow> m_window;
         __weak NSWindow* m_native { nil };
@@ -184,5 +277,26 @@ bool configure_title_bar(QWidget& window, bool hidden)
         return true;
     delete controller;
     return false;
+}
+
+bool set_title_bar_button_position(QWidget& window, std::optional<QPoint> position)
+{
+    if (!title_bar_available() || window.thread() != QThread::currentThread())
+        return false;
+    for (auto* child : window.children())
+        if (auto* controller = dynamic_cast<Controller*>(child))
+            return controller->set_position(position);
+    return false;
+}
+
+std::optional<QPoint> title_bar_button_position(QWidget& window)
+{
+    if (title_bar_available() && window.thread() == QThread::currentThread()) {
+        for (auto* child : window.children())
+            if (auto* controller = dynamic_cast<Controller*>(child))
+                return controller->position();
+    }
+
+    return {};
 }
 }

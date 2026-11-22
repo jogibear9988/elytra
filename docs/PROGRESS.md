@@ -17261,6 +17261,22 @@ folder loads and saves the file, exits zero and leaves no running helpers
 (16 observed, zero cleanup signals). The 367-page documentation check passes.
 The new entry's signed bundle and archive CI have separate verification.
 
+## Position the actual macOS window buttons in hidden title bars
+
+Add the public Electron-style getter and setter through the Cocoa title-bar
+controller. The setter moves the existing close, minimize and zoom buttons as
+a group, preserves their spacing and rejects placements outside the native
+control container. Reset restores AppKit's positions. A custom position applies
+to a replacement native surface without moving controls on the retired surface.
+Offscreen and non-Cocoa hosts refuse the feature explicitly.
+
+Both native Firefly targets and the Cocoa title-bar probe build. Hidden Cocoa
+checks pass actual button placement, native hit testing, out-of-container
+refusal, reset and genuine NSWindow recreation. The real BrowserWindow API
+passes round-trip/reset acceptance on Cocoa and unsupported admission offscreen.
+The upstream Ladybird checkout remains unmodified. The constructor's
+titleBarOverlay option and its renderer CSS/JavaScript geometry remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

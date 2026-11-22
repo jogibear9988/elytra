@@ -92,6 +92,14 @@ unsigned check_native_hit_targets(NSWindow* window)
     return unavailable;
 }
 
+QPoint close_button_position(NSWindow* window)
+{
+    auto* button = [window standardWindowButton:NSWindowCloseButton];
+    auto frame = [button convertRect:button.bounds toView:nil];
+    auto content = [window.contentView convertRect:window.contentView.bounds toView:nil];
+    return { qRound(NSMinX(frame) - NSMinX(content)), qRound(NSMaxY(content) - NSMaxY(frame)) };
+}
+
 void check_hidden_native(NSWindow* window)
 {
     require((window.styleMask & NSWindowStyleMaskTitled) != 0,
@@ -158,6 +166,26 @@ int main(int argc, char** argv)
         layout.activate();
         check_hidden_native(hidden_native);
         require(hidden.is_custom_chrome(), "Hidden title bar owns custom app-region policy");
+        auto original_position = close_button_position(hidden_native);
+        require(
+            !Firefly::title_bar_button_position(hidden).has_value(), "No custom default position");
+        require(!Firefly::set_title_bar_button_position(standard, QPoint(18, 7)),
+            "Default chrome does not admit custom button placement");
+        require(Firefly::set_title_bar_button_position(hidden, QPoint(18, 7))
+                && close_button_position(hidden_native) == QPoint(18, 7),
+            "Existing Cocoa close button moves to the custom top-left position");
+        check_native_hit_targets(hidden_native);
+        require(!Firefly::set_title_bar_button_position(hidden, QPoint(18, 150)),
+            "Position outside the native control area is rejected");
+        require(!Firefly::set_title_bar_button_position(hidden, QPoint(320, 7))
+                && Firefly::title_bar_button_position(hidden) == QPoint(18, 7)
+                && close_button_position(hidden_native) == QPoint(18, 7),
+            "Out-of-window placement preserves the current native layout");
+        require(Firefly::set_title_bar_button_position(hidden, {})
+                && !Firefly::title_bar_button_position(hidden).has_value()
+                && close_button_position(hidden_native) == original_position,
+            "Reset restores the original AppKit button position");
+        std::puts("PASS native title bar real Cocoa controls reposition and reset");
         std::puts("PASS native title bar hidden titled full-size transparent window preserves "
                   "native controls");
         require(content.geometry() == hidden.rect(),
@@ -229,6 +257,8 @@ int main(int argc, char** argv)
             "Owned and independent recreation controls start with the same native caption");
         require(Firefly::configure_title_bar(recreated, true),
             "Configure caption policy before actual NSWindow recreation");
+        require(Firefly::set_title_bar_button_position(recreated, QPoint(18, 7)),
+            "Set custom Cocoa button position before recreation");
         recreated.recreate_native_surface();
         NSWindow* new_native = materialize(recreated);
         require(old_native != new_native, "Adapter follows a distinct actual recreated NSWindow");
@@ -241,6 +271,8 @@ int main(int argc, char** argv)
         }),
             "Native caption policy automatically rebinds after destroy/create without reinstall");
         check_hidden_native(new_native);
+        require(close_button_position(new_native) == QPoint(18, 7),
+            "The custom position follows the live native surface");
         require(!control.isVisible() && !recreated.isVisible(),
             "Recreation controls never display windows");
         std::puts("PASS native title bar actual NSWindow recreation restores old caption and "
