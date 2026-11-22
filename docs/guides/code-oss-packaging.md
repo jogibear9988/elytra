@@ -8,8 +8,9 @@ The current Ladybird candidate `59158f57c` passes the standalone CLI suite
 and builds the local macOS Release SDK. The current SDK's offscreen host
 passes the sealed sample's CommonJS extension, editor save, terminal and
 parent-liveness checks. The relocated Cocoa Launcher also passed those
-checks on the preceding SDK. Current package acceptance and four-product
-release CI remain pending.
+checks on the preceding SDK. The current SDK's signed local bundle passes
+signature and engine-identity checks, but its Cocoa extension workflow
+times out. Four-product release CI remains pending.
 
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the
@@ -131,9 +132,11 @@ does not require symlink privileges on the target machine. It does
 increase the size of the uncompressed app.
 
 The Windows staging component requires that seal, the production
-payload and the launcher compatibility option. The local compiler and
-seal controls pass. Native Code-OSS build, actual desktop startup and
-release acceptance remain pending.
+payload and the launcher compatibility option. Local compiler and seal
+controls pass. The [native Windows package fixture](https://github.com/jogibear9988/elytra/actions/runs/44996181310)
+stages and relocates a synthetic sealed sample with that layout and runs
+its native launcher and PE fixture. Native Code-OSS compilation, actual
+desktop startup and release acceptance remain pending.
 
 ## Required native workflow
 

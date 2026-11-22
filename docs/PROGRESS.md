@@ -16826,6 +16826,23 @@ from payload hashing. A synthetic Finder metadata alias now fails
 the physical Windows layout check. Existing POSIX packaging continues
 to omit Finder metadata from the seal. The local sample controls pass.
 
+## Check the current signed macOS bundles and Windows Code-OSS staging
+
+The local macOS packager produces Firefly, Designer and Code-OSS bundles
+with standalone Mite. All three app signatures verify and the bundled
+binaries report LibJS 59158f57c. The local uncompressed app sizes are
+225.54, 259.66 and 949.33 MiB respectively. This snapshot uses ad-hoc
+signing. The controlled Cocoa Code-OSS Launcher run starts the renderer
+navigation channel but times out waiting for the extension at 90 seconds.
+All eight tracked processes stop after six cleanup signals. The scoped
+offscreen result on this SDK remains green. Evidence is in
+build/code-oss-59158-cocoa.log and build/ladybird-59158-package.log.
+
+Windows job 137127617114 passes the synthetic physical Code-OSS payload
+stage and runs the relocated package launcher against a native fixture
+with its original SDK moved away. It does not establish actual Windows
+Code-OSS compilation or startup. Release publication remains open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

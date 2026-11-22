@@ -13,7 +13,7 @@ not establish a working desktop application.
 | Mite / macOS ARM64 | Release CLI and embedded host build with Ladybird `59158f57c`. All 173 local CLI tests pass. | Full Node parity, broader host/architecture coverage and fresh distribution acceptance. |
 | Mite / Linux x64 | Candidate `97cba84` with Ladybird `59158f57c` passes all 171 enabled tests. [Run 44174672031](https://github.com/jogibear9988/elytra/actions/runs/44174672031) | Current complete native gate and broader distributions. |
 | Mite / Windows x64 | Candidate `97cba84` with Ladybird `59158f57c` passes all 169 enabled tests. [CLI run](https://github.com/jogibear9988/elytra/actions/runs/44174671897) | Standalone CLI distribution and wider host coverage. See [Windows bring-up](development/windows-build.md). |
-| Firefly / macOS ARM64 | Native windows, isolated preload/IPC and documented desktop subsets. Earlier packaged Designer edit/Monaco/window-control gates pass. Controlled Code-OSS editor/terminal workflows and a visible Welcome launch pass on the preceding SDK. | Rebuild/accept the latest Ladybird SDK, fresh packages and relocated Code-OSS Launcher; broader desktop reliability, signing/notarization and installers. |
+| Firefly / macOS ARM64 | Native windows, isolated preload/IPC and documented desktop subsets. Earlier packaged Designer edit/Monaco/window-control gates pass. Code-OSS editor and terminal pass offscreen on the current Release SDK. A visible Welcome launch passed on the preceding SDK. | Current Code-OSS Cocoa startup, broader desktop reliability, notarization and installers. |
 | Firefly / Linux x64 | Earlier experimental Ubuntu 24.04 X11 app, screen/clipboard, extracted Designer and kernel-isolation gates pass at `a56d183`. | Current renderer/package CI, wider displays/hosts, Wayland and distribution. |
 | Firefly / Windows x64 | Experimental native renderer/window and confinement components. A native fixture passes relocation of the launcher, ordinary and delayed PE imports, nested plugin loading and forwarded exports. [Package job](https://github.com/jogibear9988/elytra/actions/runs/44180453142) | Real helper-role confinement, broker flow control, full desktop services and actual Designer/Code-OSS packages. |
 
@@ -21,8 +21,10 @@ Ladybird `59158f57c` now also has a local macOS ARM64 Release renderer
 build and an offscreen run of the sealed Code-OSS sample. The run passes
 CommonJS extension activation, editor save, three timed liveness checks and
 the owned Bash workflow with 17 processes stopped and zero cleanup signals.
-The visible Cocoa preview uses the preceding `b872` SDK. The current SDK's
-package and visible Cocoa acceptance still need verification. Ladybird stays
+Local Firefly, Designer and Code-OSS bundles are assembled and their ad-hoc
+signatures verify. The current Code-OSS Cocoa Launcher opens far enough to
+request navigation, but its extension workflow times out. The verified
+visible Welcome preview uses the preceding `b872` SDK. Ladybird stays
 unmodified, with integration changes in Elytra's owned files.
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
