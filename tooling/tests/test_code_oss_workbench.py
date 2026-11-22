@@ -245,9 +245,18 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
     profile = state / "profile"
     user = profile / "User"
     extension = state / "extension"
-    extensions = state / "extensions"
     workspace = state / "workspace"
-    for directory in (profile, user, extension, extensions, workspace):
+    # Match Code-OSS's transient CLI directories. Some of these default to
+    # paths in the user's home even when --user-data-dir is supplied.
+    storage = {
+        "--user-data-dir": profile,
+        "--extensions-dir": state / "extensions",
+        "--shared-data-dir": state / "shared",
+        "--agent-plugins-dir": state / "agent-plugins",
+        "--agents-user-data-dir": state / "agents-data",
+        "--agents-extensions-dir": state / "agents-extensions",
+    }
+    for directory in (*storage.values(), user, extension, workspace, state / "xdg"):
         directory.mkdir(mode=0o700, exist_ok=True)
     settings = {
         "window.titleBarStyle": "native",
@@ -301,24 +310,24 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
             terminalGate=str(state / "terminal-gate.json"),
         )
     write_json(extension / "acceptance.json", config)
-    command = [
-        str(stage / "src/main.js"),
-        "--user-data-dir",
-        str(profile),
-        "--extensions-dir",
-        str(extensions),
-        "--extensionDevelopmentPath",
-        str(extension),
-        "--extensionTestsPath",
-        str(extension / "tests.mjs"),
-        "--new-window",
-        "--skip-welcome",
-        "--disable-crash-reporter",
-        "--disable-workspace-trust",
-        "--log",
-        "trace",
-        str(workspace),
-    ]
+    command = [str(stage / "src/main.js")]
+    for option, directory in storage.items():
+        command.extend([option, str(directory)])
+    command.extend(
+        [
+            "--extensionDevelopmentPath",
+            str(extension),
+            "--extensionTestsPath",
+            str(extension / "tests.mjs"),
+            "--new-window",
+            "--skip-welcome",
+            "--disable-crash-reporter",
+            "--disable-workspace-trust",
+            "--log",
+            "trace",
+            str(workspace),
+        ]
+    )
     return command, config
 
 

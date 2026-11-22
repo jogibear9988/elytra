@@ -106,7 +106,8 @@ of your unpacked bundle.
 ```sh
 app="$PWD/Code-OSS.app"
 state="$(mktemp -d "${TMPDIR:-/tmp}/elytra-code-oss.XXXXXXXX")"
-mkdir -p "$state/profile/User" "$state/extensions" "$state/xdg"
+mkdir -p "$state/profile/User" "$state/extensions" "$state/shared" \
+  "$state/agent-plugins" "$state/agents-data" "$state/agents-extensions" "$state/xdg"
 printf '%s\n' '{"window.titleBarStyle":"native","workbench.startupEditor":"welcomePage"}' > "$state/profile/User/settings.json"
 (
   cd "$app/Contents/Resources/app" || exit
@@ -114,13 +115,16 @@ printf '%s\n' '{"window.titleBarStyle":"native","workbench.startupEditor":"welco
     XDG_DATA_HOME="$state/xdg" XDG_CACHE_HOME="$state/xdg" \
     "$app/Contents/MacOS/Launcher" \
     --user-data-dir "$state/profile" --extensions-dir "$state/extensions" \
+    --shared-data-dir "$state/shared" --agent-plugins-dir "$state/agent-plugins" \
+    --agents-user-data-dir "$state/agents-data" --agents-extensions-dir "$state/agents-extensions" \
     --new-window --disable-crash-reporter
 )
 ```
 
 The preceding macOS SDK displayed the Welcome workbench through this launch
-path. The profile and extensions directory keep the preview independent of your
-personal settings. The runtime checks that the profile directory already exists.
+path. The CLI options keep the preview's settings, extensions, shared storage and
+agent directories under the temporary directory. The runtime checks that the
+profile directory already exists.
 
 ## Windows renderer files
 

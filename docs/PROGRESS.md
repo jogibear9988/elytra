@@ -16843,6 +16843,21 @@ stage and runs the relocated package launcher against a native fixture
 with its original SDK moved away. It does not establish actual Windows
 Code-OSS compilation or startup. Release publication remains open.
 
+## Isolate transient Code-OSS profile and agent storage
+
+The manual preview opened the pinned Code-OSS build's default shared storage
+even with a separate user profile. Supply the same six explicit data directories
+as Code-OSS's transient CLI in both the documented launcher command and the
+workbench acceptance harness. The harness creates them under its owned state
+directory. A preparation check verifies each argument and private directory.
+The sealed sample on LibJS 59158f57c passes extension activation, command
+dispatch, editor save and independent file readback, parent liveness and
+the Bash terminal workflow offscreen. All 16 tracked processes stop with
+zero cleanup signals. See build/code-oss-59158-isolated-profile.log.
+The site builds all 367 pages and checks 27,615 local links and resources.
+The prior preview is still open. The old and current macOS packages carry the
+same Code-OSS payload seal; the newer Cocoa startup timeout is still open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
