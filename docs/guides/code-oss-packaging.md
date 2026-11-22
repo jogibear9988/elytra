@@ -134,6 +134,16 @@ output written before process cleanup, so shutdown messages cannot be
 mistaken for a startup milestone. The same extension, editor and terminal
 assertions still decide acceptance.
 
+## Native dependency size
+
+The builder uses the prepared dependency target to omit Foundry SDK binary
+images for other architectures and operating systems before sealing a native
+sample. It keeps the matching target and the SDK notices. This optimization
+applies to Foundry Local SDK 2.2.1 with its reviewed loader hash. A different
+version, loader or unreviewed target retains the complete package. When applied,
+`BUILD.json` reports the selected target and the number and bytes of files
+removed under `nativePrebuildPruning`.
+
 ## Windows renderer files
 
 The native Windows sample builder puts a physical copy of the compiled

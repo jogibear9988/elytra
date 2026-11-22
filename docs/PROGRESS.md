@@ -17014,6 +17014,21 @@ port transfer, garbage collection, ordered peer close and revocation checks.
 The local native probe builds and passes with no window. Hosted Linux
 revalidation remains pending.
 
+## Trim foreign Foundry prebuilds before sealing the native Code-OSS sample
+
+The pinned Foundry Local SDK 2.2.1 selects its prebuild directory from the
+runtime platform and architecture. Match the reviewed loader by hash, use
+the prepared dependency target, and omit only foreign binary images before
+the sample inventory is written. Keep SDK notices, host files and unreviewed
+targets. Linked binary candidates and package directories are left alone.
+The sample report records the removed bytes and selected target.
+
+Source controls verify loader drift, host and notice preservation and link
+refusal. Applying the builder's pruning step to a copy of the real macOS
+arm64 dependency removes 14 files totaling 80,256,792 bytes. All retained
+files match their original hashes. The running editor still uses the prior
+package. A full fresh packaged desktop run remains open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -17,6 +17,7 @@ from build_code_oss import (
     digest,
     inventory,
     prepare_source,
+    prune_foundry_prebuilds,
     verify_sample,
 )
 
@@ -70,9 +71,53 @@ def fixture(root, *, physical=False):
     return metadata
 
 
+def check_prebuild_pruning(root):
+    package = root / "node_modules/foundry-local-sdk"
+    loader = package / "dist/detail/native.js"
+    loader.parent.mkdir(parents=True)
+    loader.write_text("// fixture for the exact pinned loader")
+    (package / "package.json").write_text(
+        json.dumps({"name": "foundry-local-sdk", "version": "2.2.1"})
+    )
+    (root / "ELYTRA-DEPENDENCIES.json").write_text(
+        json.dumps({"platform": "darwin", "architecture": "arm64"})
+    )
+    prebuilds = package / "prebuilds"
+    host = prebuilds / "darwin-arm64"
+    foreign = prebuilds / "win32-x64"
+    for directory in (host, foreign):
+        directory.mkdir(parents=True)
+        (directory / "runtime.node").write_bytes(b"native fixture")
+        (directory / "NOTICE.txt").write_bytes(b"notice fixture")
+    assert prune_foundry_prebuilds(root) is None
+    assert (foreign / "runtime.node").is_file(), "Unreviewed loader must retain all files"
+    with patch("build_code_oss.FOUNDRY_LOADER_SHA256", digest(loader)):
+        if os.name != "nt":
+            outside = root / "outside.node"
+            outside.write_bytes(b"outside package")
+            link = foreign / "linked.node"
+            link.symlink_to(outside)
+            assert prune_foundry_prebuilds(root) is None
+            assert (foreign / "runtime.node").is_file()
+            assert outside.read_bytes() == b"outside package"
+            link.unlink()
+        assert prune_foundry_prebuilds(root) == {
+            "package": "foundry-local-sdk@2.2.1",
+            "selectedTarget": "darwin-arm64",
+            "removedFiles": 1,
+            "removedBytes": len(b"native fixture"),
+        }
+    assert (host / "runtime.node").read_bytes() == b"native fixture"
+    assert (foreign / "NOTICE.txt").read_bytes() == b"notice fixture"
+    assert not (foreign / "runtime.node").exists()
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="code-oss-sample-control-") as directory:
         root = Path(directory).resolve()
+        pruning = root / "prebuilds"
+        pruning.mkdir()
+        check_prebuild_pruning(pruning)
         source = root / "source"
         source.mkdir()
         # A directory nested in another checkout must not lead git -C to fetch

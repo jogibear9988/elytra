@@ -20,6 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PIN = ROOT / "tooling/code_oss/builtin-extensions-pin.json"
 INVENTORY = "ELYTRA-SAMPLE-FILES.json"
 ADAPTERS = ("policy-watcher", "pty", "native-keymap", "sqlite", "deviceid", "undici", "fs-copyfile")
+FOUNDRY_VERSION = "2.2.1"
+FOUNDRY_LOADER_SHA256 = "31acde9498a0899f8098ccc30a3e8959790d621adc601f8bd08b5a2a5bb1eb9e"
+FOUNDRY_TARGETS = {"darwin-arm64", "linux-arm64", "linux-x64", "win32-arm64", "win32-x64"}
+FOUNDRY_BINARIES = {".node", ".dll", ".dylib", ".so"}
 ENTRY = """/** Owned launcher for the explicitly partial local Code-OSS sample. */
 process.env.VSCODE_DEV = '1';
 process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP = '1';
@@ -33,6 +37,66 @@ def digest(path):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             value.update(chunk)
     return value.hexdigest()
+
+
+def prune_foundry_prebuilds(application):
+    """Drop foreign binary images from the reviewed platform-selecting SDK."""
+
+    def physical(path, check):
+        try:
+            status = path.lstat()
+        except FileNotFoundError:
+            return False
+        return check(status.st_mode) and not (
+            getattr(status, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+        )
+
+    modules = application / "node_modules"
+    package = modules / "foundry-local-sdk"
+    metadata = package / "package.json"
+    loader = package / "dist/detail/native.js"
+    directories = (modules, package, package / "dist", loader.parent, package / "prebuilds")
+    if not all(physical(path, stat.S_ISDIR) for path in directories) or not all(
+        physical(path, stat.S_ISREG) for path in (metadata, loader)
+    ):
+        return None
+    info = json.loads(metadata.read_text(encoding="utf-8"))
+    if (
+        info.get("name") != "foundry-local-sdk"
+        or info.get("version") != FOUNDRY_VERSION
+        or digest(loader) != FOUNDRY_LOADER_SHA256
+    ):
+        return None  # Keep the complete package when the reviewed loader drifts.
+
+    dependencies = json.loads((application / "ELYTRA-DEPENDENCIES.json").read_text())
+    target = f"{dependencies['platform']}-{dependencies['architecture']}"
+    prebuilds = package / "prebuilds"
+    if target not in FOUNDRY_TARGETS or not physical(prebuilds / target, stat.S_ISDIR):
+        return None
+
+    foreign = []
+    for directory in sorted(prebuilds.iterdir()):
+        if directory.name == target or directory.name not in FOUNDRY_TARGETS:
+            continue
+        if not physical(directory, stat.S_ISDIR):
+            return None
+        for file in sorted(directory.iterdir()):
+            if file.suffix.lower() not in FOUNDRY_BINARIES:
+                continue
+            status = file.lstat()
+            if not stat.S_ISREG(status.st_mode) or (
+                getattr(status, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            ):
+                return None
+            foreign.append((file, status.st_size))
+    for file, _ in foreign:
+        file.unlink()
+    return {
+        "package": f"foundry-local-sdk@{FOUNDRY_VERSION}",
+        "selectedTarget": target,
+        "removedFiles": len(foreign),
+        "removedBytes": sum(size for _, size in foreign),
+    }
 
 
 def run(*args):
@@ -274,6 +338,7 @@ def main():
     licenses.mkdir()
     for name in ("LICENSE.txt", "ThirdPartyNotices.txt", "ELYTRA-LICENSE.txt"):
         shutil.copy2(output / name, licenses / name)
+    pruned = prune_foundry_prebuilds(output)
     (output / INVENTORY).write_text(
         json.dumps(inventory(output, physical_only=os.name == "nt"), indent=2) + "\n"
     )
@@ -298,6 +363,8 @@ def main():
             "native-addon-ABI",
         ],
     }
+    if pruned is not None:
+        metadata["nativePrebuildPruning"] = pruned
     (output / "BUILD.json").write_text(json.dumps(metadata, indent=2) + "\n")
     verify_sample(output)
     print("Compiled partial native Firefly Code-OSS sample:", output)
