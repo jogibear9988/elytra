@@ -16771,6 +16771,18 @@ This confirms token construction and verification. Actual RequestServer
 execution and network behavior still require their separate gates.
 The generated site and shared application payload checks pass.
 
+## Confine native Windows audio and media helpers
+
+Admit AudioServer, MediaServer and VideoDecoderServer only through
+their typed roles and matching sealed executable names. The actual
+services verify the zero-capability AppContainer and single-process
+Job before accepting controller IPC. Extend native acceptance with
+a headless audio tab and denied capture permission, the media
+service's WAV and unsupported-format responses, and the video
+decoder's client transport. Each process must exit with status 0.
+Local source, broker, format and desktop configure-policy checks pass.
+Native execution, audio devices and hardware video remain unverified.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

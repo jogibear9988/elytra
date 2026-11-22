@@ -23,10 +23,13 @@
 #include <LibIPC/Transport.h>
 #include <LibImageDecoderClient/Client.h>
 #include <LibMain/Main.h>
+#include <LibMediaClient/Client.h>
 #include <LibPlatformFeatures/SystemFacts.h>
 #include <LibRequests/RequestControlClient.h>
+#include <LibWebView/AudioServerControlClient.h>
 #include <LibWebView/CompositorClient.h>
 #include <LibWebView/ImageDecoderControlClient.h>
+#include <LibWebView/VideoDecoderServerControlClient.h>
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
@@ -346,6 +349,13 @@ ErrorOr<void> exited(Session& session, IPC::LocalHandleBroker& broker)
     return {};
 }
 
+template <typename Client> ErrorOr<NonnullRefPtr<Client>> connect_control(Session& session)
+{
+    auto transport = TRY(IPC::Transport::adopt_fd(session.control));
+    session.control = -1;
+    return try_make_ref_counted<Client>(move(transport));
+}
+
 ErrorOr<void> decode_with_confined_helper(std::filesystem::path const& renderer,
     IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
 {
@@ -358,10 +368,7 @@ ErrorOr<void> decode_with_confined_helper(std::filesystem::path const& renderer,
         "decoder cannot opt out of its child-side sandbox check"));
 
     auto session = TRY(spawn(decoder, server, {}, H::Role::ImageDecoder));
-    auto control_transport = TRY(IPC::Transport::adopt_fd(session->control));
-    session->control = -1;
-    auto control
-        = TRY(try_make_ref_counted<WebView::ImageDecoderControlClient>(move(control_transport)));
+    auto control = TRY(connect_control<WebView::ImageDecoderControlClient>(*session));
     auto channel = TRY(IPC::TransportHandle::create_pair());
     control->async_connect_new_client(channel.first);
     auto client = TRY(
@@ -399,9 +406,7 @@ ErrorOr<void> connect_to_confined_compositor(std::filesystem::path const& render
         = ByteString(StringView(reinterpret_cast<char const*>(resource.data()), resource.size()));
     auto session = TRY(spawn(compositor, server,
         { "--test-mode"sv, "--resource-root"sv, move(resource_root) }, H::Role::Compositor));
-    auto transport = TRY(IPC::Transport::adopt_fd(session->control));
-    session->control = -1;
-    auto control = TRY(try_make_ref_counted<WebView::CompositorClient>(move(transport)));
+    auto control = TRY(connect_control<WebView::CompositorClient>(*session));
     auto response = TRY(control->try_connect_web_content());
     TRY(require(response.web_content_connection_id() >= 0,
         "actual compositor registers a WebContent channel"));
@@ -496,9 +501,7 @@ ErrorOr<void> connect_to_confined_request_server(std::filesystem::path const& re
     TRY(require(!S::verify_token(process.get(), nullptr, error),
         "the zero-capability renderer policy refuses the request server token"));
 
-    auto transport = TRY(IPC::Transport::adopt_fd(session->control));
-    session->control = -1;
-    auto control = TRY(try_make_ref_counted<Requests::RequestControlClient>(move(transport)));
+    auto control = TRY(connect_control<Requests::RequestControlClient>(*session));
     auto reply = TRY(control->try_connect_new_client(
         RequestServer::IsPrivate::Yes, RequestServer::SiteBinding::Bound));
     TRY(require(reply.client_id() >= 0, "native request server registers a site-bound client"));
@@ -507,6 +510,55 @@ ErrorOr<void> connect_to_confined_request_server(std::filesystem::path const& re
     control->shutdown();
     TRY(exited(*session, broker));
     outln("PASS real AppContainer RequestServer capability, bound IPC and natural exit");
+    return {};
+}
+
+ErrorOr<void> connect_to_confined_media_helpers(std::filesystem::path const& renderer,
+    IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
+{
+    auto bin = renderer.parent_path();
+    {
+        auto executable = bin / L"AudioServer.exe";
+        TRY(require(spawn(executable, server, {}, H::Role::MediaServer).is_error(),
+            "media role cannot launch the audio service"));
+        auto session = TRY(spawn(executable, server, { "--headless"sv }, H::Role::AudioServer));
+        auto control = TRY(connect_control<WebView::AudioServerControlClient>(*session));
+        auto handle = TRY(control->try_connect_new_client(1));
+        TRY(require(handle.has_value(), "headless audio service registers a tab"));
+        TRY(control->try_set_capture_permission(1, false));
+        auto channel = TRY(handle->create_transport());
+        channel->close();
+        control->shutdown();
+        TRY(exited(*session, broker));
+    }
+
+    {
+        auto session = TRY(spawn(bin / L"MediaServer.exe", server, {}, H::Role::MediaServer));
+        auto control = TRY(connect_control<MediaClient::Client>(*session));
+        auto support = control->query_file_media_support("audio"sv, "wav"sv, {});
+        TRY(require(
+            support.support == Media::MediaSupport::Maybe, "actual media helper recognizes WAV"));
+        support
+            = control->query_file_media_support("audio"sv, "x-firefly-unsupported-fixture"sv, {});
+        TRY(require(control->is_open() && support.support == Media::MediaSupport::NotSupported,
+            "actual media helper refuses an unknown format"));
+        control->shutdown();
+        TRY(exited(*session, broker));
+    }
+
+    {
+        auto session = TRY(spawn(bin / L"VideoDecoderServer.exe", server,
+            { "--host-software-decoders"sv }, H::Role::VideoDecoderServer));
+        auto control = TRY(connect_control<WebView::VideoDecoderServerControlClient>(*session));
+        auto handle = TRY(control->try_connect_new_client());
+        TRY(require(handle.has_value(), "video decoder registers its single media client"));
+        auto channel = TRY(handle->create_transport());
+        channel->close();
+        control->shutdown();
+        TRY(exited(*session, broker));
+    }
+
+    outln("PASS real AppContainer audio, media and video decoder IPC and natural exit");
     return {};
 }
 }
@@ -536,6 +588,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     TRY(connect_to_confined_compositor(executable, *server, broker));
     TRY(read_confined_system_report(executable, *server));
     TRY(connect_to_confined_request_server(executable, *server, broker));
+    TRY(connect_to_confined_media_helpers(executable, *server, broker));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();

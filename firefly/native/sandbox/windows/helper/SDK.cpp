@@ -72,6 +72,12 @@ namespace {
             return L"SystemProbe.exe";
         case Role::RequestServer:
             return L"RequestServer.exe";
+        case Role::AudioServer:
+            return L"AudioServer.exe";
+        case Role::MediaServer:
+            return L"MediaServer.exe";
+        case Role::VideoDecoderServer:
+            return L"VideoDecoderServer.exe";
         case Role::Unsupported:
             return nullptr;
         }

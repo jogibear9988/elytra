@@ -73,6 +73,11 @@ target_link_libraries(SystemProbe PRIVATE firefly-windows-helper-launch)
 firefly_replace_source(RequestServer "Services/RequestServer/SandboxUnimplemented.cpp"
                        "${CMAKE_CURRENT_LIST_DIR}/RequestServerSandbox.cpp")
 target_link_libraries(RequestServer PRIVATE firefly-windows-helper-launch)
+foreach(media_helper AudioServer MediaServer VideoDecoderServer)
+    firefly_replace_source(${media_helper} "Services/${media_helper}/SandboxUnimplemented.cpp"
+                           "${CMAKE_CURRENT_LIST_DIR}/${media_helper}Sandbox.cpp")
+    target_link_libraries(${media_helper} PRIVATE firefly-windows-helper-launch)
+endforeach()
 # The compiled helper slice is not the complete desktop runtime. The default runtime/release gate
 # must remain closed until every real helper role is covered.
 set_property(TARGET firefly-windows-helper-launch PROPERTY FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE
@@ -139,20 +144,34 @@ target_link_libraries(
             LibGfx
             LibPlatformFeatures
             LibRequests
+            LibMediaClient
             AK)
 ladybird_windows_bin(firefly-windows-broker-probe CONSOLE)
 set(windows_broker_inputs "${CMAKE_BINARY_DIR}/firefly-adapters/windows-broker-probe-$<CONFIG>.txt")
+set(windows_broker_services
+    ImageDecoder
+    Compositor
+    SystemProbe
+    RequestServer
+    AudioServer
+    MediaServer
+    VideoDecoderServer)
+set(windows_broker_inventory
+    "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n"
+)
+foreach(service IN LISTS windows_broker_services)
+    string(APPEND windows_broker_inventory
+           "$<TARGET_FILE:${service}>\n$<JOIN:$<TARGET_RUNTIME_DLLS:${service}>,\n>\n")
+endforeach()
 file(
     GENERATE
     OUTPUT "${windows_broker_inputs}"
-    CONTENT
-        "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n$<TARGET_FILE:ImageDecoder>\n$<JOIN:$<TARGET_RUNTIME_DLLS:ImageDecoder>,\n>\n$<TARGET_FILE:Compositor>\n$<JOIN:$<TARGET_RUNTIME_DLLS:Compositor>,\n>\n$<TARGET_FILE:SystemProbe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:SystemProbe>,\n>\n$<TARGET_FILE:RequestServer>\n$<JOIN:$<TARGET_RUNTIME_DLLS:RequestServer>,\n>\n"
-)
+    CONTENT "${windows_broker_inventory}")
 add_custom_target(
     check-firefly-windows-broker
     COMMAND
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_windows_broker.py" --probe
         "$<TARGET_FILE:firefly-windows-broker-probe>" --targets "${windows_broker_inputs}"
         --resources "${CMAKE_BINARY_DIR}/share/Lagom" --revision "${windows_helper_revision}"
-    DEPENDS firefly-windows-broker-probe ImageDecoder Compositor SystemProbe RequestServer ladybird
+    DEPENDS firefly-windows-broker-probe ${windows_broker_services} ladybird
     USES_TERMINAL VERBATIM)
