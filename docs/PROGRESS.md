@@ -17145,6 +17145,27 @@ send-headers listener. The same fixture reaches the child when run without
 the initial before-request policy. Cocoa and the native picker remain under
 validation.
 
+## Verify both Cocoa workbench loads and isolate the remaining editor failure
+
+The signed Cocoa bundle with the header-policy change starts on the pinned
+Ladybird and reaches both authenticated document channels. Code-OSS reports
+window 1 ready in both folders and starts two distinct extension hosts. The
+request-policy gate emits no before-stage rejection. The second system
+extension scan starts, but does not complete. The renderer reports 64 bounded
+`ERR_FIREFLY_IPC_LIMIT` diagnostics from preload send, and the edit/save
+fixture times out with the target file intact. All 21 owned processes stop
+after cleanup. Evidence is in build/code-oss-f9ac-cocoa-headers-evidence.json.
+The native folder picker is still untested. Next determine whether the failed
+send hit the renderer waiting-count or wire-byte admission bound.
+
+The public webRequest suite's utility coexistence check left its listener
+attached when loading the cross-origin subframe. Subframe navigation under
+interception is outside the documented scope. Reset that listener after the
+utility exits and before loading the document fixture. The actual offscreen
+public suite passes, including canonical cross-origin subresource ownership,
+preflight response-header edits, cancellation and independent utility net.
+The 367-page site and 27,634 local links also pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

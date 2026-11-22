@@ -183,6 +183,10 @@ app.whenReady().then(async () => {
       const exited = once(child, 'exit');
       child.kill();
       await exited;
+
+      // The utility compatibility check is finished. Load both documents
+      // before enabling policy for their subsequent subresource requests.
+      requests.onBeforeRequest(null);
     }
     window = new BrowserWindow({ show: false, width: 180, height: 120 });
     await window.loadURL(first + '/page.html?cross=' + encodeURIComponent(cross));
