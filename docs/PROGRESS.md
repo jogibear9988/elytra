@@ -16795,6 +16795,17 @@ on their original source inputs. The generated recipe and exact patch
 application are verified locally. Native dependency rebuild remains
 pending.
 
+## Verify the new macOS SDK with the sealed Code-OSS sample
+
+The local Release build completes both firefly and firefly-view-offscreen.
+Both and the standalone Mite CLI report LibJS revision 59158f57c. The
+actual sealed Code-OSS entry passes extension activation and commands,
+independently read-back editor save, three parent-liveness checks and
+the real Bash terminal with exit 17. All 17 tracked processes stop
+naturally with zero cleanup signals. Evidence is in
+build/code-oss-59158-offscreen.log. Current macOS package and Cocoa
+acceptance remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

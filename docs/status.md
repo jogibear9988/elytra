@@ -17,10 +17,13 @@ not establish a working desktop application.
 | Firefly / Linux x64 | Earlier experimental Ubuntu 24.04 X11 app, screen/clipboard, extracted Designer and kernel-isolation gates pass at `a56d183`. | Current renderer/package CI, wider displays/hosts, Wayland and distribution. |
 | Firefly / Windows x64 | Experimental native renderer/window and confinement components. A native fixture passes relocation of the launcher, ordinary and delayed PE imports, nested plugin loading and forwarded exports. [Package job](https://github.com/jogibear9988/elytra/actions/runs/44180453142) | Real helper-role confinement, broker flow control, full desktop services and actual Designer/Code-OSS packages. |
 
-The new Ladybird pin has **CLI evidence only** at this checkpoint. The visible
-Code-OSS app uses the preceding `b872` SDK; do not combine those results into a
-claim that the new renderer or packages pass. Ladybird remains unmodified, with
-integration changes in Elytra's owned adapters/build files.
+Ladybird `59158f57c` now also has a local macOS ARM64 Release renderer
+build and an offscreen run of the sealed Code-OSS sample. The run passes
+CommonJS extension activation, editor save, three timed liveness checks and
+the owned Bash workflow with 17 processes stopped and zero cleanup signals.
+The visible Cocoa preview uses the preceding `b872` SDK. The current SDK's
+package and visible Cocoa acceptance still need verification. Ladybird stays
+unmodified, with integration changes in Elytra's owned files.
 
 [Alpha 2](https://github.com/jogibear9988/elytra/releases/tag/v0.1.0-alpha.2)
 is the published macOS ARM64 release, including Designer. It predates the current

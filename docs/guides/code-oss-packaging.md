@@ -4,11 +4,12 @@ This is an experimental macOS ARM64 sample pipeline, not a full Electron or VS C
 release. The application runs on Firefly/Mite with LibWeb/LibJS. Node, pnpm and
 esbuild are build tools only; there is no packaged Node/V8/Electron engine fallback.
 
-The current Ladybird candidate `59158f57c` passes the standalone CLI suite.
-The sealed sample built locally and passed the controlled CommonJS extension,
-editor save, terminal and parent-liveness checks with the preceding macOS SDK.
-The relocated signed bundle passed the same workflow through the native Cocoa
-Launcher with that SDK. Current SDK and four-product release CI remain pending.
+The current Ladybird candidate `59158f57c` passes the standalone CLI suite
+and builds the local macOS Release SDK. The current SDK's offscreen host
+passes the sealed sample's CommonJS extension, editor save, terminal and
+parent-liveness checks. The relocated Cocoa Launcher also passed those
+checks on the preceding SDK. Current package acceptance and four-product
+release CI remain pending.
 
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the
