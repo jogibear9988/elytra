@@ -17,13 +17,26 @@ def main():
             b"FIREFLY_PROTOCOL_DIAGNOSTIC stage=server-admit count=2 errno=0\n"
             b"FIREFLY_PROTOCOL_DIAGNOSTIC stage=fixture-private count=2 errno=0\n"
             b"FIREFLY_PROTOCOL_DIAGNOSTIC stage=server-packet count=2 errno=0 fixture-private\n"
+            b"FIREFLY_IPC_ADMISSION_LIMIT reason=queue "
+            b"document_waiting=256 renderer_waiting=256 packet_bytes=0\n"
+            b"FIREFLY_IPC_ADMISSION_LIMIT reason=fixture-private "
+            b"document_waiting=256 renderer_waiting=256 packet_bytes=0\n"
+            b"FIREFLY_IPC_ADMISSION_LIMIT reason=wire "
+            b"document_waiting=256 renderer_waiting=256 packet_bytes=fixture-private\n"
+            b"FIREFLY_IPC_ADMISSION_LIMIT reason=wire "
+            b"document_waiting=100 renderer_waiting=120 packet_bytes=65536\n"
             b"FIREFLY_DOCUMENT_CHANNEL_READY pid=71 epoch="
         )
         raw.write_bytes(
             startup + b"2\nFIREFLY_PROTOCOL_DIAGNOSTIC stage=client-revoke count=1 errno=0\n"
         )
         assert startup_checkpoints(raw, len(startup)) == {
-            "checkpoints": {"navigation-channel-ready": 1, "server-admit": 2},
+            "checkpoints": {
+                "navigation-channel-ready": 1,
+                "server-admit": 2,
+                "ipc-admission-queue": 1,
+                "ipc-admission-wire": 1,
+            },
             "truncated": False,
         }
         with raw.open("r+b") as output:

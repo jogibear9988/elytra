@@ -1,6 +1,7 @@
 /** Preload-only invoke/event endpoint. Own Promise roots or private event credit until
  * settlement, timeout or document revocation; accept bounded data graphs only. */
 #include "IpcEndpoint.h"
+#include "native/platform/Diagnostics.h"
 #include "ports/PortEndpoint.h"
 #include "serialization/BinaryPolicy.h"
 #include "serialization/BridgeData.h"
@@ -19,6 +20,7 @@
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
 #include <LibWeb/Page/Page.h>
 #include <WebContent/PageClient.h>
+#include <cstdio>
 
 namespace Firefly {
 void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
@@ -38,6 +40,18 @@ namespace {
     size_t pending_count;
     size_t queued_count;
     NeverDestroyed<Vector<WeakPtr<IpcEndpoint>>> endpoints;
+
+    void diagnose_admission_limit(char const* reason, size_t waiting, size_t bytes = 0)
+    {
+        static unsigned reports = 0;
+        if (!ipc_bytes_diagnostics_enabled() || reports >= 64)
+            return;
+        ++reports;
+        std::fprintf(stderr,
+            "FIREFLY_IPC_ADMISSION_LIMIT reason=%s document_waiting=%zu renderer_waiting=%zu "
+            "packet_bytes=%zu\n",
+            reason, waiting, queued_count, bytes);
+    }
 
     GC::Ref<JS::Error> ipc_error(JS::Realm& realm, Utf16View message, Utf16View code)
     {
@@ -169,8 +183,11 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         || vm.argument_count() > 65)
         return reject(
             u"IPC requires a string channel and at most 64 arguments"sv, u"ERR_INVALID_ARG_TYPE"sv);
-    if (m_calls.size() >= 256 || queued_count >= 1024 || m_next == 0xffffffffu)
+    if (m_calls.size() >= 256 || queued_count >= 1024 || m_next == 0xffffffffu) {
+        diagnose_admission_limit(m_next == 0xffffffffu ? "request-id" : "queue", m_calls.size());
         return reject(u"IPC admission queue budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
+    }
+
     GC::Root args { TRY(JS::Array::create(realm, vm.argument_count())) };
     for (size_t i = 0; i < vm.argument_count(); ++i)
         args->define_direct_property(i, vm.argument(i), JS::default_attributes);
@@ -187,8 +204,11 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         return reject(
             u"IPC requires the configured top-level document"sv, u"ERR_FIREFLY_IPC_REVOKED"sv);
     auto reservation = m_wire_budget->reserve(encoded.value().length());
-    if (!reservation)
+    if (!reservation) {
+        diagnose_admission_limit("wire", m_calls.size(), encoded.value().length());
         return reject(u"IPC admission wire budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
+    }
+
     u32 id = ++m_next;
     m_pending.set(id,
         Pending {

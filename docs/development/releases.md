@@ -45,9 +45,11 @@ sample entry. After packaging and existing native audits, the driver extracts on
 signed Code-OSS.app and launches the **actual native Launcher** on Cocoa. That
 launcher supplies its recorded runtime/entry; the fixture supplies only normal
 application arguments. Exact Launcher/Firefly executable, birth, UID and owned-tree
-authentication, genuine terminal exit and independent saved-file readback remain
-required. This new relocated bundle gate is implemented, not yet accepted on a
-native CI run. A source-only seal or command-construction test cannot replace it.
+authentication, a same-window folder switch with a new extension host, a genuine
+terminal exit and independent saved-file readback are required. On timeout the
+startup summary reports allowlisted checkpoints, including rejected renderer IPC
+admission bounds. The local signed app reaches the second folder and extension
+host. The second system-extension scan and the editor save remain open.
 
 ## Published macOS Alpha 2
 

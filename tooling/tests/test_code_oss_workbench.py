@@ -37,6 +37,12 @@ CHANNEL_LINE = re.compile(
 )
 
 
+IPC_ADMISSION_LINE = re.compile(
+    rb"FIREFLY_IPC_ADMISSION_LIMIT reason=(queue|request-id|wire) "
+    rb"document_waiting=[0-9]{1,20} renderer_waiting=[0-9]{1,20} packet_bytes=[0-9]{1,20}"
+)
+
+
 def startup_checkpoints(raw, startup_bytes):
     """Count allowlisted milestones from bytes written before process cleanup."""
     with raw.open("rb") as source:
@@ -46,10 +52,13 @@ def startup_checkpoints(raw, startup_bytes):
     for line in sample.split(b"\n")[:-1]:
         channel = CHANNEL_LINE.fullmatch(line)
         protocol = PROTOCOL_LINE.fullmatch(line)
+        admission = IPC_ADMISSION_LINE.fullmatch(line)
         if channel:
             key = channel[1].decode("ascii").lower() + "-channel-ready"
         elif protocol and protocol[1].decode("ascii") in PROTOCOL_STAGES:
             key = protocol[1].decode("ascii")
+        elif admission:
+            key = "ipc-admission-" + admission[1].decode("ascii")
         else:
             continue
         checkpoints[key] = checkpoints.get(key, 0) + 1

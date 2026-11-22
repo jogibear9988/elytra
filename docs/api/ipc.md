@@ -276,6 +276,10 @@ fixed failure stage and an allowlisted error code; channels, payloads, environme
 and exception messages are excluded. A window-configuration timeout can also
 follow a rejected configuration Promise; it does not alone prove pending IPC.
 
+Renderer admission diagnostics report the rejected bound as `queue`,
+`request-id`, or `wire`. Each report includes only the document and renderer
+waiting counts and the packet byte length when serialization has completed.
+
 The aggregate binary budget is **1 MiB of distinct complete backing stores per
 application IPC graph**, even when sending only a small view. Shared, detached, resizable and
 out-of-bounds storage is refused. Functions, accessors, proxies, symbols, host/DOM

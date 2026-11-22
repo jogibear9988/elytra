@@ -17166,6 +17166,24 @@ public suite passes, including canonical cross-origin subresource ownership,
 preflight response-header edits, cancellation and independent utility net.
 The 367-page site and 27,634 local links also pass.
 
+## Report renderer IPC admission limits in the native release check
+
+The existing opt-in IPC diagnostics distinguish a full renderer waiting queue,
+request-integer exhaustion and retained-wire reservation refusal. They report
+bounded counts and byte lengths. The Code-OSS startup summary counts only the
+fixed reason names, with complete-line and input-size checks. No request IDs,
+channel names, paths or payload bytes enter these observations.
+
+The macOS extracted-package check now exercises the workspace transition in the
+same native run as the editor, terminal and parent-liveness checks. The 150-second
+deadline matches the offscreen workspace run. The native release job can now
+capture the remaining admission failure without another desktop launch locally.
+
+Both Firefly targets build. The real offscreen IPC events test logs the queue
+bound at 256 waiting calls and proves ordering, reload and credit recovery.
+Startup summary privacy, artifact provenance tests and the upstream pin check
+pass. Cocoa edit/save and release publication remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
