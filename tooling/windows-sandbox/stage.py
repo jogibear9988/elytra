@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import tempfile
 
 SEAL = ".firefly-windows-runtime-v1"
 JOURNAL = ".firefly-windows-stage-v1.json"
@@ -524,11 +525,52 @@ def stage(root, targets, resources, revision):
         creator.close()
 
 
+def reproduce(root, source, revision):
+    """Recreate the sealed SDK helper inventory with the original staging policy."""
+    physical(source)
+    source = source.resolve(strict=True)
+    if root.exists() or root.is_symlink() or root.resolve().is_relative_to(source):
+        raise ValueError("Helper package output must be fresh and outside the SDK")
+
+    seal = source / SEAL
+    expected = parse_seal(seal)
+    original = seal.read_bytes()
+    if not original.startswith(f"FWR1 {revision}\n".encode("ascii")):
+        raise ValueError("Packaged helper SDK revision does not match the requested pin")
+    actual = entries(source)
+    actual.pop(SEAL)
+    if actual != expected:
+        raise ValueError("Packaged helper SDK differs from its seal")
+
+    root.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".helper-package-", dir=root.parent) as temporary:
+        scratch = Path(temporary)
+        inputs = scratch / "inputs.txt"
+        inputs.write_text(
+            "".join(f"{source / name}\n" for name in expected if name.startswith("bin/")),
+            encoding="utf-8",
+        )
+        staged = scratch / "runtime"
+        stage(staged, inputs, source / "share/Lagom", revision)
+        if (staged / SEAL).read_bytes() != original:
+            raise ValueError("Recreated helper seal differs from the SDK seal")
+        staged.rename(root)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", required=True, type=Path)
-    parser.add_argument("--targets", required=True, type=Path)
-    parser.add_argument("--resources", required=True, type=Path)
+    sources = parser.add_mutually_exclusive_group(required=True)
+    sources.add_argument("--targets", type=Path)
+    sources.add_argument("--from-sealed", type=Path)
+    parser.add_argument("--resources", type=Path)
     parser.add_argument("--revision", required=True)
     args = parser.parse_args()
-    stage(args.root.absolute(), args.targets, args.resources, args.revision)
+    if args.from_sealed:
+        if args.resources:
+            parser.error("--resources cannot be used with --from-sealed")
+        reproduce(args.root.absolute(), args.from_sealed.absolute(), args.revision)
+    else:
+        if not args.resources:
+            parser.error("--targets requires --resources")
+        stage(args.root.absolute(), args.targets, args.resources, args.revision)

@@ -112,8 +112,25 @@ class HelperSources(unittest.TestCase):
             finder.write_bytes(b"preserve Finder metadata")
             stager.stage(destination, targets, resources, revision)
             self.assertEqual(finder.read_bytes(), b"preserve Finder metadata")
+            packaged = root / "package/firefly-runtime"
+            with self.assertRaisesRegex(ValueError, "revision"):
+                stager.reproduce(packaged, destination, "2" * 40)
+            self.assertFalse(packaged.exists())
+            stager.reproduce(packaged, destination, revision)
+            self.assertEqual(
+                (packaged / stager.SEAL).read_bytes(), (destination / stager.SEAL).read_bytes()
+            )
+            self.assertNotEqual(
+                (packaged / "bin/WebContent.exe").stat().st_ino,
+                (destination / "bin/WebContent.exe").stat().st_ino,
+            )
+            self.assertFalse((packaged / ".DS_Store").exists())
             unknown = destination / "bin/private.txt"
             unknown.write_bytes(b"unowned bytes")
+            rejected = root / "rejected/firefly-runtime"
+            with self.assertRaisesRegex(ValueError, "differs from its seal"):
+                stager.reproduce(rejected, destination, revision)
+            self.assertFalse(rejected.exists())
             before = {
                 p.relative_to(destination): p.read_bytes()
                 for p in destination.rglob("*")

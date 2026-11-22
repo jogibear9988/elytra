@@ -10,6 +10,8 @@ on:
       - 'tooling/native_package/pe.py'
       - 'tooling/native_package/payload.py'
       - 'tooling/native_package/windows_app.py'
+      - 'tooling/windows-sandbox/stage.py'
+      - 'tooling/tests/test_windows_helper_source.py'
       - 'tooling/npm_payload.py'
       - 'tooling/tests/test_windows_pe_package.py'
   workflow_dispatch:

@@ -16681,6 +16681,18 @@ integrity checks also pass. Push the tested toolchain and assembly with
 the candidate renderer fixes. Full Windows applications and the current
 macOS SDK/package gates remain open.
 
+## Reproduce the sealed Windows helper tree inside the package
+
+Package assembly now takes an optional sealed helper SDK and its expected
+revision. Check the source inventory, recreate the physical files using
+the existing owner-aware stager, and require the same seal bytes before
+publishing. Include the helper revision and seal hash in BUILD.json.
+Source tests cover a wrong revision, unowned source files, separate
+physical copies and Finder metadata. The native fixture stages and
+relocates a helper EXE with its DLLs and resource file along with the
+launcher. Seven local source tests, formatting and diff checks pass.
+Hosted execution and actual Firefly helper-role acceptance remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

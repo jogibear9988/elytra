@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 from native_package import pe, windows_app
@@ -178,7 +179,45 @@ int main(void) {
             "No explicit DLL provider for leaf.dll",
         )
         assert not assembled.exists()
-        manifest = windows_app.stage(assembled, app, image, [bridge, leaf])
+        resources = inputs / "resource source"
+        resources.mkdir()
+        resource = resources / "fixture.txt"
+        resource.write_bytes(b"real helper resource fixture")
+        targets = inputs / "targets.txt"
+        targets.write_text(f"WebContent.exe|{image}\n{bridge}\n{leaf}\n", encoding="utf-8")
+        sdk_helpers = inputs / "firefly-runtime"
+        revision = "a" * 40
+        subprocess.run(
+            [
+                sys.executable,
+                str(windows_app.ROOT / "tooling/windows-sandbox/stage.py"),
+                "--root",
+                str(sdk_helpers),
+                "--targets",
+                str(targets),
+                "--resources",
+                str(resources),
+                "--revision",
+                revision,
+            ],
+            check=True,
+            timeout=30,
+        )
+        manifest = windows_app.stage(
+            assembled,
+            app,
+            image,
+            [bridge, leaf],
+            helper_runtime=sdk_helpers,
+            helper_revision=revision,
+        )
+        helper_seal = "firefly-runtime/.firefly-windows-runtime-v1"
+        assert manifest["helpers"]["revision"] == revision
+        assert manifest["helpers"]["sealSha256"] == pe.digest(assembled / helper_seal)
+        assert (assembled / helper_seal).read_bytes() == (inputs / helper_seal).read_bytes()
+        assert (
+            assembled / "firefly-runtime/share/Lagom/fixture.txt"
+        ).read_bytes() == resource.read_bytes()
         assert set(manifest["pe"]["objects"]) == {"firefly.exe", "Bridge.dll", "Leaf.dll"}
         assert set(manifest["launcher"]["objects"]) == {"Launch.exe"}
         assert (assembled / "app/main.mjs").read_bytes() == entry.read_bytes()
@@ -216,7 +255,14 @@ int main(void) {
             timeout=15,
         )
         assert result.returncode == 37, result.returncode
-        print("PASS native Windows package assembly and relocated launcher with DLL closure")
+        result = subprocess.run(
+            [str(relocated_app / "firefly-runtime/bin/WebContent.exe")],
+            cwd=working,
+            env={**os.environ, "PATH": str(pe.system_directory())},
+            timeout=15,
+        )
+        assert result.returncode == 37, result.returncode
+        print("PASS relocated app launcher, PE closure, and independently sealed helper fixture")
     print("PASS native x64 PE closure, delayed imports, forwarded export, plugin, and relocation")
 
 
