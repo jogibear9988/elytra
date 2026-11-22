@@ -14,6 +14,7 @@
 #include "preload/Process.h"
 #include "renderer-bridge/autoplay/Policy.h"
 #include "resources/Session.h"
+#include "title-bar/Overlay.h"
 #include "web-request/Session.h"
 #include <LibCore/System.h>
 #include <LibMain/Main.h>
@@ -60,6 +61,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     auto result = firefly_upstream_renderer_main({ static_cast<int>(filtered.strings.size()),
         filtered.argv.data(), filtered.strings.span() });
     Firefly::Autoplay::shutdown();
+    Firefly::TitleBarOverlay::shutdown();
     Firefly::HelperCanvas::shutdown();
     Firefly::HelperWebRequest::shutdown();
     Firefly::HelperPermissions::shutdown();

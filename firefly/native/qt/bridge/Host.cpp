@@ -122,7 +122,7 @@ GC::Ref<JS::Object> Bridge::Impl::install()
     host->define_native_function(realm, "replyIpc"_utf16,
         native_binding<&Impl::native_host_reply_ipc>(), 6, JS::default_attributes);
     host->define_native_function(realm, "create"_utf16, native_binding<&Impl::native_host_create>(),
-        16, JS::default_attributes);
+        17, JS::default_attributes);
     host->define_native_function(realm, "destroy"_utf16,
         native_binding<&Impl::native_host_destroy>(), 1, JS::default_attributes);
     host->define_native_function(realm, "destroyNow"_utf16,
@@ -283,6 +283,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_set_window_button_pos
     if (!set_title_bar_button_position(*state->window, position))
         return preload_error(vm, "ERR_INVALID_ARG_VALUE",
             "Window button position must fit inside a hidden-style title bar"sv);
+    if (state->title_bar_overlay)
+        broadcast_page_configuration();
     return JS::js_undefined();
 }
 
@@ -308,6 +310,14 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_create(JS::VM& vm)
     if (hidden_title_bar && !title_bar_available())
         return preload_error(
             vm, "ERR_FIREFLY_UNSUPPORTED_API", "Hidden title bar requires the Cocoa backend"sv);
+    auto overlay = vm.argument(16);
+    if (!overlay.is_undefined() && !overlay.is_boolean())
+        return preload_error(vm, "ERR_INVALID_ARG_TYPE", "Title bar overlay must be a boolean"sv);
+    bool title_bar_overlay = overlay.is_boolean() && overlay.as_bool();
+    if (title_bar_overlay && !hidden_title_bar)
+        return preload_error(vm, "ERR_FIREFLY_UNSUPPORTED_API",
+            "Title bar overlay requires the Cocoa hidden title bar"sv);
+
     auto first_mouse = vm.argument(12);
     if (!first_mouse.is_undefined()) {
         if (!first_mouse.is_boolean())
@@ -332,7 +342,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_create(JS::VM& vm)
         vm.argument(8).is_undefined() ? Optional<int> {} : TRY(vm.argument(8).to_i32(vm)),
         background, limits,
         first_mouse.is_undefined() ? Optional<bool> {} : Optional<bool> { first_mouse.as_bool() },
-        hidden_title_bar, zoom_factor, autoplay_policy);
+        hidden_title_bar, zoom_factor, autoplay_policy, title_bar_overlay);
     if (id.has<WindowCreationError>()) {
         if (id.get<WindowCreationError>() == WindowCreationError::TitleBarPolicy)
             return preload_error(vm, "ERR_FIREFLY_WINDOW_TITLE_BAR",

@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Loading overlay fixture</title>
+<script>
+  const overlay = navigator.windowControlsOverlay;
+  const rect = overlay?.getTitlebarAreaRect();
+  if (
+    !overlay?.visible ||
+    !(overlay instanceof EventTarget) ||
+    !(rect instanceof DOMRect) ||
+    rect.x <= 0 ||
+    rect.height <= 0 ||
+    rect.right !== 320 ||
+    navigator.windowControlsOverlay !== overlay ||
+    Reflect.set(navigator, 'windowControlsOverlay', null) ||
+    Reflect.set(overlay, 'visible', false)
+  ) {
+    document.title =
+      'FAIL overlay initial geometry ' +
+      JSON.stringify({
+        present: !!overlay,
+        secure: isSecureContext,
+        visible: overlay?.visible,
+        eventTarget: overlay instanceof EventTarget,
+        rect: rect?.toJSON(),
+        innerWidth
+      });
+  } else {
+    const child = document.createElement('iframe');
+    document.documentElement.append(child);
+    if ('windowControlsOverlay' in child.contentWindow.navigator) {
+      document.title = 'FAIL overlay exposed to iframe';
+    } else {
+      const initialRight = rect.right;
+      let dispatched = 0;
+      overlay.addEventListener('geometrychange', (change) => {
+        const changedRect = change.titlebarAreaRect;
+        const liveRect = overlay.getTitlebarAreaRect();
+        if (
+          !change.isTrusted ||
+          !change.visible ||
+          !(changedRect instanceof DOMRect) ||
+          changedRect.width !== liveRect.width ||
+          changedRect.x !== liveRect.x
+        ) {
+          document.title = 'FAIL overlay change event';
+          return;
+        }
+        dispatched++;
+      });
+      overlay.ongeometrychange = () => {
+        if (dispatched === 0 || document.title.startsWith('FAIL')) {
+          document.title = 'FAIL overlay listener ordering';
+          return;
+        }
+        const current = overlay.getTitlebarAreaRect();
+        document.title = current.right === initialRight ? 'Overlay moved' : 'Overlay resized';
+      };
+      document.title = 'Overlay ready';
+    }
+  }
+</script>

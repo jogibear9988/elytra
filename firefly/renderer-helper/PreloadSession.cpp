@@ -11,6 +11,7 @@
 #include "native/protocol/OriginPolicy.h"
 #include "preload/Process.h"
 #include "preload/WebFrame.h"
+#include "title-bar/Overlay.h"
 #include "worlds/WorldJobGuard.h"
 #include <AK/HashMap.h>
 #include <AK/JsonObject.h>
@@ -189,6 +190,7 @@ namespace {
         if (!builtin
             && (!Protocols::is_standard_scheme(url.scheme()) || document->origin().is_opaque()))
             return;
+        TitleBarOverlay::install(*document);
         auto handle = Web::WebDriver::BiDi::navigable_id(navigable);
         auto source = session->sources.find(handle);
         if (source == session->sources.end())

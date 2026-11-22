@@ -8,7 +8,7 @@ const mite = !!process.versions.mite;
 const cocoa = process.env.QT_QPA_PLATFORM === 'cocoa';
 const deadline = setTimeout(() => app.exit(1), 15000);
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const windows = [];
   try {
     function create(options = {}) {
@@ -82,7 +82,38 @@ app.whenReady().then(() => {
         'PASS Firefly title bar hidden explicitly unsupported offscreen before native admission'
       );
     }
+    if (mite && cocoa) {
+      const overlay = create({ titleBarStyle: 'hidden', titleBarOverlay: true });
+
+      async function observed(title) {
+        for (let retry = 0; retry < 100; ++retry) {
+          const observedTitle = overlay.webContents.getTitle();
+          if (observedTitle === title) {
+            return;
+          }
+          assert.ok(!observedTitle.startsWith('FAIL'), observedTitle);
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        throw Error(
+          'Missing overlay lifecycle step: ' + title + ' (' + overlay.webContents.getTitle() + ')'
+        );
+      }
+
+      await overlay.loadFile(path.join(import.meta.dirname, 'overlay.html'));
+      await observed('Overlay ready');
+      overlay.setWindowButtonPosition({ x: 36, y: 7 });
+      await observed('Overlay moved');
+      overlay.setBounds({ width: 400, height: 220 });
+      await observed('Overlay resized');
+      console.log(
+        'PASS public Cocoa overlay initial geometry, resize events, and iframe exclusion'
+      );
+    }
     if (mite) {
+      assert.throws(() => create({ titleBarOverlay: true }), {
+        code: 'ERR_FIREFLY_UNSUPPORTED_API'
+      });
+
       for (const value of [null, true, 0, {}, []]) {
         const count = BrowserWindow.getAllWindows().length;
 

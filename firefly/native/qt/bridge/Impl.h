@@ -152,6 +152,7 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
         Autoplay::Policy autoplay_policy { Autoplay::Policy::UpstreamDefault };
         u32 background_rgb { 0xffffff };
         u32 background_generation { 1 };
+        bool title_bar_overlay { false };
         bool closing { false };
         // Navigation and first-paint bookkeeping are distinct from IPC document ownership.
         bool painted { false };
@@ -449,14 +450,15 @@ struct Bridge::Impl : public Mite::NativeCaptureOwner<Bridge::Impl> {
 
     JS::ThrowCompletionOr<WindowLimits> read_limits(JS::VM&, size_t argument = 11);
 
-    void broadcast_background();
+    void broadcast_page_configuration();
 
     enum class WindowCreationError { Geometry, InputPolicy, TitleBarPolicy };
     Variant<int, WindowCreationError> create(int width, int height, QString const& title, bool show,
         bool frame, Optional<Preload>, bool use_content_size, Optional<int> x, Optional<int> y,
         u32 background_rgb = 0xffffff, WindowLimits const& limits = {},
         Optional<bool> first_mouse = {}, bool hidden_title_bar = false, double zoom_factor = 1.0,
-        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault);
+        Autoplay::Policy autoplay_policy = Autoplay::Policy::UpstreamDefault,
+        bool title_bar_overlay = false);
 
     // Preload file/source budgets are checked before configuring the native session.
     JS::Completion preload_error(JS::VM&, char const* code, StringView message);

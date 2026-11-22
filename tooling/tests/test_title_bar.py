@@ -83,6 +83,9 @@ def main():
                 source = source.replace("from 'firefly'", "from 'electron'")
             entry = directory / "public.mjs"
             entry.write_text(source)
+            (directory / "overlay.html").write_bytes(
+                (ROOT / "firefly/tests/title-bar/overlay.html").read_bytes()
+            )
             env = environment(str(directory / "config"))
             env["QT_QPA_PLATFORM"] = args.platform
             env["LIBGL_ALWAYS_SOFTWARE"] = "1"
@@ -100,6 +103,10 @@ def main():
             )
             if sys.platform == "darwin" and (label == "Electron" or args.platform == "cocoa"):
                 markers.append("PASS public title bar window button position and reset")
+            if label == "Firefly" and args.platform == "cocoa":
+                markers.append(
+                    "PASS public Cocoa overlay initial geometry, resize events, and iframe exclusion"
+                )
             if label == "Firefly":
                 markers.append(
                     "PASS Firefly title bar strict option types and unknown styles reject before native admission"

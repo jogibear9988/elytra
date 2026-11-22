@@ -1,4 +1,6 @@
 /** Validate preload bytes/paths and configure the owned native preload session. */
+#include "../../window/TitleBar.h"
+#include "../ChromeWindow.h"
 #include "Impl.h"
 #include "Value.h"
 #include "modules/ModulePaths.h"
@@ -135,6 +137,19 @@ void Bridge::Impl::configure_preloads(WebView::WebContentPage& page)
                 Vector<String> {
                     MUST(String::formatted("{}-{}", native_id.namespace_id, native_id.local_id)) },
                 {}, {} });
+        }
+
+        if (window.title_bar_overlay && window.window) {
+            auto controls = title_bar_control_bounds(*window.window);
+            auto left = controls.isEmpty() ? 0 : controls.right() + 1;
+            auto width = window.window->width() - left;
+            bool visible = !controls.isEmpty() && width > 0 && !window.window->isMinimized();
+            JsonObject overlay;
+            overlay.set("x"sv, visible ? left : 0);
+            overlay.set("width"sv, visible ? width : 0);
+            overlay.set("height"sv, visible ? controls.bottom() + 1 : 0);
+            state.preload_scripts.append({ "firefly.title-bar-overlay.v1"_string, String {},
+                move(overlay), Vector<String> { window.native_view()->handle() }, {}, {} });
         }
 
         JsonObject canvas;

@@ -9,6 +9,7 @@
 #include "RendererSession.h"
 #include "autoplay/Session.h"
 #include "canvas/Session.h"
+#include "title-bar/Overlay.h"
 #include <WebContent/WebDriverBiDi.h>
 #include <cstdio>
 #include <cstdlib>
@@ -40,6 +41,13 @@ void run_webdriver_bidi_command(PageClient& page, u64 command, Web::HTML::CrossP
 
 void set_webdriver_bidi_session_state(Web::WebDriver::BiDiSessionState state)
 {
+    auto overlay = Firefly::TitleBarOverlay::extract(state);
+    if (overlay.is_error()) {
+        warnln("Invalid native title bar overlay: {}", overlay.error());
+        fflush(nullptr);
+        std::_Exit(1);
+    }
+
     auto autoplay = Firefly::HelperAutoplay::extract(state);
     if (autoplay.is_error()) {
         warnln("Invalid native autoplay configuration: {}", autoplay.error());

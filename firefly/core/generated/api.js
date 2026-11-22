@@ -9069,6 +9069,7 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           "experimentalDarkMode",
           "acceptFirstMouse",
           "titleBarStyle",
+          "titleBarOverlay",
           "webPreferences"
         ].includes(key)) {
           unsupported(`BrowserWindow option ${key}`);
@@ -9086,6 +9087,13 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
       const constraintWire = JSON.stringify(limits);
       const firstMouse = windowInput(options);
       const hiddenTitleBar = titleBar(options.titleBarStyle);
+      const titleBarOverlay = options.titleBarOverlay ?? false;
+      if (typeof titleBarOverlay !== "boolean") {
+        unsupported("BrowserWindow non-boolean titleBarOverlay");
+      }
+      if (titleBarOverlay && !hiddenTitleBar) {
+        unsupported("BrowserWindow titleBarOverlay requires the Cocoa hidden title bar");
+      }
       const initialBackground = options.backgroundColor;
       const color = background.parse(
         initialBackground === void 0 ? "#FFFFFF" : initialBackground
@@ -9127,7 +9135,8 @@ function createFireflyApi(native, EventEmitter, paths, urls, files, streams, tra
           firstMouse,
           hiddenTitleBar,
           prefs.zoomFactor,
-          prefs.autoplayPolicy
+          prefs.autoplayPolicy,
+          titleBarOverlay
         )
       });
       this.webContents = new WebContents(this, contentsToken);

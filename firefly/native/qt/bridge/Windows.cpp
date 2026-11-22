@@ -57,7 +57,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     QString const& title, bool show, bool frame, Optional<Preload> preload, bool use_content_size,
     Optional<int> x, Optional<int> y, u32 background_rgb, WindowLimits const& limits,
     Optional<bool> first_mouse, bool hidden_title_bar, double zoom_factor,
-    Autoplay::Policy autoplay_policy)
+    Autoplay::Policy autoplay_policy, bool title_bar_overlay)
 {
     Tracing::Recorder::Scope scope(tracing, "firefly.window", "create");
     if (stopping || windows.size() >= 256 || !WindowSizeConstraints::valid(limits))
@@ -118,11 +118,12 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     windows.at(id).accept_first_mouse = first_mouse.value_or(false);
     windows.at(id).background_rgb = background_rgb;
     windows.at(id).autoplay_policy = autoplay_policy;
+    windows.at(id).title_bar_overlay = title_bar_overlay;
 
     QObject::connect(window, &QObject::destroyed, context.get(), [this, id] {
         reset_ipc(id);
         windows.erase(id);
-        broadcast_background();
+        broadcast_page_configuration();
         enqueue(id, "closed");
     });
     window->request_close = [this, id] {
@@ -131,13 +132,28 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     };
 
     window->resized = [this, id] { enqueue(id, "resize"); };
+    if (title_bar_overlay) {
+        // QWidget defers resize events for hidden windows. Read the settled
+        // geometry after the native width and height notifications.
+        auto* geometry_update = new QTimer(window);
+        geometry_update->setSingleShot(true);
+        QObject::connect(geometry_update, &QTimer::timeout, context.get(),
+            [this] { broadcast_page_configuration(); });
+        auto refresh_overlay = [geometry_update] { geometry_update->start(); };
+        QObject::connect(
+            window->windowHandle(), &QWindow::widthChanged, geometry_update, refresh_overlay);
+        QObject::connect(
+            window->windowHandle(), &QWindow::heightChanged, geometry_update, refresh_overlay);
+    }
     // QWindow position signals also cover hidden windows, whose QWidget move
     // events can be deferred until show(). The context owns both connections.
     QObject::connect(window->windowHandle(), &QWindow::xChanged, context.get(),
         [this, id] { enqueue(id, "move"); });
     QObject::connect(window->windowHandle(), &QWindow::yChanged, context.get(),
         [this, id] { enqueue(id, "move"); });
-    window->state_changed = [this, id](auto before, auto after) {
+    window->state_changed = [this, id, title_bar_overlay](auto before, auto after) {
+        if (title_bar_overlay)
+            broadcast_page_configuration();
         if (before.testFlag(Qt::WindowMinimized) != after.testFlag(Qt::WindowMinimized))
             enqueue(id, after.testFlag(Qt::WindowMinimized) ? "minimize" : "restore");
         if (before.testFlag(Qt::WindowMaximized) != after.testFlag(Qt::WindowMaximized))
@@ -224,7 +240,7 @@ Variant<int, Bridge::Impl::WindowCreationError> Bridge::Impl::create(int width, 
     }
 
     setup_content_callbacks(id);
-    broadcast_background();
+    broadcast_page_configuration();
     if (show)
         window->show();
     return id;

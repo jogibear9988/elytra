@@ -17309,6 +17309,23 @@ system library and two concurrent missing-provider failures.
 Python syntax and source-format checks pass locally. Native package rerun
 and extracted ZIP execution remain open.
 
+## Publish Cocoa title-bar geometry to the actual renderer
+
+The boolean titleBarOverlay option now admits Cocoa hidden-title-bar windows.
+The host publishes available title-bar bounds beside the genuine native
+buttons through the existing trusted page session. The renderer installs an
+EventTarget on the secure top-level Navigator before author scripts, returns
+a DOMRect and sends geometrychange on native movement or resize. Child frames
+are excluded. Native QWindow size notifications cover hidden QWidget resize
+events that would otherwise wait for show.
+
+Both Firefly builds pass. Hidden real Cocoa acceptance checks the first
+author script, read-only geometry, same-object identity, button movement,
+trusted resize events and iframe exclusion. Offscreen title-bar policy and
+existing native controls tests pass. No upstream files are changed. The CSS
+env() path, dedicated event constructor and zoom-only notifications remain
+open, as does complete Code-OSS default-profile acceptance.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

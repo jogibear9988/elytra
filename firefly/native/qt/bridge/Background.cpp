@@ -8,7 +8,7 @@
 #include <UI/Qt/WebContentView.h>
 
 namespace Firefly {
-void Bridge::Impl::broadcast_background()
+void Bridge::Impl::broadcast_page_configuration()
 {
     if (stopping)
         return;
@@ -48,7 +48,7 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_background_set_contents_ba
     set_content_background(*current->view, color);
     current->background_rgb = color;
     ++current->background_generation;
-    broadcast_background();
+    broadcast_page_configuration();
     return JS::js_undefined();
 }
 

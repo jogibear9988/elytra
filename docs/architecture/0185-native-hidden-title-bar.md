@@ -34,9 +34,17 @@ union into the full-window content coordinate space. The native drag hit test
 excludes that rectangle, independently of author drag regions. The shared
 provider is linked by the runtime and standalone chrome probe.
 
-The remaining constructor titleBarOverlay option requires renderer Window
-Controls Overlay state and CSS geometry. HiddenInset, custom fullscreen
-placement and Windows/Linux custom captions remain open.
+The boolean Cocoa titleBarOverlay option publishes bounded native window
+geometry through the existing authenticated helper session. Records are keyed
+to the native top-level navigable and removed before the upstream preload
+executor. The renderer attaches an EventTarget to the secure top-level
+document's Navigator and keeps only weak associations with that document.
+Native size and button changes publish new geometry and queue a trusted
+event in the same document. Child navigables are excluded.
+
+CSS geometry still needs a per-document seam in LibWeb's Rust style engine.
+HiddenInset, custom fullscreen placement and Windows/Linux custom captions
+remain open.
 
 Native tests inspect actual NSWindow masks, caption/background properties, standard
 buttons and full-size content layout. Qt-local drag events exercise the native

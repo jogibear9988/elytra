@@ -91,7 +91,7 @@ Optional<int> Bridge::Impl::create_view(
     windows.emplace(id, State { nullptr, view, move(preload), State::Kind::ChildView });
     windows.at(id).autoplay_policy = autoplay_policy;
     setup_content_callbacks(id);
-    broadcast_background();
+    broadcast_page_configuration();
     return id;
 }
 
@@ -246,7 +246,7 @@ void Bridge::Impl::setup_content_callbacks(int id)
         if (!current.closing)
             reset_ipc(id);
         windows.erase(id);
-        broadcast_background();
+        broadcast_page_configuration();
         enqueue(id, "contents-destroyed");
     });
     auto region_start = move(view->on_load_start);

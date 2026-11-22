@@ -126,8 +126,15 @@ Both omitted style and 'default' preserve existing platform chrome. Nonstring
 styles throw ERR_INVALID_ARG_TYPE. Unknown styles, including hiddenInset and
 customButtonsOnHover, throw ERR_FIREFLY_UNSUPPORTED_API. Hidden also throws
 ERR_FIREFLY_UNSUPPORTED_API on offscreen/non-Cocoa backends before native allocation.
-The constructor `titleBarOverlay` option and the renderer Window Controls
-Overlay API and CSS environment variables remain unsupported.
+On Cocoa, add `titleBarOverlay: true` to a hidden-title-bar window to expose
+`navigator.windowControlsOverlay` in its secure top-level document. Read
+`visible` and `getTitlebarAreaRect()` to lay out HTML beside the native controls.
+Listen for `geometrychange` with `addEventListener` or `ongeometrychange` when
+the native window resizes or its buttons move. Each event includes `visible`
+and `titlebarAreaRect`. Child frames do not receive this window geometry.
+
+CSS `env(titlebar-area-*)`, the dedicated geometry event constructor, zoom-only
+events and Windows/Linux overlay styling remain unsupported.
 
 Hidden content geometry uses actual Qt/AppKit frame margins; there is no fixed
 caption-height subtraction. Content bounds span the native window, and ordinary
