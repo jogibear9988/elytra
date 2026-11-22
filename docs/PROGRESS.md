@@ -17103,6 +17103,21 @@ Hosted Linux standalone Mite also passed on the initial update commit.
 The updated Code-OSS folder switch and native desktop packaging remain under
 validation.
 
+## Require the Code-OSS folder switch in the offscreen release check
+
+The Firefly build at Ladybird f9acbe91 passes the actual same-window switch
+with both ESM and CommonJS extension hosts. The combined CommonJS run also
+passes the terminal exit-17 and timed parent-liveness checks. Both processes
+exit 0, and their 17 and 16 tracked native processes stop without cleanup
+signals. Evidence is in build/code-oss-f9ac-workspace-switch.log and
+build/code-oss-f9ac-combined.log.
+
+Enable the switch in the existing macOS offscreen release invocation and
+give the two workbench startup cycles a 150-second deadline. The local
+combined control used the prepared stage directly. CI still requires the
+sealed sample entry and the separate extracted Cocoa checks. The native
+picker remains unverified.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

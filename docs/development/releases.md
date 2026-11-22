@@ -38,9 +38,10 @@ packager verifies that seal before and after copying. See the
 [Code-OSS packaging guide](../guides/code-oss-packaging.md) for prerequisites,
 commands, source ownership, limits and the exact native gate.
 
-Before packaging, the driver requires the ordinary CJS extension/editor/save,
-terminal and parent-liveness workflow through the sample entry with the explicit
-offscreen fixture. After packaging and existing native audits, it relocates one
+Before packaging, the offscreen release check requires Code-OSS to switch folders
+in the existing window, start a new CommonJS extension host, save an edit, and
+complete the terminal and parent-liveness checks. It runs through the sealed
+sample entry. After packaging and existing native audits, the driver extracts one
 signed Code-OSS.app and launches the **actual native Launcher** on Cocoa. That
 launcher supplies its recorded runtime/entry; the fixture supplies only normal
 application arguments. Exact Launcher/Firefly executable, birth, UID and owned-tree
