@@ -16660,6 +16660,16 @@ from the original SDK and executes the real launcher with ordinary and
 delay-loaded dependencies. Formatting, Python syntax and diff checks
 pass. Native execution and full helper/resource assembly remain pending.
 
+## Pin LLVM for the native Windows runners
+
+The November 22 runner image updated MSVC headers to 14.52 while its
+clang-cl remained too old. Package and AppContainer jobs failed at the
+STL version assertion before their native tests. Use upstream LLVM
+22.1.8 with the published Windows x64 installer SHA-256, and put that
+compiler and lld-link first in PATH after setting up Visual Studio.
+The header compatibility assertion remains enabled. Hosted verification
+is pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -1,5 +1,5 @@
 name: Native Windows environment
-description: Initialize Visual Studio clang-cl and export only required native toolchain variables
+description: Initialize the Visual Studio SDK and pinned LLVM compiler
 runs:
   using: composite
   steps:
