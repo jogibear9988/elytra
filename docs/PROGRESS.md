@@ -16650,6 +16650,16 @@ the event-loop pump, following the renderer fetch probe. Keep the
 real permission query, activation and request settlement assertions.
 Formatting and diff checks pass. Native reruns are pending.
 
+## Assemble the Windows launcher and Firefly main-process layout
+
+Stage a native launcher with a checked host-only DLL closure, the main
+executable's app-local dependencies, a local Qt plugin path and an
+application tree using the shared locked dependency policy. Publish all
+of those components together. The Windows fixture moves the package away
+from the original SDK and executes the real launcher with ordinary and
+delay-loaded dependencies. Formatting, Python syntax and diff checks
+pass. Native execution and full helper/resource assembly remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

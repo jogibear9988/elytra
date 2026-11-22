@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import tempfile
 
-from native_package import pe
+from native_package import pe, windows_app
 
 
 def build(directory, name, code, *, dll=False, link=(), driver=()):
@@ -168,6 +168,26 @@ int main(void) {
         assert "bridge.dll" in metadata["objects"][image.name]["imports"]
         assert "leaf.dll" in metadata["objects"][bridge.name]["imports"]
         assert "kernel32.dll" in metadata["hostDlls"]
+        app = root / "source app"
+        app.mkdir()
+        entry = app / "main.mjs"
+        entry.write_text("// Test application payload.\n", encoding="utf-8")
+        assembled = root / "assembled"
+        refused(
+            lambda: windows_app.stage(assembled, app, image, [bridge]),
+            "No explicit DLL provider for leaf.dll",
+        )
+        assert not assembled.exists()
+        manifest = windows_app.stage(assembled, app, image, [bridge, leaf])
+        assert set(manifest["pe"]["objects"]) == {"firefly.exe", "Bridge.dll", "Leaf.dll"}
+        assert set(manifest["launcher"]["objects"]) == {"Launch.exe"}
+        assert (assembled / "app/main.mjs").read_bytes() == entry.read_bytes()
+        refused(
+            lambda: windows_app.stage(assembled, app, image, [bridge, leaf]),
+            "Windows package output must be fresh",
+        )
+        relocated_app = root / "Relocated Anwendung Grüße 中文"
+        assembled.rename(relocated_app)
         moved = root / "Relocated Grüße 中文"
         stage.parent.rename(moved)
         inputs.rename(root / "SDK unavailable")
@@ -189,6 +209,14 @@ int main(void) {
             timeout=15,
         )
         assert result.returncode == 5, result.returncode
+        result = subprocess.run(
+            [str(relocated_app / "Launch.exe")],
+            cwd=working,
+            env={**os.environ, "PATH": str(pe.system_directory())},
+            timeout=15,
+        )
+        assert result.returncode == 37, result.returncode
+        print("PASS native Windows package assembly and relocated launcher with DLL closure")
     print("PASS native x64 PE closure, delayed imports, forwarded export, plugin, and relocation")
 
 

@@ -8,6 +8,9 @@ on:
       - 'firefly/packaging/LauncherWindows.cpp'
       - 'tooling/tests/test_windows_launcher.py'
       - 'tooling/native_package/pe.py'
+      - 'tooling/native_package/payload.py'
+      - 'tooling/native_package/windows_app.py'
+      - 'tooling/npm_payload.py'
       - 'tooling/tests/test_windows_pe_package.py'
   workflow_dispatch:
 permissions:
@@ -29,5 +32,5 @@ jobs:
         run: '& ./.github/actions/windows-environment/setup.ps1'
       - name: Compile and launch the relocated native fixture
         run: python tooling/tests/test_windows_launcher.py
-      - name: Stage and run the relocated PE import closure
+      - name: Assemble and run the relocated PE application fixture
         run: python tooling/tests/test_windows_pe_package.py
