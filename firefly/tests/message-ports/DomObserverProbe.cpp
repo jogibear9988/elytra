@@ -132,6 +132,13 @@ struct Shipped {
 
 template <typename Predicate> bool pump(Core::EventLoop& loop, Predicate predicate)
 {
+    // The headless realm factory leaves bootstrap contexts current. Suspend
+    // them while the HTML event loop runs its normal task checkpoints.
+    auto& vm = Web::Bindings::main_thread_vm();
+    vm.save_execution_context_stack();
+    vm.clear_execution_context_stack();
+    ScopeGuard restore_context([&] { vm.restore_execution_context_stack(); });
+
     auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (!predicate() && std::chrono::steady_clock::now() < deadline)
         loop.pump(Core::EventLoop::WaitMode::PollForEvents);

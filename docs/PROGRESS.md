@@ -17000,6 +17000,16 @@ The parser controls verify the private-output allowlist, the partial-line
 cutoff and the byte limit. Local offscreen Release rebuild, sample seals and
 generated site checks pass. Cocoa package validation remains open.
 
+## Pump the native DOM port probe outside its bootstrap realms
+
+Hosted Linux job 137136118029 passes the public IPC reentrant-close test,
+then aborts the independent DOM port observer at LibWeb's empty execution
+stack assertion. Suspend and restore the headless bootstrap contexts during
+each event-loop pump, as in the permission probe. Keep the actual dequeue,
+port transfer, garbage collection, ordered peer close and revocation checks.
+The local native probe builds and passes with no window. Hosted Linux
+revalidation remains pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
