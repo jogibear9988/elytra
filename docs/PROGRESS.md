@@ -16818,6 +16818,14 @@ retains the existing POSIX symlink and refresh behavior. Local compiler,
 seal and dependency-payload tests pass. The native Windows staging
 fixture and full Windows Code-OSS build remain pending.
 
+## Check physical layout even for excluded inventory metadata
+
+Reject links and reparse points anywhere in the physical Code-OSS
+sample, including Finder metadata and seal files normally excluded
+from payload hashing. A synthetic Finder metadata alias now fails
+the physical Windows layout check. Existing POSIX packaging continues
+to omit Finder metadata from the seal. The local sample controls pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

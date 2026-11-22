@@ -44,12 +44,12 @@ def inventory(root, *, physical_only=False):
     records = []
     for item in sorted(root.rglob("*")):
         name = item.relative_to(root).as_posix()
-        if item.name == ".DS_Store" or name in (INVENTORY, "BUILD.json"):
-            continue
         attributes = getattr(item.lstat(), "st_file_attributes", 0)
         is_reparse = bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
         if physical_only and (is_reparse or item.is_symlink()):
             raise ValueError("Code-OSS physical layout contains a link: " + name)
+        if item.name == ".DS_Store" or name in (INVENTORY, "BUILD.json"):
+            continue
         if is_reparse and not item.is_symlink():
             raise ValueError("Unsupported Code-OSS reparse point: " + name)
         if item.is_symlink():

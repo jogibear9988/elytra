@@ -173,6 +173,11 @@ def main():
         copied.symlink_to(Path("..") / "src/main.js")
         fixture(physical, physical=True)
         rejected(lambda: verify_sample(physical, require_physical=True))
+        copied.unlink()
+        copied.write_bytes((physical / "src/main.js").read_bytes())
+        fixture(physical, physical=True)
+        (physical / ".DS_Store").symlink_to("src/main.js")
+        rejected(lambda: verify_sample(physical, require_physical=True))
     print("PASS sample source seals, launch policy, internal links and drift/escape refusals")
 
 
