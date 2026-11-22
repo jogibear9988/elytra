@@ -6,7 +6,7 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "371e877bc98417ffa6a0dcdd13aa302b3de9e568da4d259bd8c067964f28f2aa"
+EXPECTED = "ac7efe361f6c0bfb2d4f10aa69fe616d15452fa2bcb3df0dfaccdf1fedf4629d"
 PREFIX = '#include "loading/web-request/Gate.h"\n'
 SEAM = "ErrorOr<void> WebSocket::establish_web_socket_connection(URL::URL const& url_record, Vector<Utf16String> const& protocols, HTML::EnvironmentSettingsObject& client)\n{\n"
 HOOK = """    // The upstream opening handshake does not yet use Fetch. Refuse it

@@ -26,7 +26,7 @@ HOOKS = {
 
 
 EXPECTED_COUNTS = {
-    "invoke_callback": 4,
+    "invoke_callback": 3,
     "m_timers": 14,
     "m_node_list": 3,
     "event_listener_list_changed": 2,
@@ -35,6 +35,7 @@ EXPECTED_COUNTS = {
 
 
 def verify_text(text, names):
+    text = re.sub(r"(?m)^[ \t]*//[^\n]*", "", text)
     failures = []
     for name in names:
         if len(re.findall(r"\b" + re.escape(name) + r"\b", text)) != EXPECTED_COUNTS.get(name, 1):

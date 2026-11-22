@@ -332,13 +332,18 @@ void Bridge::Impl::setup_content_callbacks(int id)
               }
           };
 
-    QObject::connect(view, &Ladybird::WebContentView::ready_to_paint, context.get(), [this, id] {
+    auto ready_to_paint = move(view->on_ready_to_paint);
+    view->on_ready_to_paint = [this, id, lifetime, weak_view, original = move(ready_to_paint)] {
+        if (original)
+            original();
+        if (!lifetime || !weak_view)
+            return;
         auto found = windows.find(id);
-        if (found != windows.end() && !found->second.painted) {
+        if (found != windows.end() && !found->second.closing && !found->second.painted) {
             found->second.painted = true;
             enqueue(id, "paint");
         }
-    });
+    };
 }
 
 void Bridge::Impl::install_views(JS::Object& host)

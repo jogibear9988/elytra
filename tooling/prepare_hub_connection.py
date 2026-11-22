@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Services/Hub/ConnectionFromUI.cpp"
-DIGEST = "1fad77eca9d78b40b64df1cffe33138a24dadce742aa8ca6614c164df056469b"
+DIGEST = "2d6f5a54b85c8fe346c6e883d0f722c1a087a28a59a7087284920ea4e40f5313"
 PREFIX = '#include "native/qt/hub/ConnectionHooks.h"\n'
 CLEANUP = """    WebView::ApplicationWebUI::set_callbacks({});
     Application::settings().on_persist = nullptr;

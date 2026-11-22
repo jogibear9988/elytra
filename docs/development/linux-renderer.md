@@ -434,7 +434,7 @@ unsupported. Physical/mixed-DPI/hotplug acceptance remains separate.
 
 ## Portable CPU policy and native crash diagnostics
 
-Linux renderer CI now requests the pinned upstream ENABLE_CI_BASELINE_CPU policy:
+Linux renderer CI now requests the pinned upstream LADYBIRD_BASELINE_CPU_TARGET policy:
 C++ -march=x86-64-v2 and Cargo -Ctarget-cpu=x86-64-v2, with Rust warnings remaining
 fatal. build_renderer.py --baseline-cpu selects and audits the actual generated
 C++/Cargo commands; the separate package-validation Mite SDK uses the same policy.

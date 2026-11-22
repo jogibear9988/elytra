@@ -10,7 +10,7 @@ import shlex
 
 def check(build):
     cache = (build / "CMakeCache.txt").read_text(encoding="utf-8")
-    if "ENABLE_CI_BASELINE_CPU:BOOL=ON" not in cache.splitlines():
+    if "LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON" not in cache.splitlines():
         raise ValueError("Linux x64 distribution baseline is not enabled")
     cpp = 0
     for record in json.loads((build / "compile_commands.json").read_text(encoding="utf-8")):

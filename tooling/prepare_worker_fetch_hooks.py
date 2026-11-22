@@ -5,17 +5,17 @@ import argparse
 import hashlib
 from pathlib import Path
 
-# Reviewed 9803f2d5: PageClient geolocation/notification changes and PageHost
-# palette cleanup leave worker admission, publication and owner teardown unchanged.
+# Reviewed f9acbe91: new media and compositor recovery callbacks leave worker
+# admission, publication and owner teardown unchanged.
 ROOT = Path(__file__).resolve().parents[1]
 PINS = {
     "WorkerPageClient.cpp": (
         "Services/WebContent/PageClient.cpp",
-        "bc19f55f48f7d6be8780d64b51e6a8305200e2da0bfe749436374010950c33cd",
+        "f7d500b91d78549aaec774b60b8d11bd327775dad6b4d209f2f1e775ac63c469",
     ),
     "WorkerPageHost.cpp": (
         "Services/WebContent/Worker/PageHost.cpp",
-        "2122a196fc8eafe3ced85aec5b06784a5500fcf5f4beb871de5f343e70243bd1",
+        "18fddeb911cab152e613e7c0d1dd4353b6ae1b562701c738f24a82920efe17aa",
     ),
     "WorkerThread.cpp": (
         "Services/WebContent/Worker/WorkerThread.cpp",

@@ -12,14 +12,14 @@ import hashlib
 from pathlib import Path
 import re
 
-# Reviewed 9803f2d5: preserve upstream ErrorOr backing-store refusal/release
-# behavior and the devtools port parameter; only the existing frontend seams differ.
+# Reviewed f9acbe91: retain upstream backing-store retirement, compositor
+# frame snapshots and the guarded HubConnection destructor.
 PINS = {
-    "RemoteView.h": "d11af29c926566d2d697af4f1f04b54a6ba0c360939ba74e52f8ed47c07292cd",
-    "RemoteView.cpp": "1f26b2147965e6c405729c7142e656180a3d5143dbbb5efd94af61e30b7b4f6b",
-    "HubConnection.cpp": "ca37800d28c772a3f5f602cb6b13d59eeb0f3143ed2eac81a2b256dfc7753695",
-    "WebContentView.cpp": "a85dc975b2ed6059777558ce6ac595d1dd5da3bb3741bc93aa4b6d5218d1e5bd",
-    "ContextMenus.cpp": "54fc415034b41e6a5000bcc7bae06342c5fafaad82e26b89b00e475847bb516b",
+    "RemoteView.h": "3a12b067baf682fbfdc70244ebb9fc1838abe0e9fa6a573266ca62d0dde300d2",
+    "RemoteView.cpp": "6e62f34a89d3c2a158d824ec0bfd0175b93f32088f08c446fd1296a100b9f758",
+    "HubConnection.cpp": "77550fd2cef94a208fb4c038b60356fc083f4627601ba38a886ab2dc2bab5c70",
+    "WebContentView.cpp": "05229ac2f91d476e5d3fdc31ef8a6937b5d2e4df44df6f3a21159dfd0e327a2a",
+    "ContextMenus.cpp": "1597a3e68f6ff66585b1a473ac304ca6acd7e41b8eec8261839972ee054b3bcf",
 }
 
 
@@ -145,10 +145,6 @@ def transform(name, original):
             '#include "native/qt/hub/Frontend.h"\n#include "native/qt/hub/ConnectionHooks.h"',
         )
         c.replace(
-            "HubConnection::~HubConnection()\n{\n    s_the = nullptr;\n}",
-            "HubConnection::~HubConnection()\n{\n    if (s_the == this)\n        s_the = nullptr;\n}",
-        )
-        c.replace(
             "void HubConnection::die()\n{\n",
             "void HubConnection::die()\n{\n    if (s_the != this)\n        return;\n",
         )
@@ -185,6 +181,8 @@ void retire_ui_client(Ladybird::HubConnection& connection)
             "app_did_clear_history_since",
             "app_did_enable_devtools",
             "app_did_disable_devtools",
+            "app_gpu_painting_changed",
+            "app_display_update_check_result",
             "app_open_urls_in_new_tabs",
             "app_activate_or_open_tab_with_url",
             "app_display_download_confirmation_dialog",
@@ -194,6 +192,7 @@ void retire_ui_client(Ladybird::HubConnection& connection)
             "pip_hide",
             "pip_set_video_size",
             "pip_close",
+            "media_session_update",
             "app_focus_view_from_notification",
             "app_open_url_in_new_tab_from_notification",
             "external_url_release_handler",
@@ -232,6 +231,12 @@ void retire_ui_client(Ladybird::HubConnection& connection)
             "HubConnection",
             "microphone_request_authorization",
             "    async_microphone_authorization_changed(WebView::MicrophoneAuthorization::Denied);",
+        )
+        c.method(
+            "HubConnection",
+            "default_browser_make_default",
+            '    Firefly::HubFrontend::unsupported("implicit default browser registration"sv);\n'
+            "    async_default_browser_make_default_finished(true, {});",
         )
         c.method(
             "HubConnection",

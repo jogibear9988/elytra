@@ -136,8 +136,9 @@ def main():
         f"-DLADYBIRD_CACHE_DIR={ROOT}/build/renderer-cache",
         "-DBUILD_TESTING=OFF",
         "-DENABLE_JS_JIT=OFF",
-        f"-DENABLE_LTO_FOR_RELEASE={'ON' if args.lto else 'OFF'}",
+        f"-DLADYBIRD_ENABLE_LTO={'ON' if args.lto else 'OFF'}",
         "-DENABLE_INSTALL_HEADERS=OFF",
+        "-DLADYBIRD_ENABLE_UPDATE_CHECK=OFF",
         "-DCMAKE_SKIP_INSTALL_RULES=ON",
     ]
     command.extend(cache_options)
@@ -173,7 +174,7 @@ def main():
         )
     command.append(f"-DFIREFLY_SHARED_OPENSSL={'ON' if args.shared_openssl else 'OFF'}")
     command.append(f"-DELYTRA_OPTIMIZE_SIZE={'ON' if args.optimize_size else 'OFF'}")
-    command.append(f"-DENABLE_CI_BASELINE_CPU={'ON' if args.baseline_cpu else 'OFF'}")
+    command.append(f"-DLADYBIRD_BASELINE_CPU_TARGET={'ON' if args.baseline_cpu else 'OFF'}")
     environment = {**os.environ, "VCPKG_MAX_CONCURRENCY": str(args.jobs)}
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
     if args.ccache:

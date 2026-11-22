@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = {
-    "View.cpp": "97c5f4b0e6516b47870ed58abc8027bfa6b345e580f8a269c9e3871a0a3f8848",
-    "View.h": "8dc42bcaec6624eb89f663f4bfe30361cc6ce351babf27d58b1c68c9a1c9a81b",
+    "View.cpp": "9bfbe1dd4d0c1facba1457b13a9d8e4f881258cd58b91b38cb5bc760afa06d09",
+    "View.h": "ff92a8f757f1654ad114796c7f25fa89b735ca4e907c0749ca40c9c94296b0c0",
 }
 PREFIX = '#include "native/qt/PreloadHooks.h"\n'
 

@@ -6,16 +6,14 @@ import hashlib
 import textwrap
 from pathlib import Path
 
-# Reviewed 9803f2d5: preserve the new sandbox-violation assertion reporting;
-# directory/profile ownership and appended application metadata seams are unchanged.
+# Reviewed f9acbe91: upstream removed legacy report migration. Keep its
+# profile-local storage and retirement policy outside the embedded session.
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '#include "native/crash/Reporter.h"\n'
-# Candidate storage adds cross-filesystem adoption, website sidecars and bounded
-# pending retention. These hooks leave its ownership/no-follow/atomic-write paths
-# intact: only the default directory and owned build metadata are composed.
+# Keep site sidecars, retention and the owned-file/atomic-write paths intact.
 FILES = {
     "CrashReportStore.cpp": (
-        "b88fef186592ff8f8c80f44820ef8ee5c8b7a23840812be90d23f6e073031888",
+        "8fbcf4541fc08fcb153b3980fa49f6e9dfc4a057d6638eeeb871f3e9b6ea39d3",
         [
             (
                 '    return LexicalPath::join(Core::StandardPaths::user_data_directory(), "Ladybird"sv, "CrashReports"sv).string();',
@@ -39,12 +37,12 @@ FILES = {
 }
 
 APPLICATION_SOURCE = "Libraries/LibWebView/Application.cpp"
-APPLICATION_DIGEST = "a73f01e95ee9ae760e0d80149ef51134f766bcfb5458ab191973a37f24c1d61d"
+APPLICATION_DIGEST = "64fd7359a9b48ba637a4051b8306e9ee7223584c327e50cddd437fe6f1cbf4c1"
 
 
 def application_changes(source):
-    """Keep browser report migration/disposal out of a trusted embedded profile."""
-    start = "    // Reports belong to the profile they came from, whose own setting decides what happens to them. A temporary\n"
+    """Keep browser reporting and disposal out of a trusted embedded profile."""
+    start = "    // Reports belong to the profile they came from, whose own setting decides what happens to them.\n"
     end = "    // Test results must not depend on the languages of the machine running the tests.\n"
     if source.count(start) != 1 or source.count(end) != 1:
         raise ValueError("Review browser crash profile ownership seam")

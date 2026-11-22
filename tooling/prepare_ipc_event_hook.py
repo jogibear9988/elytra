@@ -6,10 +6,10 @@ import hashlib
 from pathlib import Path
 from prepare_permission_hooks import adapt as permission_adapt
 
-# Reviewed 9803f2d5: only native notification-test handlers were added here;
-# navigation handoff, native-document preparation and IPC event ordering are intact.
+# Reviewed f9acbe91: upstream now carries the admitted file grant to the
+# navigation loader. Keep that ownership and the existing IPC event ordering.
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "5c4e01169ba9e1cce382eab131346797edc5782a601749341b82ce213ff0e769"
+EXPECTED = "81817c5a69a5fb69bf2733d132ea5c25cb849e039f7a100d3c2d8efae3bfffbb"
 SEAM = "    if (auto* webdriver_bidi = WebDriverBiDi::the())\n        webdriver_bidi->did_receive_event(*this, navigable_id, name, move(params));"
 HOOK = "    if (Firefly::receive_native_ipc(*this, navigable_id, name, params)) return;\n"
 

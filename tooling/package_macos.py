@@ -340,13 +340,13 @@ def main():
         "rustNoticePackages": license_count,
     }
     manifest["cppLTO"] = {
-        name: cache_value(build, "ENABLE_LTO_FOR_RELEASE")
+        name: cache_value(build, "LADYBIRD_ENABLE_LTO")
         for name, build in [("mite", mite), ("firefly", renderer)]
     }
     if code_oss_metadata:
         manifest["codeOSS"] = code_oss_metadata
     manifest["cpuBaseline"] = {
-        name: cache_value(build, "ENABLE_CI_BASELINE_CPU")
+        name: cache_value(build, "LADYBIRD_BASELINE_CPU_TARGET")
         for name, build in [("mite", mite), ("firefly", renderer)]
     }
     manifest["sharedOpenSSL"] = cache_value(renderer, "FIREFLY_SHARED_OPENSSL", "OFF")

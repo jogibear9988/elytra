@@ -31,11 +31,12 @@ set(ENABLE_INSTALL_HEADERS OFF)
 set(ENABLE_JS_JIT
     OFF
     CACHE BOOL "Enable upstream LibJS JIT")
-set(ENABLE_LTO_FOR_RELEASE
+set(LADYBIRD_ENABLE_LTO
     OFF
-    CACHE BOOL "Enable C++ link-time optimization in Release builds")
-option(ENABLE_CI_BASELINE_CPU "Use upstream's common CPU baseline for distribution builds" OFF)
-set(ENABLE_LAGOM_CCACHE OFF)
+    CACHE BOOL "Enable C++ link-time optimization")
+option(LADYBIRD_BASELINE_CPU_TARGET "Use upstream's common CPU baseline for distribution builds"
+       OFF)
+set(LADYBIRD_ENABLE_CCACHE OFF)
 set(LADYBIRD_VERSION "")
 set(LADYBIRD_BROWSER_VERSION "${PROJECT_VERSION}")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -43,10 +44,8 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 include(compile_options)
-if(ENABLE_LTO_FOR_RELEASE
-   AND CMAKE_BUILD_TYPE STREQUAL "Release"
-   AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
-    message(FATAL_ERROR "Requested Release LTO is unsupported by this compiler/linker")
+if(LADYBIRD_ENABLE_LTO AND NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    message(FATAL_ERROR "Requested LTO is unsupported by this compiler/linker")
 endif()
 include(lagom_install_options)
 include(rust_crate)
@@ -69,7 +68,6 @@ find_package(ICU 78.3 EXACT REQUIRED COMPONENTS data i18n uc)
 include(mite/cmake/IcuData.cmake)
 find_path(LLVM_LIBC_INCLUDE_DIR NAMES llvm-libc/shared/math.h REQUIRED)
 pkg_check_modules(LIBPSL REQUIRED IMPORTED_TARGET libpsl)
-pkg_check_modules(libtommath REQUIRED IMPORTED_TARGET libtommath)
 if(WIN32)
     find_package(pthread REQUIRED)
     find_package(mman REQUIRED)

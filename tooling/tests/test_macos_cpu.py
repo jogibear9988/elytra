@@ -27,7 +27,7 @@ class MacCpuPolicy(unittest.TestCase):
     def test_generated_commands(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "CMakeCache.txt").write_text("ENABLE_CI_BASELINE_CPU:BOOL=ON\n")
+            (root / "CMakeCache.txt").write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON\n")
             command = {
                 "file": "engine.cpp",
                 "arguments": ["clang++", "-mcpu=apple-m1", "-c", "engine.cpp"],
@@ -75,7 +75,7 @@ class MacCpuPolicy(unittest.TestCase):
     def test_retired_nojit_flags_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "CMakeCache.txt").write_text("ENABLE_CI_BASELINE_CPU:BOOL=ON\n")
+            (root / "CMakeCache.txt").write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON\n")
             (root / "compile_commands.json").write_text(
                 json.dumps(
                     [{"file": "engine.cpp", "arguments": ["clang++", CPU_FLAG, "-c", "engine.cpp"]}]

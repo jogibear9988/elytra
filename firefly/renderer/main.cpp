@@ -111,7 +111,7 @@ public:
                 });
         };
 
-        view->load(options.urls.first());
+        view->load_from_browser_ui(options.urls.first());
         deadline->start();
         return loop.exec();
     }

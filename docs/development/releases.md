@@ -212,7 +212,7 @@ On macOS ARM64, the release driver enables upstream's fixed Apple M1 CPU baselin
 for both Mite and Firefly. It verifies generated C++/Cargo commands, retaining fatal
 Rust warnings, and records cpuBaseline for both projects in BUILD.json. Reproduce
 the renderer configuration with --baseline-cpu; a standalone Mite CMake build uses
--DENABLE_CI_BASELINE_CPU=ON followed by tooling/check_macos_cpu.py --build BUILD_DIR.
+-DLADYBIRD_BASELINE_CPU_TARGET=ON followed by tooling/check_macos_cpu.py --build BUILD_DIR.
 This addresses the ring ARM capability assertion failure in the previous hosted
 build; full hosted acceptance remains pending. See
 [ADR 0063](../architecture/0063-macos-release-cpu-baseline.md).
@@ -222,7 +222,7 @@ off while framework-size and native sample validation are in progress. This opti
 does not skip any release gate or enable the JS JIT/Rust cross-language LTO. The
 macOS package BUILD.json records each project's cppLTO setting; package sizes must
 be compared with identical dependency/symbol modes. A standalone manual CMake build
-uses -DENABLE_LTO_FOR_RELEASE=ON. Unsupported compiler/linker IPO fails explicitly.
+uses -DLADYBIRD_ENABLE_LTO=ON. Unsupported compiler/linker IPO fails explicitly.
 
 The separate --optimize-size experiment applies a checked C++ size flag after
 upstream Release optimization options. Rust/dependency profiles are unchanged;

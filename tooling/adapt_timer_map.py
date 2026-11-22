@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 import re
 
-# Reviewed 9803f2d5: permission-status storage is now EventTarget-based; all
-# fourteen timer-map owners and the internal chunk-rearm sequence are unchanged.
-SOURCE_SHA256 = "0cd77392c22ebeb4ff943f23165599ca04e80251a2a55057504ec6defa5d2385"
+# Reviewed f9acbe91: image bitmap color conversion moved into LibCompositing.
+# All fourteen timer-map owners and the internal chunk-rearm sequence are unchanged.
+SOURCE_SHA256 = "c30a42c35dfe20de74db57b07c4df75d0292dcd0a82975847a245e1066d2415f"
 HEADER_SHA256 = "801b7e3d95568b11531967ca5b1817bf068fd7ac45b709cf829cc78e36f03192"
 CAST_OWNER = "global_scope"
 COUNTS = {"m_timers": 9, "self.m_timers": 4, CAST_OWNER + ".m_timers": 1}

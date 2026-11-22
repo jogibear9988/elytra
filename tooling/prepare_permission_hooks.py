@@ -14,11 +14,11 @@ PINS = {
     ),
     "WebContentPage.cpp": (
         "Libraries/LibWebView/WebContentPage.cpp",
-        "5c4e01169ba9e1cce382eab131346797edc5782a601749341b82ce213ff0e769",
+        "81817c5a69a5fb69bf2733d132ea5c25cb849e039f7a100d3c2d8efae3bfffbb",
     ),
     "WebContentClient.cpp": (
         "Libraries/LibWebView/WebContentClient.cpp",
-        "cbf6507b6b9c3a07e54959730f971b3f82d13fd8608c45ec0b302bf40e06ee8d",
+        "2f34972a3c3415e7a8187324163f3a771249d2cf9845457d07b863e8b46e3785",
     ),
 }
 

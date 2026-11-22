@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Services/Hub/Application.cpp"
-DIGEST = "c3ba198c6c25aed31e665d0ea2edf84679cc7357e8d025c487c7dbecccc65960"
+DIGEST = "1c02d52845dddf0b6b63c1470408b80e58b468a7cd42b2a7f8eb707aa24f3778"
 PREFIX = '#include "native/qt/hub/Lifecycle.h"\n'
 CONSTRUCTOR = "Application::Application(ApplicationHost* host)\n    : m_host(host)\n"
 OWNED_CONSTRUCTOR = (

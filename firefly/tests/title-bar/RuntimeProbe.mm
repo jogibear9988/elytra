@@ -1,8 +1,10 @@
 /** Observe the real renderer and native controls during one coordinated visible Cocoa window. */
 #include "../../native/qt/ChromeWindow.h"
+#include "../RenderedFrameSnapshot.h"
 #include <AppKit/AppKit.h>
 #include <QApplication>
 #include <QImage>
+#include <QPointer>
 #include <QTimer>
 #include <QWindow>
 #include <UI/Qt/WebContentView.h>
@@ -83,7 +85,8 @@ bool toolbar_pixel_matches(QImage const& image, QSize viewport)
         && std::abs(color.green() - 52) <= 1 && std::abs(color.blue() - 86) <= 1;
 }
 
-Observation observe(Firefly::ChromeWindow& window, Ladybird::WebContentView& view)
+Observation observe(Firefly::ChromeWindow& window, Ladybird::WebContentView& view,
+    Firefly::Tests::RenderedFrameSnapshot& snapshot)
 {
     Observation result;
     auto* native_view = (__bridge NSView*)reinterpret_cast<void*>(window.effectiveWinId());
@@ -95,10 +98,8 @@ Observation observe(Firefly::ChromeWindow& window, Ladybird::WebContentView& vie
         && native.titleVisibility == NSWindowTitleHidden && native.titlebarAppearsTransparent;
     result.buttons = result.styles && native_buttons_are_hit_targets(native);
     result.regions = window.draggable({ 180, 20 }) && !window.draggable({ 270, 20 });
-    // The public upstream preview reads the accepted compositor CPU bitmap. A
-    // QWidget grab cannot inspect macOS's separate CALayer and is not an oracle.
-    if (auto preview = view.tab_preview_pixmap(view.size()); preview.has_value())
-        result.canvas = preview->toImage();
+    // The compositor supplies the accepted frame even for a separate CALayer.
+    result.canvas = snapshot.request(view);
     result.pixels = toolbar_pixel_matches(result.canvas, view.size());
     return result;
 }
@@ -107,50 +108,58 @@ void start_observer()
 {
     QTimer::singleShot(0, QCoreApplication::instance(), [] {
         auto* timer = new QTimer(QCoreApplication::instance());
-        QObject::connect(timer, &QTimer::timeout, timer, [timer] {
-            static unsigned attempts = 0;
-            for (auto* widget : QApplication::topLevelWidgets()) {
-                auto* window = dynamic_cast<Firefly::ChromeWindow*>(widget);
-                if (!window || window->windowTitle() != "elytra-title-bar-runtime"
-                    || !window->isVisible())
-                    continue;
-                Ladybird::WebContentView* view = nullptr;
-                for (auto* child : window->findChildren<QWidget*>()) {
-                    if (auto* candidate = dynamic_cast<Ladybird::WebContentView*>(child)) {
-                        view = candidate;
-                        break;
+        QObject::connect(timer, &QTimer::timeout, timer,
+            [timer, observed = QPointer<Ladybird::WebContentView> {},
+                snapshot = Firefly::Tests::RenderedFrameSnapshot {}]() mutable {
+                static unsigned attempts = 0;
+                for (auto* widget : QApplication::topLevelWidgets()) {
+                    auto* window = dynamic_cast<Firefly::ChromeWindow*>(widget);
+                    if (!window || window->windowTitle() != "elytra-title-bar-runtime"
+                        || !window->isVisible())
+                        continue;
+                    Ladybird::WebContentView* view = nullptr;
+                    for (auto* child : window->findChildren<QWidget*>()) {
+                        if (auto* candidate = dynamic_cast<Ladybird::WebContentView*>(child)) {
+                            view = candidate;
+                            break;
+                        }
                     }
-                }
 
-                if (!view)
-                    continue;
-                auto result = observe(*window, *view);
-                if (++attempts == 200) {
-                    std::fprintf(stderr,
-                        "Title bar runtime waiting geometry=%d styles=%d buttons=%d regions=%d "
-                        "pixels=%d viewport=%dx%d canvas=%dx%d origin=%d,%d\n",
-                        result.geometry, result.styles, result.buttons, result.regions,
-                        result.pixels, view->width(), view->height(), result.canvas.width(),
-                        result.canvas.height(), view->mapTo(window, QPoint(0, 0)).x(),
-                        view->mapTo(window, QPoint(0, 0)).y());
-                    auto* native
-                        = (__bridge NSView*)reinterpret_cast<void*>(window->effectiveWinId());
-                    if (!result.buttons)
-                        diagnose_buttons(native.window);
-                    std::fflush(stderr);
-                }
+                    if (!view)
+                        continue;
+                    if (observed != view) {
+                        observed = view;
+                        snapshot = {};
+                    }
 
-                if (!result.geometry || !result.styles || !result.buttons || !result.regions
-                    || !result.pixels)
-                    continue;
-                std::puts("PASS native title bar runtime real toolbar pixels full viewport native "
-                          "button hit targets and HTML drag regions");
-                std::fflush(stdout);
-                window->setWindowTitle("elytra-title-bar-runtime-ok");
-                timer->stop();
-                return;
-            }
-        });
+                    auto result = observe(*window, *view, snapshot);
+                    if (++attempts == 200) {
+                        std::fprintf(stderr,
+                            "Title bar runtime waiting geometry=%d styles=%d buttons=%d regions=%d "
+                            "pixels=%d viewport=%dx%d canvas=%dx%d origin=%d,%d\n",
+                            result.geometry, result.styles, result.buttons, result.regions,
+                            result.pixels, view->width(), view->height(), result.canvas.width(),
+                            result.canvas.height(), view->mapTo(window, QPoint(0, 0)).x(),
+                            view->mapTo(window, QPoint(0, 0)).y());
+                        auto* native
+                            = (__bridge NSView*)reinterpret_cast<void*>(window->effectiveWinId());
+                        if (!result.buttons)
+                            diagnose_buttons(native.window);
+                        std::fflush(stderr);
+                    }
+
+                    if (!result.geometry || !result.styles || !result.buttons || !result.regions
+                        || !result.pixels)
+                        continue;
+                    std::puts(
+                        "PASS native title bar runtime real toolbar pixels full viewport native "
+                        "button hit targets and HTML drag regions");
+                    std::fflush(stdout);
+                    window->setWindowTitle("elytra-title-bar-runtime-ok");
+                    timer->stop();
+                    return;
+                }
+            });
         timer->start(20);
     });
 }

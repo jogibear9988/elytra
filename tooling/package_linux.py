@@ -69,7 +69,7 @@ def stage(
     if mite_build is None:
         raise ValueError("A separately built standalone Mite CLI is required")
     mite_build = Path(mite_build).resolve(strict=True)
-    if any(cache_value(sdk, "ENABLE_CI_BASELINE_CPU") != "ON" for sdk in [build, mite_build]):
+    if any(cache_value(sdk, "LADYBIRD_BASELINE_CPU_TARGET") != "ON" for sdk in [build, mite_build]):
         raise ValueError("Linux app distribution requires the portable CPU baseline in both SDKs")
     application = Path(application).resolve(strict=True)
     verify_designer_shell(application)

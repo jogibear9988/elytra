@@ -20,7 +20,7 @@ def check_autoplay_compositions(test, check, cpu, rust_cpu, environment):
     spec.loader.exec_module(composition)
     with tempfile.TemporaryDirectory() as temporary:
         build = Path(temporary).resolve()
-        (build / "CMakeCache.txt").write_text("ENABLE_CI_BASELINE_CPU:BOOL=ON\n")
+        (build / "CMakeCache.txt").write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON\n")
         (build / "compile_commands.json").write_text(
             json.dumps([{"file": "engine.cpp", "arguments": ["clang++", cpu, "-c", "engine.cpp"]}])
         )

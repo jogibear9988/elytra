@@ -234,7 +234,7 @@ jobs:
       - name: Compile separate standalone Release Mite for package validation
         run: |
           set -o pipefail
-          cmake -S . -B build/linux-package-mite -G Ninja -DCMAKE_BUILD_TYPE=Release -DENABLE_CI_BASELINE_CPU=ON -DBUILD_TESTING=OFF -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee build/linux-renderer-package-mite-configure.log
+          cmake -S . -B build/linux-package-mite -G Ninja -DCMAKE_BUILD_TYPE=Release -DLADYBIRD_BASELINE_CPU_TARGET=ON -DBUILD_TESTING=OFF -DCMAKE_C_COMPILER=clang-22 -DCMAKE_CXX_COMPILER=clang++-22 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=/usr/bin/ld.lld-22 -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/build/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache 2>&1 | tee build/linux-renderer-package-mite-configure.log
           python tooling/check_linux_cpu.py --build build/linux-package-mite
           cmake --build build/linux-package-mite --target mite --parallel 3 2>&1 | tee build/linux-renderer-package-mite-build.log
           ldd build/linux-package-mite/bin/mite | tee build/linux-renderer-package-mite-linkage.log

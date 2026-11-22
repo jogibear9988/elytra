@@ -2,6 +2,7 @@
 #include "../../native/canvas/UI.h"
 #include "../../native/qt/ChromeWindow.h"
 #include "../../native/qt/ContentView.h"
+#include "../RenderedFrameSnapshot.h"
 #include "native/platform/GCIncludes.h"
 #include <QApplication>
 #include <QImage>
@@ -17,6 +18,7 @@ constexpr auto acknowledged = "elytra-background-ok-";
 
 struct ObservedFrame {
     unsigned swaps {};
+    Firefly::Tests::RenderedFrameSnapshot snapshot;
 };
 
 auto& observed_frames()
@@ -32,6 +34,7 @@ void observe_frames(Ladybird::WebContentView& view)
         return;
     auto frame = std::make_shared<ObservedFrame>();
     frames.emplace(&view, frame);
+    view.add_frame_notification_interest();
     auto previous = move(view.on_ready_to_paint);
     view.on_ready_to_paint = [frame, previous = move(previous)] {
         // Upstream invokes this only after accepting/swapping a compositor bitmap.
@@ -65,11 +68,9 @@ unsigned registered_background(Ladybird::WebContentView const& view)
 
 QImage committed_canvas(Ladybird::WebContentView& view)
 {
-    // Public upstream preview reads actual compositor pixels. Remote-layer
-    // snapshots may arrive asynchronously; callers retry until a preview exists.
+    // A snapshot reads actual compositor pixels and may arrive asynchronously.
     // QWidget::grab cannot read macOS's separate CALayer and is not a canvas oracle.
-    auto preview = view.tab_preview_pixmap(QSize(640, 480));
-    return preview.has_value() ? preview->toImage() : QImage {};
+    return observed_frames().at(&view)->snapshot.request(view);
 }
 
 bool committed_canvas_pixel_matches(Ladybird::WebContentView& view, unsigned expected)

@@ -20,7 +20,7 @@ GNU readelf/strip, dpkg-query and the offline Cargo sources used by the renderer
 First build the actual Release runtime using [Linux renderer bring-up](linux-renderer.md)
 and a separate Release Mite CLI using [Linux development](linux-build.md). Configure
 the renderer with --baseline-cpu and standalone Mite with
--DENABLE_CI_BASELINE_CPU=ON. Packaging refuses an SDK without this portable
+-DLADYBIRD_BASELINE_CPU_TARGET=ON. Packaging refuses an SDK without this portable
 x86-64-v2 policy; generated C++/Cargo commands must pass check_linux_cpu.py.
 Mite must be built from the standalone root CMake project. A CLI linked from the
 full renderer SDK can acquire LibWeb transitively and is refused by this packager.

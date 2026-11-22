@@ -11,12 +11,10 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentServer.ipc"
 GENERATOR = ROOT / "vendor/ladybird/Meta/Generators/generate_ipc_definitions.py"
-# Reviewed b872e601: routed WebContent endpoints remain C++-only. The new
-# RustSender/RustReceiver/enum-flags generator branches do not apply here;
-# NotRouted stub dispatch and argument-claim checks are unchanged. Compare the
-# actual candidate's original generation with every appended generation below.
-INPUT_SHA = "70f4e5f741b3bde976950b1344ef73a8eb3ef05176ea147573e0cf6d388a93ae"
-GENERATOR_SHA = "41156bbe52973fbec116af031ea5fc529fc31a8362226d99ea7af8732ff4ec68"
+# Reviewed f9acbe91: the new raw synchronous Rust replies leave these C++
+# routed endpoints, NotRouted dispatch and argument claims intact.
+INPUT_SHA = "e577277ceb88dcffbc7fcd91cb0a58d8c407158eb2e150e766879b48ddcd5eeb"
+GENERATOR_SHA = "87ec4095aeee0ed0359acf7b36dc27a35af616031166cf6fa8459e070a964686"
 INCLUDE = "#include <LibIPC/FireflyBootstrap.h>\n"
 METHOD = "\n    [NotRouted] firefly_connect_byte_channel(IPC::TransportHandle handle, u64 high, u64 low) =|\n"
 DECLARATION = "    virtual void firefly_connect_byte_channel(IPC::TransportHandle handle, u64 high, u64 low) = 0;"

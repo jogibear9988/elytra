@@ -488,6 +488,14 @@ name = "libjs_abi"
 version = "0.1.0"
 
 [[package]]
+name = "libjs_parser"
+version = "0.1.0"
+dependencies = [
+ "ak",
+ "libunicode_rust",
+]
+
+[[package]]
 name = "libjs_runtime_macros"
 version = "0.1.0"
 dependencies = [
@@ -513,6 +521,7 @@ dependencies = [
  "libc",
  "libcompress_rust",
  "libjs_abi",
+ "libjs_parser",
  "libjs_runtime_macros",
  "libregex_rust",
  "libunicode_rust",

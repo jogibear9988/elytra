@@ -30,7 +30,7 @@ class LinuxCpuPolicy(unittest.TestCase):
             cache = root / "CMakeCache.txt"
             commands = root / "compile_commands.json"
             ninja = root / "build.ninja"
-            cache.write_text("ENABLE_CI_BASELINE_CPU:BOOL=ON\n")
+            cache.write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON\n")
             records = [
                 {
                     "file": "engine.cpp",
@@ -95,14 +95,14 @@ class LinuxCpuPolicy(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Missing generated baseline"):
                 check(root)
             ninja.write_text(cargo)
-            cache.write_text("ENABLE_CI_BASELINE_CPU:BOOL=OFF\n")
+            cache.write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=OFF\n")
             with self.assertRaisesRegex(ValueError, "baseline is not enabled"):
                 check(root)
 
     def test_retired_nojit_flags_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            (root / "CMakeCache.txt").write_text("ENABLE_CI_BASELINE_CPU:BOOL=ON\n")
+            (root / "CMakeCache.txt").write_text("LADYBIRD_BASELINE_CPU_TARGET:BOOL=ON\n")
             (root / "compile_commands.json").write_text(
                 json.dumps(
                     [{"file": "engine.cpp", "arguments": ["clang++", CPU_FLAG, "-c", "engine.cpp"]}]

@@ -184,7 +184,7 @@ public:
 
                                 outln("PASS native Qt mouse/key input and viewport resize");
                                 stage = 2;
-                                view->load(URL::Parser::basic_parse(
+                                view->load_from_browser_ui(URL::Parser::basic_parse(
                                     "window-next.html"sv, browser_options().urls.last())
                                         .release_value());
                             })
@@ -223,7 +223,7 @@ public:
         };
 
         window.show();
-        view->load(browser_options().urls.last());
+        view->load_from_browser_ui(browser_options().urls.last());
         // A probe timeout is a failure, never an inferred successful close.
         QTimer::singleShot(30000, &window, [&] {
             warnln("Native window probe timed out");

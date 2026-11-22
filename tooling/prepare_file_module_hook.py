@@ -5,10 +5,10 @@ import argparse
 import hashlib
 from pathlib import Path
 
-# Reviewed 9803f2d5: upstream adds navigation transport ownership/stop reporting;
-# retain those paths unchanged around the existing protocol and webRequest gates.
+# Reviewed f9acbe91: keep the new HSTS helper and fetch timing handover in place.
+# Custom file dispatch still precedes the upstream file navigation body handling.
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = "bb1fee18abd38799c12dde6e40341a0139c02f300537d2987b8a37777d77fbf0"
+EXPECTED = "004f4fffd6919c4bcc2aa1b653cc545315d2c0a80505b85185b09475c7f9fed9"
 SEAM = "            || is_file_to_file_font_load\n"
 HOOK = "            || Firefly::FileModules::allows(*request)\n"
 PREFIX = '#include "loading/FileModules.h"\n#include "loading/protocol/Dispatch.h"\n#include "native/protocol/OriginPolicy.h"\n#include "loading/web-request/Gate.h"\n'
@@ -42,7 +42,7 @@ HEAD_CLOSE = """        });
         if (!Firefly::WebRequestGate::headers(*fetch_params, firefly_head_response, firefly_continue_response))
             firefly_continue_response->function()(move(firefly_head_response));
 """
-FINISH_SEAM = "    auto process_response_end_of_body = GC::create_function(GC::Heap::the(), GC::captures(NonnullRefPtr { fetch_params }, controller, response_view, setup_report_timing_steps, report_timing_if_appropriate), [](auto& fetch_params, auto& controller, auto& response_view, auto& setup_report_timing_steps, auto& report_timing_if_appropriate) {\n"
+FINISH_SEAM = "    auto process_response_end_of_body = GC::create_function(GC::Heap::the(), GC::captures(NonnullRefPtr { fetch_params }, controller, response_view, agent_timing_info, setup_report_timing_steps, report_timing_if_appropriate), [](auto& fetch_params, auto& controller, auto& response_view, auto& agent_timing_info, auto& setup_report_timing_steps, auto& report_timing_if_appropriate) {\n"
 FINISH_HOOK = "        Firefly::WebRequestGate::finish(*fetch_params);\n"
 WEB_SEAMS = (BEFORE_SEAM, HEAD_START, HEAD_END, FINISH_SEAM)
 

@@ -150,10 +150,10 @@ def main():
     ]
     if os.name == "nt":
         command.extend(["-DCMAKE_C_COMPILER=clang-cl", "-DCMAKE_CXX_COMPILER=clang-cl"])
-    command.append(f"-DENABLE_LTO_FOR_RELEASE={'ON' if args.lto else 'OFF'}")
+    command.append(f"-DLADYBIRD_ENABLE_LTO={'ON' if args.lto else 'OFF'}")
     command.append(f"-DELYTRA_OPTIMIZE_SIZE={'ON' if args.optimize_size else 'OFF'}")
     baseline_cpu = sys.platform == "darwin" and platform.machine() == "arm64"
-    command.append(f"-DENABLE_CI_BASELINE_CPU={'ON' if baseline_cpu else 'OFF'}")
+    command.append(f"-DLADYBIRD_BASELINE_CPU_TARGET={'ON' if baseline_cpu else 'OFF'}")
     run(*command)
     if baseline_cpu:
         run(sys.executable, "tooling/check_macos_cpu.py", "--build", build)

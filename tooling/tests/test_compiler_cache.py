@@ -41,7 +41,7 @@ def main():
         (root / "CMakeLists.txt").write_text(f'''
 cmake_minimum_required(VERSION 3.30)
 project(CacheAcceptance LANGUAGES C CXX)
-if(ENABLE_LAGOM_CCACHE)
+if(LADYBIRD_ENABLE_CCACHE)
     include("{(ROOT / "vendor/ladybird/Meta/CMake/setup_ccache.cmake").as_posix()}")
 endif()
 set(PROBE_FLAG 2 CACHE STRING "Actual compiler flag under test")

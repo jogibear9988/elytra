@@ -144,7 +144,7 @@ namespace {
                             self->navigated_away = true;
                             Core::deferred_invoke([self] {
                                 if (self->active)
-                                    self->view->load(URL::Parser::basic_parse(
+                                    self->view->load_from_browser_ui(URL::Parser::basic_parse(
                                         "data:text/html,<body>RESOURCE_DOCUMENT_REPLACED</body>"sv)
                                             .release_value());
                             });
@@ -202,7 +202,7 @@ namespace {
             if (mode == "cancel"sv) {
                 source_pid = view->web_content_pid();
                 view->traversable().did_cancel_navigation(request.navigation_id);
-                view->load(URL::Parser::basic_parse(
+                view->load_from_browser_ui(URL::Parser::basic_parse(
                     "data:text/html,<body>RESOURCE_CANCELLED_ALIVE</body>"sv)
                         .release_value());
                 if (request.history_entry.url.serialize() != "app://bundle/index.html"sv)
@@ -339,7 +339,8 @@ public:
             state->verify();
         };
 
-        view->load(URL::Parser::basic_parse("app://bundle/index.html"sv).release_value());
+        view->load_from_browser_ui(
+            URL::Parser::basic_parse("app://bundle/index.html"sv).release_value());
         timer->start();
         return m_loop->exec();
     }

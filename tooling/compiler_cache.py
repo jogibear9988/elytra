@@ -12,7 +12,7 @@ def arguments(enabled):
         raise ValueError("Requested compiler cache requires ccache on PATH")
     # Clear cached launchers when opting out in an existing build directory.
     result = [
-        f"-DENABLE_LAGOM_CCACHE={'ON' if enabled else 'OFF'}",
+        f"-DLADYBIRD_ENABLE_CCACHE={'ON' if enabled else 'OFF'}",
         f"-DCMAKE_C_COMPILER_LAUNCHER={program}",
         f"-DCMAKE_CXX_COMPILER_LAUNCHER={program}",
     ]
@@ -28,7 +28,7 @@ def check(build, target):
             name, value = line.split("=", 1)
             cache[name.split(":", 1)[0]] = value
     program = cache.get("CCACHE_PROGRAM", "")
-    if cache.get("ENABLE_LAGOM_CCACHE") != "ON" or not Path(program).is_file():
+    if cache.get("LADYBIRD_ENABLE_CCACHE") != "ON" or not Path(program).is_file():
         raise ValueError("Requested compiler cache is not configured")
     if any(
         cache.get(f"CMAKE_{language}_COMPILER_LAUNCHER") != program for language in ["C", "CXX"]

@@ -14,13 +14,13 @@ PREFIX = '#include "canvas/Canvas.h"\n'
 ENTRIES = {
     "Document.cpp": (
         "Libraries/LibWeb/DOM/Document.cpp",
-        "585c7f229511cce6999dcbc91669618e8ddd37e90565c8610e4fb594727350aa",
+        "b9638705bfb38cfb912b9e3bb04b6d474e4dd79ce4f8c527b9e7c731a23a0986",
         "    return CSS::SystemColor::canvas(canvas_color_scheme(read)).blend(background_color(read));\n",
         "    return Firefly::Canvas::base(*this, CSS::SystemColor::canvas(canvas_color_scheme(read))).blend(background_color(read));\n",
     ),
     "PaintingRustBridge.cpp": (
         "Libraries/LibWeb/Painting/PaintingRustBridge.cpp",
-        "01783fa0644d6f798c83ff004afb7d03f558d3800cc24e16fe91e9ad99c55de8",
+        "fe6e65ad46b5eb4a802ac5a0955d06756100218c4ad37f42fdd9f9fb39268df7",
         "        inputs.canvas_color = CSS::SystemColor::canvas(color_scheme);\n",
         "        inputs.canvas_color = Firefly::Canvas::base(document, CSS::SystemColor::canvas(color_scheme));\n",
     ),

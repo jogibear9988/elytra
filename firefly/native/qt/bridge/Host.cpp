@@ -23,6 +23,7 @@
 #include <LibJS/Runtime/VM.h>
 #include <LibURL/Parser.h>
 #include <LibWebView/Application.h>
+#include <LibWebView/CanonicalNavigable.h>
 #include <LibWebView/WebContentPage.h>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -369,7 +370,8 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_load(JS::VM& vm)
         return vm.throw_completion<JS::TypeError>("Invalid URL"_utf16);
     // A registered response handler owns this URL. Do not touch the
     // filesystem (even stat) before its authorization/response runs.
-    if (url->scheme() == "file"sv && !protocols->intercepts_file()) {
+    auto intercepted_file = url->scheme() == "file"sv && protocols->intercepts_file();
+    if (url->scheme() == "file"sv && !intercepted_file) {
         auto path = url->file_path();
         std::error_code error;
         if (path.contains('\0') || !std::filesystem::is_regular_file(path.characters(), error))
@@ -392,7 +394,14 @@ JS::ThrowCompletionOr<JS::Value> Bridge::Impl::native_host_load(JS::VM& vm)
     // A detached/hidden widget may not have delivered its resize event.
     // Upstream pushes its actual dimensions with the current device scale.
     current->view->push_viewport_size();
-    current->view->load(*url);
+    if (intercepted_file) {
+        // An explicit empty grant also prevents inheriting the previous page's file roots.
+        auto& view = *current->view;
+        view.load(view.traversable().prepare_navigation(*url), Vector<WebView::LocalFileRoot> {});
+    } else {
+        current->view->load_from_browser_ui(*url);
+    }
+
     return JS::js_undefined();
 }
 

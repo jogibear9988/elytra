@@ -9,7 +9,7 @@ from pathlib import Path
 # autoplay admission, adoption, audible changes and native-control seams are intact.
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = "Libraries/LibWeb/HTML/HTMLMediaElement.cpp"
-DIGEST = "1720c54f9bd0076cc934e6acee37a47284510273de3aa76855623f2bca17f46d"
+DIGEST = "192dc8df2e23e4eb27eb3cf9238a01224287e689960b0abed853b641cb391738"
 PREFIX = '#include "autoplay/Media.h"\n'
 SEAMS = [
     (

@@ -17029,6 +17029,37 @@ arm64 dependency removes 14 files totaling 80,256,792 bytes. All retained
 files match their original hashes. The running editor still uses the prior
 package. A full fresh packaged desktop run remains open.
 
+## Start the Ladybird f9acbe91 update review
+
+Pin the November 22 upstream commit
+`f9acbe915b607c2cc1ad8addcc67b67797a2cec8` on the review branch. The checkout
+is clean and the manifest matches the gitlink. Drop the retired libtommath
+dependency, refresh the aggregate lock for upstream's LibJS parser crate, and
+use the renamed CPU baseline, IPO and compiler-cache options in the builds and
+packaging checks. Turn off the upstream browser updater in the Firefly graph.
+The Rust toolchain and vcpkg baseline remain unchanged.
+
+Review the native source compositions against the changed WebContent startup,
+fetch timing, permission and renderer IPC, crash, media and Hub integrations
+while retaining their drift refusals. The generated WebContent endpoints
+preserve all 260 server and 254 client upstream message IDs. The owned Hub
+frontend uses upstream's guarded connection destructor and declines browser
+update, media-session UI and default-browser callbacks. Swap Firefly's removed
+Qt paint signal hookup to the existing accepted-frame callback, preserving its
+original handler and view lifetime checks.
+The title-bar and background probes now request the actual compositor frame
+asynchronously after upstream removed its tab-preview cache method. Each probe
+keeps its existing geometry and pixel assertions.
+
+The macOS arm64 standalone Release Mite build reports the exact new LibJS
+revision and passes all 173 CTest cases. The macOS Firefly graph configures
+successfully. Native Firefly compilation, the new local-file navigation
+handoff and its protocol interception tests, and desktop/published package
+acceptance are still open. An intercepted main-process file navigation is
+passed an empty grant so it cannot fall back to a previous page's file roots.
+The user preview still runs the earlier package. The reported Code-OSS
+Open Folder failure needs a reproduction on the updated desktop runtime.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

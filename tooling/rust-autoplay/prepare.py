@@ -37,7 +37,7 @@ _permissions_spec.loader.exec_module(_permissions)
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src"
 PINS = {
-    "lib.rs": "e3c17f1ba4803c9b284f131a5174320ab20632759ca959e8b8a56d24c7fd5a6c",
+    "lib.rs": "14ea5e279f7efa520231a0f6d368dc736470c82434e22f68b4807152d2be611d",
     "web_audio/mod.rs": "bfcbe81444c74d578d7861d711486534fe3c043e32b7895d51849e4084963b0e",
     **{f"web_audio/{name}": digest for name, digest in AUDIO_PINS.items()},
     **_ports.PINS,
@@ -45,12 +45,12 @@ PINS = {
 }
 ROOT_MODULES = frozenset(
     """
-    rust_demangle rust_panic ak_format animations ffi_test_stubs bindings canvas_2d clipboard
+    rust_demangle rust_panic ak_format animations ffi_test_stubs bindings canvas_2d clipboard compositor_connection
     compression cookie_store credential_management crypto css dom domurl encoding event_timing
-    fetch file_api geolocation geometry high_resolution_time html indexed_db internals largest_contentful_paint
+    encrypted_media_extensions fetch file_api gamepad geolocation geometry high_resolution_time html indexed_db internals largest_contentful_paint
     navigation_timing notifications_api paint_timing performance_timeline permissions permissions_api permissions_policy platform
     resource_timing server_timing speech storage_api streams trusted_types ui_events
-    url_pattern user_timing web_assembly web_gl web_locks webidl webrtc xhr web_audio
+    url_pattern user_timing web_assembly web_gl web_locks web_vtt webidl webrtc xhr web_audio
     webgl_constants webgl_proxy webgl_wire_model
 """.split()
 )
@@ -68,7 +68,7 @@ AUDIO_MODULES = frozenset(
 """.split()
 )
 HTML_MODULES = frozenset(
-    "canvas_path color_stops predefined_color_space broadcast_channel canvas_compositing canvas_draw_image canvas_draw_path canvas_fill_stroke_styles canvas_filters canvas_gradient canvas_image_data canvas_image_smoothing canvas_path_drawing_styles canvas_pattern canvas_rect canvas_rendering_context2d canvas_rendering_context2d_settings canvas_settings canvas_shadow_styles canvas_state canvas_text canvas_text_drawing_styles canvas_transform exports global_event_handlers html_form_element image_bitmap image_bitmap_rendering_context image_data message_channel message_port navigable numbers offscreen_canvas offscreen_canvas_rendering_context2d path2d port_channel sanitizer sanitizer_configuration storage storage_event structured_serialize text_metrics visibility_state visibility_state_entry window window_or_worker_global_scope".split()
+    "canvas_path color_stops predefined_color_space broadcast_channel canvas_compositing canvas_draw_image canvas_draw_path canvas_fill_stroke_styles canvas_filters canvas_gradient canvas_image_data canvas_image_smoothing canvas_path_drawing_styles canvas_pattern canvas_rect canvas_rendering_context2d canvas_rendering_context2d_settings canvas_settings canvas_shadow_styles canvas_state canvas_text canvas_text_drawing_styles canvas_transform exports global_event_handlers html_form_element image_bitmap image_bitmap_rendering_context image_data message_channel message_port navigable navigator numbers offscreen_canvas offscreen_canvas_rendering_context2d path2d port_channel sanitizer sanitizer_configuration storage storage_event structured_serialize text_metrics text_track_cue visibility_state visibility_state_entry window window_or_worker_global_scope".split()
 )
 MODULE = re.compile(r'^(?:#\[path = "([^"\n]+)"\]\n)?((?:pub(?:\([^)]*\))? )?mod (\w+);)$', re.M)
 FOOTER = "// Owned WebAudio routing build input: "
