@@ -17219,6 +17219,26 @@ policy checks pass. Native resolver and published ZIP validation require
 the next Windows execution. The separate AppContainer job reports no WFP
 capability-drop observations and remains a separate acceptance failure.
 
+## Accept the signed Code-OSS Cocoa workspace and Windows PE fixture
+
+The signed macOS ARM64 Code-OSS candidate at Ladybird f9acbe91 passes the
+full CommonJS test through its bundled launcher. Both workbench loads report
+window 1 ready, both builtin extension scans complete, two distinct extension
+hosts start, and the second folder's file saves through WorkspaceEdit. The
+owned terminal exits 17 and the three timed parent-liveness requests complete.
+The app exits naturally with all 18 tracked processes stopped and zero
+cleanup signals or renderer IPC admission failures. Compact evidence is in
+build/code-oss-f9ac-burst-cocoa-evidence.json. This uses the existing sealed
+Code-OSS stage and does not validate the native picker or the release archive.
+
+Windows package job 137158713033 runs the native API-set checks and passes
+the independently relocated launcher, PE closure, helper and sealed sample
+fixtures. The standalone Windows Mite workflow is queued at 45006353599.
+The full macOS release workflow is queued at 45006353596. Publication and
+master integration remain pending those builds. The updated 367-page site
+and 27,639 local links pass. The superseded Cocoa package was pruned after
+checking process ownership, retaining its Finder metadata and compact log.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

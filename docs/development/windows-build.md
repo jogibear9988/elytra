@@ -642,6 +642,9 @@ asks the native loader to resolve each contract and verifies its System32 host.
 The workflow extracts
 the ZIP under a fresh Unicode path, verifies the file hashes, reads the
 LibJS revision and exercises an ICU converter with only System32 on PATH.
+The native [PE relocation fixture](https://github.com/jogibear9988/elytra/actions/runs/45006353591)
+passes the System32 resolution and mismatched-host checks. The complete
+standalone ZIP rerun is pending.
 
 In the native developer environment, use the same standalone SDK and
 pinned sources as CI.

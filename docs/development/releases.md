@@ -48,8 +48,12 @@ application arguments. Exact Launcher/Firefly executable, birth, UID and owned-t
 authentication, a same-window folder switch with a new extension host, a genuine
 terminal exit and independent saved-file readback are required. On timeout the
 startup summary reports allowlisted checkpoints, including rejected renderer IPC
-admission bounds. The local signed app reaches the second folder and extension
-host. The second system-extension scan and the editor save remain open.
+admission bounds. The signed macOS ARM64 candidate with Ladybird f9acbe91
+passes the workspace switch, both extension scans, editor save, terminal exit 17
+and timed parent-liveness checks through its bundled launcher. The local candidate
+uses the existing prepared Code-OSS payload. Publication also requires the CI
+archive and its fresh extracted-bundle acceptance. The interactive native
+folder picker is a separate check.
 
 ## Published macOS Alpha 2
 
