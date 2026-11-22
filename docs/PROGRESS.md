@@ -16762,6 +16762,15 @@ cannot link its Attachment destructor. Link the probe directly to
 LibIPC. Keep the existing runtime assertions and require the full
 native lane to complete. CMake formatting and diff checks pass.
 
+## Verify the native outbound capability token
+
+Windows job 137122583171 compiles the standalone sandbox and passes the
+Internet client token check before and after resume. The worker owns
+only the expected capability and fails the zero-capability policy.
+This confirms token construction and verification. Actual RequestServer
+execution and network behavior still require their separate gates.
+The generated site and shared application payload checks pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

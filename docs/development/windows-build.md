@@ -348,6 +348,22 @@ is not native Firefly windows/sandbox, Windows app packaging, an installer or a
 published Windows release. Those requirements remain open.
 
 
+## RequestServer capability
+
+The experimental helper integration requests only the Windows
+`internetClient` capability for the exact `RequestServer.exe` role.
+WebContent and non-network helpers require a token without capabilities.
+The request helper receives the sealed runtime and its private IPC
+handles. Custom certificate files, resource maps and a writable HTTP
+cache are outside this launch contract. Windows Firefly selects the
+existing no-disk-cache mode.
+
+The [native AppContainer job](https://github.com/jogibear9988/elytra/actions/runs/44994528761)
+passes the Internet-client token fixture before and after resume. It
+also checks that the same token fails the renderer's empty-capability
+policy. Actual RequestServer control IPC, HTTP/TLS, loopback, private
+networks and full desktop acceptance still need native verification.
+
 ## AppContainer network evidence on Server 2025
 
 The small sandbox component compiles natively at `273d905`, but its first runtime
