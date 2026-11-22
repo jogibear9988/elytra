@@ -16979,8 +16979,10 @@ executes the extracted CLI with System32-only PATH for the LibJS revision
 and Windows-1252 converter checks. It uploads a standalone CI candidate only
 after those checks. Local format, source/package guards and the ICU expression
 pass. Local checks also verify provider collision refusal and 131 notices from
-the standalone Rust graph. Native package and API-set loader runs remain pending. Firefly desktop
-and multi-platform release gates remain separate and open.
+the standalone Rust graph. Native Windows job 137138929791 resolves the UCRT
+contract to the system provider and passes the relocated fixture ZIP tests.
+The real standalone CLI ZIP job remains pending. Firefly desktop and
+multi-platform release gates remain separate and open.
 
 ## Resume
 
