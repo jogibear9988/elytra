@@ -16998,7 +16998,11 @@ remain unchanged.
 
 The parser controls verify the private-output allowlist, the partial-line
 cutoff and the byte limit. Local offscreen Release rebuild, sample seals and
-generated site checks pass. Cocoa package validation remains open.
+generated site checks pass. The sealed sample with diagnostics enabled reaches
+both navigation and document milestones and passes extension activation, editor
+save, parent liveness and the Bash terminal workflow. It exits with status 0
+and all 19 tracked processes stop after two cleanup signals. Evidence is in
+build/code-oss-59158-startup-diagnostics.log. Cocoa package validation remains open.
 
 ## Pump the native DOM port probe outside its bootstrap realms
 
