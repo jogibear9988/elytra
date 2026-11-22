@@ -27,6 +27,8 @@ FOUNDRY_BINARIES = {".node", ".dll", ".dylib", ".so"}
 ENTRY = """/** Owned launcher for the explicitly partial local Code-OSS sample. */
 process.env.VSCODE_DEV = '1';
 process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP = '1';
+// Code-OSS requests suppression of the OS crash handler, which Firefly rejects.
+process.argv.splice(2, 0, '--disable-crash-reporter');
 await import('./src/main.js');
 """
 

@@ -281,6 +281,8 @@ def prepare(
     terminal=False,
     parent_liveness=False,
     workspace_switch=False,
+    *,
+    sealed_entry=False,
 ):
     marker = state / ".elytra-owned.json"
     if not state.exists():
@@ -371,7 +373,10 @@ def prepare(
             terminalGate=str(state / "terminal-gate.json"),
         )
     write_json(extension / "acceptance.json", config)
-    command = [str(stage / "src/main.js")]
+    entry = "main.mjs" if sealed_entry else "src/main.js"
+    command = [str(stage / entry)]
+    if not sealed_entry:
+        command.append("--disable-crash-reporter")
     for option, directory in storage.items():
         command.extend([option, str(directory)])
     command.extend(["--extensionDevelopmentPath", str(extension)])
@@ -383,7 +388,6 @@ def prepare(
         [
             "--new-window",
             "--skip-welcome",
-            "--disable-crash-reporter",
             "--disable-workspace-trust",
             "--log",
             "trace",
@@ -525,14 +529,13 @@ def main():
             args.terminal,
             args.parent_liveness,
             args.workspace_switch,
+            sealed_entry=bool(args.bundle or args.sample_entry),
         )
         if args.bundle:
             # Launcher owns --electron-compat and the sealed main.mjs prefix.
             # Supply only normal application CLI arguments, never another entry.
             command = [str(binary), *arguments[1:]]
         else:
-            if args.sample_entry:
-                arguments[0] = str(stage / "main.mjs")
             command = [str(binary), "--electron-compat", *arguments]
         if args.prepare_only:
             print(
@@ -550,16 +553,17 @@ def main():
             key: value
             for key, value in os.environ.items()
             if not key.startswith(("VSCODE_", "ELECTRON_"))
+            and key != "ELYTRA_CODE_OSS_LOCAL_DESKTOP"
         }
         environment.update(
-            VSCODE_DEV="1",
-            ELYTRA_CODE_OSS_LOCAL_DESKTOP="1",
             ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC="1",
             QT_QPA_PLATFORM="offscreen",
             XDG_CONFIG_HOME=str(state / "xdg"),
             XDG_DATA_HOME=str(state / "xdg"),
             XDG_CACHE_HOME=str(state / "xdg"),
         )
+        if not (args.bundle or args.sample_entry):
+            environment.update(VSCODE_DEV="1", ELYTRA_CODE_OSS_LOCAL_DESKTOP="1")
         if args.bundle:
             # This acceptance exercises the actual Cocoa provider; no offscreen
             # omission or inherited runtime diagnostic mode substitutes for it.

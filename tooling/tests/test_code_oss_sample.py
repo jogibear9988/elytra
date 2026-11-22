@@ -6,6 +6,7 @@ import _support
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 from unittest.mock import patch
 
@@ -71,6 +72,23 @@ def fixture(root, *, physical=False):
     return metadata
 
 
+def check_default_entry(root):
+    (root / "src").mkdir(parents=True)
+    (root / "main.mjs").write_text(ENTRY)
+    (root / "src/main.js").write_text(
+        "console.log(JSON.stringify({ args: process.argv.slice(2), "
+        "dev: process.env.VSCODE_DEV, desktop: process.env.ELYTRA_CODE_OSS_LOCAL_DESKTOP }));"
+    )
+    launch = subprocess.check_output(
+        ["node", str(root / "main.mjs"), "--", "owned workspace"], text=True, timeout=10
+    )
+    assert json.loads(launch) == {
+        "args": ["--disable-crash-reporter", "--", "owned workspace"],
+        "dev": "1",
+        "desktop": "1",
+    }
+
+
 def check_prebuild_pruning(root):
     package = root / "node_modules/foundry-local-sdk"
     loader = package / "dist/detail/native.js"
@@ -115,6 +133,7 @@ def check_prebuild_pruning(root):
 def main():
     with tempfile.TemporaryDirectory(prefix="code-oss-sample-control-") as directory:
         root = Path(directory).resolve()
+        check_default_entry(root / "entry")
         pruning = root / "prebuilds"
         pruning.mkdir()
         check_prebuild_pruning(pruning)

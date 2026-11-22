@@ -52,8 +52,10 @@ admission bounds. The signed macOS ARM64 candidate with Ladybird f9acbe91
 passes the workspace switch, both extension scans, editor save, terminal exit 17
 and timed parent-liveness checks through its bundled launcher. The local candidate
 uses the existing prepared Code-OSS payload. Publication also requires the CI
-archive and its fresh extracted-bundle acceptance. The interactive native
-folder picker is a separate check.
+archive and its fresh extracted-bundle acceptance. A separate signed-preview
+check opened the native File menu, selected a folder in the Cocoa sheet and
+verified the target workspace in Explorer. The preview used a native title bar
+and the documented crash-reporter opt-out.
 
 ## Published macOS Alpha 2
 

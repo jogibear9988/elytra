@@ -1,13 +1,13 @@
 # VS Code / Code-OSS compatibility target
 
-Status: **experimental**. Controlled macOS offscreen CommonJS and ESM
-extension/command/open-edit-save workflows are accepted. A controlled native terminal workflow also passes without diagnostic flags. A macOS Cocoa launch now visibly displays the Welcome workbench and native menu bar. General desktop use, editing/input acceptance,
-under-load terminal reliability and broad extension/platform compatibility remain unaccepted. Requested
-as a priority target on 2026-11-07. The original pinned application runs with the
-explicit temporary adaptations documented below; this is not unchanged full
-Electron compatibility or a percentage-complete estimate.
-
-## Current priority: first real workbench, then developer workflows
+Status: **experimental**. The signed macOS ARM64 candidate with Ladybird
+`f9acbe91` passes controlled same-window folder switching, CommonJS extension
+activation, editor save, terminal exit and parent-liveness checks. In a separate
+manual run, **File → Open Folder…** opens the Cocoa sheet and the selected folder
+becomes the active Explorer workspace in the same window. Both runs use a native
+title-bar profile. General desktop and broad extension/platform compatibility
+remain unaccepted. See the [packaging and launch guide](../guides/code-oss-packaging.md)
+for the required profile and the temporary package startup settings.
 
 ## Visible macOS launch checkpoint (2026-11-17)
 

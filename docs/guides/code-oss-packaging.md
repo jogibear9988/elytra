@@ -4,13 +4,11 @@ This is an experimental macOS ARM64 sample pipeline, not a full Electron or VS C
 release. The application runs on Firefly/Mite with LibWeb/LibJS. Node, pnpm and
 esbuild are build tools only; there is no packaged Node/V8/Electron engine fallback.
 
-The current Ladybird candidate `59158f57c` passes the standalone CLI suite
-and builds the local macOS Release SDK. The current SDK's offscreen host
-passes the sealed sample's CommonJS extension, editor save, terminal and
-parent-liveness checks. The relocated Cocoa Launcher also passed those
-checks on the preceding SDK. The current SDK's signed local bundle passes
-signature and engine-identity checks, but its Cocoa extension workflow
-times out. Four-product release CI remains pending.
+The signed macOS ARM64 candidate at Ladybird `f9acbe91` passes a same-window
+folder change, CommonJS extension activation, editor save and terminal exit
+through the bundled launcher. A separate native-menu check opened a folder
+through the Cocoa picker and saw it become the active Explorer workspace.
+These checks use a native-title-bar profile. Release archive CI is pending.
 
 The [Code-OSS compatibility record](../compatibility/vscode.md) distinguishes earlier
 controlled editor/terminal workflows, a visible macOS Welcome workbench and the
@@ -56,9 +54,10 @@ Git checkout; choose the intended input explicitly.
 The compiler stages real JavaScript, renderer assets, CSS discovery inventory and
 NLS data, along with the selected native compatibility package adapters. The
 maintained `main.mjs` selects the source-derived development renderer using
-`VSCODE_DEV=1` and the explicit local-desktop policy. It contains no offscreen,
-diagnostic or test-extension flags. The limited Electron import alias is supplied
-by the native package Launcher, not by a bundled Electron engine.
+`VSCODE_DEV=1` and the explicit local-desktop policy. It supplies Code-OSS's
+`--disable-crash-reporter` flag because its default startup requests suppression
+of the OS crash handler. Firefly rejects that option. The package Launcher
+supplies the limited Electron import alias.
 
 ## Seal and relocation
 
@@ -117,12 +116,11 @@ printf '%s\n' '{"window.titleBarStyle":"native","workbench.startupEditor":"welco
     --user-data-dir "$state/profile" --extensions-dir "$state/extensions" \
     --shared-data-dir "$state/shared" --agent-plugins-dir "$state/agent-plugins" \
     --agents-user-data-dir "$state/agents-data" --agents-extensions-dir "$state/agents-extensions" \
-    --new-window --disable-crash-reporter
+    --new-window
 )
 ```
 
-The preceding macOS SDK displayed the Welcome workbench through this launch
-path. The CLI options keep the preview's settings, extensions, shared storage and
+The CLI options keep the preview's settings, extensions, shared storage and
 agent directories under the temporary directory. The runtime checks that the
 profile directory already exists.
 

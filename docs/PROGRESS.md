@@ -17239,6 +17239,28 @@ master integration remain pending those builds. The updated 367-page site
 and 27,639 local links pass. The superseded Cocoa package was pruned after
 checking process ownership, retaining its Finder metadata and compact log.
 
+## Exercise the native folder picker and fix the sealed sample startup default
+
+On the signed f9acbe91 macOS candidate, the real File menu opens the Cocoa
+Open Folder sheet. Selecting the owned test directory closes the sheet and
+changes the Explorer workspace. Both loads report window 1 ready. The
+interactive check uses an isolated profile with the native title bar and the
+upstream crash-reporter opt-out. Evidence: build/code-oss-f9ac-native-picker-evidence.json.
+
+Without that flag, the same packaged entry exits because Code-OSS requests
+ignoreSystemCrashHandler. Apply Code-OSS's own opt-out from the sealed sample
+entry before importing main. It preserves application arguments and does not
+change Code-OSS source, profile settings or Firefly's crash handling. Track
+removal in the adaptation inventory. The custom title-bar profile still needs
+Window Controls Overlay support.
+
+Sample tests verify the default arguments and terminator. Both release launch
+paths now leave crash-reporter and development-policy setup to the sealed
+entry itself. The real sealed offscreen launch with this entry passes both
+folder loads and saves the file, exits zero and leaves no running helpers
+(16 observed, zero cleanup signals). The 367-page documentation check passes.
+The new entry's signed bundle and archive CI have separate verification.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
