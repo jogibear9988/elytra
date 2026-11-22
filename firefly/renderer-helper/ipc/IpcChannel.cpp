@@ -48,9 +48,9 @@ void IpcEndpoint::attach_channel(
                     }
                 },
             .on_closed =
-                [weak](auto) {
+                [weak](auto reason) {
                     if (auto owner = weak.strong_ref())
-                        owner->retire_channel();
+                        owner->retire_channel(reason);
                 } });
     if (created.is_error()) {
         retire_channel();
@@ -133,7 +133,7 @@ void IpcEndpoint::clear_packets()
     m_receive_reservation = nullptr;
 }
 
-void IpcEndpoint::retire_channel()
+void IpcEndpoint::retire_channel(Bytes::Channel::CloseReason reason)
 {
     if (m_byte_failed)
         return;
@@ -148,8 +148,10 @@ void IpcEndpoint::retire_channel()
     for (auto const& entry : m_pending)
         pending.append(entry.key);
     auto error = MUST(BridgeData::from_string(u"IPC document channel closed"sv).encode_wire({}));
+    auto outcome
+        = reason == Bytes::Channel::CloseReason::Peer ? Settlement::PeerClosed : Settlement::Failed;
     for (auto id : pending)
-        settle(id, false, error);
+        settle(id, outcome, error);
 }
 
 void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
@@ -205,7 +207,8 @@ void IpcEndpoint::receive_packet(ReadonlyBytes bytes)
     }
 
     if (packet.kind == ApplicationIpc::Kind::Reply)
-        settle(packet.request, packet.success, wire, move(reservation));
+        settle(packet.request, packet.success ? Settlement::Acknowledged : Settlement::Failed, wire,
+            move(reservation));
     else {
         if (packet.request <= m_incoming_last || m_incoming_pending >= 16) {
             retire_channel();

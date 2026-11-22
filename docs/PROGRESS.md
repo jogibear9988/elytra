@@ -16890,6 +16890,21 @@ The seven helper, four broker and desktop configuration source controls
 pass with the unmodified Ladybird pin. Native execution remains pending.
 The full Windows desktop and release gates remain closed.
 
+## Retire unmatched one-way IPC credit on peer closure
+
+Linux job 137124912342 delivered every expected event, including the send
+whose listener destroys its window, then logged a delivery failure. A native
+peer can close while a private acknowledgement is in flight. Distinguish peer
+EOF from an explicit rejection, timeout or transport/protocol error. Retire the
+closed peer's one-way credits with unknown delivery status. Preserve rejected
+invoke Promises and diagnostics for definite failures. The generic byte
+channel keeps its existing queued-frame cancellation and admission limits.
+
+The local Release offscreen build passes public event ordering, burst credit,
+reload and reentrant close, exact document handoff and peer EOF, malformed
+frames, replay, bounds and reentry tests. Hosted Linux revalidation is pending.
+No visible window was opened.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

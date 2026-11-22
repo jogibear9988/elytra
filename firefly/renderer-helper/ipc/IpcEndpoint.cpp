@@ -204,7 +204,7 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
 }
 
 void IpcEndpoint::settle(
-    u32 id, bool success, ByteString const& wire, RefPtr<IpcWireReservation> reservation)
+    u32 id, Settlement outcome, ByteString const& wire, RefPtr<IpcWireReservation> reservation)
 {
     auto found = m_pending.find(id);
     if (found == m_pending.end() || found->value.settling)
@@ -212,10 +212,10 @@ void IpcEndpoint::settle(
     if (m_owner && m_owner->is_executing()) {
         found->value.settling = true;
         Core::deferred_invoke(
-            [self = NonnullRefPtr { *this }, id, success, wire, reservation = move(reservation)] {
+            [self = NonnullRefPtr { *this }, id, outcome, wire, reservation = move(reservation)] {
                 if (auto found = self->m_pending.find(id); found != self->m_pending.end())
                     found->value.settling = false;
-                self->settle(id, success, wire, reservation);
+                self->settle(id, outcome, wire, reservation);
             });
         return;
     }
@@ -238,15 +238,17 @@ void IpcEndpoint::settle(
 
     ScopeGuard wake = [] { wake_admission(); };
     if (!pending->capability) {
-        // send has no application-visible reply Promise. Report asynchronous
-        // admission/timeout failures explicitly and release its private credit.
-        if (!success)
+        // EOF can race an ACK when a listener closes its own window. The
+        // resulting cancellation retires credit without claiming delivery or
+        // failure. An explicit refusal or live-channel failure still reports.
+        if (outcome == Settlement::Failed)
             warnln("ERR_FIREFLY_IPC_SEND: asynchronous event admission/delivery failed");
         return;
     }
 
     if (!m_owner || m_owner->is_detached() || !m_document->is_fully_active())
         return;
+    bool success = outcome == Settlement::Acknowledged;
     auto owner = m_owner;
     Web::HTML::TemporaryExecutionContext execution(m_document->relevant_settings_object());
     auto result = owner->run_async_frame([&]() -> JS::ThrowCompletionOr<JS::Value> {
@@ -317,7 +319,7 @@ void IpcEndpoint::pump_admission()
         return;
     if (found->value.deadline <= MonotonicTime::now()) {
         auto error = MUST(BridgeData::from_string(u"IPC request timed out"sv).encode_wire({}));
-        settle(found->key, false, error);
+        settle(found->key, Settlement::Failed, error);
         return;
     }
 
@@ -376,6 +378,6 @@ void IpcEndpoint::expire()
     auto encoded = MUST(BridgeData::from_string(u"IPC request timed out"sv).encode_wire({}));
     auto wire = encoded;
     for (auto id : expired)
-        settle(id, false, wire);
+        settle(id, Settlement::Failed, wire);
 }
 }

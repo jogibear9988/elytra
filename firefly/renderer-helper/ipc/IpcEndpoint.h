@@ -52,7 +52,9 @@ private:
 
     JS::ThrowCompletionOr<JS::Value> invoke(JS::VM&, bool event = false);
 
-    void settle(u32, bool, ByteString const&, RefPtr<IpcWireReservation> = {});
+    enum class Settlement { Acknowledged, Failed, PeerClosed };
+
+    void settle(u32, Settlement, ByteString const&, RefPtr<IpcWireReservation> = {});
 
     enum class ListenerOperation { On, Once, Remove, RemoveAll };
 
@@ -71,7 +73,7 @@ private:
 
     void receive_packet(ReadonlyBytes);
 
-    void retire_channel();
+    void retire_channel(Bytes::Channel::CloseReason = Bytes::Channel::CloseReason::Transport);
 
     void clear_packets();
 

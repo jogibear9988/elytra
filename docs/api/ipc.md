@@ -142,8 +142,10 @@ without publishing a marker; replies/ACKs and teardown wake other waiting docume
 endpoints fairly. Expiration of an already admitted request retires its document
 channel rather than recycling credit while main or fragment state is unknown.
 A later main admission refusal or unanswered event deadline releases local credit and writes an explicit
-ERR_FIREFLY_IPC_SEND helper diagnostic. There is no delivery receipt or retry API;
-send returning undefined is not proof the application processed a message. This
+ERR_FIREFLY_IPC_SEND helper diagnostic. If the native peer closes first, outstanding
+one-way sends are retired with unknown delivery status. This can happen when a
+listener closes its own window while the private acknowledgement is in flight.
+The send API provides neither a delivery receipt nor a retry mechanism. This
 bounded alpha behavior differs from Electron's unbounded application-facing send
 interface. Main independently validates event wire graphs before VM dispatch;
 the main factory also rejects invalid argument envelopes with a diagnostic before
