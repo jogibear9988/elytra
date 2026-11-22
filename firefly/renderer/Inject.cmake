@@ -26,7 +26,16 @@ if(WIN32 AND FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH)
     if(NOT firefly_windows_broker_result EQUAL 0)
         message(FATAL_ERROR "Cannot compose the verified Windows handle broker")
     endif()
-    include_directories(BEFORE "${FIREFLY_WINDOWS_BROKER_OVERLAY}")
+    set(FIREFLY_WINDOWS_HELPER_OVERLAY "${CMAKE_BINARY_DIR}/firefly-adapters/windows-helper")
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/prepare.py"
+                --output "${FIREFLY_WINDOWS_HELPER_OVERLAY}"
+        RESULT_VARIABLE firefly_windows_helper_result)
+    if(NOT firefly_windows_helper_result EQUAL 0)
+        message(FATAL_ERROR "Cannot compose the verified Windows helper sources")
+    endif()
+    include_directories(BEFORE "${FIREFLY_WINDOWS_BROKER_OVERLAY}"
+                        "${FIREFLY_WINDOWS_HELPER_OVERLAY}")
 endif()
 
 cmake_language(DEFER CALL include "${FIREFLY_SOURCE_DIR}/firefly/renderer/Targets.cmake")

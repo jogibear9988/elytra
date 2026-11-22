@@ -3,12 +3,8 @@ if(NOT WIN32)
     message(FATAL_ERROR "Native AppContainer helper integration is Windows-only")
 endif()
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer/SourceAdapter.cmake")
-set(windows_helper_output "${CMAKE_BINARY_DIR}/firefly-adapters/windows-helper")
-execute_process(
-    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/prepare.py"
-            --output "${windows_helper_output}" RESULT_VARIABLE windows_helper_composition)
-if(NOT windows_helper_composition EQUAL 0)
-    message(FATAL_ERROR "Review native Windows helper launch source ownership")
+if(NOT DEFINED FIREFLY_WINDOWS_HELPER_OVERLAY)
+    message(FATAL_ERROR "Native Windows helper requires the early helper overlay")
 endif()
 # The early Inject hook selects one composed broker header before any SDK directory is declared.
 # Never enable the launch component with an unhardened broker or a mixed original/composed class
@@ -60,15 +56,20 @@ target_link_libraries(
 target_link_libraries(LibCore PRIVATE firefly-windows-helper-launch)
 target_link_libraries(LibWebView PRIVATE firefly-windows-helper-launch)
 firefly_replace_source(LibCore "Libraries/LibCore/ProcessWindows.cpp"
-                       "${windows_helper_output}/ProcessWindows.cpp")
+                       "${FIREFLY_WINDOWS_HELPER_OVERLAY}/ProcessWindows.cpp")
 firefly_replace_source(LibWebView "Libraries/LibWebView/Process.cpp"
-                       "${windows_helper_output}/Process.cpp")
+                       "${FIREFLY_WINDOWS_HELPER_OVERLAY}/Process.cpp")
 firefly_replace_source(ImageDecoder "Services/ImageDecoder/SandboxUnimplemented.cpp"
                        "${CMAKE_CURRENT_LIST_DIR}/ImageDecoderSandbox.cpp")
 target_link_libraries(ImageDecoder PRIVATE firefly-windows-helper-launch)
 firefly_replace_source(Compositor "Services/Compositor/SandboxUnimplemented.cpp"
                        "${CMAKE_CURRENT_LIST_DIR}/CompositorSandbox.cpp")
 target_link_libraries(Compositor PRIVATE firefly-windows-helper-launch)
+firefly_replace_source(LibWebView "Libraries/LibWebView/SystemProbeClient.cpp"
+                       "${FIREFLY_WINDOWS_HELPER_OVERLAY}/SystemProbeClient.cpp")
+firefly_replace_source(SystemProbe "Services/SystemProbe/main.cpp"
+                       "${FIREFLY_WINDOWS_HELPER_OVERLAY}/SystemProbeMain.cpp")
+target_link_libraries(SystemProbe PRIVATE firefly-windows-helper-launch)
 # The compiled helper slice is not the complete desktop runtime. The default runtime/release gate
 # must remain closed until every real helper role is covered.
 set_property(TARGET firefly-windows-helper-launch PROPERTY FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE
@@ -80,6 +81,9 @@ set_property(
              "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/prepare.py"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibCore/ProcessWindows.cpp"
              "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/Process.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/SystemProbeClient.cpp"
+             "${LADYBIRD_SOURCE_DIR}/Libraries/LibWebView/SystemProbeClient.h"
+             "${LADYBIRD_SOURCE_DIR}/Services/SystemProbe/main.cpp"
              "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/broker.py"
              "${FIREFLY_SOURCE_DIR}/tooling/windows-sandbox/stage.py"
              "${FIREFLY_SOURCE_DIR}/firefly/native/sandbox/windows/helper/BrokerPolicy.h"
@@ -130,6 +134,7 @@ target_link_libraries(
             LibWebView
             LibImageDecoderClient
             LibGfx
+            LibPlatformFeatures
             AK)
 ladybird_windows_bin(firefly-windows-broker-probe CONSOLE)
 set(windows_broker_inputs "${CMAKE_BINARY_DIR}/firefly-adapters/windows-broker-probe-$<CONFIG>.txt")
@@ -137,7 +142,7 @@ file(
     GENERATE
     OUTPUT "${windows_broker_inputs}"
     CONTENT
-        "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n$<TARGET_FILE:ImageDecoder>\n$<JOIN:$<TARGET_RUNTIME_DLLS:ImageDecoder>,\n>\n$<TARGET_FILE:Compositor>\n$<JOIN:$<TARGET_RUNTIME_DLLS:Compositor>,\n>\n"
+        "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n$<TARGET_FILE:ImageDecoder>\n$<JOIN:$<TARGET_RUNTIME_DLLS:ImageDecoder>,\n>\n$<TARGET_FILE:Compositor>\n$<JOIN:$<TARGET_RUNTIME_DLLS:Compositor>,\n>\n$<TARGET_FILE:SystemProbe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:SystemProbe>,\n>\n"
 )
 add_custom_target(
     check-firefly-windows-broker
@@ -145,5 +150,5 @@ add_custom_target(
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/tests/test_windows_broker.py" --probe
         "$<TARGET_FILE:firefly-windows-broker-probe>" --targets "${windows_broker_inputs}"
         --resources "${CMAKE_BINARY_DIR}/share/Lagom" --revision "${windows_helper_revision}"
-    DEPENDS firefly-windows-broker-probe ImageDecoder Compositor ladybird
+    DEPENDS firefly-windows-broker-probe ImageDecoder Compositor SystemProbe ladybird
     USES_TERMINAL VERBATIM)

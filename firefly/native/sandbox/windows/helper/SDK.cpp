@@ -68,6 +68,8 @@ namespace {
             return L"ImageDecoder.exe";
         case Role::Compositor:
             return L"Compositor.exe";
+        case Role::SystemProbe:
+            return L"SystemProbe.exe";
         case Role::Unsupported:
             return nullptr;
         }
@@ -110,6 +112,10 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
         || !options.environment.has_value() || options.environment->size() > 512
         || options.arguments.size() > 1024)
         return Error::from_string_literal("Invalid sandbox helper spawn contract");
+    bool const has_transport = current->role != Role::SystemProbe;
+    if (!has_transport && (!options.environment->is_empty() || options.file_actions.size() != 1))
+        return Error::from_string_literal("SystemProbe requires only its private report pipe");
+
     WindowsSandbox::Launch launch;
     launch.executable = TRY(wide(options.executable));
     auto executable = std::filesystem::path(launch.executable).lexically_normal();
@@ -167,7 +173,7 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
         launch.environment.push_back(TRY(wide(entry)));
     }
 
-    if (!takeover)
+    if (has_transport && !takeover)
         return Error::from_string_literal("Missing private helper transport environment");
 
     // The SDK's two transport HANDLE values must survive unchanged. Unlike
@@ -227,7 +233,8 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
     auto error_stream = GetStdHandle(STD_ERROR_HANDLE);
     launch.output = TRY(duplicate(output && output != INVALID_HANDLE_VALUE ? output : sink.get()));
     launch.error = TRY(duplicate(
-        error_stream && error_stream != INVALID_HANDLE_VALUE ? error_stream : sink.get()));
+        has_transport && error_stream && error_stream != INVALID_HANDLE_VALUE ? error_stream
+                                                                              : sink.get()));
     std::vector<int> transport_fds;
     bool redirected_output = false;
     bool redirected_error = false;
@@ -235,6 +242,9 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
         TRY(action.visit(
             [&](Core::FileAction::DupFd const& value) -> ErrorOr<void> {
                 auto handle = to_handle(value.write_fd);
+                if (!has_transport
+                    && (value.fd != STDOUT_FILENO || GetFileType(handle) != FILE_TYPE_PIPE))
+                    return Error::from_string_literal("SystemProbe stdout must be its report pipe");
                 if (value.fd == STDOUT_FILENO && !redirected_output) {
                     launch.output = TRY(duplicate(handle));
                     redirected_output = true;
@@ -267,12 +277,15 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
             }));
     }
 
-    if (launch.inherited.size() != 2 || launch.inherited[0] == launch.inherited[1])
-        return Error::from_string_literal("Expected exactly two private helper transports");
-    if (takeover_entry
-        != ByteString::formatted(
-            "SOCKET_TAKEOVER=ipc:{};handle-broker:{}", transport_fds[0], transport_fds[1]))
-        return Error::from_string_literal("Private helper transport provenance mismatch");
+    if (has_transport) {
+        if (launch.inherited.size() != 2 || launch.inherited[0] == launch.inherited[1])
+            return Error::from_string_literal("Expected exactly two private helper transports");
+        if (takeover_entry
+            != ByteString::formatted(
+                "SOCKET_TAKEOVER=ipc:{};handle-broker:{}", transport_fds[0], transport_fds[1]))
+            return Error::from_string_literal("Private helper transport provenance mismatch");
+    }
+
     for (auto stream : { launch.input, launch.output, launch.error }) {
         auto type = GetFileType(stream);
         if (type != FILE_TYPE_PIPE && type != FILE_TYPE_DISK && type != FILE_TYPE_CHAR)

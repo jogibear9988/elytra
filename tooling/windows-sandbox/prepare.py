@@ -15,8 +15,25 @@ PINS = {
         "Libraries/LibWebView/Process.cpp",
         "b9b4d6662e8ff2c2440beb3f91ec3bc6af8e6fa1dbfcc3ff61fb2102190b7545",
     ),
+    "SystemProbeClient.cpp": (
+        "Libraries/LibWebView/SystemProbeClient.cpp",
+        "d539b4d8b86771d98681c824e081e50c8669ed8f921751f51a0f214ff4af2d9a",
+    ),
+    "SystemProbeClient.h": (
+        "Libraries/LibWebView/SystemProbeClient.h",
+        "8ddda6efffe6e7d1bec25b21f3ba24ddd5dc2bcf9adc11a94cc3991eca78ec5e",
+    ),
+    "SystemProbeMain.cpp": (
+        "Services/SystemProbe/main.cpp",
+        "914e604deddbe25682426e968a4b065f789709397eb9d05fa60b23476ba3dcc9",
+    ),
 }
 PREFIX = '#include "native/sandbox/windows/helper/SDK.h"\n'
+HEADER_PREFIX = "// Firefly retains the native SystemProbe lease until the client retires.\n"
+
+
+def prefix_for(name):
+    return HEADER_PREFIX if name == "SystemProbeClient.h" else PREFIX
 
 
 def changes(name):
@@ -94,13 +111,51 @@ def changes(name):
                 "    auto process = TRY(Core::Process::spawn(spawn_options));\n#if defined(AK_OS_MACOS)",
             ),
         ]
+    if name == "SystemProbeClient.h":
+        return [("    pid_t m_pid { -1 };", "    OwnPtr<Core::Process> m_process;")]
+    if name == "SystemProbeClient.cpp":
+        return [
+            (
+                "        // The probe loads the driver as the Compositor will, so it sees the same environment.\n"
+                "        return Process::spawn_without_transport(ProcessType::Compositor, options);",
+                "        options.die_with_parent = true;\n"
+                "        options.environment = Vector<ByteString> {};\n"
+                "        Firefly::WindowsHelpers::Scope scope { Firefly::WindowsHelpers::Role::SystemProbe, options };\n"
+                "        return Core::Process::spawn(options);",
+            ),
+            (
+                "    client.m_pid = process.value().pid();",
+                "    client.m_process = make<Core::Process>(process.release_value());",
+            ),
+            (
+                "    if (m_pid > 0)\n"
+                "        (void)Core::Process::terminate_process(m_pid, Core::Process::TerminationMode::Forceful);",
+                "    // Closing this exact owner ends only the probe's own Job.\n"
+                "    m_process = nullptr;",
+            ),
+            (
+                "    // The ProcessMonitor reaps the probe along with every other child.\n"
+                "    m_pid = -1;\n",
+                "    // The probe closes its output before it unloads the driver.\n"
+                "    // Keep the native owner until client destruction instead of terminating here.\n",
+            ),
+        ]
+    if name == "SystemProbeMain.cpp":
+        return [
+            (
+                "    StringView gpu_device;\n",
+                "    TRY(Firefly::WindowsHelpers::verify_current());\n\n"
+                "    StringView gpu_device;\n",
+            ),
+        ]
     raise ValueError("Unknown Windows helper source")
 
 
 def reverse(name, result):
-    if not result.startswith(PREFIX) or result.count(PREFIX) != 1:
+    prefix = prefix_for(name)
+    if not result.startswith(prefix) or result.count(prefix) != 1:
         raise ValueError("Missing/repeated helper authority include")
-    original = result.removeprefix(PREFIX)
+    original = result.removeprefix(prefix)
     for before, after in reversed(changes(name)):
         if original.count(after) != 1:
             raise ValueError("Missing/repeated helper authority reversal")
@@ -109,14 +164,15 @@ def reverse(name, result):
 
 
 def compose(name, source):
-    if PREFIX in source:
+    prefix = prefix_for(name)
+    if prefix in source:
         raise ValueError("Repeated helper authority composition")
     result = source
     for before, after in changes(name):
         if result.count(before) != 1 or after in result:
             raise ValueError("Missing/repeated Windows helper source seam")
         result = result.replace(before, after, 1)
-    result = PREFIX + result
+    result = prefix + result
     if reverse(name, result) != source:
         raise ValueError("Windows helper composition changed unrelated upstream bytes")
     return result
@@ -141,7 +197,10 @@ def prepare(output):
         planned[name] = result.encode()
     output.mkdir(parents=True, exist_ok=True)
     for name, data in planned.items():
-        path = output / name
+        path = output / (
+            "LibWebView/SystemProbeClient.h" if name == "SystemProbeClient.h" else name
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists() or path.read_bytes() != data:
             path.write_bytes(data)
 

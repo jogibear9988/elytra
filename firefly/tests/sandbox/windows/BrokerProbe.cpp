@@ -2,10 +2,13 @@
 #include "native/sandbox/windows/Sandbox.h"
 #include "native/sandbox/windows/helper/BrokerPolicy.h"
 #include "native/sandbox/windows/helper/SDK.h"
+#include <AK/Array.h>
+#include <AK/ByteBuffer.h>
 #include <AK/MemoryStream.h>
 #include <AK/ScopeGuard.h>
 #include <AK/Time.h>
 #include <LibCore/EventLoop.h>
+#include <LibCore/File.h>
 #include <LibCore/Process.h>
 #include <LibCore/System.h>
 #include <LibGfx/Bitmap.h>
@@ -20,10 +23,12 @@
 #include <LibIPC/Transport.h>
 #include <LibImageDecoderClient/Client.h>
 #include <LibMain/Main.h>
+#include <LibPlatformFeatures/SystemFacts.h>
 #include <LibWebView/CompositorClient.h>
 #include <LibWebView/ImageDecoderControlClient.h>
 #include <cstdio>
 #include <cstdlib>
+#include <fcntl.h>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -406,6 +411,62 @@ ErrorOr<void> connect_to_confined_compositor(std::filesystem::path const& render
     outln("PASS real AppContainer Compositor control IPC and natural exit");
     return {};
 }
+
+ErrorOr<void> read_confined_system_report(
+    std::filesystem::path const& renderer, IPC::HandleBrokerServer& server)
+{
+    auto probe = renderer.parent_path() / L"SystemProbe.exe";
+    TRY(require(spawn(probe, server, {}, H::Role::SystemProbe).is_error(),
+        "system facts probe cannot accept transport or ambient options"));
+
+    auto pipe = TRY(Core::System::pipe2(O_CLOEXEC));
+    ScopeGuard cleanup([&] {
+        for (auto fd : pipe) {
+            if (fd != -1)
+                (void)Core::System::close(fd);
+        }
+    });
+    auto input = TRY(Core::File::adopt_fd(pipe[0], Core::File::OpenMode::Read));
+    pipe[0] = -1;
+    Core::ProcessSpawnOptions options;
+    auto path = probe.u8string();
+    options.executable
+        = ByteString(StringView(reinterpret_cast<char const*>(path.data()), path.size()));
+    options.die_with_parent = true;
+    options.environment = Vector<ByteString> {};
+    {
+        H::Scope scope(H::Role::SystemProbe, options);
+        TRY(require(
+            Core::Process::spawn(options).is_error(), "missing system report pipe is refused"));
+    }
+
+    options.file_actions.append(
+        Core::FileAction::DupFd { .write_fd = pipe[1], .fd = STDOUT_FILENO });
+    auto launch = [&]() -> ErrorOr<Core::Process> {
+        H::Scope scope(H::Role::SystemProbe, options);
+        return Core::Process::spawn(options);
+    };
+
+    auto process = TRY(launch());
+    TRY(Core::System::close(pipe[1]));
+    pipe[1] = -1;
+
+    ByteBuffer report;
+    Array<u8, 4096> buffer;
+    for (;;) {
+        auto bytes = TRY(input->read_some(buffer));
+        if (bytes.is_empty())
+            break;
+        TRY(require(report.size() + bytes.size() <= 64 * KiB, "bounded native system report"));
+        TRY(report.try_append(bytes));
+    }
+
+    auto facts = TRY(PlatformFeatures::SystemFacts::from_json(StringView { report.bytes() }));
+    TRY(require(!facts.probe_failure.has_value(), "actual probe writes a system facts report"));
+    TRY(require(TRY(process.wait_for_termination()) == 0, "system probe exits naturally"));
+    outln("PASS real AppContainer SystemProbe report pipe and natural exit");
+    return {};
+}
 }
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
@@ -431,6 +492,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
         "unsupported helper role never falls back to an ordinary child"));
     TRY(decode_with_confined_helper(executable, *server, broker));
     TRY(connect_to_confined_compositor(executable, *server, broker));
+    TRY(read_confined_system_report(executable, *server));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();

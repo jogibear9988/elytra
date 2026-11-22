@@ -52,13 +52,22 @@ class HelperSources(unittest.TestCase):
                 composer.ROOT = root
                 output = root / "output"
                 composer.prepare(output)
-                accepted = {p.name: p.read_bytes() for p in output.iterdir()}
+                accepted = {
+                    p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()
+                }
                 relative = composer.PINS["Process.cpp"][0]
                 path = root / "vendor/ladybird" / relative
                 path.write_bytes(path.read_bytes() + b"\n")
                 with self.assertRaises(ValueError):
                     composer.prepare(output)
-                self.assertEqual({p.name: p.read_bytes() for p in output.iterdir()}, accepted)
+                self.assertEqual(
+                    {
+                        p.relative_to(output): p.read_bytes()
+                        for p in output.rglob("*")
+                        if p.is_file()
+                    },
+                    accepted,
+                )
                 absent = root / "absent"
                 with self.assertRaises(ValueError):
                     composer.prepare(absent)

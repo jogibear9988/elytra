@@ -16728,6 +16728,19 @@ resource root. Local source, broker and desktop configure-policy
 checks pass. Native compositor IPC, GPU presentation and the full
 Windows application remain unverified.
 
+## Confine the Windows SystemProbe and retain its native process owner
+
+Give the startup facts probe an exact SystemProbe.exe role with a
+private stdout pipe, null stdin/stderr and no helper IPC or ambient
+environment. The actual worker checks its AppContainer and Job before
+querying system data. The generated client retains the Core process
+owner through the report, and cancellation closes only that exact
+Job. The header overlay is selected before SDK targets are declared.
+The native test runs the actual helper, parses its bounded report,
+requires natural exit and verifies that missing or IPC-style
+transports are refused. Local source, broker and configure-policy
+checks pass. Native execution and full desktop acceptance remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

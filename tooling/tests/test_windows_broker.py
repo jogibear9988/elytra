@@ -58,6 +58,7 @@ def main():
         expected = (
             "PASS real AppContainer ImageDecoder PNG, exact role and natural exit\n"
             "PASS real AppContainer Compositor control IPC and natural exit\n"
+            "PASS real AppContainer SystemProbe report pipe and natural exit\n"
             "PASS real Core AppContainer identity, pseudo/truncation rejection, partial-copy rollback and token/handle refunds\n"
             "PASS actual multi-child remote Park bound, Browser-origin independence and disconnect recovery\n"
         )
