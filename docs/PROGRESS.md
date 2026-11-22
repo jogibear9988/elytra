@@ -16858,6 +16858,25 @@ The site builds all 367 pages and checks 27,615 local links and resources.
 The prior preview is still open. The old and current macOS packages carry the
 same Code-OSS payload seal; the newer Cocoa startup timeout is still open.
 
+## Assemble a Windows Release SDK into application ZIP candidates
+
+Add a native Windows entry point that stages a Release Firefly SDK with its
+deployed Qt platform plugin, app-local PE closure, sealed helper tree and any
+external ICU data. Stage production application files with the Designer shell
+check or the stronger physical Code-OSS seal, preserve notices and file hashes,
+and verify the staged Firefly binary reports the pinned LibJS revision with
+only System32 on PATH. Add the host graphics, input and shell imports used by
+the pinned desktop build to the explicit PE policy. The ZIP includes the root
+launcher and rejects links, reparse points and invalid or ambiguous Win32 paths.
+
+Local ZIP content and refusal checks, scoped runtime-revision verification,
+Code-OSS seal checks and production payload checks pass. The hosted native
+component fixture now extracts the Code-OSS ZIP, removes its source package and
+SDK paths, and runs the extracted launcher. It also checks the package leaves
+the fixture's DWM import to Windows. Native component CI and real Firefly
+desktop and sample acceptance remain open. The release job still requires that
+acceptance before it can publish Windows sample packages.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

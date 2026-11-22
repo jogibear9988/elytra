@@ -622,3 +622,27 @@ pinned separately. The setup checks the upstream installer digest before
 installation and selects that clang-cl and lld-link ahead of the runner's
 bundled LLVM. This addresses the November 22 runner's MSVC 14.52 STL
 requirement for Clang 22 or newer.
+
+### Stage a Windows package candidate
+
+`tooling/package_windows.py` consumes a native Release Firefly SDK after its
+full desktop build gate passes. The SDK supplies the DLLs, deployed Qt plugins,
+external ICU data when configured, and the sealed helper tree. Staging checks
+that the packaged executable reports the pinned LibJS revision with the SDK
+off its DLL search path. Each candidate includes the application, the runtime,
+license notices and a file checksum inventory.
+
+Run these commands in the native Windows developer environment with the SDK
+already built and the pinned Cargo sources available.
+
+```powershell
+python tooling/build_designer.py --output build/designer-app --dependencies production
+python tooling/build_code_oss.py --output build/code-oss-app
+python tooling/package_windows.py --build build/renderer --app build/designer-app --output build/web-component-designer-windows-x64 --version 0.1.0-dev.1 --archive
+python tooling/package_windows.py --build build/renderer --app build/code-oss-app --output build/code-oss-windows-x64 --version 0.1.0-dev.1 --code-oss --archive
+```
+
+Extract the complete ZIP into its own directory and run `Launch.exe` there.
+The Code-OSS builder selects the physical renderer layout on native Windows.
+Windows desktop confinement and the actual Designer and Code-OSS launch gates
+remain prerequisites for publishing either archive as a release asset.

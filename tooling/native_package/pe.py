@@ -11,31 +11,53 @@ import tempfile
 from check_checkout_paths import reason
 from native_package.elf import digest
 
-# This list covers the Windows desktop ABI used by the native build. A VC
-# redistributable remains an explicit provider even if present in System32.
+# Native host ABI for the launcher, runtime and Qt platform plugin. Windows
+# graphics, input and shell libraries come from System32. VC redistributables
+# still require an explicit app-local provider.
 HOST_DLLS = frozenset(
     {
         "advapi32.dll",
         "bcrypt.dll",
         "combase.dll",
+        "comdlg32.dll",
         "crypt32.dll",
+        "d3d9.dll",
+        "d3d11.dll",
+        "d3d12.dll",
+        "d3dcompiler_47.dll",
         "dbghelp.dll",
+        "dcomp.dll",
+        "dnsapi.dll",
+        "dwmapi.dll",
+        "dwrite.dll",
+        "dxgi.dll",
         "gdi32.dll",
+        "imm32.dll",
         "iphlpapi.dll",
         "kernel32.dll",
+        "mpr.dll",
+        "ncrypt.dll",
+        "netapi32.dll",
         "ntdll.dll",
         "ole32.dll",
         "oleaut32.dll",
+        "opengl32.dll",
         "psapi.dll",
         "secur32.dll",
+        "setupapi.dll",
+        "shcore.dll",
         "shell32.dll",
         "shlwapi.dll",
+        "uiautomationcore.dll",
         "ucrtbase.dll",
         "user32.dll",
         "userenv.dll",
+        "uxtheme.dll",
         "version.dll",
         "winmm.dll",
+        "winspool.drv",
         "ws2_32.dll",
+        "wtsapi32.dll",
     }
 )
 DLL = re.compile(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]*\.dll", re.I)
@@ -84,9 +106,10 @@ def image_dependencies(dumpbin, path):
                 raise ValueError(f"Empty PE dependency table: {path}")
             first = first.strip()
         for name in (first, *take_table(lines)):
-            if not DLL.fullmatch(name):
+            normalized = name.lower()
+            if not DLL.fullmatch(name) and normalized not in HOST_DLLS:
                 raise ValueError(f"Invalid PE import name in {path.name}: {name!r}")
-            names.add(name.lower())
+            names.add(normalized)
     forwarders = set()
     for line in report.splitlines():
         if "(forwarded to " not in line:
@@ -95,7 +118,7 @@ def image_dependencies(dumpbin, path):
         if not match:
             raise ValueError(f"Unrecognized PE export forwarder in {path.name}: {line.strip()!r}")
         module = match[1].lower()
-        name = module if module.endswith(".dll") else module + ".dll"
+        name = module if module.endswith(".dll") or module in HOST_DLLS else module + ".dll"
         if reason(name):
             raise ValueError(f"Invalid PE export module in {path.name}: {name!r}")
         forwarders.add(name)

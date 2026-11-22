@@ -9,8 +9,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 from native_package import pe, windows_app
+from package_windows import write_archive
 from test_code_oss_sample import fixture as code_oss_fixture
 
 
@@ -93,10 +95,15 @@ def main():
         plugin = build(
             inputs,
             "PlatformFixture",
+            "#include <windows.h>\n#include <dwmapi.h>\n"
             "__declspec(dllimport) int plugin_value(void);\n"
-            "__declspec(dllexport) int platform_value(void) { return plugin_value(); }",
+            "__declspec(dllexport) int platform_value(void) {\n"
+            "    BOOL enabled = FALSE;\n"
+            "    DwmIsCompositionEnabled(&enabled);\n"
+            "    return plugin_value();\n"
+            "}",
             dll=True,
-            link=(plugin_dependency.with_suffix(".lib"),),
+            link=(plugin_dependency.with_suffix(".lib"), "dwmapi.lib"),
         )
         plugin_host = build(
             inputs,
@@ -164,12 +171,14 @@ int main(void) {
             "platforms/PlatformFixture.dll",
         }, metadata
         assert "pluginprovider.dll" in metadata["objects"][placement[0]]["imports"]
+        assert "dwmapi.dll" in metadata["objects"][placement[0]]["imports"]
         provider = metadata["objects"][plugin_dependency.name]
         assert "forwardtarget.dll" not in provider["imports"]
         assert provider["forwarders"] == ["forwardtarget.dll"], provider
         assert "bridge.dll" in metadata["objects"][image.name]["imports"]
         assert "leaf.dll" in metadata["objects"][bridge.name]["imports"]
         assert "kernel32.dll" in metadata["hostDlls"]
+        assert "dwmapi.dll" in metadata["hostDlls"]
         app = root / "source app"
         app.mkdir()
         entry = app / "main.mjs"
@@ -239,7 +248,15 @@ int main(void) {
         assert not renderer.is_symlink()
         assert source.read_bytes() == renderer.read_bytes()
         relocated_code_oss = root / "Relocated Code-OSS Grüße 中文"
-        code_oss_package.rename(relocated_code_oss)
+        archive = root / "code-oss-windows-x64.zip"
+        write_archive(code_oss_package, archive)
+        with zipfile.ZipFile(archive) as bundled:
+            assert bundled.testzip() is None
+            bundled.extractall(relocated_code_oss)
+        shutil.rmtree(code_oss_package)
+        assert (relocated_code_oss / "app/out/main.js").read_bytes() == (
+            relocated_code_oss / "app/src/main.js"
+        ).read_bytes()
         relocated_app = root / "Relocated Anwendung Grüße 中文"
         assembled.rename(relocated_app)
         moved = root / "Relocated Grüße 中文"
@@ -284,7 +301,7 @@ int main(void) {
             timeout=15,
         )
         assert result.returncode == 37, result.returncode
-        print("PASS physical sealed Code-OSS sample staging and relocated native launcher fixture")
+        print("PASS physical sealed Code-OSS sample ZIP and extracted native launcher fixture")
         print("PASS relocated app launcher, PE closure, and independently sealed helper fixture")
     print("PASS native x64 PE closure, delayed imports, forwarded export, plugin, and relocation")
 

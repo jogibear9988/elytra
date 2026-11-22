@@ -17,19 +17,24 @@ def verify_electron_compat(runtime):
         raise ValueError("The selected Firefly SDK does not support --electron-compat")
 
 
-def verify_libjs_revision(runtime, expected, *, firefly=False):
+def verify_libjs_revision(runtime, expected, *, firefly=False, search_path=None, cwd=None):
     """Read the engine revision from the executable before staging it."""
     environment = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("FIREFLY_", "MITE_")) and key != "ELECTRON_RUN_AS_NODE"
+        if not key.upper().startswith(("FIREFLY_", "MITE_"))
+        and key.upper() != "ELECTRON_RUN_AS_NODE"
+        and (search_path is None or key.upper() != "PATH")
     }
+    if search_path is not None:
+        environment["PATH"] = str(search_path)
     if firefly:
         # Firefly enters its Mite CLI before initializing Qt or starting helpers.
         environment["ELECTRON_RUN_AS_NODE"] = "1"
     result = subprocess.run(
         [str(runtime), "-p", "process.versions.libjs"],
         env=environment,
+        cwd=cwd,
         capture_output=True,
         text=True,
         timeout=15,
