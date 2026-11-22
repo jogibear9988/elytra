@@ -1,7 +1,7 @@
 # This module is included by Inject.cmake in an upstream-root build. It is never added to the
 # standalone Mite build or linked into the Mite executable.
 option(FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH
-       "Build the incomplete native WebContent AppContainer integration" OFF)
+       "Build the incomplete native AppContainer helper integration" OFF)
 if(FIREFLY_EXPERIMENTAL_WINDOWS_HELPER_LAUNCH)
     if(NOT WIN32)
         message(FATAL_ERROR "The experimental AppContainer helper requires native Windows")

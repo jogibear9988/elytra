@@ -16704,6 +16704,18 @@ confirms restoration of the capability-drop logging setting. No
 Windows runtime gate changed. Actual applications and native helper-role
 coverage remain open. The generated site and local package checks pass.
 
+## Admit the native ImageDecoder through its own Windows helper role
+
+Select the ImageDecoder role only from the typed LibWebView spawn,
+bind it to the matching executable in the sealed helper root, and
+verify the parent's AppContainer and Job from the real decoder entry
+before accepting IPC. Reject the disable-sandbox argument for confined
+helpers. The native test launches the actual decoder, decodes an opaque
+red PNG over its normal IPC, rejects cross-role executable selection
+and requires natural teardown. Local source and broker controls pass.
+Native compilation and execution are pending. Network-capable roles,
+full renderer isolation and the Windows desktop gate remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

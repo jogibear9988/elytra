@@ -8,6 +8,7 @@
 #include <LibCore/EventLoop.h>
 #include <LibCore/Process.h>
 #include <LibCore/System.h>
+#include <LibGfx/Bitmap.h>
 #include <LibIPC/Attachment.h>
 #include <LibIPC/Decoder.h>
 #include <LibIPC/Encoder.h>
@@ -17,7 +18,9 @@
 #include <LibIPC/Limits.h>
 #include <LibIPC/Message.h>
 #include <LibIPC/Transport.h>
+#include <LibImageDecoderClient/Client.h>
 #include <LibMain/Main.h>
+#include <LibWebView/ImageDecoderControlClient.h>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -277,7 +280,8 @@ struct Session {
 
     ~Session()
     {
-        (void)Core::System::close(control);
+        if (control != -1)
+            (void)Core::System::close(control);
     }
 };
 
@@ -298,7 +302,9 @@ ErrorOr<std::unique_ptr<Session>> spawn(std::filesystem::path const& executable,
     options.executable
         = ByteString(StringView(reinterpret_cast<char const*>(text.data()), text.size()));
     options.die_with_parent = true;
-    Vector<ByteString> arguments { ByteString(mode) };
+    Vector<ByteString> arguments;
+    if (mode)
+        arguments.append(ByteString(mode));
     options.arguments = arguments;
     options.environment = Vector<ByteString> { ByteString::formatted(
         "SOCKET_TAKEOVER=ipc:{};handle-broker:{}", channel[1], broker[1]) };
@@ -335,6 +341,43 @@ ErrorOr<void> exited(Session& session, IPC::LocalHandleBroker& broker)
         "EOF forgets actual owner records"));
     return {};
 }
+
+ErrorOr<void> decode_with_confined_helper(std::filesystem::path const& renderer,
+    IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
+{
+    auto decoder = renderer.parent_path() / L"ImageDecoder.exe";
+    TRY(require(
+        spawn(decoder, server).is_error(), "renderer role cannot launch the decoder image"));
+    TRY(require(spawn(renderer, server, nullptr, H::Role::ImageDecoder).is_error(),
+        "decoder role cannot launch the renderer image"));
+    TRY(require(spawn(decoder, server, "--disable-sandbox", H::Role::ImageDecoder).is_error(),
+        "decoder cannot opt out of its child-side sandbox check"));
+
+    auto session = TRY(spawn(decoder, server, nullptr, H::Role::ImageDecoder));
+    auto control_transport = TRY(IPC::Transport::adopt_fd(session->control));
+    session->control = -1;
+    auto control
+        = TRY(try_make_ref_counted<WebView::ImageDecoderControlClient>(move(control_transport)));
+    auto channel = TRY(IPC::TransportHandle::create_pair());
+    control->async_connect_new_client(channel.first);
+    auto client = TRY(
+        try_make_ref_counted<ImageDecoderClient::Client>(TRY(channel.second.create_transport())));
+    // A 1 x 1 PNG with one opaque red pixel, encoded in RGB.
+    static constexpr auto png = "\x89\x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52"
+                                "\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90\x77\x53"
+                                "\xde\x00\x00\x00\x0c\x49\x44\x41\x54\x78\x9c\x63\xf8\xcf\xc0\x00"
+                                "\x00\x03\x01\x01\x00\xc9\xfe\x92\xef\x00\x00\x00\x00\x49\x45\x4e"
+                                "\x44\xae\x42\x60\x82"sv;
+    auto decoded = TRY(client->decode_first_frame_synchronously(png.bytes()));
+    TRY(require(decoded.bitmap->width() == 1 && decoded.bitmap->height() == 1
+            && decoded.bitmap->get_pixel(0, 0) == Gfx::Color::Red,
+        "actual sandboxed decoder returns the expected pixels"));
+    client->shutdown();
+    control->shutdown();
+    TRY(exited(*session, broker));
+    outln("PASS real AppContainer ImageDecoder PNG, exact role and natural exit");
+    return {};
+}
 }
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
@@ -358,6 +401,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
             path.length()));
     TRY(require(spawn(executable, *server, "--child", H::Role::Unsupported).is_error(),
         "unsupported helper role never falls back to an ordinary child"));
+    TRY(decode_with_confined_helper(executable, *server, broker));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();

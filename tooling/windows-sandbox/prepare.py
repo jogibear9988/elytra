@@ -74,9 +74,14 @@ def changes(name):
             ),
             (
                 "    process = TRY(Core::Process::spawn(spawn_options));\n\n    auto transport = TRY(IPC::Transport::adopt_fd(channel[0]));",
-                "    Firefly::WindowsHelpers::Scope firefly_launch_scope {\n"
-                "        type == ProcessType::WebContent ? Firefly::WindowsHelpers::Role::WebContent\n"
-                "                                        : Firefly::WindowsHelpers::Role::Unsupported, spawn_options };\n"
+                "    using SandboxRole = Firefly::WindowsHelpers::Role;\n"
+                "    auto role = SandboxRole::Unsupported;\n"
+                "    switch (type) {\n"
+                "    case ProcessType::WebContent: role = SandboxRole::WebContent; break;\n"
+                "    case ProcessType::ImageDecoder: role = SandboxRole::ImageDecoder; break;\n"
+                "    default: break;\n"
+                "    }\n"
+                "    Firefly::WindowsHelpers::Scope firefly_launch_scope { role, spawn_options };\n"
                 "    process = TRY(Core::Process::spawn(spawn_options));\n\n    auto transport = TRY(IPC::Transport::adopt_fd(channel[0]));",
             ),
             (

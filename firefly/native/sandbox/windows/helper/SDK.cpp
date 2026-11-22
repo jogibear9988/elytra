@@ -59,9 +59,23 @@ namespace {
         return result;
     }
 
+    wchar_t const* executable_name(Role role)
+    {
+        switch (role) {
+        case Role::WebContent:
+            return L"WebContent.exe";
+        case Role::ImageDecoder:
+            return L"ImageDecoder.exe";
+        case Role::Unsupported:
+            return nullptr;
+        }
+
+        return nullptr;
+    }
+
     bool allowed_environment(StringView name)
     {
-        // The first WebContent-only component needs exactly its private pipes.
+        // These helper roles need exactly their private pipes.
         // No loader/runtime/debug prefix is copied from the ambient main process.
         return name == "SOCKET_TAKEOVER"sv;
     }
@@ -87,8 +101,8 @@ bool has_launch_scope()
 
 ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
 {
-    if (!current || current->previous || current->options != &options
-        || current->role != Role::WebContent)
+    auto const* image_name = current ? executable_name(current->role) : nullptr;
+    if (!image_name || current->previous || current->options != &options)
         return Error::from_string_literal("Windows helper sandbox role is not implemented");
     if (options.search_for_executable_in_path || !options.die_with_parent
         || !options.environment.has_value() || options.environment->size() > 512
@@ -100,13 +114,15 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
     executable.make_preferred();
     launch.executable = executable.wstring();
     auto root = executable.parent_path().parent_path();
-    if (!executable.is_absolute() || executable.filename() != L"WebContent.exe"
+    if (!executable.is_absolute() || executable.filename() != image_name
         || executable.parent_path().filename() != L"bin"
         || (root.filename() != L"firefly-helper" && root.filename() != L"firefly-runtime"))
         return Error::from_string_literal("Helper must be in its physical owned runtime");
     launch.directory = executable.parent_path().wstring();
     size_t bytes = options.executable.length();
     for (auto const& argument : options.arguments) {
+        if (argument == "--disable-sandbox"sv)
+            return Error::from_string_literal("Confined helper cannot disable its sandbox check");
         if (argument.length() > 65536 || bytes > 1024 * 1024 - argument.length())
             return Error::from_string_literal("Helper argument budget exceeded");
         bytes += argument.length();
