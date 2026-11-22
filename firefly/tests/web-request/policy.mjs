@@ -455,4 +455,47 @@ const BLOCKED = 'ERR_BLOCKED_BY_CLIENT';
   f.api.onBeforeSendHeaders(null);
   f.component.stop();
 }
+{
+  const f = fixture();
+  const market = { urls: ['https://market.test/*'] };
+  let before;
+  let oldHeaderDecision;
+
+  f.api.onBeforeRequest((_details, callback) => {
+    before = callback;
+  });
+
+  f.component.dispatch(f.packet({ url: 'vscode-file://vscode-app/workbench.html' }));
+
+  f.api.onBeforeSendHeaders(market, (_details, callback) => {
+    oldHeaderDecision = callback;
+  });
+
+  check(f.state.configurations.length === 1, 'Header listener uses the enabled native stage');
+  check(f.state.completions.length === 0, 'Unchanged before-request decision is still live');
+  before({ cancel: false });
+  check(f.state.completions[0]?.value.cancel === false, 'Unrelated navigation stays admitted');
+  check(!oldHeaderDecision, 'Marketplace filter does not match the workbench');
+
+  f.component.dispatch(f.packet({ token: 2, url: 'https://market.test/data' }));
+  before({ cancel: false });
+  check(oldHeaderDecision, 'Matching request reached the original header callback');
+
+  f.api.onBeforeSendHeaders(market, (_details, callback) => {
+    callback({ requestHeaders: { 'X-Test': 'new-listener' } });
+  });
+
+  check(f.state.completions[1]?.value.cancel === true, 'Replaced header callback is rejected');
+  oldHeaderDecision({ cancel: false });
+  check(f.state.completions.length === 2, 'Obsolete callback cannot authorize the request');
+
+  f.component.dispatch(f.packet({ token: 3, url: 'https://market.test/data' }));
+  before({ cancel: false });
+  check(
+    f.state.completions[2]?.value.requestHeaders?.['X-Test']?.[0] === 'new-listener',
+    'Matching request uses the current header callback'
+  );
+  f.component.stop();
+  console.log('PASS header changes preserve before-request decisions and revoke stale headers');
+}
 console.log('DONE webRequest policy');

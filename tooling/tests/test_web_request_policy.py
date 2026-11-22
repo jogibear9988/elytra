@@ -31,7 +31,7 @@ def main():
     assert all(result.returncode == 0 and not result.stderr for result in results), results
     assert results[0].stdout == results[1].stdout, results
     lines = results[0].stdout.splitlines()
-    assert len(lines) == 7 and lines[-1] == "DONE webRequest policy", results
+    assert len(lines) == 8 and lines[-1] == "DONE webRequest policy", results
     assert all(line.startswith("PASS ") for line in lines[:-1]), results
     print(results[1].stdout, end="")
     print("PASS Node/Mite controlled policy only; no native endpoint traffic")

@@ -95,6 +95,12 @@ shutdown cannot authorize a retired continuation. Pending decisions are bounded
 to 64 in the main policy and native broker, 16 per helper, with 30-second deadlines.
 Native request IDs are odd; main net IDs are even and neither is reused.
 
+When an `onBeforeRequest` listener already enables request interception,
+changing or clearing `onBeforeSendHeaders` preserves requests still waiting on
+the before-request decision. Allowed requests then use the current header
+listener and its filter. Requests already waiting on the previous header
+listener are cancelled when it is replaced or cleared.
+
 Document requests wait in FIFO order behind those active decision slots. The
 renderer retains at most 8,192 queued/active decisions per document and 16,384 per
 helper, with serialized metadata bounded to 32 MiB/document and 64 MiB/helper.

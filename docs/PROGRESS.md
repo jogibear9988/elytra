@@ -17118,6 +17118,33 @@ combined control used the prepared stage directly. CI still requires the
 sealed sample entry and the separate extracted Cocoa checks. The native
 picker remains unverified.
 
+## Preserve in-flight request decisions when adding the header stage
+
+Installing or replacing a send-headers listener while before-request already
+enables native interception keeps that native policy generation alive. A
+request still waiting on the unchanged before-request callback proceeds to
+the current matching send-headers listener. Replaced header callbacks are
+revoked. Replacing the before-request policy or changing native hook coverage
+keeps the existing generation and retirement rules.
+
+The signed f9acbe91 staging package builds the standalone Mite, Firefly,
+Designer and Code-OSS payloads. The Designer signature verifies and its
+packaged-runtime offscreen suite passes. The first Code-OSS Cocoa run times
+out before document claim. Renderer diagnostics record a drained request
+gate and stale broker epoch during initial navigation. Compact evidence is
+in build/code-oss-f9ac-cocoa-evidence.json. These bundles used the existing
+prepared Code-OSS payload, before the new Foundry prebuild pruning.
+
+The Mite/Node policy differential covers preserving an in-progress navigation
+while installing an unrelated header filter, dispatching to its replacement
+and rejecting its retired callback. Generated adapters reproduce and both
+native Firefly binaries rebuild. The updated Code-OSS offscreen folder switch
+and save pass with no cleanup signals. The separate public webRequest suite
+still times out waiting for its cross-origin iframe before it installs a
+send-headers listener. The same fixture reaches the child when run without
+the initial before-request policy. Cocoa and the native picker remain under
+validation.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

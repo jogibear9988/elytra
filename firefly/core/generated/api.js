@@ -2196,7 +2196,7 @@ function requestFilter(value, error, unsupported) {
 function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromDocument, error, unsupported, abortHooks) {
   const maximum = 2147483647;
   const handlers = { before: null, sendHeaders: null, headers: null };
-  const pending = /* @__PURE__ */ new Set();
+  const pending = /* @__PURE__ */ new Map();
   const resources = /* @__PURE__ */ new Set([
     "mainFrame",
     "subFrame",
@@ -2336,9 +2336,11 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
     }
     return result;
   }
-  function invalidate() {
-    for (const finish of [...pending]) {
-      finish({ cancel: true });
+  function invalidate(stage) {
+    for (const [finish, activeStage] of [...pending]) {
+      if (stage === void 0 || activeStage === stage) {
+        finish({ cancel: true });
+      }
     }
   }
   function register(stage, args) {
@@ -2362,10 +2364,21 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
     if (typeof native.webRequest?.configure !== "function" || typeof native.webRequest?.complete !== "function") {
       unsupported("Session native request interception");
     }
+    const replacement = listener === null ? null : { listener, match };
+    if (healthy && stage === "sendHeaders" && handlers.before) {
+      configuring = true;
+      try {
+        handlers.sendHeaders = replacement;
+        invalidate("sendHeaders");
+      } finally {
+        configuring = false;
+      }
+      return;
+    }
     if (epoch === maximum) {
       throw error("ERR_OUT_OF_RANGE", "Request policy generation exhausted");
     }
-    const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
+    const next = { ...handlers, [stage]: replacement };
     ++epoch;
     configuring = true;
     try {
@@ -2425,7 +2438,7 @@ function createWebRequest(native, isReady, isStopped, contentsFromId, frameFromD
       finish({ cancel: true });
       return;
     }
-    pending.add(finish);
+    pending.set(finish, stage);
     timer = setTimeout(() => finish({ cancel: true }), 3e4);
     if (signal && abortHooks) {
       const detach = abortHooks.subscribe(signal, () => finish({ cancel: true }));

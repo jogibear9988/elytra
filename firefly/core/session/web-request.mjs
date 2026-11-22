@@ -17,7 +17,7 @@ export default function createWebRequest(
 ) {
   const maximum = 0x7fffffff;
   const handlers = { before: null, sendHeaders: null, headers: null };
-  const pending = new Set();
+  const pending = new Map();
   const resources = new Set([
     'mainFrame',
     'subFrame',
@@ -193,9 +193,11 @@ export default function createWebRequest(
     return result;
   }
 
-  function invalidate() {
-    for (const finish of [...pending]) {
-      finish({ cancel: true });
+  function invalidate(stage) {
+    for (const [finish, activeStage] of [...pending]) {
+      if (stage === undefined || activeStage === stage) {
+        finish({ cancel: true });
+      }
     }
   }
 
@@ -223,10 +225,24 @@ export default function createWebRequest(
     ) {
       unsupported('Session native request interception');
     }
+    const replacement = listener === null ? null : { listener, match };
+    if (healthy && stage === 'sendHeaders' && handlers.before) {
+      // The native request is already suspended for the unchanged before
+      // stage. Use the new header listener when that decision allows it.
+      // Revoke only decisions already held by the previous header listener.
+      configuring = true;
+      try {
+        handlers.sendHeaders = replacement;
+        invalidate('sendHeaders');
+      } finally {
+        configuring = false;
+      }
+      return;
+    }
     if (epoch === maximum) {
       throw error('ERR_OUT_OF_RANGE', 'Request policy generation exhausted');
     }
-    const next = { ...handlers, [stage]: listener === null ? null : { listener, match } };
+    const next = { ...handlers, [stage]: replacement };
     // Utility processes currently accept no session/partition. Electron gives
     // these children their own system network context; they are not clients of
     // defaultSession interception. Main/renderer policy remains independent.
@@ -307,7 +323,7 @@ export default function createWebRequest(
       finish({ cancel: true });
       return;
     }
-    pending.add(finish);
+    pending.set(finish, stage);
     timer = setTimeout(() => finish({ cancel: true }), 30000);
     if (signal && abortHooks) {
       const detach = abortHooks.subscribe(signal, () => finish({ cancel: true }));
