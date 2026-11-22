@@ -97,6 +97,14 @@ hosted build, with framework 195.94 MiB and Designer 230.05 MiB; see the verifie
 [artifact/profile details](package-size.md#first-hosted-size-profileshared-provider-acceptance).
 It remains an Actions artifact; newer source acceptance is separate.
 
+The macOS release driver now extracts the generated Mite, Designer and Code-OSS
+ZIPs into a separate directory for acceptance. It verifies the extracted Mite
+revision, verifies the Designer signature, runs the Designer through its
+extracted Launcher and runs the editor, extension and terminal checks through
+the extracted Code-OSS Launcher. It removes the temporary staging and
+successful extraction copies. A failed extraction or sample run fails the
+release job before artifact upload.
+
 Manual macOS dispatch also offers optimize_size, default false. It forwards the
 explicit C++ size profile to the same release driver; compilation, all native
 tests, Designer editing and relocated-package checks remain required. The job

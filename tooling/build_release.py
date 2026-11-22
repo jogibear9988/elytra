@@ -2,7 +2,6 @@
 """Compile both projects and both pinned samples, test, package, and write release archives."""
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,12 +11,83 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from native_package.runtime_options import verify_libjs_revision
+from verify_release_artifacts import digest
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(*args, **kwargs):
-    subprocess.run(list(map(str, args)), cwd=ROOT, check=True, **kwargs)
+def run(*args, cwd=ROOT, **kwargs):
+    subprocess.run(list(map(str, args)), cwd=cwd, check=True, **kwargs)
+
+
+def archive_macos_product(stage, name, item, archive):
+    # Keep the published wrapper name while discarding each staging copy as
+    # soon as ditto has written it.
+    with tempfile.TemporaryDirectory(prefix=".release-archive-", dir=archive.parent) as scratch:
+        directory = Path(scratch) / f"archive-{name}"
+        directory.mkdir()
+        shutil.copytree(item, directory / item.name, symlinks=True)
+        if name == "mite":
+            shutil.copytree(stage / "share", directory / "share")
+        shutil.copytree(stage / "licenses", directory / "licenses")
+        shutil.copy2(stage / "BUILD.json", directory / "BUILD.json")
+        provider_report = stage / f"OPENSSL-{item.stem}.json"
+        if provider_report.is_file():
+            shutil.copy2(provider_report, directory / "OPENSSL.json")
+        hashes = {
+            file.relative_to(directory).as_posix(): digest(file)
+            for file in sorted(directory.rglob("*"))
+            if file.is_file() and not file.is_symlink()
+        }
+        (directory / "SHA256SUMS.json").write_text(json.dumps(hashes, indent=2) + "\n")
+        run("ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", directory, archive)
+
+
+def verify_extracted_macos_apps(archives, revision):
+    # Test the actual release bytes, in a path separate from the SDK and the
+    # packaged staging tree. Keep evidence if native ownership or acceptance fails.
+    relocation = Path(tempfile.mkdtemp(prefix="ef-release-apps-")).resolve()
+    try:
+        run("ditto", "-x", "-k", archives["mite"], relocation)
+        mite = relocation / "archive-mite/bin/mite"
+        verify_libjs_revision(mite, revision, cwd=relocation)
+
+        run("ditto", "-x", "-k", archives["web-component-designer"], relocation)
+        designer = relocation / "archive-web-component-designer/Web Component Designer.app"
+        run("codesign", "--verify", "--deep", "--strict", designer)
+        run(
+            sys.executable,
+            ROOT / "tooling/tests/test_designer.py",
+            "--mite",
+            mite,
+            "--app",
+            designer / "Contents/Resources/app",
+            "--launcher",
+            designer / "Contents/MacOS/Launcher",
+            cwd=relocation,
+        )
+        shutil.rmtree(designer.parent)
+        shutil.rmtree(mite.parent.parent)
+
+        run("ditto", "-x", "-k", archives["code-oss"], relocation)
+        code_oss = relocation / "archive-code-oss/Code-OSS.app"
+        run(
+            sys.executable,
+            "tooling/tests/test_code_oss_workbench.py",
+            "--bundle",
+            code_oss,
+            "--extension-format",
+            "commonjs",
+            "--terminal",
+            "--parent-liveness",
+            "--state-directory",
+            "/tmp/ef-release-codeoss",
+        )
+    except Exception as error:
+        raise RuntimeError(f"Extracted release acceptance failed; retained {relocation}") from error
+    else:
+        shutil.rmtree(relocation)
 
 
 def main():
@@ -312,42 +382,6 @@ def main():
         stage / "Firefly.app/Contents/Resources/app",
     )
     run(stage / "Firefly.app/Contents/MacOS/Launcher", "--smoke", timeout=40)
-    packaged = stage / "Web Component Designer.app/Contents"
-    run(
-        sys.executable,
-        "tooling/tests/test_designer.py",
-        "--mite",
-        stage / "bin/mite",
-        "--app",
-        packaged / "Resources/app",
-        "--launcher",
-        packaged / "MacOS/Launcher",
-    )
-    # Run the actual signed bundle from a different physical location, preserving
-    # relative renderer/pnpm links. Retain only this owned temporary copy, then
-    # remove it after all authenticated application processes have stopped.
-    relocation = Path(tempfile.mkdtemp(prefix="ef-release-codeoss-")).resolve()
-    relocated = relocation / "Code-OSS.app"
-    try:
-        shutil.copytree(stage / "Code-OSS.app", relocated, symlinks=True)
-        run(
-            sys.executable,
-            "tooling/tests/test_code_oss_workbench.py",
-            "--bundle",
-            relocated,
-            "--extension-format",
-            "commonjs",
-            "--terminal",
-            "--parent-liveness",
-            "--state-directory",
-            "/tmp/ef-release-codeoss",
-        )
-    except Exception as error:
-        # Authentication failures deliberately retain private evidence/locks.
-        # Never remove executable/resources that a surviving process may own.
-        raise RuntimeError(f"Code-OSS bundle acceptance failed; retained {relocated}") from error
-    else:
-        shutil.rmtree(relocation)
     # Separate runtime/framework/sample archives; all include relevant notices.
     destination = ROOT / "build/release-assets"
     destination.mkdir()
@@ -358,51 +392,19 @@ def main():
         ("web-component-designer", stage / "Web Component Designer.app"),
         ("code-oss", stage / "Code-OSS.app"),
     ]
+    archives = {}
     for name, item in items:
-        directory = ROOT / "build" / ("archive-" + name)
-        directory.mkdir()
-        if item.is_dir():
-            shutil.copytree(item, directory / item.name, symlinks=True)
-        else:
-            shutil.copy2(item, directory / item.name)
-        if name == "mite":
-            # The standalone archive must carry the same external ICU resource as
-            # its tested bin/mite; the app bundles own independent resource copies.
-            shutil.copytree(stage / "share", directory / "share")
-        shutil.copytree(stage / "licenses", directory / "licenses")
-        shutil.copy2(stage / "BUILD.json", directory / "BUILD.json")
-        provider_report = stage / ("OPENSSL-" + item.stem + ".json")
-        if provider_report.is_file():
-            shutil.copy2(provider_report, directory / "OPENSSL.json")
-        hashes = {
-            file.relative_to(directory).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest()
-            for file in sorted(directory.rglob("*"))
-            if file.is_file() and not file.is_symlink()
-        }
-        (directory / "SHA256SUMS.json").write_text(json.dumps(hashes, indent=2) + "\n")
-        base = destination / f"{name}-{version_tag}-{suffix}"
-        if sys.platform == "darwin":
-            run(
-                "ditto",
-                "-c",
-                "-k",
-                "--sequesterRsrc",
-                "--keepParent",
-                directory,
-                str(base) + ".zip",
-            )
-        else:
-            raise RuntimeError("No archive implementation for this platform")
+        archive = destination / f"{name}-{version_tag}-{suffix}.zip"
+        archive_macos_product(stage, name, item, archive)
+        archives[name] = archive
+    revision = json.loads((stage / "BUILD.json").read_text())["ladybird"]["revision"]
+    verify_extracted_macos_apps(archives, revision)
     sizes = json.loads((stage / "SIZE.json").read_text())
     sizes["archives"] = {
         file.name: file.stat().st_size for file in destination.iterdir() if file.is_file()
     }
     (destination / f"SIZE-{suffix}.json").write_text(json.dumps(sizes, indent=2) + "\n")
-    manifest = {
-        file.name: hashlib.sha256(file.read_bytes()).hexdigest()
-        for file in destination.iterdir()
-        if file.is_file()
-    }
+    manifest = {file.name: digest(file) for file in destination.iterdir() if file.is_file()}
     (destination / f"SHA256SUMS-{suffix}.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print("Verified release assets:", destination)
 

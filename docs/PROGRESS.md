@@ -16944,6 +16944,25 @@ the evidence in build/designer-protocol-acceptance.log and the accepted stage
 at build/designer-app. Remove two obsolete generated stages. Packaged-app
 acceptance and native Windows/Linux runs for the new transport remain open.
 
+## Gate macOS releases on the extracted sample archives
+
+Use the actual release ZIPs for the packaged desktop tests. Extract standalone
+Mite, verify its LibJS revision, then check the Designer bundle signature and
+run its Launcher from an unrelated working directory. Extract Code-OSS
+separately and keep its existing signed Launcher editor, terminal and process
+lifetime requirements. No extra desktop launches are added to the release
+workflow. Remove each temporary wrapper after compression and each successful
+extraction after use. Keep a failed extraction for diagnosis.
+
+Locally, the protocol-based Designer builds as an ad-hoc signed bundle with
+50 Mach-O files and 272,285,093 payload bytes. The bundled Launcher starts its
+asset server in CLI mode from a separate working directory. Extracting the
+128,628,587-byte ZIP to a Unicode path preserves the signature, compiled
+preload and every recorded file hash. Both extracted executables report
+LibJS 59158f57c. The publication policy fixtures and documentation build pass.
+Evidence is in build/designer-protocol-archive.log. The hosted extracted
+desktop gates remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
