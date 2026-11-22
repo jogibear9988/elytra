@@ -18,6 +18,7 @@ HOST_DLLS = frozenset(
     {
         "advapi32.dll",
         "bcrypt.dll",
+        "bcryptprimitives.dll",
         "combase.dll",
         "comdlg32.dll",
         "crypt32.dll",
@@ -230,6 +231,7 @@ def stage(output, images, providers, *, plugins=()):
 
     planned = {}
     host = set()
+    missing = set()
     while pending:
         key, (relative, source) = pending.popitem()
         fingerprint = digest(source)
@@ -248,7 +250,15 @@ def stage(output, images, providers, *, plugins=()):
                 if name not in planned:
                     pending[name] = supplied[name]
             else:
-                raise ValueError(f"No explicit DLL provider for {name}, required by {source.name}")
+                missing.add((name, source.name))
+
+    if missing:
+        raise ValueError(
+            "\n".join(
+                f"No explicit DLL provider for {name}, required by {consumer}"
+                for name, consumer in sorted(missing)
+            )
+        )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".pe-stage-", dir=output.parent) as temporary:

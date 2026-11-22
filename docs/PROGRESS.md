@@ -17297,6 +17297,18 @@ The titleBarOverlay constructor and its renderer API and CSS variables remain
 unsupported. The macOS archive workflow is queued and the Windows native
 build is still running.
 
+## Resolve the Windows CNG primitives import in the standalone ZIP
+
+Native Windows job 137161274565 passes all 169 Mite tests at b00d794d.
+The package check now passes the synchronization API set and fails at
+BCryptPrimitives.dll. Allow that documented Windows CNG library only from
+System32. The PE scanner now reports every missing provider reached in the
+closure before staging anything. The native fixture checks the physical
+system library and two concurrent missing-provider failures.
+
+Python syntax and source-format checks pass locally. Native package rerun
+and extracted ZIP execution remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

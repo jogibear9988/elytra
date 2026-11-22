@@ -40,11 +40,12 @@ def build(directory, name, code, *, dll=False, link=(), driver=()):
     return output
 
 
-def refused(action, expected):
+def refused(action, *expected):
     try:
         action()
     except ValueError as error:
-        assert expected in str(error), error
+        for message in expected:
+            assert message in str(error), error
     else:
         raise AssertionError(f"Expected refusal: {expected}")
 
@@ -53,6 +54,8 @@ def main():
     if os.name != "nt":
         raise SystemExit("Native Windows is required")
     system = pe.system_directory()
+    assert "bcryptprimitives.dll" in pe.HOST_DLLS
+    pe.physical_file(system / "bcryptprimitives.dll")
     synch = "api-ms-win-core-synch-l1-2-0.dll"
     assert pe.api_set_host(synch) == "kernelbase.dll"
     assert pe.api_set_host("api-ms-win-core-synch-l9-9-9.dll") is None
@@ -156,6 +159,12 @@ int main(void) {
                 "Invalid or duplicate PE plugin",
             )
         placement = ("platforms/PlatformFixture.dll", plugin)
+        refused(
+            lambda: pe.stage(stage, [image, plugin_host], [bridge], plugins=[placement]),
+            "No explicit DLL provider for leaf.dll",
+            "No explicit DLL provider for pluginprovider.dll",
+        )
+        assert not stage.exists()
         refused(
             lambda: pe.stage(stage, [plugin_host], [], plugins=[placement]),
             "No explicit DLL provider for pluginprovider.dll",
