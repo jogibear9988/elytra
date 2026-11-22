@@ -126,6 +126,14 @@ path. The CLI options keep the preview's settings, extensions, shared storage an
 agent directories under the temporary directory. The runtime checks that the
 profile directory already exists.
 
+Release acceptance enables `--startup-diagnostics` for the offscreen and Cocoa
+workbench runs. The test prints a `CODE_OSS_STARTUP` summary and saves it as
+`startup.json` in its test state directory. Only fixed native navigation,
+document and protocol milestone counts appear in the summary. They cover
+output written before process cleanup, so shutdown messages cannot be
+mistaken for a startup milestone. The same extension, editor and terminal
+assertions still decide acceptance.
+
 ## Windows renderer files
 
 The native Windows sample builder puts a physical copy of the compiled

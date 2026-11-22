@@ -2,6 +2,7 @@
 #pragma once
 #include "native/platform/Diagnostics.h"
 #include <AK/Types.h>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 
@@ -46,13 +47,17 @@ inline void diagnostic(DiagnosticStage stage, size_t count = 0, int native_errno
         "server-metadata", "route-scope", "route-missing", "route-response" };
     static_assert(sizeof(names) / sizeof(names[0]) == static_cast<size_t>(DiagnosticStage::Count));
 
-    static size_t emitted[static_cast<size_t>(DiagnosticStage::Count)] {};
+    static std::atomic<unsigned> emitted[static_cast<size_t>(DiagnosticStage::Count)] {};
     auto index = static_cast<size_t>(stage);
 
-    if (!ipc_bytes_diagnostics_enabled() || index >= static_cast<size_t>(DiagnosticStage::Count)
-        || emitted[index] >= 4)
+    if (!ipc_bytes_diagnostics_enabled() || index >= static_cast<size_t>(DiagnosticStage::Count))
         return;
-    ++emitted[index];
+    auto count_emitted = emitted[index].load(std::memory_order_relaxed);
+
+    if (count_emitted >= 4
+        || !emitted[index].compare_exchange_strong(
+            count_emitted, count_emitted + 1, std::memory_order_relaxed))
+        return;
     std::fprintf(stderr, "FIREFLY_PROTOCOL_DIAGNOSTIC stage=%s count=%zu errno=%d\n", names[index],
         count, native_errno);
 }

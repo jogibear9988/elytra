@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import sys
@@ -20,6 +21,39 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "firefly/tests/code-oss-workbench"
 OWNER = "elytra-code-oss-workbench-acceptance-v1"
 MAX_LOG = 16 * 1024 * 1024
+PROTOCOL_STAGES = (
+    "client-admitted client-scope client-quota client-url client-sent client-revoke "
+    "client-packet client-unknown client-response client-deadline dispatch-no-provider "
+    "dispatch-scope dispatch-handler response-fail response-cancel response-frame "
+    "response-cors response-script-mime server-packet server-quota server-admit "
+    "server-authorize server-metadata route-scope route-missing route-response"
+).split()
+PROTOCOL_LINE = re.compile(
+    rb"FIREFLY_PROTOCOL_DIAGNOSTIC stage=([a-z-]+) count=[0-9]{1,20} errno=-?[0-9]{1,10}"
+)
+CHANNEL_LINE = re.compile(
+    rb"(?:[0-9]+\.[0-9]+ WebContent\([0-9]+\): )?"
+    rb"FIREFLY_(NAVIGATION|DOCUMENT)_CHANNEL_READY pid=[0-9]+ epoch=[0-9]+"
+)
+
+
+def startup_checkpoints(raw, startup_bytes):
+    """Count allowlisted milestones from bytes written before process cleanup."""
+    with raw.open("rb") as source:
+        sample = source.read(min(startup_bytes, MAX_LOG))
+    # A diagnostic line still being written at the cutoff is not evidence.
+    checkpoints = {}
+    for line in sample.split(b"\n")[:-1]:
+        channel = CHANNEL_LINE.fullmatch(line)
+        protocol = PROTOCOL_LINE.fullmatch(line)
+        if channel:
+            key = channel[1].decode("ascii").lower() + "-channel-ready"
+        elif protocol and protocol[1].decode("ascii") in PROTOCOL_STAGES:
+            key = protocol[1].decode("ascii")
+        else:
+            continue
+        checkpoints[key] = checkpoints.get(key, 0) + 1
+    return {"checkpoints": checkpoints, "truncated": startup_bytes > len(sample)}
 
 
 @dataclass(frozen=True)
@@ -279,6 +313,7 @@ def prepare(state, stage, extension_format="esm", terminal=False, parent_livenes
         result,
         state / "result.json.tmp",
         state / "report.json",
+        state / "startup.json",
         state / "processes.json",
         state / "terminal-ready.json",
         state / "terminal-ready.json.tmp",
@@ -369,6 +404,11 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=90)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument(
+        "--startup-diagnostics",
+        action="store_true",
+        help="Enable and report allowlisted native protocol milestones before process cleanup",
+    )
     parser.add_argument(
         "--sample-entry",
         action="store_true",
@@ -489,10 +529,12 @@ def main():
             environment = {
                 key: value
                 for key, value in environment.items()
-                if not key.startswith(("FIREFLY_", "MITE_"))
+                if not key.startswith(("FIREFLY_", "LIBWEB_FIREFLY_", "MITE_"))
             }
             environment.pop("ELYTRA_CODE_OSS_OFFSCREEN_DIAGNOSTIC", None)
             environment["QT_QPA_PLATFORM"] = "cocoa"
+        if args.startup_diagnostics:
+            environment["FIREFLY_IPC_BYTES_DIAGNOSTIC"] = "1"
         raw = state / "run.private.log"
         raw.unlink(missing_ok=True)
         failure = None
@@ -500,6 +542,7 @@ def main():
         process = None
         natural_exit = None
         terminal_identity = None
+        timed_out = False
         with raw.open("xb") as output:
             os.chmod(raw, 0o600)
             try:
@@ -555,6 +598,7 @@ def main():
                     if raw.stat().st_size > MAX_LOG:
                         raise RuntimeError("Application diagnostic log exceeded 16 MiB")
                     if time.monotonic() >= end:
+                        timed_out = True
                         raise RuntimeError("CodeOSS extension workflow timed out")
                     time.sleep(0.2)
                 natural_exit = process.returncode
@@ -562,6 +606,7 @@ def main():
             except Exception as error:
                 failure = error
             finally:
+                startup_bytes = raw.stat().st_size if args.startup_diagnostics else 0
                 if tree:
                     try:
                         tree.stop()
@@ -578,7 +623,19 @@ def main():
                 "Complete native process ownership was not established; private log and lock retained"
             )
         # Never rewrite an output stream while any authenticated helper can hold it.
+        startup = None
+        if args.startup_diagnostics:
+            startup = {
+                "frontend": "cocoa" if args.bundle else "offscreen",
+                "timedOut": timed_out,
+                "nativeExit": natural_exit,
+                "cleanupSignals": tree.signals if tree else 0,
+                **startup_checkpoints(raw, startup_bytes),
+            }
         redact(raw, state / "run.log")
+        if startup is not None:
+            write_json(state / "startup.json", startup)
+            print("CODE_OSS_STARTUP " + json.dumps(startup), flush=True)
         write_json(
             state / "processes.json",
             {

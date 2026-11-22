@@ -81,6 +81,7 @@ def verify_extracted_macos_apps(archives, revision):
             "commonjs",
             "--terminal",
             "--parent-liveness",
+            "--startup-diagnostics",
             "--state-directory",
             "/tmp/ef-release-codeoss",
         )
@@ -329,6 +330,7 @@ def main():
             "--terminal",
             "--parent-liveness",
             "--sample-entry",
+            "--startup-diagnostics",
             "--state-directory",
             "/tmp/ef-release-codeoss",
             env=environment,

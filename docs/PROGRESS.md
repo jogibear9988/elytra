@@ -16984,6 +16984,22 @@ contract to the system provider and passes the relocated fixture ZIP tests.
 The real standalone CLI ZIP job remains pending. Firefly desktop and
 multi-platform release gates remain separate and open.
 
+## Record Code-OSS native startup milestones before teardown
+
+The saved Cocoa timeout reaches the navigation channel but has no document
+channel milestone. The saved successful offscreen run reaches both. Add a
+bounded report to the release workbench runs that enables the existing native
+protocol diagnostics, counts only allowlisted stages, and cuts off at the
+actual log size before process cleanup. Print scalar status and milestone
+counts so hosted release logs retain the evidence without copying raw app
+output. Keep inherited Cocoa diagnostic toggles cleared and use an atomic
+per-stage emission cap for worker concurrency. Native acceptance criteria
+remain unchanged.
+
+The parser controls verify the private-output allowlist, the partial-line
+cutoff and the byte limit. Local offscreen Release rebuild, sample seals and
+generated site checks pass. Cocoa package validation remains open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
