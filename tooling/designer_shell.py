@@ -9,6 +9,7 @@ EXAMPLE = ROOT / "examples/web-component-designer"
 SOURCE_FILES = {
     "main.mjs": "main.mjs",
     "server.mjs": "server.mjs",
+    "preload.mjs": "preload.mjs",
     "smoke.mjs": "smoke.mjs",
     "upstream.json": "upstream.json",
     "web/window-controls.mjs": "window-controls.mjs",
@@ -77,6 +78,7 @@ def shell_metadata(application, example=EXAMPLE):
         "files": files,
         "overlaySha256": digest(overlay),
         "indexSha256": check_index(application),
+        "preloadSha256": digest(physical_bytes(application / "preload.cjs")),
     }
 
 

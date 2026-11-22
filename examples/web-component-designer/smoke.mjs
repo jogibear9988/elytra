@@ -1,20 +1,7 @@
 // Enabled only by the sample's explicit --smoke mode. This is an app-local test
-// report, not a privileged IPC API; production mode has no report endpoint.
+// report, only reachable through the test preload; production mode has no report bridge.
 (async () => {
-  const token = new URL(import.meta.url).searchParams.get('token');
-
-  function stage(name) {
-    fetch('/__firefly_smoke_stage?token=' + encodeURIComponent(token) + '&stage=' + name).catch(
-      () => {}
-    );
-  }
-
-  async function report(result) {
-    await fetch('/__firefly_smoke_result?token=' + encodeURIComponent(token), {
-      method: 'POST',
-      body: JSON.stringify(result)
-    });
-  }
+  const { stage, report } = designerSmoke;
 
   try {
     await customElements.whenDefined('node-projects-app-shell');
@@ -112,13 +99,6 @@
     // observes the real minimize event and restores natively; production does not.
     await new Promise((resolve) => setTimeout(resolve, 750));
     await waitFor((s) => !s.minimized);
-    const bad = await fetch('/__firefly_window/maximize', {
-      method: 'POST',
-      headers: { 'X-Firefly-Window-Token': 'wrong' }
-    });
-    if (bad.status !== 403) {
-      throw Error('Window capability was not checked');
-    }
     stage('controls');
     await report({
       windowControls: true,

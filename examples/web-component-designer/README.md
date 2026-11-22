@@ -32,19 +32,16 @@ installed node_modules, not the pinned Git source. Upstream's own package lock i
 also included in the staged application for provenance.
 
 BUILD.json also records designerShell hashes for the current Firefly entry, server,
-smoke script and HTML window controls. Both native packagers compare the staged
+authored and bundled preload, smoke script and HTML window controls. Native packagers compare the staged
 files with the maintained sample and verify the recorded HTML overlay. Rebuild the
 Designer after changing those files; an older compiled web bundle alone is not a
 current sample package.
 
-The Mite main process serves only the compiled public web tree on an ephemeral
-127.0.0.1 port. Firefly loads that origin in an ordinary isolated BrowserWindow.
-Loopback HTTP retains the demo's module/import-map/worker URL layout without rewriting
-its source or adding filesystem privileges to the page. Static assets accept GET/HEAD; paths cannot escape the staged web directory.
-Six fixed window-control actions use a separate app-local POST route with a random
-per-launch token plus exact Origin/Host validation. It accepts no body, arbitrary
-channel, script or path. This is not public Firefly preload/IPC. The web assets contain
-no application secrets and can be read by other local processes while the app runs.
+The isolated BrowserWindow loads the compiled public web tree from
+`designer://bundle/index.html`. The main process serves GET and HEAD through
+`protocol.handle` and checks each resolved file against the staged web directory.
+Run the entry with `--serve-only` to serve the same public files from a
+standalone Mite loopback HTTP server.
 
 ## Custom HTML window chrome
 
@@ -128,8 +125,7 @@ buttons, checks denied capabilities, reports success and closes the native windo
 In smoke mode only, the main process observes the native minimize event and restores
 the window so the test never depends on a paused renderer restoring itself. Fixed
 startup-stage diagnostics and stdout/stderr are retained in build/designer-last-ui.log.
-The tokenized, bounded smoke report route exists only in explicit --smoke mode. It
-is a sample-local test, not a public Firefly privileged IPC bridge or a security audit.
+The isolated preload exposes the smoke test report only in explicit `--smoke` mode.
 
 Locally the full test passes on macOS ARM64. A separate actual LibWeb compositor
 capture was inspected at build/designer-mite-ladybird.png. Its toolbar, palette,

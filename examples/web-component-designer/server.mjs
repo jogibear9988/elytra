@@ -1,9 +1,7 @@
-/**
- * Serve public assets and scope sample-only native/smoke routes with validated tokens.
- */
+/** Read only the public web tree for the desktop protocol and standalone HTTP server. */
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { resolve, sep, extname } from 'node:path';
+import { readFile, realpath, stat } from 'node:fs/promises';
+import { extname, relative, resolve, sep, isAbsolute } from 'node:path';
 
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -21,154 +19,82 @@ const mime = {
   '.ttf': 'font/ttf',
   '.wasm': 'application/wasm'
 };
-// Serve only the compiled, public web tree, never the app's main-process sources.
-// Loopback HTTP preserves module/worker origin semantics without file-URL rewrites.
-export async function startServer(directory, smoke, controls) {
-  const root = resolve(directory);
-  const server = createServer(async (request, response) => {
+
+export async function createAssetReader(directory) {
+  const root = await realpath(resolve(directory));
+  return async (pathname, method, smoke = false) => {
+    if (method !== 'GET' && method !== 'HEAD') {
+      return { status: 405, headers: { Allow: 'GET, HEAD' } };
+    }
+
     try {
-      const target = new URL(request.url, 'http://127.0.0.1');
-      if (target.pathname.startsWith('/__firefly_window/')) {
-        const origin = `http://127.0.0.1:${server.address().port}`;
-        const action = target.pathname.slice('/__firefly_window/'.length);
-        if (!controls) {
-          response.statusCode = 404;
-          response.end();
-          return;
-        }
-        if (
-          request.headers['transfer-encoding'] ||
-          (request.headers['content-length'] && request.headers['content-length'] !== '0') ||
-          request.method !== 'POST' ||
-          request.headers.origin !== origin ||
-          request.headers.host !== origin.slice(7) ||
-          request.headers['x-firefly-window-token'] !== controls.token
-        ) {
-          response.statusCode = 403;
-          response.end();
-          return;
-        }
-        if (!['minimize', 'maximize', 'unmaximize', 'restore', 'state', 'close'].includes(action)) {
-          response.statusCode = 400;
-          response.end();
-          return;
-        }
-        response.setHeader('Content-Type', 'application/json');
-        response.setHeader('Cache-Control', 'no-store');
-        response.end(JSON.stringify(controls.execute(action)));
-        return;
-      }
-      if (smoke && target.searchParams.get('token') === smoke.token) {
-        if (target.pathname === '/__firefly_smoke_stage' && request.method === 'GET') {
-          const stage = target.searchParams.get('stage');
-          if (
-            [
-              'defined',
-              'container',
-              'ready',
-              'edited',
-              'monaco',
-              'geometry',
-              'controls',
-              'close'
-            ].includes(stage)
-          ) {
-            console.log('DESIGNER_STAGE ' + stage);
-          }
-          response.statusCode = 204;
-          response.end();
-          return;
-        }
-        if (target.pathname === '/__firefly_smoke.js' && request.method === 'GET') {
-          response.setHeader('Content-Type', 'text/javascript');
-          response.end(smoke.script);
-          return;
-        }
-        if (target.pathname === '/__firefly_smoke_result' && request.method === 'POST') {
-          let bytes = 0;
-          let body = '';
-
-          request.on('data', (chunk) => {
-            bytes += chunk.length;
-            if (bytes <= 1024) {
-              body += chunk.toString();
-            }
-          });
-
-          request.on('end', () => {
-            response.statusCode = bytes > 1024 ? 413 : 204;
-            response.end();
-            if (bytes <= 1024) {
-              smoke.report(body);
-            }
-          });
-
-          return;
-        }
-      }
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        response.statusCode = 405;
-        response.setHeader('Allow', 'GET, HEAD');
-        response.end();
-        return;
-      }
-      const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
+      const path = decodeURIComponent(pathname);
       if (
-        pathname.includes('\0') ||
-        pathname.includes('\\') ||
-        pathname.split('/').some((part) => part === '..' || part.startsWith('.'))
+        !path.startsWith('/') ||
+        /[\x00-\x1f\\:"<>|?*]/u.test(path) ||
+        path.split('/').some((part) => part.startsWith('.') || part.endsWith(' '))
       ) {
-        response.statusCode = 400;
-        response.end();
-        return;
+        return { status: 400 };
       }
-      const file = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
-      if (!file.startsWith(root + sep)) {
-        response.statusCode = 403;
-        response.end();
-        return;
+
+      if (path === '/__firefly_smoke.js' && smoke) {
+        const bytes = await readFile(new URL('./smoke.mjs', import.meta.url));
+        return publicAsset(bytes, '.mjs', method);
+      }
+
+      const file = await realpath(resolve(root, '.' + (path === '/' ? '/index.html' : path)));
+      const local = relative(root, file);
+      if (local === '..' || local.startsWith('..' + sep) || isAbsolute(local)) {
+        return { status: 403 };
+      }
+      if (!(await stat(file)).isFile()) {
+        return { status: 404 };
       }
       let bytes = await readFile(file);
-      if (controls && file === resolve(root, 'index.html')) {
+      if (smoke && local === 'index.html') {
         bytes = Buffer.from(
           bytes
             .toString()
-            .replace(
-              '</head>',
-              `<meta name="firefly-window-token" content="${controls.token}"></head>`
-            )
+            .replace('</head>', '<script type="module" src="/__firefly_smoke.js"></script></head>')
         );
       }
-      if (smoke && file === resolve(root, 'index.html')) {
-        bytes = Buffer.from(
-          bytes
-            .toString()
-            .replace(
-              '</head>',
-              `<script type="module" src="/__firefly_smoke.js?token=${smoke.token}" defer></script></head>`
-            )
-        );
-      }
-      response.setHeader(
-        'Content-Type',
-        mime[extname(file).toLowerCase()] || 'application/octet-stream'
-      );
-      response.setHeader('Content-Length', bytes.length);
-      response.setHeader('X-Content-Type-Options', 'nosniff');
-      response.setHeader('Cache-Control', 'no-store');
-      response.end(request.method === 'HEAD' ? undefined : bytes);
+      return publicAsset(bytes, extname(file).toLowerCase(), method);
     } catch (error) {
-      if (smoke && error.code === 'ENOENT') {
-        console.error('DESIGNER_ASSET_MISSING ' + request.url);
+      if (error instanceof URIError) {
+        return { status: 400 };
       }
-      response.statusCode =
-        error.code === 'ENOENT' || error.code === 'EISDIR'
-          ? 404
-          : error instanceof URIError
-            ? 400
-            : 500;
-      response.end();
+      return { status: error.code === 'ENOENT' || error.code === 'ENOTDIR' ? 404 : 500 };
     }
+  };
+}
+
+function publicAsset(bytes, extension, method) {
+  return {
+    status: 200,
+    headers: {
+      'Content-Type': mime[extension] || 'application/octet-stream',
+      'Content-Length': bytes.length,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store'
+    },
+    body: method === 'HEAD' ? undefined : bytes
+  };
+}
+
+export async function startServer(directory) {
+  const readAsset = await createAssetReader(directory);
+  const server = createServer(async (request, response) => {
+    let url;
+    try {
+      url = new URL(request.url, 'http://127.0.0.1');
+    } catch {
+      response.writeHead(400);
+      response.end();
+      return;
+    }
+    const { status, headers, body } = await readAsset(url.pathname, request.method);
+    response.writeHead(status, headers || {});
+    response.end(body);
   });
   await new Promise((resolve, reject) => {
     server.once('error', reject);

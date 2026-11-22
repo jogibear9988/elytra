@@ -12,7 +12,6 @@ import signal
 import subprocess
 import urllib.error
 import urllib.request
-from test_designer_controls import check_controls
 from designer_shell import verify_designer_shell
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,7 +47,6 @@ def main():
     args = parser.parse_args()
     app = args.app.resolve()
     verify_designer_shell(app, required=True)
-    check_controls(args.mite)
     pin = json.loads((ROOT / "examples/web-component-designer/upstream.json").read_text())
     metadata = json.loads((app / "BUILD.json").read_text())
     assert metadata["upstream"] == pin, "Wrong demo source pin"
@@ -98,6 +96,7 @@ def main():
             ("missing-file", 404),
             ("main.mjs", 404),
             ("__firefly_smoke.js", 404),
+            ("__firefly_window/maximize", 404),
         ]:
             code, _, _ = request(url + path)
             assert code == status, (path, code, status)

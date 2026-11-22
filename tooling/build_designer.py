@@ -114,8 +114,10 @@ def main():
     stage_index_overlay(index)
     for name in ["window-controls.mjs", "window-controls.css"]:
         shutil.copy2(EXAMPLE / name, web / name)
-    for name in ["main.mjs", "server.mjs", "smoke.mjs", "upstream.json"]:
+    for name in ["main.mjs", "server.mjs", "preload.mjs", "smoke.mjs", "upstream.json"]:
         shutil.copy2(EXAMPLE / name, output / name)
+    run(npm, "ci", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", "tooling/runtime-js")
+    run("node", ROOT / "tooling/bundle_preload.mjs", output / "preload.mjs", output / "preload.cjs")
     notices = output / "licenses"
     notices.mkdir()
     shutil.copy2(source / "LICENSE", notices / "designer-MIT.txt")

@@ -40,9 +40,9 @@ shell or session behavior; full Electron security-control parity is unavailable.
 
 Validate file paths, options, payload sizes and error behavior in main-process code.
 A loopback listener is still reachable by other local processes. Serve only public
-assets and keep privileged operations out of an unvalidated local route. The Designer
-sample's production server is read-only and path-bounded; its smoke report exists
-only in explicit test mode and does not grant native privileges.
+assets and keep privileged operations out of local HTTP routes. Designer's optional
+standalone loopback server is read-only and path-bounded. Its desktop window serves
+assets through an application protocol and uses a separate isolated preload for controls.
 
 ## Local renderer scripts
 
@@ -80,10 +80,7 @@ do not claim that Node/Electron disclosure channels cover this project.
 
 ## Designer window controls
 
-The frameless Designer has a sample-local, fixed window capability for minimize,
-maximize/unmaximize, restore, state and close. Requests require a random per-launch
-token, exact same-origin/Host checks and POST with no body. It does not accept script,
-filesystem paths or arbitrary IPC channels. Static assets remain publicly readable
-on loopback while the app runs, so this does not authenticate against other local
-processes. The capability grants only this app window's cosmetic/lifecycle controls;
-it is separate from the bounded public request/reply IPC bridge.
+The frameless Designer exposes fixed minimize, maximize, unmaximize, restore,
+state and close methods through its isolated preload. The main process verifies
+the exact window, top-level frame and document URL for each invocation. The
+page receives only these methods and the window state.

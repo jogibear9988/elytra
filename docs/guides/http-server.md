@@ -51,11 +51,10 @@ synchronous work or large streams to a handler.
 
 ## Desktop use
 
-The [Designer sample](../../examples/web-component-designer/README.md) uses a Mite
-loopback server for its compiled public assets, preserving module/import-map/worker
-origin semantics in the renderer. It grants no Node/filesystem globals to that page.
-Its bounded, tokenized smoke report exists only in explicit test mode; it is not a
-public Firefly privileged IPC API.
+The [Designer sample](../../examples/web-component-designer/README.md) can serve
+its compiled assets with a Mite loopback server in `--serve-only` mode. The desktop
+window loads the same assets through its Firefly application protocol, and its
+isolated preload exposes the smoke report only in explicit test mode.
 
 See [Mite reference](../api/mite.md#tcp-dns-and-http) and the compatibility matrix for
 the tested parser, headers, timeout, streaming and connection-policy limits.

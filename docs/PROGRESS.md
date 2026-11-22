@@ -16925,6 +16925,25 @@ results survive a red network gate. Native Windows job 137134367583 passes
 termination of the still-suspended and already-running workers after broker
 death. Its network test independently reproduces the empty snapshot.
 
+## Serve Designer desktop assets through the Firefly protocol
+
+The Designer window now opens designer://bundle/index.html through an owned
+GET/HEAD protocol handler. The optional Mite HTTP server remains available in
+serve-only mode. Both use the same public asset reader, which refuses malformed
+or out-of-tree paths and resolves links before reading. Remove the desktop
+window-control HTTP routes. An isolated ESM-authored preload publishes only
+fixed actions, and the main process authenticates the window, frame and
+document URL. Only an explicit smoke run receives the test report bridge.
+The builder records the authored preload and compiled preload digest.
+
+The pinned production bundle builds and passes standalone Mite asset and
+path checks. One local macOS Release Firefly run with Ladybird 59158f57c
+passes actual protocol navigation, document editing, Monaco, drag geometry,
+native minimize, HTML maximize/restore/close and renderer isolation. Preserve
+the evidence in build/designer-protocol-acceptance.log and the accepted stage
+at build/designer-app. Remove two obsolete generated stages. Packaged-app
+acceptance and native Windows/Linux runs for the new transport remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

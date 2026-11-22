@@ -38,6 +38,7 @@ class DesignerShellTests(unittest.TestCase):
             file = self.app / target
             file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.example / source, file)
+        (self.app / "preload.cjs").write_text("// bundled preload fixture\n")
         (self.app / "web/index.html").write_bytes(
             apply_index_overlay("<head></head><nav></nav>").encode("utf-8")
         )
@@ -58,7 +59,11 @@ class DesignerShellTests(unittest.TestCase):
     def test_actual_owned_sources_roundtrip(self):
         self.assertEqual(self.verify(), self.metadata["designerShell"])
         self.assertIn("smoke.mjs", self.metadata["designerShell"]["files"])
-        self.assertEqual(len(self.metadata["designerShell"]["files"]), 6)
+        self.assertEqual(len(self.metadata["designerShell"]["files"]), 7)
+        self.assertEqual(
+            self.metadata["designerShell"]["preloadSha256"],
+            hashlib.sha256((self.app / "preload.cjs").read_bytes()).hexdigest(),
+        )
 
     def test_builder_preserves_utf8_and_normalizes_native_newlines(self):
         index = self.root / "upstream-index.html"
@@ -120,6 +125,11 @@ class DesignerShellTests(unittest.TestCase):
             apply_index_overlay(original.decode("utf-8"))
         with self.assertRaises(ValueError):
             apply_index_overlay("<head></head><nav></nav><nav></nav>")
+
+    def test_changed_bundled_preload_is_refused(self):
+        (self.app / "preload.cjs").write_text("// changed compiled preload\n")
+        with self.assertRaisesRegex(ValueError, "metadata is stale"):
+            self.verify()
 
     def test_both_packagers_reject_before_output_creation(self):
         (self.app / "main.mjs").write_text("// old shell\n")
