@@ -16916,7 +16916,13 @@ tuple, capability-drop and timestamp checks. The independent runner still
 requires the child socket's actual local port and an unconnected live listener.
 Truncated or failed enumeration supplies no acceptance evidence. Report the
 query status and counts without event payloads. No network policy changes.
-Source and verifier checks pass. Hosted Windows execution remains pending.
+Source and verifier checks pass. Native Windows job 137133889825 also passes
+compilation and the Internet-client token check. The snapshot open, read and
+close all succeed with zero records. Audit restoration is verified. The absence
+of exact network evidence keeps the job red. Run the two independent
+broker-death lifetime cases before that fallible network check so their actual
+results survive a red network gate. Native lifetime execution in that reordered
+lane remains pending.
 
 ## Resume
 

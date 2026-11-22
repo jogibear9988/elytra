@@ -234,9 +234,11 @@ def main():
     )
     assert controls.stdout == b"PASS network evidence controls\n", controls
     assert controls.stderr == b"", controls
-    exercise(probe, artifacts, "checks", args.audit_capability_drop)
+    # Verify the two broker-death paths even if this runner cannot attribute the
+    # separate socket timeout to its AppContainer policy.
     exercise(probe, artifacts, "suspended")
     exercise(probe, artifacts, "hold")
+    exercise(probe, artifacts, "checks", args.audit_capability_drop)
     print(
         "Component proof only; LibWeb renderer/IPC/resource integration and production containment remain unfinished"
     )
