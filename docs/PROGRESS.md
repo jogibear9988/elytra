@@ -16878,6 +16878,18 @@ the extracted ZIP launch, independent sealed helper fixture and PE closure.
 Real Firefly desktop and sample acceptance remain open. The release job still
 requires that acceptance before it can publish Windows sample packages.
 
+## Add the confined Windows WebRTC helper role
+
+Map the actual upstream WebRTC service to its own sealed image and
+zero-capability AppContainer. The launcher always supplies the upstream
+offline flag. The owned Windows sandbox verifies that flag, private
+transport selection and the native token and Job before the Rust service
+starts. The native broker test checks image/argument refusal, the child's
+actual token, a PID-bound handshake, offline peer creation and natural exit.
+The seven helper, four broker and desktop configuration source controls
+pass with the unmodified Ladybird pin. Native execution remains pending.
+The full Windows desktop and release gates remain closed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

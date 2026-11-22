@@ -26,6 +26,7 @@
 #include <LibMediaClient/Client.h>
 #include <LibPlatformFeatures/SystemFacts.h>
 #include <LibRequests/RequestControlClient.h>
+#include <LibWebRTCClient/Client.h>
 #include <LibWebView/AudioServerControlClient.h>
 #include <LibWebView/CompositorClient.h>
 #include <LibWebView/ImageDecoderControlClient.h>
@@ -561,6 +562,44 @@ ErrorOr<void> connect_to_confined_media_helpers(std::filesystem::path const& ren
     outln("PASS real AppContainer audio, media and video decoder IPC and natural exit");
     return {};
 }
+
+ErrorOr<void> connect_to_confined_webrtc_helper(std::filesystem::path const& renderer,
+    IPC::HandleBrokerServer& server, IPC::LocalHandleBroker& broker)
+{
+    auto executable = renderer.parent_path() / L"WebRTCClient.exe";
+    auto const role = H::Role::WebRTCClient;
+    TRY(require(spawn(executable, server, {}, H::Role::RequestServer).is_error(),
+        "request server role cannot launch the WebRTC helper"));
+    TRY(require(spawn(executable, server, { "--disable-sandbox"sv }, role).is_error(),
+        "WebRTC helper cannot request a sandbox bypass"));
+    TRY(require(spawn(executable, server, { "--mach-server-name=invalid"sv }, role).is_error(),
+        "WebRTC helper only takes its Windows transport"));
+
+    // The normal upstream call has no flag unless a proxy is configured.
+    // The launcher must send --disable-network even for that caller.
+    auto session = TRY(spawn(executable, server, {}, role));
+    S::Handle process(
+        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, session->process.pid()));
+    S::Failure error;
+    TRY(require(process && S::verify_token(process.get(), nullptr, error),
+        "WebRTC helper retains a zero-capability AppContainer token"));
+
+    auto client = TRY(connect_control<WebRTCClient::Client>(*session));
+    auto response = client->send_sync_but_allow_failure<WebRTCClient::Client::InitTransport>(
+        Core::System::getpid());
+    TRY(require(response && response->peer_pid() == session->process.pid(),
+        "WebRTC service answers from the authenticated child process"));
+    auto configuration
+        = "{\"ice_servers\":[],\"ice_transport_policy\":\"all\",\"bundle_policy\":\"balanced\","
+          "\"ice_candidate_pool_size\":0,\"host_candidates\":\"obfuscated\"}"_string;
+    auto failure = TRY(client->try_create_peer_connection(1, move(configuration)));
+    TRY(require(failure.is_empty(), "WebRTC helper creates an offline peer connection"));
+    client->async_close_peer_connection(1);
+    client->shutdown();
+    TRY(exited(*session, broker));
+    outln("PASS real AppContainer WebRTC offline IPC and natural exit");
+    return {};
+}
 }
 
 ErrorOr<int> ladybird_main(Main::Arguments arguments)
@@ -589,6 +628,7 @@ ErrorOr<int> ladybird_main(Main::Arguments arguments)
     TRY(read_confined_system_report(executable, *server));
     TRY(connect_to_confined_request_server(executable, *server, broker));
     TRY(connect_to_confined_media_helpers(executable, *server, broker));
+    TRY(connect_to_confined_webrtc_helper(executable, *server, broker));
     auto session = TRY(spawn(executable, *server));
     TRY(require(TRY(receive(session->control)) == 1, "actual sandbox child/broker initialized"));
     auto baseline = handle_count();

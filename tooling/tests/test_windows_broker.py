@@ -61,6 +61,7 @@ def main():
             "PASS real AppContainer SystemProbe report pipe and natural exit\n"
             "PASS real AppContainer RequestServer capability, bound IPC and natural exit\n"
             "PASS real AppContainer audio, media and video decoder IPC and natural exit\n"
+            "PASS real AppContainer WebRTC offline IPC and natural exit\n"
             "PASS real Core AppContainer identity, pseudo/truncation rejection, partial-copy rollback and token/handle refunds\n"
             "PASS actual multi-child remote Park bound, Browser-origin independence and disconnect recovery\n"
         )

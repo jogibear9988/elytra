@@ -22,7 +22,8 @@ enum class Role {
     RequestServer,
     AudioServer,
     MediaServer,
-    VideoDecoderServer
+    VideoDecoderServer,
+    WebRTCClient
 };
 
 class FIREFLY_WINDOWS_HELPER_API Scope {

@@ -78,6 +78,9 @@ foreach(media_helper AudioServer MediaServer VideoDecoderServer)
                            "${CMAKE_CURRENT_LIST_DIR}/${media_helper}Sandbox.cpp")
     target_link_libraries(${media_helper} PRIVATE firefly-windows-helper-launch)
 endforeach()
+firefly_replace_source(WebRTCClient "Services/WebRTCClient/SandboxUnimplemented.cpp"
+                       "${CMAKE_CURRENT_LIST_DIR}/WebRTCClientSandbox.cpp")
+target_link_libraries(WebRTCClient PRIVATE firefly-windows-helper-launch)
 # The compiled helper slice is not the complete desktop runtime. The default runtime/release gate
 # must remain closed until every real helper role is covered.
 set_property(TARGET firefly-windows-helper-launch PROPERTY FIREFLY_WINDOWS_HELPER_ROLES_COMPLETE
@@ -145,6 +148,7 @@ target_link_libraries(
             LibPlatformFeatures
             LibRequests
             LibMediaClient
+            LibWebRTCClient
             AK)
 ladybird_windows_bin(firefly-windows-broker-probe CONSOLE)
 set(windows_broker_inputs "${CMAKE_BINARY_DIR}/firefly-adapters/windows-broker-probe-$<CONFIG>.txt")
@@ -155,7 +159,8 @@ set(windows_broker_services
     RequestServer
     AudioServer
     MediaServer
-    VideoDecoderServer)
+    VideoDecoderServer
+    WebRTCClient)
 set(windows_broker_inventory
     "WebContent.exe|$<TARGET_FILE:firefly-windows-broker-probe>\n$<JOIN:$<TARGET_RUNTIME_DLLS:firefly-windows-broker-probe>,\n>\n"
 )

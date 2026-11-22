@@ -651,3 +651,13 @@ The [native Windows package job](https://github.com/jogibear9988/elytra/actions/
 extracts a sealed Code-OSS fixture ZIP into a Unicode path and runs its launcher
 after moving the SDK away. Its PE fixture also leaves the DWM import to Windows
 and verifies app-local delayed imports and a plugin export forwarder.
+
+### WebRTC helper confinement
+
+The Windows helper launcher binds the WebRTC role to the sealed
+`WebRTCClient.exe` and supplies `--disable-network`. The child checks that
+setting and the zero-capability AppContainer and single-process Job before
+starting the Rust service. The service's offline mode clears ICE servers and
+disables local network discovery. Windows WebRTC networking remains unsupported.
+The native broker gate checks the helper's token, private IPC, offline peer
+creation and process exit. Its hosted result is pending.

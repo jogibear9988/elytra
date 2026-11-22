@@ -78,6 +78,8 @@ namespace {
             return L"MediaServer.exe";
         case Role::VideoDecoderServer:
             return L"VideoDecoderServer.exe";
+        case Role::WebRTCClient:
+            return L"WebRTCClient.exe";
         case Role::Unsupported:
             return nullptr;
         }
@@ -196,6 +198,15 @@ ErrorOr<void*> spawn(Core::ProcessSpawnOptions const& options)
 
     if (current->role == Role::RequestServer)
         TRY(prepare_request_server_arguments(launch.arguments));
+
+    if (current->role == Role::WebRTCClient) {
+        // Match the AppContainer's zero network capabilities in the Rust
+        // service too, so it never asks the browser to resolve ICE servers.
+        if (launch.arguments.empty())
+            launch.arguments.emplace_back(L"--disable-network");
+        else if (launch.arguments.size() != 1 || launch.arguments[0] != L"--disable-network")
+            return Error::from_string_literal("Confined WebRTC helper requires disabled network");
+    }
 
     bool takeover = false;
     ByteString takeover_entry;

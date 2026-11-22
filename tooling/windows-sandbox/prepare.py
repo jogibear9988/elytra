@@ -101,6 +101,7 @@ def changes(name):
                 "    case ProcessType::AudioServer: role = SandboxRole::AudioServer; break;\n"
                 "    case ProcessType::MediaServer: role = SandboxRole::MediaServer; break;\n"
                 "    case ProcessType::VideoDecoderServer: role = SandboxRole::VideoDecoderServer; break;\n"
+                "    case ProcessType::WebRTCClient: role = SandboxRole::WebRTCClient; break;\n"
                 "    default: break;\n"
                 "    }\n"
                 "    Firefly::WindowsHelpers::Scope firefly_launch_scope { role, spawn_options };\n"
