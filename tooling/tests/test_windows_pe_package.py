@@ -12,7 +12,7 @@ import tempfile
 import zipfile
 
 from native_package import pe, windows_app
-from package_windows import write_archive
+from native_package.windows_archive import write_archive
 from test_code_oss_sample import fixture as code_oss_fixture
 
 
@@ -52,6 +52,7 @@ def refused(action, expected):
 def main():
     if os.name != "nt":
         raise SystemExit("Native Windows is required")
+    pe.verify_ucrt_contract("api-ms-win-crt-runtime-l1-1-0.dll", pe.system_directory())
     with tempfile.TemporaryDirectory(prefix="firefly-pe-package-") as temporary:
         root = Path(temporary).resolve()
         inputs = root / "SDK"

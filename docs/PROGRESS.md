@@ -16963,6 +16963,25 @@ LibJS 59158f57c. The publication policy fixtures and documentation build pass.
 Evidence is in build/designer-protocol-archive.log. The hosted extracted
 desktop gates remain pending.
 
+## Build and verify the standalone native Windows Mite ZIP
+
+Add a Windows x64 package driver for the standalone Release Mite graph.
+Stage only its PE dependency closure, reject graphical or alternate engine
+dependencies, and preserve the selected ICU data and standalone Rust, vcpkg
+and embedded-runtime notices. The native loader must resolve UCRT API-set
+aliases to System32 ucrtbase.dll. Choose explicit SDK and Visual Studio
+redistributable DLL providers and reject conflicting bytes. Reuse the portable
+Windows archive writer for Mite and Firefly applications.
+
+The Windows development job packages the real CLI after all runtime tests.
+It extracts the ZIP to a Unicode path, verifies all recorded hashes and
+executes the extracted CLI with System32-only PATH for the LibJS revision
+and Windows-1252 converter checks. It uploads a standalone CI candidate only
+after those checks. Local format, source/package guards and the ICU expression
+pass. Local checks also verify provider collision refusal and 131 notices from
+the standalone Rust graph. Native package and API-set loader runs remain pending. Firefly desktop
+and multi-platform release gates remain separate and open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

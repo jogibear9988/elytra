@@ -39,13 +39,15 @@ def copy_runtime_notices(destination, generated=ROOT / "mite/modules/generated")
         shutil.copy2(generated / name, destination / name)
 
 
-def notices(destination, renderer, mite=None):
+def notices(destination, renderer=None, mite=None):
+    if renderer is None and mite is None:
+        raise ValueError("A native SDK is required for dependency notices")
     destination.mkdir(parents=True)
     copy_runtime_notices(destination / "runtime-js")
-    for name, files in {
-        "sqlite3": ["copyright", "manifest.json"],
-        "native-keymap": ["License.txt", "ThirdPartyNotices.txt", "manifest.json"],
-    }.items():
+    native = {"sqlite3": ["copyright", "manifest.json"]}
+    if renderer is not None:
+        native["native-keymap"] = ["License.txt", "ThirdPartyNotices.txt", "manifest.json"]
+    for name, files in native.items():
         target = destination / "native" / name
         target.mkdir(parents=True)
         for filename in files:
@@ -53,7 +55,7 @@ def notices(destination, renderer, mite=None):
     shutil.copy2(ROOT / "LICENSE", destination / "Mite-Firefly-MIT.txt")
     shutil.copy2(ROOT / "vendor/ladybird/LICENSE", destination / "Ladybird-BSD-2-Clause.txt")
     shutil.copy2(ROOT / "vendor/ladybird.json", destination / "ladybird-pin.json")
-    builds = [("renderer", renderer)]
+    builds = [("renderer", renderer)] if renderer is not None else []
     if mite is not None:
         builds.append(("mite", mite))
     for label, build in builds:
@@ -71,7 +73,8 @@ def notices(destination, renderer, mite=None):
             "--format-version",
             "1",
             "--manifest-path",
-            ROOT / "vendor/ladybird/Cargo.toml",
+            ROOT
+            / ("vendor/ladybird/Cargo.toml" if renderer is not None else "mite/rust/Cargo.toml"),
         )
     )
     inventory = []

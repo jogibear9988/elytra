@@ -33,7 +33,7 @@ if (!(Test-Path -LiteralPath "$llvmBin\lld-link.exe" -PathType Leaf)) {
 }
 $env:PATH = "$llvmBin;$env:PATH"
 
-foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH','WindowsSdkDir','WindowsSDKVersion','VCToolsInstallDir','VCINSTALLDIR','VSINSTALLDIR','VSCMD_ARG_TGT_ARCH')) {
+foreach ($name in @('PATH','INCLUDE','LIB','LIBPATH','WindowsSdkDir','WindowsSDKVersion','VCToolsInstallDir','VCToolsRedistDir','VCINSTALLDIR','VSINSTALLDIR','VSCMD_ARG_TGT_ARCH')) {
     $value = [Environment]::GetEnvironmentVariable($name)
     if ($value) { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append }
 }

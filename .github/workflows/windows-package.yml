@@ -11,6 +11,7 @@ on:
       - 'tooling/native_package/payload.py'
       - 'tooling/native_package/runtime_options.py'
       - 'tooling/native_package/windows_app.py'
+      - 'tooling/native_package/windows_archive.py'
       - 'tooling/package_windows.py'
       - 'tooling/build_code_oss.py'
       - 'tooling/code_oss/compile.mjs'

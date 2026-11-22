@@ -633,6 +633,25 @@ requirement for Clang 22 or newer.
 
 ### Stage a Windows package candidate
 
+The native Windows development workflow also builds the independent Mite
+CLI ZIP after its runtime tests. It stages the x64 PE dependency closure
+from the standalone Release SDK, its vcpkg inputs and the selected Visual
+Studio redistributable directory. Windows supplies the system ABI, including
+UCRT API-set contracts resolved by the native loader. The workflow extracts
+the ZIP under a fresh Unicode path, verifies the file hashes, reads the
+LibJS revision and exercises an ICU converter with only System32 on PATH.
+
+In the native developer environment, use the same standalone SDK and
+pinned sources as CI.
+
+```powershell
+cargo fetch --locked --manifest-path mite/rust/Cargo.toml
+python tooling/package_mite_windows.py --build build/windows --output build/mite-v0.1.0-dev.1-windows-x64.zip --version 0.1.0-dev.1
+```
+
+The standalone Mite ZIP uses `bin/mite.exe` as its entry point. The application
+packager below consumes a separate Firefly SDK.
+
 `tooling/package_windows.py` consumes a native Release Firefly SDK after its
 full desktop build gate passes. The SDK supplies the DLLs, deployed Qt plugins,
 external ICU data when configured, and the sealed helper tree. Staging checks

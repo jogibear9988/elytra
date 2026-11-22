@@ -15,6 +15,8 @@ on:
         'tooling/prepare_protocol_origin_hooks.py',
         'tooling/rust-origin/**',
         'tooling/check_checkout_paths.py',
+        'tooling/package_mite_windows.py',
+        'tooling/native_package/**',
         'tooling/tests/**',
         'tooling/code_oss/**',
         'firefly/compat/code-oss/**',
@@ -36,6 +38,8 @@ on:
         'tooling/prepare_protocol_origin_hooks.py',
         'tooling/rust-origin/**',
         'tooling/check_checkout_paths.py',
+        'tooling/package_mite_windows.py',
+        'tooling/native_package/**',
         'tooling/tests/**',
         'tooling/code_oss/**',
         'firefly/compat/code-oss/**',
@@ -139,6 +143,20 @@ jobs:
       - name: Record upstream integrity after native build
         if: always()
         run: python tooling/check_upstream.py
+      - name: Package standalone Mite and verify it after extraction
+        shell: pwsh
+        run: |
+          cargo fetch --locked --manifest-path mite/rust/Cargo.toml
+          if ($LASTEXITCODE) { throw 'Standalone Rust notice sources unavailable' }
+          $version = "0.1.0-dev.$env:GITHUB_RUN_NUMBER"
+          python tooling/package_mite_windows.py --build build/windows --output "build/mite-windows-candidate/mite-v$version-windows-x64.zip" --version $version
+          if ($LASTEXITCODE) { throw 'Standalone Mite package acceptance failed' }
+      - name: Upload verified standalone Windows Mite ZIP
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: mite-windows-x64-candidate
+          path: build/mite-windows-candidate/*.zip
+          if-no-files-found: error
       - name: Preserve completed dependency packages even after a compile failure
         if: always() && steps.dependency-cache.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
