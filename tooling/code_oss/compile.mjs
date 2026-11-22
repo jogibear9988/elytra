@@ -32,6 +32,7 @@ const { values } = parseArgs({
     nls: { type: 'boolean', default: false },
     refresh: { type: 'boolean', default: false },
     'renderer-assets': { type: 'boolean', default: false },
+    'physical-renderer-output': { type: 'boolean', default: false },
     'mite-policy-watcher': { type: 'boolean', default: false },
     'mite-pty': { type: 'boolean', default: false },
     'mite-native-keymap': { type: 'boolean', default: false },
@@ -43,6 +44,10 @@ const { values } = parseArgs({
 });
 if (!values.source || !values.output || version !== '0.25.12') {
   throw new Error('Require --source, --output and pinned esbuild 0.25.12');
+}
+const physicalRendererOutput = values['physical-renderer-output'];
+if (physicalRendererOutput && (!values['renderer-assets'] || values.refresh)) {
+  throw new Error('--physical-renderer-output requires a fresh renderer-assets build');
 }
 const repository = fileURLToPath(new URL('../../', import.meta.url));
 const pin = JSON.parse(
@@ -266,6 +271,7 @@ planned.set(
           : undefined,
         adaptations,
         rendererAssets: assets,
+        physicalRendererOutput: physicalRendererOutput || undefined,
         refreshedFromSha256: refresh?.manifestSha256,
         rootFiles: [
           'LICENSE.txt',
@@ -293,6 +299,9 @@ planned.set(
 // All transforms, aliases and refresh checks finish before any write.
 if (assets && fs.lstatSync(path.join(output, 'out'), { throwIfNoEntry: false })) {
   const alias = path.join(output, 'out');
+  if (refresh?.previous.physicalRendererOutput) {
+    throw Error('A physical renderer output must be rebuilt into a fresh directory');
+  }
   if (!fs.lstatSync(alias).isSymbolicLink() || fs.readlinkSync(alias) !== 'src') {
     throw Error('Renderer out alias conflicts with existing output');
   }
@@ -338,9 +347,13 @@ if (dependencies) {
   }
 }
 if (assets && !fs.existsSync(path.join(output, 'out'))) {
-  // Relative and internal: preserve one physical module tree. Failure on a host
-  // without symlink privilege is explicit; no Windows acceptance is implied.
-  fs.symlinkSync('src', path.join(output, 'out'), 'dir');
+  const rendererOutput = path.join(output, 'out');
+  if (physicalRendererOutput) {
+    // Windows archive extraction needs a real directory here without symlink privileges.
+    fs.cpSync(path.join(output, 'src'), rendererOutput, { recursive: true, errorOnExist: true });
+  } else {
+    fs.symlinkSync('src', rendererOutput, 'dir');
+  }
 }
 // A killed or failed copy must not leave an apparently completed build record.
 fs.writeFileSync(path.join(output, 'ELYTRA-COMPILE.json'), planned.get('ELYTRA-COMPILE.json'));

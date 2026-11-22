@@ -16806,6 +16806,18 @@ naturally with zero cleanup signals. Evidence is in
 build/code-oss-59158-offscreen.log. Current macOS package and Cocoa
 acceptance remain pending.
 
+## Prepare a physical Code-OSS layout for Windows packages
+
+The Windows sample build copies the compiled renderer to a real out
+directory. Its seal requires the out and src paths and file hashes to
+match and rejects all links and reparse points. The Windows packager
+requires that seal and the production Electron-compatible sample,
+then verifies the copied payload again. The compiler fixture exercises
+the real fresh-build path and verifies representative outputs. It
+retains the existing POSIX symlink and refresh behavior. Local compiler,
+seal and dependency-payload tests pass. The native Windows staging
+fixture and full Windows Code-OSS build remain pending.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

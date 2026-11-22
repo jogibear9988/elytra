@@ -121,6 +121,20 @@ The preceding macOS SDK displayed the Welcome workbench through this launch
 path. The profile and extensions directory keep the preview independent of your
 personal settings. The runtime checks that the profile directory already exists.
 
+## Windows renderer files
+
+The native Windows sample builder puts a physical copy of the compiled
+`src` files under `out`, preserving both paths the upstream renderer
+uses. The seal checks identical paths and byte hashes across the two
+trees, and rejects symlinks and Windows reparse points. This layout
+does not require symlink privileges on the target machine. It does
+increase the size of the uncompressed app.
+
+The Windows staging component requires that seal, the production
+payload and the launcher compatibility option. The local compiler and
+seal controls pass. Native Code-OSS build, actual desktop startup and
+release acceptance remain pending.
+
 ## Required native workflow
 
 The release driver first requires the ordinary development-extension CJS workflow

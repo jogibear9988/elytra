@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import urllib.request
@@ -38,13 +39,19 @@ def run(*args):
     subprocess.run(list(map(str, args)), cwd=ROOT, check=True)
 
 
-def inventory(root):
-    """Seal every physical file and internal dependency/renderer alias, not external targets."""
+def inventory(root, *, physical_only=False):
+    """Seal physical files and, where supported, internal dependency/renderer aliases."""
     records = []
     for item in sorted(root.rglob("*")):
         name = item.relative_to(root).as_posix()
         if item.name == ".DS_Store" or name in (INVENTORY, "BUILD.json"):
             continue
+        attributes = getattr(item.lstat(), "st_file_attributes", 0)
+        is_reparse = bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+        if physical_only and (is_reparse or item.is_symlink()):
+            raise ValueError("Code-OSS physical layout contains a link: " + name)
+        if is_reparse and not item.is_symlink():
+            raise ValueError("Unsupported Code-OSS reparse point: " + name)
         if item.is_symlink():
             target = os.readlink(item)
             if os.path.isabs(target) or not item.resolve(strict=True).is_relative_to(root):
@@ -64,7 +71,7 @@ def inventory(root):
     return records
 
 
-def verify_sample(application):
+def verify_sample(application, *, require_physical=False):
     application = application.resolve(strict=True)
     # These are provenance/entry authorities, not dependency aliases. Reject all
     # metadata links before reading any of them, even links back into this stage;
@@ -103,8 +110,23 @@ def verify_sample(application):
         or not (application / "src/main.js").is_file()
     ):
         raise ValueError("Code-OSS compiler inputs or required build modes differ")
-    if json.loads((application / INVENTORY).read_text()) != inventory(application):
+    physical = compiled.get("physicalRendererOutput") is True
+    if require_physical and not physical:
+        raise ValueError("Windows packaging requires a physical Code-OSS renderer output")
+    files = inventory(application, physical_only=physical)
+    if json.loads((application / INVENTORY).read_text()) != files:
         raise ValueError("Code-OSS sample payload drifted after compilation")
+    if physical:
+
+        def tree(prefix):
+            return {
+                file["path"].removeprefix(prefix): (file["bytes"], file["sha256"])
+                for file in files
+                if file["path"].startswith(prefix)
+            }
+
+        if tree("out/") != tree("src/"):
+            raise ValueError("Code-OSS physical renderer output differs from its source tree")
     return metadata
 
 
@@ -230,6 +252,7 @@ def main():
         overlay,
         "--nls",
         "--renderer-assets",
+        *(["--physical-renderer-output"] if os.name == "nt" else []),
         *("--mite-" + name for name in ADAPTERS),
     )
     archive = args.archive.resolve()
@@ -251,7 +274,9 @@ def main():
     licenses.mkdir()
     for name in ("LICENSE.txt", "ThirdPartyNotices.txt", "ELYTRA-LICENSE.txt"):
         shutil.copy2(output / name, licenses / name)
-    (output / INVENTORY).write_text(json.dumps(inventory(output), indent=2) + "\n")
+    (output / INVENTORY).write_text(
+        json.dumps(inventory(output, physical_only=os.name == "nt"), indent=2) + "\n"
+    )
     metadata = {
         "schema": 1,
         "kind": "firefly-code-oss-sample",

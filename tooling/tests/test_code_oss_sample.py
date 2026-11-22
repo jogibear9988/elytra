@@ -29,7 +29,7 @@ def rejected(operation):
     raise AssertionError("Altered/unowned sample accepted")
 
 
-def fixture(root):
+def fixture(root, *, physical=False):
     pin = json.loads(PIN.read_text())
     (root / "src").mkdir(exist_ok=True)
     (root / "main.mjs").write_text(ENTRY)
@@ -43,11 +43,15 @@ def fixture(root):
                 "kind": "diagnostic-source-tree",
                 "adaptations": {"revision": pin["revision"]},
                 "rendererAssets": {"fixture": True},
+                **({"physicalRendererOutput": True} if physical else {}),
                 "nls": {"fixture": True},
                 "packageAdaptations": [{"fixture": name} for name in ADAPTERS],
             }
         )
     )
+    if physical and not (root / "out").exists():
+        (root / "out").mkdir()
+        (root / "out/main.js").write_bytes((root / "src/main.js").read_bytes())
     (root / INVENTORY).write_text(json.dumps(inventory(root)))
     metadata = {
         "schema": 1,
@@ -157,6 +161,18 @@ def main():
         metadata["desktopAcceptance"] = "accepted"
         (root / "BUILD.json").write_text(json.dumps(metadata))
         rejected(lambda: verify_sample(root))
+        physical = root / "physical"
+        physical.mkdir()
+        metadata = fixture(physical, physical=True)
+        assert verify_sample(physical, require_physical=True) == metadata
+        copied = physical / "out/main.js"
+        copied.write_text("// Independently changed renderer copy.\n")
+        fixture(physical, physical=True)
+        rejected(lambda: verify_sample(physical, require_physical=True))
+        copied.unlink()
+        copied.symlink_to(Path("..") / "src/main.js")
+        fixture(physical, physical=True)
+        rejected(lambda: verify_sample(physical, require_physical=True))
     print("PASS sample source seals, launch policy, internal links and drift/escape refusals")
 
 

@@ -11,6 +11,7 @@ import sys
 import tempfile
 
 from native_package import pe, windows_app
+from test_code_oss_sample import fixture as code_oss_fixture
 
 
 def build(directory, name, code, *, dll=False, link=(), driver=()):
@@ -225,6 +226,20 @@ int main(void) {
             lambda: windows_app.stage(assembled, app, image, [bridge, leaf]),
             "Windows package output must be fresh",
         )
+        code_oss = root / "code-oss source"
+        code_oss.mkdir()
+        code_oss_metadata = code_oss_fixture(code_oss, physical=True)
+        code_oss_package = root / "assembled Code-OSS"
+        packaged = windows_app.stage(
+            code_oss_package, code_oss, image, [bridge, leaf], code_oss=True, electron_compat=True
+        )
+        assert packaged["codeOSS"] == code_oss_metadata
+        source = code_oss_package / "app/src/main.js"
+        renderer = code_oss_package / "app/out/main.js"
+        assert not renderer.is_symlink()
+        assert source.read_bytes() == renderer.read_bytes()
+        relocated_code_oss = root / "Relocated Code-OSS Grüße 中文"
+        code_oss_package.rename(relocated_code_oss)
         relocated_app = root / "Relocated Anwendung Grüße 中文"
         assembled.rename(relocated_app)
         moved = root / "Relocated Grüße 中文"
@@ -262,6 +277,14 @@ int main(void) {
             timeout=15,
         )
         assert result.returncode == 37, result.returncode
+        result = subprocess.run(
+            [str(relocated_code_oss / "Launch.exe")],
+            cwd=working,
+            env={**os.environ, "PATH": str(pe.system_directory())},
+            timeout=15,
+        )
+        assert result.returncode == 37, result.returncode
+        print("PASS physical sealed Code-OSS sample staging and relocated native launcher fixture")
         print("PASS relocated app launcher, PE closure, and independently sealed helper fixture")
     print("PASS native x64 PE closure, delayed imports, forwarded export, plugin, and relocation")
 

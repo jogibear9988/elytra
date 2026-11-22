@@ -2,11 +2,13 @@
 
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
+from build_code_oss import verify_sample as verify_code_oss_sample
 from native_package import pe
 from native_package.payload import copy_application
 
@@ -23,6 +25,7 @@ def stage(
     plugins=(),
     dependencies="production",
     electron_compat=False,
+    code_oss=False,
     helper_runtime=None,
     helper_revision=None,
 ):
@@ -42,6 +45,13 @@ def stage(
     if helper_runtime is not None and output.is_relative_to(helper_runtime.resolve(strict=True)):
         raise ValueError("Windows package output must be outside the helper SDK")
     pe.physical_file(application / "main.mjs")
+    if code_oss and (not electron_compat or dependencies != "production"):
+        raise ValueError(
+            "Code-OSS requires its sealed production payload and Electron compatibility"
+        )
+    code_oss_metadata = (
+        verify_code_oss_sample(application, require_physical=True) if code_oss else None
+    )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".windows-app-", dir=output.parent) as temporary:
@@ -49,7 +59,13 @@ def stage(
         package = scratch / "package"
         closure = pe.stage(package / "bin", [runtime], providers, plugins=plugins)
         (package / "bin/qt.conf").write_text("[Paths]\nPrefix=.\nPlugins=.\n", encoding="ascii")
-        payload = copy_application(application, package / "app", dependencies)
+        if code_oss:
+            shutil.copytree(application, package / "app", symlinks=True)
+            if verify_code_oss_sample(package / "app", require_physical=True) != code_oss_metadata:
+                raise ValueError("Code-OSS sample metadata changed during Windows staging")
+            payload = {"mode": "production"}
+        else:
+            payload = copy_application(application, package / "app", dependencies)
 
         if helper_runtime is not None:
             subprocess.run(
@@ -98,6 +114,8 @@ def stage(
             "launcher": launcher_closure,
             "pe": closure,
         }
+        if code_oss:
+            metadata["codeOSS"] = code_oss_metadata
         if helper_runtime is not None:
             metadata["helpers"] = {
                 "revision": helper_revision,
