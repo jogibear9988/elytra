@@ -40,6 +40,7 @@ target_link_libraries(
             LibWeb
             LibJS
             LibGC
+            LibIPC
             LibURL
             LibCore
             LibMain

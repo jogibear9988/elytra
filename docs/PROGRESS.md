@@ -16754,6 +16754,14 @@ fixture and an actual RequestServer site-bound control IPC test.
 Source, configure, broker and policy checks pass. Native execution,
 HTTP/TLS and the existing denied-network evidence remain pending.
 
+## Link the DOM port observer to its direct IPC dependency
+
+Linux job 137117362252 passes the live X11 application gate and logs
+the utility/DOM relay assertions, but the standalone DOM observer
+cannot link its Attachment destructor. Link the probe directly to
+LibIPC. Keep the existing runtime assertions and require the full
+native lane to complete. CMake formatting and diff checks pass.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
