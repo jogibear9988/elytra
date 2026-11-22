@@ -70,12 +70,13 @@ contextBridge.exposeInMainWorld('desktop', {
   },
 
   burst: async () => {
-    for (let i = 0; i < 256; ++i) {
-      ipcRenderer.send('burst', i);
+    const waitingLimit = 1024;
+    for (let index = 0; index < waitingLimit; ++index) {
+      ipcRenderer.send('burst', index);
     }
     let limited = false;
     try {
-      ipcRenderer.send('burst', 256);
+      ipcRenderer.send('burst', waitingLimit);
     } catch (error) {
       limited = error.code === 'ERR_FIREFLY_IPC_LIMIT';
     }
@@ -85,7 +86,7 @@ contextBridge.exposeInMainWorld('desktop', {
     for (let retry = 0; retry < 500; ++retry) {
       await new Promise((resolve) => setTimeout(resolve, 10));
       try {
-        if ((await ipcRenderer.invoke('burst-report')) !== 256) {
+        if ((await ipcRenderer.invoke('burst-report')) !== waitingLimit) {
           throw Error('native burst dispatch');
         }
         return true;

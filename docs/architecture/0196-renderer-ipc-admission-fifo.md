@@ -12,10 +12,11 @@ in-flight limits would obscure the distinction between waiting and active work.
 
 ## Decision
 
-Keep 16 active calls per document and 64 per renderer. Admit up to 256 additional
-waiting calls per document / 1024 per renderer. Both send and invoke use the same
+Keep 16 active calls per document and 64 per renderer. The initial waiting
+limits were 256 per document and 1,024 per renderer. They now allow 1,024
+per document and 4,096 per renderer. Both send and invoke use the same
 FIFO: a later invoke must not publish a higher native request ID before an earlier
-queued send. The total retained record maxima are therefore 272 and 1088.
+queued send. The total retained record maxima are therefore 1,040 and 4,160.
 
 Capture immutable wire snapshots at call time and charge them to existing shared
 16 MiB document / 64 MiB process wire budgets. Transfer that reservation into the

@@ -37,6 +37,8 @@ void IpcEndpoint::visit_edges(GC::Cell::Visitor& visitor) const
 
 namespace {
     constexpr size_t wire_limit = ApplicationIpc::logical_wire_limit;
+    constexpr size_t document_waiting_limit = 1024;
+    constexpr size_t renderer_waiting_limit = 4096;
     size_t pending_count;
     size_t queued_count;
     NeverDestroyed<Vector<WeakPtr<IpcEndpoint>>> endpoints;
@@ -183,7 +185,8 @@ JS::ThrowCompletionOr<JS::Value> IpcEndpoint::invoke(JS::VM& vm, bool event)
         || vm.argument_count() > 65)
         return reject(
             u"IPC requires a string channel and at most 64 arguments"sv, u"ERR_INVALID_ARG_TYPE"sv);
-    if (m_calls.size() >= 256 || queued_count >= 1024 || m_next == 0xffffffffu) {
+    if (m_calls.size() >= document_waiting_limit || queued_count >= renderer_waiting_limit
+        || m_next == 0xffffffffu) {
         diagnose_admission_limit(m_next == 0xffffffffu ? "request-id" : "queue", m_calls.size());
         return reject(u"IPC admission queue budget exceeded"sv, u"ERR_FIREFLY_IPC_LIMIT"sv);
     }

@@ -123,7 +123,7 @@ back to send callers.
 
 Events and invokes share 16 active calls per endpoint, 64 per renderer and 64
 across the native host, with monotonic request IDs. The renderer additionally
-admits a FIFO of at most 256 waiting calls per document and 1024 per renderer.
+admits a FIFO of at most 1,024 waiting calls per document and 4,096 per renderer.
 Waiting sends and invokes retain immutable encoded snapshots under the same
 16-MiB document / 64-MiB process wire reservation budget. Both native control
 markers and graph frames are published only when active credit is available;
@@ -312,7 +312,7 @@ See the [file transport plan](../guides/file-transfer.md) for the remaining path
 | Native unsent logical queue | At most 48 per document/direction, refilled through 16 physical-frame credits |
 | Retained wire buffers | Combined 16 MiB per document and 64 MiB per process, including partial/deferred payloads |
 | Active invokes/events | Shared 16 per endpoint, 64 per renderer process and 64 across the native host |
-| Renderer FIFO waiting calls | 256 per document / 1024 per renderer, within the retained wire budgets |
+| Renderer FIFO waiting calls | 1,024 per document / 4,096 per renderer, within the retained wire budgets |
 | Main FIFO waiting events | 256 per document / 1024 per host, within the retained wire budgets |
 | Request / partial-message deadline | 30 seconds; first-fragment deadline never renews |
 

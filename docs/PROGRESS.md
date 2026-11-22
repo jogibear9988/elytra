@@ -17184,6 +17184,25 @@ bound at 256 waiting calls and proves ordering, reload and credit recovery.
 Startup summary privacy, artifact provenance tests and the upstream pin check
 pass. Cocoa edit/save and release publication remain pending.
 
+## Admit larger bounded renderer IPC bursts across reloads
+
+The renderer can now buffer 1,024 waiting calls per document and 4,096 per
+renderer. Active credit, physical fragmentation, retained-wire bytes, FIFO
+order, original deadlines and document teardown remain governed by their
+existing limits. The waiting-record capacity covers bursts of small RPCs
+from larger applications.
+
+The increased burst fixture fails against the previous helper at exactly 256
+waiting sends. Against the rebuilt helper, both same-window documents admit
+1,024 sends, report the expected overflow, dispatch every accepted send in
+order and recover credit. Both macOS targets rebuild and the 367-page, 27,636
+link site check passes. Code-OSS passes the offscreen CommonJS folder switch
+and physical save through the sealed packaged sample entry. The app exits 0
+and the harness stops two lingering helpers. Logs are in
+build/ladybird-f9ac-ipc-burst-{before,after}.log and
+build/code-oss-f9ac-sealed-offscreen.log. Cocoa and the native picker are still
+unverified for this build.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.
