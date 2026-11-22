@@ -17203,6 +17203,22 @@ build/ladybird-f9ac-ipc-burst-{before,after}.log and
 build/code-oss-f9ac-sealed-offscreen.log. Cocoa and the native picker are still
 unverified for this build.
 
+## Resolve the Windows synchronization API set during packaging
+
+Windows standalone job 137145845502 compiles Mite and passes the runtime
+tests with Ladybird f9acbe91. Package closure rejects
+api-ms-win-core-synch-l1-2-0.dll from mite.exe as a missing app-local DLL.
+Treat that exact contract as a Windows host dependency. Resolve it with
+LoadLibrary using System32 search and check the returned KernelBase path.
+The same resolution routine keeps the existing ucrtbase requirement for
+UCRT aliases. App-local providers and plugins cannot supply these aliases.
+
+The native PE fixture checks actual resolution of both contracts and
+rejects a mismatched host. Formatting, Python syntax and local package
+policy checks pass. Native resolver and published ZIP validation require
+the next Windows execution. The separate AppContainer job reports no WFP
+capability-drop observations and remains a separate acceptance failure.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

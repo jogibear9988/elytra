@@ -637,7 +637,9 @@ The native Windows development workflow also builds the independent Mite
 CLI ZIP after its runtime tests. It stages the x64 PE dependency closure
 from the standalone Release SDK, its vcpkg inputs and the selected Visual
 Studio redistributable directory. Windows supplies the system ABI, including
-UCRT API-set contracts resolved by the native loader. The workflow extracts
+UCRT and the required core synchronization API-set contracts. The packager
+asks the native loader to resolve each contract and verifies its System32 host.
+The workflow extracts
 the ZIP under a fresh Unicode path, verifies the file hashes, reads the
 LibJS revision and exercises an ICU converter with only System32 on PATH.
 

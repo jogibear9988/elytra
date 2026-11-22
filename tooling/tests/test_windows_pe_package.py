@@ -52,7 +52,16 @@ def refused(action, expected):
 def main():
     if os.name != "nt":
         raise SystemExit("Native Windows is required")
-    pe.verify_ucrt_contract("api-ms-win-crt-runtime-l1-1-0.dll", pe.system_directory())
+    system = pe.system_directory()
+    synch = "api-ms-win-core-synch-l1-2-0.dll"
+    assert pe.api_set_host(synch) == "kernelbase.dll"
+    assert pe.api_set_host("api-ms-win-core-synch-l9-9-9.dll") is None
+    pe.verify_api_set("api-ms-win-crt-runtime-l1-1-0.dll", system, "ucrtbase.dll")
+    pe.verify_api_set(synch, system, "kernelbase.dll")
+    refused(
+        lambda: pe.verify_api_set(synch, system, "ucrtbase.dll"),
+        "Unexpected Windows API-set provider",
+    )
     with tempfile.TemporaryDirectory(prefix="firefly-pe-package-") as temporary:
         root = Path(temporary).resolve()
         inputs = root / "SDK"

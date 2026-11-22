@@ -63,6 +63,15 @@ HOST_DLLS = frozenset(
 DLL = re.compile(r"[a-zA-Z0-9_][a-zA-Z0-9_.-]*\.dll", re.I)
 UCRT_CONTRACT = re.compile(r"api-ms-win-crt-[a-z0-9-]+-l\d+-\d+-\d+\.dll")
 
+HOST_API_SETS = {"api-ms-win-core-synch-l1-2-0.dll": "kernelbase.dll"}
+
+
+def api_set_host(name):
+    """Return the expected system host for a supported virtual import."""
+    if UCRT_CONTRACT.fullmatch(name):
+        return "ucrtbase.dll"
+    return HOST_API_SETS.get(name)
+
 
 def physical_file(path):
     attributes = path.lstat()
@@ -144,23 +153,23 @@ def system_directory():
     return Path(buffer.value)
 
 
-def verify_ucrt_contract(name, directory):
-    """Resolve a Windows API-set alias and require its actual system UCRT host."""
+def verify_api_set(name, directory, expected_host):
+    """Resolve the virtual import with the loader and verify its System32 path."""
     import ctypes
     from _ctypes import FreeLibrary
 
     try:
         library = ctypes.WinDLL(name, winmode=0x800)  # LOAD_LIBRARY_SEARCH_SYSTEM32
     except OSError as error:
-        raise ValueError(f"Unresolved Windows UCRT contract: {name}") from error
+        raise ValueError(f"Unresolved Windows API-set contract: {name}") from error
     try:
         module_path = ctypes.windll.kernel32.GetModuleFileNameW
         module_path.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
         module_path.restype = ctypes.c_uint32
         buffer = ctypes.create_unicode_buffer(32768)
         size = module_path(library._handle, buffer, len(buffer))
-        if not 0 < size < len(buffer) or Path(buffer.value) != directory / "ucrtbase.dll":
-            raise ValueError(f"Unexpected Windows UCRT provider for {name}")
+        if not 0 < size < len(buffer) or Path(buffer.value) != directory / expected_host:
+            raise ValueError(f"Unexpected Windows API-set provider for {name}")
     finally:
         FreeLibrary(library._handle)
 
@@ -188,7 +197,7 @@ def stage(output, images, providers, *, plugins=()):
             not DLL.fullmatch(name)
             or reason(name)
             or name in HOST_DLLS
-            or UCRT_CONTRACT.fullmatch(name)
+            or api_set_host(name) is not None
             or name in supplied
         ):
             raise ValueError(f"Invalid or duplicate DLL provider: {source}")
@@ -211,6 +220,7 @@ def stage(output, images, providers, *, plugins=()):
             or relative.rsplit("/", 1)[1].lower() != name
             or not DLL.fullmatch(name)
             or name in HOST_DLLS
+            or api_set_host(name) is not None
             or name in supplied
             or name in pending
         ):
@@ -231,8 +241,8 @@ def stage(output, images, providers, *, plugins=()):
             if name in HOST_DLLS:
                 physical_file(os_directory / name)
                 host.add(name)
-            elif UCRT_CONTRACT.fullmatch(name):
-                verify_ucrt_contract(name, os_directory)
+            elif (expected_host := api_set_host(name)) is not None:
+                verify_api_set(name, os_directory, expected_host)
                 host.add(name)
             elif name in supplied:
                 if name not in planned:

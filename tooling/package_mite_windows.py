@@ -38,7 +38,7 @@ def dll_providers(build):
     by_name = {}
     for source in candidates:
         key = source.name.lower()
-        if key in pe.HOST_DLLS or pe.UCRT_CONTRACT.fullmatch(key):
+        if key in pe.HOST_DLLS or pe.api_set_host(key) is not None:
             continue
         pe.physical_file(source)
         previous = by_name.setdefault(key, source)
