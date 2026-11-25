@@ -17366,8 +17366,11 @@ engine files so the geometry bindings and flex changes reach the actual binary.
 Pin validation, patch application checks, the renderer hook checks and the
 macOS Mite build pass, including all 173 CTest checks. The patched LibWeb Rust
 packages build. The GeometryUtils wrapper objects compile, and the migrated
-Node.cpp passes a targeted compile check. The full macOS Firefly rebuild and
-renderer acceptance remain in progress.
+Node.cpp passes a targeted compile check. The full macOS Firefly build passed
+in build/renderer-geometry. A hidden runtime test verified the real getBoxQuads
+result for a flex margin box, a rotated element, inverse coordinate conversion,
+and a Text fragment. The Cargo archive dependency file confirms that the
+geometry exports and flex implementation come from the patched source checkout.
 
 The second patch targets the full File System Access API. The Window picker
 methods require a secure context, transient user activation and an admitted
@@ -17389,12 +17392,17 @@ and directory selections. Path results stay in a browser-process completion.
 The existing HTML input route still snapshots accepted regular files and
 preserves its limits and cancellation behavior.
 
-The hidden Cocoa picker probe passed all existing snapshot and lifecycle
-checks and exercised folder selection, save name prefill, concurrent request
-refusal and separation from the HTML file-input completion. The isolated
+The rebuilt Firefly Cocoa picker probe passed all existing snapshot and
+lifecycle checks and exercised folder selection, save name prefill, concurrent
+request refusal and separation from the HTML file-input completion. The isolated
 macOS filesystem broker prototype additionally passed document/origin
-ownership, read-only mode and pending-write revocation checks. The second
-Ladybird patch and script-visible File System Access bindings remain open.
+ownership, read-only mode and pending-write revocation checks. The local
+build/file-system-access-port/0002-file-system-access.draft.patch applies on top
+of GeometryUtils and successfully generates the proposed bindings. It adds
+the needed binding-generator cases for pair async iterables and dedicated
+worker members. The draft is outside the applied patch stack. The browser
+IPC, storage and permission integration and WebIDL method implementations
+remain open.
 
 ## Resume
 
