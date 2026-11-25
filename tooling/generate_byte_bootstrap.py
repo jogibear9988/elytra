@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentServer.ipc"
+ENDPOINT = ("Services", "WebContent", "WebContentServer.ipc")
 GENERATOR = ROOT / "vendor/ladybird/Meta/Generators/generate_ipc_definitions.py"
 # Reviewed f9acbe91: the new raw synchronous Rust replies leave these C++
 # routed endpoints, NotRouted dispatch and argument claims intact.
@@ -125,12 +125,13 @@ def replace_option(arguments, name, value):
 
 def main():
     arguments = sys.argv[1:]
+    input_path = Path(option(arguments, "--input")).resolve()
     if (
-        Path(option(arguments, "--input")).resolve() != INPUT.resolve()
+        input_path.parts[-3:] != ENDPOINT
         or option(arguments, "--header-name") != "WebContentServerEndpoint.h"
     ):
         raise ValueError("Owned bootstrap generator selected for wrong endpoint")
-    for path, expected in ((INPUT, INPUT_SHA), (GENERATOR, GENERATOR_SHA)):
+    for path, expected in ((input_path, INPUT_SHA), (GENERATOR, GENERATOR_SHA)):
         if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
             raise ValueError("Review byte control generator against the updated Ladybird pin")
     output = Path(option(arguments, "--output"))
@@ -146,7 +147,7 @@ def main():
         )
         subprocess.run([sys.executable, str(GENERATOR), *baseline], check=True)
         definition = directory / "WebContentServer.ipc"
-        definition.write_text(extend(INPUT.read_text()))
+        definition.write_text(extend(input_path.read_text()))
         subprocess.run(
             [sys.executable, str(GENERATOR), *replace_option(arguments, "--input", definition)],
             check=True,

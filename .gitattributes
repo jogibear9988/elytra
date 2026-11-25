@@ -29,3 +29,6 @@
 
 # GitHub response fixture is hashed byte-for-byte; native Windows must not add CR.
 /tooling/tests/fixtures/native-assets/pcre2-sljit-gitlink.response -text
+
+# Git patch context lines can consist of a single space. Keep their bytes on Windows.
+/patches/ladybird/*.patch text eol=lf whitespace=-blank-at-eol

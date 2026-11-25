@@ -1,9 +1,12 @@
 """Compose document-scoped titlebar environment lengths into the pinned CSS resolver."""
 
+import os
 from pathlib import Path
 import re
 
-SOURCE = Path(__file__).resolve().parents[2] / "vendor/ladybird/Libraries/LibWeb/Rust/src"
+ROOT = Path(__file__).resolve().parents[2]
+UPSTREAM = Path(os.environ.get("FIREFLY_LADYBIRD_RUST_SOURCE", ROOT / "vendor/ladybird"))
+SOURCE = UPSTREAM / "Libraries/LibWeb/Rust/src"
 PINS = {
     "lib.rs": "ad8a0fd5b5bd4a5896652ff302397e08ec07bf71850d7b7a7b491344a8f914a9",
     "css/mod.rs": "91f0d31f1fec42804072e3206df3654348f53df9073832ba8e7cac8525cc674c",

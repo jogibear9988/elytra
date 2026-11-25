@@ -32,6 +32,7 @@ target_sources(
 add_custom_target(
     check-firefly-rust-origin
     COMMAND
+        "${CMAKE_COMMAND}" -E env "FIREFLY_LADYBIRD_RUST_SOURCE=${CMAKE_SOURCE_DIR}"
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-origin/prepare.py" --output
         "${rust_origin_directory}" --driver "${rust_origin_driver}" --chain
         "${FIREFLY_RUST_CHAIN_WRAPPER}" --check

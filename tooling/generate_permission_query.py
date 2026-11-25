@@ -8,8 +8,7 @@ import sys
 import tempfile
 from generate_byte_bootstrap import GENERATOR, GENERATOR_SHA, message_ids, option, replace_option
 
-ROOT = Path(__file__).resolve().parents[1]
-INPUT = ROOT / "vendor/ladybird/Services/WebContent/WebContentClient.ipc"
+ENDPOINT = ("Services", "WebContent", "WebContentClient.ipc")
 # Reviewed f9acbe91: routed media, input and session history messages were added.
 # The appended synchronous NotRouted query retains its C++ stub/claim semantics;
 # compare original and extended generation to preserve the candidate's actual IDs.
@@ -35,12 +34,13 @@ def extend(source):
 
 def main():
     arguments = sys.argv[1:]
+    input_path = Path(option(arguments, "--input")).resolve()
     if (
-        Path(option(arguments, "--input")).resolve() != INPUT.resolve()
+        input_path.parts[-3:] != ENDPOINT
         or option(arguments, "--header-name") != "WebContentClientEndpoint.h"
     ):
         raise ValueError("Permission generator selected for wrong endpoint")
-    for source, expected in ((INPUT, INPUT_SHA), (GENERATOR, GENERATOR_SHA)):
+    for source, expected in ((input_path, INPUT_SHA), (GENERATOR, GENERATOR_SHA)):
         if hashlib.sha256(source.read_bytes()).hexdigest() != expected:
             raise ValueError("Review permission IPC after upstream update")
     output = Path(option(arguments, "--output"))
@@ -55,7 +55,7 @@ def main():
             replace_option(arguments, "--output", old_header), "--implementation", old_cpp
         )
         subprocess.run([sys.executable, str(GENERATOR), *baseline], check=True)
-        source = INPUT.read_text()
+        source = input_path.read_text()
         adapted = extend(source)
         assert adapted.removeprefix(INCLUDE).replace(METHOD, "") == source
         definition = directory / "WebContentClient.ipc"

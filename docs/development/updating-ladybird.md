@@ -1,10 +1,20 @@
 # Updating Ladybird without a downstream fork
 
-Ladybird must remain an unmodified upstream submodule. Put compatibility changes
-in our runtime, renderer adapters and build configuration. Prefer upstream fixes
-for missing engine/platform functionality. Do not maintain a private patch stack
-or edit vendor/ladybird to make our integration build. If an upstream change
-blocks one slice, record the blocker and continue independent work.
+The pinned `vendor/ladybird` checkout stays identical to upstream. Put
+compatibility changes in Elytra's adapters when the existing seams suffice.
+Engine changes live as numbered Git patches in `patches/ladybird`. Keep each
+patch focused and carry the original author and source commit when porting it.
+
+`tooling/build_renderer.py` validates the pin, checks the patch stack in a
+temporary Git index and applies it in order in a detached checkout under
+`build/ladybird-patched`. The checkout is reused for the same pin and patched
+tree. Standalone Mite builds from the pristine submodule. If the patch stack or
+the pin changes, pass a fresh renderer `--build-dir` to CMake. Keep the current
+build checkout while its CMake cache points to it.
+
+For a pin update, port patches that no longer apply in a separate scratch
+worktree and run the renderer gate with the resulting patch stack. Verify that
+any generated C++ or Rust adapters still consume the intended patch sources.
 
 The indexed gitlink and vendor/ladybird.json must name the same full commit.
 The manifest supplies the generated process.versions.libjs value. Historical

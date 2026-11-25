@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -11,7 +12,8 @@ import sys
 import title_bar
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "vendor/ladybird/Libraries/LibURL/Rust/src"
+UPSTREAM = Path(os.environ.get("FIREFLY_LADYBIRD_RUST_SOURCE", ROOT / "vendor/ladybird"))
+SOURCE = UPSTREAM / "Libraries/LibURL/Rust/src"
 PIN = {
     "ffi.rs": "17a5426baa3c27705c9fdd353008b1e6d6429361232b0125ee7e9098dbf6ab2b",
     "lib.rs": "502fc48c9e0ac4092f9a799eba7a1e5efbdb0bdfead16b6ccaa56a695c8d3544",

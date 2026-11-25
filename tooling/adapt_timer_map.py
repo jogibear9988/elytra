@@ -7,10 +7,10 @@ import json
 from pathlib import Path
 import re
 
-# Reviewed f9acbe91: image bitmap color conversion moved into LibCompositing.
+# Reviewed 759198723: EventSource bookkeeping moved to Rust.
 # All fourteen timer-map owners and the internal chunk-rearm sequence are unchanged.
-SOURCE_SHA256 = "c30a42c35dfe20de74db57b07c4df75d0292dcd0a82975847a245e1066d2415f"
-HEADER_SHA256 = "801b7e3d95568b11531967ca5b1817bf068fd7ac45b709cf829cc78e36f03192"
+SOURCE_SHA256 = "21eb1d40a3c31e4bbb3e3287fd882519759c8ba749ff302a205f6a97a7b0e75a"
+HEADER_SHA256 = "c39fac7383ac38eab78dd325d96a6af115c70700691475b77d8549da983d2331"
 CAST_OWNER = "global_scope"
 COUNTS = {"m_timers": 9, "self.m_timers": 4, CAST_OWNER + ".m_timers": 1}
 EXPRESSION = re.compile(

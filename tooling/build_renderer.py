@@ -9,7 +9,7 @@ import json
 import platform
 import sys
 
-from check_upstream import check
+from ladybird_patches import prepare as prepare_ladybird
 import windows_renderer_dependencies
 from firefly_dependencies import prepare
 from renderer_dependencies import prepare as prepare_linux_renderer
@@ -108,7 +108,7 @@ def main():
         parser.error("The owned sandboxed helper is available only for macOS/Linux probes")
     if args.jobs < 1:
         parser.error("--jobs must be positive")
-    check(ROOT)
+    upstream = prepare_ladybird(ROOT)
     vcpkg = ROOT / "build/vcpkg"
     toolchain = vcpkg / "scripts/buildsystems/vcpkg.cmake"
     if not toolchain.is_file():
@@ -121,10 +121,19 @@ def main():
         parser.error("vcpkg checkout does not match Ladybird baseline; run tooling/bootstrap.py")
     build = args.build_dir.resolve()
     build.mkdir(parents=True, exist_ok=True)
+    cache = build / "CMakeCache.txt"
+    if cache.exists():
+        for line in cache.read_text(encoding="utf-8").splitlines():
+            key = "CMAKE_HOME_DIRECTORY:INTERNAL="
+            if (
+                line.startswith(key)
+                and Path(line.removeprefix(key)).resolve() != upstream.resolve()
+            ):
+                parser.error("Ladybird source or patch stack changed; use a fresh --build-dir")
     command = [
         "cmake",
         "-S",
-        str(ROOT / "vendor/ladybird"),
+        str(upstream),
         "-B",
         str(build),
         "-G",
@@ -133,6 +142,7 @@ def main():
         f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
         f"-DCMAKE_PROJECT_ladybird_INCLUDE={ROOT}/firefly/renderer/Inject.cmake",
         f"-DFIREFLY_SOURCE_DIR={ROOT}",
+        "-DFIREFLY_CHECK_LADYBIRD_PATCH_STACK=ON",
         f"-DLADYBIRD_CACHE_DIR={ROOT}/build/renderer-cache",
         "-DBUILD_TESTING=OFF",
         "-DENABLE_JS_JIT=OFF",
@@ -169,9 +179,7 @@ def main():
         manifest = prepare_linux_renderer(ROOT, build / "renderer-manifest")
         command.extend([f"-DVCPKG_MANIFEST_DIR={manifest}", "-DFIREFLY_BUILD_RUNTIME=OFF"])
     else:
-        command.extend(
-            [f"-DVCPKG_MANIFEST_DIR={ROOT}/vendor/ladybird", "-DFIREFLY_BUILD_RUNTIME=OFF"]
-        )
+        command.extend([f"-DVCPKG_MANIFEST_DIR={upstream}", "-DFIREFLY_BUILD_RUNTIME=OFF"])
     command.append(f"-DFIREFLY_SHARED_OPENSSL={'ON' if args.shared_openssl else 'OFF'}")
     command.append(f"-DELYTRA_OPTIMIZE_SIZE={'ON' if args.optimize_size else 'OFF'}")
     command.append(f"-DLADYBIRD_BASELINE_CPU_TARGET={'ON' if args.baseline_cpu else 'OFF'}")
@@ -211,7 +219,7 @@ def main():
             cwd=ROOT,
             check=True,
         )
-    check(ROOT)
+    prepare_ladybird(ROOT, verify_source=upstream)
 
 
 if __name__ == "__main__":

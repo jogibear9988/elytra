@@ -59,10 +59,19 @@ target_include_directories(firefly-renderer-probe PRIVATE "${LADYBIRD_SOURCE_DIR
 target_compile_definitions(firefly-renderer-probe
                            PRIVATE FIREFLY_LADYBIRD_DIRECTORY="$<TARGET_FILE_DIR:ladybird>")
 add_dependencies(firefly-renderer-probe ladybird ${ladybird_helper_processes})
-add_custom_target(
-    check-firefly-upstream
-    COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_upstream.py"
-    VERBATIM)
+if(FIREFLY_CHECK_LADYBIRD_PATCH_STACK)
+    add_custom_target(
+        check-firefly-upstream
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/ladybird_patches.py"
+                --verify-source "${CMAKE_SOURCE_DIR}"
+        VERBATIM)
+    add_dependencies(LibWeb check-firefly-upstream)
+else()
+    add_custom_target(
+        check-firefly-upstream
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/check_upstream.py"
+        VERBATIM)
+endif()
 add_dependencies(firefly-renderer-probe check-firefly-upstream)
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/CallbackTargets.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/renderer-bridge/loading/Targets.cmake")

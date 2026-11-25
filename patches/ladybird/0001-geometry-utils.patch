@@ -1,0 +1,1056 @@
+From 21ce3c69f95f164d48154c541ea6251a0c4709d0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jochen=20K=C3=BChner?= <jochen.kuehner@gmx.de>
+Date: Wed, 1 Jul 2026 08:58:12 +0200
+Subject: [PATCH] LibWeb: Implement CSSOM View GeometryUtils
+
+Add the GeometryUtils mixin for Document, Element, and Text, including getBoxQuads() and the coordinate conversion methods. Follow the pending CSSOM View algorithm from w3c/csswg-drafts#10538; CSSPseudoElement remains deferred until that interface is exposed.
+
+Add narrow C++ handles for the Rust-backed DOMQuad and DOMRectReadOnly geometry needed by the implementation. Preserve resolved flex auto margins in used-value cells so margin-box quads reflect the layout result.
+
+Import focused cssom-getBoxQuads WPT coverage and update the CSSOM View IDL expectation.
+
+Ported to Ladybird 759198723e8 using the Rust viewport mapping.
+---
+
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_quad.rs b/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_quad.rs
+index 6ccd43733910cb69431b2571ed16075fca1338ef..01f15502918fbc87966b9229ef97b9e646569234 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_quad.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_quad.rs
+@@ -35,6 +35,11 @@ fn new_point(vm: &Vm, init: &DOMPointInit) -> Ref<DOMPoint> {
+ }
+ 
+ impl DOMQuad {
++    pub(super) fn from_coordinates(vm: &Vm, coordinates: [[f64; 2]; 4]) -> Self {
++        let [p1, p2, p3, p4] = coordinates.map(|[x, y]| allocate(vm, |_| DOMPoint::new(x, y, 0.0, 1.0)));
++        Self { p1, p2, p3, p4 }
++    }
++
+     /// https://drafts.fxtf.org/geometry/#dom-domquad-domquad
+     pub(crate) fn construct(
+         cx: &mut CallContext,
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_rect_read_only.rs b/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_rect_read_only.rs
+index a4640f1fd041ab7755b885e74b4dbcb76bb85539..98d89ac13eed9a9fb675fce0188a7f215e33da5c 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_rect_read_only.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/geometry/dom_rect_read_only.rs
+@@ -41,6 +41,10 @@ impl DOMRectReadOnly {
+         }
+     }
+ 
++    pub(super) fn dimensions(&self) -> [f64; 4] {
++        [self.x.get(), self.y.get(), self.width.get(), self.height.get()]
++    }
++
+     /// https://drafts.fxtf.org/geometry/#dom-domrectreadonly-domrectreadonly
+     pub(crate) fn construct(_: &mut CallContext, x: f64, y: f64, width: f64, height: f64) -> WebIdlResult<Self> {
+         // 1. Let rect be a new DOMRectReadOnly or DOMRect object as appropriate.
+diff --git a/Libraries/LibWeb/Bindings/Rust/src/geometry/exports.rs b/Libraries/LibWeb/Bindings/Rust/src/geometry/exports.rs
+index 92d26c8f6a4dc322fb54f7d766a68bcfa39bea34..e5b98a5995700a364fb8252f98f03259f98d3781 100644
+--- a/Libraries/LibWeb/Bindings/Rust/src/geometry/exports.rs
++++ b/Libraries/LibWeb/Bindings/Rust/src/geometry/exports.rs
+@@ -16,6 +16,7 @@ use super::dom_matrix::DOMMatrix;
+ use super::dom_matrix_read_only::DOMMatrixReadOnly;
+ use super::dom_point::DOMPoint;
+ use super::dom_point_read_only::DOMPointReadOnly;
++use super::dom_quad::DOMQuad;
+ use super::dom_rect::DOMRect;
+ use super::dom_rect_list::DOMRectList;
+ use super::dom_rect_read_only::DOMRectReadOnly;
+@@ -49,6 +50,21 @@ unsafe fn matrix_from_abi<'a>(cell: *mut c_void) -> &'a DOMMatrixReadOnly {
+     unsafe { object_from_abi::<DOMMatrix>(cell) }.parent()
+ }
+ 
++/// The rectangle of a DOMRectReadOnly or a DOMRect whose cell C++ lends.
++///
++/// # Safety
++///
++/// `cell` must be the live cell of a DOMRectReadOnly or a DOMRect, and it must outlive `'a`.
++unsafe fn rect_from_abi<'a>(cell: *mut c_void) -> &'a DOMRectReadOnly {
++    // SAFETY: The caller passes a live cell.
++    if let Some(rect) = unsafe { cell_if_abi::<DOMRectReadOnly>(cell) } {
++        // SAFETY: The caller keeps the cell alive for 'a.
++        return unsafe { &*rect.as_ptr() };
++    }
++    // SAFETY: The caller passes the cell of a DOMRect, which it keeps alive for 'a.
++    unsafe { object_from_abi::<DOMRect>(cell) }.parent()
++}
++
+ #[unsafe(no_mangle)]
+ pub extern "C" fn web_dom_point_read_only_create(vm: &Vm, x: f64, y: f64, z: f64, w: f64) -> *mut c_void {
+     cell_into_abi(allocate(vm, |_| DOMPointReadOnly::new(x, y, z, w)))
+@@ -81,11 +97,40 @@ pub extern "C" fn web_dom_point_create(vm: &Vm, x: f64, y: f64, z: f64, w: f64)
+     cell_into_abi(allocate(vm, |_| DOMPoint::new(x, y, z, w)))
+ }
+ 
++#[unsafe(no_mangle)]
++pub extern "C" fn web_dom_quad_create(
++    vm: &Vm,
++    x1: f64,
++    y1: f64,
++    x2: f64,
++    y2: f64,
++    x3: f64,
++    y3: f64,
++    x4: f64,
++    y4: f64,
++) -> *mut c_void {
++    cell_into_abi(allocate(vm, |_| {
++        DOMQuad::from_coordinates(vm, [[x1, y1], [x2, y2], [x3, y3], [x4, y4]])
++    }))
++}
++
+ #[unsafe(no_mangle)]
+ pub extern "C" fn web_dom_rect_read_only_create(vm: &Vm, x: f64, y: f64, width: f64, height: f64) -> *mut c_void {
+     cell_into_abi(allocate(vm, |_| DOMRectReadOnly::new(x, y, width, height)))
+ }
+ 
++/// Stores the x coordinate, y coordinate, width dimension and height dimension of the rectangle, in that order.
++///
++/// # Safety
++///
++/// `rect` must be the live cell of a DOMRectReadOnly or a DOMRect.
++#[unsafe(no_mangle)]
++pub unsafe extern "C" fn web_dom_rect_read_only_dimensions(rect: *mut c_void, out_dimensions: &mut [f64; 4]) {
++    // SAFETY: The caller passes a live cell.
++    let rect = unsafe { rect_from_abi(rect) };
++    *out_dimensions = rect.dimensions();
++}
++
+ #[unsafe(no_mangle)]
+ pub extern "C" fn web_dom_rect_create(vm: &Vm, x: f64, y: f64, width: f64, height: f64) -> *mut c_void {
+     cell_into_abi(allocate(vm, |_| DOMRect::new(x, y, width, height)))
+diff --git a/Libraries/LibWeb/CMakeLists.txt b/Libraries/LibWeb/CMakeLists.txt
+index fdbd2110c5e2068488122ac9b237ce7b5b3445dd..d9b2b106a2a44925559185c0ad18c88b85ba8ccf 100644
+--- a/Libraries/LibWeb/CMakeLists.txt
++++ b/Libraries/LibWeb/CMakeLists.txt
+@@ -329,6 +329,7 @@ set(SOURCES
+     Geometry/DOMMatrixReadOnly.cpp
+     Geometry/DOMPoint.cpp
+     Geometry/DOMPointReadOnly.cpp
++    Geometry/DOMQuad.cpp
+     Geometry/DOMRect.cpp
+     Geometry/DOMRectList.cpp
+     Geometry/DOMRectReadOnly.cpp
+diff --git a/Libraries/LibWeb/DOM/Document.h b/Libraries/LibWeb/DOM/Document.h
+index f7bdac780cbe1938cb74f0a7aef2c82ae6bdf60c..417233e3a17e3f74617a92bcdcd8ee62770ca595 100644
+--- a/Libraries/LibWeb/DOM/Document.h
++++ b/Libraries/LibWeb/DOM/Document.h
+@@ -209,6 +209,7 @@ enum class InvalidateLayoutTreeReason {
+     X(EventHandlerShowContextMenu, false)           \
+     X(EventHandlerTargetNodeAtPosition, false)      \
+     X(FontFaceSetReady, false)                      \
++    X(GeometryUtils, false)                         \
+     X(HTMLEmbedElement, false)                      \
+     X(HTMLElementGetTheTextSteps, false)            \
+     X(HTMLElementOffsetHeight, true)                \
+diff --git a/Libraries/LibWeb/DOM/Node.cpp b/Libraries/LibWeb/DOM/Node.cpp
+index cd12ff20c1652e46e9420201cd215dd6d0ef0c5c..22b1f0468d79b1533aa8fe8274f3ba2c336e057b 100644
+--- a/Libraries/LibWeb/DOM/Node.cpp
++++ b/Libraries/LibWeb/DOM/Node.cpp
+@@ -59,8 +59,13 @@
+ #include <LibWeb/DOM/Slottable.h>
+ #include <LibWeb/DOM/StaticNodeList.h>
+ #include <LibWeb/DOM/SubtreeInsertionScope.h>
++#include <LibWeb/DOM/Text.h>
+ #include <LibWeb/DOM/XMLDocument.h>
+ #include <LibWeb/Editing/EditingHistory.h>
++#include <LibWeb/Geometry/DOMPoint.h>
++#include <LibWeb/Geometry/DOMQuad.h>
++#include <LibWeb/Geometry/DOMRectList.h>
++#include <LibWeb/Geometry/DOMRectReadOnly.h>
+ #include <LibWeb/HTML/CustomElements/CustomElementReactionNames.h>
+ #include <LibWeb/HTML/CustomElements/CustomElementRegistry.h>
+ #include <LibWeb/HTML/FormAssociatedElement.h>
+@@ -102,6 +107,7 @@
+ #include <LibWeb/MathML/MathMLElement.h>
+ #include <LibWeb/Namespace.h>
+ #include <LibWeb/Page/Page.h>
++#include <LibWeb/Layout/LayoutRustFFI.h>
+ #include <LibWeb/Painting/BoxViews.h>
+ #include <LibWeb/SVG/SVGElement.h>
+ #include <LibWeb/SVG/SVGTitleElement.h>
+@@ -3902,6 +3908,354 @@ GC::Ref<Node> Node::get_root_node(Bindings::GetRootNodeOptions const& options)
+     return get_root_node(options.composed ? RootNodeComposed::Yes : RootNodeComposed::No);
+ }
+ 
++static GC::Ref<Node> node_from_geometry_node(GeometryNode const& geometry_node)
++{
++    return geometry_node.visit(
++        [](GC::Ref<Text> const& text) -> GC::Ref<Node> { return GC::Ref<Node> { *text }; },
++        [](GC::Ref<Element> const& element) -> GC::Ref<Node> { return GC::Ref<Node> { *element }; },
++        [](GC::Ref<Document> const& document) -> GC::Ref<Node> { return GC::Ref<Node> { *document }; });
++}
++
++static Bindings::DOMPointInit dom_point_init_from_coordinates(double x, double y, double z = 0, double w = 1)
++{
++    Bindings::DOMPointInit init {};
++    init.x = x;
++    init.y = y;
++    init.z = z;
++    init.w = w;
++    return init;
++}
++
++static GC::Ref<Geometry::DOMPoint> create_dom_point(CSSPixelPoint point)
++{
++    return Geometry::DOMPoint::create(point.x().to_double(), point.y().to_double(), 0, 1);
++}
++
++static Bindings::DOMQuadInit dom_quad_init_from_rect(double x, double y, double width, double height)
++{
++    return Bindings::DOMQuadInit {
++        .p1 = dom_point_init_from_coordinates(x, y),
++        .p2 = dom_point_init_from_coordinates(x + width, y),
++        .p3 = dom_point_init_from_coordinates(x + width, y + height),
++        .p4 = dom_point_init_from_coordinates(x, y + height),
++    };
++}
++
++static CSSPixelRect box_rect_relative_to_border_box(Layout::Node const& layout_node, CSSPixelRect border_rect, Bindings::CSSBoxType box)
++{
++    auto const& box_model = Painting::box_model(layout_node);
++
++    switch (box) {
++    case Bindings::CSSBoxType::Border:
++        return {
++            border_rect.x(),
++            border_rect.y(),
++            border_rect.width(),
++            border_rect.height(),
++        };
++    case Bindings::CSSBoxType::Padding:
++        return {
++            border_rect.x() + box_model.border.left,
++            border_rect.y() + box_model.border.top,
++            border_rect.width() - box_model.border.left - box_model.border.right,
++            border_rect.height() - box_model.border.top - box_model.border.bottom,
++        };
++    case Bindings::CSSBoxType::Content:
++        return {
++            border_rect.x() + box_model.border.left + box_model.padding.left,
++            border_rect.y() + box_model.border.top + box_model.padding.top,
++            border_rect.width() - box_model.border.left - box_model.border.right - box_model.padding.left - box_model.padding.right,
++            border_rect.height() - box_model.border.top - box_model.border.bottom - box_model.padding.top - box_model.padding.bottom,
++        };
++    case Bindings::CSSBoxType::Margin:
++        return {
++            border_rect.x() - box_model.margin.left,
++            border_rect.y() - box_model.margin.top,
++            border_rect.width() + box_model.margin.left + box_model.margin.right,
++            border_rect.height() + box_model.margin.top + box_model.margin.bottom,
++        };
++    }
++    VERIFY_NOT_REACHED();
++}
++
++static Layout::Node const* principal_box_for_geometry_node(Layout::BegunRead const& read, Node const& node)
++{
++    if (is<Document>(node))
++        return nullptr;
++
++    // The spec's "get the complete transform" algorithm walks from Text to its parent element.
++    if (is<Text>(node)) {
++        auto parent = node.parent_element();
++        if (!parent)
++            return nullptr;
++        return parent->layout_node(read);
++    }
++
++    return static_cast<Element const&>(node).layout_node(read);
++}
++
++static WebIDL::ExceptionOr<void> ensure_geometry_nodes_are_usable(JS::Realm& realm, Node const& target, Node const& from)
++{
++    auto target_navigable = target.document().navigable();
++    auto from_navigable = from.document().navigable();
++    if (!target_navigable || !from_navigable)
++        return WebIDL::NotFoundError::create(realm, "Geometry node is not in a document with a viewport."_utf16);
++
++    if (&target.document() != &from.document())
++        return WebIDL::NotFoundError::create(realm, "Geometry node conversion across documents is not supported."_utf16);
++
++    return {};
++}
++
++static WebIDL::ExceptionOr<CSSPixelPoint> adjust_point_to_border_box(Layout::BegunRead const& read, JS::Realm& realm, Node const& node, CSSPixelPoint point, Bindings::CSSBoxType box)
++{
++    // If node is a Document or a Text, return the adjusted point.
++    if (is<Document>(node) || is<Text>(node))
++        return point;
++
++    auto const* layout_node = principal_box_for_geometry_node(read, node);
++    if (!layout_node || !Painting::has_committed_box(*layout_node))
++        return WebIDL::NotFoundError::create(realm, "Geometry node does not have a CSS box."_utf16);
++
++    // Adjust so the point refers to the same physical point, but is measured from the top-left corner of the border
++    // box rather than the requested box.
++    auto border_rect = Painting::absolute_border_box_rect(*layout_node);
++    return point.translated(box_rect_relative_to_border_box(*layout_node, { 0, 0, border_rect.width(), border_rect.height() }, box).location());
++}
++
++static WebIDL::ExceptionOr<CSSPixelPoint> adjust_point_from_border_box(Layout::BegunRead const& read, JS::Realm& realm, Node const& node, CSSPixelPoint point, Bindings::CSSBoxType box)
++{
++    // If node is a Document or a Text, return the adjusted point.
++    if (is<Document>(node) || is<Text>(node))
++        return point;
++
++    auto const* layout_node = principal_box_for_geometry_node(read, node);
++    if (!layout_node || !Painting::has_committed_box(*layout_node))
++        return WebIDL::NotFoundError::create(realm, "Geometry node does not have a CSS box."_utf16);
++
++    // Adjust so the point refers to the same physical point, but is measured from the top-left corner of the requested
++    // box rather than the border box.
++    auto border_rect = Painting::absolute_border_box_rect(*layout_node);
++    return point - box_rect_relative_to_border_box(*layout_node, { 0, 0, border_rect.width(), border_rect.height() }, box).location();
++}
++
++static Optional<CSSPixelPoint> map_point_through_matrix(Gfx::FloatMatrix4x4 const& matrix, CSSPixelPoint point, float pixel_ratio)
++{
++    auto mapped = matrix * FloatVector4 { point.x().to_float() * pixel_ratio, point.y().to_float() * pixel_ratio, 0, 1 };
++    if (isnan(mapped.w()) || fabsf(mapped.w()) < AK::NumericLimits<float>::epsilon())
++        return {};
++    return CSSPixelPoint {
++        CSSPixels::nearest_value_for(mapped.x() / mapped.w() / pixel_ratio),
++        CSSPixels::nearest_value_for(mapped.y() / mapped.w() / pixel_ratio),
++    };
++}
++
++static Gfx::FloatMatrix4x4 geometry_layout_viewport_matrix(Layout::Node const& layout_node)
++{
++    // Computing the mapping refreshes the visual contexts before we look up this box's spatial node.
++    auto mapping = Painting::viewport_mapping(layout_node.document());
++    Gfx::FloatMatrix4x4 matrix;
++    Layout::RustFFI::viewport_mapping_matrix_to_viewport(mapping, Painting::accumulated_visual_context(layout_node).spatial, Layout::RustFFI::ViewportSpace::LayoutViewport, &matrix);
++    return matrix;
++}
++
++static Optional<CSSPixelPoint> layout_box_point_to_viewport(Layout::Node const& layout_node, CSSPixelPoint point)
++{
++    auto const& document = layout_node.document();
++    auto matrix = geometry_layout_viewport_matrix(layout_node);
++    auto absolute_point = point + Painting::absolute_border_box_rect(layout_node).location();
++    auto pixel_ratio = static_cast<float>(document.page().client().device_pixels_per_css_pixel());
++    return map_point_through_matrix(matrix, absolute_point, pixel_ratio);
++}
++
++static WebIDL::ExceptionOr<CSSPixelPoint> border_box_point_to_viewport(Layout::BegunRead const& read, JS::Realm& realm, Node const& node, CSSPixelPoint point)
++{
++    if (is<Document>(node))
++        return point;
++
++    auto const* layout_node = principal_box_for_geometry_node(read, node);
++    if (!layout_node || !Painting::has_committed_box(*layout_node))
++        return WebIDL::NotFoundError::create(realm, "Geometry node does not have a CSS box."_utf16);
++
++    return layout_box_point_to_viewport(*layout_node, point).value_or({});
++}
++
++static WebIDL::ExceptionOr<CSSPixelPoint> viewport_point_to_border_box(Layout::BegunRead const& read, JS::Realm& realm, Node const& node, CSSPixelPoint point)
++{
++    if (is<Document>(node))
++        return point;
++
++    auto const* layout_node = principal_box_for_geometry_node(read, node);
++    if (!layout_node || !Painting::has_committed_box(*layout_node))
++        return WebIDL::NotFoundError::create(realm, "Geometry node does not have a CSS box."_utf16);
++
++    auto const& document = layout_node->document();
++    auto matrix = geometry_layout_viewport_matrix(*layout_node);
++    auto inverse = matrix.inverse();
++    auto pixel_ratio = static_cast<float>(document.page().client().device_pixels_per_css_pixel());
++    auto absolute_point = inverse.has_value() ? map_point_through_matrix(*inverse, point, pixel_ratio).value_or(CSSPixelPoint {}) : CSSPixelPoint {};
++    return absolute_point - Painting::absolute_border_box_rect(*layout_node).location();
++}
++
++static WebIDL::ExceptionOr<GC::Ref<Geometry::DOMPoint>> convert_point_from_node_to_node(JS::Realm& realm, Node& target, Bindings::DOMPointInit const& point, Node& from, Bindings::ConvertCoordinateOptions const& options)
++{
++    TRY(ensure_geometry_nodes_are_usable(realm, target, from));
++
++    Layout::ForcedReadScope read { target.document() };
++    target.document().update_layout(UpdateLayoutReason::GeometryUtils);
++
++    // Let adjustedPoint be the result of adjusting a point to the border box, given point, from, and options.fromBox.
++    auto adjusted_point = TRY(adjust_point_to_border_box(read, realm, from, CSSPixelPoint { point.x, point.y }, options.from_box));
++
++    // Transform adjustedPoint by fromTransformToViewport, then by the inverse of thisTransformToViewport.
++    auto viewport_point = TRY(border_box_point_to_viewport(read, realm, from, adjusted_point));
++    auto target_border_box_point = TRY(viewport_point_to_border_box(read, realm, target, viewport_point));
++
++    // Return the result of adjusting a point from the border box given adjustedPoint, node, and options.toBox.
++    return create_dom_point(TRY(adjust_point_from_border_box(read, realm, target, target_border_box_point, options.to_box)));
++}
++
++static WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> convert_quad_from_node_to_node(JS::Realm& realm, Node& target, Bindings::DOMQuadInit const& quad, Node& from, Bindings::ConvertCoordinateOptions const& options)
++{
++    // Transform each point of the DOMQuad via convertPointFromNode.
++    auto p1 = TRY(convert_point_from_node_to_node(realm, target, quad.p1.value_or({}), from, options));
++    auto p2 = TRY(convert_point_from_node_to_node(realm, target, quad.p2.value_or({}), from, options));
++    auto p3 = TRY(convert_point_from_node_to_node(realm, target, quad.p3.value_or({}), from, options));
++    auto p4 = TRY(convert_point_from_node_to_node(realm, target, quad.p4.value_or({}), from, options));
++
++    return Geometry::DOMQuad::create(
++        p1->x(), p1->y(),
++        p2->x(), p2->y(),
++        p3->x(), p3->y(),
++        p4->x(), p4->y());
++}
++
++static WebIDL::ExceptionOr<GC::Ref<Geometry::DOMPoint>> convert_layout_box_point_to_node(JS::Realm& realm, Layout::Node const& layout_node, CSSPixelPoint point, Node& target)
++{
++    if (&target.document() != &layout_node.document())
++        return WebIDL::NotFoundError::create(realm, "Geometry node conversion across documents is not supported."_utf16);
++
++    auto const& read = layout_node.held_read();
++    auto viewport_point = layout_box_point_to_viewport(layout_node, point).value_or({});
++    auto target_border_box_point = TRY(viewport_point_to_border_box(read, realm, target, viewport_point));
++    return create_dom_point(TRY(adjust_point_from_border_box(read, realm, target, target_border_box_point, Bindings::CSSBoxType::Border)));
++}
++
++static WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> convert_layout_box_rect_to_node(JS::Realm& realm, Layout::Node const& layout_node, CSSPixelRect rect, Node& target)
++{
++    auto p1 = TRY(convert_layout_box_point_to_node(realm, layout_node, rect.location(), target));
++    auto p2 = TRY(convert_layout_box_point_to_node(realm, layout_node, { rect.right(), rect.y() }, target));
++    auto p3 = TRY(convert_layout_box_point_to_node(realm, layout_node, { rect.right(), rect.bottom() }, target));
++    auto p4 = TRY(convert_layout_box_point_to_node(realm, layout_node, { rect.x(), rect.bottom() }, target));
++
++    return Geometry::DOMQuad::create(
++        p1->x(), p1->y(),
++        p2->x(), p2->y(),
++        p3->x(), p3->y(),
++        p4->x(), p4->y());
++}
++
++// https://drafts.csswg.org/cssom-view/#dom-geometryutils-getboxquads
++WebIDL::ExceptionOr<Vector<GC::Ref<Geometry::DOMQuad>>> Node::get_box_quads(Bindings::BoxQuadOptions const& options)
++{
++    Vector<GC::Ref<Geometry::DOMQuad>> result;
++    auto& node = *this;
++
++    // 1. Let node be this.
++    // 2-4. Let document be node's node document.
++    auto& document = node.document();
++    if (!document.navigable())
++        return result;
++
++    auto& realm = HTML::relevant_realm(node);
++
++    Layout::ForcedReadScope read { document };
++    document.update_layout(UpdateLayoutReason::GeometryUtils);
++
++    // 5. If options.relativeTo is specified, let relativeTo be options.relativeTo. Otherwise, let relativeTo be document.
++    auto relative_to_node = options.relative_to.has_value()
++        ? node_from_geometry_node(*options.relative_to)
++        : GC::Ref<Node> { document };
++
++    // 6. Let result be an empty list of DOMQuad objects.
++    Bindings::ConvertCoordinateOptions convert_options {};
++
++    // 7. If node is a Document, append the layout viewport quad converted from document to relativeTo.
++    if (is<Document>(node)) {
++        auto viewport_size = document.viewport_rect().size();
++        auto quad_init = dom_quad_init_from_rect(0, 0, viewport_size.width().to_double(), viewport_size.height().to_double());
++        result.append(TRY(convert_quad_from_node_to_node(realm, *relative_to_node, quad_init, document, convert_options)));
++        return result;
++    }
++
++    // 8. Otherwise, if node is a Text, convert each Range.getClientRects() viewport rect from document to relativeTo.
++    // Note: For Document and Text nodes, all BoxQuadOptions/box values return the same geometry.
++    if (is<Text>(node)) {
++        auto range = Range::create(GC::Ref<Node> { node }, 0, GC::Ref<Node> { node }, node.length());
++        for (auto const& rect : range->client_rects()) {
++            auto quad_init = dom_quad_init_from_rect(rect.x(), rect.y(), rect.width(), rect.height());
++            result.append(TRY(convert_quad_from_node_to_node(realm, *relative_to_node, quad_init, document, convert_options)));
++        }
++        return result;
++    }
++
++    auto const* layout_node = node.layout_node(read);
++    if (!layout_node || !Painting::has_committed_box(*layout_node))
++        return result;
++
++    // 9. Otherwise, for each box fragment of node, in content order, create a local rect for the requested box with
++    // the fragment's border edge at x = 0 and y = 0, convert it from node to relativeTo, and append it.
++    auto absolute_border_rect = Painting::absolute_border_box_rect(*layout_node);
++    auto border_rects = layout_node->is_fragmented_inline()
++        ? Painting::client_rects(*layout_node, Layout::RustFFI::FfiViewportMapping {})
++        : Vector<CSSPixelRect> { absolute_border_rect };
++
++    // An inline element whose content is only interrupting blocks generates no line fragments, but per CSSOM
++    // we still report its (zero-sized) box instead of an empty list.
++    if (border_rects.is_empty())
++        border_rects.append(absolute_border_rect);
++
++    for (auto border_rect : border_rects) {
++        border_rect.translate_by(-absolute_border_rect.location());
++        auto rect = box_rect_relative_to_border_box(*layout_node, border_rect, options.box);
++        result.append(TRY(convert_layout_box_rect_to_node(realm, *layout_node, rect, *relative_to_node)));
++    }
++
++    // Note: Points are flattened, p1 is the physical top-left corner, and non-invertible transforms produce
++    // implementation-defined coordinates.
++    return result;
++}
++
++// https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
++WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> Node::convert_quad_from_node(Bindings::DOMQuadInit const& quad, GeometryNode const& from, Bindings::ConvertCoordinateOptions const& options)
++{
++    return convert_quad_from_node_to_node(HTML::relevant_realm(*this), *this, quad, *node_from_geometry_node(from), options);
++}
++
++// https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
++WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> Node::convert_rect_from_node(GC::Ref<Geometry::DOMRectReadOnly> rect, GeometryNode const& from, Bindings::ConvertCoordinateOptions const& options)
++{
++    // Create a DOMQuad from the rect, then transform each point of the DOMQuad.
++    auto dimensions = rect->dimensions();
++    auto x = dimensions[0];
++    auto y = dimensions[1];
++    auto width = dimensions[2];
++    auto height = dimensions[3];
++    Bindings::DOMQuadInit quad {
++        .p1 = dom_point_init_from_coordinates(x, y),
++        .p2 = dom_point_init_from_coordinates(x + width, y),
++        .p3 = dom_point_init_from_coordinates(x + width, y + height),
++        .p4 = dom_point_init_from_coordinates(x, y + height),
++    };
++    return convert_quad_from_node_to_node(HTML::relevant_realm(*this), *this, quad, *node_from_geometry_node(from), options);
++}
++
++// https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
++WebIDL::ExceptionOr<GC::Ref<Geometry::DOMPoint>> Node::convert_point_from_node(Bindings::DOMPointInit const& point, GeometryNode const& from, Bindings::ConvertCoordinateOptions const& options)
++{
++    return convert_point_from_node_to_node(HTML::relevant_realm(*this), *this, point, *node_from_geometry_node(from), options);
++}
++
+ Utf16String Node::debug_description() const
+ {
+     Utf16StringBuilder builder;
+diff --git a/Libraries/LibWeb/DOM/Node.h b/Libraries/LibWeb/DOM/Node.h
+index 4a5ae34d53fbb3fd10600886cee456b3cb6b2e20..288477ea0a11a9028db6686b4ead1112dd92a681 100644
+--- a/Libraries/LibWeb/DOM/Node.h
++++ b/Libraries/LibWeb/DOM/Node.h
+@@ -18,6 +18,10 @@
+ #include <AK/Utf16View.h>
+ #include <AK/Vector.h>
+ #include <LibGC/Weak.h>
++#include <AK/Variant.h>
++#include <LibWeb/Bindings/DOMPointReadOnly.h>
++#include <LibWeb/Bindings/DOMQuad.h>
++#include <LibWeb/Bindings/GeometryUtils.h>
+ #include <LibWeb/Bindings/Node.h>
+ #include <LibWeb/DOM/EventTarget.h>
+ #include <LibWeb/DOM/FragmentSerializationMode.h>
+@@ -33,6 +37,8 @@
+ namespace Web::DOM {
+ 
+ class Document;
++class Element;
++class Text;
+ 
+ }
+ 
+@@ -58,6 +64,8 @@ struct SetHTMLOptions;
+ 
+ namespace Web::DOM {
+ 
++using GeometryNode = Variant<GC::Ref<Text>, GC::Ref<Element>, GC::Ref<Document>>;
++
+ enum class NameOrDescription {
+     Name,
+     Description
+@@ -560,6 +568,11 @@ public:
+     GC::Ref<Node> get_root_node(RootNodeComposed = RootNodeComposed::No);
+     GC::Ref<Node> get_root_node(Bindings::GetRootNodeOptions const&);
+ 
++    WebIDL::ExceptionOr<Vector<GC::Ref<Geometry::DOMQuad>>> get_box_quads(Bindings::BoxQuadOptions const&);
++    WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> convert_quad_from_node(Bindings::DOMQuadInit const&, GeometryNode const&, Bindings::ConvertCoordinateOptions const&);
++    WebIDL::ExceptionOr<GC::Ref<Geometry::DOMQuad>> convert_rect_from_node(GC::Ref<Geometry::DOMRectReadOnly>, GeometryNode const&, Bindings::ConvertCoordinateOptions const&);
++    WebIDL::ExceptionOr<GC::Ref<Geometry::DOMPoint>> convert_point_from_node(Bindings::DOMPointInit const&, GeometryNode const&, Bindings::ConvertCoordinateOptions const&);
++
+     bool is_uninteresting_whitespace_node() const;
+ 
+     Utf16String debug_description() const;
+diff --git a/Libraries/LibWeb/Geometry/DOMQuad.cpp b/Libraries/LibWeb/Geometry/DOMQuad.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..552d1db9793f24f745f51f6b4f2582b9b1e52953
+--- /dev/null
++++ b/Libraries/LibWeb/Geometry/DOMQuad.cpp
+@@ -0,0 +1,24 @@
++/*
++ * Copyright (c) 2026-present, the Ladybird developers.
++ *
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#include <LibJS/HostClassBuilder.h>
++#include <LibJS/Runtime/VM.h>
++#include <LibWeb/Geometry/DOMQuad.h>
++
++namespace Web::Geometry {
++
++extern "C" {
++
++// Defined in Bindings/Rust/src/geometry/exports.rs.
++void* web_dom_quad_create(JSVM*, double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
++}
++
++GC::Ref<DOMQuad> DOMQuad::create(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
++{
++    return GC::Ref { *static_cast<DOMQuad*>(web_dom_quad_create(JS::HostABI::vm_to_abi(JS::VM::the()), x1, y1, x2, y2, x3, y3, x4, y4)) };
++}
++
++}
+diff --git a/Libraries/LibWeb/Geometry/DOMQuad.h b/Libraries/LibWeb/Geometry/DOMQuad.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5dc4de1a52f8c0722295cefa51524df3fff5fae1
+--- /dev/null
++++ b/Libraries/LibWeb/Geometry/DOMQuad.h
+@@ -0,0 +1,25 @@
++/*
++ * Copyright (c) 2026-present, the Ladybird developers.
++ *
++ * SPDX-License-Identifier: BSD-2-Clause
++ */
++
++#pragma once
++
++#include <LibWeb/Bindings/DOMQuad.h>
++#include <LibWeb/Bindings/RustInterface.h>
++#include <LibWeb/Export.h>
++
++namespace Web::Geometry {
++
++// https://drafts.fxtf.org/geometry/#domquad
++// The C++ side of a DOMQuad, which is implemented in Rust (Libraries/LibWeb/Bindings/Rust/src/geometry): what C++
++// creates.
++class WEB_API DOMQuad final : public Bindings::RustInterfaceCell {
++    WEB_RUST_INTERFACE(DOMQuad, dom_quad)
++
++public:
++    static GC::Ref<DOMQuad> create(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
++};
++
++}
+diff --git a/Libraries/LibWeb/Geometry/DOMRectReadOnly.cpp b/Libraries/LibWeb/Geometry/DOMRectReadOnly.cpp
+index ff42888ec402cf733e5e9db28534463fb9e01829..1b43f7036b63b269dcfb90dac6cb13875162153c 100644
+--- a/Libraries/LibWeb/Geometry/DOMRectReadOnly.cpp
++++ b/Libraries/LibWeb/Geometry/DOMRectReadOnly.cpp
+@@ -15,6 +15,7 @@ extern "C" {
+ 
+ // Defined in Bindings/Rust/src/geometry/exports.rs.
+ void* web_dom_rect_read_only_create(JSVM*, double x, double y, double width, double height);
++void web_dom_rect_read_only_dimensions(void const* rect, Array<double, 4>* out_dimensions);
+ }
+ 
+ GC::Ref<DOMRectReadOnly> DOMRectReadOnly::create(double x, double y, double width, double height)
+@@ -22,4 +23,11 @@ GC::Ref<DOMRectReadOnly> DOMRectReadOnly::create(double x, double y, double widt
+     return GC::Ref { *static_cast<DOMRectReadOnly*>(web_dom_rect_read_only_create(JS::HostABI::vm_to_abi(JS::VM::the()), x, y, width, height)) };
+ }
+ 
++Array<double, 4> DOMRectReadOnly::dimensions() const
++{
++    Array<double, 4> dimensions;
++    web_dom_rect_read_only_dimensions(this, &dimensions);
++    return dimensions;
++}
++
+ }
+diff --git a/Libraries/LibWeb/Geometry/DOMRectReadOnly.h b/Libraries/LibWeb/Geometry/DOMRectReadOnly.h
+index edcd7dbc678d2264e8ea309cf1a0fb4bf7399352..3475c3f1140de25284f565a4b6a1540b148a25aa 100644
+--- a/Libraries/LibWeb/Geometry/DOMRectReadOnly.h
++++ b/Libraries/LibWeb/Geometry/DOMRectReadOnly.h
+@@ -7,6 +7,7 @@
+ 
+ #pragma once
+ 
++#include <AK/Array.h>
+ #include <LibWeb/Bindings/DOMRectReadOnly.h>
+ #include <LibWeb/Bindings/RustInterface.h>
+ #include <LibWeb/Export.h>
+@@ -21,6 +22,7 @@ class WEB_API DOMRectReadOnly final : public Bindings::RustInterfaceCell {
+ 
+ public:
+     static GC::Ref<DOMRectReadOnly> create(double x = 0, double y = 0, double width = 0, double height = 0);
++    Array<double, 4> dimensions() const;
+ };
+ 
+ }
+diff --git a/Libraries/LibWeb/Geometry/GeometryUtils.idl b/Libraries/LibWeb/Geometry/GeometryUtils.idl
+new file mode 100644
+index 0000000000000000000000000000000000000000..60c2c4724a9efb8e33714114b456957130909eff
+--- /dev/null
++++ b/Libraries/LibWeb/Geometry/GeometryUtils.idl
+@@ -0,0 +1,31 @@
++// https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
++enum CSSBoxType { "margin", "border", "padding", "content" };
++
++typedef (Text or Element or Document) GeometryNode;
++
++// https://drafts.csswg.org/cssom-view/#dictdef-boxquadoptions
++dictionary BoxQuadOptions {
++    CSSBoxType box = "border";
++    GeometryNode relativeTo;
++};
++
++// https://drafts.csswg.org/cssom-view/#dictdef-convertcoordinateoptions
++dictionary ConvertCoordinateOptions {
++    CSSBoxType fromBox = "border";
++    CSSBoxType toBox = "border";
++};
++
++// https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
++interface mixin GeometryUtils {
++    [NewObject] sequence<DOMQuad> getBoxQuads(optional BoxQuadOptions options = {});
++    [NewObject] DOMQuad convertQuadFromNode(DOMQuadInit quad, GeometryNode from, optional ConvertCoordinateOptions options = {});
++    [NewObject] DOMQuad convertRectFromNode(DOMRectReadOnly rect, GeometryNode from, optional ConvertCoordinateOptions options = {});
++    [NewObject] DOMPoint convertPointFromNode(DOMPointInit point, GeometryNode from, optional ConvertCoordinateOptions options = {});
++};
++
++Text includes GeometryUtils;
++Element includes GeometryUtils;
++Document includes GeometryUtils;
++
++// FIXME: CSSPseudoElement should include GeometryUtils and be part of GeometryNode once
++//        https://drafts.csswg.org/css-pseudo-4/#csspseudoelement is exposed.
+diff --git a/Libraries/LibWeb/Rust/src/layout/flex_formatting_context.rs b/Libraries/LibWeb/Rust/src/layout/flex_formatting_context.rs
+index d2491d9cdb87b1e7c59cf16e2ce03946508a4bb1..cb456e24c5fe7de51080b0c3683f44f748c5c1b9 100644
+--- a/Libraries/LibWeb/Rust/src/layout/flex_formatting_context.rs
++++ b/Libraries/LibWeb/Rust/src/layout/flex_formatting_context.rs
+@@ -3242,7 +3242,7 @@ impl<'pass> FlexFormattingContext<'pass> {
+         container_content_inline_size: CssPixels,
+     ) {
+         {
+-            let item = &self.flex_items[index];
++            let item = self.flex_items[index];
+             // NB: An item whose transferred cross size grows to fit its content lays out that content against the
+             //     transferred size, and grows to the used cross size in its own layout.
+             let cross_size = if item.cross_size_was_resolved_from_aspect_ratio && main_axis_is_horizontal {
+@@ -3261,6 +3261,17 @@ impl<'pass> FlexFormattingContext<'pass> {
+                 item.main_size,
+                 Some(cross_size),
+             );
++            if main_axis_is_horizontal {
++                details.cells.margin_left = item.margins.main_before;
++                details.cells.margin_right = item.margins.main_after;
++                details.cells.margin_top = item.margins.cross_before;
++                details.cells.margin_bottom = item.margins.cross_after;
++            } else {
++                details.cells.margin_top = item.margins.main_before;
++                details.cells.margin_bottom = item.margins.main_after;
++                details.cells.margin_left = item.margins.cross_before;
++                details.cells.margin_right = item.margins.cross_after;
++            }
+         }
+     }
+ 
+diff --git a/Libraries/LibWeb/idl_files.cmake b/Libraries/LibWeb/idl_files.cmake
+index 04fe87a558a36daab6d4972c1b62dfb6b15095ef..c466d9fde06e5e0a1116d744a4e43c2f2d4045f9 100644
+--- a/Libraries/LibWeb/idl_files.cmake
++++ b/Libraries/LibWeb/idl_files.cmake
+@@ -192,6 +192,7 @@ libweb_js_bindings(Geometry/DOMQuad)
+ libweb_js_bindings(Geometry/DOMRect)
+ libweb_js_bindings(Geometry/DOMRectList)
+ libweb_js_bindings(Geometry/DOMRectReadOnly)
++libweb_js_bindings(Geometry/GeometryUtils)
+ libweb_js_bindings(GPC/GlobalPrivacyControl)
+ libweb_js_bindings(HighResolutionTime/DOMHighResTimeStamp)
+ libweb_js_bindings(HighResolutionTime/EpochTimeStamp)
+diff --git a/Tests/LibWeb/TestConfig.ini b/Tests/LibWeb/TestConfig.ini
+index 673c95781e2e9bba35875a431536b01612bcc322..15ec4d1920a3d4fc872da45ee1252f7f5f6c0450 100644
+--- a/Tests/LibWeb/TestConfig.ini
++++ b/Tests/LibWeb/TestConfig.ini
+@@ -781,6 +781,8 @@ Text/input/wpt-import/css/css-values/calc-in-media-queries-with-mixed-units.html
+ Text/input/wpt-import/css/cssom-view/elementsFromPoint-iframes.html
+ Text/input/wpt-import/css/cssom-view/elementsFromPoint.html
+ Text/input/wpt-import/css/cssom-view/cssom-getBoundingClientRect-003.html
++Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-001.html
++Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-002.html
+ Text/input/wpt-import/css/cssom-view/offsetTopLeft-border-box.html
+ Text/input/wpt-import/css/mediaqueries/test_media_queries.html
+ Text/input/wpt-import/css/selectors/attribute-selectors/attribute-case/semantics.html
+diff --git a/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-001.txt b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-001.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..9eafb0811fc6761f8170462ab2c5e1c995a95868
+--- /dev/null
++++ b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-001.txt
+@@ -0,0 +1,11 @@
++Harness status: OK
++
++Found 6 tests
++
++6 Pass
++Pass	Block layout border box is expected width.
++Pass	Block layout margin box is expected width.
++Pass	Flex layout border box is expected width.
++Pass	Flex layout margin box is expected width.
++Pass	Flex layout border box is expected height.
++Pass	Flex layout margin box is expected height.
+\ No newline at end of file
+diff --git a/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-002.txt b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-002.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..b730373df6e06c53c749c2754e860f469713f83f
+--- /dev/null
++++ b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/cssom-getBoxQuads-002.txt
+@@ -0,0 +1,6 @@
++Harness status: OK
++
++Found 1 tests
++
++1 Pass
++Pass	CSSOM View - getBoxQuads() returns consistent box for SVG test
+\ No newline at end of file
+diff --git a/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/idlharness.txt b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/idlharness.txt
+index 4854ba8c73411853882cba97c299111d10bfbfce..edc62370f5698ea700b4108c7336ebb031c97a56 100644
+--- a/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/idlharness.txt
++++ b/Tests/LibWeb/Text/expected/wpt-import/css/cssom-view/idlharness.txt
+@@ -2,8 +2,8 @@ Harness status: OK
+ 
+ Found 400 tests
+ 
+-343 Pass
+-57 Fail
++395 Pass
++5 Fail
+ Pass	idl_test setup
+ Pass	idl_test validation
+ Pass	Partial interface Window: original interface defined
+@@ -191,14 +191,14 @@ Pass	Element interface: document.createElement("div") must inherit property "cli
+ Pass	Element interface: document.createElement("div") must inherit property "clientWidth" with the proper type
+ Pass	Element interface: document.createElement("div") must inherit property "clientHeight" with the proper type
+ Pass	Element interface: document.createElement("div") must inherit property "currentCSSZoom" with the proper type
+-Fail	Element interface: document.createElement("div") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
+-Fail	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElement("div") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("div") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("div") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("div") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("div") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
++Pass	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElement("div") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("div") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("div") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("div") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("div") with too few arguments must throw TypeError
+ Pass	HTMLImageElement interface: attribute x
+ Pass	HTMLImageElement interface: attribute y
+ Pass	HTMLImageElement interface: document.createElement("img") must inherit property "x" with the proper type
+@@ -236,14 +236,14 @@ Pass	Element interface: document.createElement("img") must inherit property "cli
+ Pass	Element interface: document.createElement("img") must inherit property "clientWidth" with the proper type
+ Pass	Element interface: document.createElement("img") must inherit property "clientHeight" with the proper type
+ Pass	Element interface: document.createElement("img") must inherit property "currentCSSZoom" with the proper type
+-Fail	Element interface: document.createElement("img") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
+-Fail	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElement("img") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("img") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("img") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElement("img") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("img") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
++Pass	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElement("img") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("img") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("img") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
++Pass	Element interface: document.createElement("img") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElement("img") with too few arguments must throw TypeError
+ Pass	Window interface: operation matchMedia(CSSOMString)
+ Pass	Window interface: attribute screen
+ Pass	Window interface: attribute visualViewport
+@@ -311,10 +311,10 @@ Pass	Document interface: operation elementFromPoint(double, double)
+ Pass	Document interface: operation elementsFromPoint(double, double)
+ Pass	Document interface: operation caretPositionFromPoint(double, double, optional CaretPositionFromPointOptions)
+ Pass	Document interface: attribute scrollingElement
+-Fail	Document interface: operation getBoxQuads(optional BoxQuadOptions)
+-Fail	Document interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Document interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Document interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Document interface: operation getBoxQuads(optional BoxQuadOptions)
++Pass	Document interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Document interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Document interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
+ Pass	Document interface: document must inherit property "elementFromPoint(double, double)" with the proper type
+ Pass	Document interface: calling elementFromPoint(double, double) on document with too few arguments must throw TypeError
+ Pass	Document interface: document must inherit property "elementsFromPoint(double, double)" with the proper type
+@@ -322,14 +322,14 @@ Pass	Document interface: calling elementsFromPoint(double, double) on document w
+ Pass	Document interface: document must inherit property "caretPositionFromPoint(double, double, optional CaretPositionFromPointOptions)" with the proper type
+ Pass	Document interface: calling caretPositionFromPoint(double, double, optional CaretPositionFromPointOptions) on document with too few arguments must throw TypeError
+ Pass	Document interface: document must inherit property "scrollingElement" with the proper type
+-Fail	Document interface: document must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
+-Fail	Document interface: calling getBoxQuads(optional BoxQuadOptions) on document with too few arguments must throw TypeError
+-Fail	Document interface: document must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Document interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
+-Fail	Document interface: document must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Document interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
+-Fail	Document interface: document must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Document interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
++Pass	Document interface: document must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
++Pass	Document interface: calling getBoxQuads(optional BoxQuadOptions) on document with too few arguments must throw TypeError
++Pass	Document interface: document must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Document interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
++Pass	Document interface: document must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Document interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
++Pass	Document interface: document must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Document interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document with too few arguments must throw TypeError
+ Pass	Element interface: operation getClientRects()
+ Pass	Element interface: operation getBoundingClientRect()
+ Pass	Element interface: operation checkVisibility(optional CheckVisibilityOptions)
+@@ -349,10 +349,10 @@ Pass	Element interface: attribute clientLeft
+ Pass	Element interface: attribute clientWidth
+ Pass	Element interface: attribute clientHeight
+ Pass	Element interface: attribute currentCSSZoom
+-Fail	Element interface: operation getBoxQuads(optional BoxQuadOptions)
+-Fail	Element interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Element interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Element interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Element interface: operation getBoxQuads(optional BoxQuadOptions)
++Pass	Element interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Element interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Element interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "getClientRects()" with the proper type
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "getBoundingClientRect()" with the proper type
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "checkVisibility(optional CheckVisibilityOptions)" with the proper type
+@@ -380,26 +380,26 @@ Pass	Element interface: document.createElementNS("x", "y") must inherit property
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "clientWidth" with the proper type
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "clientHeight" with the proper type
+ Pass	Element interface: document.createElementNS("x", "y") must inherit property "currentCSSZoom" with the proper type
+-Fail	Element interface: document.createElementNS("x", "y") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
+-Fail	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElementNS("x", "y") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElementNS("x", "y") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
+-Fail	Element interface: document.createElementNS("x", "y") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
+-Fail	Text interface: operation getBoxQuads(optional BoxQuadOptions)
+-Fail	Text interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Text interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Text interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
+-Fail	Text interface: document.createTextNode("x") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
+-Fail	Text interface: calling getBoxQuads(optional BoxQuadOptions) on document.createTextNode("x") with too few arguments must throw TypeError
+-Fail	Text interface: document.createTextNode("x") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Text interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
+-Fail	Text interface: document.createTextNode("x") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Text interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
+-Fail	Text interface: document.createTextNode("x") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
+-Fail	Text interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
++Pass	Element interface: document.createElementNS("x", "y") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
++Pass	Element interface: calling getBoxQuads(optional BoxQuadOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
++Pass	Element interface: document.createElementNS("x", "y") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
++Pass	Element interface: document.createElementNS("x", "y") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
++Pass	Element interface: document.createElementNS("x", "y") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Element interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createElementNS("x", "y") with too few arguments must throw TypeError
++Pass	Text interface: operation getBoxQuads(optional BoxQuadOptions)
++Pass	Text interface: operation convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Text interface: operation convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Text interface: operation convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)
++Pass	Text interface: document.createTextNode("x") must inherit property "getBoxQuads(optional BoxQuadOptions)" with the proper type
++Pass	Text interface: calling getBoxQuads(optional BoxQuadOptions) on document.createTextNode("x") with too few arguments must throw TypeError
++Pass	Text interface: document.createTextNode("x") must inherit property "convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Text interface: calling convertQuadFromNode(DOMQuadInit, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
++Pass	Text interface: document.createTextNode("x") must inherit property "convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Text interface: calling convertRectFromNode(DOMRectReadOnly, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
++Pass	Text interface: document.createTextNode("x") must inherit property "convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions)" with the proper type
++Pass	Text interface: calling convertPointFromNode(DOMPointInit, GeometryNode, optional ConvertCoordinateOptions) on document.createTextNode("x") with too few arguments must throw TypeError
+ Pass	Range interface: operation getClientRects()
+ Pass	Range interface: operation getBoundingClientRect()
+ Pass	Range interface: new Range() must inherit property "getClientRects()" with the proper type
+diff --git a/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-001.html b/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-001.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..0c28c55cdaef0515501886dcaec9aaa7d759132c
+--- /dev/null
++++ b/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-001.html
+@@ -0,0 +1,61 @@
++<!DOCTYPE html>
++<html>
++ <head>
++  <title>CSSOM View - getBoxQuads() returns proper border and margin boxes for block and flex</title>
++  <link rel="help" href="https://drafts.csswg.org/cssom-view/#the-geometryutils-interface">
++  <script src="../../resources/testharness.js"></script>
++  <script src="../../resources/testharnessreport.js"></script>
++
++  <style>
++    .container {
++      width: 100px;
++      height: 50px;
++      background-color: gray;
++    }
++    span {
++      display: block;
++      background: gold;
++      height: 4px;
++      width: 14px;
++      margin: auto;
++      padding: 0px;
++      border: 3px solid blue;
++    }
++  </style>
++ </head>
++ <body>
++  <div class="container">
++  <span id="block-block"></span>
++  </div>
++
++  <div class="container" style="display:flex">
++  <span id="flex-block"></span>
++  </div>
++
++  <script>
++    let bb = document.getElementById("block-block")
++    let fb = document.getElementById("flex-block")
++    test(function() {
++      assert_equals(bb.getBoxQuads({box: "border"})[0].getBounds().width, 20)
++    }, "Block layout border box is expected width.")
++    test(function() {
++      assert_equals(bb.getBoxQuads({box: "margin"})[0].getBounds().width, 100)
++    }, "Block layout margin box is expected width.")
++
++    // For containers that expand items to fill block-axis space, measure the box heights also.
++    test(function() {
++      assert_equals(fb.getBoxQuads({box: "border"})[0].getBounds().width, 20)
++    }, "Flex layout border box is expected width.")
++    test(function() {
++      assert_equals(fb.getBoxQuads({box: "margin"})[0].getBounds().width, 100)
++    }, "Flex layout margin box is expected width.")
++
++    test(function() {
++      assert_equals(fb.getBoxQuads({box: "border"})[0].getBounds().height, 10)
++    }, "Flex layout border box is expected height.")
++    test(function() {
++      assert_equals(fb.getBoxQuads({box: "margin"})[0].getBounds().height, 50)
++    }, "Flex layout margin box is expected height.")
++  </script>
++ </body>
++</html>
+diff --git a/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-002.html b/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-002.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..fc265981522e2d1443a89e351451db1070ba5bf2
+--- /dev/null
++++ b/Tests/LibWeb/Text/input/wpt-import/css/cssom-view/cssom-getBoxQuads-002.html
+@@ -0,0 +1,23 @@
++<!DOCTYPE html>
++<title>CSSOM View - getBoxQuads() returns consistent box for SVG test</title>
++<link rel="help" href="https://drafts.csswg.org/cssom-view/#the-geometryutils-interface">
++<link rel="help" href="https://bugzilla.mozilla.org/show_bug.cgi?id=1746794">
++<script src="../../resources/testharness.js"></script>
++<script src="../../resources/testharnessreport.js"></script>
++<svg width="200" height="200">
++  <text>
++    <tspan id="t1" x="50 60 70 80 90 100" y="50">hello1</tspan>
++    <tspan id="t2" x="50 60 70 80 90 100" y="100">hello2</tspan>
++  </text>
++</svg>
++<script>
++  test(function() {
++    for (let element of document.querySelectorAll("tspan")) {
++      let bcr = element.getBoundingClientRect();
++      let quad = element.getBoxQuads()[0].getBounds();
++      for (let prop of ["width", "height", "left", "top"]) {
++        assert_equals(bcr[prop], quad[prop], `${element.id} ${prop}: getBoxQuads should be consistent with getBoundingClientRect`);
++      }
++    }
++  });
++</script>

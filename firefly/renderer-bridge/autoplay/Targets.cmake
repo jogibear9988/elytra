@@ -34,6 +34,7 @@ add_dependencies(LibWeb check-firefly-autoplay-media-hooks)
 add_custom_target(
     check-firefly-autoplay-rust-routing
     COMMAND
+        "${CMAKE_COMMAND}" -E env "FIREFLY_LADYBIRD_RUST_SOURCE=${CMAKE_SOURCE_DIR}"
         "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/rust-autoplay/prepare.py" --output
         "${autoplay_directory}" --driver "${autoplay_driver}" --chain
         "${FIREFLY_AUTOPLAY_CHAIN_WRAPPER}" --check

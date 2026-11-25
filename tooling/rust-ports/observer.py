@@ -3,8 +3,8 @@
 import hashlib
 
 PINS = {
-    "html/message_port.rs": "238288f0bdb2f078742d5bcce5d80f283429dc4ae2c668c7ed43ac631325f858",
-    "html/mod.rs": "1e24819e33c2ff764b8feb6a74ab819fb190419a205a56a3bb154e66f1a1bcb7",
+    "html/message_port.rs": "7799e08bd16a066cced2b1f425fc98094975a5e9010728abaded3a400ed823cf",
+    "html/mod.rs": "c1518f00d956b6f35e7a731a213a9854ba5f57a6d468be9b9a07ef0993bbb337",
     "ffi_test_stubs.rs": "7ffb70a758530761ceb7561fcf2cffc26c7fa5856706b9dfaee7f6393ded171e",
 }
 FIELDS = """    // Native-only observation follows legitimate transfers, never JS properties.

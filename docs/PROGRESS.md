@@ -17348,6 +17348,40 @@ The prior branch's Windows job 137167022739 passed the native build and
 reached the standalone package/extraction step, which failed. The macOS
 release archive and standalone Windows ZIP remain unverified.
 
+## Update Ladybird and port GeometryUtils
+
+Pin upstream 759198723e8 with the Rust EventSource improvements. Review the
+timer-map, worker-close and MessagePort inputs against that revision. The
+November 25 upstream head also contains a larger moving-GC migration, which
+is outside this pin and needs a separate integration review.
+
+Port GeometryUtils from Jochen Kühner's fork commit 21ce3c69f95. Adapt the
+layout reason to the current enum listing and reuses Rust's viewport mapping
+for transformed coordinates. The numbered patch retains the
+geometry IDL, transforms, flex auto-margin work and its focused WPT fixtures.
+The renderer builder applies the stack after checkout in a detached build
+worktree. The pristine gitlink remains the Mite source. Rust uses the patched
+engine files so the geometry bindings and flex changes reach the actual binary.
+
+Pin validation, patch application checks, the renderer hook checks and the
+macOS Mite build pass, including all 173 CTest checks. The patched LibWeb Rust
+packages build. The GeometryUtils wrapper objects compile, and the migrated
+Node.cpp passes a targeted compile check. The full macOS Firefly rebuild and
+renderer acceptance remain in progress.
+
+The second patch targets the full File System Access API. The Window picker
+methods require a secure context, transient user activation and an admitted
+origin. A browser-process broker must retain the user-selected capabilities
+and bind them to the correct identity. The work includes file and directory
+handles, permission queries and requests, directory iteration and mutation,
+writable streams, structured cloning and origin-private storage. The
+existing HTML input picker supplies snapshots of selected file bytes and
+cannot back those handles. An isolated POSIX prototype exercises directory
+descriptors, symlink refusal, and atomic write staging. It still requires
+browser IPC, permission enforcement, and WebIDL bindings before any API can
+be enabled. See the [File System Access draft](https://wicg.github.io/file-system-access/)
+and [File System standard](https://fs.spec.whatwg.org/).
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

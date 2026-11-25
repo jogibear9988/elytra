@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -35,7 +36,8 @@ _permissions_spec.loader.exec_module(_permissions)
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "vendor/ladybird/Libraries/LibWeb/Bindings/Rust/src"
+UPSTREAM = Path(os.environ.get("FIREFLY_LADYBIRD_RUST_SOURCE", ROOT / "vendor/ladybird"))
+SOURCE = UPSTREAM / "Libraries/LibWeb/Bindings/Rust/src"
 PINS = {
     "lib.rs": "14ea5e279f7efa520231a0f6d368dc736470c82434e22f68b4807152d2be611d",
     "web_audio/mod.rs": "bfcbe81444c74d578d7861d711486534fe3c043e32b7895d51849e4084963b0e",
@@ -68,7 +70,7 @@ AUDIO_MODULES = frozenset(
 """.split()
 )
 HTML_MODULES = frozenset(
-    "canvas_path color_stops predefined_color_space broadcast_channel canvas_compositing canvas_draw_image canvas_draw_path canvas_fill_stroke_styles canvas_filters canvas_gradient canvas_image_data canvas_image_smoothing canvas_path_drawing_styles canvas_pattern canvas_rect canvas_rendering_context2d canvas_rendering_context2d_settings canvas_settings canvas_shadow_styles canvas_state canvas_text canvas_text_drawing_styles canvas_transform exports global_event_handlers html_form_element image_bitmap image_bitmap_rendering_context image_data message_channel message_port navigable navigator numbers offscreen_canvas offscreen_canvas_rendering_context2d path2d port_channel sanitizer sanitizer_configuration storage storage_event structured_serialize text_metrics text_track_cue visibility_state visibility_state_entry window window_or_worker_global_scope".split()
+    "canvas_path color_stops predefined_color_space broadcast_channel canvas_compositing canvas_draw_image canvas_draw_path canvas_fill_stroke_styles canvas_filters canvas_gradient canvas_image_data canvas_image_smoothing canvas_path_drawing_styles canvas_pattern canvas_rect canvas_rendering_context2d canvas_rendering_context2d_settings canvas_settings canvas_shadow_styles canvas_state canvas_text canvas_text_drawing_styles canvas_transform event_source exports global_event_handlers html_form_element image_bitmap image_bitmap_rendering_context image_data message_channel message_port navigable navigator numbers offscreen_canvas offscreen_canvas_rendering_context2d path2d port_channel sanitizer sanitizer_configuration storage storage_event structured_serialize text_metrics text_track_cue visibility_state visibility_state_entry window window_or_worker_global_scope".split()
 )
 MODULE = re.compile(r'^(?:#\[path = "([^"\n]+)"\]\n)?((?:pub(?:\([^)]*\))? )?mod (\w+);)$', re.M)
 FOOTER = "// Owned WebAudio routing build input: "

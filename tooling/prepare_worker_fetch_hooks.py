@@ -23,7 +23,7 @@ PINS = {
     ),
     "WorkerHost.cpp": (
         "Services/WebContent/Worker/WorkerHost.cpp",
-        "bedb2f6ec69d87b647563d2199721c5189f21255f6b3143eed244b308049b6f8",
+        "f38c661efa46a0396fee91fbc4543025f8be77ebcbba107f9bd08d8995d89bd9",
     ),
 }
 PREFIX = '#include "loading/workers/Scope.h"\n'

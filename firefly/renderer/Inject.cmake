@@ -4,6 +4,21 @@ if(NOT DEFINED FIREFLY_SOURCE_DIR)
     message(FATAL_ERROR "Configure with tooling/build_renderer.py")
 endif()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+if(FIREFLY_CHECK_LADYBIRD_PATCH_STACK)
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/ladybird_patches.py"
+                --verify-source "${CMAKE_SOURCE_DIR}" RESULT_VARIABLE firefly_patch_check)
+    if(NOT firefly_patch_check EQUAL 0)
+        message(FATAL_ERROR "Prepare the Ladybird patch stack using tooling/build_renderer.py")
+    endif()
+    file(GLOB firefly_ladybird_patches CONFIGURE_DEPENDS
+         "${FIREFLY_SOURCE_DIR}/patches/ladybird/*.patch")
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY CMAKE_CONFIGURE_DEPENDS ${firefly_ladybird_patches})
+endif()
+
 include("${FIREFLY_SOURCE_DIR}/mite/cmake/IcuData.cmake")
 include("${FIREFLY_SOURCE_DIR}/firefly/native/protocol/RustOrigin.cmake")
 cmake_path(CONVERT "${FIREFLY_SOURCE_DIR}/firefly/cmake" TO_CMAKE_PATH_LIST firefly_module_path

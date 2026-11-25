@@ -20,6 +20,7 @@ if(NOT "$ENV{RUSTC_WORKSPACE_WRAPPER}" STREQUAL "")
 endif()
 execute_process(
     COMMAND
+        "${CMAKE_COMMAND}" -E env "FIREFLY_LADYBIRD_RUST_SOURCE=${CMAKE_SOURCE_DIR}"
         "${Python3_EXECUTABLE}" "${FIREFLY_AUTOPLAY_ROOT}/tooling/rust-autoplay/prepare.py" --output
         "${autoplay_directory}" --driver "${autoplay_driver}" --chain
         "${FIREFLY_AUTOPLAY_CHAIN_WRAPPER}"
