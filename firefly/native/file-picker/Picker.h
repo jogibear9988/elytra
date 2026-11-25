@@ -1,4 +1,4 @@
-/** Native file-input chooser. Snapshot only accepted regular files; never expose native paths. */
+/** Native path selection and HTML file-input snapshots. Paths stay in the browser process. */
 #pragma once
 #include "Limits.h"
 #include <AK/Function.h>
@@ -16,6 +16,16 @@ public:
     static constexpr size_t max_files = FileSelectionPolicy::max_files;
     static constexpr size_t max_file_bytes = FileSelectionPolicy::max_file_bytes;
     static constexpr size_t max_total_bytes = FileSelectionPolicy::max_total_bytes;
+    enum class Mode { OpenFile, OpenFiles, SaveFile, Directory };
+
+    struct Selection {
+        Mode mode { Mode::OpenFile };
+        Web::HTML::FileFilter accepted_types;
+        QString initial_directory;
+        QString suggested_name;
+    };
+
+    using PathCompletion = Function<void(QStringList)>;
     using Completion = Function<void(Vector<Web::HTML::SelectedFile>)>;
     // Internal native test seam: production uses the real platform dialog.
     using Factory = Function<QFileDialog*(QWidget*)>;
@@ -25,6 +35,9 @@ public:
 
     void request(Web::HTML::FileFilter const&, Web::HTML::AllowMultipleFiles);
 
+    // Internal browser-process provider. Rejected requests own no dialog or completion.
+    bool request_selection(Selection const&, PathCompletion);
+
     void cancel();
 
     static ErrorOr<Vector<Web::HTML::SelectedFile>> snapshot(QStringList const&, bool multiple);
@@ -33,6 +46,7 @@ private:
     QWidget& m_parent;
     Completion m_complete;
     Factory m_factory;
+    PathCompletion m_path_completion;
     QPointer<QFileDialog> m_dialog;
 };
 }

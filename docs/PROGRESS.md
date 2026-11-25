@@ -17382,6 +17382,20 @@ browser IPC, permission enforcement, and WebIDL bindings before any API can
 be enabled. See the [File System Access draft](https://wicg.github.io/file-system-access/)
 and [File System standard](https://fs.spec.whatwg.org/).
 
+## Prepare browser-side open, save and folder chooser modes
+
+Reuse the existing native Qt picker lifecycle for open, multiple open, save
+and directory selections. Path results stay in a browser-process completion.
+The existing HTML input route still snapshots accepted regular files and
+preserves its limits and cancellation behavior.
+
+The hidden Cocoa picker probe passed all existing snapshot and lifecycle
+checks and exercised folder selection, save name prefill, concurrent request
+refusal and separation from the HTML file-input completion. The isolated
+macOS filesystem broker prototype additionally passed document/origin
+ownership, read-only mode and pending-write revocation checks. The second
+Ladybird patch and script-visible File System Access bindings remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

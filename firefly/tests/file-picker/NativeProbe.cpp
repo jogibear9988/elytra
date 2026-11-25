@@ -125,6 +125,50 @@ int main(int argc, char** argv)
     delete owned;
     application.processEvents();
     require(callbacks == 3, "destruction cannot invoke dead view");
+    using Picker = Firefly::FilePicker;
+    unsigned path_callbacks = 0;
+    QStringList chosen_paths;
+    auto receive = [&]() -> Picker::PathCompletion {
+        return [&](QStringList paths) {
+            ++path_callbacks;
+            chosen_paths = move(paths);
+        };
+    };
+
+    auto select_folder = Picker::Selection {
+        .mode = Picker::Mode::Directory,
+        .accepted_types = {},
+        .initial_directory = directory.path(),
+        .suggested_name = {},
+    };
+
+    require(picker.request_selection(select_folder, receive()), "folder selection admitted");
+    require(dialog && dialog->fileMode() == QFileDialog::Directory
+            && dialog->testOption(QFileDialog::ShowDirsOnly),
+        "folder chooser mode");
+    require(!picker.request_selection(select_folder, receive()), "second path request refused");
+    require(QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection), "folder accept");
+    require(path_callbacks == 1 && chosen_paths == QStringList { directory.path() },
+        "folder path stays in the native completion");
+    auto save_file = Picker::Selection {
+        .mode = Picker::Mode::SaveFile,
+        .accepted_types = {},
+        .initial_directory = directory.path(),
+        .suggested_name = "../outside.txt",
+    };
+
+    require(!picker.request_selection(save_file, receive()), "path-like suggested name refused");
+    save_file.suggested_name = "new.txt";
+    require(picker.request_selection(save_file, receive()), "save selection admitted");
+    require(dialog && dialog->acceptMode() == QFileDialog::AcceptSave
+            && dialog->fileMode() == QFileDialog::AnyFile,
+        "save chooser mode");
+    require(QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection), "save accept");
+    require(path_callbacks == 2 && chosen_paths == QStringList { directory.filePath("new.txt") },
+        "save chooser resolves the suggested file");
+    require(!QFile::exists(chosen_paths.front()), "save chooser does not write file bytes");
+    require(callbacks == 3, "path selections bypass HTML input snapshot completion");
+    std::puts("PASS native folder and save modes with owned path completion");
     std::puts("PASS file picker: real hidden Qt accept/cancel/stale/destruction; "
               "binary/basename/type/FIFO/count/exact/overflow snapshot limits");
     return 0;

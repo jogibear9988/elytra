@@ -1,6 +1,7 @@
 /** Own one nonmodal chooser per view and retire it before navigation/crash/destruction. */
 #include "Picker.h"
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMimeDatabase>
 #include <QWidget>
 
@@ -58,20 +59,22 @@ FilePicker::FilePicker(QWidget& parent, Completion complete, Factory factory)
 
 FilePicker::~FilePicker()
 {
-    m_complete = {};
+    m_path_completion = {};
     cancel();
 }
 
 void FilePicker::cancel()
 {
     auto dialog = m_dialog;
+    if (!dialog)
+        return;
+
     m_dialog = nullptr; // Invalidate finished/queued signals before rejecting the dialog.
-    if (dialog) {
-        dialog->reject();
-        dialog->deleteLater();
-        if (m_complete)
-            m_complete({});
-    }
+    auto completion = move(m_path_completion);
+    dialog->reject();
+    dialog->deleteLater();
+    if (completion)
+        completion({});
 }
 
 void FilePicker::request(Web::HTML::FileFilter const& accepted, Web::HTML::AllowMultipleFiles mode)
@@ -82,29 +85,81 @@ void FilePicker::request(Web::HTML::FileFilter const& accepted, Web::HTML::Allow
     }
 
     bool multiple = mode == Web::HTML::AllowMultipleFiles::Yes;
+    auto selection = Selection {
+        .mode = multiple ? Mode::OpenFiles : Mode::OpenFile,
+        .accepted_types = accepted,
+        .initial_directory = {},
+        .suggested_name = {},
+    };
+
+    request_selection(selection, [this, multiple](QStringList paths) {
+        Vector<Web::HTML::SelectedFile> files;
+        auto selected = snapshot(paths, multiple);
+        if (selected.is_error())
+            warnln("Firefly file selection refused: {}", selected.error());
+        else
+            files = selected.release_value();
+        if (m_complete)
+            m_complete(move(files));
+    });
+}
+
+bool FilePicker::request_selection(Selection const& selection, PathCompletion completion)
+{
+    if (m_dialog || !completion)
+        return false;
+    auto const& name = selection.suggested_name;
+    if (!name.isEmpty()
+        && (selection.mode != Mode::SaveFile || name == "." || name == ".."
+            || name.contains(QChar::Null) || name.contains('/') || name.contains('\\')
+            || QFileInfo(name).fileName() != name))
+        return false;
+
     auto* dialog = m_factory ? m_factory(&m_parent) : new QFileDialog(&m_parent);
     m_dialog = dialog;
+    m_path_completion = move(completion);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->setWindowTitle(multiple ? "Select files" : "Select file");
-    dialog->setNameFilter(filters(accepted));
-    dialog->setFileMode(multiple ? QFileDialog::ExistingFiles : QFileDialog::ExistingFile);
+    if (!selection.initial_directory.isEmpty())
+        dialog->setDirectory(selection.initial_directory);
+    switch (selection.mode) {
+    case Mode::OpenFile:
+        dialog->setWindowTitle("Select file");
+        dialog->setFileMode(QFileDialog::ExistingFile);
+        break;
+    case Mode::OpenFiles:
+        dialog->setWindowTitle("Select files");
+        dialog->setFileMode(QFileDialog::ExistingFiles);
+        break;
+    case Mode::SaveFile:
+        dialog->setWindowTitle("Save file");
+        dialog->setAcceptMode(QFileDialog::AcceptSave);
+        dialog->setFileMode(QFileDialog::AnyFile);
+        break;
+    case Mode::Directory:
+        dialog->setWindowTitle("Select folder");
+        dialog->setFileMode(QFileDialog::Directory);
+        dialog->setOption(QFileDialog::ShowDirsOnly);
+        break;
+    }
+
+    if (selection.mode != Mode::Directory)
+        dialog->setNameFilter(filters(selection.accepted_types));
+    if (!name.isEmpty())
+        dialog->selectFile(name);
+
+    auto multiple = selection.mode == Mode::OpenFiles;
     QObject::connect(dialog, &QDialog::finished, this,
         [this, dialog = QPointer<QFileDialog> { dialog }, multiple](int result) {
             if (!dialog || m_dialog != dialog)
                 return;
             m_dialog = nullptr;
-            Vector<Web::HTML::SelectedFile> files;
-            if (result == QDialog::Accepted) {
-                auto selected = snapshot(dialog->selectedFiles(), multiple);
-                if (selected.is_error())
-                    warnln("Firefly file selection refused: {}", selected.error());
-                else
-                    files = selected.release_value();
-            }
-
-            if (m_complete)
-                m_complete(move(files));
+            auto completion = move(m_path_completion);
+            auto paths = result == QDialog::Accepted ? dialog->selectedFiles() : QStringList {};
+            if (!multiple && paths.size() != 1)
+                paths.clear();
+            completion(move(paths));
         });
     dialog->open();
+    return true;
 }
 }
