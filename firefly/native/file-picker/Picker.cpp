@@ -87,14 +87,15 @@ void FilePicker::cancel()
     }
 }
 
-bool FilePicker::request_write_permission(
-    QString const& origin, QString const& name, PermissionCompletion complete)
+bool FilePicker::request_permission(
+    QString const& origin, QString const& name, bool writable, PermissionCompletion complete)
 {
     if (!complete || m_dialog || m_permission_dialog)
         return false;
 
-    auto* box = new QMessageBox(QMessageBox::Question, "Allow file changes?",
-        QString("Allow %1 to edit %2?").arg(origin, name), QMessageBox::Yes | QMessageBox::No,
+    auto action = writable ? "edit" : "read";
+    auto* box = new QMessageBox(QMessageBox::Question, "Allow file access?",
+        QString("Allow %1 to %2 %3?").arg(origin, action, name), QMessageBox::Yes | QMessageBox::No,
         &m_parent);
     m_permission_dialog = box;
     m_permission_completion = move(complete);

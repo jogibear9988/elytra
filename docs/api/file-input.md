@@ -175,12 +175,22 @@ handle can be read after navigation. Deleting the underlying entry makes
 operations that reopen it fail with `NotFoundError`. A different origin
 cannot deserialize the handle.
 
+#### Restoring native picker handles
+
+Handles returned by native pickers can also be cloned or stored in
+IndexedDB. The browser stores the selection in the browsing profile and
+binds the reference to the selecting origin. A restored handle initially
+needs permission. In a Window, call `requestPermission()` during a
+user gesture to approve reading. Pass `{ mode: 'readwrite' }` to request
+editing. The consent applies to the current document. Native paths stay
+inside the browser.
+
 ### Remaining compatibility
 
-Structured cloning and persistent permissions for native picker handles
-remain open, as does private-browsing storage. Windows has no native
-file-grant provider. Dedicated-worker paths are covered by the macOS
-fixture. Shared-worker, service-worker, and Linux runtime coverage remain
-open. The compatibility surface is tracked against the
+Persistent permissions for native picker handles and private-browsing
+storage remain open. Windows has no native file-grant provider.
+Dedicated-worker paths are covered by the macOS fixture. Shared-worker,
+service-worker, and Linux runtime coverage remain open. The compatibility
+surface is tracked against the
 [File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).

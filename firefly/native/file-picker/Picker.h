@@ -48,7 +48,8 @@ public:
     ErrorOr<void> request_grants(FileAccessGrants::Document, Selection const&, GrantCompletion);
 
     using PermissionCompletion = Function<void(bool)>;
-    bool request_write_permission(QString const& origin, QString const& name, PermissionCompletion);
+    bool request_permission(
+        QString const& origin, QString const& name, bool writable, PermissionCompletion);
 
     QString remembered_directory(QString const& key) const;
 

@@ -17574,6 +17574,23 @@ two probes now run in the macOS release gate. Native picker handle
 serialization, durable native permissions, private-browsing storage and
 the Windows native provider remain open.
 
+## Restore native picker handles with browser permission checks
+
+Picked file and directory handles now serialize an opaque,
+origin-bound reference. The browser stores the selected location under
+the profile and checks the original directory identity when reopening it.
+Derived handles use checked relative lookups. A restored reference has
+no access until a Window authorizes reading or editing from trusted input.
+Reading and editing are separate decisions. Selecting a location still
+works if the profile cannot store the reference.
+
+The macOS Release build and hidden native and browser probes passed.
+They cover a native file round trip through structured cloning and
+IndexedDB, refusal before approval, a real read prompt, continued write
+refusal after read-only approval, and isolation from another origin's
+reference. Persistent permission decisions, private-browsing storage,
+and the Windows native provider remain open.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

@@ -870,10 +870,10 @@ index 00000000000..d08eaf47dd9
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
 new file mode 100644
-index 00000000000..a652b455dcb
+index 00000000000..5dfcd4b5e9e
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/FileSystemHandle.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,77 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -908,8 +908,8 @@ index 00000000000..a652b455dcb
 +
 +    WebIDL::ExceptionOr<void> is_same_entry(FileSystemHandle&, GC::Ref<WebIDL::Promise>);
 +
-+    Optional<String> serialize_private_handle() const;
-+    static GC::Ptr<FileSystemHandle> deserialize_private_handle(HTML::EnvironmentSettingsObject&,
++    Optional<String> serialize_handle() const;
++    static GC::Ptr<FileSystemHandle> deserialize_handle(HTML::EnvironmentSettingsObject&,
 +        StringView payload, Bindings::FileSystemHandleKind);
 +
 +    Optional<String> token_for(DOM::Document const&) const;
@@ -945,6 +945,7 @@ index 00000000000..a652b455dcb
 +    GC::Weak<HTML::EnvironmentSettingsObject> m_weak_environment;
 +    String m_token;
 +    Optional<JsonArray> m_private_path;
++    Optional<JsonObject> m_native_reference;
 +    Utf16String m_name;
 +    Bindings::FileSystemHandleKind m_kind;
 +};
@@ -1080,10 +1081,10 @@ index 00000000000..31e2eaea85b
 +};
 diff --git a/Libraries/LibWeb/FileSystemAccess/Handles.cpp b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
 new file mode 100644
-index 00000000000..af3f6501c05
+index 00000000000..487e611ba9f
 --- /dev/null
 +++ b/Libraries/LibWeb/FileSystemAccess/Handles.cpp
-@@ -0,0 +1,448 @@
+@@ -0,0 +1,482 @@
 +/*
 + * SPDX-License-Identifier: BSD-2-Clause
 + */
@@ -1175,14 +1176,18 @@ index 00000000000..af3f6501c05
 +        handle = heap.allocate<FileSystemFileHandle>(environment, *token, Utf16String::from_utf8(*name));
 +    else if (*kind == "directory"sv)
 +        handle = heap.allocate<FileSystemDirectoryHandle>(environment, *token, Utf16String::from_utf8(*name));
-+    if (auto path = metadata.get_array("privatePath"sv); handle && path.has_value())
-+        handle->m_private_path = *path;
++    if (handle) {
++        if (auto path = metadata.get_array("privatePath"sv); path.has_value())
++            handle->m_private_path = *path;
++        if (auto reference = metadata.get_object("nativeReference"sv); reference.has_value())
++            handle->m_native_reference = *reference;
++    }
 +    return handle;
 +}
 +
-+Optional<String> FileSystemHandle::serialize_private_handle() const
++Optional<String> FileSystemHandle::serialize_handle() const
 +{
-+    if (!m_private_path.has_value())
++    if (!m_private_path.has_value() && !m_native_reference.has_value())
 +        return {};
 +    auto origin = environment().origin();
 +    if (origin.is_opaque())
@@ -1190,14 +1195,19 @@ index 00000000000..af3f6501c05
 +
 +    JsonObject metadata;
 +    metadata.set("origin"sv, origin.serialize());
-+    metadata.set("path"sv, *m_private_path);
++    if (m_private_path.has_value()) {
++        metadata.set("path"sv, *m_private_path);
++    } else {
++        metadata.set("nativeReference"sv, *m_native_reference);
++        metadata.set("name"sv, name().to_well_formed_utf8());
++    }
 +    return metadata.serialized();
 +}
 +
-+GC::Ptr<FileSystemHandle> FileSystemHandle::deserialize_private_handle(HTML::EnvironmentSettingsObject& environment,
++GC::Ptr<FileSystemHandle> FileSystemHandle::deserialize_handle(HTML::EnvironmentSettingsObject& environment,
 +    StringView payload, Bindings::FileSystemHandleKind kind)
 +{
-+    // No native path, permission, or live browser token is part of the record.
++    // Native paths, permissions, and live broker tokens stay in the browser.
 +    // Limit storage records before parsing or starting any filesystem operation.
 +    if (payload.length() > 128 * 1024 || !HTML::is_secure_context(environment))
 +        return nullptr;
@@ -1206,10 +1216,22 @@ index 00000000000..af3f6501c05
 +        return nullptr;
 +    auto const& metadata = parsed.value().as_object();
 +    auto origin = metadata.get_string("origin"sv);
-+    auto path = metadata.get_array("path"sv);
 +    auto target = environment.origin();
-+    if (!origin.has_value() || target.is_opaque() || *origin != target.serialize()
-+        || !path.has_value() || path->size() > 64 || (path->is_empty() && kind == Bindings::FileSystemHandleKind::File))
++    if (!origin.has_value() || target.is_opaque() || *origin != target.serialize())
++        return nullptr;
++
++    auto path = metadata.get_array("path"sv);
++    auto reference = metadata.get_object("nativeReference"sv);
++    if (path.has_value() == reference.has_value())
++        return nullptr;
++    if (reference.has_value()) {
++        path = reference->get_array("components"sv);
++        auto ticket = reference->get_string("ticket"sv);
++        if (!ticket.has_value() || ticket->byte_count() != 36)
++            return nullptr;
++    }
++    if (!path.has_value() || path->size() > 64 || (path->is_empty() && !reference.has_value()
++        && kind == Bindings::FileSystemHandleKind::File))
 +        return nullptr;
 +
 +    String name;
@@ -1226,10 +1248,18 @@ index 00000000000..af3f6501c05
 +    }
 +
 +    JsonObject grant;
-+    grant.set("name"sv, name);
++    if (reference.has_value()) {
++        auto display_name = metadata.get_string("name"sv);
++        if (!display_name.has_value() || display_name->byte_count() > 4096)
++            return nullptr;
++        grant.set("nativeReference"sv, *reference);
++        grant.set("name"sv, display_name.release_value());
++    } else {
++        grant.set("privatePath"sv, path.release_value());
++        grant.set("name"sv, name);
++    }
 +    grant.set("kind"sv, kind == Bindings::FileSystemHandleKind::File ? "file"sv : "directory"sv);
 +    grant.set("token"sv, String {});
-+    grant.set("privatePath"sv, path.release_value());
 +    return from_grant(environment, grant);
 +}
 +
@@ -1241,15 +1271,20 @@ index 00000000000..af3f6501c05
 +    }
 +
 +    JsonObject options;
-+    if (!m_private_path.has_value()) {
++    if (!m_private_path.has_value() && !m_native_reference.has_value()) {
 +        options.set("error"sv, "InvalidStateError"sv);
 +        callback(Error::from_errno(EBADF), move(options));
 +        return;
 +    }
 +
-+    options.set("operation"sv, "reopenPrivate"sv);
++    if (m_private_path.has_value()) {
++        options.set("operation"sv, "reopenPrivate"sv);
++        options.set("privatePath"sv, *m_private_path);
++    } else {
++        options.set("operation"sv, "reopenNative"sv);
++        options.set("nativeReference"sv, *m_native_reference);
++    }
 +    options.set("kind"sv, kind() == Bindings::FileSystemHandleKind::File ? "file"sv : "directory"sv);
-+    options.set("privatePath"sv, *m_private_path);
 +    request(environment(), move(options), [self = GC::Root { *this }, callback = move(callback)](JsonObject result, ByteBuffer) {
 +        auto token = result.get_string("token"sv);
 +        if (!token.has_value()) {
@@ -2369,7 +2404,7 @@ index 00000000000..4206728199f
 +
 +}
 diff --git a/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp b/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
-index 840d0f6e639..15d25dc538f 100644
+index 840d0f6e639..187d29937a2 100644
 --- a/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
 +++ b/Libraries/LibWeb/HTML/StructuredSerializeRustIntegration.cpp
 @@ -21,6 +21,9 @@
@@ -2401,7 +2436,7 @@ index 840d0f6e639..15d25dc538f 100644
 +    auto* handle = dynamic_cast<FileSystemAccess::FileSystemHandle*>(wrappable);
 +    if (!handle)
 +        return false;
-+    auto locator = handle->serialize_private_handle();
++    auto locator = handle->serialize_handle();
 +    if (!locator.has_value())
 +        return false;
 +
@@ -2425,7 +2460,7 @@ index 840d0f6e639..15d25dc538f 100644
 +        return nullptr;
 +    }
 +
-+    auto handle = FileSystemAccess::FileSystemHandle::deserialize_private_handle(environment, StringView(locator), kind);
++    auto handle = FileSystemAccess::FileSystemHandle::deserialize_handle(environment, StringView(locator), kind);
 +    if (!handle)
 +        return nullptr;
 +

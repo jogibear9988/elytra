@@ -15,11 +15,17 @@ class FileAccessGrants {
 public:
     enum class Kind : u8 { File, Directory };
 
+    struct NativeReference {
+        String ticket;
+        Vector<String> components;
+    };
+
     struct Handle {
         String token;
         String name;
         Kind kind;
         Optional<Vector<String>> private_path;
+        Optional<NativeReference> native_reference;
     };
 
     struct DirectoryEntry {
@@ -53,6 +59,12 @@ public:
 
     ErrorOr<Handle> reopen_private(Document, StringView profile_data, StringView bucket_key,
         Vector<String> const& components, Kind);
+
+    ErrorOr<void> issue_native_reference(
+        Document, Handle&, StringView profile_data, StringView origin_key);
+
+    ErrorOr<Handle> reopen_native(
+        Document, StringView profile_data, StringView origin_key, NativeReference const&, Kind);
 
     void set_private_area(String directory)
     {
@@ -97,6 +109,8 @@ public:
 
     ErrorOr<String> directory_hint(Document, String const& token) const;
 
+    ErrorOr<void> set_read_permission(Document, String const& token, bool granted);
+
     ErrorOr<void> set_write_permission(Document, String const& token, bool granted);
 
     struct FileVersion {
@@ -130,6 +144,9 @@ private:
         String name;
         RefPtr<PrivateBucket> private_bucket;
         Optional<Vector<String>> private_path;
+        Optional<NativeReference> native_reference;
+        bool readable { true };
+        bool read_denied { false };
     };
 
     struct Cursor;
@@ -145,7 +162,7 @@ private:
     ErrorOr<Handle> admit_saved_file(Document, StringView name, NonnullOwnPtr<Core::File> parent,
         bool create, RefPtr<PrivateBucket> = {}, Optional<Vector<String>> = {});
 
-    ErrorOr<Entry const*> lookup(Document, String const& token) const;
+    ErrorOr<Entry const*> lookup(Document, String const& token, bool require_read = true) const;
 
     ErrorOr<Writer*> lookup_writer(Document, String const& token);
 

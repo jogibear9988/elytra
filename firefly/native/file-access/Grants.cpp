@@ -1,7 +1,10 @@
 #include "Grants.h"
 
 #include <AK/ByteString.h>
+#include <AK/CharacterTypes.h>
 #include <AK/Function.h>
+#include <AK/JsonObject.h>
+#include <AK/JsonValue.h>
 #include <AK/LexicalPath.h>
 #include <AK/NumericLimits.h>
 #include <AK/Random.h>
@@ -108,16 +111,16 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::remember(Document owner, Str
     auto display_name = TRY(String::from_utf8(name));
     auto token = new_token();
     TRY(m_entries.try_set(token,
-        Entry {
-            owner, kind, move(file), writable, false, display_name, move(bucket), private_path }));
-    return Handle { move(token), move(display_name), kind, move(private_path) };
+        Entry { owner, kind, move(file), writable, false, display_name, move(bucket), private_path,
+            {} }));
+    return Handle { move(token), move(display_name), kind, move(private_path), {} };
 }
 
 ErrorOr<FileAccessGrants::Entry const*> FileAccessGrants::lookup(
-    Document owner, String const& token) const
+    Document owner, String const& token, bool require_read) const
 {
     auto it = m_entries.find(token);
-    if (it == m_entries.end() || it->value.owner != owner)
+    if (it == m_entries.end() || it->value.owner != owner || (require_read && !it->value.readable))
         return Error::from_errno(EACCES);
     return &it->value;
 }
@@ -575,7 +578,9 @@ ErrorOr<String> FileAccessGrants::begin_sync(
 #else
     auto entry = TRY(lookup(owner, token, Kind::File));
     auto target = m_save_targets.find(token);
-    if (!entry->private_bucket || target == m_save_targets.end())
+    if (!entry->private_bucket)
+        return Error::from_errno(EBADF);
+    if (target == m_save_targets.end())
         return Error::from_errno(EACCES);
     if (m_sync_access.size() >= max_cursors)
         return Error::from_errno(ENOSPC);
@@ -743,12 +748,26 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
         TRY(private_path->try_append(TRY(String::from_utf8(name))));
     }
 
+    auto native_reference = parent->native_reference;
+    if (native_reference.has_value()) {
+        if (native_reference->components.size() >= 64)
+            return Error::from_errno(E2BIG);
+        TRY(native_reference->components.try_append(TRY(String::from_utf8(name))));
+    }
+
+    auto attach_reference = [&](Handle handle) {
+        m_entries.find(handle.token)->value.native_reference = native_reference;
+        handle.native_reference = move(native_reference);
+        return handle;
+    };
+
     if (!bucket)
         TRY(check_public_directory(fd));
     auto writable = parent->writable;
     if (writable && kind == Kind::File)
-        return admit_saved_file(owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create,
-            move(bucket), move(private_path));
+        return attach_reference(
+            TRY(admit_saved_file(owner, name, TRY(open_entry(fd, "."sv, Kind::Directory)), create,
+                move(bucket), move(private_path))));
 
     if (create) {
         auto basename = ByteString { name };
@@ -766,7 +785,8 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
     auto file = TRY(open_entry(fd, name, kind));
     if (!bucket)
         TRY(check_public_directory(file->fd()));
-    return remember(owner, name, kind, move(file), writable, move(bucket), move(private_path));
+    return attach_reference(
+        TRY(remember(owner, name, kind, move(file), writable, move(bucket), move(private_path))));
 #endif
 }
 
@@ -811,8 +831,8 @@ ErrorOr<bool> FileAccessGrants::is_same_entry(
     (void)right;
     return Error::from_errno(ENOTSUP);
 #else
-    auto a = TRY(lookup(owner, left));
-    auto b = TRY(lookup(owner, right));
+    auto a = TRY(lookup(owner, left, false));
+    auto b = TRY(lookup(owner, right, false));
     if (static_cast<bool>(a->private_bucket) != static_cast<bool>(b->private_bucket))
         return false;
     return identical(TRY(Core::System::fstat(a->descriptor->fd())),
@@ -990,6 +1010,178 @@ ErrorOr<FileAccessGrants::Handle> FileAccessGrants::reopen_private(Document owne
     return current;
 }
 
+#ifndef AK_OS_WINDOWS
+static ErrorOr<NonnullOwnPtr<Core::File>> native_reference_directory(
+    StringView profile_data, StringView origin_key)
+{
+    if (!is_entry_name(origin_key))
+        return Error::from_errno(EINVAL);
+    auto profile = TRY(open_entry(AT_FDCWD, profile_data, FileAccessGrants::Kind::Directory));
+    auto area = TRY(open_private_directory(profile->fd(), "ElytraOriginFiles"sv));
+    auto references = TRY(open_private_directory(area->fd(), ".native-references"sv));
+    return open_private_directory(references->fd(), origin_key);
+}
+
+static bool valid_reference_ticket(StringView value)
+{
+    if (value.length() != 36)
+        return false;
+    for (size_t i = 0; i < value.length(); ++i) {
+        auto c = value[i];
+        if (i == 8 || i == 13 || i == 18 || i == 23) {
+            if (c != '-')
+                return false;
+        } else if (!is_ascii_hex_digit(c)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+#endif
+
+ErrorOr<void> FileAccessGrants::issue_native_reference(
+    Document owner, Handle& handle, StringView profile_data, StringView origin_key)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)handle;
+    (void)profile_data;
+    (void)origin_key;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto entry = TRY(lookup(owner, handle.token));
+    if (entry->private_bucket || entry->native_reference.has_value())
+        return Error::from_errno(EINVAL);
+    auto path = TRY(descriptor_path(entry->descriptor->fd()));
+    TRY(check_public_directory(entry->descriptor->fd()));
+    auto anchor = entry->descriptor->fd();
+    OwnPtr<Core::File> parent;
+    if (entry->kind == Kind::File) {
+        auto dirname = LexicalPath::dirname(path.to_byte_string());
+        parent = TRY(open_entry(AT_FDCWD, dirname.view(), Kind::Directory));
+        auto reopened
+            = TRY(open_entry(parent->fd(), entry->name.bytes_as_string_view(), Kind::File));
+        if (!identical(TRY(Core::System::fstat(reopened->fd())), TRY(Core::System::fstat(anchor))))
+            return Error::from_errno(EAGAIN);
+        anchor = parent->fd();
+    }
+
+    auto identity = TRY(Core::System::fstat(anchor));
+    auto directory = TRY(native_reference_directory(profile_data, origin_key));
+    auto ticket = AK::generate_random_uuid();
+    auto filename = ticket.to_byte_string();
+    auto fd = openat(directory->fd(), filename.characters(),
+        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0)
+        return Error::from_errno(errno);
+    ArmedScopeGuard remove_on_failure
+        = [&] { (void)unlinkat(directory->fd(), filename.characters(), 0); };
+    ArmedScopeGuard close_on_failure = [&] { (void)Core::System::close(fd); };
+    auto record = TRY(Core::File::adopt_fd(fd, Core::File::OpenMode::Write));
+    close_on_failure.disarm();
+
+    JsonObject metadata;
+    metadata.set("version"sv, 1u);
+    metadata.set("path"sv, path);
+    metadata.set("kind"sv, entry->kind == Kind::File ? "file"sv : "directory"sv);
+    metadata.set("device"sv, static_cast<u64>(identity.st_dev));
+    metadata.set("inode"sv, static_cast<u64>(identity.st_ino));
+    auto serialized = metadata.serialized();
+    TRY(record->write_until_depleted(serialized.bytes()));
+    if (fsync(record->fd()) < 0)
+        return Error::from_errno(errno);
+
+    NativeReference reference { move(ticket), {} };
+    m_entries.find(handle.token)->value.native_reference = reference;
+    handle.native_reference = move(reference);
+    remove_on_failure.disarm();
+    return {};
+#endif
+}
+
+ErrorOr<FileAccessGrants::Handle> FileAccessGrants::reopen_native(Document owner,
+    StringView profile_data, StringView origin_key, NativeReference const& reference, Kind kind)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)profile_data;
+    (void)origin_key;
+    (void)reference;
+    (void)kind;
+    return Error::from_errno(ENOTSUP);
+#else
+    if (!valid_reference_ticket(reference.ticket.bytes_as_string_view())
+        || reference.components.size() > 64)
+        return Error::from_errno(EINVAL);
+
+    auto directory = TRY(native_reference_directory(profile_data, origin_key));
+    auto record
+        = TRY(open_entry(directory->fd(), reference.ticket.bytes_as_string_view(), Kind::File));
+    auto file_metadata = TRY(Core::System::fstat(record->fd()));
+    constexpr size_t max_record_size = 64 * 1024;
+    if (file_metadata.st_uid != geteuid() || (file_metadata.st_mode & 0077)
+        || file_metadata.st_size <= 0 || static_cast<u64>(file_metadata.st_size) > max_record_size)
+        return Error::from_errno(EACCES);
+
+    auto bytes = TRY(ByteBuffer::create_uninitialized(static_cast<size_t>(file_metadata.st_size)));
+    TRY(record->read_until_filled(bytes.bytes()));
+    auto parsed = TRY(JsonValue::from_string(StringView(bytes.bytes())));
+    if (!parsed.is_object())
+        return Error::from_errno(EINVAL);
+    auto const& metadata = parsed.as_object();
+    auto path = metadata.get_string("path"sv);
+    auto encoded_kind = metadata.get_string("kind"sv);
+    auto device = metadata.get_u64("device"sv);
+    auto inode = metadata.get_u64("inode"sv);
+    if (metadata.get_u32("version"sv).value_or(0) != 1 || !path.has_value()
+        || !encoded_kind.has_value()
+        || (!encoded_kind->bytes_as_string_view().is_one_of("file"sv, "directory"sv))
+        || !device.has_value() || !inode.has_value())
+        return Error::from_errno(EINVAL);
+
+    auto root_kind = *encoded_kind == "file"sv ? Kind::File : Kind::Directory;
+    if ((reference.components.is_empty() && root_kind != kind)
+        || (!reference.components.is_empty() && root_kind != Kind::Directory))
+        return Error::from_errno(EINVAL);
+
+    auto current = TRY(admit(owner, path->bytes_as_string_view(), root_kind));
+    ArmedScopeGuard release_current = [&] { release(owner, current.token); };
+    auto entry = TRY(lookup(owner, current.token));
+    auto anchor = entry->descriptor->fd();
+    OwnPtr<Core::File> parent;
+    if (root_kind == Kind::File) {
+        auto dirname = LexicalPath::dirname(path->to_byte_string());
+        parent = TRY(open_entry(AT_FDCWD, dirname.view(), Kind::Directory));
+        auto reopened
+            = TRY(open_entry(parent->fd(), entry->name.bytes_as_string_view(), Kind::File));
+        if (!identical(TRY(Core::System::fstat(reopened->fd())), TRY(Core::System::fstat(anchor))))
+            return Error::from_errno(EAGAIN);
+        anchor = parent->fd();
+    }
+
+    auto identity = TRY(Core::System::fstat(anchor));
+    if (static_cast<u64>(identity.st_dev) != *device || static_cast<u64>(identity.st_ino) != *inode)
+        return Error::from_errno(EACCES);
+
+    for (size_t i = 0; i < reference.components.size(); ++i) {
+        auto next = TRY(child(owner, current.token, reference.components[i].bytes_as_string_view(),
+            i + 1 == reference.components.size() ? kind : Kind::Directory));
+        release(owner, current.token);
+        current = move(next);
+    }
+
+    // Restoration grants identity only. The browsing context asks for access
+    // separately, even when it reads a handle from an older IndexedDB record.
+    auto& restored = m_entries.find(current.token)->value;
+    restored.readable = false;
+    restored.native_reference = reference;
+    current.native_reference = reference;
+    release_current.disarm();
+    return current;
+#endif
+}
+
 bool FileAccessGrants::in_private_area(StringView path) const
 {
     auto area = m_private_area.bytes_as_string_view();
@@ -1016,7 +1208,9 @@ ErrorOr<void> FileAccessGrants::check_public_directory(int fd) const
 ErrorOr<StringView> FileAccessGrants::permission(
     Document owner, String const& token, bool writable) const
 {
-    auto entry = TRY(lookup(owner, token));
+    auto entry = TRY(lookup(owner, token, false));
+    if (!entry->readable)
+        return entry->read_denied || (writable && entry->write_denied) ? "denied"sv : "prompt"sv;
     if (!writable || entry->writable)
         return "granted"sv;
     return entry->write_denied ? "denied"sv : "prompt"sv;
@@ -1024,7 +1218,7 @@ ErrorOr<StringView> FileAccessGrants::permission(
 
 ErrorOr<String> FileAccessGrants::name(Document owner, String const& token) const
 {
-    return TRY(lookup(owner, token))->name;
+    return TRY(lookup(owner, token, false))->name;
 }
 
 ErrorOr<String> FileAccessGrants::directory_hint(Document owner, String const& token) const
@@ -1043,6 +1237,21 @@ ErrorOr<String> FileAccessGrants::directory_hint(Document owner, String const& t
     auto directory = LexicalPath::dirname(path.to_byte_string());
     return String::from_utf8(directory.view());
 #endif
+}
+
+ErrorOr<void> FileAccessGrants::set_read_permission(
+    Document owner, String const& token, bool granted)
+{
+    auto record = m_entries.find(token);
+    if (record == m_entries.end() || record->value.owner != owner)
+        return Error::from_errno(EACCES);
+
+    if (!record->value.readable) {
+        record->value.readable = granted;
+        record->value.read_denied = !granted;
+    }
+
+    return {};
 }
 
 ErrorOr<void> FileAccessGrants::set_write_permission(
@@ -1080,6 +1289,8 @@ ErrorOr<void> FileAccessGrants::set_write_permission(
         TRY(m_save_targets.try_set(token, move(target)));
     }
 
+    entry.readable = true;
+    entry.read_denied = false;
     entry.writable = true;
     entry.write_denied = false;
     return {};

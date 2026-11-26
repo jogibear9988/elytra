@@ -71,12 +71,12 @@ function openDatabase() {
   });
 }
 
-async function persistHandle(handle) {
+async function persistHandle(handle, key = 'private') {
   const database = await openDatabase();
   try {
     await new Promise((resolve, reject) => {
       const transaction = database.transaction('handles', 'readwrite');
-      transaction.objectStore('handles').put(handle, 'private');
+      transaction.objectStore('handles').put(handle, key);
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
@@ -86,11 +86,11 @@ async function persistHandle(handle) {
   }
 }
 
-async function restoreHandle() {
+async function restoreHandle(key = 'private') {
   const database = await openDatabase();
   try {
     return await new Promise((resolve, reject) => {
-      const request = database.transaction('handles').objectStore('handles').get('private');
+      const request = database.transaction('handles').objectStore('handles').get(key);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -106,6 +106,7 @@ const source = `<!doctype html><title>LOADING</title>
 ${storageCode}
 const check = (value, message) => { if (!value) throw Error(message); };
 let selected;
+let rememberedNative;
 let selectedDirectory;
 const operations = [
   async () => {
@@ -124,6 +125,21 @@ const operations = [
     check(await handle.queryPermission() === 'granted', 'selected read permission');
     check(await handle.queryPermission({ mode: 'readwrite' }) === 'prompt', 'read grant can request write');
     selected = handle;
+    rememberedNative = structuredClone(selected);
+    check(rememberedNative instanceof FileSystemFileHandle, 'native clone file prototype');
+    check(await rememberedNative.isSameEntry(selected), 'native clone identity');
+    check(await rememberedNative.queryPermission() === 'prompt', 'native clone needs read permission');
+    let deniedClone = false;
+    try { await rememberedNative.getFile(); }
+    catch (error) { deniedClone = error.name === 'NotAllowedError'; }
+    check(deniedClone, 'native clone cannot read before permission');
+    await persistHandle(rememberedNative, 'native');
+  },
+  async () => {
+    const permission = await rememberedNative.requestPermission();
+    check(permission === 'granted', 'restored native read permission');
+    check(await (await rememberedNative.getFile()).text() === 'original', 'restored read sees selected file');
+    check(await rememberedNative.queryPermission({ mode: 'readwrite' }) === 'prompt', 'read approval does not grant write');
   },
   async () => {
     const directory = await showDirectoryPicker({ mode: 'readwrite', id: 'fixtures', startIn: selected });
@@ -334,8 +350,12 @@ try {
   const directory = await navigator.storage.getDirectory();
   const file = await directory.getFileHandle('private.txt');
   const stored = await restoreHandle();
+  const native = await restoreHandle('native');
   document.title = stored instanceof FileSystemFileHandle && await stored.isSameEntry(file)
-    && await (await stored.getFile()).text() === 'private contents' ? 'PASS_RELOAD' : 'FAIL:stored handle';
+    && await (await stored.getFile()).text() === 'private contents'
+    && native instanceof FileSystemFileHandle && native.name === 'selected.txt'
+    && await native.queryPermission() === 'prompt'
+    ? 'PASS_RELOAD' : 'FAIL:stored handle';
 } catch (error) {
   document.title = error.name === 'NotFoundError' ? 'PASS_ISOLATED' : 'FAIL:' + error.name;
 }

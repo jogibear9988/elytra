@@ -372,6 +372,31 @@ int main(int argc, char** argv)
                     .is_error(),
             "reopening a serialized location rejects parent traversal");
         grants.release(foreign, reopened.token);
+
+        auto selected_path = QFileInfo(moved).canonicalFilePath().toUtf8();
+        auto selected_handle = MUST(grants.admit(owner,
+            StringView(selected_path.constData(), selected_path.size()), Grants::Kind::File));
+        require(
+            !grants.issue_native_reference(owner, selected_handle, profile_path, "fixture-bucket"sv)
+                .is_error(),
+            "issue an origin-bound reference to the selected native file");
+        require(selected_handle.native_reference.has_value(), "issue opaque native reference");
+        auto const& reference = *selected_handle.native_reference;
+        require(grants
+                    .reopen_native(
+                        foreign, profile_path, "different-bucket"sv, reference, Grants::Kind::File)
+                    .is_error(),
+            "native reference refuses a different origin bucket");
+        auto restored = MUST(grants.reopen_native(
+            foreign, profile_path, "fixture-bucket"sv, reference, Grants::Kind::File));
+        require(MUST(grants.permission(foreign, restored.token, false)) == "prompt"sv
+                && grants.read(foreign, restored.token, 0, 4).is_error(),
+            "restored native location does not authorize disk access");
+        require(!grants.set_read_permission(foreign, restored.token, true).is_error(),
+            "approve access to restored native location");
+        require(!grants.read(foreign, restored.token, 0, 4).is_error()
+                && grants.begin_write(foreign, restored.token, false).is_error(),
+            "read approval allows bytes but does not allow edits");
         require(!grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
             "remove private test file");
         grants.set_private_area({});

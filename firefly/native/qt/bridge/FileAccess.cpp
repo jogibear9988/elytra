@@ -40,10 +40,20 @@ namespace {
             result.set("privatePath"sv, move(components));
         }
 
+        if (handle.native_reference.has_value()) {
+            JsonArray components;
+            for (auto const& name : handle.native_reference->components)
+                components.must_append(name);
+            JsonObject reference;
+            reference.set("ticket"sv, handle.native_reference->ticket);
+            reference.set("components"sv, move(components));
+            result.set("nativeReference"sv, move(reference));
+        }
+
         return result;
     }
 
-    ErrorOr<FileAccessGrants::Handle> private_directory_or_handle(FileAccessGrants& grants,
+    ErrorOr<FileAccessGrants::Handle> open_storage_handle(FileAccessGrants& grants,
         Document document, StringView profile_data, StringView bucket_key, StringView operation,
         JsonObject const& options)
     {
@@ -51,7 +61,10 @@ namespace {
             return grants.admit_private(document, profile_data, bucket_key);
 
         auto kind = options.get_string("kind"sv);
-        auto encoded_path = options.get_array("privatePath"sv);
+        auto reference = options.get_object("nativeReference"sv);
+        auto encoded_path = operation == "reopenNative"sv && reference.has_value()
+            ? reference->get_array("components"sv)
+            : options.get_array("privatePath"sv);
         if (!kind.has_value() || (*kind != "file"sv && *kind != "directory"sv)
             || !encoded_path.has_value() || encoded_path->size() > 64)
             return Error::from_errno(EINVAL);
@@ -64,8 +77,18 @@ namespace {
             TRY(components.try_append(value.as_string()));
         }
 
-        return grants.reopen_private(document, profile_data, bucket_key, components,
-            *kind == "file"sv ? Kind::File : Kind::Directory);
+        auto entry_kind = *kind == "file"sv ? Kind::File : Kind::Directory;
+        if (operation == "reopenNative"sv) {
+            if (!reference.has_value())
+                return Error::from_errno(EINVAL);
+            auto ticket = reference->get_string("ticket"sv);
+            if (!ticket.has_value())
+                return Error::from_errno(EINVAL);
+            return grants.reopen_native(document, profile_data, bucket_key,
+                { ticket.release_value(), move(components) }, entry_kind);
+        }
+
+        return grants.reopen_private(document, profile_data, bucket_key, components, entry_kind);
     }
 
     StringView file_access_error(Error const& error)
@@ -317,11 +340,16 @@ namespace {
             return;
         }
 
-        if (operation == "queryPermission"sv) {
+        if (operation.is_one_of("queryPermission"sv, "requestPermission"sv)) {
             auto result = grants.permission(
                 reply.document, *token, options.get_bool("writable"sv).value_or(false));
             if (result.is_error()) {
                 reply.fail(result.error());
+                return;
+            }
+
+            if (operation == "requestPermission"sv && result.value() == "prompt"sv) {
+                reply.fail("SecurityError"sv);
                 return;
             }
 
@@ -524,7 +552,7 @@ namespace {
     };
 
     // The worker connection has its own authenticated environment and token namespace.
-    // Its registry never accepts browser picker grants or renderer-supplied paths.
+    // Restoring a reference binds a new grant under that environment's origin key.
     NeverDestroyed<std::unordered_map<WebView::WebWorkerClient*, std::unique_ptr<FileAccessGrants>>>
         worker_grants;
 
@@ -658,7 +686,7 @@ namespace {
 
         auto position = worker_grants->find(&worker);
         if (operation->bytes_as_string_view().is_one_of(
-                "getPrivateDirectory"sv, "reopenPrivate"sv)) {
+                "getPrivateDirectory"sv, "reopenPrivate"sv, "reopenNative"sv)) {
             auto storage_key = WebView::obtain_a_storage_key(*settings);
             if (!storage_key.has_value()) {
                 reply.fail("SecurityError"sv);
@@ -682,7 +710,23 @@ namespace {
                     = worker_grants->emplace(&worker, std::make_unique<FileAccessGrants>()).first;
             }
 
-            auto directory = private_directory_or_handle(*position->second, WorkerReply::document,
+            if (canonical_data.isEmpty()) {
+                reply.fail("InvalidStateError"sv);
+                return reply.take();
+            }
+
+            auto private_path
+                = QDir(QString::fromUtf8(canonical_data)).filePath("ElytraOriginFiles").toUtf8();
+            auto protected_area
+                = String::from_utf8(StringView(private_path.constData(), private_path.size()));
+            if (protected_area.is_error()) {
+                reply.fail(protected_area.error());
+                return reply.take();
+            }
+
+            position->second->set_private_area(protected_area.release_value());
+
+            auto directory = open_storage_handle(*position->second, WorkerReply::document,
                 StringView(canonical_data.constData(), canonical_data.size()), key.view(),
                 operation->bytes_as_string_view(), options);
             if (directory.is_error())
@@ -697,8 +741,7 @@ namespace {
             return reply.take();
         }
 
-        auto name = *operation == "requestPermission"sv ? "queryPermission"sv
-                                                        : operation->bytes_as_string_view();
+        auto name = operation->bytes_as_string_view();
         if (name.starts_with("sync"sv))
             dispatch_sync_operation(reply, *position->second, name, options, bytes.bytes());
         else
@@ -773,7 +816,7 @@ void Bridge::Impl::initialize_file_access()
 
         picker.grants().set_private_area(private_area.release_value());
         if (operation->bytes_as_string_view().is_one_of(
-                "getPrivateDirectory"sv, "reopenPrivate"sv)) {
+                "getPrivateDirectory"sv, "reopenPrivate"sv, "reopenNative"sv)) {
             if (page->client().session().is_private() == WebView::IsPrivate::Yes) {
                 reply.fail("NotSupportedError"sv);
                 return;
@@ -790,7 +833,7 @@ void Bridge::Impl::initialize_file_access()
             auto canonical_key = storage_key->to_string();
             auto key = WebView::Profile::routing_identifier(canonical_key.bytes_as_string_view());
             auto canonical_bytes = canonical_data.toUtf8();
-            auto root = private_directory_or_handle(picker.grants(), reply.document,
+            auto root = open_storage_handle(picker.grants(), reply.document,
                 StringView(canonical_bytes.constData(), canonical_bytes.size()), key.view(),
                 operation->bytes_as_string_view(), options);
             if (root.is_error())
@@ -807,8 +850,8 @@ void Bridge::Impl::initialize_file_access()
                 return;
             }
 
-            auto status = picker.grants().permission(
-                reply.document, *token, options.get_bool("writable"sv).value_or(false));
+            auto writable = options.get_bool("writable"sv).value_or(false);
+            auto status = picker.grants().permission(reply.document, *token, writable);
             if (status.is_error()) {
                 reply.fail(status.error());
                 return;
@@ -834,25 +877,27 @@ void Bridge::Impl::initialize_file_access()
                 return;
             }
 
-            bool shown = picker.request_write_permission(qt_string(origin), qt_string(name.value()),
-                [this, reply, token = *token, picker = QPointer<FilePicker> { &picker }](
-                    bool granted) {
-                    if (!picker || !permission_contents(*reply.page, reply.document)) {
-                        reply.fail("AbortError"sv);
-                        return;
-                    }
+            bool shown
+                = picker.request_permission(qt_string(origin), qt_string(name.value()), writable,
+                    [this, reply, token = *token, writable,
+                        picker = QPointer<FilePicker> { &picker }](bool granted) {
+                        if (!picker || !permission_contents(*reply.page, reply.document)) {
+                            reply.fail("AbortError"sv);
+                            return;
+                        }
 
-                    auto stored
-                        = picker->grants().set_write_permission(reply.document, token, granted);
-                    if (stored.is_error()) {
-                        reply.fail(stored.error());
-                        return;
-                    }
+                        auto stored = writable
+                            ? picker->grants().set_write_permission(reply.document, token, granted)
+                            : picker->grants().set_read_permission(reply.document, token, granted);
+                        if (stored.is_error()) {
+                            reply.fail(stored.error());
+                            return;
+                        }
 
-                    JsonObject result;
-                    result.set("permission"sv, granted ? "granted"sv : "denied"sv);
-                    reply.send(move(result));
-                });
+                        JsonObject result;
+                        result.set("permission"sv, granted ? "granted"sv : "denied"sv);
+                        reply.send(move(result));
+                    });
             if (!shown)
                 reply.fail("InvalidStateError"sv);
             return;
@@ -927,8 +972,10 @@ void Bridge::Impl::initialize_file_access()
         }
 
         auto started = state.file_picker->request_grants(reply.document, selection,
-            [this, reply](ErrorOr<Vector<FileAccessGrants::Handle>> result) {
-                if (!permission_contents(*reply.page, reply.document)) {
+            [this, reply, profile_data = canonical_data.toUtf8(),
+                picker = QPointer<FilePicker> { &picker }](
+                ErrorOr<Vector<FileAccessGrants::Handle>> result) {
+                if (!picker || !permission_contents(*reply.page, reply.document)) {
                     reply.fail("AbortError"sv);
                     return;
                 }
@@ -943,9 +990,31 @@ void Bridge::Impl::initialize_file_access()
                     return;
                 }
 
+                Optional<ByteString> origin_key;
+                if (reply.page->client().session().is_private() == WebView::IsPrivate::No) {
+                    auto document = reply.page->hosted_document_with_id(reply.document);
+                    auto const& settings
+                        = document->relevant_global_object().relevant_settings_object();
+                    if (auto key = WebView::obtain_a_storage_key(settings); key.has_value()) {
+                        auto serialized = key->to_string();
+                        origin_key = WebView::Profile::routing_identifier(
+                            serialized.bytes_as_string_view());
+                    }
+                }
+
                 JsonArray handles;
-                for (auto const& handle : result.value())
+                for (auto& handle : result.value()) {
+                    if (origin_key.has_value()) {
+                        // A full disk or unavailable profile must not invalidate the user's live
+                        // selection.
+                        (void)picker->grants().issue_native_reference(reply.document, handle,
+                            StringView(profile_data.constData(), profile_data.size()),
+                            origin_key->view());
+                    }
+
                     MUST(handles.append(handle_info(handle)));
+                }
+
                 JsonObject metadata;
                 metadata.set("handles"sv, move(handles));
                 reply.send(move(metadata));
