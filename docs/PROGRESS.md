@@ -17514,6 +17514,10 @@ cannot mutate the selected folder. Remaining work includes origin-private
 storage, durable permissions and cloneable handles, worker sync access,
 and the Windows native provider.
 
+The native directory test uses a separate binding for its nested
+symlink fixture. This fixes a local duplicate declaration caught by the
+subsequent Release build. The existing directory fixture runtime passed.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

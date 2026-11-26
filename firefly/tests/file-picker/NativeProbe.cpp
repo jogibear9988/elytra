@@ -299,8 +299,8 @@ int main(int argc, char** argv)
 
         auto outside = directory.filePath("outside");
         require(QDir().mkdir(outside), "create sibling outside the removal subtree");
-        auto link = directory.filePath("nested/link");
-        require(QFile::link(outside, link), "place a link to the sibling in the removal subtree");
+        auto nested_link = directory.filePath("nested/link");
+        require(QFile::link(outside, nested_link), "place a link to the sibling in the removal subtree");
         require(grants.remove(owner, writable_token, "nested"sv, false).is_error(),
             "nonrecursive removal refuses a nonempty directory");
         require(!grants.remove(owner, writable_token, "nested"sv, true).is_error()
