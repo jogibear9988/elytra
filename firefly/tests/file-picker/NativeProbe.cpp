@@ -300,7 +300,8 @@ int main(int argc, char** argv)
         auto outside = directory.filePath("outside");
         require(QDir().mkdir(outside), "create sibling outside the removal subtree");
         auto nested_link = directory.filePath("nested/link");
-        require(QFile::link(outside, nested_link), "place a link to the sibling in the removal subtree");
+        require(QFile::link(outside, nested_link),
+            "place a link to the sibling in the removal subtree");
         require(grants.remove(owner, writable_token, "nested"sv, false).is_error(),
             "nonrecursive removal refuses a nonempty directory");
         require(!grants.remove(owner, writable_token, "nested"sv, true).is_error()
@@ -332,6 +333,27 @@ int main(int argc, char** argv)
             "private bucket quota blocks sparse growth");
         require(!grants.finish_write(owner, private_writer.value(), false).is_error(),
             "release private writer after quota failure");
+        auto sync = MUST(grants.begin_sync(owner, private_file.value().token, true, true));
+        require(grants.begin_write(owner, private_file.value().token, false).is_error(),
+            "exclusive sync handle excludes a staged writer");
+        require(grants.begin_sync(owner, private_file.value().token, false, false).is_error(),
+            "exclusive sync handle excludes other sync handles");
+        require(grants.sync_read(foreign, sync, 0, 5).is_error(), "foreign sync lease rejected");
+        require(grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
+            "a locked private file cannot be removed");
+        require(!grants.sync_write(owner, sync, 0, "secret"sv.bytes()).is_error(), "sync write");
+        require(!grants.sync_truncate(owner, sync, 5).is_error(), "sync truncate");
+        require(!grants.sync_flush(owner, sync).is_error(), "sync flush");
+        require(MUST(grants.sync_size(owner, sync)) == 5, "sync size after truncate");
+        auto synced = MUST(grants.sync_read(owner, sync, 1, 9));
+        require(synced.bytes() == "ecre"sv.bytes(), "sync read respects offset and EOF");
+        grants.close_sync(owner, sync);
+        grants.close_sync(owner, sync);
+        require(grants.sync_size(owner, sync).is_error(), "closed sync lease rejected");
+        auto readonly = MUST(grants.begin_sync(owner, private_file.value().token, false, false));
+        require(grants.sync_write(owner, readonly, 0, "x"sv.bytes()).is_error(),
+            "read-only sync lease cannot write");
+        grants.close_sync(owner, readonly);
         require(!grants.remove(owner, bucket.value().token, "secret.txt"sv, false).is_error(),
             "remove private test file");
         grants.set_private_area({});

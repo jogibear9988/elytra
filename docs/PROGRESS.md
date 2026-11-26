@@ -17536,6 +17536,25 @@ directory mutations, permissions, and writable stream commit and abort.
 Worker storage and synchronous access, structured cloning, durable native
 permissions, private browsing and the Windows provider remain open.
 
+## Route origin-private storage through worker IPC
+
+Patch 0002 adds a browser-side provider on the existing worker connection.
+It checks the worker's hosted environment and derives the profile storage
+key there. The worker receives only grants for its own origin-private
+files. Worker exit retires its registry. File and directory WebIDL handles
+are available in a worker and synchronous file handles are exposed in
+dedicated workers. The default synchronous handle blocks competing
+writers and removal while it is open. Private storage keeps the existing
+quota and descriptor-based lookup.
+
+The changed C++ adapter, generated bindings and native fixture pass
+targeted compilation. The Release build and combined hidden fixture cover
+native chooser operations, worker read and write, lock exclusion,
+termination cleanup and Window access to the same origin's data.
+Structured cloning, durable native permissions, private browsing and
+the Windows provider remain open. Shared-worker and service-worker
+runtime behavior is pending coverage.
+
 ## Resume
 
 1. Read this file, the specification, and `git status` / recent commits.

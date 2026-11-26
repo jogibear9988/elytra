@@ -5,6 +5,44 @@ import { createServer } from 'node:http';
 
 app.setPath('userData', process.env.ELYTRA_TEST_PROFILE);
 
+const workerSource = `
+const check = (value, message) => { if (!value) throw Error(message); };
+try {
+  const directory = await navigator.storage.getDirectory();
+  const file = await directory.getFileHandle('worker.txt', { create: true });
+  const access = await file.createSyncAccessHandle();
+  check(access instanceof FileSystemSyncAccessHandle, 'sync handle type');
+  let lockError;
+  try { await file.createWritable(); }
+  catch (error) { lockError = error.name; }
+  check(lockError === 'NoModificationAllowedError', 'unexpected state for a competing stream: ' + lockError);
+  const data = new Uint8Array([120, 119, 111, 114, 107, 101, 114]);
+  check(access.write(data.subarray(1), { at: 0 }) === 6, 'sync write respects view offset');
+  check(access.getSize() === 6, 'sync size');
+  const read = new Uint8Array(8);
+  check(access.read(read.subarray(1), { at: 0 }) === 6, 'sync short read');
+  check(String.fromCharCode(...read.subarray(1, 7)) === 'worker', 'sync read bytes');
+  check(read[0] === 0 && read[7] === 0, 'sync read respects view boundaries');
+  access.truncate(4);
+  access.flush();
+  access.close();
+  access.close();
+  let closed = false;
+  try { access.getSize(); } catch (error) { closed = error.name === 'InvalidStateError'; }
+  check(closed, 'closed sync handle rejects operations');
+  const readonly = await file.createSyncAccessHandle({ mode: 'read-only' });
+  let denied = false;
+  try { readonly.write(data); } catch (error) { denied = error.name === 'NoModificationAllowedError'; }
+  check(denied, 'read-only sync handle rejects writes');
+  readonly.close();
+  check(await (await file.getFile()).text() === 'work', 'async read sees sync commit');
+  globalThis.retainedAccess = await file.createSyncAccessHandle();
+  postMessage({ ok: true });
+} catch (error) {
+  postMessage({ error: error.name + ': ' + error.message });
+}
+`;
+
 const source = `<!doctype html><title>LOADING</title>
 <button style="position:absolute;left:20px;top:20px;width:240px;height:50px">Pick</button>
 <script type="module">
@@ -131,6 +169,29 @@ try {
   await recheck.close();
   check(await (await privateFile.getFile()).text() === 'private contents', 'quota failure retains file');
 
+  check(typeof FileSystemFileHandle.prototype.createSyncAccessHandle === 'undefined', 'sync API hidden in Window');
+  const worker = new Worker('/worker.js', { type: 'module' });
+  const outcome = await new Promise((resolve, reject) => {
+    worker.onmessage = (event) => resolve(event.data);
+    worker.onerror = (event) => reject(Error(event.message || 'filesystem worker failed'));
+  }).finally(() => worker.terminate());
+  check(outcome.ok, outcome.error);
+  const fromWorker = await privateRoot.getFileHandle('worker.txt');
+  check(await (await fromWorker.getFile()).text() === 'work', 'worker and Window share origin storage');
+
+  let afterTermination;
+  for (let attempt = 0; attempt < 50; ++attempt) {
+    try {
+      afterTermination = await fromWorker.createWritable({ keepExistingData: true });
+      break;
+    } catch (error) {
+      if (error.name !== 'NoModificationAllowedError') throw error;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+  check(afterTermination, 'terminating the worker releases its retained sync lock');
+  await afterTermination.abort();
+
   const chunks = [];
   const plain = new WritableStream({ write: (chunk) => chunks.push(chunk) });
   const writer = new WritableStreamDefaultWriter(plain);
@@ -178,6 +239,11 @@ const otherOrigin = createServer((_request, response) => {
 
 const server = createServer((request, response) => {
   response.setHeader('connection', 'close');
+  if (request.url === '/worker.js') {
+    response.setHeader('content-type', 'text/javascript');
+    response.end(workerSource);
+    return;
+  }
   if (request.url !== '/' && request.url !== '/reload') {
     response.writeHead(404).end();
     return;

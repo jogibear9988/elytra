@@ -109,13 +109,15 @@ def reverse(name, composed):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--upstream", required=True, type=Path)
     args = parser.parse_args()
     planned = {}
     for name, (relative, digest) in PINS.items():
         raw = (ROOT / "vendor/ladybird" / relative).read_bytes()
         if hashlib.sha256(raw).hexdigest() != digest:
             raise SystemExit(f"Review pinned worker lifecycle source: {relative}")
-        original = raw.decode()
+        # Pin the pristine source while composing the reviewed patch stack used by the build.
+        original = (args.upstream / relative).read_text()
         composed = adapt(name, original)
         assert reverse(name, composed) == original
         prefix, changes = edits(name)

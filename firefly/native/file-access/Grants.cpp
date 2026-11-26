@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -66,6 +67,7 @@ public:
     NonnullOwnPtr<Core::File> file;
     ByteString temporary_name;
     RefPtr<PrivateBucket> private_bucket;
+    OwnPtr<Core::File> locked_original;
 
     ~Writer()
     {
@@ -74,6 +76,17 @@ public:
             (void)unlinkat(parent->fd(), temporary_name.characters(), 0);
 #endif
     }
+};
+
+struct FileAccessGrants::SyncAccess {
+    AK_ALLOC_WITH_KMALLOC;
+
+public:
+    Document owner;
+    String file_token;
+    NonnullOwnPtr<Core::File> file;
+    NonnullRefPtr<PrivateBucket> bucket;
+    bool writable;
 };
 
 FileAccessGrants::FileAccessGrants() = default;
@@ -271,6 +284,13 @@ ErrorOr<String> FileAccessGrants::begin_write(
     if (faccessat(parent->fd(), target->value->name.characters(), W_OK, AT_EACCESS) < 0)
         return Error::from_errno(errno);
 
+    OwnPtr<Core::File> locked_original;
+    if (entry->private_bucket) {
+        locked_original = TRY(open_entry(parent->fd(), target->value->name.view(), Kind::File));
+        if (flock(locked_original->fd(), LOCK_SH | LOCK_NB) < 0)
+            return Error::from_errno(errno == EWOULDBLOCK ? ENOLCK : errno);
+    }
+
     auto writer_token = new_token();
     auto name = TRY(String::formatted(".elytra-file-{}", writer_token)).to_byte_string();
     auto fd = openat(
@@ -301,8 +321,8 @@ ErrorOr<String> FileAccessGrants::begin_write(
         }
     }
 
-    auto* writer = new (nothrow)
-        Writer { owner, token, move(parent), move(file), move(name), entry->private_bucket };
+    auto* writer = new (nothrow) Writer { owner, token, move(parent), move(file), move(name),
+        entry->private_bucket, move(locked_original) };
     if (!writer)
         return Error::from_errno(ENOMEM);
     unlink_on_error.disarm();
@@ -454,7 +474,7 @@ static ErrorOr<String> descriptor_path(int fd)
 
 static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, dev_t volume,
     size_t remaining_depth, size_t& remaining_entries,
-    Function<ErrorOr<void>(int)> const& can_enter)
+    Function<ErrorOr<void>(int)> const& can_enter, bool honor_file_locks)
 {
     if (!remaining_depth || !remaining_entries)
         return Error::from_errno(E2BIG);
@@ -502,7 +522,7 @@ static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, 
             if (child.starts_with(".elytra-file-"sv))
                 return Error::from_errno(EBUSY);
             TRY(remove_entry(dirfd(stream), entry->d_name, true, volume, remaining_depth - 1,
-                remaining_entries, can_enter));
+                remaining_entries, can_enter, honor_file_locks));
         }
 
         struct stat current {};
@@ -512,11 +532,184 @@ static ErrorOr<void> remove_entry(int parent, char const* name, bool recursive, 
             return Error::from_errno(EAGAIN);
     }
 
+    OwnPtr<Core::File> removal_lock;
+    if (honor_file_locks && S_ISREG(metadata.st_mode)) {
+        removal_lock = TRY(
+            open_entry(parent, StringView { name, strlen(name) }, FileAccessGrants::Kind::File));
+        if (!identical(metadata, TRY(Core::System::fstat(removal_lock->fd()))))
+            return Error::from_errno(EAGAIN);
+        if (flock(removal_lock->fd(), LOCK_EX | LOCK_NB) < 0)
+            return Error::from_errno(errno == EWOULDBLOCK ? ENOLCK : errno);
+    }
+
     if (unlinkat(parent, name, directory ? AT_REMOVEDIR : 0) < 0 && errno != ENOENT)
         return Error::from_errno(errno);
     return {};
 }
 #endif
+
+ErrorOr<FileAccessGrants::SyncAccess*> FileAccessGrants::lookup_sync(
+    Document owner, String const& token, bool writable)
+{
+    auto writer = m_sync_access.find(token);
+    if (writer == m_sync_access.end() || writer->value->owner != owner)
+        return Error::from_errno(EBADF);
+    if (writable && !writer->value->writable)
+        return Error::from_errno(EROFS);
+    return writer->value.ptr();
+}
+
+ErrorOr<String> FileAccessGrants::begin_sync(
+    Document owner, String const& token, bool writable, bool exclusive)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)writable;
+    (void)exclusive;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto entry = TRY(lookup(owner, token, Kind::File));
+    auto target = m_save_targets.find(token);
+    if (!entry->private_bucket || target == m_save_targets.end())
+        return Error::from_errno(EACCES);
+    if (m_sync_access.size() >= max_cursors)
+        return Error::from_errno(ENOSPC);
+
+    auto fd = openat(target->value->parent->fd(), target->value->name.characters(),
+        (writable ? O_RDWR : O_RDONLY) | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK);
+    if (fd < 0)
+        return Error::from_errno(errno);
+    ArmedScopeGuard close = [&] { (void)Core::System::close(fd); };
+    if (!identical(TRY(Core::System::fstat(fd)), TRY(Core::System::fstat(entry->descriptor->fd()))))
+        return Error::from_errno(EAGAIN);
+    if (flock(fd, (exclusive ? LOCK_EX : LOCK_SH) | LOCK_NB) < 0)
+        return Error::from_errno(errno == EWOULDBLOCK ? ENOLCK : errno);
+
+    auto file = TRY(Core::File::adopt_fd(
+        fd, writable ? Core::File::OpenMode::ReadWrite : Core::File::OpenMode::Read));
+    close.disarm();
+    auto session = TRY(adopt_nonnull_own_or_enomem(new (nothrow) SyncAccess {
+        owner,
+        token,
+        move(file),
+        *entry->private_bucket,
+        writable,
+    }));
+    auto result = new_token();
+    TRY(m_sync_access.try_set(result, move(session)));
+    return result;
+#endif
+}
+
+ErrorOr<ByteBuffer> FileAccessGrants::sync_read(
+    Document owner, String const& token, u64 offset, size_t count)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)offset;
+    (void)count;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto handle = TRY(lookup_sync(owner, token));
+    if (count > max_read_size || offset > static_cast<u64>(NumericLimits<off_t>::max()) - count)
+        return Error::from_errno(EINVAL);
+    auto bytes = TRY(ByteBuffer::create_uninitialized(count));
+    ssize_t amount;
+    do {
+        amount = pread(handle->file->fd(), bytes.data(), count, static_cast<off_t>(offset));
+    } while (amount < 0 && errno == EINTR);
+    if (amount < 0)
+        return Error::from_errno(errno);
+    bytes.resize(static_cast<size_t>(amount));
+    return bytes;
+#endif
+}
+
+ErrorOr<void> FileAccessGrants::sync_write(
+    Document owner, String const& token, u64 offset, ReadonlyBytes bytes)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)offset;
+    (void)bytes;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto handle = TRY(lookup_sync(owner, token, true));
+    if (bytes.size() > max_read_size
+        || offset > static_cast<u64>(NumericLimits<off_t>::max()) - bytes.size())
+        return Error::from_errno(EINVAL);
+    auto length = static_cast<u64>(TRY(Core::System::fstat(handle->file->fd())).st_size);
+    if (!bytes.is_empty() && offset + bytes.size() > length)
+        TRY(handle->bucket->check_growth(offset + bytes.size() - length));
+    for (size_t written = 0; written < bytes.size();) {
+        auto count = pwrite(handle->file->fd(), bytes.data() + written, bytes.size() - written,
+            static_cast<off_t>(offset + written));
+        if (count < 0 && errno == EINTR)
+            continue;
+        if (count <= 0)
+            return Error::from_errno(count < 0 ? errno : EIO);
+        written += static_cast<size_t>(count);
+    }
+
+    return {};
+#endif
+}
+
+ErrorOr<void> FileAccessGrants::sync_truncate(Document owner, String const& token, u64 size)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    (void)size;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto handle = TRY(lookup_sync(owner, token, true));
+    if (size > static_cast<u64>(NumericLimits<off_t>::max()))
+        return Error::from_errno(EINVAL);
+    auto length = static_cast<u64>(TRY(Core::System::fstat(handle->file->fd())).st_size);
+    if (size > length)
+        TRY(handle->bucket->check_growth(size - length));
+    if (ftruncate(handle->file->fd(), static_cast<off_t>(size)) < 0)
+        return Error::from_errno(errno);
+    return {};
+#endif
+}
+
+ErrorOr<u64> FileAccessGrants::sync_size(Document owner, String const& token)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto handle = TRY(lookup_sync(owner, token));
+    return static_cast<u64>(TRY(Core::System::fstat(handle->file->fd())).st_size);
+#endif
+}
+
+ErrorOr<void> FileAccessGrants::sync_flush(Document owner, String const& token)
+{
+#ifdef AK_OS_WINDOWS
+    (void)owner;
+    (void)token;
+    return Error::from_errno(ENOTSUP);
+#else
+    auto handle = TRY(lookup_sync(owner, token, true));
+    if (fsync(handle->file->fd()) < 0)
+        return Error::from_errno(errno);
+    return {};
+#endif
+}
+
+void FileAccessGrants::close_sync(Document owner, String const& token)
+{
+    auto handle = m_sync_access.find(token);
+    if (handle != m_sync_access.end() && handle->value->owner == owner)
+        m_sync_access.remove(handle);
+}
 
 ErrorOr<FileAccessGrants::Handle> FileAccessGrants::child(
     Document owner, String const& token, StringView name, Kind kind, bool create)
@@ -593,8 +786,8 @@ ErrorOr<void> FileAccessGrants::remove(
     };
 
     TRY(can_enter(fd));
-    return remove_entry(
-        fd, basename.characters(), recursive, volume, 64, remaining_entries, can_enter);
+    return remove_entry(fd, basename.characters(), recursive, volume, 64, remaining_entries,
+        can_enter, directory->private_bucket != nullptr);
 #endif
 }
 
@@ -920,7 +1113,8 @@ ErrorOr<ByteBuffer> FileAccessGrants::read(
 String FileAccessGrants::new_token() const
 {
     auto token = AK::generate_random_uuid();
-    while (m_entries.contains(token) || m_cursors.contains(token) || m_writers.contains(token))
+    while (m_entries.contains(token) || m_cursors.contains(token) || m_writers.contains(token)
+        || m_sync_access.contains(token))
         token = AK::generate_random_uuid();
     return token;
 }
@@ -1036,6 +1230,8 @@ void FileAccessGrants::release(Document owner, String const& token)
         [&](auto const&, auto const& cursor) { return cursor->directory_token == token; });
     m_writers.remove_all_matching(
         [&](auto const&, auto const& writer) { return writer->entry_token == token; });
+    m_sync_access.remove_all_matching(
+        [&](auto const&, auto const& handle) { return handle->file_token == token; });
     m_save_targets.remove(token);
     m_entries.remove(it);
 }
@@ -1044,6 +1240,7 @@ void FileAccessGrants::revoke_all()
 {
     m_cursors.clear();
     m_writers.clear();
+    m_sync_access.clear();
     m_save_targets.clear();
     m_entries.clear();
 }

@@ -63,6 +63,20 @@ public:
 
     ErrorOr<void> finish_write(Document, String const& writer, bool commit);
 
+    ErrorOr<String> begin_sync(Document, String const& file, bool writable, bool exclusive);
+
+    ErrorOr<ByteBuffer> sync_read(Document, String const&, u64 offset, size_t count);
+
+    ErrorOr<void> sync_write(Document, String const&, u64 offset, ReadonlyBytes);
+
+    ErrorOr<void> sync_truncate(Document, String const&, u64 size);
+
+    ErrorOr<u64> sync_size(Document, String const&);
+
+    ErrorOr<void> sync_flush(Document, String const&);
+
+    void close_sync(Document, String const&);
+
     ErrorOr<Handle> child(
         Document, String const& token, StringView name, Kind, bool create = false);
 
@@ -116,6 +130,7 @@ private:
     struct Cursor;
     struct SaveTarget;
     struct Writer;
+    struct SyncAccess;
     static constexpr size_t max_cursors = 32;
     static constexpr size_t max_scans_per_page = 256;
 
@@ -128,6 +143,8 @@ private:
     ErrorOr<Entry const*> lookup(Document, String const& token) const;
 
     ErrorOr<Writer*> lookup_writer(Document, String const& token);
+
+    ErrorOr<SyncAccess*> lookup_sync(Document, String const& token, bool writable = false);
 
     ErrorOr<Entry const*> lookup(Document, String const& token, Kind) const;
 
@@ -142,6 +159,7 @@ private:
     HashMap<String, Entry> m_entries;
     HashMap<String, NonnullOwnPtr<SaveTarget>> m_save_targets;
     HashMap<String, NonnullOwnPtr<Writer>> m_writers;
+    HashMap<String, NonnullOwnPtr<SyncAccess>> m_sync_access;
     HashMap<String, NonnullOwnPtr<Cursor>> m_cursors;
 };
 

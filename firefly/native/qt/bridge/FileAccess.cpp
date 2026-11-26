@@ -3,6 +3,7 @@
 #include <AK/CharacterTypes.h>
 #include <AK/JsonArray.h>
 #include <AK/JsonObject.h>
+#include <AK/NeverDestroyed.h>
 #include <LibIPC/FireflyBootstrap.h>
 #include <LibWebCommon/MimeSniff/MimeType.h>
 #include <LibWebCommon/SecureContexts/AbstractOperations.h>
@@ -15,6 +16,7 @@
 #include <LibWebView/Profile.h>
 #include <LibWebView/WebContentClient.h>
 #include <LibWebView/WebContentPage.h>
+#include <LibWebView/WebWorkerClient.h>
 #include <QDir>
 #include <QFileInfo>
 #include <QMimeDatabase>
@@ -32,6 +34,44 @@ namespace {
         result.set("name"sv, handle.name);
         result.set("kind"sv, handle.kind == Kind::File ? "file"sv : "directory"sv);
         return result;
+    }
+
+    StringView file_access_error(Error const& error)
+    {
+        if (!error.is_errno())
+            return "UnknownError"sv;
+
+        switch (error.code()) {
+        case EBUSY:
+        case EAGAIN:
+            return "InvalidStateError"sv;
+        case ENOENT:
+            return "NotFoundError"sv;
+        case EISDIR:
+        case ENOTDIR:
+            return "TypeMismatchError"sv;
+        case ENOTEMPTY:
+        case EEXIST:
+        case EXDEV:
+            return "InvalidModificationError"sv;
+        case EBADF:
+            return "InvalidStateError"sv;
+        case ENOLCK:
+        case EROFS:
+            return "NoModificationAllowedError"sv;
+        case EACCES:
+        case EPERM:
+            return "NotAllowedError"sv;
+        case ENOTSUP:
+            return "NotSupportedError"sv;
+        case EINVAL:
+            return "TypeError"sv;
+        case E2BIG:
+        case ENOSPC:
+            return "QuotaExceededError"sv;
+        default:
+            return "UnknownError"sv;
+        }
     }
 
     struct Reply {
@@ -56,46 +96,7 @@ namespace {
 
         void fail(Error const& error) const
         {
-            if (!error.is_errno()) {
-                fail("UnknownError"sv);
-                return;
-            }
-
-            switch (error.code()) {
-            case EBUSY:
-            case EAGAIN:
-                fail("InvalidStateError"sv);
-                break;
-            case ENOENT:
-                fail("NotFoundError"sv);
-                break;
-            case EISDIR:
-            case ENOTDIR:
-                fail("TypeMismatchError"sv);
-                break;
-            case ENOTEMPTY:
-            case EEXIST:
-            case EXDEV:
-                fail("InvalidModificationError"sv);
-                break;
-            case EACCES:
-            case EPERM:
-                fail("NotAllowedError"sv);
-                break;
-            case ENOTSUP:
-                fail("NotSupportedError"sv);
-                break;
-            case EINVAL:
-                fail("TypeError"sv);
-                break;
-            case E2BIG:
-            case ENOSPC:
-                fail("QuotaExceededError"sv);
-                break;
-            default:
-                fail("UnknownError"sv);
-                break;
-            }
+            fail(file_access_error(error));
         }
     };
 
@@ -224,7 +225,8 @@ namespace {
         return true;
     }
 
-    void dispatch_handle_operation(Reply const& reply, FileAccessGrants& grants,
+    template <typename Responder>
+    void dispatch_handle_operation(Responder const& reply, FileAccessGrants& grants,
         StringView operation, JsonObject const& options, ReadonlyBytes bytes)
     {
         auto token = options.get_string("token"sv);
@@ -461,10 +463,221 @@ namespace {
 
         reply.fail("NotSupportedError"sv);
     }
+
+    struct WorkerReply {
+        static constexpr Document document { 1, 1 };
+        mutable JsonObject metadata;
+        mutable ByteBuffer data;
+
+        void send(JsonObject value, ByteBuffer bytes = {}) const
+        {
+            metadata = move(value);
+            data = move(bytes);
+        }
+
+        void fail(StringView error) const
+        {
+            metadata.set("error"sv, error);
+        }
+
+        void fail(Error const& error) const
+        {
+            fail(file_access_error(error));
+        }
+
+        Messages::WebWorkerClient::RequestOriginPrivateFileAccessResponse take()
+        {
+            return { move(metadata), move(data) };
+        }
+    };
+
+    // The worker connection has its own authenticated environment and token namespace.
+    // Its registry never accepts browser picker grants or renderer-supplied paths.
+    NeverDestroyed<std::unordered_map<WebView::WebWorkerClient*, std::unique_ptr<FileAccessGrants>>>
+        worker_grants;
+
+    void dispatch_sync_operation(WorkerReply const& reply, FileAccessGrants& grants,
+        StringView operation, JsonObject const& options, ReadonlyBytes bytes)
+    {
+        auto token = options.get_string("token"sv);
+        if (!token.has_value() || token->byte_count() != 36) {
+            reply.fail("TypeError"sv);
+            return;
+        }
+
+        if (operation == "syncOpen"sv) {
+            auto mode = options.get_string("mode"sv);
+            if (!mode.has_value()
+                || !mode->bytes_as_string_view().is_one_of(
+                    "read-only"sv, "readwrite"sv, "readwrite-unsafe"sv)) {
+                reply.fail("TypeError"sv);
+                return;
+            }
+
+            auto opened = grants.begin_sync(
+                reply.document, *token, *mode != "read-only"sv, *mode == "readwrite"sv);
+            if (opened.is_error()) {
+                reply.fail(opened.error());
+                return;
+            }
+
+            JsonObject result;
+            result.set("sync"sv, opened.release_value());
+            reply.send(move(result));
+            return;
+        }
+
+        if (operation == "syncSize"sv) {
+            auto size = grants.sync_size(reply.document, *token);
+            if (size.is_error()) {
+                reply.fail(size.error());
+                return;
+            }
+
+            JsonObject result;
+            result.set("size"sv, size.value());
+            reply.send(move(result));
+            return;
+        }
+
+        if (operation == "syncRead"sv) {
+            auto offset = options.get_u64("offset"sv);
+            auto count = options.get_u64("count"sv);
+            if (!offset.has_value() || !count.has_value()
+                || *count > FileAccessGrants::max_read_size) {
+                reply.fail("TypeError"sv);
+                return;
+            }
+
+            auto result = grants.sync_read(reply.document, *token, *offset, *count);
+            if (result.is_error())
+                reply.fail(result.error());
+            else
+                reply.send({}, result.release_value());
+            return;
+        }
+
+        auto mutate = [&]() -> ErrorOr<void> {
+            if (operation == "syncWrite"sv) {
+                auto offset = options.get_u64("offset"sv);
+                if (!offset.has_value())
+                    return Error::from_errno(EINVAL);
+                return grants.sync_write(reply.document, *token, *offset, bytes);
+            }
+
+            if (operation == "syncTruncate"sv) {
+                auto size = options.get_u64("size"sv);
+                if (!size.has_value())
+                    return Error::from_errno(EINVAL);
+                return grants.sync_truncate(reply.document, *token, *size);
+            }
+
+            if (operation == "syncFlush"sv)
+                return grants.sync_flush(reply.document, *token);
+            if (operation == "syncClose"sv) {
+                grants.close_sync(reply.document, *token);
+                return {};
+            }
+
+            return Error::from_errno(ENOTSUP);
+        };
+
+        auto result = mutate();
+        if (result.is_error())
+            reply.fail(result.error());
+        else
+            reply.send({});
+    }
+
+    Messages::WebWorkerClient::RequestOriginPrivateFileAccessResponse receive_worker_request(
+        WebView::WebWorkerClient& worker, Web::HTML::EnvironmentId const& environment,
+        JsonValue metadata, ByteBuffer bytes)
+    {
+        WorkerReply reply;
+        auto settings = worker.hosted_environment(environment);
+        auto top = settings.has_value() ? settings->top_level_origin() : Optional<URL::Origin> {};
+        if (!worker.session() || !settings.has_value()
+            || (top.has_value() && !settings->origin().is_same_origin(*top))
+            || settings->origin().is_opaque()
+            || Web::SecureContexts::is_origin_potentially_trustworthy(settings->origin())
+                != Web::SecureContexts::Trustworthiness::PotentiallyTrustworthy) {
+            reply.fail("SecurityError"sv);
+            return reply.take();
+        }
+
+        if (!FileAccessGrants::supported() || worker.is_private() == WebView::IsPrivate::Yes) {
+            reply.fail("NotSupportedError"sv);
+            return reply.take();
+        }
+
+        if (!metadata.is_object() || bytes.size() > FileAccessGrants::max_read_size) {
+            reply.fail("TypeError"sv);
+            return reply.take();
+        }
+
+        auto options = move(metadata.as_object());
+        auto operation = options.get_string("operation"sv);
+        if (!operation.has_value()
+            || (!operation->bytes_as_string_view().is_one_of("write"sv, "syncWrite"sv)
+                && !bytes.is_empty())) {
+            reply.fail("TypeError"sv);
+            return reply.take();
+        }
+
+        auto position = worker_grants->find(&worker);
+        if (*operation == "getPrivateDirectory"sv) {
+            auto storage_key = WebView::obtain_a_storage_key(*settings);
+            if (!storage_key.has_value()) {
+                reply.fail("SecurityError"sv);
+                return reply.take();
+            }
+
+            auto const& profile = WebView::Application::profile();
+            auto const& path = profile.paths().data;
+            auto canonical_data = QFileInfo(QString::fromUtf8(path.characters(), path.length()))
+                                      .canonicalFilePath()
+                                      .toUtf8();
+            auto canonical_key = storage_key->to_string();
+            auto key = WebView::Profile::routing_identifier(canonical_key.bytes_as_string_view());
+            if (position == worker_grants->end()) {
+                if (worker_grants->size() >= 128) {
+                    reply.fail("QuotaExceededError"sv);
+                    return reply.take();
+                }
+
+                position
+                    = worker_grants->emplace(&worker, std::make_unique<FileAccessGrants>()).first;
+            }
+
+            auto directory = position->second->admit_private(WorkerReply::document,
+                StringView(canonical_data.constData(), canonical_data.size()), key.view());
+            if (directory.is_error())
+                reply.fail(directory.error());
+            else
+                reply.send(handle_info(directory.value()));
+            return reply.take();
+        }
+
+        if (position == worker_grants->end()) {
+            reply.fail("NotAllowedError"sv);
+            return reply.take();
+        }
+
+        auto name = *operation == "requestPermission"sv ? "queryPermission"sv
+                                                        : operation->bytes_as_string_view();
+        if (name.starts_with("sync"sv))
+            dispatch_sync_operation(reply, *position->second, name, options, bytes.bytes());
+        else
+            dispatch_handle_operation(reply, *position->second, name, options, bytes.bytes());
+        return reply.take();
+    }
+
 }
 
 void Bridge::Impl::initialize_file_access()
 {
+    WebView::WebWorkerClient::set_file_access_provider(
+        receive_worker_request, [](auto& worker) { worker_grants->erase(&worker); });
     Bytes::set_file_access_request_receiver([this](
                                                 IPC::Stub& stub, Bytes::FileAccessMessage message) {
         auto& client
@@ -497,6 +710,11 @@ void Bridge::Impl::initialize_file_access()
         auto operation = options.get_string("operation"sv);
         if (!operation.has_value() || (*operation != "write"sv && !message.bytes.is_empty())) {
             reply.fail("TypeError"sv);
+            return;
+        }
+
+        if (operation->starts_with_bytes("sync"sv)) {
+            reply.fail("NotSupportedError"sv);
             return;
         }
 
@@ -703,6 +921,8 @@ void Bridge::Impl::initialize_file_access()
 
 void Bridge::Impl::stop_file_access()
 {
+    WebView::WebWorkerClient::set_file_access_provider({}, {});
+    worker_grants->clear();
     Bytes::set_file_access_request_receiver({});
 }
 

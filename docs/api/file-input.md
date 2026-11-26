@@ -139,8 +139,40 @@ picker. The root persists across navigation. Different origins use separate
 roots. Native picker grants cannot enter the private backing directory.
 The current limit is 64 MiB per origin, including staged writes.
 
-Persistent permissions for native picks, structured cloning, private
-browsing storage, worker access, and synchronous worker handles remain open.
-Windows has no native file-grant provider. The compatibility surface is tracked against the
-[File System Standard](https://fs.spec.whatwg.org/) and the
+#### Dedicated workers
+
+A dedicated worker can open the same origin-private directory with
+`navigator.storage.getDirectory()`. It can use asynchronous handles or call
+`createSyncAccessHandle()` on an origin-private file for positioned reads
+and writes. The default synchronous handle holds an exclusive lock. Close
+the handle when finished so other writers can open the file.
+
+```js
+// In a dedicated worker
+const directory = await navigator.storage.getDirectory();
+const file = await directory.getFileHandle('data.bin', { create: true });
+const access = await file.createSyncAccessHandle();
+try {
+  access.write(new Uint8Array([1, 2, 3]), { at: 0 });
+  access.truncate(3);
+  access.flush();
+} finally {
+  access.close();
+}
+```
+
+`read()` and `write()` accept buffer sources and return the byte count.
+`getSize()` returns the current size. `truncate()` and `flush()` update
+the file directly. Explicit offsets are optional. The handle otherwise
+uses its current file position. Use `{ mode: 'read-only' }` to open a
+shared read-only handle.
+
+### Remaining compatibility
+
+Handle structured cloning for `postMessage()` and IndexedDB, persistent
+permissions for native picks, and private-browsing storage remain open.
+Windows has no native file-grant provider. Dedicated-worker paths are
+covered by the macOS fixture. Shared-worker, service-worker, and Linux
+runtime coverage remain open. The compatibility surface is tracked against
+the [File System Standard](https://fs.spec.whatwg.org/) and the
 [File System Access draft](https://wicg.github.io/file-system-access/).

@@ -3,7 +3,8 @@ include("${FIREFLY_SOURCE_DIR}/firefly/renderer/SourceAdapter.cmake")
 set(worker_fetch_adapters "${CMAKE_BINARY_DIR}/firefly-adapters/worker-fetch")
 execute_process(
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_worker_fetch_hooks.py"
-            --output "${worker_fetch_adapters}" RESULT_VARIABLE worker_fetch_status)
+            --upstream "${CMAKE_SOURCE_DIR}" --output "${worker_fetch_adapters}"
+    RESULT_VARIABLE worker_fetch_status)
 if(NOT worker_fetch_status EQUAL 0)
     message(FATAL_ERROR "Review the pinned worker fetch lifecycle")
 endif()
@@ -40,6 +41,6 @@ set_property(
 add_custom_target(
     check-firefly-worker-hooks
     COMMAND "${Python3_EXECUTABLE}" "${FIREFLY_SOURCE_DIR}/tooling/prepare_worker_fetch_hooks.py"
-            --output "${worker_fetch_adapters}"
+            --upstream "${CMAKE_SOURCE_DIR}" --output "${worker_fetch_adapters}"
     VERBATIM)
 add_dependencies(webcontentservice check-firefly-worker-hooks)
